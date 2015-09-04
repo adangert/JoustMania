@@ -27,6 +27,7 @@ No really how does one Oust
 The game is designed to run on a Raspberry Pi hooked up to a honking great battery pack. There is no interface other than the controllers themselves.
 
 If you were starting out from scratch, this is what it would look like:
+
 1. Install Oust on the Raspberry Pi, including the nasty bluetooth hacks (See below).
 2. Plug the Pi into your battery pack.
 3. Connect each controller to the Pi in turn using a MiniUSB cable. When the controller goes white it has been paired.

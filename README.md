@@ -82,6 +82,7 @@ Things You Should Know
 
 Future Things I May Do
 ----------------------
+* A pre-built bootable image for the Raspberry Pi (possibly USB bootable)
 * Debian packages of PSMoveAPI for the pi
 * A script that does all the install things
 * Research using more than 8 controllers

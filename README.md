@@ -14,7 +14,9 @@ By this point the game has developed a bit of a following, and people are active
 
 I went to CCC prepared. We had 11 move controllers, three Raspberry Pi's, 46 Ah of portable batteries, and more bluetooth adapters than there are frequency-hopping channels.
 
-Oust is the result. It runs on a Raspberry Pi 2, can run up to 8 controllers (maybe more), and is specifically designed for environments so loud that sign language is required. It was playtested and tweaked extensively at CCC, at one point with a circle of approximately 150 people playing & watching. The longest continuous game I recorded was 9 hours long.
+Oust is the result. It runs on a Raspberry Pi 2, can run up to 8 controllers (maybe more), and is specifically designed for environments so loud that sign language is required.
+
+It was playtested and tweaked extensively at CCC, at one point with a circle of approximately 150 people playing & watching. The longest continuous game I recorded was 9 hours long.
 
 How to Oust
 -----------

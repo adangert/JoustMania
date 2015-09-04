@@ -68,7 +68,7 @@ How to install Oust
 4. Build PSMoveAPI standalone (5.b here https://github.com/thp/psmoveapi/blob/master/README.ubuntu)
 5. Copy [oust.py](oust.py) to /home/pi/psmoveapi/build/
 6. apt-get install supervisor
-7. Replace /etc/supervisor with the contents of (supervisor)[supervisor]
+7. Replace /etc/supervisor with the contents of [supervisor](supervisor)
 8. Copy [scan_enable.sh](scan_enable.sh) to /home/pi/
 9. Reboot the pi and pair your controllers!
 

@@ -1,22 +1,22 @@
 Oust
 ====
-A love letter to [Johann Sebastian Joust](http://www.jsjoust.com/), designed for playing outdoors at festivals in the dark. All night long (all night).
+A love letter to [Johann Sebastian Joust](http://www.jsjoust.com/) designed for playing outdoors at festivals in the dark. All night long (all night).
 
 ![Rpi Oust Setup](sandwich_box.jpg)
 
 A long time ago on a boat far far away
 --------------------------------------
-When organising [Electromagnetic Wave](https://www.emfcamp.org/wave) in early 2013, we asked some of the [Wild Rumpus](http://thewildrumpus.co.uk/) organisers to run evening games on the boat. A very beta version of Joust was run on the deck to rave reviews.
+When organising [Electromagnetic Wave](https://www.emfcamp.org/wave) in early 2013 we asked some of the [Wild Rumpus](http://thewildrumpus.co.uk/) organisers to run evening games on the boat. A very beta version of Joust was run on the deck to rave reviews.
 
 Fast forward to 2015. We've taken Joust (in both beta and final versions) to [OHM](https://en.wikipedia.org/wiki/Observe._Hack._Make.) in 2013, [EMF](https://www.emfcamp.org) in 2014, and [CCC Camp](https://events.ccc.de/camp/2015/wiki/Main_Page) in 2015. Every time the game runs all night with almost no supervision.
 
-By this point the game has developed a bit of a following, and people are actively seeking us out to play. But there are problems. Joust requires a laptop to run (meaning we need to be near a power supply, and can't leave it alone), it needs speakers for the music (which we never have), and people have trouble understanding the gameplay without the announcements and cues.
+By this point the game has developed a bit of a following and people are actively seeking us out to play. But there are problems. Joust requires a laptop to run (meaning we need to be near a power supply and can't leave it alone), it needs speakers for the music (which we never have), and people have trouble understanding the gameplay without announcements and cues.
 
-I went to CCC prepared. We had 11 move controllers, three Raspberry Pi's, 46 Ah of portable batteries, and more bluetooth adapters than there are frequency-hopping channels.
+I went to CCC prepared. We had 11 move controllers, three Raspberry Pi's, 46 Ah of portable batteries, and more bluetooth adapters than there are bluetooth channels.
 
-Oust is the result. It runs on a Raspberry Pi 2, can run up to 8 controllers (maybe more), and is specifically designed for environments so loud that sign language is required.
+Oust is the result. It runs on a Raspberry Pi 2, can run up to 8 controllers (maybe more), and is specifically designed for environments so loud sign language is required.
 
-It was playtested and tweaked extensively at CCC, at one point with a circle of approximately 150 people playing & watching. The longest game I recorded finished after 9 hours of continuous play.
+It was playtested and tweaked extensively at CCC - at one point with a circle of approximately 150 people playing & watching. The longest game I recorded finished after 9 hours of continuous play.
 
 How to Oust
 -----------
@@ -28,7 +28,7 @@ No really how does one Oust
 ---------------------------
 The game is designed to run on a Raspberry Pi hooked up to a honking great battery pack. There is no interface other than the controllers themselves.
 
-If you were starting out from scratch, this is what it would look like:
+If you were starting out from scratch this is what it would look like:
 
 1. Install Oust on the Raspberry Pi, including the nasty bluetooth hacks (See below).
 2. Plug the Pi into your battery pack.

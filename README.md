@@ -1,6 +1,6 @@
 Oust
 ====
-A love letter to [Johann Sebastian Joust](http://www.jsjoust.com/) designed for playing outdoors at festivals in the dark. All night long (all night).
+A love letter to [Johann Sebastian Joust](http://www.jsjoust.com/), designed for playing outdoors at festivals in the dark. All night long (all night).
 
 ![Rpi Oust Setup](sandwich_box.jpg)
 

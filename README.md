@@ -8,7 +8,7 @@ A long time ago on a boat far far away
 --------------------------------------
 When organising [Electromagnetic Wave](https://www.emfcamp.org/wave) in early 2013 we asked some of the [Wild Rumpus](http://thewildrumpus.co.uk/) organisers to run evening games on the boat. A very beta version of Joust was run on the deck to rave reviews.
 
-Fast forward to 2015. We've taken Joust (in both beta and final versions) to [OHM](https://en.wikipedia.org/wiki/Observe._Hack._Make.) in 2013, [EMF](https://www.emfcamp.org) in 2014, and [CCC Camp](https://events.ccc.de/camp/2015/wiki/Main_Page) in 2015. Every time the game runs all night with almost no supervision.
+Fast forward to 2015. We've taken Joust (in both beta and final versions) to [OHM](https://en.wikipedia.org/wiki/Observe._Hack._Make.) in 2013, [EMF](https://www.emfcamp.org) in 2014, and [CCC](https://events.ccc.de/camp/2015/wiki/Main_Page) in 2015. Every time the game runs all night with almost no supervision.
 
 By this point the game has developed a bit of a following and people are actively seeking us out to play. But there are problems. Joust requires a laptop to run (meaning we need to be near a power supply and can't leave it alone), it needs speakers for the music (which we never have), and people have trouble understanding the gameplay without announcements and cues.
 

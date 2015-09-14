@@ -65,13 +65,14 @@ How to install Oust
 1. Get a Raspberry Pi 2
 2. Install Raspbian on the SD card
 3. Checkout PSMoveAPI to the pi user's home directory (https://github.com/thp/psmoveapi)
-4. apt-get install swig python-dev
-5. Build PSMoveAPI standalone (5.b here https://github.com/thp/psmoveapi/blob/master/README.ubuntu)
-6. Copy [oust.py](oust.py) to /home/pi/psmoveapi/build/
-7. apt-get install supervisor
-8. Replace /etc/supervisor with the contents of [supervisor](supervisor)
-9. Copy [scan_enable.sh](scan_enable.sh) to /home/pi/
-10. Reboot the pi and pair your controllers!
+4. Merge in this patch to fix compilation on the Rpi https://github.com/thp/psmoveapi/pull/184
+5. apt-get install swig python-dev
+6. Build PSMoveAPI standalone (5.b here https://github.com/thp/psmoveapi/blob/master/README.ubuntu)
+7. Copy [oust.py](oust.py) to /home/pi/psmoveapi/build/
+8. apt-get install supervisor
+9. Replace /etc/supervisor with the contents of [supervisor](supervisor)
+10. Copy [scan_enable.sh](scan_enable.sh) to /home/pi/
+11. Reboot the pi and pair your controllers!
 
 Things You Should Know
 ----------------------

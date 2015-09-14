@@ -1,6 +1,6 @@
 Oust
 ====
-<sub>Also known as Candle Fight, Jonty Sebastian Joust, and "That game with the lights".</sub>
+<sup>Also known as Candle Fight, Jonty Sebastian Joust, and "that game with the lights".</sup>
 
 A love letter to [Johann Sebastian Joust](http://www.jsjoust.com/), designed for playing outdoors at festivals in the dark. All night long (all night).
 

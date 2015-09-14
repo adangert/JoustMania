@@ -65,7 +65,8 @@ How to install Oust
 1. Get a Raspberry Pi 2
 2. Install Raspbian on the SD card
 3. Checkout PSMoveAPI to the pi user's home directory (https://github.com/thp/psmoveapi)
-4. Build PSMoveAPI standalone (5.b here https://github.com/thp/psmoveapi/blob/master/README.ubuntu)
+4a. apt-get install swig python-dev
+4b. Build PSMoveAPI standalone (5.b here https://github.com/thp/psmoveapi/blob/master/README.ubuntu)
 5. Copy [oust.py](oust.py) to /home/pi/psmoveapi/build/
 6. apt-get install supervisor
 7. Replace /etc/supervisor with the contents of [supervisor](supervisor)

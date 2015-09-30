@@ -69,7 +69,7 @@ How to install Oust
 2. Install Raspbian on the SD card
 3. Checkout PSMoveAPI to the pi user's home directory (https://github.com/thp/psmoveapi)
 4. Merge in this patch to fix compilation on the Rpi https://github.com/thp/psmoveapi/pull/184
-5. `apt-get install swig python-dev`
+5. `apt-get install swig python-dev bluez`
 6. Build PSMoveAPI standalone (5.b here https://github.com/thp/psmoveapi/blob/master/README.ubuntu)
 7. Copy [oust.py](oust.py) to /home/pi/psmoveapi/build/
 8. `apt-get install supervisor`

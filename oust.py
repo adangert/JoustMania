@@ -1,5 +1,9 @@
 import time
 import psmove
+import numpy
+import random
+from oustpair import Oustpair
+from oustaudioblock import Oustaudioblock
 
 # This nightmarish function was taken from stackoverflow
 def hsv_to_rgb(h, s, v):
@@ -26,16 +30,50 @@ def regenerate_colours():
 def sleep_controllers(sleep=0.5, leds=(255,255,255), rumble=0, moves=[]):
     pause_time = time.time() + sleep
     while time.time() < pause_time:
-        for move in moves:
+        for othermove in moves:
             othermove.poll()
             othermove.set_rumble(rumble)
             othermove.set_leds(*leds)
             othermove.update_leds()
 
+def music_speed_up(event_time):
+    if time.time() - event_time < 2:
+        audio.change_ratio(1.0-((time.time() - event_time)/3))
+    else:
+        event_time += 15
+    return event_time
+
+def lerp(a, b, p):
+    return a*(1 - p) + b*p
 
 paired_controllers = []
 moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
 controllers_alive = {}
+audio = Oustaudioblock()
+pair = Oustpair()
+
+# The current speed of the music
+speed = 1.5
+
+# How fast/slow the music can go
+slow_speed = 1.5
+fast_speed = 0.3
+
+# The min and max timeframe in seconds for
+# the speed change to trigger, randomly selected
+min_fast = 4
+max_fast = 8
+min_slow = 10
+max_slow = 23
+
+#How long the speed change takes
+change_time = 1.5
+
+#Sensitivity of the contollers
+slow_max = 0.7
+slow_warning = 0.28
+fast_max = 1.5
+fast_warning = 0.8 
 
 while True:
     start = False
@@ -51,7 +89,7 @@ while True:
             # This appears to occasionally kernel panic raspbian!
             if move.connection_type == psmove.Conn_USB:
                 if move.get_serial() not in paired_controllers:
-                    move.pair()
+                    pair.equal_pair(move)
                     paired_controllers.append(move.get_serial())
 
                 move.set_leds(255,255,255)
@@ -123,27 +161,76 @@ while True:
     move_last_values = {}
 
     running = True
+
+    audio.load_audio('audio/music/classical.wav')
+    audio.start_audio()
+    slow = True
+    fast = False
+
+
+
+    added_time = random.uniform(min_slow, max_slow)
+    event_time = time.time() + added_time 
+    change_speed = False
+    speed = 1.5
+    audio.change_ratio(speed)
+
+
     while running:
+        
+        if time.time() > event_time and slow and not change_speed:
+            slow = False
+            fast = True
+            change_speed = True
+
+        elif time.time() > event_time and fast and not change_speed:
+            slow = True
+            fast = False
+            change_speed = True
+
+        if fast and speed > fast_speed and change_speed:
+            percent = numpy.clip((time.time() - event_time)/change_time, 0, 1)
+            speed = lerp(slow_speed, fast_speed, percent)
+            audio.change_ratio(speed)
+        elif fast and speed <= fast_speed and change_speed:
+            added_time = random.uniform(min_fast, max_fast)
+            event_time = time.time() + added_time
+            change_speed = False
+
+        if slow and speed < slow_speed and change_speed:
+            percent = numpy.clip((time.time() - event_time)/change_time, 0, 1)
+            speed = lerp(fast_speed, slow_speed, percent)
+            audio.change_ratio(speed)
+        elif slow and speed >= slow_speed and change_speed:
+            added_time = random.uniform(min_slow, max_slow)
+            event_time = time.time() + added_time
+            change_speed = False
 
         for serial, move in controllers_alive.items():
 
             if move.poll():
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
                 total = sum([ax, ay, az])
-
                 if serial in move_last_values:
                     change = abs(move_last_values[serial] - total)
                     # Dead
-                    if change > 0.7:
+
+                    speed_percent = (speed - slow_speed)/(fast_speed - slow_speed)                    
+		    warning = lerp(slow_warning, fast_warning, speed_percent)
+                    threshold =  lerp(slow_max, fast_max, speed_percent)
+
+                    if change > threshold:
                         print "DEAD", serial
                         move.set_leds(0,0,0)
-                        move.set_rumble(100)
+                        move.set_rumble(90)
                         del controllers_alive[serial]
                     
+                    
                     # Warn
-                    elif change > 0.2:
+                    elif change > warning:
                         scaled = [int(v*0.3) for v in controller_colours[move.get_serial()]]
                         move.set_leds(*scaled)
+                        move.set_rumble(120)
 
                     # Reset
                     else:
@@ -152,6 +239,8 @@ while True:
 
                 move.update_leds()
                 move_last_values[serial] = total
+
+		#audio.audio_buffer_loop(1.0)
 
                 # Win animation / reset
                 if len(controllers_alive) == 1:
@@ -173,6 +262,7 @@ while True:
 
                     running = False
                     controllers_alive = {}
+                    audio.stop_audio()
                     break
 
 

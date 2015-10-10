@@ -117,10 +117,11 @@ def track_controller(mov_array, dead, place):
     print 'THE NEW NICE IS ' + str(proc.nice())
     moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
     move_list = []
-    for real_move in moves:
-        for move in mov_array:
+    for move in mov_array:
+        for real_move in moves:
             if move.get_serial() == real_move.get_serial():
                 move_list.append(real_move)
+                print 'we just appened ' + str(real_move.get_serial())
     move_last_values = []
     for i in range(len(moves)):
         move_last_values.append(None)
@@ -218,6 +219,7 @@ def FFA():
             
             for p_move in range(len(moves_to_add)):
                 alive_p_controllers[moves_to_add[p_move].get_serial()] = dead_array[addup + p_move]
+                print 'TACKING ON ' + str(moves_to_add[p_move].get_serial())
             p = Process(target=track_controller, args=(moves_to_add, dead_array, addup))
 
             p.start()
@@ -234,8 +236,6 @@ def FFA():
         p = Process(target=track_controller, args=(moves_to_add, dead, addup))
         p.start()
         processes.append(p)
-            
-    print 'start looasdfasdefasdp'
 
     while running:
         if time.time() > event_time and slow and not change_speed:
@@ -486,6 +486,7 @@ while True:
                 if move.get_serial() not in controllers_alive:
                     if move.get_trigger() > 100:
                         controllers_alive[move.get_serial()] = move
+                        print 'WE JUST PULLED' + str(move.get_serial())
 
                 if move.get_serial() in controllers_alive:
                     if move.get_serial() not in controller_teams:

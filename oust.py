@@ -167,7 +167,7 @@ def track_controller(mov_array, dead, place):
 
 
 
-def FFA():
+def Joust(teams=False):
     global controllers_alive, audio, moves, controller_colours
     print "GAME START"
     regenerate_colours()
@@ -266,7 +266,9 @@ def FFA():
                 del controllers_alive[serial]
                 del controller_status[serial]
 
-        if len(controllers_alive) <= 1:
+        if teams:
+            team_win = check_team_win()
+        if (not teams and len(controllers_alive) <= 1) or (teams and team_win != -1):
             for proc in processes:
                 proc.terminate()
                 proc.join()
@@ -275,18 +277,31 @@ def FFA():
             print 'THE THING IS ' + str(controllers_alive)
             HSV = [(x*1.0/50, 0.9, 1) for x in range(50)]
             colour_range = [[int(x) for x in hsv_to_rgb(*colour)] for colour in HSV]
-
-            serial, move = controllers_alive.items()[0]
-            pause_time = time.time() + 3
-            while time.time() < pause_time:
-                move.set_leds(*colour_range[0])
-                colour_range.append(colour_range.pop(0))
+            if not teams:
+                serial, move = controllers_alive.items()[0]
+                pause_time = time.time() + 3
+                while time.time() < pause_time:
+                    move.set_leds(*colour_range[0])
+                    colour_range.append(colour_range.pop(0))
                 #for othermove in moves:
                 #    othermove.set_rumble(100)
                  #   othermove.poll()
                 #    othermove.update_leds()
-                move.update_leds()
-                time.sleep(0.01)
+                    move.update_leds()
+                    time.sleep(0.01)
+            else:
+                for win_move in moves:
+                    if win_move.get_serial() in controller_teams:
+                        print 'the winner is ' + win_move.get_serial()
+                        if controller_teams[win_move.get_serial()][0] == team_win:
+                            win_move.set_leds(*colour_range[0])
+                            colour_range.append(colour_range.pop(0))
+                            win_move.update_leds()
+                        else:
+                            win_move.set_rumble(100)
+                            win_move.poll()
+                            win_move.update_leds()
+                    time.sleep(0.01)
 
             running = False
             controllers_alive = {}
@@ -296,152 +311,7 @@ def FFA():
         if running:
             # If a controller vanishes during the game, remove it from the game
             # to allow others to finish
-            if psmove.count_connected() != len(moves):
-                moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
-                available = [ move.get_serial() for move in moves]
-
-                for serial, move in controllers_alive.items():
-                    if serial not in available:
-                        del controllers_alive[serial]
-
-
-def Teams():
-    global controllers_alive, audio, moves, controller_teams
-    print "GAME START"
-    regenerate_colours()
-
-    alive = controllers_alive.values()
-
-    # White
-    sleep_controllers(sleep=0.5, leds=(255,255,255), rumble=0, moves=alive)
-    # White/rumble
-    sleep_controllers(sleep=0.3, leds=(255,255,255), rumble=100, moves=alive)
-    # Red/norumble
-    sleep_controllers(sleep=0.75, leds=(50,0,0), rumble=0, moves=alive)
-    # Yellow
-    sleep_controllers(sleep=0.75, leds=(50,75,0), rumble=0, moves=alive)
-    # Green
-    sleep_controllers(sleep=0.75, leds=(0,50,0), rumble=0, moves=alive)
-
-    # Individual colours
-    for serial, move in controllers_alive.items():
-        move.set_leds(*team_colors[controller_teams[serial][0]])
-        #move.set_leds(*controller_colours[move.get_serial()])
-
-    move_last_values = {}
-
-    running = True
-
-    audio.load_audio('audio/music/classical.wav')
-    audio.start_audio()
-    slow = True
-    fast = False
-
-    added_time = random.uniform(min_slow, max_slow)
-    event_time = time.time() + added_time 
-    change_speed = False
-    speed = 1.5
-    audio.change_ratio(speed)
-
-    while running:
-        
-        if time.time() > event_time and slow and not change_speed:
-            slow = False
-            fast = True
-            change_speed = True
-
-        elif time.time() > event_time and fast and not change_speed:
-            slow = True
-            fast = False
-            change_speed = True
-
-        if fast and speed > fast_speed and change_speed:
-            percent = numpy.clip((time.time() - event_time)/change_time, 0, 1)
-            speed = lerp(slow_speed, fast_speed, percent)
-            audio.change_ratio(speed)
-        elif fast and speed <= fast_speed and change_speed:
-            added_time = random.uniform(min_fast, max_fast)
-            event_time = time.time() + added_time
-            change_speed = False
-
-        if slow and speed < slow_speed and change_speed:
-            percent = numpy.clip((time.time() - event_time)/change_time, 0, 1)
-            speed = lerp(fast_speed, slow_speed, percent)
-            audio.change_ratio(speed)
-        elif slow and speed >= slow_speed and change_speed:
-            added_time = random.uniform(min_slow, max_slow)
-            event_time = time.time() + added_time
-            change_speed = False
-
-        for serial, move in controllers_alive.items():
-
-            if move.poll():
-                ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
-                total = sum([ax, ay, az])
-                if serial in move_last_values:
-                    change = abs(move_last_values[serial] - total)
-                    # Dead
-
-                    speed_percent = (speed - slow_speed)/(fast_speed - slow_speed)                    
-		    warning = lerp(slow_warning, fast_warning, speed_percent)
-                    threshold =  lerp(slow_max, fast_max, speed_percent)
-
-                    if change > threshold:
-                        print "DEAD", serial
-                        move.set_leds(0,0,0)
-                        move.set_rumble(90)
-                        del controllers_alive[serial]
-
-                # Win animation / reset
-                        team_win = check_team_win()
-                        if team_win != -1:
-                            print "WIN", serial
-
-                            HSV = [(x*1.0/50, 0.9, 1) for x in range(50)]
-                            colour_range = [[int(x) for x in hsv_to_rgb(*colour)] for colour in HSV]
-
-                            
-                            pause_time = time.time() + 3
-                            while time.time() < pause_time:
-                                for win_move in moves:
-                                    if win_move.get_serial() in controller_teams:
-                                        print 'the winner is ' + win_move.get_serial()
-                                        if controller_teams[win_move.get_serial()][0] == team_win:
-                                            win_move.set_leds(*colour_range[0])
-                                            colour_range.append(colour_range.pop(0))
-                                            win_move.update_leds()
-                                        else:
-                                            win_move.set_rumble(100)
-                                            win_move.poll()
-                                            win_move.update_leds()
-                                    time.sleep(0.01)
-
-                            running = False
-                            controllers_alive = {}
-                            audio.stop_audio()
-                            break
-
-                    
-                    
-                    # Warn
-                    elif change > warning:
-                        scaled = [int(v*0.3) for v in team_colors[controller_teams[serial][0]]]
-                        move.set_leds(*scaled)
-                        move.set_rumble(120)
-
-                    # Reset
-                    else:
-                        move.set_leds(*team_colors[controller_teams[serial][0]])
-                        move.set_rumble(0)
-
-                move.update_leds()
-                move_last_values[serial] = total
-
-		#audio.audio_buffer_loop(1.0)
-
-        if running:
-            # If a controller vanishes during the game, remove it from the game
-            # to allow others to finish
+            # This needs to be put in the tracking()
             if psmove.count_connected() != len(moves):
                 moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
                 available = [ move.get_serial() for move in moves]
@@ -531,7 +401,7 @@ while True:
 
         # Someone hit triangle
         if (len(controllers_alive) >= 2 and start_ffa == True):
-            FFA() 
+            Joust() 
             break
 
         if (len(controllers_alive) >= 2 and start_teams == True):
@@ -540,7 +410,7 @@ while True:
                 if move not in controller_teams:
                     check = False
             if check:
-                Teams()
+                Joust(teams=True)
                 break
             else:
                 break

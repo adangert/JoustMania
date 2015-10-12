@@ -126,7 +126,6 @@ def track_controller(mov_array, dead, place):
     for i in range(len(moves)):
         move_last_values.append(None)
     while True:
-
         for i in range(len(mov_array)):
             move = move_list[i]
             if dead[place + i].value == 1 and move.poll():
@@ -205,11 +204,10 @@ def FFA():
     speed = 1.5
     audio.change_ratio(speed)
 
-    alive_p_controllers = {}
+    controller_status = {}
     processes = []
     print 'start loop'
     moves_to_add = []
-    #dead_array = Array('i', [1 for i in range(len(controllers_alive))] ) 
     dead_array = [Value('i', 1) for i in range(len(controllers_alive))]
     addup = 0
 
@@ -217,23 +215,18 @@ def FFA():
         moves_to_add.append(move)
         if len(moves_to_add) == 4:
             
-            for p_move in range(len(moves_to_add)):
-                alive_p_controllers[moves_to_add[p_move].get_serial()] = dead_array[addup + p_move]
-                print 'TACKING ON ' + str(moves_to_add[p_move].get_serial())
+            for i, move in enumerate(moves_to_add):
+                controller_status[move.get_serial()] = dead_array[addup + i]
             p = Process(target=track_controller, args=(moves_to_add, dead_array, addup))
-
             p.start()
             processes.append(p)
             addup += 4
-            print 'finished first one an is ' + str(serial)
             moves_to_add = []
             
-    if len(moves_to_add) > 0:    
-        print 'doing the other one!!!' + str(moves_to_add)
-        dead = Array('i', range(len(moves_to_add)))
-        for p_move in moves_to_add:
-            alive_p_controllers[p_move.get_serial()] = new_dead
-        p = Process(target=track_controller, args=(moves_to_add, dead, addup))
+    if len(moves_to_add) > 0:
+        for i, move in enumerate(moves_to_add):
+            controller_status[move.get_serial()] = dead_array[addup + i]
+        p = Process(target=track_controller, args=(moves_to_add, dead_array, addup))
         p.start()
         processes.append(p)
 
@@ -266,16 +259,14 @@ def FFA():
             event_time = time.time() + added_time
             change_speed = False
 
-
-        dead_num = 0
-        for serial, dead in alive_p_controllers.items():
+        for serial, dead in controller_status.items():
             #print 'testprint ' + str(serial) + " " + str(dead.value)
-            dead_num = dead_num + dead.value    
-            # Win animation / reset
-        if dead_num <= 1:
-            for serial, dead in alive_p_controllers.items():
-                if dead.value == 0:
-                    del controllers_alive[serial]
+            if dead.value == 0:
+                print str(controllers_alive)
+                del controllers_alive[serial]
+                del controller_status[serial]
+
+        if len(controllers_alive) <= 1:
             for proc in processes:
                 proc.terminate()
                 proc.join()

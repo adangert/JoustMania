@@ -65,10 +65,7 @@ def lerp(a, b, p):
 
 def check_team_win():
     global controllers_alive, controller_teams
-    print 'asdekljasgfjasdas' + str(controllers_alive.keys()[0])
     team_to_check = controller_teams[controllers_alive.keys()[0]][0]
-    print 'first con is' + str(team_to_check)
-    #team_to_check = controller_teams[first_con][0]
     for con in controllers_alive:
         if controller_teams[con][0] != team_to_check:
             return -1
@@ -111,7 +108,8 @@ slow_warning = 0.28
 fast_max = 1.5
 fast_warning = 0.8
 
-def track_controller(mov_array, dead, place):
+def track_controller(mov_array, dead, place, teams):
+    global controller_colors, team_colors, controller_teams
     proc = psutil.Process(os.getpid())
     proc.nice(-3)
     print 'THE NEW NICE IS ' + str(proc.nice())
@@ -157,8 +155,11 @@ def track_controller(mov_array, dead, place):
                     # Reset
                     else:
                         #print str(moves[i].get_leds())
-                        move.set_leds(255,0,0)
-                        #move.set_leds(*controller_colours[move.get_serial()])
+                        #move.set_leds(255,0,0)
+                        if not teams:
+                            move.set_leds(*controller_colours[move.get_serial()])
+                        else:
+                            move.set_leds(*team_colors[controller_teams[move.get_serial()][0]])
                         move.set_rumble(0)
                         move.update_leds()
 
@@ -217,7 +218,7 @@ def Joust(teams=False):
             
             for i, move in enumerate(moves_to_add):
                 controller_status[move.get_serial()] = dead_array[addup + i]
-            p = Process(target=track_controller, args=(moves_to_add, dead_array, addup))
+            p = Process(target=track_controller, args=(moves_to_add, dead_array, addup, teams))
             p.start()
             processes.append(p)
             addup += 4
@@ -226,7 +227,7 @@ def Joust(teams=False):
     if len(moves_to_add) > 0:
         for i, move in enumerate(moves_to_add):
             controller_status[move.get_serial()] = dead_array[addup + i]
-        p = Process(target=track_controller, args=(moves_to_add, dead_array, addup))
+        p = Process(target=track_controller, args=(moves_to_add, dead_array, addup, teams))
         p.start()
         processes.append(p)
 
@@ -270,6 +271,7 @@ def Joust(teams=False):
             team_win = check_team_win()
         if (not teams and len(controllers_alive) <= 1) or (teams and team_win != -1):
             for proc in processes:
+                #May need to just finish the loop in the tracker()
                 proc.terminate()
                 proc.join()
 
@@ -277,9 +279,9 @@ def Joust(teams=False):
             print 'THE THING IS ' + str(controllers_alive)
             HSV = [(x*1.0/50, 0.9, 1) for x in range(50)]
             colour_range = [[int(x) for x in hsv_to_rgb(*colour)] for colour in HSV]
+            pause_time = time.time() + 3
             if not teams:
                 serial, move = controllers_alive.items()[0]
-                pause_time = time.time() + 3
                 while time.time() < pause_time:
                     move.set_leds(*colour_range[0])
                     colour_range.append(colour_range.pop(0))
@@ -290,17 +292,19 @@ def Joust(teams=False):
                     move.update_leds()
                     time.sleep(0.01)
             else:
-                for win_move in moves:
-                    if win_move.get_serial() in controller_teams:
-                        print 'the winner is ' + win_move.get_serial()
-                        if controller_teams[win_move.get_serial()][0] == team_win:
-                            win_move.set_leds(*colour_range[0])
-                            colour_range.append(colour_range.pop(0))
-                            win_move.update_leds()
-                        else:
-                            win_move.set_rumble(100)
-                            win_move.poll()
-                            win_move.update_leds()
+                while time.time() < pause_time:
+                    for win_move in moves:
+                        if win_move.get_serial() in controller_teams:
+                            if controller_teams[win_move.get_serial()][0] == team_win:
+                                #print 'the winner is ' + win_move.get_serial()
+                                win_move.set_leds(*colour_range[0])
+                                colour_range.append(colour_range.pop(0))
+                                win_move.update_leds()
+                            else:
+                                win_move.set_rumble(100)
+                                win_move.poll()
+                                win_move.set_leds(0, 0, 0)
+                                win_move.update_leds()
                     time.sleep(0.01)
 
             running = False
@@ -319,7 +323,6 @@ def Joust(teams=False):
                 for serial, move in controllers_alive.items():
                     if serial not in available:
                         del controllers_alive[serial]
-
 
 while True:
     start_ffa = False

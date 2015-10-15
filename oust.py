@@ -85,9 +85,6 @@ audio = Oustaudioblock()
 pair = Oustpair()
 
 
-# The current speed of the music
-speed = 1.5
-
 # How fast/slow the music can go
 slow_speed = 1.5
 fast_speed = 0.5
@@ -108,7 +105,7 @@ slow_warning = 0.28
 fast_max = 1.5
 fast_warning = 0.8
 
-def track_controller(mov_array, dead, place, teams):
+def track_controller(mov_array, dead, place, teams, speed):
     global controller_colors, team_colors, controller_teams
     proc = psutil.Process(os.getpid())
     proc.nice(-3)
@@ -119,7 +116,6 @@ def track_controller(mov_array, dead, place, teams):
         for real_move in moves:
             if move.get_serial() == real_move.get_serial():
                 move_list.append(real_move)
-                print 'we just appened ' + str(real_move.get_serial())
     move_last_values = []
     for i in range(len(moves)):
         move_last_values.append(None)
@@ -133,7 +129,7 @@ def track_controller(mov_array, dead, place, teams):
                     change = abs(move_last_values[i] - total)
                     # Dead
 
-                    speed_percent = (speed - slow_speed)/(fast_speed - slow_speed)                    
+                    speed_percent = (speed.value - slow_speed)/(fast_speed - slow_speed)                    
                     warning = lerp(slow_warning, fast_warning, speed_percent)
                     threshold =  lerp(slow_max, fast_max, speed_percent)
 
@@ -202,8 +198,8 @@ def Joust(teams=False):
     added_time = random.uniform(min_slow, max_slow)
     event_time = time.time() + added_time 
     change_speed = False
-    speed = 1.5
-    audio.change_ratio(speed)
+    speed = Value('d', 1.5)
+    audio.change_ratio(speed.value)
 
     controller_status = {}
     processes = []
@@ -218,7 +214,7 @@ def Joust(teams=False):
             
             for i, move in enumerate(moves_to_add):
                 controller_status[move.get_serial()] = dead_array[addup + i]
-            p = Process(target=track_controller, args=(moves_to_add, dead_array, addup, teams))
+            p = Process(target=track_controller, args=(moves_to_add, dead_array, addup, teams, speed))
             p.start()
             processes.append(p)
             addup += 4
@@ -227,7 +223,7 @@ def Joust(teams=False):
     if len(moves_to_add) > 0:
         for i, move in enumerate(moves_to_add):
             controller_status[move.get_serial()] = dead_array[addup + i]
-        p = Process(target=track_controller, args=(moves_to_add, dead_array, addup, teams))
+        p = Process(target=track_controller, args=(moves_to_add, dead_array, addup, teams, speed))
         p.start()
         processes.append(p)
 
@@ -242,20 +238,20 @@ def Joust(teams=False):
             fast = False
             change_speed = True
 
-        if fast and speed > fast_speed and change_speed:
+        if fast and speed.value > fast_speed and change_speed:
             percent = numpy.clip((time.time() - event_time)/change_time, 0, 1)
-            speed = lerp(slow_speed, fast_speed, percent)
-            audio.change_ratio(speed)
-        elif fast and speed <= fast_speed and change_speed:
+            speed.value = lerp(slow_speed, fast_speed, percent)
+            audio.change_ratio(speed.value)
+        elif fast and speed.value <= fast_speed and change_speed:
             added_time = random.uniform(min_fast, max_fast)
             event_time = time.time() + added_time
             change_speed = False
 
-        if slow and speed < slow_speed and change_speed:
+        if slow and speed.value < slow_speed and change_speed:
             percent = numpy.clip((time.time() - event_time)/change_time, 0, 1)
-            speed = lerp(fast_speed, slow_speed, percent)
-            audio.change_ratio(speed)
-        elif slow and speed >= slow_speed and change_speed:
+            speed.value = lerp(fast_speed, slow_speed, percent)
+            audio.change_ratio(speed.value)
+        elif slow and speed.value >= slow_speed and change_speed:
             added_time = random.uniform(min_slow, max_slow)
             event_time = time.time() + added_time
             change_speed = False
@@ -276,7 +272,6 @@ def Joust(teams=False):
                 proc.join()
 
             print "WIN", serial
-            print 'THE THING IS ' + str(controllers_alive)
             HSV = [(x*1.0/50, 0.9, 1) for x in range(50)]
             colour_range = [[int(x) for x in hsv_to_rgb(*colour)] for colour in HSV]
             pause_time = time.time() + 3

@@ -37,7 +37,8 @@ class Oustpair():
         return ''
 
     def equal_pair(self, move):
-        if move.connection_type == psmove.Conn_USB:
-            self.pre_existing_devices()
-            if self.check_if_not_paired(move.get_serial().upper()):
-                move.pair_custom(self.get_lowest_bt_device())
+        if move and move.get_serial():
+            if move.connection_type == psmove.Conn_USB:
+                self.pre_existing_devices()
+                if self.check_if_not_paired(move.get_serial().upper()):
+                    move.pair_custom(self.get_lowest_bt_device())

@@ -1,5 +1,3 @@
-PiParty
-====
 <sup>A collection of movement games designed for the raspberry pi</sup>
 
 
@@ -80,3 +78,4 @@ Things to do
 * Create more games and modes!
 * Test out 16+ move controllers
 * add freeze mode for Joust, and music selection
+

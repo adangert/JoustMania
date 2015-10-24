@@ -33,6 +33,13 @@ sudo ./setup.sh
 ```
 5.wait until it's finished, and you're done!!
 
+Pairing controllers
+---------------------------
+
+* once you have installed PiParty, in order to pair controllers, plug them into the raspberry pi via usb. 
+* After this they should be paired and will only need to be turned on via the circular sync button on the front of the move controller
+* The controller led should turn a solid red when it's paired successfully.
+
 Games (More coming soon!!)
 ---------------------------------
 
@@ -53,19 +60,6 @@ Joust Teams
 ---------------------------------
 
 * This game is the same as Joust FFA however at the beginning players select their team color with the big button in the middle of their controller, and to start the game someone needs to push Square
-
-Amazing Features
-----------------
-* Instant setup
-* Easy pairing
-* Add/remove controllers to the game on the fly
-* Battery checking button (Press circle)
-* Secret goddamn-it-start-the-game button (Press Triangle)
-* "Ready, Steady, Go" start sequence to get players attention
-* Going-too-fast warning
-* Music Slowdown/Speedup effects, with changing sensitivity!!
-* Support for as many controllers as bluetooth interference will allow
-* Mostly doesn't crash, but when it does it's a kernel panic and not my fault
 
 
 Things You Should Know

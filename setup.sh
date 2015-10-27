@@ -34,3 +34,7 @@ OLD="#options snd-usb-audio index=-2"
 NEW="options snd-usb-audio index=0\noptions snd_bcm2835 index=-2"
 
 sudo sed -i -e 's/$OLD/$NEW/g' /etc/modprobe.d/alsa-base.conf
+
+sudo cp -r /home/pi/PiParty/supervisor/ /etc/supervisor/
+
+sudo reboot

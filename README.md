@@ -24,7 +24,7 @@ Installation (setup.sh coming soon!)
 
 1. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card (this has been tested with the Wheezy release)
 2. boot the pi and wait for the menu
-3. select to expand the Filesystem as well as log into the desktop as a pi user and reboot
+3. select to expand the Filesystem and Boot to Desktop as a pi user, then reboot.
 4. open a Terminal located at the top of the desktop and run these commands:
 ```
 git clone https://github.com/aangert/PiParty.git

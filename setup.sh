@@ -33,6 +33,11 @@ NEW="options snd-usb-audio index=0\noptions snd_bcm2835 index=-2"
 
 sudo sed -i -e 's/$OLD/$NEW/g' /etc/modprobe.d/alsa-base.conf
 
+OLD='env_reset'
+NEW='env_keep += "PYTHONPATH"'
+
+sudo sed -i -e "s/$OLD/$NEW/g" /etc/sudoers
+
 sudo apt-get install supervisor
 
 sudo cp -r /home/pi/PiParty/supervisor/ /etc/

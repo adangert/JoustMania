@@ -23,8 +23,8 @@ Installation (setup.sh coming soon!)
 ---------------------------
 
 1. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card (this has been tested with the Wheezy release)
-2. connect your bluetooth adapters, external USB Soundcard, ethernet conneciton, and keyboard and mouse to the pi.
-3. boot the pi and wait for the boot menu
+2. connect your bluetooth adapters, external USB Soundcard, ethernet conneciton, and keyboard, mouse and hdmi to the pi.
+3. plug in the power and wait for the boot menu on screen
 4. select to expand the Filesystem (option 1) and Boot to Desktop as a pi user (option 3), then hit finish and reboot.
 5. open a Terminal located at the top of the desktop (the black monitor icon) and run these commands:
 ```

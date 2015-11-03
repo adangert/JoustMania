@@ -37,8 +37,9 @@ sudo ./setup.sh
 Pairing controllers
 ---------------------------
 
-* once you have installed PiParty, in order to pair controllers, plug them into the raspberry pi via usb. 
-* After this they should be paired and will only need to be turned on via the circular sync button on the front of the move controller
+* once you have installed PiParty, in order to pair controllers, plug them into the raspberry pi via usb, and wait until the bulb turns white. 
+* This process should only need to be done once, after this the controllers should be permenently paired and will only need to be turned on via the circular sync button on the front of the move controller for any future games
+* if the controller does not turn white, this means that the process probably crashed due to a kernal bug with the psmoveapi, restart the the pi and then plug in an pair the remaining controllers, 
 * The controller led should turn a solid red when it's paired successfully.
 
 Games (More coming soon!!)

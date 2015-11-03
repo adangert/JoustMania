@@ -13,7 +13,7 @@ You will need the following to run PI party:
 
 1. a raspberry pi 2 B+
 2. micro SD card for the raspberry pi
-2. 1 to 3 Class 1, Bluetooth 4.0 usb adapters (each adapter can handle 6-7 move controllers)
+2. up to 3, Class 1, Bluetooth 4.0 usb adapters (each adapter can handle 6-7 move controllers)
 3. an external USB sound card
 4. an external battery (the larger the better)
 5. a speaker, preferably portable
@@ -23,15 +23,16 @@ Installation (setup.sh coming soon!)
 ---------------------------
 
 1. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card (this has been tested with the Wheezy release)
-2. boot the pi and wait for the boot menu
-3. select to expand the Filesystem (option 1) and Boot to Desktop as a pi user (option 3), then hit finish and reboot.
-4. open a Terminal located at the top of the desktop (the black monitor icon) and run these commands:
+2. connect your bluetooth adapters, external USB Soundcard, ethernet conneciton, and keyboard and mouse to the pi.
+3. boot the pi and wait for the boot menu
+4. select to expand the Filesystem (option 1) and Boot to Desktop as a pi user (option 3), then hit finish and reboot.
+5. open a Terminal located at the top of the desktop (the black monitor icon) and run these commands:
 ```
 git clone https://github.com/aangert/PiParty.git
 cd PiParty
 sudo ./setup.sh
 ```
-5.wait until it's finished, and you're done!!
+6.wait until it's finished, and you're done!!
 
 Pairing controllers
 ---------------------------

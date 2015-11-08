@@ -3,9 +3,12 @@ import wave
 import numpy
 import scikits.samplerate
 from multiprocessing import Process, Value
+import psutil, os
 
 
 def audio_loop(file, ratio):
+    proc = psutil.Process(os.getpid())
+    proc.nice(-17)
     while True:
         chunk = 2048
         wf = wave.open(file, 'rb')

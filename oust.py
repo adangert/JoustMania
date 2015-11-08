@@ -22,6 +22,7 @@ def hsv_to_rgb(h, s, v):
 HSV = colour_range = []
 controller_colours = {}
 
+
 def regenerate_colours():
     global HSV, colour_range, controller_colours
     HSV = [(x*1.0/len(moves), 1, 1) for x in range(len(moves))]
@@ -129,9 +130,9 @@ def track_controller(mov_array, dead, place, teams, speed):
                     change = abs(move_last_values[i] - total)
                     # Dead
 
-                    speed_percent = (speed.value - slow_speed)/(fast_speed - slow_speed)                    
+                    speed_percent = (speed.value - slow_speed)/(fast_speed - slow_speed)
                     warning = lerp(slow_warning, fast_warning, speed_percent)
-                    threshold =  lerp(slow_max, fast_max, speed_percent)
+                    threshold = lerp(slow_max, fast_max, speed_percent)
 
                     if change > threshold:
                         print "DEAD", move.get_serial()
@@ -139,7 +140,7 @@ def track_controller(mov_array, dead, place, teams, speed):
                         move.set_rumble(90)
                         #del controllers_alive[serial]
                         dead[place + i].value = 0
-            
+
                     # Warn
                     elif change > warning:
                         #scaled = [int(v*0.3) for v in controller_colours[move.get_serial()]]
@@ -196,7 +197,7 @@ def Joust(teams=False):
     fast = False
 
     added_time = random.uniform(min_slow, max_slow)
-    event_time = time.time() + added_time 
+    event_time = time.time() + added_time
     change_speed = False
     speed = Value('d', 1.5)
     audio.change_ratio(speed.value)
@@ -211,7 +212,7 @@ def Joust(teams=False):
     for serial, move in controllers_alive.items():
         moves_to_add.append(move)
         if len(moves_to_add) == 4:
-            
+
             for i, move in enumerate(moves_to_add):
                 controller_status[move.get_serial()] = dead_array[addup + i]
             p = Process(target=track_controller, args=(moves_to_add, dead_array, addup, teams, speed))
@@ -219,7 +220,7 @@ def Joust(teams=False):
             processes.append(p)
             addup += 4
             moves_to_add = []
-            
+
     if len(moves_to_add) > 0:
         for i, move in enumerate(moves_to_add):
             controller_status[move.get_serial()] = dead_array[addup + i]
@@ -357,7 +358,7 @@ while True:
 
                 if move.get_buttons() == 0:
                     if move.get_serial() in controller_teams:
-                        controller_teams[move.get_serial()][1] = True                
+                        controller_teams[move.get_serial()][1] = True
 
                 # Triangle starts the game early
                 if move.get_buttons() == 524288:
@@ -399,7 +400,7 @@ while True:
 
         # Someone hit triangle
         if (len(controllers_alive) >= 2 and start_ffa == True):
-            Joust() 
+            Joust()
             break
 
         if (len(controllers_alive) >= 2 and start_teams == True):

@@ -13,7 +13,7 @@ You will need the following to run PI party:
 
 1. a raspberry pi 2 B+
 2. micro SD card for the raspberry pi
-2. 1 to 3 Class 1, Bluetooth 4.0 usb adapters (each adapter can handle 6-7 move controllers)
+2. up to 3, Class 1, Bluetooth 4.0 usb adapters (each adapter can handle 6-7 move controllers)
 3. an external USB sound card
 4. an external battery (the larger the better)
 5. a speaker, preferably portable
@@ -23,21 +23,23 @@ Installation (setup.sh coming soon!)
 ---------------------------
 
 1. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card (this has been tested with the Wheezy release)
-2. boot the pi and wait for the boot menu
-3. select to expand the Filesystem (option 1) and Boot to Desktop as a pi user (option 3), then hit finish and reboot.
-4. open a Terminal located at the top of the desktop (the black monitor icon) and run these commands:
+2. connect your bluetooth adapters, external USB Soundcard, ethernet conneciton, and keyboard, mouse and hdmi to the pi.
+3. plug in the power and wait for the boot menu on screen
+4. select to expand the Filesystem (option 1) and Boot to Desktop as a pi user (option 3), then hit finish and reboot.
+5. open a Terminal located at the top of the desktop (the black monitor icon) and run these commands:
 ```
 git clone https://github.com/aangert/PiParty.git
 cd PiParty
 sudo ./setup.sh
 ```
-5.wait until it's finished, and you're done!!
+6.wait until it's finished, and you're done!!
 
 Pairing controllers
 ---------------------------
 
-* once you have installed PiParty, in order to pair controllers, plug them into the raspberry pi via usb. 
-* After this they should be paired and will only need to be turned on via the circular sync button on the front of the move controller
+* once you have installed PiParty, in order to pair controllers, plug them into the raspberry pi via usb, and wait until the bulb turns white. 
+* This process should only need to be done once, after this the controllers should be permenently paired and will only need to be turned on via the circular sync button on the front of the move controller for any future games
+* if the controller does not turn white, this means that the process probably crashed due to a kernal bug with the psmoveapi, restart the the pi and then plug in an pair the remaining controllers, 
 * The controller led should turn a solid red when it's paired successfully.
 
 Games (More coming soon!!)

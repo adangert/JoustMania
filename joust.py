@@ -6,9 +6,7 @@ from oustpair import Oustpair
 from oustaudioblock import Oustaudioblock
 from multiprocessing import Process, Value, Array
 import psutil, os
-import piparty
-
-
+import common
 
 
 def sleep_controllers(sleep=0.5, leds=(255,255,255), rumble=0, moves=[]):
@@ -46,7 +44,7 @@ controller_colours = {}
 controllers_alive = {}
 controller_teams = {}
 
-team_colors()
+
 paired_controllers = []
 
 
@@ -133,26 +131,32 @@ def track_controller(mov_array, dead, place, teams, speed):
                 move_last_values[i]  = total
 
 
-def Joust(teams=False):
+def Joust(cont_alive, cont_colors, teams=False):
     global controllers_alive, audio, moves, controller_colours
     print "GAME START"
-    piparty.regenerate_colours()
 
-    alive = piparty.controllers_alive.values()
+    
+    controllers_alive = cont_alive
+    controller_colours = cont_colors
+
+    print str(controller_colours)
+    alive = controllers_alive.values()
+    
 
     # White
-    piparty.sleep_controllers(sleep=0.5, leds=(255,255,255), rumble=0, moves=alive)
+    sleep_controllers(sleep=0.5, leds=(255,255,255), rumble=0, moves=alive)
     # White/rumble
-    piparty.sleep_controllers(sleep=0.3, leds=(255,255,255), rumble=100, moves=alive)
+    sleep_controllers(sleep=0.3, leds=(255,255,255), rumble=100, moves=alive)
     # Red/norumble
-    piparty.sleep_controllers(sleep=0.75, leds=(50,0,0), rumble=0, moves=alive)
+    sleep_controllers(sleep=0.75, leds=(50,0,0), rumble=0, moves=alive)
     # Yellow
-    piparty.sleep_controllers(sleep=0.75, leds=(50,75,0), rumble=0, moves=alive)
+    sleep_controllers(sleep=0.75, leds=(50,75,0), rumble=0, moves=alive)
     # Green
-    piparty.sleep_controllers(sleep=0.75, leds=(0,50,0), rumble=0, moves=alive)
+    sleep_controllers(sleep=0.75, leds=(0,50,0), rumble=0, moves=alive)
 
     # Individual colours
-    for serial, move in piparty.controllers_alive.items():
+    for serial, move in controllers_alive.items():
+        print 'serial is ' + str(serial) + 'move is ' + str(move)
         move.set_leds(*controller_colours[move.get_serial()])
 
     move_last_values = {}
@@ -174,10 +178,11 @@ def Joust(teams=False):
     processes = []
     print 'start loop'
     moves_to_add = []
-    dead_array = [Value('i', 1) for i in range(len(piparty.controllers_alive))]
+    dead_array = [Value('i', 1) for i in range(len(controllers_alive))]
     addup = 0
 
-    for serial, move in piparty.controllers_alive.items():
+    #This probably should have it's own function to multi-process controllers
+    for serial, move in controllers_alive.items():
         moves_to_add.append(move)
         if len(moves_to_add) == 4:
 
@@ -228,13 +233,13 @@ def Joust(teams=False):
         for serial, dead in controller_status.items():
             #print 'testprint ' + str(serial) + " " + str(dead.value)
             if dead.value == 0:
-                print str(piparty.controllers_alive)
-                del piparty.controllers_alive[serial]
-                del piparty.controller_status[serial]
+                print str(controllers_alive)
+                del controllers_alive[serial]
+                del controller_status[serial]
 
         if teams:
             team_win = check_team_win()
-        if (not teams and len(piparty.controllers_alive) <= 1) or (teams and team_win != -1):
+        if (not teams and len(controllers_alive) <= 1) or (teams and team_win != -1):
             for proc in processes:
                 #May need to just finish the loop in the tracker()
                 proc.terminate()
@@ -242,10 +247,10 @@ def Joust(teams=False):
 
             print "WIN", serial
             HSV = [(x*1.0/50, 0.9, 1) for x in range(50)]
-            colour_range = [[int(x) for x in hsv_to_rgb(*colour)] for colour in HSV]
+            colour_range = [[int(x) for x in common.hsv_to_rgb(*colour)] for colour in HSV]
             pause_time = time.time() + 3
             if not teams:
-                serial, move = piparty.controllers_alive.items()[0]
+                serial, move = controllers_alive.items()[0]
                 while time.time() < pause_time:
                     move.set_leds(*colour_range[0])
                     colour_range.append(colour_range.pop(0))
@@ -272,18 +277,18 @@ def Joust(teams=False):
                     time.sleep(0.01)
 
             running = False
-            piparty.controllers_alive = {}
+            controllers_alive = {}
             audio.stop_audio()
 
-
-        if running:
+        # TODO: THIS WONT WORK, AND NEEDS TO BE ADDED TO THE MULTIPROCCESSING TRACKERS
+        #if running:
             # If a controller vanishes during the game, remove it from the game
             # to allow others to finish
             # This needs to be put in the tracking()
-            if psmove.count_connected() != len(moves):
-                moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
-                available = [ move.get_serial() for move in moves]
+         #   if psmove.count_connected() != len(moves):
+         #       moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
+         #       available = [ move.get_serial() for move in moves]
 
-                for serial, move in piparty.controllers_alive.items():
-                    if serial not in available:
-                        del piparty.controllers_alive[serial]
+          #      for serial, move in controllers_alive.items():
+           #         if serial not in available:
+            #            del controllers_alive[serial]

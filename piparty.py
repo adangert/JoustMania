@@ -5,34 +5,28 @@ import random
 from oustpair import Oustpair
 from oustaudioblock import Oustaudioblock
 from multiprocessing import Process, Value, Array
+from enum import Enum
 import psutil, os
 import joust
+import common
 
 
-#This module should only be for selecting game modes/options for the game/starting a game
+# This module should only be for selecting game modes/options for the game/starting a game
+# and pairing controllers
+# The selection needs to be made into multiprocessing for 10+ controllers
 
-# This nightmarish function was taken from stackoverflow
-def hsv_to_rgb(h, s, v):
-    if s == 0.0: v*=255; return [v, v, v]
-    i = int(h*6.)
-    f = (h*6.)-i; p,q,t = int(255*(v*(1.-s))), int(255*(v*(1.-s*f))), int(255*(v*(1.-s*(1.-f)))); v*=255; i%=6
-    if i == 0: return [v, t, p]
-    if i == 1: return [q, v, p]
-    if i == 2: return [p, v, t]
-    if i == 3: return [p, q, v]
-    if i == 4: return [t, p, v]
-    if i == 5: return [v, p, q]
+
 
 def regenerate_colours():
     global HSV, colour_range, controller_colours
     HSV = [(x*1.0/len(moves), 1, 1) for x in range(len(moves))]
-    colour_range = [[int(x) for x in hsv_to_rgb(*colour)] for colour in HSV]
+    colour_range = [[int(x) for x in common.hsv_to_rgb(*colour)] for colour in HSV]
     controller_colours = {move.get_serial(): colour_range[i] for i, move in enumerate(moves)}
 
 def team_colors():
     global HSV, colour_range, controller_colours, team_colors
     HSV = [(x*1.0/6.0, 1, 1) for x in range(6)]
-    colour_range = [[int(x) for x in hsv_to_rgb(*colour)] for colour in HSV]
+    colour_range = [[int(x) for x in common.hsv_to_rgb(*colour)] for colour in HSV]
     team_colors = [colour_range[i] for i in range(6)]
 
 # TODO: INSTEAD OF TAKING IN GLOBAL, TAKE IN VARS AND RETURN THE CONTROLLER TEAMS
@@ -45,11 +39,6 @@ def change_team(move):
     else:
         controller_teams[move.get_serial()] = [0, True]
 
-
-moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
-#controller_teams = {move.get_serial(): [0, True] for move in moves}
-controller_teams = {}
-pair = Oustpair()
  
 def start():
     global moves
@@ -131,9 +120,11 @@ def start():
             #    break
 
 
+            #TODO: controllers_alive doesn't have all controllers after some have been
+            #added mid game, need to look into this
             # Someone hit triangle
             if (len(controllers_alive) >= 2 and start_ffa == True):
-                joust.Joust()
+                joust.Joust(controllers_alive, controller_colours)
                 break
 
             if (len(controllers_alive) >= 2 and start_teams == True):
@@ -142,11 +133,24 @@ def start():
                     if move not in controller_teams:
                         check = False
                 if check:
-                    joust.Joust(teams=True)
+                    joust.Joust(controllers_alive, controller_colours, teams=True)
                     break
                 else:
                     break
 
 
 if __name__ == "__main__":
+    moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
+    #controller_teams = {move.get_serial(): [0, True] for move in moves}
+    controller_teams = {}
+    pair = Oustpair()
+
+    Games = Enum('JoustFFA', 'JoustTeams')
+    current_game = Games.JoustFFA
+
+    controllers_alive = {}
+
+    controller_colours = {}
+    team_colors()
+    regenerate_colours()
     start()

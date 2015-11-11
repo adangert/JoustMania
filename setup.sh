@@ -15,7 +15,7 @@ git cherry-pick -n e3838a5c49313b8865ff493573aa417e8e4a391b
 
 sudo apt-get install -y swig python-dev bluez python-pyaudio python-pip python-numpy python-setuptools libsamplerate0-dev
 
-sudo pip install scikits.samplerate psutil
+sudo pip install scikits.samplerate psutil enum
 
 git submodule init
 git submodule update

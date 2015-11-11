@@ -41,7 +41,7 @@ def change_team(move):
 
  
 def start():
-    global moves
+    global moves, controllers_alive
     while True:
         start_ffa = False
         start_teams = False
@@ -125,6 +125,7 @@ def start():
             # Someone hit triangle
             if (len(controllers_alive) >= 2 and start_ffa == True):
                 joust.Joust(controllers_alive, controller_colours)
+                controllers_alive = {}
                 break
 
             if (len(controllers_alive) >= 2 and start_teams == True):
@@ -134,6 +135,7 @@ def start():
                         check = False
                 if check:
                     joust.Joust(controllers_alive, controller_colours, teams=True)
+                    controllers_alive = {}
                     break
                 else:
                     break

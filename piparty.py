@@ -40,47 +40,49 @@ def change_team(move):
 
 
 #TODO: This function needs to manage the controller
+#TIPLE TUPLE FOR ALL OPTIONS?
 def track_controller():
-    if move.get_serial() in controllers_alive:
-        if move.get_serial() not in controller_teams:
-            move.set_leds(255,255,255)
+    while True:
+        if move.get_serial() in controllers_alive:
+            if move.get_serial() not in controller_teams:
+                move.set_leds(255,255,255)
+            else:
+                move.set_leds(*team_colors[controller_teams[move.get_serial()][0]])
         else:
-            move.set_leds(*team_colors[controller_teams[move.get_serial()][0]])
-    else:
-        move.set_leds(0,0,0)
+            move.set_leds(0,0,0)
 
-    if move.get_buttons() == 0:
-        if move.get_serial() in controller_teams:
-            controller_teams[move.get_serial()][1] = True
+        if move.get_buttons() == 0:
+            if move.get_serial() in controller_teams:
+                controller_teams[move.get_serial()][1] = True
 
-    # middle button changes team
-    if move.get_buttons() == 524288:
-        change_team(move)
+        # middle button changes team
+        if move.get_buttons() == 524288:
+            change_team(move)
 
-    # Triangle starts the game early
-    if move.get_buttons() == 16:
-        start_ffa = True
+        # Triangle starts the game early
+        if move.get_buttons() == 16:
+            start_ffa = True
 
-    #print move.get_buttons()
-    # Triangle starts the game early
-    if move.get_buttons() == 128:
-        start_teams = True
+        #print move.get_buttons()
+        # Triangle starts the game early
+        if move.get_buttons() == 128:
+            start_teams = True
 
-    # Circle shows battery level
-    if move.get_buttons() == 32:
-        battery = move.get_battery()
+        # Circle shows battery level
+        if move.get_buttons() == 32:
+            battery = move.get_battery()
 
-        if battery == 5: # 100% - green
-            move.set_leds(0, 255, 0)
-        elif battery == 4: # 80% - green-ish
-            move.set_leds(128, 200, 0)
-        elif battery == 3: # 60% - yellow
-            move.set_leds(255, 255, 0)
-        else: # <= 40% - red
-            move.set_leds(255, 0, 0)
+            if battery == 5: # 100% - green
+                move.set_leds(0, 255, 0)
+            elif battery == 4: # 80% - green-ish
+                move.set_leds(128, 200, 0)
+            elif battery == 3: # 60% - yellow
+                move.set_leds(255, 255, 0)
+            else: # <= 40% - red
+                move.set_leds(255, 0, 0)
 
-    move.set_rumble(0)
-    move.update_leds()
+        move.set_rumble(0)
+        move.update_leds()
 
  
 def start():
@@ -102,6 +104,7 @@ def start():
                     if move.get_serial() not in paired_controllers:
                         pair.equal_pair(move)
                         paired_controllers.append(move.get_serial())
+                        #Need a triple tuple for controller options
 
                     move.set_leds(255,255,255)
                     move.update_leds()

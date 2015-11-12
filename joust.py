@@ -6,44 +6,8 @@ from oustpair import Oustpair
 from oustaudioblock import Oustaudioblock
 from multiprocessing import Process, Value, Array
 import psutil, os
+import common
 
-# This nightmarish function was taken from stackoverflow
-def hsv_to_rgb(h, s, v):
-    if s == 0.0: v*=255; return [v, v, v]
-    i = int(h*6.)
-    f = (h*6.)-i; p,q,t = int(255*(v*(1.-s))), int(255*(v*(1.-s*f))), int(255*(v*(1.-s*(1.-f)))); v*=255; i%=6
-    if i == 0: return [v, t, p]
-    if i == 1: return [q, v, p]
-    if i == 2: return [p, v, t]
-    if i == 3: return [p, q, v]
-    if i == 4: return [t, p, v]
-    if i == 5: return [v, p, q]
-
-HSV = colour_range = []
-controller_colours = {}
-
-
-def regenerate_colours():
-    global HSV, colour_range, controller_colours
-    HSV = [(x*1.0/len(moves), 1, 1) for x in range(len(moves))]
-    colour_range = [[int(x) for x in hsv_to_rgb(*colour)] for colour in HSV]
-    controller_colours = {move.get_serial(): colour_range[i] for i, move in enumerate(moves)}
-
-def team_colors():
-    global HSV, colour_range, controller_colours, team_colors
-    HSV = [(x*1.0/6.0, 1, 1) for x in range(6)]
-    colour_range = [[int(x) for x in hsv_to_rgb(*colour)] for colour in HSV]
-    team_colors = [colour_range[i] for i in range(6)]
-
-
-def change_team(move):
-    global HSV, colour_range, controller_teams, team_colors
-    if move.get_serial() in controller_teams:
-        if controller_teams[move.get_serial()][1] == True:
-            controller_teams[move.get_serial()][0] = (controller_teams[move.get_serial()][0] + 1) % 6
-            controller_teams[move.get_serial()][1] = False
-    else:
-        controller_teams[move.get_serial()] = [0, True]
 
 def sleep_controllers(sleep=0.5, leds=(255,255,255), rumble=0, moves=[]):
     pause_time = time.time() + sleep
@@ -73,17 +37,18 @@ def check_team_win():
     return team_to_check
 
 
+#These will need to be passed in from PiParty
+HSV = colour_range = []
+controller_colours = {}
+
 controllers_alive = {}
 controller_teams = {}
 
-team_colors()
+
 paired_controllers = []
-moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
-#controller_teams = {move.get_serial(): [0, True] for move in moves}
-controller_teams = {}
+
 
 audio = Oustaudioblock()
-pair = Oustpair()
 
 
 # How fast/slow the music can go
@@ -106,11 +71,13 @@ slow_warning = 0.28
 fast_max = 1.5
 fast_warning = 0.8
 
+#SHOULD THIS FILE HAVE TEAM SELECTION?
+#OR SHOULD THERE BE ANOTHER MODULE FOR ALL OF THAT?
+
 def track_controller(mov_array, dead, place, teams, speed):
     global controller_colors, team_colors, controller_teams
     proc = psutil.Process(os.getpid())
     proc.nice(-3)
-    print 'THE NEW NICE IS ' + str(proc.nice())
     moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
     move_list = []
     for move in mov_array:
@@ -164,13 +131,19 @@ def track_controller(mov_array, dead, place, teams, speed):
                 move_last_values[i]  = total
 
 
-
-def Joust(teams=False):
-    global controllers_alive, audio, moves, controller_colours
+def Joust(cont_alive, cont_colors, team_cols=None, cont_teams=None, teams=False):
+    global controllers_alive, audio, moves, controller_colours, team_colors, controller_teams
     print "GAME START"
-    regenerate_colours()
 
+    moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
+    controllers_alive = cont_alive
+    controller_colours = cont_colors
+    team_colors = team_cols
+    controller_teams = cont_teams
+    
+    print str(controller_colours)
     alive = controllers_alive.values()
+    
 
     # White
     sleep_controllers(sleep=0.5, leds=(255,255,255), rumble=0, moves=alive)
@@ -185,6 +158,7 @@ def Joust(teams=False):
 
     # Individual colours
     for serial, move in controllers_alive.items():
+        print 'serial is ' + str(serial) + 'move is ' + str(move)
         move.set_leds(*controller_colours[move.get_serial()])
 
     move_last_values = {}
@@ -209,6 +183,7 @@ def Joust(teams=False):
     dead_array = [Value('i', 1) for i in range(len(controllers_alive))]
     addup = 0
 
+    #This probably should have it's own function to multi-process controllers
     for serial, move in controllers_alive.items():
         moves_to_add.append(move)
         if len(moves_to_add) == 4:
@@ -273,10 +248,11 @@ def Joust(teams=False):
                 proc.join()
 
             print "WIN", serial
-            HSV = [(x*1.0/50, 0.9, 1) for x in range(50)]
-            colour_range = [[int(x) for x in hsv_to_rgb(*colour)] for colour in HSV]
+
             pause_time = time.time() + 3
             if not teams:
+                HSV = [(x*1.0/50, 0.9, 1) for x in range(50)]
+                colour_range = [[int(x) for x in common.hsv_to_rgb(*colour)] for colour in HSV]
                 serial, move = controllers_alive.items()[0]
                 while time.time() < pause_time:
                     move.set_leds(*colour_range[0])
@@ -288,6 +264,8 @@ def Joust(teams=False):
                     move.update_leds()
                     time.sleep(0.01)
             else:
+                HSV = [(x*1.0/(50*len(controllers_alive)), 0.9, 1) for x in range(50*len(controllers_alive))]
+                colour_range = [[int(x) for x in common.hsv_to_rgb(*colour)] for colour in HSV]
                 while time.time() < pause_time:
                     for win_move in moves:
                         if win_move.get_serial() in controller_teams:
@@ -307,110 +285,15 @@ def Joust(teams=False):
             controllers_alive = {}
             audio.stop_audio()
 
-
-        if running:
+        # TODO: THIS WONT WORK, AND NEEDS TO BE ADDED TO THE MULTIPROCCESSING TRACKERS
+        #if running:
             # If a controller vanishes during the game, remove it from the game
             # to allow others to finish
             # This needs to be put in the tracking()
-            if psmove.count_connected() != len(moves):
-                moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
-                available = [ move.get_serial() for move in moves]
+         #   if psmove.count_connected() != len(moves):
+         #       moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
+         #       available = [ move.get_serial() for move in moves]
 
-                for serial, move in controllers_alive.items():
-                    if serial not in available:
-                        del controllers_alive[serial]
-
-while True:
-    start_ffa = False
-    start_teams = False
-    while True:
-        for move in moves:
-            if move.this == None:
-                print "Move initialisation failed, reinitialising"
-                moves = []
-                break
-
-            # If a controller is plugged in over USB, pair it and turn it white
-            # This appears to occasionally kernel panic raspbian!
-            if move.connection_type == psmove.Conn_USB:
-                if move.get_serial() not in paired_controllers:
-                    pair.equal_pair(move)
-                    paired_controllers.append(move.get_serial())
-
-                move.set_leds(255,255,255)
-                move.update_leds()
-                continue
-
-            if move.poll():
-                # If the trigger is pulled, join the game
-                if move.get_serial() not in controllers_alive:
-                    if move.get_trigger() > 100:
-                        controllers_alive[move.get_serial()] = move
-                        print 'WE JUST PULLED' + str(move.get_serial())
-
-                if move.get_serial() in controllers_alive:
-                    if move.get_serial() not in controller_teams:
-                        move.set_leds(255,255,255)
-                    else:
-                        move.set_leds(*team_colors[controller_teams[move.get_serial()][0]])
-                else:
-                    move.set_leds(0,0,0)
-
-                if move.get_buttons() == 0:
-                    if move.get_serial() in controller_teams:
-                        controller_teams[move.get_serial()][1] = True
-
-                # Triangle starts the game early
-                if move.get_buttons() == 524288:
-                    change_team(move)
-
-                # Triangle starts the game early
-                if move.get_buttons() == 16:
-                    start_ffa = True
-
-                #print move.get_buttons()
-                # Triangle starts the game early
-                if move.get_buttons() == 128:
-                    start_teams = True
-
-                # Circle shows battery level
-                if move.get_buttons() == 32:
-                    battery = move.get_battery()
-
-                    if battery == 5: # 100% - green
-                        move.set_leds(0, 255, 0)
-                    elif battery == 4: # 80% - green-ish
-                        move.set_leds(128, 200, 0)
-                    elif battery == 3: # 60% - yellow
-                        move.set_leds(255, 255, 0)
-                    else: # <= 40% - red
-                        move.set_leds(255, 0, 0)
-
-                move.set_rumble(0)
-                move.update_leds()
-
-        # If we've got more/less moves, register them
-        if psmove.count_connected() != len(moves):
-            moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
-
-        # Everyone's in
-        #if (len(controllers_alive) == len(moves) and len(controllers_alive) > 0):
-        #    break
-
-
-        # Someone hit triangle
-        if (len(controllers_alive) >= 2 and start_ffa == True):
-            Joust()
-            break
-
-        if (len(controllers_alive) >= 2 and start_teams == True):
-            check = True
-            for move in controllers_alive:
-                if move not in controller_teams:
-                    check = False
-            if check:
-                Joust(teams=True)
-                break
-            else:
-                break
-
+          #      for serial, move in controllers_alive.items():
+           #         if serial not in available:
+            #            del controllers_alive[serial]

@@ -131,14 +131,16 @@ def track_controller(mov_array, dead, place, teams, speed):
                 move_last_values[i]  = total
 
 
-def Joust(cont_alive, cont_colors, teams=False):
-    global controllers_alive, audio, moves, controller_colours
+def Joust(cont_alive, cont_colors, team_cols=None, cont_teams=None, teams=False):
+    global controllers_alive, audio, moves, controller_colours, team_colors, controller_teams
     print "GAME START"
 
-    
+    moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
     controllers_alive = cont_alive
     controller_colours = cont_colors
-
+    team_colors = team_cols
+    controller_teams = cont_teams
+    
     print str(controller_colours)
     alive = controllers_alive.values()
     
@@ -246,10 +248,11 @@ def Joust(cont_alive, cont_colors, teams=False):
                 proc.join()
 
             print "WIN", serial
-            HSV = [(x*1.0/50, 0.9, 1) for x in range(50)]
-            colour_range = [[int(x) for x in common.hsv_to_rgb(*colour)] for colour in HSV]
+
             pause_time = time.time() + 3
             if not teams:
+                HSV = [(x*1.0/50, 0.9, 1) for x in range(50)]
+                colour_range = [[int(x) for x in common.hsv_to_rgb(*colour)] for colour in HSV]
                 serial, move = controllers_alive.items()[0]
                 while time.time() < pause_time:
                     move.set_leds(*colour_range[0])
@@ -261,6 +264,8 @@ def Joust(cont_alive, cont_colors, teams=False):
                     move.update_leds()
                     time.sleep(0.01)
             else:
+                HSV = [(x*1.0/(50*len(controllers_alive)), 0.9, 1) for x in range(50*len(controllers_alive))]
+                colour_range = [[int(x) for x in common.hsv_to_rgb(*colour)] for colour in HSV]
                 while time.time() < pause_time:
                     for win_move in moves:
                         if win_move.get_serial() in controller_teams:

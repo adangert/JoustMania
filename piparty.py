@@ -134,7 +134,8 @@ def start():
                     if move not in controller_teams:
                         check = False
                 if check:
-                    joust.Joust(controllers_alive, controller_colours, teams=True)
+                    joust.Joust(controllers_alive, controller_colours,
+                                team_cols=team_colors, cont_teams=controller_teams, teams=True)
                     controllers_alive = {}
                     break
                 else:

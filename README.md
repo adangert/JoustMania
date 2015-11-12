@@ -19,7 +19,7 @@ You will need the following to run PI party:
 5. a speaker, preferably portable
 6. as many playstation move controllers as you can handle
 
-Installation (setup.sh coming soon!)
+Installation
 ---------------------------
 
 1. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card (this has been tested with the Wheezy release)

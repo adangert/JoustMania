@@ -3,7 +3,7 @@ import psmove
 import numpy
 import random
 from oustpair import Oustpair
-from oustaudioblock import Oustaudioblock
+from piaudio import Audio
 from multiprocessing import Process, Value, Array
 import psutil, os
 import common
@@ -48,7 +48,7 @@ controller_teams = {}
 paired_controllers = []
 
 
-audio = Oustaudioblock()
+audio = Audio()
 
 
 # How fast/slow the music can go

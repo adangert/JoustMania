@@ -33,7 +33,7 @@ def audio_loop(file, ratio):
 
 
 # Start audio in seperate process to be non-blocking
-class Oustaudioblock:
+class Audio:
     def __init__(self):
         self.chunk = 2048
 

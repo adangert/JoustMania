@@ -3,7 +3,6 @@ import psmove
 import numpy
 import random
 from oustpair import Oustpair
-from oustaudioblock import Oustaudioblock
 from multiprocessing import Process, Value, Array
 from enum import Enum
 import psutil, os

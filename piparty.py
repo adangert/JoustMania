@@ -15,7 +15,6 @@ import common
 # The selection needs to be made into multiprocessing for 10+ controllers
 
 
-
 def regenerate_colours():
     global HSV, colour_range, controller_colours
     HSV = [(x*1.0/len(moves), 1, 1) for x in range(len(moves))]
@@ -29,6 +28,7 @@ def team_colors():
     team_colors = [colour_range[i] for i in range(6)]
 
 # TODO: INSTEAD OF TAKING IN GLOBAL, TAKE IN VARS AND RETURN THE CONTROLLER TEAMS
+#Might not need this funct anymore
 def change_team(move):
     global HSV, colour_range, controller_teams, team_colors
     if move.get_serial() in controller_teams:
@@ -41,56 +41,79 @@ def change_team(move):
 
 #TODO: This function needs to manage the controller
 #TIPLE TUPLE FOR ALL OPTIONS?
-def track_controller():
+
+#OPTS:
+#0. ON OFF
+#1. BUTTON SELECTION
+#2. HOLDING BUTTON
+#3. TEAM
+#4. GAME MODE
+
+#BUTTONS:
+#1. start game
+#2. change game
+
+#GAME MODES:
+#0. FFA
+#1. TEAMS
+def track_controller(move_copy, opts):
+    global team_colors
+    move = None
+    for move_num in range(psmove.count_connected()):
+        move = psmove.PSMove(move_num)
+        if move.get_serial() == move_copy.get_serial():
+            break
     while True:
-        if move.get_serial() in controllers_alive:
-            if move.get_serial() not in controller_teams:
+        if move.poll():
+            if opts[4] == 0:
                 move.set_leds(255,255,255)
-            else:
-                move.set_leds(*team_colors[controller_teams[move.get_serial()][0]])
-        else:
-            move.set_leds(0,0,0)
+            elif opts[4] == 1:
+                move.set_leds(*team_colors[opts[3]])
 
-        if move.get_buttons() == 0:
-            if move.get_serial() in controller_teams:
-                controller_teams[move.get_serial()][1] = True
+            if move.get_buttons() == 0:
+                opts[2] = 0
 
-        # middle button changes team
-        if move.get_buttons() == 524288:
-            change_team(move)
+            # middle button changes team
+            if move.get_buttons() == 524288:
+                if (opts[4] == 1 and opts[2] == 0):
+                    opts[2] = 1
+                    opts[3] = (opts[3]+1)%6
 
-        # Triangle starts the game early
-        if move.get_buttons() == 16:
-            start_ffa = True
+            # start button starts the game
+            if move.get_buttons() == 2048:
+                if(opts[2] == 0):
+                    opts[2] = 1
+                    opts[1] = 1
 
-        #print move.get_buttons()
-        # Triangle starts the game early
-        if move.get_buttons() == 128:
-            start_teams = True
+            # select button changes game type
+            if move.get_buttons() == 256:
+                if(opts[2] == 0):
+                    opts[2] = 1
+                    opts[1] = 2
 
-        # Circle shows battery level
-        if move.get_buttons() == 32:
-            battery = move.get_battery()
+            # Circle shows battery level
+            if move.get_buttons() == 32:
+                battery = move.get_battery()
 
-            if battery == 5: # 100% - green
-                move.set_leds(0, 255, 0)
-            elif battery == 4: # 80% - green-ish
-                move.set_leds(128, 200, 0)
-            elif battery == 3: # 60% - yellow
-                move.set_leds(255, 255, 0)
-            else: # <= 40% - red
-                move.set_leds(255, 0, 0)
+                if battery == 5: # 100% - green
+                    move.set_leds(0, 255, 0)
+                elif battery == 4: # 80% - green-ish
+                    move.set_leds(128, 200, 0)
+                elif battery == 3: # 60% - yellow
+                    move.set_leds(255, 255, 0)
+                else: # <= 40% - red
+                    move.set_leds(255, 0, 0)
 
-        move.set_rumble(0)
-        move.update_leds()
+            move.set_rumble(0)
+            move.update_leds()
 
  
 def start():
-    global moves, controllers_alive
+    global moves, controllers_alive, current_game
     while True:
-        start_ffa = False
-        start_teams = False
+        start_game = False
         controller_procs = []
+        controller_opts = []
         while True:
             for move in moves:
                 if move.this == None:
@@ -109,16 +132,34 @@ def start():
                     move.set_leds(255,255,255)
                     move.update_leds()
                     continue
-
-                if move.poll():
-                    # If the trigger is pulled, join the game
-                    if move.get_serial() not in controllers_alive:
+                
+                # If the trigger is pulled, join the game
+                if move.get_serial() not in controllers_alive:
+                    if move.poll():
                         if move.get_trigger() > 100:
                             controllers_alive[move.get_serial()] = move
-                            p = Process(target=track_controller, args=())
+                            opts = Array('i', range(5))
+                            p = Process(target=track_controller, args=(move, opts))
                             p.start()
                             controller_procs.append(p)
+                            controller_opts.append(opts)
 
+            for opt in controller_opts:
+                if opt[1] == 2:
+                    if (current_game == Games.JoustFFA):
+                        current_game = Games.JoustTeams
+                    elif (current_game == Games.JoustTeams):
+                        current_game = Games.JoustFFA
+                    opt[1] == 0
+                if opt[1] == 1:
+                    start_game = True
+                    opt[1] = 0
+                              
+                if (current_game == Games.JoustFFA):
+                    opt[4] = 0
+                elif (current_game == Games.JoustTeams):
+                    opt[4] = 1
+                
 
             # If we've got more/less moves, register them
             if psmove.count_connected() != len(moves):
@@ -128,23 +169,24 @@ def start():
             #added mid game, need to look into this
             #TODO: need to remove multi-processed controllers before game starts
             # Someone hit triangle
-            if (len(controllers_alive) >= 2 and start_ffa == True):
-                joust.Joust(controllers_alive, controller_colours)
-                controllers_alive = {}
-                break
-
-            if (len(controllers_alive) >= 2 and start_teams == True):
-                check = True
-                for move in controllers_alive:
-                    if move not in controller_teams:
-                        check = False
-                if check:
-                    joust.Joust(controllers_alive, controller_colours,
-                                team_cols=team_colors, cont_teams=controller_teams, teams=True)
+            if (len(controllers_alive) >= 2 and start_game == True):
+                if (current_game == Games.JoustFFA):
+                    joust.Joust(controllers_alive, controller_colours)
                     controllers_alive = {}
                     break
-                else:
-                    break
+
+                if (current_game == Games.JoustTeams):
+                    check = True
+                    for move in controllers_alive:
+                        if move not in controller_teams:
+                            check = False
+                    if check:
+                        joust.Joust(controllers_alive, controller_colours,
+                                    team_cols=team_colors, cont_teams=controller_teams, teams=True)
+                        controllers_alive = {}
+                        break
+                    else:
+                        break
 
 
 if __name__ == "__main__":

@@ -66,8 +66,10 @@ def track_controller(move_copy, opts):
     while True:
         if move.poll():
             if opts[4] == 0:
+                #print 'ops is 0'
                 move.set_leds(255,255,255)
             elif opts[4] == 1:
+                #print 'ops is 1'
                 move.set_leds(*team_colors[opts[3]])
 
             if move.get_buttons() == 0:
@@ -87,6 +89,7 @@ def track_controller(move_copy, opts):
 
             # select button changes game type
             if move.get_buttons() == 256:
+
                 if(opts[2] == 0):
                     opts[2] = 1
                     opts[1] = 2
@@ -114,6 +117,7 @@ def start():
         start_game = False
         controller_procs = []
         controller_opts = []
+        controllers = []
         while True:
             for move in moves:
                 if move.this == None:
@@ -138,11 +142,13 @@ def start():
                     if move.poll():
                         if move.get_trigger() > 100:
                             controllers_alive[move.get_serial()] = move
-                            opts = Array('i', range(5))
+
+                            opts = Array('i', [0] * 5)
                             p = Process(target=track_controller, args=(move, opts))
                             p.start()
                             controller_procs.append(p)
                             controller_opts.append(opts)
+                            controllers.append(move)
 
             for opt in controller_opts:
                 if opt[1] == 2:
@@ -150,16 +156,14 @@ def start():
                         current_game = Games.JoustTeams
                     elif (current_game == Games.JoustTeams):
                         current_game = Games.JoustFFA
-                    opt[1] == 0
+                    opt[1] = 0
                 if opt[1] == 1:
                     start_game = True
                     opt[1] = 0
-                              
                 if (current_game == Games.JoustFFA):
                     opt[4] = 0
                 elif (current_game == Games.JoustTeams):
                     opt[4] = 1
-                
 
             # If we've got more/less moves, register them
             if psmove.count_connected() != len(moves):
@@ -170,6 +174,17 @@ def start():
             #TODO: need to remove multi-processed controllers before game starts
             # Someone hit triangle
             if (len(controllers_alive) >= 2 and start_game == True):
+                print 'start_game is ' + str(start_game)
+                for move_num in range(len(controllers_alive)):
+                    #TODO: need better solution for this
+                    #TODO: THIS NEED TO BE UPDATED
+                    #TODO: NO SAVED STATE BETWEEN GAMES
+                    controller_teams[controllers[move_num].get_serial()] = [0, False]
+                    controller_teams[controllers[move_num].get_serial()][0] = controller_opts[move_num][3]
+                    controller_teams[controllers[move_num].get_serial()][1] = False
+                for proc in controller_procs:
+                    proc.terminate()
+                    proc.join()
                 if (current_game == Games.JoustFFA):
                     joust.Joust(controllers_alive, controller_colours)
                     controllers_alive = {}

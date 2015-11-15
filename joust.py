@@ -275,7 +275,12 @@ def Joust(cont_alive, cont_colors, team_cols=None, cont_teams=None, teams=False)
                                 win_move.set_leds(0, 0, 0)
                                 win_move.update_leds()
                     time.sleep(0.01)
-
+            #resets the color and rumble of all controllers
+            for reset_move in moves:
+                reset_move.set_rumble(0)
+                reset_move.poll()
+                reset_move.set_leds(0, 0, 0)
+                reset_move.update_leds()
             running = False
             controllers_alive = {}
             audio.stop_audio()

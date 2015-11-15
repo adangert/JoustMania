@@ -43,13 +43,8 @@ ffa_colors = {}
 
 controllers_alive = {}
 controller_teams = {}
-
-
 paired_controllers = []
-
-
 audio = Audio()
-
 
 # How fast/slow the music can go
 slow_speed = 1.5
@@ -66,7 +61,7 @@ max_slow = 23
 change_time = 1.5
 
 #Sensitivity of the contollers
-slow_max = 0.7
+slow_max = 0.8
 slow_warning = 0.28
 fast_max = 1.5
 fast_warning = 0.8
@@ -123,7 +118,7 @@ def track_controller(mov_array, dead, place, teams, speed):
                         if not teams:
                             move.set_leds(*ffa_colors[move.get_serial()])
                         else:
-                            move.set_leds(*team_colors[controller_teams[move.get_serial()][0]])
+                            move.set_leds(*team_colors[controller_teams[move.get_serial()]])
                         move.set_rumble(0)
                         move.update_leds()
 
@@ -144,7 +139,6 @@ def Joust(cont_alive, cont_colors, team_cols=None, cont_teams=None, teams=False)
     print str(ffa_colors)
     alive = controllers_alive.values()
     
-
     # White
     sleep_controllers(sleep=0.5, leds=(255,255,255), rumble=0, moves=alive)
     # White/rumble
@@ -204,6 +198,7 @@ def Joust(cont_alive, cont_colors, team_cols=None, cont_teams=None, teams=False)
         processes.append(p)
 
     while running:
+        #TODO these should probably be in their own method as well
         if time.time() > event_time and slow and not change_speed:
             slow = False
             fast = True
@@ -269,7 +264,7 @@ def Joust(cont_alive, cont_colors, team_cols=None, cont_teams=None, teams=False)
                 while time.time() < pause_time:
                     for win_move in moves:
                         if win_move.get_serial() in controller_teams:
-                            if controller_teams[win_move.get_serial()][0] == team_win:
+                            if controller_teams[win_move.get_serial()] == team_win:
                                 #print 'the winner is ' + win_move.get_serial()
                                 win_move.set_leds(*colour_range[0])
                                 colour_range.append(colour_range.pop(0))

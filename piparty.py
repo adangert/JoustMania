@@ -16,13 +16,13 @@ import common
 
 
 def regenerate_colours():
-    global HSV, colour_range, controller_colours
+    global HSV, colour_range, ffa_colors
     HSV = [(x*1.0/len(moves), 1, 1) for x in range(len(moves))]
     colour_range = [[int(x) for x in common.hsv_to_rgb(*colour)] for colour in HSV]
-    controller_colours = {move.get_serial(): colour_range[i] for i, move in enumerate(moves)}
+    ffa_colors = {move.get_serial(): colour_range[i] for i, move in enumerate(moves)}
 
 def team_colors():
-    global HSV, colour_range, controller_colours, team_colors
+    global HSV, colour_range, ffa_colors, team_colors
     HSV = [(x*1.0/6.0, 1, 1) for x in range(6)]
     colour_range = [[int(x) for x in common.hsv_to_rgb(*colour)] for colour in HSV]
     team_colors = [colour_range[i] for i in range(6)]
@@ -132,6 +132,8 @@ def start():
                             controllers_alive[move.get_serial()] = move
 
                             opts = Array('i', [0] * 5)
+                            if move.get_serial() in controller_teams:
+                                opts[3] = controller_teams[move.get_serial()]
                             p = Process(target=track_controller, args=(move, opts))
                             p.start()
                             controller_procs.append(p)
@@ -166,12 +168,12 @@ def start():
                     #TODO: need better solution for this
                     #TODO: THIS NEED TO BE UPDATED
                     #TODO: NO SAVED STATE BETWEEN GAMES
-                    controller_teams[move_serial] = controller_opts[move_serial]
+                    controller_teams[move_serial] = controller_opts[move_serial][3]
                 for proc in controller_procs:
                     proc.terminate()
                     proc.join()
                 if (current_game == Games.JoustFFA):
-                    joust.Joust(controllers_alive, controller_colours)
+                    joust.Joust(controllers_alive, ffa_colors)
                     controllers_alive = {}
                     break
 
@@ -181,7 +183,7 @@ def start():
                         if move not in controller_teams:
                             check = False
                     if check:
-                        joust.Joust(controllers_alive, controller_colours,
+                        joust.Joust(controllers_alive, ffa_colors,
                                     team_cols=team_colors, cont_teams=controller_teams, teams=True)
                         controllers_alive = {}
                         break
@@ -200,7 +202,7 @@ if __name__ == "__main__":
 
     controllers_alive = {}
 
-    controller_colours = {}
+    ffa_colors = {}
     
     
     team_colors()

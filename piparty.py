@@ -46,12 +46,17 @@ def team_colors():
 #1. TEAMS
 def track_controller(move_copy, opts):
     global team_colors
+    print 'starting tracking'
+    proc = psutil.Process(os.getpid())
+    proc.nice(20)
     move = None
     for move_num in range(psmove.count_connected()):
         move = psmove.PSMove(move_num)
         if move.get_serial() == move_copy.get_serial():
             break
     while True:
+        #time.sleep(0.01)
+        #print 'tracking ' + str(move.get_serial())
         if move.poll():
             if opts[4] == 0:
                 #print 'ops is 0'
@@ -98,10 +103,11 @@ def track_controller(move_copy, opts):
             move.set_rumble(0)
             move.update_leds()
 
- 
+#TODO: CONTROLLERS TAKING FOREVER TO CONNECT
 def start():
     global moves, controllers_alive, current_game
     while True:
+        print 'starting game loop'
         start_game = False
         controller_procs = []
         controller_opts = {}
@@ -112,7 +118,9 @@ def start():
                     print "Move initialisation failed, reinitialising"
                     moves = []
                     break
-
+                if move.get_serial() in controllers_alive:
+                    continue
+                #print 'doing move' + str(move.get_serial())
                 # If a controller is plugged in over USB, pair it and turn it white
                 # This appears to occasionally kernel panic raspbian!
                 if move.connection_type == psmove.Conn_USB:
@@ -126,18 +134,19 @@ def start():
                     continue
                 
                 # If the trigger is pulled, join the game
-                if move.get_serial() not in controllers_alive:
-                    if move.poll():
-                        if move.get_trigger() > 100:
-                            controllers_alive[move.get_serial()] = move
+                if move.poll():
+                    #print 'doing pool on ' +str(move.get_serial())
+                    if move.get_trigger() > 100:
+                        #print 'BOBOBOBO'
+                        controllers_alive[move.get_serial()] = move
 
-                            opts = Array('i', [0] * 5)
-                            if move.get_serial() in controller_teams:
-                                opts[3] = controller_teams[move.get_serial()]
-                            p = Process(target=track_controller, args=(move, opts))
-                            p.start()
-                            controller_procs.append(p)
-                            controller_opts[move.get_serial()] = opts
+                        opts = Array('i', [0] * 5)
+                        if move.get_serial() in controller_teams:
+                            opts[3] = controller_teams[move.get_serial()]
+                        p = Process(target=track_controller, args=(move, opts))
+                        p.start()
+                        controller_procs.append(p)
+                        controller_opts[move.get_serial()] = opts
 
             for key, opt in controller_opts.iteritems():
                 if opt[1] == 2:
@@ -156,6 +165,7 @@ def start():
 
             # If we've got more/less moves, register them
             if psmove.count_connected() != len(moves):
+                print 'registereing moves'
                 moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
 
             #TODO: controllers_alive doesn't have all controllers after some have been

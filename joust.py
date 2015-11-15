@@ -30,16 +30,16 @@ def lerp(a, b, p):
 
 def check_team_win():
     global controllers_alive, controller_teams
-    team_to_check = controller_teams[controllers_alive.keys()[0]][0]
+    team_to_check = controller_teams[controllers_alive.keys()[0]]
     for con in controllers_alive:
-        if controller_teams[con][0] != team_to_check:
+        if controller_teams[con] != team_to_check:
             return -1
     return team_to_check
 
 
 #These will need to be passed in from PiParty
 HSV = colour_range = []
-controller_colours = {}
+ffa_colors = {}
 
 controllers_alive = {}
 controller_teams = {}
@@ -75,7 +75,7 @@ fast_warning = 0.8
 #OR SHOULD THERE BE ANOTHER MODULE FOR ALL OF THAT?
 
 def track_controller(mov_array, dead, place, teams, speed):
-    global controller_colors, team_colors, controller_teams
+    global ffa_colors, team_colors, controller_teams
     proc = psutil.Process(os.getpid())
     proc.nice(-3)
     moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
@@ -110,7 +110,7 @@ def track_controller(mov_array, dead, place, teams, speed):
 
                     # Warn
                     elif change > warning:
-                        #scaled = [int(v*0.3) for v in controller_colours[move.get_serial()]]
+                        #scaled = [int(v*0.3) for v in ffa_colors[move.get_serial()]]
                         #move.set_leds(*scaled)
                         move.set_leds(20,50,100)
                         move.set_rumble(110)
@@ -121,7 +121,7 @@ def track_controller(mov_array, dead, place, teams, speed):
                         #print str(moves[i].get_leds())
                         #move.set_leds(255,0,0)
                         if not teams:
-                            move.set_leds(*controller_colours[move.get_serial()])
+                            move.set_leds(*ffa_colors[move.get_serial()])
                         else:
                             move.set_leds(*team_colors[controller_teams[move.get_serial()][0]])
                         move.set_rumble(0)
@@ -132,16 +132,16 @@ def track_controller(mov_array, dead, place, teams, speed):
 
 
 def Joust(cont_alive, cont_colors, team_cols=None, cont_teams=None, teams=False):
-    global controllers_alive, audio, moves, controller_colours, team_colors, controller_teams
+    global controllers_alive, audio, moves, ffa_colors, team_colors, controller_teams
     print "GAME START"
-
+    #TODO: all setup should be moved to it's own function
     moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
     controllers_alive = cont_alive
-    controller_colours = cont_colors
+    ffa_colors = cont_colors
     team_colors = team_cols
     controller_teams = cont_teams
     
-    print str(controller_colours)
+    print str(ffa_colors)
     alive = controllers_alive.values()
     
 
@@ -159,7 +159,7 @@ def Joust(cont_alive, cont_colors, team_cols=None, cont_teams=None, teams=False)
     # Individual colours
     for serial, move in controllers_alive.items():
         print 'serial is ' + str(serial) + 'move is ' + str(move)
-        move.set_leds(*controller_colours[move.get_serial()])
+        move.set_leds(*ffa_colors[move.get_serial()])
 
     move_last_values = {}
 

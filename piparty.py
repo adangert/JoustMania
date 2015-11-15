@@ -27,18 +27,6 @@ def team_colors():
     colour_range = [[int(x) for x in common.hsv_to_rgb(*colour)] for colour in HSV]
     team_colors = [colour_range[i] for i in range(6)]
 
-# TODO: INSTEAD OF TAKING IN GLOBAL, TAKE IN VARS AND RETURN THE CONTROLLER TEAMS
-#Might not need this funct anymore
-def change_team(move):
-    global HSV, colour_range, controller_teams, team_colors
-    if move.get_serial() in controller_teams:
-        if controller_teams[move.get_serial()][1] == True:
-            controller_teams[move.get_serial()][0] = (controller_teams[move.get_serial()][0] + 1) % 6
-            controller_teams[move.get_serial()][1] = False
-    else:
-        controller_teams[move.get_serial()] = [0, True]
-
-
 #TODO: This function needs to manage the controller
 #TIPLE TUPLE FOR ALL OPTIONS?
 
@@ -116,8 +104,8 @@ def start():
     while True:
         start_game = False
         controller_procs = []
-        controller_opts = []
-        controllers = []
+        controller_opts = {}
+        #controllers = []
         while True:
             for move in moves:
                 if move.this == None:
@@ -147,10 +135,9 @@ def start():
                             p = Process(target=track_controller, args=(move, opts))
                             p.start()
                             controller_procs.append(p)
-                            controller_opts.append(opts)
-                            controllers.append(move)
+                            controller_opts[move.get_serial()] = opts
 
-            for opt in controller_opts:
+            for key, opt in controller_opts.iteritems():
                 if opt[1] == 2:
                     if (current_game == Games.JoustFFA):
                         current_game = Games.JoustTeams
@@ -175,13 +162,11 @@ def start():
             # Someone hit triangle
             if (len(controllers_alive) >= 2 and start_game == True):
                 print 'start_game is ' + str(start_game)
-                for move_num in range(len(controllers_alive)):
+                for move_serial in controllers_alive:
                     #TODO: need better solution for this
                     #TODO: THIS NEED TO BE UPDATED
                     #TODO: NO SAVED STATE BETWEEN GAMES
-                    controller_teams[controllers[move_num].get_serial()] = [0, False]
-                    controller_teams[controllers[move_num].get_serial()][0] = controller_opts[move_num][3]
-                    controller_teams[controllers[move_num].get_serial()][1] = False
+                    controller_teams[move_serial] = controller_opts[move_serial]
                 for proc in controller_procs:
                     proc.terminate()
                     proc.join()

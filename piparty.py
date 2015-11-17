@@ -8,6 +8,7 @@ from enum import Enum
 import psutil, os
 import joust
 import common
+from random import randint
 
 
 # This module should only be for selecting game modes/options for the game/starting a game
@@ -44,11 +45,13 @@ def team_colors():
 #GAME MODES:
 #0. FFA
 #1. TEAMS
+
+#TODO: NEED TO PUSH TRIGGER TO BE IN THE GAME
 def track_controller(move_copy, opts):
-    global team_colors
+    global team_colors, ffa_colors
     print 'starting tracking'
     proc = psutil.Process(os.getpid())
-    proc.nice(20)
+    proc.nice(10)
     move = None
     for move_num in range(psmove.count_connected()):
         move = psmove.PSMove(move_num)
@@ -60,7 +63,8 @@ def track_controller(move_copy, opts):
         if move.poll():
             if opts[4] == 0:
                 #print 'ops is 0'
-                move.set_leds(255,255,255)
+                move.set_leds(*ffa_colors[move.get_serial()])
+                #move.set_leds(255,255,255)
             elif opts[4] == 1:
                 #print 'ops is 1'
                 move.set_leds(*team_colors[opts[3]])
@@ -103,15 +107,17 @@ def track_controller(move_copy, opts):
             move.set_rumble(0)
             move.update_leds()
 
-#TODO: CONTROLLERS TAKING FOREVER TO CONNECT
+#TODO: INSTEAD OF INITIALIZING THE CONTROLLERS HERE AND TAKING A WHILE:
+# SEND IN AN INT TO TRACK_CONTROLLER AND INITIALIZE THE CONTROLLERS THERE
 def start():
     global moves, controllers_alive, current_game
+    proc = psutil.Process(os.getpid())
+    proc.nice(-10)
     while True:
         print 'starting game loop'
         start_game = False
         controller_procs = []
         controller_opts = {}
-        #controllers = []
         while True:
             for move in moves:
                 if move.this == None:
@@ -132,21 +138,19 @@ def start():
                     move.set_leds(255,255,255)
                     move.update_leds()
                     continue
-                
-                # If the trigger is pulled, join the game
-                if move.poll():
-                    #print 'doing pool on ' +str(move.get_serial())
-                    if move.get_trigger() > 100:
-                        #print 'BOBOBOBO'
-                        controllers_alive[move.get_serial()] = move
+                else:
+                    regenerate_colours()
+                    controllers_alive[move.get_serial()] = move
 
-                        opts = Array('i', [0] * 5)
-                        if move.get_serial() in controller_teams:
-                            opts[3] = controller_teams[move.get_serial()]
-                        p = Process(target=track_controller, args=(move, opts))
-                        p.start()
-                        controller_procs.append(p)
-                        controller_opts[move.get_serial()] = opts
+                    opts = Array('i', [0] * 5)
+                    if move.get_serial() in controller_teams:
+                        opts[3] = controller_teams[move.get_serial()]
+                    else:
+                        opts[3] = randint(0,6) 
+                    p = Process(target=track_controller, args=(move, opts))
+                    p.start()
+                    controller_procs.append(p)
+                    controller_opts[move.get_serial()] = opts
 
             for key, opt in controller_opts.iteritems():
                 if opt[1] == 2:
@@ -174,6 +178,7 @@ def start():
             # Someone hit triangle
             if (len(controllers_alive) >= 2 and start_game == True):
                 print 'start_game is ' + str(start_game)
+                regenerate_colours()
                 for move_serial in controllers_alive:
                     #TODO: need better solution for this
                     #TODO: THIS NEED TO BE UPDATED

@@ -17,3 +17,6 @@ mkdir build
 cd build
 cmake ..
 make -j4
+
+#Pip installs
+sudo pip install bluetooth

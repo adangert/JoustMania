@@ -1,12 +1,25 @@
 import os
 import psmove
-import bluetooth
 import pair
 from multiprocessing import Process, Value, Array
 
 
+def get_move(serial, move_num):
+    move = psmove.PSMove(move_num)
+    if move.get_serial() != serial:
+        for move_num in range(psmove.count_connected()):
+            move = psmove.PSMove(move_num)
+            if move.get_serial() == serial:
+                return move
+        return None
+    else:
+        return move
+
+
 def track_move(serial, move_num, opts):
-    pass
+    move = get_move(serial, move_num)
+    move.set_leds(255,255,255)
+    move.update_leds()
 
 
 class menu():
@@ -22,6 +35,12 @@ class menu():
         
         self.game_loop()
 
+    def scan_moves():
+        pass
+
+    def check_for_new_moves(self):
+        if psmove.count_connected() != self.move_count:
+            self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
         
     def pair_move(self, move, move_num):
         move_serial = move.get_serial()
@@ -42,12 +61,18 @@ class menu():
         pass
 
     def start_game(self):
+        pass
 
     def game_loop(self):
         #need to turn on search for BT
         while True:
-            for move_num, move in enumerate(moves):
-                self.pair_move(move, move_num)
+            if psmove.count_connected() != len(self.tracked_moves):
+                for move_num, move in enumerate(self.moves):
+                    self.pair_move(move, move_num)
+
+            self.check_for_new_moves()
+                    
+
                 
                     
     

@@ -1,28 +1,39 @@
 import os
 import psmove
 import pair
+import common
+from enum import Enum
 from multiprocessing import Process, Value, Array
 
+class Opts(Enum):
+    alive = 0
+    selection = 1
+    holding = 2
+    team = 3
+    game_mode = 4
 
-def get_move(serial, move_num):
-    move = psmove.PSMove(move_num)
-    if move.get_serial() != serial:
-        for move_num in range(psmove.count_connected()):
-            move = psmove.PSMove(move_num)
-            if move.get_serial() == serial:
-                return move
-        return None
-    else:
-        return move
+class Games(Enum):
+    JoustFFA = 0
+    JoustTeams = 1
+    JoustRandomTeams = 2
+    WereJoust = 3
+    Zombies = 4
 
 
 def track_move(serial, move_num, opts):
-    move = get_move(serial, move_num)
+    move = common.get_move(serial, move_num)
     move.set_leds(255,255,255)
     move.update_leds()
+    while True:
+        if move.poll():
+            game_mode = opts[Opts.game_mode]
+            if game_mode == Games.JoustFFA:
+                move.set_leds(10,10,10)
+                
+        move.update_leds()
+            
 
-
-class menu():
+class Menu():
     def __init__(self):
         self.move_count = psmove.count_connected()
         self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
@@ -77,4 +88,4 @@ class menu():
                     
     
 if __name__ == "__main__":
-    piparty = menu()
+    piparty = Menu()

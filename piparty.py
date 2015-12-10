@@ -50,10 +50,23 @@ class Menu():
         pass
 
     def check_for_new_moves(self):
-        bt_moves = os.popen("hcitool dev | grep hci | awk '{print $1}'").read().split('\n')
-        bt_moves = filter(None, bt_moves)
+        self.enable_bt_scanning(True)
+        #need to start tracking of new moves in here
         if psmove.count_connected() != self.move_count:
             self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
+            self.move_count = len(self.moves)
+
+    def enable_bt_scanning(self, on=True):
+        scan_cmd = "hciconfig {0} {1}"
+        if on:
+            scan = "pscan"
+        else:
+            scan = "noscan"
+        bt_hcis = os.popen("hcitool dev | grep hci | awk '{print $1}'").read().split('\n')
+        bt_hcis = filter(None, bt_hcis)
+        for hci in bt_hcis:
+            scan_enabled = os.popen(scan_cmd.format(hci, scan)).read()
+            print scan_enabled
         
         
     def pair_move(self, move, move_num):

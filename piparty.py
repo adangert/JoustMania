@@ -50,8 +50,11 @@ class Menu():
         pass
 
     def check_for_new_moves(self):
+        bt_moves = os.popen("hcitool dev | grep hci | awk '{print $1}'").read().split('\n')
+        bt_moves = filter(None, bt_moves)
         if psmove.count_connected() != self.move_count:
             self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
+        
         
     def pair_move(self, move, move_num):
         move_serial = move.get_serial()

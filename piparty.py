@@ -66,8 +66,6 @@ class Menu():
         bt_hcis = filter(None, bt_hcis)
         for hci in bt_hcis:
             scan_enabled = os.popen(scan_cmd.format(hci, scan)).read()
-            print scan_enabled
-        
         
     def pair_move(self, move, move_num):
         move_serial = move.get_serial()
@@ -88,7 +86,7 @@ class Menu():
         pass
 
     def start_game(self):
-        pass
+        enable_bt_scanning(False)
 
     def game_loop(self):
         #need to turn on search for BT

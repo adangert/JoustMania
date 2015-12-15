@@ -9,7 +9,6 @@ def hsv2rgb(h, s, v):
 def generate_colors(color_num):
     Hue = [ ((num + 1.0)/color_num, 1, 1) for num in range(color_num) ]
     colors = [ hsv2rgb(*hsv_color) for hsv_color in Hue ]
-    print str(colors)
     return colors
 
 

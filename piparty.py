@@ -5,12 +5,11 @@ import common
 from enum import Enum
 from multiprocessing import Process, Value, Array
 
-class Opts(Enum):
-    alive = 0
-    selection = 1
-    holding = 2
-    team = 3
-    game_mode = 4
+TEAM_NUM = 6
+TEAM_COLORS = common.generate_colors(TEAM_NUM)
+
+#the number of game modes
+GAME_MODES = 6
 
 class Games(Enum):
     JoustFFA = 0
@@ -19,17 +18,67 @@ class Games(Enum):
     WereJoust = 3
     Zombies = 4
 
+class Opts(Enum):
+    alive = 0
+    selection = 1
+    holding = 2
+    team = 3
+    game_mode = 4
 
-def track_move(serial, move_num, opts):
+class Selections(Enum):
+    nothing = 0
+    change_mode = 1
+    start_game = 2
+
+class Holding(Enum):
+    not_holding = 0
+    holding = 1
+
+
+
+#These buttons are based off of
+#The mapping of PS Move controllers
+class Buttons(Enum):
+    middle = 524288
+    start = 2048
+    select = 256
+    circle = 32
+    nothing = 0
+
+def track_move(serial, move_num, move_opts):
     move = common.get_move(serial, move_num)
     move.set_leds(255,255,255)
     move.update_leds()
+    
     while True:
         if move.poll():
-            game_mode = opts[Opts.game_mode]
+            game_mode = move_opts[Opts.game_mode]
+            move_button = move.get_buttons()
+            
             if game_mode == Games.JoustFFA:
-                move.set_leds(10,10,10)
+                move.set_leds(255,255,255)
                 
+            elif game_mode == Games.JoustTeams:
+                move.set_leds(*TEAM_COLORS[move_opts[Opts.team]])
+                if move_button == Buttons.middle:
+                    #allow players to increase their own team
+                    if move_opts[Opts.holding] == Holding.not_holding:
+                        move_opts[Opts.team] = (move_opts[Opts.team] + 1) % TEAM_NUM
+                        move_opts[Opts.holding] = Holding.holding
+
+
+            if move_opts[Opts.holding] == Holding.not_holding:
+                if move_button == Buttons.select:
+                    move_opts[Opts.selection] = Selections.change_mode
+                    move_opts[Opts.holding] = Holding.holding
+
+                
+
+            if move_button == Buttons.nothing:
+                move_opts[Opts.holding] = Holding.not_holding
+
+                
+            
         move.update_leds()
             
 
@@ -41,6 +90,7 @@ class Menu():
         self.tracked_moves = {}
         self.paired_moves = []
         self.move_opts = {}
+        self.game_mode = Games.JoustFFA
         
         self.pair = pair.Pair()
         
@@ -80,6 +130,7 @@ class Menu():
                 #now start tracking the move controller
                 proc = Process(target=track_move, args=(move_serial, move_num, opts))
                 proc.start()
+                self.move_opts[move_serial] = opts
                 self.tracked_moves[move_serial] = proc
     
     def change_game(self):
@@ -87,6 +138,14 @@ class Menu():
 
     def start_game(self):
         enable_bt_scanning(False)
+
+    def check_change_mode(self):
+        for move_opt in self.move_opts.itervalues():
+            if move_opt[Opts.selection] == Selections.change_mode:
+                self.game_mode = (self.game_mode + 1) %  GAME_MODES
+                move_opt[Opts.selection] = Selections.nothing
+                for opt in self.move_opts.itervalues():
+                    opt[Opts.game_mode] = self.game_mode
 
     def game_loop(self):
         #need to turn on search for BT
@@ -96,6 +155,8 @@ class Menu():
                     self.pair_move(move, move_num)
 
             self.check_for_new_moves()
+            self.check_change_mode()
+            
                     
 
                 

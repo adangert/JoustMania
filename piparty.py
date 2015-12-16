@@ -72,7 +72,7 @@ def track_move(serial, move_num, move_opts):
                     move_opts[Opts.selection] = Selections.change_mode
                     move_opts[Opts.holding] = Holding.holding
 
-                if move_button == Button.start:
+                if move_button == Buttons.start:
                     move_opts[Opts.selection] = Selections.start_game
                     move_opts[Opts.holding] = Holding.holding
 

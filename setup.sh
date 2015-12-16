@@ -18,5 +18,18 @@ cd build
 cmake ..
 make -j4
 
-#Pip installs
-sudo pip install bluetooth
+#installs supervisor for running piparty on startup
+sudo apt-get install -y supervisor
+sudo cp -r /home/pi/PiParty/supervisor/ /etc/
+
+#sets up sound card as primary sound device
+OLD='options snd-usb-audio index=-2'
+NEW='options snd-usb-audio index=0\noptions snd_bcm2835 index=-2'
+sudo sed -i -e "s/$OLD/$NEW/g" /etc/modprobe.d/alsa-base.conf
+
+#allows python path to be kept after sudo command
+OLD='env_reset'
+NEW='env_keep += "PYTHONPATH"'
+sudo sed -i -e "s/$OLD/$NEW/g" /etc/sudoers
+
+sudo reboot

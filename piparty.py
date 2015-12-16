@@ -2,6 +2,7 @@ import os
 import psmove
 import pair
 import common
+import joust
 from enum import Enum
 from multiprocessing import Process, Value, Array
 
@@ -33,7 +34,6 @@ class Selections(Enum):
 class Holding(Enum):
     not_holding = 0
     holding = 1
-
 
 
 #These buttons are based off of
@@ -72,12 +72,12 @@ def track_move(serial, move_num, move_opts):
                     move_opts[Opts.selection] = Selections.change_mode
                     move_opts[Opts.holding] = Holding.holding
 
-                
+                if move_button == Button.start:
+                    move_opts[Opts.selection] = Selections.start_game
+                    move_opts[Opts.holding] = Holding.holding
 
             if move_button == Buttons.nothing:
                 move_opts[Opts.holding] = Holding.not_holding
-
-                
             
         move.update_leds()
             
@@ -95,9 +95,6 @@ class Menu():
         self.pair = pair.Pair()
         
         self.game_loop()
-
-    def scan_moves():
-        pass
 
     def check_for_new_moves(self):
         self.enable_bt_scanning(True)
@@ -132,12 +129,6 @@ class Menu():
                 proc.start()
                 self.move_opts[move_serial] = opts
                 self.tracked_moves[move_serial] = proc
-    
-    def change_game(self):
-        pass
-
-    def start_game(self):
-        enable_bt_scanning(False)
 
     def check_change_mode(self):
         for move_opt in self.move_opts.itervalues():
@@ -156,11 +147,11 @@ class Menu():
 
             self.check_for_new_moves()
             self.check_change_mode()
-            
-                    
 
-                
-                    
+    def start_game(self):
+        enable_bt_scanning(False)
+            
+  
     
 if __name__ == "__main__":
     piparty = Menu()

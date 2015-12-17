@@ -147,9 +147,25 @@ class Menu():
 
             self.check_for_new_moves()
             self.check_change_mode()
+            self.check_start_game()
+
+    def stop_tracking_moves:
+        for proc in self.tracked_moves:
+            proc.terminate()
+            proc.join()
+
+    def check_start_game(self):
+        for move_opt in self.move_opts.itervalues():
+            if move_opt[Opts.selection] == Selections.start_game:
+                self.start_game()
 
     def start_game(self):
         enable_bt_scanning(False)
+        self.stop_tracking_moves()
+        game_moves = [move.get_serial() for move in self.moves]
+        if self.game_mode != Games.Zombies:
+            #may need to put in moves that have selected to not be in the game
+            joust.Joust(self.game_mode, game_moves)
             
   
     

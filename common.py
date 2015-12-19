@@ -22,3 +22,6 @@ def get_move(serial, move_num):
         return None
     else:
         return move
+
+def lerp(a, b, p):
+    return a*(1 - p) + b*p

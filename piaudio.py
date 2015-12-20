@@ -3,8 +3,8 @@ import wave
 import numpy
 import psutil, os
 import time
+import scipy.signal as signal
 from multiprocessing import Process, Value, Lock
-
 
 
 def audio_loop(file, ratio, end, fast_resample=True):
@@ -12,7 +12,7 @@ def audio_loop(file, ratio, end, fast_resample=True):
     proc = psutil.Process(os.getpid())
     proc.nice(-5)
     while True:
-        chunk = 2048
+        chunk = 2048/2
         wf = wave.open(file, 'rb')
         data = wf.readframes(chunk)
         p = pyaudio.PyAudio()
@@ -24,8 +24,9 @@ def audio_loop(file, ratio, end, fast_resample=True):
             frames_per_buffer = chunk)
         while data != '':
             #need to try locking here for multiprocessing
-            #array = numpy.fromstring(data, dtype=numpy.int16)
-            stream.write(data)
+            array = numpy.fromstring(data, dtype=numpy.int16)
+            data = signal.resample(array, chunk*ratio.value)
+            stream.write(data.astype(int).tostring())
             data = wf.readframes(chunk)
         
         stream.close()

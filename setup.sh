@@ -19,7 +19,7 @@ cmake ..
 make -j4
 
 #installs supervisor for running piparty on startup
-sudo apt-get install -y supervisor
+sudo apt-get install -y supervisor scipy
 sudo cp -r /home/pi/PiParty/supervisor/ /etc/
 
 #sets up sound card as primary sound device

@@ -25,3 +25,9 @@ def get_move(serial, move_num):
 
 def lerp(a, b, p):
     return a*(1 - p) + b*p
+
+def change_color(color_array, r, g, b):
+    color_array[0] = r
+    color_array[1] = g
+    color_array[2] = b
+    

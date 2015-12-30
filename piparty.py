@@ -12,13 +12,6 @@ TEAM_COLORS = common.generate_colors(TEAM_NUM)
 #the number of game modes
 GAME_MODES = 6
 
-class Games(Enum):
-    JoustFFA = 0
-    JoustTeams = 1
-    JoustRandomTeams = 2
-    WereJoust = 3
-    Zombies = 4
-
 class Opts(Enum):
     alive = 0
     selection = 1
@@ -55,10 +48,10 @@ def track_move(serial, move_num, move_opts):
             game_mode = move_opts[Opts.game_mode]
             move_button = move.get_buttons()
             
-            if game_mode == Games.JoustFFA:
+            if game_mode == common.Games.JoustFFA:
                 move.set_leds(255,255,255)
                 
-            elif game_mode == Games.JoustTeams:
+            elif game_mode == common.Games.JoustTeams:
                 move.set_leds(*TEAM_COLORS[move_opts[Opts.team]])
                 if move_button == Buttons.middle:
                     #allow players to increase their own team
@@ -90,7 +83,7 @@ class Menu():
         self.tracked_moves = {}
         self.paired_moves = []
         self.move_opts = {}
-        self.game_mode = Games.JoustFFA
+        self.game_mode = common.Games.JoustFFA
         
         self.pair = pair.Pair()
         
@@ -164,7 +157,7 @@ class Menu():
         self.enable_bt_scanning(False)
         self.stop_tracking_moves()
         game_moves = [move.get_serial() for move in self.moves]
-        if self.game_mode != Games.Zombies:
+        if self.game_mode != common.Games.Zombies:
             #may need to put in moves that have selected to not be in the game
             joust.Joust(self.game_mode, game_moves)
             self.tracked_moves = {}

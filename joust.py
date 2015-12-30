@@ -29,6 +29,9 @@ FAST_WARNING = 0.8
 #How long the speed change takes
 INTERVAL_CHANGE = 1.5
 
+#How long the winning moves shall sparkle
+END_GAME_PAUSE = 4
+
 class Games(Enum):
     JoustFFA = 0
     JoustTeams = 1
@@ -64,7 +67,7 @@ def track_move(move_serial, move_num, dead_move, force_color, music_speed):
                     move.set_rumble(110)
 
                 else:
-                    move.set_leds(50,50,50)
+                    move.set_leds(50,50+int(50*music_speed.value),50)
                     move.set_rumble(0)
                     
             move_last_value = total
@@ -81,7 +84,8 @@ class Joust():
         self.dead_moves = {}
         self.music_speed = Value('d', 1.5)
         self.running = True
-        self.force_color = opts = Array('i', [1] * 3)
+        self.force_move_colors = {}
+
         music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
         fast_resample = False
         if len(moves) >= 5:
@@ -90,31 +94,40 @@ class Joust():
         self.change_time = self.get_change_time(speed_up = True)
         self.speed_up = True
         self.currently_changing = False
+        self.game_end = False
+        self.winning_moves = []
         
         self.game_loop()
 
     def track_moves(self):
         for move_num, move_serial in enumerate(self.move_serials):
             dead_move = Value('i', 1)
-            
+            force_color = Array('i', [1] * 3)
             proc = Process(target=track_move, args=(move_serial,
                                                     move_num,
                                                     dead_move,
-                                                    self.force_color,
+                                                    force_color,
                                                     self.music_speed))
             proc.start()
             self.tracked_moves[move_serial] = proc
             self.dead_moves[move_serial] = dead_move
+            self.force_move_colors[move_serial] = force_color
+            
+
+    def change_all_move_colors(self, r, g, b):
+        for color in self.force_move_colors.itervalues():
+            print str(color)
+            common.change_color(color, r, g, b)
 
     #need to do the count_down here
     def count_down(self):
-        common.change_color(self.force_color, 70, 0, 0)
+        self.change_all_move_colors(70, 0, 0)
         time.sleep(0.75)
-        common.change_color(self.force_color, 70, 100, 0)
+        self.change_all_move_colors(70, 100, 0)
         time.sleep(0.75)
-        common.change_color(self.force_color, 0, 70, 0)
+        self.change_all_move_colors(0, 70, 0)
         time.sleep(0.75)
-        common.change_color(self.force_color, 0, 0, 0)
+        self.change_all_move_colors(0, 0, 0)
         
     def get_change_time(self, speed_up):
         if speed_up:
@@ -130,21 +143,60 @@ class Joust():
         elif not fast:
             self.music_speed.value = common.lerp(SLOW_MUSIC_SPEED, FAST_MUSIC_SPEED, change_percent)
         self.audio.change_ratio(self.music_speed.value)
-            
+
+    def change_music_speed(self):
+        if time.time() > self.change_time and time.time() < self.change_time + INTERVAL_CHANGE:
+            self.change_music_speed(self.speed_up)
+            self.currently_changing = True
+        elif time.time() >= self.change_time + INTERVAL_CHANGE and self.currently_changing:
+            self.music_speed.value = SLOW_MUSIC_SPEED if self.speed_up else FAST_MUSIC_SPEED
+            self.speed_up =  not self.speed_up
+            self.change_time = self.get_change_time(speed_up = self.speed_up)
+            self.audio.change_ratio(self.music_speed.value)
+            self.currently_changing = False
+
+    def check_end_game(self):
+        if self.game_mode == common.Games.JoustFFA:
+            add_win_moves = 0
+            for move_serial, dead in self.dead_moves.iteritems():
+                add_win_moves += dead.value
+            if add_win_moves <= 1:
+                for move_serial, dead in self.dead_moves.iteritems():
+                    if dead.value == 1:
+                        self.winning_moves.append(move_serial)
+                self.game_end = True
+
+    def stop_tracking_moves(self):
+        for proc in self.tracked_moves.itervalues():
+            proc.terminate()
+            proc.join()
+
     def game_loop(self):
         self.track_moves()
         self.count_down()
         self.audio.start_audio_loop()
         
         while self.running:
-            if time.time() > self.change_time and time.time() < self.change_time + INTERVAL_CHANGE:
-                self.change_music_speed(self.speed_up)
-                self.currently_changing = True
-            elif time.time() >= self.change_time + INTERVAL_CHANGE and self.currently_changing:
-                self.music_speed.value = SLOW_MUSIC_SPEED if self.speed_up else FAST_MUSIC_SPEED
-                self.speed_up =  not self.speed_up
-                self.change_time = self.get_change_time(speed_up = self.speed_up)
-                self.audio.change_ratio(self.music_speed.value)
+
+            self.change_music_speed()
+            self.check_end_game()
+            if self.game_end:
+                end_time = time.time() + END_GAME_PAUSE
+                h_value = 0
+                while (time.time() < end_time):
+                    time.sleep(0.01)
+                    win_color = common.hsv2rgb(h_value, 1, 1)
+                    for win_move in self.winning_moves:
+                        win_color_array = self.force_move_colors[win_move]
+                        common.change_color(win_color_array, *win_color)
+                    h_value = (h_value + 0.01)
+                    if h_value >= 1:
+                        h_value = 0
+                self.running = False
+
+        self.stop_tracking_moves()
+                    
+                
                 
         
         

@@ -1,5 +1,6 @@
 import psmove
 import colorsys
+from enum import Enum
 
 color_range = 255
 
@@ -30,4 +31,11 @@ def change_color(color_array, r, g, b):
     color_array[0] = r
     color_array[1] = g
     color_array[2] = b
+
+class Games(Enum):
+    JoustFFA = 0
+    JoustTeams = 1
+    JoustRandomTeams = 2
+    WereJoust = 3
+    Zombies = 4
     

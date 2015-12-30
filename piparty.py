@@ -59,7 +59,6 @@ def track_move(serial, move_num, move_opts):
                         move_opts[Opts.team] = (move_opts[Opts.team] + 1) % TEAM_NUM
                         move_opts[Opts.holding] = Holding.holding
 
-
             if move_opts[Opts.holding] == Holding.not_holding:
                 if move_button == Buttons.select:
                     move_opts[Opts.selection] = Selections.change_mode
@@ -132,7 +131,6 @@ class Menu():
                     opt[Opts.game_mode] = self.game_mode
 
     def game_loop(self):
-        #need to turn on search for BT
         while True:
             if psmove.count_connected() != len(self.tracked_moves):
                 for move_num, move in enumerate(self.moves):
@@ -157,9 +155,10 @@ class Menu():
         self.enable_bt_scanning(False)
         self.stop_tracking_moves()
         game_moves = [move.get_serial() for move in self.moves]
+        teams = {serial: self.move_opts[serial][Opts.team] for serial in self.tracked_moves.iterkeys() }
         if self.game_mode != common.Games.Zombies:
             #may need to put in moves that have selected to not be in the game
-            joust.Joust(self.game_mode, game_moves)
+            joust.Joust(self.game_mode, game_moves, teams)
             self.tracked_moves = {}
             
   

@@ -77,7 +77,9 @@ def track_move(move_serial, move_num, dead_move, force_color, music_speed):
         
 
 class Joust():
-    def __init__(self, game_mode, moves):
+    def __init__(self, game_mode, moves, teams):
+        print 'teams are ' + str(teams)
+        self.teams = teams
         self.move_serials = moves
         self.game_mode = game_mode
         self.tracked_moves = {}
@@ -165,6 +167,20 @@ class Joust():
             if add_win_moves <= 1:
                 for move_serial, dead in self.dead_moves.iteritems():
                     if dead.value == 1:
+                        self.winning_moves.append(move_serial)
+                self.game_end = True
+        elif self.game_mode == common.Games.JoustTeams:
+            winning_team = -30
+            team_win = True
+            for move_serial, dead in self.dead_moves.iteritems():
+                if dead.value == 1:
+                    if winning_team < 0:
+                        winning_team = self.teams[move_serial]
+                    elif self.teams[move_serial] != winning_team:
+                        team_win = False
+            if team_win:
+                for move_serial in self.teams.iterkeys():
+                    if self.teams[move_serial] == winning_team:
                         self.winning_moves.append(move_serial)
                 self.game_end = True
 

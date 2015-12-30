@@ -35,8 +35,6 @@ def audio_loop(file, ratio, end, chunk_size, fast_resample=True):
         if end:
             break
 
-
-
 # Start audio in seperate process to be non-blocking
 class Audio:
     def __init__(self, file, fast_resample, end=False,):

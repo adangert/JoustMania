@@ -173,6 +173,21 @@ class Joust():
             proc.terminate()
             proc.join()
 
+    def end_game(self):
+        self.audio.stop_audio()
+        end_time = time.time() + END_GAME_PAUSE
+        h_value = 0
+        while (time.time() < end_time):
+            time.sleep(0.01)
+            win_color = common.hsv2rgb(h_value, 1, 1)
+            for win_move in self.winning_moves:
+                win_color_array = self.force_move_colors[win_move]
+                common.change_color(win_color_array, *win_color)
+            h_value = (h_value + 0.01)
+            if h_value >= 1:
+                h_value = 0
+        self.running = False
+
     def game_loop(self):
         self.track_moves()
         self.count_down()
@@ -183,19 +198,8 @@ class Joust():
             self.check_music_speed()
             self.check_end_game()
             if self.game_end:
-                self.audio.stop_audio()
-                end_time = time.time() + END_GAME_PAUSE
-                h_value = 0
-                while (time.time() < end_time):
-                    time.sleep(0.01)
-                    win_color = common.hsv2rgb(h_value, 1, 1)
-                    for win_move in self.winning_moves:
-                        win_color_array = self.force_move_colors[win_move]
-                        common.change_color(win_color_array, *win_color)
-                    h_value = (h_value + 0.01)
-                    if h_value >= 1:
-                        h_value = 0
-                self.running = False
+                self.end_game()
+
 
         self.stop_tracking_moves()
                     

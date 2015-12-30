@@ -64,7 +64,7 @@ class Audio:
 
     def change_chunk_size(self, increase):
         if increase:
-            self.chunk_size.value = 2048/16
+            self.chunk_size.value = 2048/4
         else:
             self.chunk_size.value = 2048/2
             

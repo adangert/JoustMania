@@ -144,16 +144,18 @@ class Joust():
             self.music_speed.value = common.lerp(SLOW_MUSIC_SPEED, FAST_MUSIC_SPEED, change_percent)
         self.audio.change_ratio(self.music_speed.value)
 
-    def change_music_speed(self):
+    def check_music_speed(self):
         if time.time() > self.change_time and time.time() < self.change_time + INTERVAL_CHANGE:
             self.change_music_speed(self.speed_up)
             self.currently_changing = True
+            self.audio.change_chunk_size(True)
         elif time.time() >= self.change_time + INTERVAL_CHANGE and self.currently_changing:
             self.music_speed.value = SLOW_MUSIC_SPEED if self.speed_up else FAST_MUSIC_SPEED
             self.speed_up =  not self.speed_up
             self.change_time = self.get_change_time(speed_up = self.speed_up)
             self.audio.change_ratio(self.music_speed.value)
             self.currently_changing = False
+            self.audio.change_chunk_size(False)
 
     def check_end_game(self):
         if self.game_mode == common.Games.JoustFFA:
@@ -178,9 +180,10 @@ class Joust():
         
         while self.running:
 
-            self.change_music_speed()
+            self.check_music_speed()
             self.check_end_game()
             if self.game_end:
+                self.audio.stop_audio()
                 end_time = time.time() + END_GAME_PAUSE
                 h_value = 0
                 while (time.time() < end_time):

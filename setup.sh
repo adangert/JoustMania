@@ -5,6 +5,10 @@ sudo apt-get dist-upgrade -y
 sudo apt-get update -y
 cd /home/pi
 
+#install components
+sudo apt-get install -y python-dev bluez python-pyaudio python-pip python-numpy supervisor scipy
+sudo pip install psutil enum
+
 #install psmoveapi
 git clone https://github.com/thp/psmoveapi.git
 cd psmoveapi
@@ -18,8 +22,7 @@ cd build
 cmake ..
 make -j4
 
-#installs supervisor for running piparty on startup
-sudo apt-get install -y supervisor scipy
+#installs custom supervisor script for running piparty on startup
 sudo cp -r /home/pi/PiParty/supervisor/ /etc/
 
 #sets up sound card as primary sound device

@@ -46,6 +46,7 @@ def track_move(move_serial, move_num, dead_move, force_color, music_speed):
     #keep on looping while move is not dead
     while dead_move.value == 1:
         if sum(force_color) != 0:
+            time.sleep(0.01)
             move.set_leds(*force_color)
             move.update_leds()
         elif move.poll():
@@ -118,7 +119,6 @@ class Joust():
 
     def change_all_move_colors(self, r, g, b):
         for color in self.force_move_colors.itervalues():
-            print str(color)
             common.change_color(color, r, g, b)
 
     #need to do the count_down here

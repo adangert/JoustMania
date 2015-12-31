@@ -3,6 +3,7 @@ import psmove
 import pair
 import common
 import joust
+import time
 from enum import Enum
 from multiprocessing import Process, Value, Array
 
@@ -40,10 +41,14 @@ class Buttons(Enum):
 
 def track_move(serial, move_num, move_opts):
     move = common.get_move(serial, move_num)
+    move.set_leds(0,0,0)
+    move.update_leds()
     move.set_leds(255,255,255)
     move.update_leds()
+
     
     while True:
+        time.sleep(0.01)
         if move.poll():
             game_mode = move_opts[Opts.game_mode]
             move_button = move.get_buttons()

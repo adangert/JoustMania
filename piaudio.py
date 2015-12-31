@@ -5,9 +5,10 @@ import psutil, os
 import time
 import scipy.signal as signal
 from multiprocessing import Process, Value, Lock
+import pygame
 
 
-def audio_loop(file, ratio, end, chunk_size, fast_resample=True):
+def audio_loop(file, ratio, end, chunk_size):
 
     proc = psutil.Process(os.getpid())
     proc.nice(-5)
@@ -37,25 +38,24 @@ def audio_loop(file, ratio, end, chunk_size, fast_resample=True):
 
 # Start audio in seperate process to be non-blocking
 class Audio:
-    def __init__(self, file, fast_resample, end=False,):
+    def __init__(self, file, end=False):
         self.chunk = 2048
         self.file = file
         self.ratio = Value('d' , 1.0)
         self.chunk_size = Value('i', 2048/2)
-    	self.p = Process(target=audio_loop, args=(self.file,
-                                                  self.ratio,
-                                                  end,
-                                                  self.chunk_size,
-                                                  fast_resample))
+        self.end = end
+        pygame.mixer.init(44100, -16, 2 , 2048)
 
     def start_audio_loop(self):
+    	self.p = Process(target=audio_loop, args=(self.file,
+                                                  self.ratio,
+                                                  self.end,
+                                                  self.chunk_size))
         self.p.start()
 
     def stop_audio(self):
         self.p.terminate()
         self.p.join()
-        
-
 
     def change_ratio(self, ratio):
         self.ratio.value = ratio
@@ -65,6 +65,17 @@ class Audio:
             self.chunk_size.value = 2048/4
         else:
             self.chunk_size.value = 2048/2
+
+    def start_effect(self):
+        self.effect = pygame.mixer.Sound(self.file)
+        self.effect.play()
+
+    def start_effect_music(self):
+        pygame.mixer.music.load(self.file)
+        pygame.mixer.music.play()
+
+    def stop_effect_music(self):
+        pygame.mixer.music.fadeout(1)
             
         
           

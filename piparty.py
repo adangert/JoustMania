@@ -4,6 +4,7 @@ import pair
 import common
 import joust
 import time
+import zombie
 from enum import Enum
 from multiprocessing import Process, Value, Array
 
@@ -77,6 +78,10 @@ def track_move(serial, move_num, move_opts):
                     move.set_leds(150,0,0)
                 else:
                     move.set_leds(200,200,200)
+
+            elif game_mode == common.Games.Zombies:
+                    move.set_leds(50,150,50)
+
                 
 
             if move_opts[Opts.holding] == Holding.not_holding:
@@ -185,6 +190,11 @@ class Menu():
             #may need to put in moves that have selected to not be in the game
             joust.Joust(self.game_mode, game_moves, self.teams)
             self.tracked_moves = {}
+        elif self.game_mode == common.Games.Zombies:
+            zombie.Zombie(game_moves)
+            self.tracked_moves = {}
+            
+            
             
 if __name__ == "__main__":
     piparty = Menu()

@@ -6,7 +6,7 @@ sudo apt-get update -y
 cd /home/pi
 
 #install components
-sudo apt-get install -y python-dev bluez python-pyaudio python-pip python-numpy supervisor scipy
+sudo apt-get install -y python-dev bluez python-pyaudio python-pip python-numpy supervisor scipy python-pygame
 sudo pip install psutil enum
 
 #install psmoveapi

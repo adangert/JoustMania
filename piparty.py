@@ -82,6 +82,7 @@ class Menu():
         self.tracked_moves = {}
         self.paired_moves = []
         self.move_opts = {}
+        self.teams = {}
         self.game_mode = common.Games.JoustFFA
         
         self.pair = pair.Pair()
@@ -116,6 +117,11 @@ class Menu():
             #the move is connected via bluetooth
             else:
                 opts = Array('i', [0] * 5)
+                if move_serial in self.teams:
+                    opts[Opts.team] = self.teams[move_serial]
+                    print 'setting opts to' + str(self.teams[move_serial])
+                opts[Opts.game_mode] = self.game_mode
+                
                 #now start tracking the move controller
                 proc = Process(target=track_move, args=(move_serial, move_num, opts))
                 proc.start()
@@ -155,10 +161,10 @@ class Menu():
         self.enable_bt_scanning(False)
         self.stop_tracking_moves()
         game_moves = [move.get_serial() for move in self.moves]
-        teams = {serial: self.move_opts[serial][Opts.team] for serial in self.tracked_moves.iterkeys() }
+        self.teams = {serial: self.move_opts[serial][Opts.team] for serial in self.tracked_moves.iterkeys() }
         if self.game_mode != common.Games.Zombies:
             #may need to put in moves that have selected to not be in the game
-            joust.Joust(self.game_mode, game_moves, teams)
+            joust.Joust(self.game_mode, game_moves, self.teams)
             self.tracked_moves = {}
             
   

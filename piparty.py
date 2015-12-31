@@ -45,6 +45,7 @@ def track_move(serial, move_num, move_opts):
     move.update_leds()
     move.set_leds(255,255,255)
     move.update_leds()
+    random_color = 0
 
     
     while True:
@@ -63,6 +64,14 @@ def track_move(serial, move_num, move_opts):
                     if move_opts[Opts.holding] == Holding.not_holding:
                         move_opts[Opts.team] = (move_opts[Opts.team] + 1) % TEAM_NUM
                         move_opts[Opts.holding] = Holding.holding
+                        
+            elif game_mode == common.Games.JoustRandomTeams:
+                color = common.hsv2rgb(random_color, 1, 1)
+                move.set_leds(*color)
+                random_color += 0.001
+                if random_color >= 1:
+                    random_color = 0
+                
 
             if move_opts[Opts.holding] == Holding.not_holding:
                 if move_button == Buttons.select:

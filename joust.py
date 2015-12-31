@@ -11,6 +11,9 @@ from multiprocessing import Process, Value, Array
 TEAM_NUM = 6
 TEAM_COLORS = common.generate_colors(TEAM_NUM)
 
+RANDOM_TEAM_NUM = 3
+RANDOM_TEAM_COLORS = common.generate_colors(RANDOM_TEAM_NUM)
+
 # How fast/slow the music can go
 SLOW_MUSIC_SPEED = 1.5
 FAST_MUSIC_SPEED = 0.5
@@ -66,10 +69,13 @@ def track_move(move_serial, move_num, game_mode, team, dead_move, force_color, m
                         move.set_rumble(110)
 
                     else:
+                        #needs to be random colors for Joust FFA
                         if game_mode == common.Games.JoustFFA:
                             move.set_leds(50,50+int(50*music_speed.value),50)
                         elif game_mode == common.Games.JoustTeams:
                             move.set_leds(*TEAM_COLORS[team])
+                        elif game_mode == common.Games.JoustRandomTeams:
+                            move.set_leds(*RANDOM_TEAM_COLORS[team])
                             
                         move.set_rumble(0)
                         
@@ -79,7 +85,7 @@ def track_move(move_serial, move_num, game_mode, team, dead_move, force_color, m
 
 class Joust():
     def __init__(self, game_mode, moves, teams):
-        self.teams = teams
+
         self.move_serials = moves
         self.game_mode = game_mode
         self.tracked_moves = {}
@@ -87,6 +93,10 @@ class Joust():
         self.music_speed = Value('d', 1.5)
         self.running = True
         self.force_move_colors = {}
+        self.teams = teams
+        if game_mode == common.Games.JoustRandomTeams:
+            self.generate_random_teams(3)
+        
 
         music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
         fast_resample = False
@@ -100,6 +110,15 @@ class Joust():
         self.winning_moves = []
         
         self.game_loop()
+
+    def generate_random_teams(self, team_num):
+        team_pick = range(team_num)
+        for serial in self.move_serials:
+            random_choice = random.choice(team_pick)
+            self.teams[serial] = random_choice
+            team_pick.remove(random_choice)
+            if not team_pick:
+                team_pick = range(team_num)
 
     def track_moves(self):
         for move_num, move_serial in enumerate(self.move_serials):
@@ -169,7 +188,7 @@ class Joust():
                     if dead.value == 1:
                         self.winning_moves.append(move_serial)
                 self.game_end = True
-        elif self.game_mode == common.Games.JoustTeams:
+        elif self.game_mode == common.Games.JoustTeams or self.game_mode == common.Games.JoustRandomTeams:
             winning_team = -30
             team_win = True
             for move_serial, dead in self.dead_moves.iteritems():

@@ -39,12 +39,18 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
     move_last_value = None
     move = common.get_move(move_serial, move_num)
     team_colors = common.generate_colors(team_num)
+    werewolf = False
+    if team < 0:
+        team = (team + 1) * -1
+        werewolf = True
     #keep on looping while move is not dead
     while True:
         if sum(force_color) != 0:
             time.sleep(0.01)
             move.set_leds(*force_color)
             move.update_leds()
+            if werewolf:
+                move.set_rumble(80)
         elif dead_move.value == 1:   
             if move.poll():
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
@@ -66,7 +72,6 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
 
                     else:
                         move.set_leds(*team_colors[team])
-                            
                         move.set_rumble(0)
                         
                 move_last_value = total
@@ -92,7 +97,9 @@ class Joust():
             self.team_num = 2
 
         self.generate_random_teams(self.team_num)
-        
+
+        if game_mode == common.Games.WereJoust:
+            self.choose_werewolf(1)
 
         music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
         fast_resample = False
@@ -106,6 +113,11 @@ class Joust():
         self.winning_moves = []
         
         self.game_loop()
+
+    def choose_werewolf(self, were_num):
+        for were in range(were_num):
+            werewolf = random.choice(self.move_serials)
+            self.teams[werewolf] = (self.teams[werewolf] * -1) - 1
 
     def generate_random_teams(self, team_num):
         team_pick = range(team_num)
@@ -176,11 +188,11 @@ class Joust():
             self.audio.change_chunk_size(False)
 
     def check_end_game(self):
-        winning_team = -30
+        winning_team = -100
         team_win = True
         for move_serial, dead in self.dead_moves.iteritems():
             if dead.value == 1:
-                if winning_team < 0:
+                if winning_team == -100:
                     winning_team = self.teams[move_serial]
                 elif self.teams[move_serial] != winning_team:
                     team_win = False

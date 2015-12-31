@@ -71,6 +71,12 @@ def track_move(serial, move_num, move_opts):
                 random_color += 0.001
                 if random_color >= 1:
                     random_color = 0
+
+            elif game_mode == common.Games.WereJoust:
+                if move_num <= 0:
+                    move.set_leds(150,0,0)
+                else:
+                    move.set_leds(200,200,200)
                 
 
             if move_opts[Opts.holding] == Holding.not_holding:

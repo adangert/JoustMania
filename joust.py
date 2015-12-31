@@ -8,11 +8,6 @@ from piaudio import Audio
 from enum import Enum
 from multiprocessing import Process, Value, Array
 
-TEAM_NUM = 6
-TEAM_COLORS = common.generate_colors(TEAM_NUM)
-
-RANDOM_TEAM_NUM = 3
-RANDOM_TEAM_COLORS = common.generate_colors(RANDOM_TEAM_NUM)
 
 # How fast/slow the music can go
 SLOW_MUSIC_SPEED = 1.5
@@ -38,11 +33,12 @@ INTERVAL_CHANGE = 1.5
 END_GAME_PAUSE = 4
 
 
-def track_move(move_serial, move_num, game_mode, team, dead_move, force_color, music_speed):
+def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, force_color, music_speed):
     #proc = psutil.Process(os.getpid())
     #proc.nice(3)
     move_last_value = None
     move = common.get_move(move_serial, move_num)
+    team_colors = common.generate_colors(team_num)
     #keep on looping while move is not dead
     while True:
         if sum(force_color) != 0:
@@ -69,13 +65,7 @@ def track_move(move_serial, move_num, game_mode, team, dead_move, force_color, m
                         move.set_rumble(110)
 
                     else:
-                        #needs to be random colors for Joust FFA
-                        if game_mode == common.Games.JoustFFA:
-                            move.set_leds(50,50+int(50*music_speed.value),50)
-                        elif game_mode == common.Games.JoustTeams:
-                            move.set_leds(*TEAM_COLORS[team])
-                        elif game_mode == common.Games.JoustRandomTeams:
-                            move.set_leds(*RANDOM_TEAM_COLORS[team])
+                        move.set_leds(*team_colors[team])
                             
                         move.set_rumble(0)
                         
@@ -94,8 +84,14 @@ class Joust():
         self.running = True
         self.force_move_colors = {}
         self.teams = teams
+        if game_mode == common.Games.JoustFFA:
+            self.team_num = len(moves)
         if game_mode == common.Games.JoustRandomTeams:
-            self.generate_random_teams(3)
+            self.team_num = 3
+        if game_mode == common.Games.WereJoust:
+            self.team_num = 2
+
+        self.generate_random_teams(self.team_num)
         
 
         music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
@@ -128,6 +124,7 @@ class Joust():
                                                     move_num,
                                                     self.game_mode,
                                                     self.teams[move_serial],
+                                                    self.team_num,
                                                     dead_move,
                                                     force_color,
                                                     self.music_speed))
@@ -179,29 +176,19 @@ class Joust():
             self.audio.change_chunk_size(False)
 
     def check_end_game(self):
-        if self.game_mode == common.Games.JoustFFA:
-            add_win_moves = 0
-            for move_serial, dead in self.dead_moves.iteritems():
-                add_win_moves += dead.value
-            if add_win_moves <= 1:
-                for move_serial, dead in self.dead_moves.iteritems():
-                    if dead.value == 1:
-                        self.winning_moves.append(move_serial)
-                self.game_end = True
-        elif self.game_mode == common.Games.JoustTeams or self.game_mode == common.Games.JoustRandomTeams:
-            winning_team = -30
-            team_win = True
-            for move_serial, dead in self.dead_moves.iteritems():
-                if dead.value == 1:
-                    if winning_team < 0:
-                        winning_team = self.teams[move_serial]
-                    elif self.teams[move_serial] != winning_team:
-                        team_win = False
-            if team_win:
-                for move_serial in self.teams.iterkeys():
-                    if self.teams[move_serial] == winning_team:
-                        self.winning_moves.append(move_serial)
-                self.game_end = True
+        winning_team = -30
+        team_win = True
+        for move_serial, dead in self.dead_moves.iteritems():
+            if dead.value == 1:
+                if winning_team < 0:
+                    winning_team = self.teams[move_serial]
+                elif self.teams[move_serial] != winning_team:
+                    team_win = False
+        if team_win:
+            for move_serial in self.teams.iterkeys():
+                if self.teams[move_serial] == winning_team:
+                    self.winning_moves.append(move_serial)
+            self.game_end = True
 
     def stop_tracking_moves(self):
         for proc in self.tracked_moves.itervalues():

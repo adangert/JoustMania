@@ -8,6 +8,8 @@ from piaudio import Audio
 from enum import Enum
 from multiprocessing import Process, Value, Array
 
+TEAM_NUM = 6
+TEAM_COLORS = common.generate_colors(TEAM_NUM)
 
 # How fast/slow the music can go
 SLOW_MUSIC_SPEED = 1.5
@@ -32,54 +34,51 @@ INTERVAL_CHANGE = 1.5
 #How long the winning moves shall sparkle
 END_GAME_PAUSE = 4
 
-class Games(Enum):
-    JoustFFA = 0
-    JoustTeams = 1
-    JoustRandomTeams = 2
-    WereJoust = 3
 
-def track_move(move_serial, move_num, dead_move, force_color, music_speed):
+def track_move(move_serial, move_num, game_mode, team, dead_move, force_color, music_speed):
     #proc = psutil.Process(os.getpid())
     #proc.nice(3)
     move_last_value = None
     move = common.get_move(move_serial, move_num)
     #keep on looping while move is not dead
-    while dead_move.value == 1:
+    while True:
         if sum(force_color) != 0:
             time.sleep(0.01)
             move.set_leds(*force_color)
             move.update_leds()
-        elif move.poll():
-            ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
-            total = sum([ax, ay, az])
-            if move_last_value is not None:
-                change = abs(move_last_value - total)
-                speed_percent = (music_speed.value - SLOW_MUSIC_SPEED)/(FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED)
-                warning = common.lerp(SLOW_WARNING, FAST_WARNING, speed_percent)
-                threshold = common.lerp(SLOW_MAX, FAST_MAX, speed_percent)
+        elif dead_move.value == 1:   
+            if move.poll():
+                ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
+                total = sum([ax, ay, az])
+                if move_last_value is not None:
+                    change = abs(move_last_value - total)
+                    speed_percent = (music_speed.value - SLOW_MUSIC_SPEED)/(FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED)
+                    warning = common.lerp(SLOW_WARNING, FAST_WARNING, speed_percent)
+                    threshold = common.lerp(SLOW_MAX, FAST_MAX, speed_percent)
 
-                if change > threshold:
-                    move.set_leds(0,0,0)
-                    move.set_rumble(90)
-                    dead_move.value = 0
+                    if change > threshold:
+                        move.set_leds(0,0,0)
+                        move.set_rumble(90)
+                        dead_move.value = 0
 
-                elif change > warning:
-                    move.set_leds(20,50,100)
-                    move.set_rumble(110)
+                    elif change > warning:
+                        move.set_leds(20,50,100)
+                        move.set_rumble(110)
 
-                else:
-                    move.set_leds(50,50+int(50*music_speed.value),50)
-                    move.set_rumble(0)
-                    
-            move_last_value = total
-        move.update_leds()
+                    else:
+                        if game_mode == common.Games.JoustFFA:
+                            move.set_leds(50,50+int(50*music_speed.value),50)
+                        elif game_mode == common.Games.JoustTeams:
+                            move.set_leds(*TEAM_COLORS[team])
+                            
+                        move.set_rumble(0)
+                        
+                move_last_value = total
+            move.update_leds()
             
-        
-        
 
 class Joust():
     def __init__(self, game_mode, moves, teams):
-        print 'teams are ' + str(teams)
         self.teams = teams
         self.move_serials = moves
         self.game_mode = game_mode
@@ -108,6 +107,8 @@ class Joust():
             force_color = Array('i', [1] * 3)
             proc = Process(target=track_move, args=(move_serial,
                                                     move_num,
+                                                    self.game_mode,
+                                                    self.teams[move_serial],
                                                     dead_move,
                                                     force_color,
                                                     self.music_speed))
@@ -116,7 +117,6 @@ class Joust():
             self.dead_moves[move_serial] = dead_move
             self.force_move_colors[move_serial] = force_color
             
-
     def change_all_move_colors(self, r, g, b):
         for color in self.force_move_colors.itervalues():
             common.change_color(color, r, g, b)

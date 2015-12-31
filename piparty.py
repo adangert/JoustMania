@@ -156,7 +156,6 @@ class Menu():
             proc.terminate()
             proc.join()
             
-
     def check_start_game(self):
         for move_opt in self.move_opts.itervalues():
             if move_opt[Opts.selection] == Selections.start_game:
@@ -172,7 +171,5 @@ class Menu():
             joust.Joust(self.game_mode, game_moves, self.teams)
             self.tracked_moves = {}
             
-  
-    
 if __name__ == "__main__":
     piparty = Menu()

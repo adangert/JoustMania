@@ -36,6 +36,8 @@ END_GAME_PAUSE = 4
 def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, force_color, music_speed):
     #proc = psutil.Process(os.getpid())
     #proc.nice(3)
+    #explosion = Audio('audio/Joust/sounds/Explosion34.wav')
+    #explosion.start_effect()
     move_last_value = None
     move = common.get_move(move_serial, move_num)
     team_colors = common.generate_colors(team_num)
@@ -102,6 +104,9 @@ class Joust():
             self.choose_werewolf(1)
 
         music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
+        self.start_beep = Audio('audio/Joust/sounds/start.wav')
+        self.start_game = Audio('audio/Joust/sounds/start3.wav')
+        self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
         fast_resample = False
         if len(moves) >= 5:
             fast_resample = True
@@ -152,12 +157,16 @@ class Joust():
     #need to do the count_down here
     def count_down(self):
         self.change_all_move_colors(70, 0, 0)
+        self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(70, 100, 0)
+        self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 70, 0)
+        self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 0, 0)
+        self.start_game.start_effect()
         
     def get_change_time(self, speed_up):
         if speed_up:
@@ -196,6 +205,11 @@ class Joust():
                     winning_team = self.teams[move_serial]
                 elif self.teams[move_serial] != winning_team:
                     team_win = False
+            if dead.value == 0:
+                #This is to play the sound effect
+                dead.value = -1
+                self.explosion.start_effect()
+                
         if team_win:
             for move_serial in self.teams.iterkeys():
                 if self.teams[move_serial] == winning_team:
@@ -233,7 +247,6 @@ class Joust():
             self.check_end_game()
             if self.game_end:
                 self.end_game()
-
 
         self.stop_tracking_moves()
                     

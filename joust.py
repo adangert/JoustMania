@@ -101,7 +101,10 @@ class Joust():
         self.generate_random_teams(self.team_num)
 
         if game_mode == common.Games.WereJoust:
-            self.choose_werewolf(1)
+            were_num = int((len(moves)+2)/4)
+            if were_num <= 0:
+                were_num = 1
+            self.choose_werewolf(were_num)
 
         music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
         self.start_beep = Audio('audio/Joust/sounds/start.wav')
@@ -111,17 +114,21 @@ class Joust():
         if len(moves) >= 5:
             fast_resample = True
         self.audio = Audio(music, fast_resample)
-        self.change_time = self.get_change_time(speed_up = True)
+        #self.change_time = self.get_change_time(speed_up = True)
+        self.change_time = time.time() + 8
         self.speed_up = True
         self.currently_changing = False
         self.game_end = False
         self.winning_moves = []
+        
         
         self.game_loop()
 
     def choose_werewolf(self, were_num):
         for were in range(were_num):
             werewolf = random.choice(self.move_serials)
+            while self.teams[werewolf] < 0:
+                werewolf = random.choice(self.move_serials)
             self.teams[werewolf] = (self.teams[werewolf] * -1) - 1
 
     def generate_random_teams(self, team_num):
@@ -196,14 +203,21 @@ class Joust():
             self.currently_changing = False
             self.audio.change_chunk_size(False)
 
+    def get_real_team(self, team):
+        if team < 0:
+            return -1
+        else:
+            return team
+
     def check_end_game(self):
         winning_team = -100
         team_win = True
         for move_serial, dead in self.dead_moves.iteritems():
+            #if we are alive
             if dead.value == 1:
                 if winning_team == -100:
-                    winning_team = self.teams[move_serial]
-                elif self.teams[move_serial] != winning_team:
+                    winning_team = self.get_real_team(self.teams[move_serial])
+                elif self.get_real_team(self.teams[move_serial]) != winning_team:
                     team_win = False
             if dead.value == 0:
                 #This is to play the sound effect
@@ -212,7 +226,7 @@ class Joust():
                 
         if team_win:
             for move_serial in self.teams.iterkeys():
-                if self.teams[move_serial] == winning_team:
+                if self.get_real_team(self.teams[move_serial]) == winning_team:
                     self.winning_moves.append(move_serial)
             self.game_end = True
 

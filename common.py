@@ -38,4 +38,5 @@ class Games(Enum):
     JoustRandomTeams = 2
     WereJoust = 3
     Zombies = 4
+    Bubble_Joust = 5
     

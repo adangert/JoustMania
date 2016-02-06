@@ -5,6 +5,7 @@ import common
 import joust
 import time
 import zombie
+import bubble
 from enum import Enum
 from multiprocessing import Process, Value, Array
 
@@ -81,6 +82,12 @@ def track_move(serial, move_num, move_opts):
 
             elif game_mode == common.Games.Zombies:
                     move.set_leds(50,150,50)
+
+            elif game_mode == common.Games.Bubble:
+                if move_num % 2 == 0:
+                    move.set_leds(150,0,0)
+                else:
+                    move.set_leds(0,0,150)
 
                 
 
@@ -186,13 +193,17 @@ class Menu():
         self.stop_tracking_moves()
         game_moves = [move.get_serial() for move in self.moves]
         self.teams = {serial: self.move_opts[serial][Opts.team] for serial in self.tracked_moves.iterkeys() }
-        if self.game_mode != common.Games.Zombies:
+        if self.game_mode == common.Games.Zombies:
+            zombie.Zombie(game_moves)
+            self.tracked_moves = {}
+        elif self.game_mode == common.Games.Bubble:
+            bubble.Bubble(self.game_mode, game_moves, self.teams)
+            self.tracked_moves = {}
+        else:
             #may need to put in moves that have selected to not be in the game
             joust.Joust(self.game_mode, game_moves, self.teams)
             self.tracked_moves = {}
-        elif self.game_mode == common.Games.Zombies:
-            zombie.Zombie(game_moves)
-            self.tracked_moves = {}
+
             
             
             

@@ -60,9 +60,6 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
             else:
                 move.set_rumble(0)
             no_rumble = time.time() + 0.5
-        #elif start == False:
-        #    if time.time() > no_rumble:
-        #        start = True
         elif dead_move.value == 1:   
             if move.poll():
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
@@ -103,14 +100,15 @@ class Joust():
         self.running = True
         self.force_move_colors = {}
         self.teams = teams
+        self.team_num = 6
         if game_mode == common.Games.JoustFFA:
             self.team_num = len(moves)
         if game_mode == common.Games.JoustRandomTeams:
             self.team_num = 3
         if game_mode == common.Games.WereJoust:
             self.team_num = 2
-
-        self.generate_random_teams(self.team_num)
+        if game_mode != common.Games.JoustTeams:
+            self.generate_random_teams(self.team_num)
 
         if game_mode == common.Games.WereJoust:
             were_num = int((len(moves)+2)/4)

@@ -38,6 +38,8 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
     #proc.nice(3)
     #explosion = Audio('audio/Joust/sounds/Explosion34.wav')
     #explosion.start_effect()
+    start = False
+    no_rumble = time.time() + 1
     move_last_value = None
     move = common.get_move(move_serial, move_num)
     team_colors = common.generate_colors(team_num)
@@ -48,11 +50,19 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
     #keep on looping while move is not dead
     while True:
         if sum(force_color) != 0:
+            no_rumble_time = time.time() + 5
             time.sleep(0.01)
             move.set_leds(*force_color)
             move.update_leds()
-            if werewolf:
-                move.set_rumble(80)
+            if sum(force_color) > 75:
+                if werewolf:
+                    move.set_rumble(80)
+            else:
+                move.set_rumble(0)
+            no_rumble = time.time() + 0.5
+        #elif start == False:
+        #    if time.time() > no_rumble:
+        #        start = True
         elif dead_move.value == 1:   
             if move.poll():
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
@@ -64,13 +74,15 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
                     threshold = common.lerp(SLOW_MAX, FAST_MAX, speed_percent)
 
                     if change > threshold:
-                        move.set_leds(0,0,0)
-                        move.set_rumble(90)
-                        dead_move.value = 0
+                        if time.time() > no_rumble:
+                            move.set_leds(0,0,0)
+                            move.set_rumble(90)
+                            dead_move.value = 0
 
                     elif change > warning:
-                        move.set_leds(20,50,100)
-                        move.set_rumble(110)
+                        if time.time() > no_rumble:
+                            move.set_leds(20,50,100)
+                            move.set_rumble(110)
 
                     else:
                         move.set_leds(*team_colors[team])
@@ -163,7 +175,7 @@ class Joust():
 
     #need to do the count_down here
     def count_down(self):
-        self.change_all_move_colors(70, 0, 0)
+        self.change_all_move_colors(80, 0, 0)
         self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(70, 100, 0)

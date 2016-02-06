@@ -197,7 +197,7 @@ class Menu():
             zombie.Zombie(game_moves)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Bubble:
-            bubble.Bubble(self.game_mode, game_moves, self.teams)
+            bubble.Bubble(game_moves)
             self.tracked_moves = {}
         else:
             #may need to put in moves that have selected to not be in the game

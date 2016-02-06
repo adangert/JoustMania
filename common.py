@@ -39,4 +39,11 @@ class Games(Enum):
     WereJoust = 3
     Zombies = 4
     Bubble = 5
+
+class Buttons(Enum):
+    middle = 524288
+    start = 2048
+    select = 256
+    circle = 32
+    nothing = 0
     

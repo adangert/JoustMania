@@ -8,7 +8,7 @@ from multiprocessing import Process, Value, Lock
 import pygame
 
 
-def audio_loop(file, ratio, end, chunk_size, stop_proc):
+def audio_loop(file, p, ratio, end, chunk_size, stop_proc):
     time.sleep(0.5)
     proc = psutil.Process(os.getpid())
     proc.nice(-5)
@@ -18,7 +18,6 @@ def audio_loop(file, ratio, end, chunk_size, stop_proc):
         wf = wave.open(file, 'rb')
         time.sleep(0.03)
         data = wf.readframes(chunk_size.value)
-        p = pyaudio.PyAudio()
         time.sleep(0.03)
 
         stream = p.open(
@@ -33,7 +32,9 @@ def audio_loop(file, ratio, end, chunk_size, stop_proc):
             data = signal.resample(array, chunk_size.value*ratio.value)
             stream.write(data.astype(int).tostring())
             data = wf.readframes(chunk_size.value)
+        stream.stop_stream()
         stream.close()
+        wf.close()
         p.terminate()
 
         if end or stop_proc.value == 1:
@@ -42,6 +43,7 @@ def audio_loop(file, ratio, end, chunk_size, stop_proc):
 # Start audio in seperate process to be non-blocking
 class Audio:
     def __init__(self, file, end=False):
+        self.p = pyaudio.PyAudio()
         self.stop_proc = Value('i', 0)
         self.chunk = 2048
         self.file = file
@@ -52,6 +54,7 @@ class Audio:
 
     def start_audio_loop(self):
     	self.p = Process(target=audio_loop, args=(self.file,
+                                                  self.p,
                                                   self.ratio,
                                                   self.end,
                                                   self.chunk_size,

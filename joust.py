@@ -33,7 +33,7 @@ INTERVAL_CHANGE = 1.5
 END_GAME_PAUSE = 4
 
 
-def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, force_color, music_speed):
+def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, force_color, music_speed, werewolf_reveal):
     #proc = psutil.Process(os.getpid())
     #proc.nice(3)
     #explosion = Audio('audio/Joust/sounds/Explosion34.wav')
@@ -60,7 +60,7 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
             else:
                 move.set_rumble(0)
             no_rumble = time.time() + 0.5
-        elif dead_move.value == 1:   
+        elif dead_move.value == 1 and werewolf_reveal > 0:   
             if move.poll():
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
                 total = sum([ax, ay, az])
@@ -82,7 +82,13 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
                             move.set_rumble(110)
 
                     else:
-                        move.set_leds(*team_colors[team])
+                        if game_mode == common.Games.WereJoust:
+                            if werewolf_reveal.value == 2 and werewolf:
+                                move.set_leds(255,0,0)
+                            else:
+                                move.set_leds(100,100,100)
+                        else:
+                            move.set_leds(*team_colors[team])
                         move.set_rumble(0)
                         
                 move_last_value = total
@@ -102,18 +108,24 @@ class Joust():
         self.teams = teams
         self.team_num = 6
         self.game_mode = game_mode
+        self.werewolf_timer = 35
+        self.start_timer = time.time()
+        self.audio_cue = 0
+        self.werewolf_reveal = Value('i', 2)
         if game_mode == common.Games.JoustFFA:
             self.team_num = len(moves)
         if game_mode == common.Games.JoustRandomTeams:
             #this should be 3 for smaller number of controllers
             self.team_num = 4
         if game_mode == common.Games.WereJoust:
-            self.team_num = 2
+            self.werewolf_reveal.value = 0
+            self.team_num = 1
         if game_mode != common.Games.JoustTeams:
             self.generate_random_teams(self.team_num)
 
         if game_mode == common.Games.WereJoust:
-            were_num = int((len(moves)+2)/4)
+            #were_num = int((len(moves)+2)/4)
+            were_num = int((len(moves)*3)/8)
             if were_num <= 0:
                 were_num = 1
             self.choose_werewolf(were_num)
@@ -164,7 +176,8 @@ class Joust():
                                                     self.team_num,
                                                     dead_move,
                                                     force_color,
-                                                    self.music_speed))
+                                                    self.music_speed,
+                                                    self.werewolf_reveal))
             proc.start()
             self.tracked_moves[move_serial] = proc
             self.dead_moves[move_serial] = dead_move
@@ -221,6 +234,24 @@ class Joust():
             return -1
         else:
             return team
+
+    def reveal(self):
+        self.werewolf_reveal.value = 2
+
+    def werewolf_audio_cue(self):
+        if self.game_mode == common.Games.WereJoust:
+            #print self.werewolf_timer - (time.time() - self.start_timer)
+            if self.werewolf_timer - (time.time() - self.start_timer) <= 30 and self.audio_cue == 0:
+                Audio('audio/Joust/sounds/30 werewolf.wav').start_effect()
+                self.audio_cue = 1
+            if self.werewolf_timer - (time.time() - self.start_timer) <= 10 and self.audio_cue == 1:
+                Audio('audio/Joust/sounds/10 werewolf.wav').start_effect()
+                self.audio_cue = 2
+            if self.werewolf_timer - (time.time() - self.start_timer) <= 0 and self.audio_cue == 2:
+                Audio('audio/Joust/sounds/werewolf reveal.wav').start_effect()
+                self.reveal()
+                self.audio_cue = 3
+                
 
     def check_end_game(self):
         winning_team = -100
@@ -291,12 +322,29 @@ class Joust():
             if winning_team == 3:
                 team_win = Audio('audio/Joust/sounds/red team win.wav')
             team_win.start_effect()
+        if self.game_mode == common.Games.WereJoust:
+            if winning_team == -1:
+                team_win = Audio('audio/Joust/sounds/werewolf win.wav')
+            else:
+                team_win = Audio('audio/Joust/sounds/human win.wav')
+            team_win.start_effect()
         #self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
         
+    def werewolf_intro(self):
+        Audio('audio/Joust/sounds/werewolf intro.wav').start_effect()
+        time.sleep(3)
+        self.change_all_move_colors(80, 0, 0)
+        time.sleep(2)
+        self.change_all_move_colors(0, 0, 0)
+        time.sleep(20)
+        self.start_timer = time.time()
         
 
     def game_loop(self):
         self.track_moves()
+        if self.game_mode == common.Games.WereJoust:
+            self.werewolf_intro()
+        self.werewolf_reveal.value = 1
         self.count_down()
         time.sleep(0.02)
         self.audio.start_audio_loop()
@@ -306,6 +354,7 @@ class Joust():
             
             self.check_music_speed()
             self.check_end_game()
+            self.werewolf_audio_cue()
             if self.game_end:
                 self.end_game()
 

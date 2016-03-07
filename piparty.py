@@ -191,6 +191,7 @@ class Menu():
     def start_game(self):
         self.enable_bt_scanning(False)
         self.stop_tracking_moves()
+        time.sleep(0.2)
         game_moves = [move.get_serial() for move in self.moves]
         self.teams = {serial: self.move_opts[serial][Opts.team] for serial in self.tracked_moves.iterkeys() }
         if self.game_mode == common.Games.Zombies:

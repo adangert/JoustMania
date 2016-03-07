@@ -288,7 +288,7 @@ class Zombie:
 
         human_victory = Audio('audio/Zombie/sound_effects/human_victory.wav')
         zombie_victory = Audio('audio/Zombie/sound_effects/human_victory.wav')
-        death = Audio('audio/Zombie/sound_effects/death.wav')
+        death = Audio('audio/Zombie/sound_effects/zombie_death.wav')
         pistol = Audio('audio/Zombie/sound_effects/pistol.wav')
         shotgun = Audio('audio/Zombie/sound_effects/shotgun.wav')
         molotov = Audio('audio/Zombie/sound_effects/molotov.wav')
@@ -316,21 +316,21 @@ class Zombie:
                 #pistol fired(1 bullet 1 random alive zombie)
                 elif self.controller_opts[serial][1] == 2:
                     pistol.start_effect()
-                    self.kill_zombies(1, [0, 0, 0, 1, 1])
+                    self.kill_zombies(1, [0, 0, 1, 1, 2])
                     self.controller_opts[serial][1] = 0
                             
 
                 #shotgun fired(2 bullets 3 random alive zombies)
                 elif self.controller_opts[serial][1] == 3:
                     shotgun.start_effect()
-                    self.kill_zombies(3, [ 0, 0, 1, 1, 2])
+                    self.kill_zombies(3, [ 0, 1, 1, 2, 3])
                     self.controller_opts[serial][1] = 0
 
 
                 #molotov fired(5 bullets all alive zombies)
                 elif self.controller_opts[serial][1] == 4:
                     molotov.start_effect()
-                    self.kill_zombies(3, [0, 2, 3, 4, 5, 6])
+                    self.kill_zombies(20, [0, 2, 3, 4, 5, 6])
                     self.controller_opts[serial][1] = 0
 
                     
@@ -350,7 +350,7 @@ class Zombie:
                     self.controller_opts[serial][0] = 1
                     self.dead_zombies[serial] = time.time() + self.get_kill_time()
                     self.alive_zombies.remove(serial)
-                    self.reward([0, 0, 1, 1, 1])
+                    self.reward([0, 0, 1, 1, 2])
                     death.start_effect()
 
             #win scenario

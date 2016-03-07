@@ -4,6 +4,7 @@ import time
 import psutil, os
 import random
 import numpy
+import math
 from piaudio import Audio
 from enum import Enum
 from multiprocessing import Process, Value, Array
@@ -33,34 +34,44 @@ INTERVAL_CHANGE = 1.5
 END_GAME_PAUSE = 4
 
 
-def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, force_color, music_speed):
+
+MIN_FLASH = 3
+MAX_FLASH = 0.05
+
+def calculate_flash_time(r,g,b, score, win_amount):
+    flash_percent = float(score)/(win_amount-1.0)
+    flash_speed = common.lerp(MIN_FLASH, MAX_FLASH, flash_percent)
+    val = (time.time() % float(flash_speed))
+    if val < flash_speed/2:
+        return (r,g,b)
+    else:
+        val_percent = (val-(flash_speed/2))/(flash_speed/2)
+        new_r = int(common.lerp(r, 255, val_percent))
+        new_g = int(common.lerp(g, 255, val_percent))
+        new_b = int(common.lerp(b, 255, val_percent))
+        return (new_r, new_g, new_b)
+
+def track_move(move_serial, move_num, team, team_num, score, win_amount, dead_move, force_color, music_speed):
     #proc = psutil.Process(os.getpid())
     #proc.nice(3)
     #explosion = Audio('audio/Joust/sounds/Explosion34.wav')
     #explosion.start_effect()
-    start = False
-    no_rumble = time.time() + 1
+    
     move_last_value = None
     move = common.get_move(move_serial, move_num)
     team_colors = common.generate_colors(team_num)
     werewolf = False
-    if team < 0:
-        team = (team + 1) * -1
-        werewolf = True
+    flash_time = time.time()
+    
     #keep on looping while move is not dead
     while True:
         if sum(force_color) != 0:
-            no_rumble_time = time.time() + 5
             time.sleep(0.01)
             move.set_leds(*force_color)
             move.update_leds()
-            if sum(force_color) > 75:
-                if werewolf:
-                    move.set_rumble(80)
-            else:
-                move.set_rumble(0)
-            no_rumble = time.time() + 0.5
-        elif dead_move.value == 1:   
+            if werewolf:
+                move.set_rumble(80)
+        elif dead_move.value == 1:  
             if move.poll():
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
                 total = sum([ax, ay, az])
@@ -71,52 +82,55 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
                     threshold = common.lerp(SLOW_MAX, FAST_MAX, speed_percent)
 
                     if change > threshold:
-                        if time.time() > no_rumble:
-                            move.set_leds(0,0,0)
-                            move.set_rumble(90)
-                            dead_move.value = 0
+                        move.set_leds(0,0,0)
+                        move.set_rumble(90)
+                        score.value = -1
+                        dead_move.value = 0
 
                     elif change > warning:
-                        if time.time() > no_rumble:
-                            move.set_leds(20,50,100)
-                            move.set_rumble(110)
+                        move.set_leds(20,50,100)
+                        move.set_rumble(110)
 
                     else:
-                        move.set_leds(*team_colors[team])
+                        if score.value >= 1:
+                            if time.time() > flash_time:
+                                vall = calculate_flash_time(team_colors[team][0],team_colors[team][1],team_colors[team][2],score.value, win_amount)
+                                #print vall
+                                move.set_leds(*vall)
+                                #flash_time = time.time() + calculate_flash_time(score.value, win_amount)
+                        else:
+                            move.set_leds(*team_colors[team])
                         move.set_rumble(0)
                         
                 move_last_value = total
             move.update_leds()
             
+        elif dead_move.value == 0:
+            if move.poll():
+                move_button = move.get_buttons()
+                if score.value >= 0 and move_button == common.Buttons.middle:
+                    dead_move.value = 1
+                    move_last_value = None
+                
+                
+            
+            
 
-class Joust():
-    def __init__(self, game_mode, moves, teams):
+class Bubble():
+    def __init__(self, moves):
 
         self.move_serials = moves
-        self.game_mode = game_mode
         self.tracked_moves = {}
         self.dead_moves = {}
+        self.scores = {}
         self.music_speed = Value('d', 1.5)
         self.running = True
         self.force_move_colors = {}
-        self.teams = teams
-        self.team_num = 6
-        self.game_mode = game_mode
-        if game_mode == common.Games.JoustFFA:
-            self.team_num = len(moves)
-        if game_mode == common.Games.JoustRandomTeams:
-            #this should be 3 for smaller number of controllers
-            self.team_num = 4
-        if game_mode == common.Games.WereJoust:
-            self.team_num = 2
-        if game_mode != common.Games.JoustTeams:
-            self.generate_random_teams(self.team_num)
+        self.teams = {}
+        self.win_amount = int(math.ceil((len(moves)/2.0)+2))
+        self.team_num = 2
 
-        if game_mode == common.Games.WereJoust:
-            were_num = int((len(moves)+2)/4)
-            if were_num <= 0:
-                were_num = 1
-            self.choose_werewolf(were_num)
+        self.generate_random_teams(self.team_num)
 
         music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
         self.start_beep = Audio('audio/Joust/sounds/start.wav')
@@ -132,16 +146,11 @@ class Joust():
         self.currently_changing = False
         self.game_end = False
         self.winning_moves = []
+        self.losing_moves = []
         
         
         self.game_loop()
 
-    def choose_werewolf(self, were_num):
-        for were in range(were_num):
-            werewolf = random.choice(self.move_serials)
-            while self.teams[werewolf] < 0:
-                werewolf = random.choice(self.move_serials)
-            self.teams[werewolf] = (self.teams[werewolf] * -1) - 1
 
     def generate_random_teams(self, team_num):
         team_pick = range(team_num)
@@ -154,18 +163,21 @@ class Joust():
 
     def track_moves(self):
         for move_num, move_serial in enumerate(self.move_serials):
-            time.sleep(0.02)
             dead_move = Value('i', 1)
+            score = Value('i', 0)
+            
             force_color = Array('i', [1] * 3)
             proc = Process(target=track_move, args=(move_serial,
                                                     move_num,
-                                                    self.game_mode,
                                                     self.teams[move_serial],
                                                     self.team_num,
+                                                    score,
+                                                    self.win_amount,
                                                     dead_move,
                                                     force_color,
                                                     self.music_speed))
             proc.start()
+            self.scores[move_serial] = score
             self.tracked_moves[move_serial] = proc
             self.dead_moves[move_serial] = dead_move
             self.force_move_colors[move_serial] = force_color
@@ -176,7 +188,7 @@ class Joust():
 
     #need to do the count_down here
     def count_down(self):
-        self.change_all_move_colors(80, 0, 0)
+        self.change_all_move_colors(70, 0, 0)
         self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(70, 100, 0)
@@ -223,100 +235,68 @@ class Joust():
             return team
 
     def check_end_game(self):
-        winning_team = -100
-        team_win = True
-        for move_serial, dead in self.dead_moves.iteritems():
+        team_win = False
+        for move_serial, score in self.scores.iteritems():
             #if we are alive
-            if dead.value == 1:
-                if winning_team == -100:
-                    winning_team = self.get_real_team(self.teams[move_serial])
-                elif self.get_real_team(self.teams[move_serial]) != winning_team:
-                    team_win = False
-            if dead.value == 0:
-                #This is to play the sound effect
-                dead.value = -1
-                self.explosion.start_effect()
+            if score.value >= self.win_amount:
+                winning_team = self.teams[move_serial]
+                team_win = True
                 
         if team_win:
-            self.end_game_sound(winning_team)
             for move_serial in self.teams.iterkeys():
-                if self.get_real_team(self.teams[move_serial]) == winning_team:
+                if self.teams[move_serial] == winning_team:
                     self.winning_moves.append(move_serial)
+                else:
+                    self.losing_moves.append(move_serial)
             self.game_end = True
+
+    def check_for_points(self):
+        for move_serial, score in self.scores.iteritems():
+            if score.value == -1:
+                score.value = 0
+                self.explosion.start_effect()
+                team_increase = self.teams[move_serial]
+                for move_serial_increase, score_increase in self.scores.iteritems():
+                    if self.teams[move_serial_increase] != team_increase:
+                        score_increase.value += 1
+            
 
     def stop_tracking_moves(self):
         for proc in self.tracked_moves.itervalues():
             proc.terminate()
             proc.join()
-            time.sleep(0.02)
 
     def end_game(self):
         self.audio.stop_audio()
         end_time = time.time() + END_GAME_PAUSE
         h_value = 0
-
         while (time.time() < end_time):
             time.sleep(0.01)
             win_color = common.hsv2rgb(h_value, 1, 1)
             for win_move in self.winning_moves:
                 win_color_array = self.force_move_colors[win_move]
                 common.change_color(win_color_array, *win_color)
+            for lose_move in self.losing_moves:
+                lose_color_array = self.force_move_colors[lose_move]
+                common.change_color(lose_color_array, 1,0,0)
             h_value = (h_value + 0.01)
             if h_value >= 1:
                 h_value = 0
         self.running = False
 
-    def end_game_sound(self, winning_team):
-        if self.game_mode == common.Games.JoustTeams:
-            if winning_team == 0:
-                team_win = Audio('audio/Joust/sounds/yellow team win.wav')
-            if winning_team == 1:
-                team_win = Audio('audio/Joust/sounds/green team win.wav')
-            if winning_team == 2:
-                team_win = Audio('audio/Joust/sounds/cyan team win.wav')
-            if winning_team == 3:
-                team_win = Audio('audio/Joust/sounds/blue team win.wav')
-            if winning_team == 4:
-                team_win = Audio('audio/Joust/sounds/magenta team win.wav')
-            if winning_team == 5:
-                team_win = Audio('audio/Joust/sounds/red team win.wav')
-            team_win.start_effect()
-        if self.game_mode == common.Games.JoustRandomTeams:
-            if winning_team == 0:
-                team_win = Audio('audio/Joust/sounds/yellow team win.wav')
-            if winning_team == 1:
-                team_win = Audio('audio/Joust/sounds/cyan team win.wav')
-            if winning_team == 2:
-                team_win = Audio('audio/Joust/sounds/magenta team win.wav')
-            if winning_team == 3:
-                team_win = Audio('audio/Joust/sounds/red team win.wav')
-            team_win.start_effect()
-        #self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
-        
-        
-
     def game_loop(self):
         self.track_moves()
         self.count_down()
-        time.sleep(0.02)
         self.audio.start_audio_loop()
-        time.sleep(0.8)
         
         while self.running:
-            
+
             self.check_music_speed()
+            self.check_for_points()
             self.check_end_game()
             if self.game_end:
                 self.end_game()
 
         self.stop_tracking_moves()
                     
-                
-                
-        
-        
 
-            
-        
-
-            

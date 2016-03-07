@@ -8,37 +8,41 @@ from multiprocessing import Process, Value, Lock
 import pygame
 
 
-def audio_loop(file, ratio, end, chunk_size):
-
+def audio_loop(file, ratio, end, chunk_size, stop_proc):
+    time.sleep(0.5)
     proc = psutil.Process(os.getpid())
     proc.nice(-5)
+    time.sleep(0.02)
     while True:
         #chunk = 2048/2
         wf = wave.open(file, 'rb')
+        time.sleep(0.03)
         data = wf.readframes(chunk_size.value)
         p = pyaudio.PyAudio()
+        time.sleep(0.03)
+
         stream = p.open(
             format = p.get_format_from_width(wf.getsampwidth()), 
             channels = wf.getnchannels(),
             rate = wf.getframerate(),
             output = True,
             frames_per_buffer = chunk_size.value)
-        while data != '':
+        while data != '' and stop_proc.value == 0:
             #need to try locking here for multiprocessing
             array = numpy.fromstring(data, dtype=numpy.int16)
             data = signal.resample(array, chunk_size.value*ratio.value)
             stream.write(data.astype(int).tostring())
             data = wf.readframes(chunk_size.value)
-        
         stream.close()
         p.terminate()
 
-        if end:
+        if end or stop_proc.value == 1:
             break
 
 # Start audio in seperate process to be non-blocking
 class Audio:
     def __init__(self, file, end=False):
+        self.stop_proc = Value('i', 0)
         self.chunk = 2048
         self.file = file
         self.ratio = Value('d' , 1.0)
@@ -50,11 +54,13 @@ class Audio:
     	self.p = Process(target=audio_loop, args=(self.file,
                                                   self.ratio,
                                                   self.end,
-                                                  self.chunk_size))
+                                                  self.chunk_size,
+                                                  self.stop_proc))
         self.p.start()
 
     def stop_audio(self):
-        self.p.terminate()
+        self.stop_proc.value = 1
+        #self.p.terminate()
         self.p.join()
 
     def change_ratio(self, ratio):

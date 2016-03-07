@@ -1,5 +1,6 @@
 import psmove
 import colorsys
+import time
 from enum import Enum
 
 color_range = 255
@@ -14,7 +15,9 @@ def generate_colors(color_num):
 
 
 def get_move(serial, move_num):
+    time.sleep(0.02)
     move = psmove.PSMove(move_num)
+    time.sleep(0.05)
     if move.get_serial() != serial:
         for move_num in range(psmove.count_connected()):
             move = psmove.PSMove(move_num)

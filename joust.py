@@ -248,7 +248,7 @@ class Joust():
                 Audio('audio/Joust/sounds/10 werewolf.wav').start_effect()
                 self.audio_cue = 2
             if self.werewolf_timer - (time.time() - self.start_timer) <= 0 and self.audio_cue == 2:
-                Audio('audio/Joust/sounds/werewolf reveal.wav').start_effect()
+                Audio('audio/Joust/sounds/werewolf reveal 2.wav').start_effect()
                 self.reveal()
                 self.audio_cue = 3
                 

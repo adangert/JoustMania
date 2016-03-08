@@ -8,7 +8,7 @@ from piaudio import Audio
 
 
 human_warning = 1
-human_max = 1.8
+human_max = 1.6
 
 zombie_warning = .5
 zombie_max = 0.8
@@ -128,7 +128,8 @@ def track_controller(serial, num_try, opts):
             #regular colors
             else:
                 #need gun selection color in here
-                if opts[0] == 0:
+                #if human
+                if opts[0] == 0 and opts[2] == 0:
                     if opts[5] == 0:
                         move.set_leds(200,200,200)
                     elif opts[5] == 1:
@@ -163,7 +164,7 @@ def track_controller(serial, num_try, opts):
                     opts[5] = 3
 
                 # middle button to show bullet count (0-5)
-                if (button == 524288):
+                if (button == 524288 or button == 1572864):
                     if opts[4] == 5:
                         move.set_leds(0,255,0)
                     if opts[4] == 4:
@@ -210,38 +211,42 @@ class Zombie:
         self.dead_zombies = {}
         self.controller_opts = {}
         self.controllers_alive = cont_alive
-        self.win_time = time.time() + (3 + (len(self.controllers_alive) * 0.5)) * 60
+        self.win_time =  ((len(self.controllers_alive) * 5)/16) * 60
         self.start_time = time.time()
         self.pickup = Audio('audio/Zombie/sound_effects/pickup.wav')
+        self.effect_cue = 0
         self.Start()
 
     def get_weapon(self, random_chance):
         #print 'get weapon'
         chance = random.choice(range(random_chance))
-        #print 'chance is ' + str(chance)
         if chance == 0:
             random_human = random.choice(self.humans)
+            if self.controller_opts[random_human][6] == 4:
+                for human in range(len(self.humans)):
+                    if self.controller_opts[random_human][6] < 4:
+                        random_human = i
+                        break
+            
             #human has no weapon, give pistol
             if self.controller_opts[random_human][6] == 0:
                 self.controller_opts[random_human][6] = 1
                 self.controller_opts[random_human][5] = 1
-            #has pistol give other two weapons
+            #has pistol give shotgun
             elif self.controller_opts[random_human][6] == 1:
-                random_weapon = random.choice([1, 2])
-                self.controller_opts[random_human][6] += random_weapon
-                self.controller_opts[random_human][5] = random_weapon + 1
-            #give final weapon
+                self.controller_opts[random_human][6] = 2
+                self.controller_opts[random_human][5] = 2
+                Audio('audio/Zombie/sound_effects/shotgun found.wav').start_effect()
+            #has shotgun give molotov
             elif self.controller_opts[random_human][6] == 2:
                 self.controller_opts[random_human][6] = 4
                 self.controller_opts[random_human][5] = 3
-            elif self.controller_opts[random_human][6] == 3:
-                self.controller_opts[random_human][6] = 4
-                self.controller_opts[random_human][5] = 2
+                Audio('audio/Zombie/sound_effects/molotov found.wav').start_effect()
         
     def get_kill_time(self):
-        percent_to_win = 1.0 * (time.time() - self.start_time)/(self.win_time - self.start_time)
+        percent_to_win = 1.0 * (time.time() - self.start_time)/(self.win_time * 1.0)
         random_num = ((1.0 - percent_to_win) * 7) + 2
-        return random.uniform(random_num, random_num +3)
+        return random.uniform(random_num, random_num +2)
 
     def kill_zombies(self, num_zombies, random_bullet_chance):
         kill_zombie = False
@@ -266,7 +271,30 @@ class Zombie:
                 self.controller_opts[random_human][4] += 1
         if sound:
             self.pickup.start_effect()
-        self.get_weapon(3)
+        #one in 5 chance of getting a weapon
+        self.get_weapon(5)
+
+    def audio_cue(self):
+        if self.win_time - (time.time() - self.start_time) <= 10 and self.effect_cue <= 4:
+            Audio('audio/Zombie/sound_effects/10 seconds left.wav').start_effect()
+            self.effect_cue = 5
+        elif self.win_time - (time.time() - self.start_time) <= 30 and self.effect_cue <= 3:
+            Audio('audio/Zombie/sound_effects/30 seconds.wav').start_effect()
+            self.effect_cue = 4
+        elif self.win_time - (time.time() - self.start_time) <= 1*60 and self.effect_cue <= 2:
+            Audio('audio/Zombie/sound_effects/1 minute.wav').start_effect()
+            self.effect_cue = 3
+        elif self.win_time - (time.time() - self.start_time) <= 3*60 and self.effect_cue <= 1:
+            Audio('audio/Zombie/sound_effects/3 minutes.wav').start_effect()
+            self.effect_cue = 2
+        elif self.win_time - (time.time() - self.start_time) <= 5*60 and self.effect_cue <= 0:
+            Audio('audio/Zombie/sound_effects/5 minutes.wav').start_effect()
+            self.effect_cue = 1
+
+
+
+
+        
     
     def Start(self):
         running = True
@@ -278,8 +306,9 @@ class Zombie:
         processes = []
         
         for num_try, serial in enumerate(serials):
-            starting_bullets = random.choice([0, 1])
-            opts = Array('i', [0, 0, 0, 1, starting_bullets, 0, 0])
+            starting_bullets = 0
+            #starting_bullets = random.choice([0, 1])
+            opts = Array('i', [0, 0, 0, 1, starting_bullets, 1, 1])
             p = Process(target=track_controller, args=(serial, num_try, opts))
             p.start()
             processes.append(p)
@@ -287,7 +316,7 @@ class Zombie:
             self.humans.append(serial)
 
         human_victory = Audio('audio/Zombie/sound_effects/human_victory.wav')
-        zombie_victory = Audio('audio/Zombie/sound_effects/human_victory.wav')
+        zombie_victory = Audio('audio/Zombie/sound_effects/zombie_victory.wav')
         death = Audio('audio/Zombie/sound_effects/zombie_death.wav')
         pistol = Audio('audio/Zombie/sound_effects/pistol.wav')
         shotgun = Audio('audio/Zombie/sound_effects/shotgun.wav')
@@ -306,9 +335,10 @@ class Zombie:
             self.controller_opts[random_human][3] = 0
         
         while running:
-            #human update
+            self.audio_cue()
+            #human update, loop through the different human controllers
             for serial in self.humans:
-                #human is now a zombie
+                #human is dead and now a zombie
                 if self.controller_opts[serial][3] == 0:
                     self.controller_opts[serial][0] = 1
                     self.dead_zombies[serial] = time.time() + self.get_kill_time()
@@ -316,21 +346,21 @@ class Zombie:
                 #pistol fired(1 bullet 1 random alive zombie)
                 elif self.controller_opts[serial][1] == 2:
                     pistol.start_effect()
-                    self.kill_zombies(1, [0, 0, 1, 1, 2])
+                    self.kill_zombies(1, [0, 0, 0, 0, 1, 1, 1])
                     self.controller_opts[serial][1] = 0
                             
 
                 #shotgun fired(2 bullets 3 random alive zombies)
                 elif self.controller_opts[serial][1] == 3:
                     shotgun.start_effect()
-                    self.kill_zombies(3, [ 0, 1, 1, 2, 3])
+                    self.kill_zombies(3, [ 0, 0, 1, 1, 2])
                     self.controller_opts[serial][1] = 0
 
 
                 #molotov fired(5 bullets all alive zombies)
                 elif self.controller_opts[serial][1] == 4:
                     molotov.start_effect()
-                    self.kill_zombies(20, [0, 2, 3, 4, 5, 6])
+                    self.kill_zombies(20, [0, 0, 1, 2, 3, 4])
                     self.controller_opts[serial][1] = 0
 
                     
@@ -342,10 +372,12 @@ class Zombie:
                     self.controller_opts[serial][3] = 1
                     self.alive_zombies.append(serial)
 
+            #loop through dead zombies
             for serial in self.alive_zombies:
                 if serial in self.dead_zombies:
                     del self.dead_zombies[serial]
-                    
+
+                #melee
                 if self.controller_opts[serial][3] == 0:
                     self.controller_opts[serial][0] = 1
                     self.dead_zombies[serial] = time.time() + self.get_kill_time()
@@ -354,19 +386,19 @@ class Zombie:
                     death.start_effect()
 
             #win scenario
-            if not self.humans or time.time() > self.win_time:
+            if len(self.humans) <= 0 or (time.time() - self.start_time) > self.win_time:
                 for proc in processes:
                     proc.terminate()
                     proc.join()
                 pause_time = time.time() + 3
                 HSV = [(x*1.0/(50*len(self.controllers_alive)), 0.9, 1) for x in range(50*len(self.controllers_alive))]
-                colour_range = [[int(x) for x in common.hsv_to_rgb(*colour)] for colour in HSV]
+                colour_range = [[int(x) for x in common.hsv2rgb(*colour)] for colour in HSV]
                 win_controllers = []
-                if not self.humans:
+                if len(self.humans) <= 0:
                     zombie_victory.start_effect()
                     self.alive_zombies.extend(self.dead_zombies.keys())
                     win_controllers = self.alive_zombies
-                if time.time() > self.win_time:
+                if (time.time() - self.start_time) > self.win_time:
                     human_victory.start_effect()
                     win_controllers = self.humans
                 #This needs to go in it's own function

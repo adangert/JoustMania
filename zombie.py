@@ -212,13 +212,14 @@ class Zombie:
         self.controller_opts = {}
         self.controllers_alive = cont_alive
         self.win_time =  ((len(self.controllers_alive) * 5)/16) * 60
+        if self.win_time <= 0:
+            self.win_time = 60
         self.start_time = time.time()
         self.pickup = Audio('audio/Zombie/sound_effects/pickup.wav')
         self.effect_cue = 0
         self.Start()
 
     def get_weapon(self, random_chance):
-        #print 'get weapon'
         chance = random.choice(range(random_chance))
         if chance == 0:
             random_human = random.choice(self.humans)
@@ -291,18 +292,15 @@ class Zombie:
             Audio('audio/Zombie/sound_effects/5 minutes.wav').start_effect()
             self.effect_cue = 1
 
-
-
-
         
     
     def Start(self):
         running = True
-        moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
-        for move in moves:
-            move.set_leds(0,0,0)
-            move.update_leds()
-        serials = [move.get_serial() for move in moves]
+        moves = []
+        for move_num in range(len(self.controllers_alive)):
+            moves.append(common.get_move(self.controllers_alive[move_num], move_num))
+
+        serials = self.controllers_alive
         processes = []
         
         for num_try, serial in enumerate(serials):
@@ -314,6 +312,7 @@ class Zombie:
             processes.append(p)
             self.controller_opts[serial] = opts
             self.humans.append(serial)
+            
 
         human_victory = Audio('audio/Zombie/sound_effects/human_victory.wav')
         zombie_victory = Audio('audio/Zombie/sound_effects/zombie_victory.wav')

@@ -41,7 +41,7 @@ class Games(Enum):
     JoustRandomTeams = 2
     WereJoust = 3
     Zombies = 4
-    Bubble = 5
+    Commander = 5
 
 class Buttons(Enum):
     middle = 524288

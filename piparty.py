@@ -5,7 +5,7 @@ import common
 import joust
 import time
 import zombie
-import bubble
+import commander
 from piaudio import Audio
 from enum import Enum
 from multiprocessing import Process, Value, Array
@@ -238,14 +238,13 @@ class Menu():
         self.stop_tracking_moves()
         time.sleep(0.2)
         game_moves = [move.get_serial() for move in self.moves if self.out_moves[move.get_serial()] == Alive.on]
-        print str(game_moves)
         
         self.teams = {serial: self.move_opts[serial][Opts.team] for serial in self.tracked_moves.iterkeys() if self.out_moves[serial] == Alive.on}
         if self.game_mode == common.Games.Zombies:
             zombie.Zombie(game_moves)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Commander:
-            bubble.Bubble(game_moves)
+            commander.Commander(game_moves)
             self.tracked_moves = {}
         else:
             #may need to put in moves that have selected to not be in the game

@@ -156,14 +156,34 @@ def track_controller(serial, num_try, opts):
                 #128, 16 ,32
                 button = move.get_buttons()
                 #pistol
-                if (button == 128 and opts[6] > 0):
-                    opts[5] = 1
-                if (button == 16 and (opts[6] == 2 or opts[6] == 4)):
-                    opts[5] = 2
-                if (button == 32 and (opts[6] == 3 or opts[6] == 4)):
-                    opts[5] = 3
+
+                if (opts[2] == 0 and button == 16):
+                    #holding button
+                    opts[2] = 1
+                    #if has shotgun, cycle weapons
+                    if opts[6] == 2:
+                        opts[5] = (opts[5] + 1) % 3
+                        if opts[5] == 0:
+                            opts[5] = 1
+                    #if has shotgun/molotov cycle weapons
+                    elif opts[6] == 4:
+                        opts[5] = (opts[5] + 1) % 4
+                        if opts[5] == 0:
+                            opts[5] = 1
+
+                    #update colors:
+                    if opts[5] == 0:
+                        move.set_leds(200,200,200)
+                    elif opts[5] == 1:
+                        move.set_leds(50,50,200)
+                    elif opts[5] == 2:
+                        move.set_leds(150,40,255)
+                    elif opts[5] == 3:
+                        move.set_leds(220,220,40)
+
 
                 # middle button to show bullet count (0-5)
+                ##if (button == 524288 or button == 1572864):
                 if (button == 524288 or button == 1572864):
                     if opts[4] == 5:
                         move.set_leds(0,255,0)
@@ -329,7 +349,7 @@ class Zombie:
             pass
 
         #kill first humans
-        for i in range(2):
+        for i in range(3):
             random_human = random.choice(self.humans)
             self.controller_opts[random_human][3] = 0
         

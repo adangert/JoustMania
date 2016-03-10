@@ -11,6 +11,7 @@ from multiprocessing import Process, Value, Array
 
 # How fast/slow the music can go
 SLOW_MUSIC_SPEED = 1.5
+#this was 0.5
 FAST_MUSIC_SPEED = 0.5
 
 # The min and max timeframe in seconds for

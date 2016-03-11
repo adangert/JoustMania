@@ -10,8 +10,8 @@ from piaudio import Audio
 human_warning = 1
 human_max = 1.6
 
-zombie_warning = .5
-zombie_max = 0.8
+zombie_warning = 0.6
+zombie_max = 1.0
 zombie_spawn_invincibility = 2
 
 speed_zombie_warning = 1.2

@@ -79,6 +79,9 @@ class Audio:
         self.effect = pygame.mixer.Sound(self.file)
         self.effect.play()
 
+    def stop_effect(self):
+        self.effect.stop()
+
     def start_effect_music(self):
         pygame.mixer.music.load(self.file)
         pygame.mixer.music.play()

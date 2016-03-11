@@ -149,12 +149,18 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
                     #speed_percent = (music_speed.value - SLOW_MUSIC_SPEED)/(FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED)
                     #warning = common.lerp(SLOW_WARNING, FAST_WARNING, speed_percent)
                     #threshold = common.lerp(SLOW_MAX, FAST_MAX, speed_percent)
-                    if overdrive.value == 0:
+                    if move_opts[Opts.is_commander] == Bool.no:
+                        if overdrive.value == 0:
+                            warning = SLOW_WARNING
+                            threshold = SLOW_MAX
+                        else:
+                            warning = FAST_WARNING
+                            threshold = FAST_MAX
+                    else:
+                        #if affected by overdrive, this could make the power better
                         warning = SLOW_WARNING
                         threshold = SLOW_MAX
-                    else:
-                        warning = FAST_WARNING
-                        threshold = FAST_MAX
+                        
 
                     if change > threshold:
                         if time.time() > no_rumble:
@@ -210,8 +216,8 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
                 move_last_value = None
                 dead_move.value = 1
                 no_rumble = time.time() + 2
-                if death_time < 30:
-                    death_time += 2
+                if death_time < 25:
+                    death_time += 1
             
 
 class Commander():
@@ -232,7 +238,7 @@ class Commander():
         self.move_opts = {}
         self.current_commander = ["",""]
 
-        self.time_to_power = [14,14]
+        self.time_to_power = [20,20]
         self.activated_time = [time.time(), time.time()]
 
         self.activated_overdrive = [time.time(), time.time()]
@@ -249,10 +255,12 @@ class Commander():
         self.generate_random_teams(self.team_num)
         self.commander_intro = Value('i', 1)
 
+        self.powers_active = [False, False]
+
         
 
 
-        music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
+        music = 'audio/Commander/music/' + random.choice(os.listdir('audio/Commander/music'))
         self.start_beep = Audio('audio/Joust/sounds/start.wav')
         self.start_game = Audio('audio/Joust/sounds/start3.wav')
         self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
@@ -376,6 +384,13 @@ class Commander():
 
         for move_serial, dead in self.dead_moves.iteritems():
             if dead.value == 0:
+                dead_team = self.teams[move_serial]
+                winning_team = (self.teams[move_serial] + 1) % 2
+                if self.time_to_power[winning_team] > 10:
+                    self.time_to_power[team] -= 1
+                if self.time_to_power[dead_team] < 30:
+                    self.time_to_power[team] -= +
+                
                 #This is to play the sound effect
                 dead.value = -1
                 self.explosion.start_effect()
@@ -405,24 +420,20 @@ class Commander():
 
     def end_game_sound(self, winning_team):
         #if self.game_mode == common.Games.JoustTeams:
-        if winning_team == 0:
-            team_win = Audio('audio/Joust/sounds/yellow team win.wav')
-        if winning_team == 1:
-            team_win = Audio('audio/Joust/sounds/green team win.wav')
-        if winning_team == 2:
-            team_win = Audio('audio/Joust/sounds/cyan team win.wav')
-        if winning_team == 3:
-            team_win = Audio('audio/Joust/sounds/blue team win.wav')
-        if winning_team == 4:
-            team_win = Audio('audio/Joust/sounds/magenta team win.wav')
-        if winning_team == 5:
-            team_win = Audio('audio/Joust/sounds/red team win.wav')
+        if winning_team == Team.red:
+            team_win = Audio('audio/Commander/sounds/red winner.wav')
+        if winning_team == Team.blue:
+            team_win = Audio('audio/Commander/sounds/blue winner.wav')
         team_win.start_effect()
 
     def check_commander_select(self):
         for move_serial in self.move_opts.iterkeys():
             if self.move_opts[move_serial][Opts.selection] == Selections.triangle and self.move_opts[move_serial][Opts.holding] == Holding.holding:
+                Audio('audio/Commander/sounds/commanderselect.wav').start_effect()
                 self.change_commander(move_serial)
+                self.move_opts[move_serial][Opts.selection] = Selections.nothing
+            elif self.move_opts[move_serial][Opts.selection] == Selections.a_button and self.move_opts[move_serial][Opts.holding] == Holding.holding:
+                Audio('audio/Commander/sounds/buttonselect.wav').start_effect()
                 self.move_opts[move_serial][Opts.selection] = Selections.nothing
 
     def change_commander(self, new_commander):
@@ -444,18 +455,34 @@ class Commander():
         return False
             
     def update_team_powers(self):
-        
         self.powers[Team.red].value = max(min((time.time() - self.activated_time[Team.red])/(self.time_to_power[Team.red] * 1.0),1.0), 0.0)
         self.powers[Team.blue].value = max(min((time.time() - self.activated_time[Team.blue])/(self.time_to_power[Team.blue] * 1.0), 1.0), 0.0)
 
+        
+        if self.powers_active[Team.red] == False:
+            if self.powers[Team.red].value >= 1.0:
+                self.powers_active[Team.red] = True
+                Audio('audio/Commander/sounds/power ready.wav').start_effect()
+                Audio('audio/Commander/sounds/red power ready.wav').start_effect()
+                
+                
+        if self.powers_active[Team.blue] == False:
+            if self.powers[Team.blue].value >= 1.0:
+                self.powers_active[Team.blue] = True
+                Audio('audio/Commander/sounds/power ready.wav').start_effect()
+                Audio('audio/Commander/sounds/blue power ready.wav').start_effect()
+                
+            
     def overdrive(self, team):
-        print 'OVERDRIVE ON'
+        Audio('audio/Commander/sounds/overdrive.wav').start_effect()
         if team == Team.red:
             self.red_overdrive.value = 1
             self.activated_overdrive[Team.red] = time.time() + 10
+            Audio('audio/Commander/sounds/red overdrive.wav').start_effect()
         else:
             self.blue_overdrive.value = 1
             self.activated_overdrive[Team.blue] = time.time() + 10
+            Audio('audio/Commander/sounds/blue overdrive.wav').start_effect()
 
     def revive(self, team):
         print 'dadooda'
@@ -463,10 +490,22 @@ class Commander():
         #print 'dead_team_moves is ' + str(dead_team_moves)
         for move in dead_team_moves:
             self.dead_moves[move].value = 3
+        Audio('audio/Commander/sounds/revive.wav').start_effect()
+        if team == Team.red:
+            Audio('audio/Commander/sounds/red revive.wav').start_effect()
+        if team == Team.blue:
+            Audio('audio/Commander/sounds/blue revive.wav').start_effect()
 
     def shift(self, team, commander):
         print 'shifty'
-        return self.change_random_commander(team, exclude_commander = commander)
+        did_shift = self.change_random_commander(team, exclude_commander = commander)
+        if did_shift:
+            Audio('audio/Commander/sounds/shift.wav').start_effect()
+            if team == Team.red:
+                Audio('audio/Commander/sounds/red shift.wav').start_effect()
+            if team == Team.blue:
+                Audio('audio/Commander/sounds/blue shift.wav').start_effect()
+        return did_shift
         
         
     def check_end_of_overdrive(self):
@@ -484,7 +523,7 @@ class Commander():
     def reset_power(self, team):
         self.powers[team].value == 0.0
         self.activated_time[team] = time.time()
-        self.time_to_power[team] += 2
+        self.powers_active[team] = False
 
     def check_commander_power(self):
         #print str(self.powers[0].value)
@@ -508,21 +547,41 @@ class Commander():
                     self.reset_power(self.teams[commander])
                 self.move_opts[commander][Opts.selection] = Selections.nothing
 
-            
+    def check_everyone_in(self):
+        for move_serial in self.move_opts.iterkeys():
+            if self.move_opts[move_serial][Opts.holding] == Holding.not_holding:
+                return False
+        return True
+        
             
     def commander_intro_audio(self):
         #print 'BOOOP'
-        Audio('audio/Commander/sounds/commander intro.wav').start_effect()
+        intro_sound = Audio('audio/Commander/sounds/commander intro.wav')
+        intro_sound.start_effect()
         #need while loop here
-        commander_select_time = time.time() + 10
+        play_last_one = True
+        commander_select_time = time.time() + 50
+        battle_ready_time = time.time() + 40
         while time.time() < commander_select_time:
             self.check_commander_select()
+            if self.check_everyone_in():
+                break
+
+            if time.time() > battle_ready_time and play_last_one:
+                play_last_one = False
+                Audio('audio/Commander/sounds/10 seconds begins.wav').start_effect()
+        intro_sound.stop_effect()        
 
         if self.current_commander[Team.red] == '':
             self.change_random_commander(Team.red)
         if self.current_commander[Team.blue] == '':
             self.change_random_commander(Team.blue)
 
+
+        Audio('audio/Commander/sounds/commanders chosen.wav').start_effect()
+        time.sleep(4)
+        self.reset_power(Team.red)
+        self.reset_power(Team.blue)
         self.commander_intro.value = 0
 
     def game_loop(self):

@@ -36,9 +36,16 @@ def audio_loop(file, p, ratio, end, chunk_size, stop_proc):
         stream.close()
         wf.close()
         p.terminate()
-
+        
         if end or stop_proc.value == 1:
             break
+    stream.stop_stream()
+    stream.close()
+    wf.close()
+    p.terminate()
+
+
+
 
 # Start audio in seperate process to be non-blocking
 class Audio:

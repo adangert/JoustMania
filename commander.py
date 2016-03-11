@@ -24,8 +24,8 @@ MAX_MUSIC_SLOW_TIME = 23
 #Sensitivity of the contollers
 SLOW_MAX = 1.3
 SLOW_WARNING = 0.28
-FAST_MAX = 2.0
-FAST_WARNING = 1.0
+FAST_MAX = 2.5
+FAST_WARNING = 1.3
 
 
 
@@ -227,7 +227,7 @@ class Commander():
         self.tracked_moves = {}
         self.dead_moves = {}
         self.teams = {}
-        self.music_speed = Value('d', 1.5)
+        self.music_speed = Value('d', 1)
         self.running = True
         self.force_move_colors = {}
         self.team_num = 2
@@ -265,9 +265,8 @@ class Commander():
         self.start_game = Audio('audio/Joust/sounds/start3.wav')
         self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
         fast_resample = False
-        if len(moves) >= 5:
-            fast_resample = True
-        self.audio = Audio(music, fast_resample)
+        end = False
+        self.audio = Audio(music, end)
         #self.change_time = self.get_change_time(speed_up = True)
         self.change_time = time.time() + 8
         self.speed_up = True
@@ -387,9 +386,9 @@ class Commander():
                 dead_team = self.teams[move_serial]
                 winning_team = (self.teams[move_serial] + 1) % 2
                 if self.time_to_power[winning_team] > 10:
-                    self.time_to_power[team] -= 1
+                    self.time_to_power[winning_team] -= 1
                 if self.time_to_power[dead_team] < 30:
-                    self.time_to_power[team] += 1
+                    self.time_to_power[dead_team] += 1
                 
                 #This is to play the sound effect
                 dead.value = -1

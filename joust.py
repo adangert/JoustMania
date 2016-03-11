@@ -136,9 +136,8 @@ class Joust():
         self.start_game = Audio('audio/Joust/sounds/start3.wav')
         self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
         fast_resample = False
-        if len(moves) >= 5:
-            fast_resample = True
-        self.audio = Audio(music, fast_resample)
+        end = False
+        self.audio = Audio(music, end)
         #self.change_time = self.get_change_time(speed_up = True)
         self.change_time = time.time() + 8
         self.speed_up = True

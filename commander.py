@@ -389,7 +389,7 @@ class Commander():
                 if self.time_to_power[winning_team] > 10:
                     self.time_to_power[team] -= 1
                 if self.time_to_power[dead_team] < 30:
-                    self.time_to_power[team] -= +
+                    self.time_to_power[team] += 1
                 
                 #This is to play the sound effect
                 dead.value = -1

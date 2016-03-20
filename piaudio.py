@@ -55,19 +55,14 @@ class Audio:
         self.chunk = 2048
         self.file = file
         self.ratio = Value('d' , 1.0)
-        self.chunk_size = Value('i', 2048/2)
+        self.chunk_size = Value('i', int(2048/2))
         self.end = end
         pygame.mixer.init(44100, -16, 2 , 2048)
 
     def start_audio_loop(self):
-    	self.p = Process(target=audio_loop, args=(self.file,
-                                                  self.p,
-                                                  self.ratio,
-                                                  self.end,
-                                                  self.chunk_size,
-                                                  self.stop_proc))
+        self.p = Process(target=audio_loop, args=(self.file, self.p, self.ratio, self.end, self.chunk_size, self.stop_proc))
         self.p.start()
-
+        
     def stop_audio(self):
         self.stop_proc.value = 1
         #self.p.terminate()
@@ -78,9 +73,9 @@ class Audio:
 
     def change_chunk_size(self, increase):
         if increase:
-            self.chunk_size.value = 2048/4
+            self.chunk_size.value = int(2048/4)
         else:
-            self.chunk_size.value = 2048/2
+            self.chunk_size.value = int(2048/2)
 
     def start_effect(self):
         self.effect = pygame.mixer.Sound(self.file)

@@ -194,7 +194,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
                         if power.value >= 1.0:
                             #press trigger for overdrive
                             if (move_opts[Opts.holding] == Holding.not_holding and move.get_trigger() > 100):
-                                print 'BOOOM'
+                                print (BOOOM)
                                 move_opts[Opts.selection] = Selections.trigger
                                 move_opts[Opts.holding] = Holding.holding
                             elif (move_opts[Opts.holding] == Holding.not_holding and button == Buttons.middle):
@@ -446,7 +446,7 @@ class Commander():
 
     def change_random_commander(self, team, exclude_commander=None):
         team_move_serials = [ move_serial for move_serial in self.move_opts.iterkeys() if (self.teams[move_serial] == team and move_serial != exclude_commander and self.dead_moves[move_serial].value >= 1) ]
-        print 'team move serials is ' + str(team_move_serials)
+        print ('team move serials is ' + str(team_move_serials))
         if len(team_move_serials) > 0:
             new_commander = random.choice(team_move_serials)
             self.change_commander(new_commander)
@@ -484,7 +484,7 @@ class Commander():
             Audio('audio/Commander/sounds/blue overdrive.wav').start_effect()
 
     def revive(self, team):
-        print 'dadooda'
+        print ('dadooda')
         dead_team_moves = [ move_serial for move_serial in self.move_opts.iterkeys() if (self.teams[move_serial] == team and self.dead_moves[move_serial].value <= 0) ]
         #print 'dead_team_moves is ' + str(dead_team_moves)
         for move in dead_team_moves:
@@ -496,7 +496,7 @@ class Commander():
             Audio('audio/Commander/sounds/blue revive.wav').start_effect()
 
     def shift(self, team, commander):
-        print 'shifty'
+        print ('shifty')
         did_shift = self.change_random_commander(team, exclude_commander = commander)
         if did_shift:
             Audio('audio/Commander/sounds/shift.wav').start_effect()
@@ -535,13 +535,11 @@ class Commander():
                 self.move_opts[commander][Opts.selection] = Selections.nothing
 
             if self.move_opts[commander][Opts.selection] == Selections.a_button:
-                print 'BABOOBA'
                 self.revive(self.teams[commander])
                 self.reset_power(self.teams[commander])
                 self.move_opts[commander][Opts.selection] = Selections.nothing
                 
             if self.move_opts[commander][Opts.selection] == Selections.triangle:
-                print 'balogalo'              
                 if self.shift(self.teams[commander], commander):
                     self.reset_power(self.teams[commander])
                 self.move_opts[commander][Opts.selection] = Selections.nothing

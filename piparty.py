@@ -60,67 +60,68 @@ def track_move(serial, move_num, move_opts):
     while True:
         time.sleep(0.01)
         if move.poll():
-            game_mode = move_opts[Opts.game_mode]
+            game_mode = move_opts[Opts.game_mode.value]
             move_button = move.get_buttons()
-            if move_opts[Opts.alive] == Alive.off:
-                if move_button == Buttons.sync:
-                    move_opts[Opts.alive] = Alive.on
+            if move_opts[Opts.alive.value] == Alive.off.value:
+                if move_button == Buttons.sync.value:
+                    move_opts[Opts.alive.value] = Alive.on.value
                 time.sleep(0.1)
             else:
-                if move_button == Buttons.all_buttons:
-                    move_opts[Opts.alive] = Alive.off
+                if move_button == Buttons.all_buttons.value:
+                    move_opts[Opts.alive.value] = Alive.off.value
                     move.set_leds(0,0,0)
                     move.set_rumble(0)
                     move.update_leds()
                     continue
                     
-                if game_mode == common.Games.JoustFFA:
+                if game_mode == common.Games.JoustFFA.value:
                     move.set_leds(255,255,255)
                     
-                elif game_mode == common.Games.JoustTeams:
-                    if move_opts[Opts.team] >= TEAM_NUM:
-                        move_opts[Opts.team] = 0
-                    move.set_leds(*TEAM_COLORS[move_opts[Opts.team]])
+                elif game_mode == common.Games.JoustTeams.value:
+                    if move_opts[Opts.team.value] >= TEAM_NUM:
+                        move_opts[Opts.team.value] = 0
+                    move.set_leds(*TEAM_COLORS[move_opts[Opts.team.value]])
                     if move_button == Buttons.middle:
                         #allow players to increase their own team
-                        if move_opts[Opts.holding] == Holding.not_holding:
-                            move_opts[Opts.team] = (move_opts[Opts.team] + 1) % TEAM_NUM
-                            move_opts[Opts.holding] = Holding.holding
+                        if move_opts[Opts.holding.value] == Holding.not_holding.value:
+                            move_opts[Opts.team.value] = (move_opts[Opts.team.value] + 1) % TEAM_NUM
+                            move_opts[Opts.holding.value] = Holding.holding.value
                             
-                elif game_mode == common.Games.JoustRandomTeams:
+                elif game_mode == common.Games.JoustRandomTeams.value:
                     color = common.hsv2rgb(random_color, 1, 1)
                     move.set_leds(*color)
                     random_color += 0.001
                     if random_color >= 1:
                         random_color = 0
 
-                elif game_mode == common.Games.WereJoust:
+                elif game_mode == common.Games.WereJoust.value:
                     if move_num <= 0:
                         move.set_leds(150,0,0)
                     else:
                         move.set_leds(200,200,200)
 
-                elif game_mode == common.Games.Zombies:
+                elif game_mode == common.Games.Zombies.value:
                         move.set_leds(50,150,50)
 
-                elif game_mode == common.Games.Commander:
+                elif game_mode == common.Games.Commander.value:
                     if move_num % 2 == 0:
                         move.set_leds(150,0,0)
                     else:
                         move.set_leds(0,0,150)
                     
 
-                if move_opts[Opts.holding] == Holding.not_holding:
-                    if move_button == Buttons.select:
-                        move_opts[Opts.selection] = Selections.change_mode
-                        move_opts[Opts.holding] = Holding.holding
+                if move_opts[Opts.holding.value] == Holding.not_holding.value:
+                    if move_button == Buttons.select.value:
+                        move_opts[Opts.selection.value] = Selections.change_mode.value
+                        move_opts[Opts.holding.value] = Holding.holding.value
 
-                    if move_button == Buttons.start:
-                        move_opts[Opts.selection] = Selections.start_game
-                        move_opts[Opts.holding] = Holding.holding
+                    if move_button == Buttons.start.value:
+                        print ('start')
+                        move_opts[Opts.selection.value] = Selections.start_game.value
+                        move_opts[Opts.holding.value] = Holding.holding.value
 
-                if move_button == Buttons.nothing:
-                    move_opts[Opts.holding] = Holding.not_holding
+                if move_button == Buttons.nothing.value:
+                    move_opts[Opts.holding.value] = Holding.not_holding.value
             
         move.update_leds()
             
@@ -135,7 +136,7 @@ class Menu():
         self.paired_moves = []
         self.move_opts = {}
         self.teams = {}
-        self.game_mode = common.Games.JoustFFA
+        self.game_mode = common.Games.JoustFFA.value
         
         self.pair = pair.Pair()
         
@@ -144,10 +145,10 @@ class Menu():
     def exclude_out_moves(self):
         for move in self.moves:
             serial = move.get_serial()
-            if self.move_opts[move.get_serial()][Opts.alive] == Alive.off:
-                self.out_moves[move.get_serial()] = Alive.off
+            if self.move_opts[move.get_serial()][Opts.alive.value] == Alive.off:
+                self.out_moves[move.get_serial()] = Alive.off.value
             else:
-                self.out_moves[move.get_serial()] = Alive.on
+                self.out_moves[move.get_serial()] = Alive.on.value
 
     def check_for_new_moves(self):
         self.enable_bt_scanning(True)
@@ -178,10 +179,10 @@ class Menu():
             else:
                 opts = Array('i', [0] * 5)
                 if move_serial in self.teams:
-                    opts[Opts.team] = self.teams[move_serial]
+                    opts[Opts.team.value] = self.teams[move_serial]
                 if move_serial in self.out_moves:
-                    opts[Opts.alive] = self.out_moves[move_serial]
-                opts[Opts.game_mode] = self.game_mode
+                    opts[Opts.alive.value] = self.out_moves[move_serial]
+                opts[Opts.game_mode.value] = self.game_mode
                 
                 #now start tracking the move controller
                 proc = Process(target=track_move, args=(move_serial, move_num, opts))
@@ -190,26 +191,26 @@ class Menu():
                 self.tracked_moves[move_serial] = proc
 
     def game_mode_announcement(self):
-        if self.game_mode == common.Games.JoustFFA:
+        if self.game_mode == common.Games.JoustFFA.value:
             Audio('audio/Menu/menu Joust FFA.wav').start_effect()
-        if self.game_mode == common.Games.JoustTeams:
+        if self.game_mode == common.Games.JoustTeams.value:
             Audio('audio/Menu/menu Joust Teams.wav').start_effect()
-        if self.game_mode == common.Games.JoustRandomTeams:
+        if self.game_mode == common.Games.JoustRandomTeams.value:
             Audio('audio/Menu/menu Joust Random Teams.wav').start_effect()
-        if self.game_mode == common.Games.WereJoust:
+        if self.game_mode == common.Games.WereJoust.value:
             Audio('audio/Menu/menu werewolfs.wav').start_effect()
-        if self.game_mode == common.Games.Zombies:
+        if self.game_mode == common.Games.Zombies.value:
             Audio('audio/Menu/menu Zombies.wav').start_effect()
-        if self.game_mode == common.Games.Commander:
+        if self.game_mode == common.Games.Commander.value:
             Audio('audio/Menu/menu Commander.wav').start_effect()
 
     def check_change_mode(self):
-        for move_opt in self.move_opts.itervalues():
-            if move_opt[Opts.selection] == Selections.change_mode:
+        for move_opt in self.move_opts.values():
+            if move_opt[Opts.selection.value] == Selections.change_mode.value:
                 self.game_mode = (self.game_mode + 1) %  GAME_MODES
-                move_opt[Opts.selection] = Selections.nothing
-                for opt in self.move_opts.itervalues():
-                    opt[Opts.game_mode] = self.game_mode
+                move_opt[Opts.selection.value] = Selections.nothing.value
+                for opt in self.move_opts.values():
+                    opt[Opts.game_mode.value] = self.game_mode
                 self.game_mode_announcement()
 
     def game_loop(self):
@@ -223,13 +224,13 @@ class Menu():
             self.check_start_game()
 
     def stop_tracking_moves(self):
-        for proc in self.tracked_moves.itervalues():
+        for proc in self.tracked_moves.values():
             proc.terminate()
             proc.join()
             
     def check_start_game(self):
-        for move_opt in self.move_opts.itervalues():
-            if move_opt[Opts.selection] == Selections.start_game:
+        for move_opt in self.move_opts.values():
+            if move_opt[Opts.selection.value] == Selections.start_game.value:
                 self.start_game()
 
     def start_game(self):
@@ -237,13 +238,13 @@ class Menu():
         self.exclude_out_moves()
         self.stop_tracking_moves()
         time.sleep(0.2)
-        game_moves = [move.get_serial() for move in self.moves if self.out_moves[move.get_serial()] == Alive.on]
+        game_moves = [move.get_serial() for move in self.moves if self.out_moves[move.get_serial()] == Alive.on.value]
         
-        self.teams = {serial: self.move_opts[serial][Opts.team] for serial in self.tracked_moves.iterkeys() if self.out_moves[serial] == Alive.on}
-        if self.game_mode == common.Games.Zombies:
+        self.teams = {serial: self.move_opts[serial][Opts.team.value] for serial in self.tracked_moves.keys() if self.out_moves[serial] == Alive.on.value}
+        if self.game_mode == common.Games.Zombies.value:
             zombie.Zombie(game_moves)
             self.tracked_moves = {}
-        elif self.game_mode == common.Games.Commander:
+        elif self.game_mode == common.Games.Commander.value:
             commander.Commander(game_moves)
             self.tracked_moves = {}
         else:

@@ -61,7 +61,7 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
             else:
                 move.set_rumble(0)
             no_rumble = time.time() + 0.5
-        elif dead_move.value == 1 and werewolf_reveal > 0:   
+        elif dead_move.value == 1 and werewolf_reveal.value > 0:   
             if move.poll():
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
                 total = sum([ax, ay, az])
@@ -113,18 +113,18 @@ class Joust():
         self.start_timer = time.time()
         self.audio_cue = 0
         self.werewolf_reveal = Value('i', 2)
-        if game_mode == common.Games.JoustFFA:
+        if game_mode == common.Games.JoustFFA.value:
             self.team_num = len(moves)
-        if game_mode == common.Games.JoustRandomTeams:
+        if game_mode == common.Games.JoustRandomTeams.value:
             #this should be 3 for smaller number of controllers
             self.team_num = 4
-        if game_mode == common.Games.WereJoust:
+        if game_mode == common.Games.WereJoust.value:
             self.werewolf_reveal.value = 0
             self.team_num = 1
-        if game_mode != common.Games.JoustTeams:
+        if game_mode != common.Games.JoustTeams.value:
             self.generate_random_teams(self.team_num)
 
-        if game_mode == common.Games.WereJoust:
+        if game_mode == common.Games.WereJoust.value:
             #were_num = int((len(moves)+2)/4)
             were_num = int((len(moves)*3)/8)
             if were_num <= 0:
@@ -156,16 +156,23 @@ class Joust():
             self.teams[werewolf] = (self.teams[werewolf] * -1) - 1
 
     def generate_random_teams(self, team_num):
-        team_pick = range(team_num)
+        print ('about to generate teams')
+        team_pick = list(range(team_num))
+        print (str(team_pick))
         for serial in self.move_serials:
+            print ('doin serial ' + str(serial))
             random_choice = random.choice(team_pick)
             self.teams[serial] = random_choice
+            print ('removing it')
             team_pick.remove(random_choice)
             if not team_pick:
-                team_pick = range(team_num)
+                team_pick = list(range(team_num))
 
     def track_moves(self):
+        print ('starting track moves')
+        print ('move serials is ' + str(self.move_serials))
         for move_num, move_serial in enumerate(self.move_serials):
+            
             time.sleep(0.02)
             dead_move = Value('i', 1)
             force_color = Array('i', [1] * 3)
@@ -184,7 +191,7 @@ class Joust():
             self.force_move_colors[move_serial] = force_color
             
     def change_all_move_colors(self, r, g, b):
-        for color in self.force_move_colors.itervalues():
+        for color in self.force_move_colors.values():
             common.change_color(color, r, g, b)
 
     #need to do the count_down here
@@ -256,7 +263,9 @@ class Joust():
     def check_end_game(self):
         winning_team = -100
         team_win = True
-        for move_serial, dead in self.dead_moves.iteritems():
+        #print ('dead moves is ' + str(self.dead_moves))
+        for move_serial, dead in self.dead_moves.items():
+            #print ('the dead move is ' + str(move_serial))
             #if we are alive
             if dead.value == 1:
                 if winning_team == -100:
@@ -270,13 +279,13 @@ class Joust():
                 
         if team_win:
             self.end_game_sound(winning_team)
-            for move_serial in self.teams.iterkeys():
+            for move_serial in self.teams.keys():
                 if self.get_real_team(self.teams[move_serial]) == winning_team:
                     self.winning_moves.append(move_serial)
             self.game_end = True
 
     def stop_tracking_moves(self):
-        for proc in self.tracked_moves.itervalues():
+        for proc in self.tracked_moves.values():
             proc.terminate()
             proc.join()
             time.sleep(0.02)
@@ -351,11 +360,11 @@ class Joust():
         time.sleep(0.8)
         
         while self.running:
-            
             self.check_music_speed()
             self.check_end_game()
             self.werewolf_audio_cue()
             if self.game_end:
+                print ('end of game')
                 self.end_game()
 
         self.stop_tracking_moves()

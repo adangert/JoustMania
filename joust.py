@@ -21,6 +21,11 @@ MAX_MUSIC_FAST_TIME = 8
 MIN_MUSIC_SLOW_TIME = 10
 MAX_MUSIC_SLOW_TIME = 23
 
+END_MIN_MUSIC_FAST_TIME = 6
+END_MAX_MUSIC_FAST_TIME = 10
+END_MIN_MUSIC_SLOW_TIME = 8
+END_MAX_MUSIC_SLOW_TIME = 12
+
 #Sensitivity of the contollers
 SLOW_MAX = 1
 SLOW_WARNING = 0.28
@@ -129,6 +134,7 @@ class Joust():
         self.werewolf_timer = 35
         self.start_timer = time.time()
         self.audio_cue = 0
+        self.num_dead = 0
         self.werewolf_reveal = Value('i', 2)
         if game_mode == common.Games.JoustFFA.value:
             self.team_num = len(moves)
@@ -224,12 +230,22 @@ class Joust():
         time.sleep(0.75)
         self.change_all_move_colors(0, 0, 0)
         self.start_game.start_effect()
-        
+
     def get_change_time(self, speed_up):
+        game_percent = (self.num_dead/(len(self.move_serials)-2))
+        if game_percent > 1.0:
+            game_percent = 1.0
+        print ('game percent is ' + str(game_percent))
+        min_music_fast = common.lerp(MIN_MUSIC_FAST_TIME, END_MIN_MUSIC_FAST_TIME, game_percent)
+        max_music_fast = common.lerp(MAX_MUSIC_FAST_TIME, END_MAX_MUSIC_FAST_TIME, game_percent)
+
+        min_music_slow = common.lerp(MIN_MUSIC_SLOW_TIME, END_MIN_MUSIC_SLOW_TIME, game_percent)
+        max_music_slow = common.lerp(MAX_MUSIC_SLOW_TIME, END_MAX_MUSIC_SLOW_TIME, game_percent)
         if speed_up:
-            added_time = random.uniform(MIN_MUSIC_FAST_TIME, MAX_MUSIC_FAST_TIME)
+            added_time = random.uniform(min_music_fast, max_music_fast)
         else:
-            added_time = random.uniform(MIN_MUSIC_SLOW_TIME, MAX_MUSIC_SLOW_TIME)
+            added_time = random.uniform(min_music_slow, max_music_slow)
+        print ('added time is ' + str(added_time))
         return time.time() + added_time
 
     def change_music_speed(self, fast):
@@ -291,6 +307,7 @@ class Joust():
                     team_win = False
             if dead.value == 0:
                 #This is to play the sound effect
+                self.num_dead += 1
                 dead.value = -1
                 self.explosion.start_effect()
                 

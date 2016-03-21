@@ -8,7 +8,7 @@ from piaudio import Audio
 
 
 human_warning = 1
-human_max = 1.6
+human_max = 1.8
 
 zombie_warning = 0.6
 zombie_max = 1.0
@@ -130,20 +130,21 @@ def track_controller(serial, num_try, opts):
                 #need gun selection color in here
                 #if human
                 if opts[0] == 0 and opts[2] == 0:
-                    if opts[5] == 0:
-                        move.set_leds(200,200,200)
-                    elif opts[5] == 1:
-                        move.set_leds(50,50,200)
-                    elif opts[5] == 2:
-                        move.set_leds(150,40,255)
-                    elif opts[5] == 3:
-                        move.set_leds(220,220,40)
+                    pass
+                #    if opts[5] == 0:
+                #        move.set_leds(200,200,200)
+                #    elif opts[5] == 1:
+                #        move.set_leds(50,50,200)
+                #    elif opts[5] == 2:
+                #        move.set_leds(150,40,255)
+                #    elif opts[5] == 3:
+                #        move.set_leds(220,220,40)
                 elif opts[0] == 1:
                     move.set_leds(20,139,16)
-                elif opts[0] == 2:
-                    move.set_leds(255,165,0)
-                elif opts[0] == 3:
-                    move.set_leds(72,209,204)
+                #elif opts[0] == 2:
+                #    move.set_leds(255,165,0)
+                #elif opts[0] == 3:
+                #    move.set_leds(72,209,204)
                 move.set_rumble(0)
                 #move.update_leds()
 
@@ -157,61 +158,61 @@ def track_controller(serial, num_try, opts):
                 button = move.get_buttons()
                 #pistol
 
-                if (opts[2] == 0 and button == 16):
+                #if (opts[2] == 0 and button == 16):
                     #holding button
-                    opts[2] = 1
+                    #opts[2] = 1
                     #if has shotgun, cycle weapons
-                    if opts[6] == 2:
-                        opts[5] = (opts[5] + 1) % 3
-                        if opts[5] == 0:
-                            opts[5] = 1
+                    #if opts[6] == 2:
+                    #    opts[5] = (opts[5] + 1) % 3
+                    #    if opts[5] == 0:
+                    #        opts[5] = 1
                     #if has shotgun/molotov cycle weapons
-                    elif opts[6] == 4:
-                        opts[5] = (opts[5] + 1) % 4
-                        if opts[5] == 0:
-                            opts[5] = 1
+                    #elif opts[6] == 4:
+                    #    opts[5] = (opts[5] + 1) % 4
+                    #    if opts[5] == 0:
+                    #       opts[5] = 1
 
                     #update colors:
-                    if opts[5] == 0:
-                        move.set_leds(200,200,200)
-                    elif opts[5] == 1:
-                        move.set_leds(50,50,200)
-                    elif opts[5] == 2:
-                        move.set_leds(150,40,255)
-                    elif opts[5] == 3:
-                        move.set_leds(220,220,40)
+                    #if opts[5] == 0:
+                    #    move.set_leds(200,200,200)
+                    #elif opts[5] == 1:
+                    #    move.set_leds(50,50,200)
+                    #elif opts[5] == 2:
+                    #    move.set_leds(150,40,255)
+                    #elif opts[5] == 3:
+                    #    move.set_leds(220,220,40)
 
 
                 # middle button to show bullet count (0-5)
                 ##if (button == 524288 or button == 1572864):
-                if (button == 524288 or button == 1572864):
-                    if opts[4] == 5:
-                        move.set_leds(0,255,0)
-                    if opts[4] == 4:
-                        move.set_leds(100,255,0)
-                    if opts[4] == 3:
-                        move.set_leds(255,255,0)
-                    if opts[4] == 2:
-                        move.set_leds(255,80,0)
-                    if opts[4] == 1:
-                        move.set_leds(255,0,0)
-                    if opts[4] == 0:
-                        move.set_leds(0,0,0)
+                #if (button == 524288 or button == 1572864):
+                if opts[4] == 5:
+                    move.set_leds(255,0,255)
+                if opts[4] == 4:
+                    move.set_leds(0,255,0)
+                if opts[4] == 3:
+                    move.set_leds(255,255,0)
+                if opts[4] == 2:
+                    move.set_leds(255,130,0)
+                if opts[4] == 1:
+                    move.set_leds(255,30,0)
+                if opts[4] == 0:
+                    move.set_leds(100,100,100)
 
                 #not holding button, selected pistol, has bullets, and presses trigger
-                if (opts[2] == 0 and opts[5] == 1 and opts[4] > 0 and move.get_trigger() > 100):
+                if (opts[2] == 0  and opts[4] > 0 and opts[4] < 5 and move.get_trigger() > 100):
                     opts[2] = 1
                     opts[1] = 2
                     opts[4] = opts[4] - 1
                     
                 #same but with shotgun
-                elif(opts[2] == 0 and opts[5] == 2 and opts[4] >= 2 and move.get_trigger() > 100):
-                    opts[2] = 1
-                    opts[1] = 3
-                    opts[4] = opts[4] - 2
+                #elif(opts[2] == 0 and opts[5] == 2 and opts[4] >= 2 and move.get_trigger() > 100):
+                #    opts[2] = 1
+                #    opts[1] = 3
+                #    opts[4] = opts[4] - 2
 
                 #molotov
-                elif(opts[2] == 0 and opts[5] == 3 and opts[4] >= 5 and move.get_trigger() > 100):
+                elif(opts[2] == 0  and opts[4] >= 5 and move.get_trigger() > 100):
                     opts[2] = 1
                     opts[1] = 4
                     opts[4] = 0
@@ -231,7 +232,7 @@ class Zombie:
         self.dead_zombies = {}
         self.controller_opts = {}
         self.controllers_alive = cont_alive
-        self.win_time =  ((len(self.controllers_alive) * 5)/16) * 60
+        self.win_time =  ((len(self.controllers_alive) * 3)/16) * 60
         if self.win_time <= 0:
             self.win_time = 60
         self.start_time = time.time()
@@ -239,30 +240,30 @@ class Zombie:
         self.effect_cue = 0
         self.Start()
 
-    def get_weapon(self, random_chance):
-        chance = random.choice(range(random_chance))
-        if chance == 0:
-            random_human = random.choice(self.humans)
-            if self.controller_opts[random_human][6] == 4:
-                for human in range(len(self.humans)):
-                    if self.controller_opts[random_human][6] < 4:
-                        random_human = i
-                        break
+    #def get_weapon(self, random_chance):
+    #    chance = random.choice(range(random_chance))
+    #    if chance == 0:
+    #        random_human = random.choice(self.humans)
+     #       if self.controller_opts[random_human][6] == 4:
+    #            for human in range(len(self.humans)):
+    #                if self.controller_opts[random_human][6] < 4:
+    #                    random_human = i
+    #                    break
             
             #human has no weapon, give pistol
-            if self.controller_opts[random_human][6] == 0:
-                self.controller_opts[random_human][6] = 1
-                self.controller_opts[random_human][5] = 1
+     #       if self.controller_opts[random_human][6] == 0:
+    #            self.controller_opts[random_human][6] = 1
+    #            self.controller_opts[random_human][5] = 1
             #has pistol give shotgun
-            elif self.controller_opts[random_human][6] == 1:
-                self.controller_opts[random_human][6] = 2
-                self.controller_opts[random_human][5] = 2
-                Audio('audio/Zombie/sound_effects/shotgun found.wav').start_effect()
+    #        elif self.controller_opts[random_human][6] == 1:
+    #            self.controller_opts[random_human][6] = 2
+    #            self.controller_opts[random_human][5] = 2
+    #            Audio('audio/Zombie/sound_effects/shotgun found.wav').start_effect()
             #has shotgun give molotov
-            elif self.controller_opts[random_human][6] == 2:
-                self.controller_opts[random_human][6] = 4
-                self.controller_opts[random_human][5] = 3
-                Audio('audio/Zombie/sound_effects/molotov found.wav').start_effect()
+     #       elif self.controller_opts[random_human][6] == 2:
+     #           self.controller_opts[random_human][6] = 4
+     #           self.controller_opts[random_human][5] = 3
+     #           Audio('audio/Zombie/sound_effects/molotov found.wav').start_effect()
         
     def get_kill_time(self):
         percent_to_win = 1.0 * (time.time() - self.start_time)/(self.win_time * 1.0)
@@ -293,7 +294,7 @@ class Zombie:
         if sound:
             self.pickup.start_effect()
         #one in 5 chance of getting a weapon
-        self.get_weapon(5)
+        #self.get_weapon(5)
 
     def audio_cue(self):
         if self.win_time - (time.time() - self.start_time) <= 10 and self.effect_cue <= 4:
@@ -308,9 +309,9 @@ class Zombie:
         elif self.win_time - (time.time() - self.start_time) <= 3*60 and self.effect_cue <= 1:
             Audio('audio/Zombie/sound_effects/3 minutes.wav').start_effect()
             self.effect_cue = 2
-        elif self.win_time - (time.time() - self.start_time) <= 5*60 and self.effect_cue <= 0:
-            Audio('audio/Zombie/sound_effects/5 minutes.wav').start_effect()
-            self.effect_cue = 1
+        #elif self.win_time - (time.time() - self.start_time) <= 5*60 and self.effect_cue <= 0:
+        #   Audio('audio/Zombie/sound_effects/5 minutes.wav').start_effect()
+        #   self.effect_cue = 1
 
         
     
@@ -349,7 +350,7 @@ class Zombie:
             pass
 
         #kill first humans
-        for i in range(3):
+        for i in range(2):
             random_human = random.choice(self.humans)
             self.controller_opts[random_human][3] = 0
         
@@ -370,16 +371,16 @@ class Zombie:
                             
 
                 #shotgun fired(2 bullets 3 random alive zombies)
-                elif self.controller_opts[serial][1] == 3:
-                    shotgun.start_effect()
-                    self.kill_zombies(3, [ 0, 0, 1, 1, 2])
-                    self.controller_opts[serial][1] = 0
+                #elif self.controller_opts[serial][1] == 3:
+                #    shotgun.start_effect()
+                #    self.kill_zombies(3, [ 0, 0, 1, 1, 2])
+                #    self.controller_opts[serial][1] = 0
 
 
                 #molotov fired(5 bullets all alive zombies)
                 elif self.controller_opts[serial][1] == 4:
                     molotov.start_effect()
-                    self.kill_zombies(20, [0, 0, 1, 2, 3, 4])
+                    self.kill_zombies(20, [0, 0, 1, 1, 2, 3])
                     self.controller_opts[serial][1] = 0
 
                     

@@ -179,21 +179,16 @@ class Joust():
             self.teams[werewolf] = (self.teams[werewolf] * -1) - 1
 
     def generate_random_teams(self, team_num):
-        print ('about to generate teams')
         team_pick = list(range(team_num))
         print (str(team_pick))
         for serial in self.move_serials:
-            print ('doin serial ' + str(serial))
             random_choice = random.choice(team_pick)
             self.teams[serial] = random_choice
-            print ('removing it')
             team_pick.remove(random_choice)
             if not team_pick:
                 team_pick = list(range(team_num))
 
     def track_moves(self):
-        print ('starting track moves')
-        print ('move serials is ' + str(self.move_serials))
         for move_num, move_serial in enumerate(self.move_serials):
             
             time.sleep(0.02)
@@ -235,7 +230,6 @@ class Joust():
         game_percent = (self.num_dead/(len(self.move_serials)-2))
         if game_percent > 1.0:
             game_percent = 1.0
-        print ('game percent is ' + str(game_percent))
         min_music_fast = common.lerp(MIN_MUSIC_FAST_TIME, END_MIN_MUSIC_FAST_TIME, game_percent)
         max_music_fast = common.lerp(MAX_MUSIC_FAST_TIME, END_MAX_MUSIC_FAST_TIME, game_percent)
 
@@ -245,7 +239,6 @@ class Joust():
             added_time = random.uniform(min_music_fast, max_music_fast)
         else:
             added_time = random.uniform(min_music_slow, max_music_slow)
-        print ('added time is ' + str(added_time))
         return time.time() + added_time
 
     def change_music_speed(self, fast):
@@ -296,9 +289,7 @@ class Joust():
     def check_end_game(self):
         winning_team = -100
         team_win = True
-        #print ('dead moves is ' + str(self.dead_moves))
         for move_serial, dead in self.dead_moves.items():
-            #print ('the dead move is ' + str(move_serial))
             #if we are alive
             if dead.value == 1:
                 if winning_team == -100:
@@ -400,7 +391,6 @@ class Joust():
             self.check_end_game()
             self.werewolf_audio_cue()
             if self.game_end:
-                print ('end of game')
                 self.end_game()
 
         self.stop_tracking_moves()

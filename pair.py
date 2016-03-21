@@ -6,18 +6,19 @@ BT_DIR = '/var/lib/bluetooth/'
 class Pair():
     def __init__(self):
         self.bt_devices = {}
-        devices =  os.listdir(BT_DIR)
+        devices = os.listdir(BT_DIR)
         for device in devices:
             self.bt_devices[device] = []
         self.pre_existing_devices()
 
     def pre_existing_devices(self):
         for device in self.bt_devices.keys():
-            trust_file = os.path.join(BT_DIR , device, 'trusts')
-            if os.path.exists(trust_file):
-                file = open(trust_file, 'rb')
-                dev_split = [dev.split(' ')[0] for dev in file.readlines()]
-                self.bt_devices[device] = dev_split
+            device_path = os.path.join(BT_DIR, device)
+            print ('trust file is ' + str(device_path))
+            if os.path.exists(device_path):
+                self.bt_devices[device] = [bt for bt in os.listdir(device_path) if ':' in bt]
+            else:
+                print('the path doesnt exist! ' )
 
     def check_if_not_paired(self, addr):
         for devs in self.bt_devices.keys():

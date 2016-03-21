@@ -83,7 +83,7 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
                             move.set_rumble(110)
 
                     else:
-                        if game_mode == common.Games.WereJoust:
+                        if game_mode == common.Games.WereJoust.value:
                             if werewolf_reveal.value == 2 and werewolf:
                                 move.set_leds(255,0,0)
                             else:
@@ -307,7 +307,7 @@ class Joust():
         self.running = False
 
     def end_game_sound(self, winning_team):
-        if self.game_mode == common.Games.JoustTeams:
+        if self.game_mode == common.Games.JoustTeams.value:
             if winning_team == 0:
                 team_win = Audio('audio/Joust/sounds/yellow team win.wav')
             if winning_team == 1:
@@ -321,7 +321,7 @@ class Joust():
             if winning_team == 5:
                 team_win = Audio('audio/Joust/sounds/red team win.wav')
             team_win.start_effect()
-        if self.game_mode == common.Games.JoustRandomTeams:
+        if self.game_mode == common.Games.JoustRandomTeams.value:
             if winning_team == 0:
                 team_win = Audio('audio/Joust/sounds/yellow team win.wav')
             if winning_team == 1:
@@ -331,7 +331,7 @@ class Joust():
             if winning_team == 3:
                 team_win = Audio('audio/Joust/sounds/red team win.wav')
             team_win.start_effect()
-        if self.game_mode == common.Games.WereJoust:
+        if self.game_mode == common.Games.WereJoust.value:
             if winning_team == -1:
                 team_win = Audio('audio/Joust/sounds/werewolf win.wav')
             else:
@@ -351,7 +351,7 @@ class Joust():
 
     def game_loop(self):
         self.track_moves()
-        if self.game_mode == common.Games.WereJoust:
+        if self.game_mode == common.Games.WereJoust.value:
             self.werewolf_intro()
         self.werewolf_reveal.value = 1
         self.count_down()

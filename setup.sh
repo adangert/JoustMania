@@ -38,4 +38,7 @@ OLD='env_reset'
 NEW='env_keep += "PYTHONPATH"'
 sudo sed -i -e "s/$OLD/$NEW/g" /etc/sudoers
 
+#last command, need to add dtoverlay=pi3-disable-bt to /boot/config.txt, this will
+#disable on board bluetooth for the faster class one bt 
+
 sudo reboot

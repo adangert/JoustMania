@@ -81,7 +81,7 @@ def track_move(serial, move_num, move_opts):
                     if move_opts[Opts.team.value] >= TEAM_NUM:
                         move_opts[Opts.team.value] = 0
                     move.set_leds(*TEAM_COLORS[move_opts[Opts.team.value]])
-                    if move_button == Buttons.middle:
+                    if move_button == Buttons.middle.value:
                         #allow players to increase their own team
                         if move_opts[Opts.holding.value] == Holding.not_holding.value:
                             move_opts[Opts.team.value] = (move_opts[Opts.team.value] + 1) % TEAM_NUM

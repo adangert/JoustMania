@@ -27,6 +27,13 @@ SLOW_WARNING = 0.28
 FAST_MAX = 1.8
 FAST_WARNING = 0.8
 
+#Sensitivity of the werewolf contollers
+WERE_SLOW_MAX = 1.4
+WERE_SLOW_WARNING = 0.5
+WERE_FAST_MAX = 2.3
+WERE_FAST_WARNING = 1.2
+
+
 #How long the speed change takes
 INTERVAL_CHANGE = 1.5
 
@@ -54,12 +61,18 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
             no_rumble_time = time.time() + 5
             time.sleep(0.01)
             move.set_leds(*force_color)
-            move.update_leds()
+
             if sum(force_color) > 75:
                 if werewolf:
                     move.set_rumble(80)
             else:
+                if sum(force_color) == 30:
+                    if werewolf:
+                        move.set_leds(255, 0, 0)
+                    else:
+                        move.set_leds(0, 0, 0)
                 move.set_rumble(0)
+            move.update_leds()
             no_rumble = time.time() + 0.5
         elif dead_move.value == 1 and werewolf_reveal.value > 0:   
             if move.poll():
@@ -68,8 +81,12 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
                 if move_last_value is not None:
                     change = abs(move_last_value - total)
                     speed_percent = (music_speed.value - SLOW_MUSIC_SPEED)/(FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED)
-                    warning = common.lerp(SLOW_WARNING, FAST_WARNING, speed_percent)
-                    threshold = common.lerp(SLOW_MAX, FAST_MAX, speed_percent)
+                    if werewolf:
+                        warning = common.lerp(WERE_SLOW_WARNING, WERE_FAST_WARNING, speed_percent)
+                        threshold = common.lerp(WERE_SLOW_MAX, WERE_FAST_MAX, speed_percent) 
+                    else:
+                        warning = common.lerp(SLOW_WARNING, FAST_WARNING, speed_percent)
+                        threshold = common.lerp(SLOW_MAX, FAST_MAX, speed_percent)
 
                     if change > threshold:
                         if time.time() > no_rumble:
@@ -126,7 +143,7 @@ class Joust():
 
         if game_mode == common.Games.WereJoust.value:
             #were_num = int((len(moves)+2)/4)
-            were_num = int((len(moves)*3)/8)
+            were_num = int((len(moves)*7)/16)
             if were_num <= 0:
                 were_num = 1
             self.choose_werewolf(were_num)
@@ -246,7 +263,7 @@ class Joust():
         self.werewolf_reveal.value = 2
 
     def werewolf_audio_cue(self):
-        if self.game_mode == common.Games.WereJoust:
+        if self.game_mode == common.Games.WereJoust.value:
             #print self.werewolf_timer - (time.time() - self.start_timer)
             if self.werewolf_timer - (time.time() - self.start_timer) <= 30 and self.audio_cue == 0:
                 Audio('audio/Joust/sounds/30 werewolf.wav').start_effect()
@@ -344,8 +361,10 @@ class Joust():
         time.sleep(3)
         self.change_all_move_colors(80, 0, 0)
         time.sleep(2)
-        self.change_all_move_colors(0, 0, 0)
-        time.sleep(20)
+        self.change_all_move_colors(30, 0, 0)
+        time.sleep(18)
+        self.change_all_move_colors(20, 20, 20)
+        time.sleep(2)
         self.start_timer = time.time()
         
 

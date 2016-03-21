@@ -383,7 +383,7 @@ class Zombie:
                     self.controller_opts[serial][1] = 0
 
                     
-            for serial, spawn_time in self.dead_zombies.iteritems():
+            for serial, spawn_time in self.dead_zombies.items():
                 if serial in self.humans:
                     self.humans.remove(serial)
                 if spawn_time < time.time():

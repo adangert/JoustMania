@@ -109,27 +109,27 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
     while commander_intro.value == 1:
         if move.poll():
             button = move.get_buttons()
-            if button == Buttons.middle and move_opts[Opts.holding] == Holding.not_holding:
+            if button == Buttons.middle.value and move_opts[Opts.holding.value] == Holding.not_holding.value:
 
-                move_opts[Opts.selection] = Selections.a_button
-                move_opts[Opts.holding] = Holding.holding
-            elif button == Buttons.triangle and move_opts[Opts.holding] == Holding.not_holding:
+                move_opts[Opts.selection.value] = Selections.a_button.value
+                move_opts[Opts.holding.value] = Holding.holding.value
+            elif button == Buttons.triangle.value and move_opts[Opts.holding.value] == Holding.not_holding.value:
 
-                move_opts[Opts.selection] = Selections.triangle
-                move_opts[Opts.holding] = Holding.holding
+                move_opts[Opts.selection.value] = Selections.triangle.value
+                move_opts[Opts.holding.value] = Holding.holding.value
 
-            elif move_opts[Opts.is_commander] == Bool.no and move_opts[Opts.holding] == Holding.holding:
+            elif move_opts[Opts.is_commander.value] == Bool.no.value and move_opts[Opts.holding.value] == Holding.holding.value:
                 move.set_leds(200,200,200)
 
-            elif move_opts[Opts.is_commander] == Bool.yes and move_opts[Opts.holding] == Holding.holding:
+            elif move_opts[Opts.is_commander.value] == Bool.yes.value and move_opts[Opts.holding.value] == Holding.holding.value:
                     move.set_leds(*Current_commander_colors[team])
             else:
                 #print 'boop'
                 move.set_leds(*Commander_colors[team])
         move.update_leds()
 
-    move_opts[Opts.holding] = Holding.not_holding
-    move_opts[Opts.selection] = Selections.nothing
+    move_opts[Opts.holding.value] = Holding.not_holding.value
+    move_opts[Opts.selection.value] = Selections.nothing.value
 
     while True:
         if sum(force_color) != 0:
@@ -149,7 +149,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
                     #speed_percent = (music_speed.value - SLOW_MUSIC_SPEED)/(FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED)
                     #warning = common.lerp(SLOW_WARNING, FAST_WARNING, speed_percent)
                     #threshold = common.lerp(SLOW_MAX, FAST_MAX, speed_percent)
-                    if move_opts[Opts.is_commander] == Bool.no:
+                    if move_opts[Opts.is_commander.value] == Bool.no.value:
                         if overdrive.value == 0:
                             warning = SLOW_WARNING
                             threshold = SLOW_MAX
@@ -175,7 +175,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
                             move.set_rumble(110)
 
                     else:
-                        if move_opts[Opts.is_commander] == Bool.no:
+                        if move_opts[Opts.is_commander.value] == Bool.no.value:
                             if overdrive.value == 0:
                                 move.set_leds(*Commander_colors[team])
                             else:
@@ -185,24 +185,23 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
                         move.set_rumble(0)
 
 
-                    if move_opts[Opts.is_commander] == Bool.yes:
+                    if move_opts[Opts.is_commander.value] == Bool.yes.value:
                         if (move.get_buttons() == 0 and move.get_trigger() < 10):
-                            move_opts[Opts.holding] = Holding.not_holding
+                            move_opts[Opts.holding.value] = Holding.not_holding.value
                             
                         button = move.get_buttons()
                         #print str(power.value)
                         if power.value >= 1.0:
                             #press trigger for overdrive
-                            if (move_opts[Opts.holding] == Holding.not_holding and move.get_trigger() > 100):
-                                print (BOOOM)
-                                move_opts[Opts.selection] = Selections.trigger
-                                move_opts[Opts.holding] = Holding.holding
-                            elif (move_opts[Opts.holding] == Holding.not_holding and button == Buttons.middle):
-                                move_opts[Opts.selection] = Selections.a_button
-                                move_opts[Opts.holding] = Holding.holding
-                            elif (move_opts[Opts.holding] == Holding.not_holding and button == Buttons.triangle):
-                                move_opts[Opts.selection] = Selections.triangle
-                                move_opts[Opts.holding] = Holding.holding
+                            if (move_opts[Opts.holding.value] == Holding.not_holding.value and move.get_trigger() > 100):
+                                move_opts[Opts.selection.value] = Selections.trigger.value
+                                move_opts[Opts.holding.value] = Holding.holding.value
+                            elif (move_opts[Opts.holding.value] == Holding.not_holding.value and button == Buttons.middle.value):
+                                move_opts[Opts.selection.value] = Selections.a_button.value
+                                move_opts[Opts.holding.value] = Holding.holding.value
+                            elif (move_opts[Opts.holding.value] == Holding.not_holding.value and button == Buttons.triangle.value):
+                                move_opts[Opts.selection.value] = Selections.triangle.value
+                                move_opts[Opts.holding.value] = Holding.holding.value
                                 
                             
                         
@@ -278,13 +277,13 @@ class Commander():
 
 
     def generate_random_teams(self, team_num):
-        team_pick = range(team_num)
+        team_pick = list(range(team_num))
         for serial in self.move_serials:
             random_choice = random.choice(team_pick)
             self.teams[serial] = random_choice
             team_pick.remove(random_choice)
             if not team_pick:
-                team_pick = range(team_num)
+                team_pick = list(range(team_num))
 
     def track_moves(self):
         for move_num, move_serial in enumerate(self.move_serials):
@@ -298,7 +297,7 @@ class Commander():
             #else:
             #    power = self.blue_power
 
-            if self.teams[move_serial] == Team.red:
+            if self.teams[move_serial] == Team.red.value:
                 overdrive = self.red_overdrive
             else:
                 overdrive = self.blue_overdrive
@@ -320,7 +319,7 @@ class Commander():
             self.move_opts[move_serial] = opts
             
     def change_all_move_colors(self, r, g, b):
-        for color in self.force_move_colors.itervalues():
+        for color in self.force_move_colors.values():
             common.change_color(color, r, g, b)
 
     #need to do the count_down here
@@ -367,7 +366,7 @@ class Commander():
 
     def get_winning_team_members(self, winning_team):
         self.end_game_sound(winning_team)
-        for move_serial in self.teams.iterkeys():
+        for move_serial in self.teams.keys():
             if self.teams[move_serial] == winning_team:
                 self.winning_moves.append(move_serial)
 
@@ -381,7 +380,7 @@ class Commander():
                 self.game_end = True
                 
 
-        for move_serial, dead in self.dead_moves.iteritems():
+        for move_serial, dead in self.dead_moves.items():
             if dead.value == 0:
                 dead_team = self.teams[move_serial]
                 winning_team = (self.teams[move_serial] + 1) % 2
@@ -396,7 +395,7 @@ class Commander():
 
 
     def stop_tracking_moves(self):
-        for proc in self.tracked_moves.itervalues():
+        for proc in self.tracked_moves.values():
             proc.terminate()
             proc.join()
             time.sleep(0.02)
@@ -419,33 +418,33 @@ class Commander():
 
     def end_game_sound(self, winning_team):
         #if self.game_mode == common.Games.JoustTeams:
-        if winning_team == Team.red:
+        if winning_team == Team.red.value:
             team_win = Audio('audio/Commander/sounds/red winner.wav')
-        if winning_team == Team.blue:
+        if winning_team == Team.blue.value:
             team_win = Audio('audio/Commander/sounds/blue winner.wav')
         team_win.start_effect()
 
     def check_commander_select(self):
-        for move_serial in self.move_opts.iterkeys():
-            if self.move_opts[move_serial][Opts.selection] == Selections.triangle and self.move_opts[move_serial][Opts.holding] == Holding.holding:
+        for move_serial in self.move_opts.keys():
+            if self.move_opts[move_serial][Opts.selection.value] == Selections.triangle.value and self.move_opts[move_serial][Opts.holding.value] == Holding.holding.value:
                 Audio('audio/Commander/sounds/commanderselect.wav').start_effect()
                 self.change_commander(move_serial)
-                self.move_opts[move_serial][Opts.selection] = Selections.nothing
-            elif self.move_opts[move_serial][Opts.selection] == Selections.a_button and self.move_opts[move_serial][Opts.holding] == Holding.holding:
+                self.move_opts[move_serial][Opts.selection.value] = Selections.nothing.value
+            elif self.move_opts[move_serial][Opts.selection.value] == Selections.a_button.value and self.move_opts[move_serial][Opts.holding.value] == Holding.holding.value:
                 Audio('audio/Commander/sounds/buttonselect.wav').start_effect()
-                self.move_opts[move_serial][Opts.selection] = Selections.nothing
+                self.move_opts[move_serial][Opts.selection.value] = Selections.nothing.value
 
     def change_commander(self, new_commander):
         #print 'changing commander to ' + str(new_commander)
         commander_team = self.teams[new_commander]
         if self.current_commander[commander_team] != '':
-            self.move_opts[self.current_commander[commander_team]][Opts.is_commander] = Bool.no
+            self.move_opts[self.current_commander[commander_team]][Opts.is_commander.value] = Bool.no.value
         
-        self.move_opts[new_commander][Opts.is_commander] = Bool.yes
+        self.move_opts[new_commander][Opts.is_commander.value] = Bool.yes.value
         self.current_commander[commander_team] = new_commander
 
     def change_random_commander(self, team, exclude_commander=None):
-        team_move_serials = [ move_serial for move_serial in self.move_opts.iterkeys() if (self.teams[move_serial] == team and move_serial != exclude_commander and self.dead_moves[move_serial].value >= 1) ]
+        team_move_serials = [ move_serial for move_serial in self.move_opts.keys() if (self.teams[move_serial] == team and move_serial != exclude_commander and self.dead_moves[move_serial].value >= 1) ]
         print ('team move serials is ' + str(team_move_serials))
         if len(team_move_serials) > 0:
             new_commander = random.choice(team_move_serials)
@@ -454,45 +453,45 @@ class Commander():
         return False
             
     def update_team_powers(self):
-        self.powers[Team.red].value = max(min((time.time() - self.activated_time[Team.red])/(self.time_to_power[Team.red] * 1.0),1.0), 0.0)
-        self.powers[Team.blue].value = max(min((time.time() - self.activated_time[Team.blue])/(self.time_to_power[Team.blue] * 1.0), 1.0), 0.0)
+        self.powers[Team.red.value].value = max(min((time.time() - self.activated_time[Team.red.value])/(self.time_to_power[Team.red.value] * 1.0),1.0), 0.0)
+        self.powers[Team.blue.value].value = max(min((time.time() - self.activated_time[Team.blue.value])/(self.time_to_power[Team.blue.value] * 1.0), 1.0), 0.0)
 
         
-        if self.powers_active[Team.red] == False:
-            if self.powers[Team.red].value >= 1.0:
-                self.powers_active[Team.red] = True
+        if self.powers_active[Team.red.value] == False:
+            if self.powers[Team.red.value].value >= 1.0:
+                self.powers_active[Team.red.value] = True
                 Audio('audio/Commander/sounds/power ready.wav').start_effect()
                 Audio('audio/Commander/sounds/red power ready.wav').start_effect()
                 
                 
-        if self.powers_active[Team.blue] == False:
-            if self.powers[Team.blue].value >= 1.0:
-                self.powers_active[Team.blue] = True
+        if self.powers_active[Team.blue.value] == False:
+            if self.powers[Team.blue.value].value >= 1.0:
+                self.powers_active[Team.blue.value] = True
                 Audio('audio/Commander/sounds/power ready.wav').start_effect()
                 Audio('audio/Commander/sounds/blue power ready.wav').start_effect()
                 
             
     def overdrive(self, team):
         Audio('audio/Commander/sounds/overdrive.wav').start_effect()
-        if team == Team.red:
+        if team == Team.red.value:
             self.red_overdrive.value = 1
-            self.activated_overdrive[Team.red] = time.time() + 10
+            self.activated_overdrive[Team.red.value] = time.time() + 10
             Audio('audio/Commander/sounds/red overdrive.wav').start_effect()
         else:
             self.blue_overdrive.value = 1
-            self.activated_overdrive[Team.blue] = time.time() + 10
+            self.activated_overdrive[Team.blue.value] = time.time() + 10
             Audio('audio/Commander/sounds/blue overdrive.wav').start_effect()
 
     def revive(self, team):
         print ('dadooda')
-        dead_team_moves = [ move_serial for move_serial in self.move_opts.iterkeys() if (self.teams[move_serial] == team and self.dead_moves[move_serial].value <= 0) ]
+        dead_team_moves = [ move_serial for move_serial in self.move_opts.keys() if (self.teams[move_serial] == team and self.dead_moves[move_serial].value <= 0) ]
         #print 'dead_team_moves is ' + str(dead_team_moves)
         for move in dead_team_moves:
             self.dead_moves[move].value = 3
         Audio('audio/Commander/sounds/revive.wav').start_effect()
-        if team == Team.red:
+        if team == Team.red.value:
             Audio('audio/Commander/sounds/red revive.wav').start_effect()
-        if team == Team.blue:
+        if team == Team.blue.value:
             Audio('audio/Commander/sounds/blue revive.wav').start_effect()
 
     def shift(self, team, commander):
@@ -500,9 +499,9 @@ class Commander():
         did_shift = self.change_random_commander(team, exclude_commander = commander)
         if did_shift:
             Audio('audio/Commander/sounds/shift.wav').start_effect()
-            if team == Team.red:
+            if team == Team.red.value:
                 Audio('audio/Commander/sounds/red shift.wav').start_effect()
-            if team == Team.blue:
+            if team == Team.blue.value:
                 Audio('audio/Commander/sounds/blue shift.wav').start_effect()
         return did_shift
         
@@ -510,12 +509,12 @@ class Commander():
     def check_end_of_overdrive(self):
         if self.red_overdrive.value == 1:
 
-            if time.time() >= self.activated_overdrive[Team.red]:
+            if time.time() >= self.activated_overdrive[Team.red.value]:
                 #print 'its over'
                 self.red_overdrive.value = 0
         if self.blue_overdrive.value == 1:
             
-            if time.time() >= self.activated_overdrive[Team.blue]:
+            if time.time() >= self.activated_overdrive[Team.blue.value]:
                 #print 'itsa over'
                 self.blue_overdrive.value = 0
 
@@ -529,24 +528,24 @@ class Commander():
         #print str(self.powers[1].value)
         for commander in self.current_commander:
             #print self.move_opts[commander][Opts.selection] 
-            if self.move_opts[commander][Opts.selection] == Selections.trigger:
+            if self.move_opts[commander][Opts.selection.value] == Selections.trigger.value:
                 self.overdrive(self.teams[commander])
                 self.reset_power(self.teams[commander])
-                self.move_opts[commander][Opts.selection] = Selections.nothing
+                self.move_opts[commander][Opts.selection.value] = Selections.nothing.value
 
-            if self.move_opts[commander][Opts.selection] == Selections.a_button:
+            if self.move_opts[commander][Opts.selection.value] == Selections.a_button.value:
                 self.revive(self.teams[commander])
                 self.reset_power(self.teams[commander])
-                self.move_opts[commander][Opts.selection] = Selections.nothing
+                self.move_opts[commander][Opts.selection.value] = Selections.nothing.value
                 
-            if self.move_opts[commander][Opts.selection] == Selections.triangle:
+            if self.move_opts[commander][Opts.selection.value] == Selections.triangle.value:
                 if self.shift(self.teams[commander], commander):
                     self.reset_power(self.teams[commander])
-                self.move_opts[commander][Opts.selection] = Selections.nothing
+                self.move_opts[commander][Opts.selection.value] = Selections.nothing.value
 
     def check_everyone_in(self):
-        for move_serial in self.move_opts.iterkeys():
-            if self.move_opts[move_serial][Opts.holding] == Holding.not_holding:
+        for move_serial in self.move_opts.keys():
+            if self.move_opts[move_serial][Opts.holding.value] == Holding.not_holding.value:
                 return False
         return True
         
@@ -569,16 +568,16 @@ class Commander():
                 Audio('audio/Commander/sounds/10 seconds begins.wav').start_effect()
         intro_sound.stop_effect()        
 
-        if self.current_commander[Team.red] == '':
-            self.change_random_commander(Team.red)
-        if self.current_commander[Team.blue] == '':
-            self.change_random_commander(Team.blue)
+        if self.current_commander[Team.red.value] == '':
+            self.change_random_commander(Team.red.value)
+        if self.current_commander[Team.blue.value] == '':
+            self.change_random_commander(Team.blue.value)
 
 
         Audio('audio/Commander/sounds/commanders chosen.wav').start_effect()
         time.sleep(4)
-        self.reset_power(Team.red)
-        self.reset_power(Team.blue)
+        self.reset_power(Team.red.value)
+        self.reset_power(Team.blue.value)
         self.commander_intro.value = 0
 
     def game_loop(self):

@@ -189,13 +189,13 @@ def track_controller(serial, num_try, opts):
                 if opts[4] == 5:
                     move.set_leds(255,0,255)
                 if opts[4] == 4:
-                    move.set_leds(0,255,0)
+                    move.set_leds(0,0,255)
                 if opts[4] == 3:
-                    move.set_leds(255,255,0)
+                    move.set_leds(0,0,255)
                 if opts[4] == 2:
-                    move.set_leds(255,130,0)
+                    move.set_leds(0,0,255)
                 if opts[4] == 1:
-                    move.set_leds(255,30,0)
+                    move.set_leds(0,0,255)
                 if opts[4] == 0:
                     move.set_leds(100,100,100)
 

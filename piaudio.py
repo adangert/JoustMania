@@ -13,6 +13,8 @@ def audio_loop(file, p, ratio, end, chunk_size, stop_proc):
     proc = psutil.Process(os.getpid())
     proc.nice(-5)
     time.sleep(0.02)
+    print ('bipandpap')
+    print ('file is ' + str(file))
     while True:
         #chunk = 2048/2
         wf = wave.open(file, 'rb')
@@ -32,6 +34,7 @@ def audio_loop(file, p, ratio, end, chunk_size, stop_proc):
             data = signal.resample(array, chunk_size.value*ratio.value)
             stream.write(data.astype(int).tostring())
             data = wf.readframes(chunk_size.value)
+            #print ('boop')
         stream.stop_stream()
         stream.close()
         wf.close()
@@ -57,7 +60,9 @@ class Audio:
         self.ratio = Value('d' , 1.0)
         self.chunk_size = Value('i', int(2048/2))
         self.end = end
-        pygame.mixer.init(44100, -16, 2 , 2048)
+        #pygame.mixer.init(44100, -16, 2 , 2048)
+        #hey
+        pygame.mixer.init(47000, -16, 2 , 4096)
 
     def start_audio_loop(self):
         self.p = Process(target=audio_loop, args=(self.file, self.p, self.ratio, self.end, self.chunk_size, self.stop_proc))

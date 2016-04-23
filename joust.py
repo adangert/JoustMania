@@ -38,7 +38,6 @@ WERE_SLOW_WARNING = 0.5
 WERE_FAST_MAX = 2.3
 WERE_FAST_WARNING = 1.2
 
-
 #How long the speed change takes
 INTERVAL_CHANGE = 1.5
 
@@ -227,7 +226,11 @@ class Joust():
         self.start_game.start_effect()
 
     def get_change_time(self, speed_up):
-        game_percent = (self.num_dead/(len(self.move_serials)-2))
+        min_moves = len(self.move_serials) - 2
+        if min_moves <= 0:
+            min_moves = 1
+        
+        game_percent = (self.num_dead/min_moves)
         if game_percent > 1.0:
             game_percent = 1.0
         min_music_fast = common.lerp(MIN_MUSIC_FAST_TIME, END_MIN_MUSIC_FAST_TIME, game_percent)

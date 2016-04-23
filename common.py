@@ -42,6 +42,7 @@ class Games(Enum):
     WereJoust = 3
     Zombies = 4
     Commander = 5
+    Random = 6
 
 class Buttons(Enum):
     middle = 524288

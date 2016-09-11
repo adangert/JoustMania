@@ -85,7 +85,15 @@ Joust
  * The Werewolf is on their own team, and will win only if they are the last player remaining
  * There are two regular teams in this mode
 
-Zombie apocalypse (Coming Soon!)
----------------------------------
-Prepare to be spooked!!
+ Zombie apocalypse (Coming Soon!)
+ ---------------------------------
+ * two players start out as zombies, and try to infect the humans
+ * humans can get bullets to shoot random zombies, by killing zombies
+ * humans try to survive for a couple of minutes, otherwise zombies win!
+ 
 
+ Commander
+ ---------------------------------
+ * teams are split into two sides
+ * one commander is chosen for each side, if this commander dies, the other team wins
+ * commanders can activate special abilities that helps their team win.

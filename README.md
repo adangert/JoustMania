@@ -85,7 +85,7 @@ Joust
  * The Werewolf is on their own team, and will win only if they are the last player remaining
  * There are two regular teams in this mode
 
- Zombie apocalypse (Coming Soon!)
+ Zombie apocalypse
  ---------------------------------
  * two players start out as zombies, and try to infect the humans
  * humans can get bullets to shoot random zombies, by killing zombies

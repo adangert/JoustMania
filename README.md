@@ -31,7 +31,7 @@ You will need the following to run PI party:
 Installation
 ---------------------------
 
-0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card (this has been tested with the Wheezy release)
+0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card
 0. Connect your bluetooth adapters, external USB Soundcard, ethernet, keyboard, mouse and hdmi output
 0. Power up the Pi and wait for the boot menu on screen
 0. Select to expand the Filesystem (option 1) and Boot to Desktop as a pi user (option 3), then hit finish and reboot.

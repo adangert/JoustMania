@@ -7,6 +7,15 @@ Party games for the Pi!
 * [Johann Sebastian Joust](http://www.jsjoust.com/) Started the movement game phenomenon, This collection of games attempts to expand upon the basic joust gameplay with new modes, as well as entirely new games. 
 * PiParty has currently been tested on 16 move controllers successfully, with more modes and games coming soon!
 
+Awesome Features!!
+--------------------------------------
+
+* 16+ Players simultaneous support! yup you heard that right, massive Joust battles
+* Super easy setup
+* Multi game support, go beyond the standard Joust game, with team battles, werewolf, zombies, and commander mode
+* custom music support, play with your own music
+* convention mode, no manual instructions needed, the game plays itself and switches between game modes.
+
 Hardware
 ---------------------------
 You will need the following to run PI party:

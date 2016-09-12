@@ -180,9 +180,14 @@ class Menu():
         else:
             scan = "noscan"
         bt_hcis = os.popen("hcitool dev | grep hci | awk '{print $1}'").read().split('\n')
-        bt_hcis = filter(None, bt_hcis)
+        bt_hcis = [bt for bt in bt_hcis if bt]
         for hci in bt_hcis:
             scan_enabled = os.popen(scan_cmd.format(hci, scan)).read()
+        if not bt_hcis:
+            for i in range(8):
+                os.popen("sudo hciconfig hci{} up")
+
+            
         
     def pair_move(self, move, move_num):
         move_serial = move.get_serial()

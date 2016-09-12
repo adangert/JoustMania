@@ -37,7 +37,7 @@ Installation
 0. Select to expand the Filesystem (option 1) and Boot to Desktop as a pi user (option 3), then hit finish and reboot.
 0. Open a Terminal located at the top of the desktop (the black monitor icon) and run these commands, and you're done!!
 ```
-git clone https://github.com/aangert/JoustMania.git
+git clone https://github.com/adangert/JoustMania.git
 cd JoustMania
 sudo ./setup.sh
 ```

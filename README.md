@@ -20,7 +20,7 @@ Hardware
 ---------------------------
 You will need the following to run PI party:
 
-0. A raspberry pi 2 B+
+0. A raspberry pi 3 B+
 0. Micro SD card for the raspberry pi
 0. Up to 3, Class 1, Bluetooth 4.0 usb adapters (each adapter can handle 6-7 move controllers)
 0. External USB sound card
@@ -37,8 +37,8 @@ Installation
 0. Select to expand the Filesystem (option 1) and Boot to Desktop as a pi user (option 3), then hit finish and reboot.
 0. Open a Terminal located at the top of the desktop (the black monitor icon) and run these commands, and you're done!!
 ```
-git clone https://github.com/aangert/PiParty.git
-cd PiParty
+git clone https://github.com/aangert/JoustMania.git
+cd JoustMania
 sudo ./setup.sh
 ```
 

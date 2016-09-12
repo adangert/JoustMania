@@ -25,7 +25,7 @@ cmake ..
 make -j4
 
 #installs custom supervisor script for running joustmania on startup
-sudo cp -r /home/pi/PiParty/supervisor/ /etc/
+sudo cp -r /home/pi/JoustMania/supervisor/ /etc/
 
 #sets up sound card as primary sound device
 OLD='options snd-usb-audio index=-2'

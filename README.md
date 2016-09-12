@@ -19,7 +19,7 @@ Hardware
 ---------------------------
 You will need the following to run PI party:
 
-0. A raspberry pi 3 B+
+0. A raspberry pi 3 B
 0. Micro SD card for the raspberry pi
 0. Up to 3, Class 1, Bluetooth 4.0 usb adapters (each adapter can handle 6-7 move controllers)
 0. External USB sound card

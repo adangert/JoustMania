@@ -24,7 +24,7 @@ cd build
 cmake ..
 make -j4
 
-#installs custom supervisor script for running piparty on startup
+#installs custom supervisor script for running joustmania on startup
 sudo cp -r /home/pi/PiParty/supervisor/ /etc/
 
 #sets up sound card as primary sound device

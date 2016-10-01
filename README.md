@@ -30,10 +30,9 @@ You will need the following to run PI party:
 Installation
 ---------------------------
 
-0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card
+0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card (tested with Jessie 2016-09-23 release)
 0. Connect your bluetooth adapters, external USB Soundcard, ethernet, keyboard, mouse and hdmi output
-0. Power up the Pi and wait for the boot menu on screen
-0. Select to expand the Filesystem (option 1) and Boot to Desktop as a pi user (option 3), then hit finish and reboot.
+0. Power up the Pi
 0. Open a Terminal located at the top of the desktop (the black monitor icon) and run these commands, and you're done!!
 ```
 git clone https://github.com/adangert/JoustMania.git
@@ -46,13 +45,14 @@ Pairing controllers
 
 * once you have installed PiParty, in order to pair controllers, plug them into the raspberry pi via usb, and wait until the bulb turns white. 
 * This process should only need to be done once, after this the controller should be permenently paired and will only need to be turned on via the circular sync button on the front of the move controller for any future games
-* All the controllers may restart when pairing, this is expected, just keep plugging in new ones until they are all paired. if you encounter problems restart the pi.
+* All the controllers may restart when pairing, this is expected, just keep plugging in new ones until they are all paired. if you encounter problems restart the pi, and continue pairing the remaining controllers, again once this process is finished you should not have to connect the controllers to the pi again via usb.
 
-Games (More coming soon!)
+How to select a game mode
 ---------------------------------
 * In order to change between games, on any controller press the select button (located on the left side)
 * The colors of the controllers show which game is selected, for example, for FFA, all controllers will be white
 * Press start (located on the right side) on any controller to launch the selected game, a countdown until the game starts will begin!
+* in order to remove a controller from play press all four front buttons (currently does not work with random mode)
 
 Joust
 ---------------------------------
@@ -87,12 +87,24 @@ Joust
  Zombie apocalypse
  ---------------------------------
  * two players start out as zombies, and try to infect the humans
- * humans can get bullets to shoot random zombies, by killing zombies
+ * humans can shoot random zombies with bullets
+ * bullets are randomly assigned as loot from shoooting zombies
  * humans try to survive for a couple of minutes, otherwise zombies win!
  
-
  Commander
  ---------------------------------
  * teams are split into two sides
  * one commander is chosen for each side, if this commander dies, the other team wins
  * commanders can activate special abilities that helps their team win.
+ 
+  Random mode (for conventions)
+  ---------------------------------
+  * all players press the A button(middle of controller) to signal they are ready to play
+  * once all players are in a random game mode (excluding commander) will be selected
+  * instructions for the game mode will play and the game will begin
+ 
+  Ninja (coming soon)
+  ---------------------------------
+  * players start on two teams
+  * when you die, you switch to the other team.
+  

@@ -185,7 +185,7 @@ class Menu():
             scan_enabled = os.popen(scan_cmd.format(hci, scan)).read()
         if not bt_hcis:
             for i in range(8):
-                os.popen("sudo hciconfig hci{} up")
+                os.popen("sudo hciconfig hci{} up".format(i))
 
             
         

@@ -38,10 +38,13 @@ make -j4
 #installs custom supervisor script for running joustmania on startup
 sudo cp -r /home/pi/JoustMania/supervisor/ /etc/
 
+#makes sound card 1 to be default output
+sudo cp /home/pi/JoustMania/asound.conf /etc/
+
 #sets up sound card as primary sound device
-OLD='options snd-usb-audio index=-2'
-NEW='options snd-usb-audio index=0\noptions snd_bcm2835 index=-2'
-sudo sed -i -e "s/$OLD/$NEW/g" /lib/modprobe.d/aliases.conf
+#OLD='options snd-usb-audio index=-2'
+#NEW='options snd-usb-audio index=0\noptions snd_bcm2835 index=-2'
+#sudo sed -i -e "s/$OLD/$NEW/g" /lib/modprobe.d/aliases.conf
 
 #allows python path to be kept after sudo command
 OLD='env_reset'

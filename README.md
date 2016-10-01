@@ -3,9 +3,8 @@
 Party games for the Pi!
 --------------------------------------
 
-* PiParty is a collection of playstation move enabled party games specifically designed for the raspberry pi
+* JoustMania is a collection of playstation move enabled party games specifically designed for the raspberry pi
 * [Johann Sebastian Joust](http://www.jsjoust.com/) Started the movement game phenomenon, This collection of games attempts to expand upon the basic joust gameplay with new modes, as well as entirely new games. 
-* PiParty has currently been tested on 16 move controllers successfully, with more modes and games coming soon!
 
 Awesome Features!!
 --------------------------------------
@@ -20,7 +19,7 @@ Hardware
 ---------------------------
 You will need the following to run PI party:
 
-0. A raspberry pi 3 B+
+0. A raspberry pi 3 B
 0. Micro SD card for the raspberry pi
 0. Up to 3, Class 1, Bluetooth 4.0 usb adapters (each adapter can handle 6-7 move controllers)
 0. External USB sound card

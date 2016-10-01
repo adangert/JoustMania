@@ -62,6 +62,7 @@ Joust
 * If your controller is going too fast it will flicker and vibrate as a warning.
 * If you are knocked out, your controller goes dark and vibrates.
 * The last player standing has their controller flash a beautiful rainbow sequence, and all controllers vibrate to indicate the end of the game.
+* Joust and other games come with a standard classical track, upload your own music into the respective folders
 
  FFA (all controllers are white)
  ---------------------------------

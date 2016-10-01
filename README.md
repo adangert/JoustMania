@@ -1,4 +1,4 @@
-![PiParty Logo](logo/PiPartyLogo.png)
+![PiParty Logo](logo/PiPartyLogo2.png)
 
 Party games for the Pi!
 --------------------------------------

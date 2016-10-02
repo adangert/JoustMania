@@ -96,7 +96,7 @@ Joust
  ---------------------------------
  * two players start out as zombies, and try to infect the humans
  * humans can shoot random zombies with bullets
- * bullets are randomly assigned as loot from shoooting zombies
+ * bullets are randomly assigned as loot from killing zombies
  * humans try to survive for a couple of minutes, otherwise zombies win!
  
  Commander

@@ -258,14 +258,19 @@ class Commander():
 
         
 
-
-        music = 'audio/Commander/music/' + random.choice(os.listdir('audio/Commander/music'))
+        try:
+            music = 'audio/Commander/music/' + random.choice(os.listdir('audio/Commander/music'))
+        except:
+            print('no music in audio/Commander/music')
         self.start_beep = Audio('audio/Joust/sounds/start.wav')
         self.start_game = Audio('audio/Joust/sounds/start3.wav')
         self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
         fast_resample = False
         end = False
-        self.audio = Audio(music, end)
+        try:
+            self.audio = Audio(music, end)
+        except:
+            print('no audio loaded')
         #self.change_time = self.get_change_time(speed_up = True)
         self.change_time = time.time() + 8
         self.speed_up = True
@@ -401,7 +406,10 @@ class Commander():
             time.sleep(0.02)
 
     def end_game(self):
-        self.audio.stop_audio()
+        try:
+            self.audio.stop_audio()
+        except:
+            print('no audio loaded to stop')
         end_time = time.time() + END_GAME_PAUSE
         h_value = 0
 
@@ -586,7 +594,10 @@ class Commander():
         
         self.count_down()
         time.sleep(0.02)
-        self.audio.start_audio_loop()
+        try:
+            self.audio.start_audio_loop()
+        except:
+            print('no audio loaded to start')
         time.sleep(0.8)
         
         while self.running:

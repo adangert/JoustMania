@@ -341,9 +341,11 @@ class Zombie:
         pistol = Audio('audio/Zombie/sound_effects/pistol.wav')
         shotgun = Audio('audio/Zombie/sound_effects/shotgun.wav')
         molotov = Audio('audio/Zombie/sound_effects/molotov.wav')
-
-        music = Audio('audio/Zombie/music/' + random.choice(os.listdir('audio/Zombie/music/')))
-        music.start_effect_music()
+        try:
+            music = Audio('audio/Zombie/music/' + random.choice(os.listdir('audio/Zombie/music/')))
+            music.start_effect_music()
+        except:
+            print('no music in audio/Zombie/music/')
 
         start_kill = time.time() + 5
         while time.time() < start_kill:
@@ -435,4 +437,7 @@ class Zombie:
                             win_move.update_leds()
                     time.sleep(0.01)
                 running = False
-                music.stop_effect_music()
+                try:
+                    music.stop_effect_music()
+                except:
+                    print('no audio loaded')

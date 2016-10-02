@@ -54,6 +54,12 @@ How to select a game mode
 * Press start (located on the right side) on any controller to launch the selected game, a countdown until the game starts will begin!
 * in order to remove a controller from play press all four front buttons (currently does not work with random mode)
 
+Custom Music
+---------------------------------
+* Joust mania comes with a single classical music piece
+* play your own music, by copying it into the respective folders: /audio/<Joust, Zombie, Commander>/music/
+* wav files currently supported.
+
 Joust
 ---------------------------------
 * Based off of the original [JS Joust](http://www.jsjoust.com/)
@@ -62,7 +68,7 @@ Joust
 * If your controller is going too fast it will flicker and vibrate as a warning.
 * If you are knocked out, your controller goes dark and vibrates.
 * The last player standing has their controller flash a beautiful rainbow sequence, and all controllers vibrate to indicate the end of the game.
-* Joust and other games come with a standard classical track, upload your own music into the respective folders
+
 
  FFA (all controllers are white)
  ---------------------------------

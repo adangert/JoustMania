@@ -43,8 +43,9 @@ sudo ./setup.sh
 Pairing controllers
 ---------------------------
 
-* once you have installed PiParty, in order to pair controllers, plug them into the raspberry pi via usb, and wait until the bulb turns white. 
-* This process should only need to be done once, after this the controller should be permenently paired and will only need to be turned on via the circular sync button on the front of the move controller for any future games
+* once you have installed PiParty, in order to pair controllers, plug them into the raspberry pi via usb
+* after a controller has been synced via usb, press the playstation sync button (the circular one in the middle) to connect the controller to the pi
+* This process should only need to be done once, after this the controller should be permenently paired with the pi and will only need to be turned on via the sync button for any future games
 * All the controllers may restart when pairing, this is expected, just keep plugging in new ones until they are all paired. if you encounter problems restart the pi, and continue pairing the remaining controllers, again once this process is finished you should not have to connect the controllers to the pi again via usb.
 
 How to select a game mode

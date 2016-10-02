@@ -33,7 +33,7 @@ Installation
 0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card (tested with Jessie 2016-09-23 release)
 0. Connect your bluetooth adapters, external USB Soundcard, ethernet, keyboard, mouse and hdmi output
 0. Power up the Pi
-0. Open a Terminal located at the top of the desktop (the black monitor icon) and run these commands, and you're done!!
+0. Open a Terminal located at the top of the desktop (the black monitor icon), run these commands, and you're done!!
 ```
 git clone https://github.com/adangert/JoustMania.git
 cd JoustMania

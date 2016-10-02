@@ -13,8 +13,7 @@ def audio_loop(file, p, ratio, end, chunk_size, stop_proc):
     proc = psutil.Process(os.getpid())
     proc.nice(-5)
     time.sleep(0.02)
-    print ('bipandpap')
-    print ('file is ' + str(file))
+    print ('audio file is ' + str(file))
     while True:
         #chunk = 2048/2
         wf = wave.open(file, 'rb')
@@ -28,13 +27,26 @@ def audio_loop(file, p, ratio, end, chunk_size, stop_proc):
             rate = wf.getframerate(),
             output = True,
             frames_per_buffer = chunk_size.value)
+        
         while data != '' and stop_proc.value == 0:
             #need to try locking here for multiprocessing
             array = numpy.fromstring(data, dtype=numpy.int16)
-            data = signal.resample(array, chunk_size.value*ratio.value)
-            stream.write(data.astype(int).tostring())
-            data = wf.readframes(chunk_size.value)
-            #print ('boop')
+            result = numpy.reshape(array, (array.size/2, 2))
+            #split data into seperate channels and resample
+            final = numpy.ones((1024,2))
+            reshapel = signal.resample(result[:, 0], 1024)
+
+            final[:, 0] = reshapel
+            reshaper = signal.resample(result[:, 1], 1024)
+            final[:, 1] = reshaper
+            out_data = final.flatten().astype(numpy.int16).tostring()
+            #data = signal.resample(array, chunk_size.value*ratio.value)
+            #stream.write(data.astype(int).tostring())
+            stream.write(out_data)
+            round_data = (int)(chunk_size.value*ratio.value)
+            if round_data % 2 != 0:
+                round_data += 1
+            data = wf.readframes(round_data)
         stream.stop_stream()
         stream.close()
         wf.close()

@@ -10,9 +10,9 @@ from multiprocessing import Process, Value, Array
 
 
 # How fast/slow the music can go
-SLOW_MUSIC_SPEED = 1.5
+SLOW_MUSIC_SPEED = 0.5
 #this was 0.5
-FAST_MUSIC_SPEED = 0.5
+FAST_MUSIC_SPEED = 2.0
 
 # The min and max timeframe in seconds for
 # the speed change to trigger, randomly selected

@@ -1,6 +1,6 @@
 ![PiParty Logo](logo/PiPartyLogo2.png)
 
-Party games for the Pi!
+JS Joust for the Pi!
 --------------------------------------
 
 * JoustMania is a collection of playstation move enabled party games specifically designed for the raspberry pi

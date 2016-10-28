@@ -58,7 +58,7 @@ How to select a game mode
 Custom Music
 ---------------------------------
 * Joust mania comes with a single classical music piece
-* play your own music, by copying it into the respective folders: /audio/<Joust, Zombie, Commander>/music/
+* play your own music, by copying it into the respective folders: /audio/(Joust, Zombie, Commander)/music/
 * wav files currently supported.
 
 Joust

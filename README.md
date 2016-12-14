@@ -23,8 +23,8 @@ You will need the following to run JoustMania:
 0. Micro SD card for the Raspberry Pi
 0. Up to 3, Class 1, Bluetooth 4.0 USB adapters (each adapter can handle 6-7 move controllers)
 0. External USB sound card
-0. External battery (the larger the better)
-0. Speaker, preferably portable
+0. Power supply (the Pi will run off of a battery pack)
+0. Speaker
 0. As many PlayStation Move controllers as you can handle
 
 Installation

@@ -141,6 +141,7 @@ class Menu():
     def __init__(self):
         self.move_count = psmove.count_connected()
         self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
+        #move controllers that have been taken out of play
         self.out_moves = {}
         #may need to make it a dict of a list?
         self.random_added = []
@@ -161,10 +162,11 @@ class Menu():
         for move in self.moves:
             serial = move.get_serial()
             if serial in self.move_opts:
-                if self.move_opts[move.get_serial()][Opts.alive.value] == Alive.off:
+                if self.move_opts[move.get_serial()][Opts.alive.value] == Alive.off.value:
                     self.out_moves[move.get_serial()] = Alive.off.value
                 else:
                     self.out_moves[move.get_serial()] = Alive.on.value
+                
 
     def check_for_new_moves(self):
         self.enable_bt_scanning(True)
@@ -255,6 +257,7 @@ class Menu():
             
     def check_start_game(self):
         if self.game_mode == common.Games.Random.value:
+            self.exclude_out_moves()
             start_game = True
             for serial in self.move_opts.keys():
                 #on means off here
@@ -263,6 +266,7 @@ class Menu():
                 if self.move_opts[serial][Opts.random_start.value] == Alive.off.value and serial not in self.random_added:
                     self.random_added.append(serial)
                     Audio('audio/Joust/sounds/start.wav').start_effect()
+            
                     
             if start_game:
                 self.start_game(random_mode=True)

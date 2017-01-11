@@ -1,3 +1,4 @@
+![Magfest 2017](logo/magfest.jpg)
 ![PiParty Logo](logo/PiPartyLogo2.png)
 
 JS Joust for the Pi!

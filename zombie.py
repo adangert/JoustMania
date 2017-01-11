@@ -203,17 +203,18 @@ class Zombie:
             self.reward(random_bullet_chance)
 
     def reward(self, random_bullet_chance):
-        random_bullet = random.choice(random_bullet_chance)
-        sound = False
-        for i in range(random_bullet):
-            sound = True
-            random_human = random.choice(self.humans)
-            if self.controller_opts[random_human][4] < 5:
-                self.controller_opts[random_human][4] += 1
-        if sound:
-            self.pickup.start_effect()
-        #one in 5 chance of getting a weapon
-        #self.get_weapon(5)
+        if (len(self.dead_zombies) + len(self.alive_zombies)) > 3:
+            random_bullet = random.choice(random_bullet_chance)
+            sound = False
+            for i in range(random_bullet):
+                sound = True
+                random_human = random.choice(self.humans)
+                if self.controller_opts[random_human][4] < 5:
+                    self.controller_opts[random_human][4] += 1
+            if sound:
+                self.pickup.start_effect()
+            #one in 5 chance of getting a weapon
+            #self.get_weapon(5)
 
     def audio_cue(self):
         if self.win_time - (time.time() - self.start_time) <= 10 and self.effect_cue <= 4:

@@ -1,4 +1,5 @@
 ![Magfest 2017](logo/magfest.jpg)
+JoustMania at Magfest 2017!
 ![PiParty Logo](logo/PiPartyLogo2.png)
 
 JS Joust for the Pi!

@@ -6,6 +6,7 @@ import joust
 import time
 import zombie
 import commander
+import ninja
 import random
 from piaudio import Audio
 from enum import Enum
@@ -15,7 +16,7 @@ TEAM_NUM = 6
 TEAM_COLORS = common.generate_colors(TEAM_NUM)
 
 #the number of game modes
-GAME_MODES = 7
+GAME_MODES = 8
 
 class Opts(Enum):
     alive = 0
@@ -111,6 +112,14 @@ def track_move(serial, move_num, move_opts):
                         move.set_leds(150,0,0)
                     else:
                         move.set_leds(0,0,150)
+
+                elif game_mode == common.Games.Ninja.value:
+                    #Need to set this to ninja colors
+                    color = common.hsv2rgb(random_color, 1, 1)
+                    move.set_leds(*color)
+                    random_color += 0.001
+                    if random_color >= 1:
+                        random_color = 0
 
                 elif game_mode == common.Games.Random.value:
                     if move_button == Buttons.middle.value:
@@ -319,6 +328,9 @@ class Menu():
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Commander.value:
             commander.Commander(game_moves)
+            self.tracked_moves = {}
+        elif self.game_mode == common.Games.Ninja.value:
+            ninja.Ninja(game_moves)
             self.tracked_moves = {}
         else:
             #may need to put in moves that have selected to not be in the game

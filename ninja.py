@@ -27,8 +27,6 @@ SLOW_WARNING = 0.28
 FAST_MAX = 2.5
 FAST_WARNING = 1.3
 
-
-
 #How long the speed change takes
 INTERVAL_CHANGE = 1.5
 
@@ -120,12 +118,8 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
                     change = abs(move_last_value - total)
 
                     if move_opts[Opts.is_commander.value] == Bool.no.value:
-                        if overdrive.value == 0:
-                            warning = SLOW_WARNING
-                            threshold = SLOW_MAX
-                        else:
-                            warning = FAST_WARNING
-                            threshold = FAST_MAX
+                        warning = FAST_WARNING
+                        threshold = FAST_MAX
                     else:
                         #if affected by overdrive, this could make the power better
                         warning = SLOW_WARNING
@@ -145,23 +139,11 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
                             move.set_rumble(110)
 
                     else:
-                        if move_opts[Opts.is_commander.value] == Bool.no.value:
-                            if overdrive.value == 0:
-                                move.set_leds(*Commander_colors[team])
-                            else:
-                                move.set_leds(*Overdrive_colors[team])
-                        else:
-                            move.set_leds(*calculate_flash_time(Current_commander_colors[team][0],Current_commander_colors[team][1],Current_commander_colors[team][2], power.value))
+                        move.set_leds(100,0,100)
                         move.set_rumble(0)
 
                             
                         button = move.get_buttons()
-                        #print str(power.value)
-                        if power.value >= 1.0:
-                            #press trigger for overdrive
-                            if (move_opts[Opts.holding.value] == Holding.not_holding.value and move.get_trigger() > 100):
-                                move_opts[Opts.selection.value] = Selections.trigger.value
-                                move_opts[Opts.holding.value] = Holding.holding.value
 
                         
                 move_last_value = total
@@ -178,7 +160,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
                     death_time += 2
             
 
-class Commander():
+class Ninja():
     def __init__(self, moves):
 
         self.move_serials = moves
@@ -285,22 +267,12 @@ class Commander():
 
     def check_end_game(self):
         winning_team = -100
-        team_win = False
-        for commander in self.current_commander:
-            if self.dead_moves[commander].value <= 0:
-                winning_team = (self.teams[commander] + 1) % 2
-                self.get_winning_team_members(winning_team)
-                self.game_end = True
-                
+        team_win = False      
 
         for move_serial, dead in self.dead_moves.items():
             if dead.value == 0:
                 dead_team = self.teams[move_serial]
                 winning_team = (self.teams[move_serial] + 1) % 2
-                if self.time_to_power[winning_team] > 15:
-                    self.time_to_power[winning_team] -= 1
-                if self.time_to_power[dead_team] < 25:
-                    self.time_to_power[dead_team] += 1
                 
                 #This is to play the sound effect
                 dead.value = -1

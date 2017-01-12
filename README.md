@@ -32,8 +32,9 @@ Installation
 ---------------------------
 
 0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card (tested with Jessie 2016-09-23 release)
-0. Connect your bluetooth adapters, external USB Soundcard, ethernet, keyboard, mouse and hdmi output
+0. Connect your bluetooth adapters, external USB Soundcard, keyboard, mouse and hdmi output
 0. Power up the Pi
+0. connect to the internet (wifi or ethernet)
 0. Open a Terminal located at the top of the desktop (the black monitor icon), run these commands, and you're done!!
 ```
 git clone https://github.com/adangert/JoustMania.git
@@ -54,7 +55,7 @@ How to select a game mode
 * In order to change between games, on any controller press the select button (located on the left side)
 * The colors of the controllers show which game is selected, for example, for FFA, all controllers will be white
 * Press start (located on the right side) on any controller to launch the selected game, a countdown until the game starts will begin!
-* In order to remove a controller from play press all four front buttons (currently does not work with random mode)
+* In order to remove a controller from play press all four front buttons
 
 Custom Music
 ---------------------------------
@@ -86,12 +87,12 @@ Joust
  * Same as Joust Teams, however the teams are randomly assigned at start of play
  * There are three teams in this mode
 
- WereJoust (one controller red, the rest white)
+ Werewolfs (one controller red, the rest white)
  ---------------------------------
- * Same as Joust Teams, although there is one hidden "Werewolf" on one of the teams
- * When the countdown starts the werewolf will feel a vibration, letting that player know they are the Werewolf
- * The Werewolf is on their own team, and will win only if they are the last player remaining
- * There are two regular teams in this mode
+ * Hidden werewolfs are selected at the beginning of the game.
+ * When the countdown starts the werewolf will feel a vibration, letting that player know they are a werewolf
+ * After a short period of time, werewolfs will be revealed
+ * The Werewolfs only if they are the last remaining
 
  Zombie apocalypse
  ---------------------------------

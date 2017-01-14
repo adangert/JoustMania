@@ -10,7 +10,7 @@ from multiprocessing import Process, Value, Array
 
 
 #How long the winning moves shall sparkle
-END_GAME_PAUSE = 4
+END_GAME_PAUSE = 6
 
 
 class Opts(Enum):
@@ -80,8 +80,7 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
 
     move_opts[Opts.holding.value] = Holding.not_holding.value
     move_opts[Opts.selection.value] = Selections.nothing.value
-
-    while True:
+    while  not super_dead:
         if sum(force_color) != 0:
             no_rumble_time = time.time() + 5
             time.sleep(0.01)
@@ -97,12 +96,12 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                     
                 if move_opts[Opts.has_bomb.value] == Bool.yes.value:
                     move.set_leds(*bomb_color)
+                    #move.set_rumble(bomb_color[0])
                     move.set_rumble(0)
-
                 else:
                     if button == Buttons.middle.value and move_opts[Opts.holding.value] == Holding.not_holding.value:
                         dead_move.value = 0
-                    move.set_leds(10,30,10)
+                    move.set_leds(0,10,50)
                     move.set_rumble(0)
 
                 if button == Buttons.middle.value:
@@ -140,6 +139,7 @@ class Bomb():
         self.bomb_color = Array('i', [0] * 3)
         self.start_timer = time.time()
         self.audio_cue = 0
+        self.num_bombs = 2
         self.move_opts = {}
 
         try:
@@ -173,16 +173,27 @@ class Bomb():
             holder = (holder +1) % len(self.move_serials)
             serial = self.move_serials[holder]
             if self.dead_moves[serial].value == 1:
-                yield serial 
+                yield serial
+
         
+
+    def reset_bomb_time(self):
+        self.bomb_time = time.time() + self.get_bomb_length()
+        self.bomb_start_time = time.time()
 
     def game_loop(self):
         self.track_moves()
 
         self.rotate_colors()
-        self.bomb_generator = self.get_next_bomb_holder()
-        self.bomb_serial = next(self.bomb_generator)
-        self.move_opts[self.bomb_serial][Opts.has_bomb.value] = Bool.yes.value
+        self.bomb_generators = []
+        self.bomb_generators.append(self.get_next_bomb_holder())
+        self.bomb_generators.append(self.get_next_bomb_holder())
+        self.bomb_serials = []
+        self.bomb_serials.append(next(self.bomb_generators[0]))
+        self.bomb_serials.append(next(self.bomb_generators[1]))
+
+        self.move_opts[self.bomb_serials[0]][Opts.has_bomb.value] = Bool.yes.value
+        self.move_opts[self.bomb_serials[1]][Opts.has_bomb.value] = Bool.yes.value
         
         self.count_down()
         time.sleep(0.02)
@@ -191,30 +202,37 @@ class Bomb():
         except:
             print('no audio loaded to start')
         time.sleep(0.8)
-        holding = True
-        bomb_time = time.time() + self.get_bomb_length()
-        bomb_start_time = time.time()
+        holding_arr = [True,True]
+        self.bomb_time = time.time() + self.get_bomb_length()
+        self.bomb_start_time = time.time()
         while self.running:
-            self.bomb_color[0] = int(common.lerp(0, 200, 1-((bomb_time - time.time())/(bomb_time - bomb_start_time))))
-            self.bomb_color[1] = int(common.lerp(70, 0, 1-((bomb_time - time.time())/(bomb_time - bomb_start_time))))
-            if self.move_opts[self.bomb_serial][Opts.selection.value] == Selections.nothing.value:
-                holding = False
-            if self.move_opts[self.bomb_serial][Opts.selection.value] == Selections.a_button.value and holding == False:
-                self.move_opts[self.bomb_serial][Opts.has_bomb.value] = Bool.no.value
-                self.bomb_serial = next(self.bomb_generator)
-                self.move_opts[self.bomb_serial][Opts.has_bomb.value] = Bool.yes.value
-                self.start_beep.start_effect()
-                holding = True
-            if time.time() > bomb_time:
-                self.dead_moves[self.bomb_serial].value = 0
-                self.explosion.start_effect()
-                self.move_opts[self.bomb_serial][Opts.has_bomb.value] = Bool.no.value
-                self.bomb_serial = next(self.bomb_generator)
-                self.move_opts[self.bomb_serial][Opts.has_bomb.value] = Bool.yes.value
-                bomb_time = time.time() + self.get_bomb_length()
-                bomb_start_time = time.time()
-                
-    
+            percentage = 1-((self.bomb_time - time.time())/(self.bomb_time - self.bomb_start_time))
+            self.bomb_color[0] = int(common.lerp(0, 200, percentage))
+            self.bomb_color[1] = int(common.lerp(70, 0, percentage))
+
+
+            for i, bomb_serial in enumerate(self.bomb_serials):
+                if self.move_opts[bomb_serial][Opts.selection.value] == Selections.nothing.value:
+                    holding_arr[i] = False
+                if self.move_opts[bomb_serial][Opts.selection.value] == Selections.a_button.value and holding_arr[i] == False:
+                    self.move_opts[bomb_serial][Opts.has_bomb.value] = Bool.no.value
+                    print("the alive serials are " + str(self.alive_moves))
+                    print("the bomb serials are " + str(self.bomb_serials))
+                    print("this bomb serial is {} {}".format(i,  str(bomb_serial)))
+                    
+                    bomb_serial = next(self.bomb_generators[i])
+                    print("new bomb serial is {} {}".format(i,  str(bomb_serial)))
+                    self.move_opts[bomb_serial][Opts.has_bomb.value] = Bool.yes.value
+                    self.start_beep.start_effect()
+                    holding_arr[i] = True
+                if time.time() > self.bomb_time:
+                    self.dead_moves[bomb_serial].value = 0
+                    self.explosion.start_effect()
+                    self.move_opts[bomb_serial][Opts.has_bomb.value] = Bool.no.value
+                    self.bomb_serial = next(self.bomb_generators[i])
+                    self.move_opts[bomb_serial][Opts.has_bomb.value] = Bool.yes.value
+                    self.reset_bomb_time()
+
 
             self.check_dead_moves()
             if self.game_end:
@@ -231,7 +249,6 @@ class Bomb():
             force_color = Array('i', [1] * 3)
             
             opts = Array('i', [0] * 5)
-
 
             proc = Process(target=track_move, args=(move_serial,
                                                     move_num,
@@ -294,12 +311,15 @@ class Bomb():
             if self.dead_moves[alive_serial].value == 0:
                 if self.move_opts[alive_serial][Opts.has_bomb.value] == Bool.yes.value:
                     self.move_opts[alive_serial][Opts.has_bomb.value] = Bool.no.value
-                    self.bomb_serial = next(self.bomb_generator)
-                    self.move_opts[self.bomb_serial][Opts.has_bomb.value] = Bool.yes.value
+                    for i, bomb_serial in enumerate(self.bomb_serials):
+                        if bomb_serial == alive_serial:
+                            bomb_serial = next(self.bomb_generators[i])
+                        self.move_opts[bomb_serial][Opts.has_bomb.value] = Bool.yes.value
                 #remove alive move:
 
                 self.alive_moves.remove(alive_serial)
                 self.explosion.start_effect()
+                self.reset_bomb_time()
 
         if len(self.alive_moves) <= 1:
             self.end_game()

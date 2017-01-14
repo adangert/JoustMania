@@ -42,7 +42,7 @@ WERE_FAST_WARNING = 1.2
 INTERVAL_CHANGE = 1.5
 
 #How long the winning moves shall sparkle
-END_GAME_PAUSE = 4
+END_GAME_PAUSE = 6
 
 
 def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, force_color, music_speed, werewolf_reveal):
@@ -115,9 +115,14 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
                         
                 move_last_value = total
             move.update_leds()
+<<<<<<< HEAD
         else:
             time.sleep(1)
             
+=======
+        elif dead_move.value == 0:
+            time.sleep(0.5)
+>>>>>>> start of multibomb play
 
 class Joust():
     def __init__(self, game_mode, moves, teams):

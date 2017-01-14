@@ -7,6 +7,7 @@ import time
 import zombie
 import commander
 import ninja
+import speed_bomb
 import random
 from piaudio import Audio
 from enum import Enum
@@ -16,7 +17,7 @@ TEAM_NUM = 6
 TEAM_COLORS = common.generate_colors(TEAM_NUM)
 
 #the number of game modes
-GAME_MODES = 8
+GAME_MODES = 9
 
 class Opts(Enum):
     alive = 0
@@ -120,6 +121,10 @@ def track_move(serial, move_num, move_opts):
                     random_color += 0.001
                     if random_color >= 1:
                         random_color = 0
+                        
+                elif game_mode == common.Games.Bomb.value:
+                    move.set_leds(100,20,0)
+
 
                 elif game_mode == common.Games.Random.value:
                     if move_button == Buttons.middle.value:
@@ -331,6 +336,9 @@ class Menu():
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Ninja.value:
             ninja.Ninja(game_moves)
+            self.tracked_moves = {}
+        elif self.game_mode == common.Games.Bomb.value:
+            speed_bomb.Bomb(game_moves)
             self.tracked_moves = {}
         else:
             #may need to put in moves that have selected to not be in the game

@@ -165,10 +165,13 @@ class Bomb():
         self.game_loop()
 
     def get_bomb_length(self):
-        return random.choice(range(15, 30))
+        return random.choice(range(17, 33))
 
-    def get_next_bomb_holder(self):
-        holder = random.choice(range(len(self.move_serials)))
+    def get_next_bomb_holder(self, serial=None):
+        if serial:
+            holder = self.get_serial_pos(serial)
+        else:
+            holder = random.choice(range(len(self.move_serials)))
         while True:
             holder = (holder +1) % len(self.move_serials)
             serial = self.move_serials[holder]
@@ -187,12 +190,16 @@ class Bomb():
         self.rotate_colors()
         self.bomb_generators = []
         self.bomb_generators.append(self.get_next_bomb_holder())
-        self.bomb_generators.append(self.get_next_bomb_holder())
         self.bomb_serials = []
         self.bomb_serials.append(next(self.bomb_generators[0]))
+        self.move_opts[self.bomb_serials[0]][Opts.has_bomb.value] = Bool.yes.value
+
+        
+        far_serial = self.gen_furthest_point()
+        self.bomb_generators.append(self.get_next_bomb_holder(far_serial))
         self.bomb_serials.append(next(self.bomb_generators[1]))
 
-        self.move_opts[self.bomb_serials[0]][Opts.has_bomb.value] = Bool.yes.value
+        
         self.move_opts[self.bomb_serials[1]][Opts.has_bomb.value] = Bool.yes.value
         
         self.count_down()
@@ -240,10 +247,15 @@ class Bomb():
                         #collision
                         self.dead_moves[bomb_serial].value = 0
                         self.explosion.start_effect()
-                        bomb_serial =next(self.bomb_generators[i])
+                        bomb_serial_test =next(self.bomb_generators[i])
+                        if self.move_opts[bomb_serial_test][Opts.has_bomb.value] == Bool.yes.value:
+                            bomb_serial = self.gen_furthest_point()
+                            self.bomb_generators[i] = self.get_next_bomb_holder(bomb_serial)
+                        else:
+                            bomb_serial = bomb_serial_test
                         self.bomb_serials[i] = bomb_serial
-                        bomb_serial_n =next(self.bomb_generators[j])
-                        bomb_serial_n =next(self.bomb_generators[j])
+                        bomb_serial_n = self.gen_furthest_point()
+                        self.bomb_generators[j] = self.get_next_bomb_holder(bomb_serial_n)
                         self.bomb_serials[j] = bomb_serial_n
 
 
@@ -254,7 +266,52 @@ class Bomb():
         self.stop_tracking_moves()
 
     def gen_furthest_point(self):
-        pass
+        max_dist = 0
+        max_dist_serial = None
+        print("here are the serials " + str(self.move_serials))
+        for move_serial in self.move_serials:
+            print("doing move serial {}".format(str(move_serial)))
+            if self.dead_moves[move_serial].value == 1 and  self.move_opts[move_serial][Opts.has_bomb.value] == Bool.no.value:
+                print("move serial is alive, and does not have a bomb")
+                dist = self.calc_dist(move_serial)
+                if dist > max_dist:
+                    max_dist = dist
+                    max_dist_serial = move_serial
+        return move_serial
+
+    def calc_dist(self, serial):
+        print("doing calc dist")
+        start_move_num = self.get_serial_pos(serial)
+        forward_num = start_move_num
+        back_num = start_move_num
+        forward_dist = 0
+        back_dist = 0
+        
+        #cal forward pass
+        while self.move_opts[self.move_serials[forward_num]][Opts.has_bomb.value] == Bool.no.value:
+            forward_num = (forward_num + 1) % len(self.move_serials)
+            print ("forward nummmm")
+            while self.dead_moves[self.move_serials[forward_num]] == 0:
+                forward_num += (forward_num + 1) % len(self.move_serials)
+                print( "forward NUMMMMM")
+            forward_dist += 1
+            
+        #cal back pass
+        while self.move_opts[self.move_serials[forward_num]][Opts.has_bomb.value] == Bool.no.value:
+            back_num = (forward_num - 1) % len(self.move_serials)
+            while self.dead_moves[self.move_serials[forward_num]] == 0:
+                back_num += (forward_num - 1) % len(self.move_serials)
+            back_dist += 1
+
+        print("forward is {}, backward is {}".format(forward_dist, back_dist))
+
+        return min(forward_dist, back_dist)
+                
+
+    def get_serial_pos(self, serial):
+        for i, move_serial in enumerate(self.move_serials):
+            if serial == move_serial:
+                return i
         
 
     def track_moves(self):

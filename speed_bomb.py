@@ -221,6 +221,7 @@ class Bomb():
                     print("this bomb serial is {} {}".format(i,  str(bomb_serial)))
                     
                     bomb_serial = next(self.bomb_generators[i])
+                    self.bomb_serials[i] = bomb_serial
                     print("new bomb serial is {} {}".format(i,  str(bomb_serial)))
                     self.move_opts[bomb_serial][Opts.has_bomb.value] = Bool.yes.value
                     self.start_beep.start_effect()
@@ -232,6 +233,18 @@ class Bomb():
                     self.bomb_serial = next(self.bomb_generators[i])
                     self.move_opts[bomb_serial][Opts.has_bomb.value] = Bool.yes.value
                     self.reset_bomb_time()
+            #check for collision:
+            for i, bomb_serial in enumerate(self.bomb_serials):
+                for j, bomb_serial_n in enumerate(self.bomb_serials):
+                    if i != j and bomb_serial == bomb_serial_n:
+                        #collision
+                        self.dead_moves[bomb_serial].value = 0
+                        self.explosion.start_effect()
+                        bomb_serial =next(self.bomb_generators[i])
+                        self.bomb_serials[i] = bomb_serial
+                        bomb_serial_n =next(self.bomb_generators[j])
+                        bomb_serial_n =next(self.bomb_generators[j])
+                        self.bomb_serials[j] = bomb_serial_n
 
 
             self.check_dead_moves()
@@ -239,6 +252,9 @@ class Bomb():
                 self.end_game()
 
         self.stop_tracking_moves()
+
+    def gen_furthest_point(self):
+        pass
         
 
     def track_moves(self):

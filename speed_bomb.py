@@ -57,7 +57,7 @@ def calculate_flash_time(r,g,b, score):
     new_b = int(common.lerp(255, b, flash_percent))
     return (new_r, new_g, new_b)
 
-def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_opts):
+def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_opts, game_start):
     #proc = psutil.Process(os.getpid())
     #proc.nice(3)
 
@@ -99,19 +99,26 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                     #move.set_rumble(bomb_color[0])
                     move.set_rumble(0)
                 else:
-                    if move_opts[Opts.selection.value] == Selections.a_button.value and move_opts[Opts.holding.value] == Holding.not_holding.value:
-                        print("BOOOOOM CONTROLLER PUSHED {}, the selection was a and it was not holding :O".format(str(move.get_serial())))
-                        dead_move.value = 0
+                    #if move_opts[Opts.selection.value] == Selections.a_button.value and move_opts[Opts.holding.value] == Holding.not_holding.value:
+                        #print("BOOOOOM CONTROLLER PUSHED {}, the selection was a and it was not holding :O".format(str(move.get_serial())))
+                        #dead_move.value = 0
                     move.set_leds(0,10,50)
                     move.set_rumble(0)
 
                 if button == Buttons.middle.value and move_opts[Opts.holding.value] == Holding.not_holding.value:
-                    print("controller {} was not holding, and now it's pushing middle, let's change it's values to a and holding".format(str(move.get_serial())))
+                    #print("controller {} was not holding, and now it's pushing middle, let's change it's values to a and holding".format(str(move.get_serial())))
                     move_opts[Opts.selection.value] = Selections.a_button.value
                     move_opts[Opts.holding.value] = Holding.holding.value
+                    if move_opts[Opts.has_bomb.value] == Bool.no.value:
+                        if game_start.value == 1:
+                            dead_move.value = 0
+                            
+                elif (move_opts[Opts.holding.value] == Holding.not_holding.value and move.get_trigger() > 100):
+                    move_opts[Opts.selection.value] = Selections.trigger.value
+                    
                     
                 elif move_opts[Opts.holding.value] == Holding.holding.value and button == Buttons.nothing.value:
-                    print("controller {} was holding, and now it's pushing nothing, let's change it's values to nothing and not holding".format(str(move.get_serial())))
+                    #print("controller {} was holding, and now it's pushing nothing, let's change it's values to nothing and not holding".format(str(move.get_serial())))
                     move_opts[Opts.selection.value] = Selections.nothing.value
                     move_opts[Opts.holding.value] = Holding.not_holding.value
         else:
@@ -146,6 +153,8 @@ class Bomb():
         self.num_bombs = 2
         self.move_opts = {}
 
+        self.game_start = Value('i', 0)
+
         try:
             music = 'audio/Commander/music/' + random.choice(os.listdir('audio/Commander/music'))
         except:
@@ -172,16 +181,16 @@ class Bomb():
         return random.choice(range(17, 33))
 
     def get_next_bomb_holder(self, serial=None):
-        print("making a bomb holder with serial {}".format(str(serial)))
+        #print("making a bomb holder with serial {}".format(str(serial)))
         if serial:
             holder = self.get_serial_pos(serial)
         else:
             holder = random.choice(range(len(self.move_serials)))
-        print("the holder is {}".format(str(holder)))
+        #print("the holder is {}".format(str(holder)))
         while True:
             new_serial = self.move_serials[holder]
             if self.dead_moves[new_serial].value == 1:
-                print("called holder, found new serial to return {}".format(str(new_serial)))
+                #print("called holder, found new serial to return {}".format(str(new_serial)))
                 yield new_serial
             holder = (holder +1) % len(self.move_serials)
 
@@ -193,27 +202,33 @@ class Bomb():
 
     def game_loop(self):
         self.track_moves()
-        print("controllers before rotation")
+        #print("controllers before rotation")
         self.print_bombs()
         self.rotate_colors()
-        print("controllers after rotation")
+        #print("controllers after rotation")
         self.print_bombs()
         self.bomb_generators = []
         self.bomb_generators.append(self.get_next_bomb_holder())
         self.bomb_serials = []
         self.bomb_serials.append(next(self.bomb_generators[0]))
-        self.move_opts[self.bomb_serials[0]][Opts.has_bomb.value] = Bool.yes.value
-        print("first bomb selected")
+        #self.move_opts[self.bomb_serials[0]][Opts.has_bomb.value] = Bool.yes.value
+        #print("first bomb selected")
         self.print_bombs()
 
-        print("getting next bomb")
+        #print("getting next bomb")
         far_serial = self.gen_furthest_point()
         self.bomb_generators.append(self.get_next_bomb_holder(far_serial))
         self.bomb_serials.append(next(self.bomb_generators[1]))
-        self.move_opts[self.bomb_serials[1]][Opts.has_bomb.value] = Bool.yes.value
-        print("second bomb selected")
+        #self.move_opts[self.bomb_serials[1]][Opts.has_bomb.value] = Bool.yes.value
+        #print("second bomb selected")
         self.print_bombs()
 
+        far_serial = self.gen_furthest_point()
+        self.bomb_generators.append(self.get_next_bomb_holder(far_serial))
+        self.bomb_serials.append(next(self.bomb_generators[2]))
+
+        self.holding_arr = [True,True,True]
+        self.place_bombs()
         
 
         
@@ -224,9 +239,10 @@ class Bomb():
         except:
             print('no audio loaded to start')
         time.sleep(0.8)
-        holding_arr = [True,True]
+        
         self.bomb_time = time.time() + self.get_bomb_length()
         self.bomb_start_time = time.time()
+        self.game_start.value = 1
         while self.running:
             percentage = 1-((self.bomb_time - time.time())/(self.bomb_time - self.bomb_start_time))
             self.bomb_color[0] = int(common.lerp(0, 200, percentage))
@@ -235,13 +251,13 @@ class Bomb():
 
             for i, bomb_serial in enumerate(self.bomb_serials):
                 if self.move_opts[bomb_serial][Opts.selection.value] == Selections.nothing.value:
-                    holding_arr[i] = False
-                if self.move_opts[bomb_serial][Opts.selection.value] == Selections.a_button.value and holding_arr[i] == False:
+                    self.holding_arr[i] = False
+                if self.move_opts[bomb_serial][Opts.selection.value] == Selections.a_button.value and self.holding_arr[i] == False:
                     
-                    print("the alive serials are " + str(self.alive_moves))
-                    print("the bomb serials are " + str(self.bomb_serials))
+                    #print("the alive serials are " + str(self.alive_moves))
+                    #print("the bomb serials are " + str(self.bomb_serials))
                     
-                    print("A BOMB PLAYER {} HAS PRESSED THE A BUTTON, MOVING TO NEXT PLAYER".format(bomb_serial))
+                    #print("A BOMB PLAYER {} HAS PRESSED THE A BUTTON, MOVING TO NEXT PLAYER".format(bomb_serial))
                     self.print_bombs()
 
                     
@@ -251,69 +267,135 @@ class Bomb():
                     self.move_opts[bomb_serial][Opts.has_bomb.value] = Bool.yes.value
 
                     
-                    print("new bomb serial is {} {}".format(i,  str(bomb_serial)))
+                    #print("new bomb serial is {} {}".format(i,  str(bomb_serial)))
                     self.print_bombs()
                     
 
                     self.start_beep.start_effect()
-                    holding_arr[i] = True
-                if time.time() > self.bomb_time:
-                    print("times up for the bombs moving them")
+                    self.holding_arr[i] = True
+            if time.time() > self.bomb_time:
+                for i, bomb_serial in enumerate(self.bomb_serials):
+                    #print("times up for the bombs moving them")
                     self.dead_moves[bomb_serial].value = 0
-                    self.explosion.start_effect()
+                    
                     self.move_opts[bomb_serial][Opts.has_bomb.value] = Bool.no.value
+                    
                     #THIS NEEDS TO BE CHANGED
-                    self.bomb_serial = next(self.bomb_generators[i])
-                    self.move_opts[bomb_serial][Opts.has_bomb.value] = Bool.yes.value
-                    self.reset_bomb_time()
+                    #self.bomb_serial = next(self.bomb_generators[i])
+                    #self.move_opts[bomb_serial][Opts.has_bomb.value] = Bool.yes.value
+                self.place_bombs()
+                self.explosion.start_effect()
+                self.reset_bomb_time()
+
+
+
             #check for collision:
             for i, bomb_serial in enumerate(self.bomb_serials):
                 for j, bomb_serial_n in enumerate(self.bomb_serials):
                     if i != j and bomb_serial == bomb_serial_n:
                         #collision
-                        print("COLLISIONS! BETWEEN {} and {}".format(bomb_serial, bomb_serial_n))
+                        #print("COLLISIONS! BETWEEN {} and {}".format(bomb_serial, bomb_serial_n))
                         
                         self.explosion.start_effect()
                         #bomb_serial_test =next(self.bomb_generators[i])
                         #if self.move_opts[bomb_serial_test][Opts.has_bomb.value] == Bool.yes.value:
                         #    print('next has a bomb, getting away')
-                        new_bomb_serial = self.gen_furthest_point()
-                        self.move_opts[new_bomb_serial][Opts.has_bomb.value] = Bool.yes.value
                         self.move_opts[bomb_serial][Opts.has_bomb.value] = Bool.no.value
                         self.dead_moves[bomb_serial].value = 0
-                        self.bomb_generators[i] = self.get_next_bomb_holder(new_bomb_serial)
+                        self.place_bombs()
+                        self.reset_bomb_time()
+
                         
-                        print("moving first bomb away to {}".format(new_bomb_serial))
+                        #new_bomb_serial = self.gen_furthest_point()
+                        #self.move_opts[new_bomb_serial][Opts.has_bomb.value] = Bool.yes.value
+                        #self.move_opts[bomb_serial][Opts.has_bomb.value] = Bool.no.value
+                        #self.dead_moves[bomb_serial].value = 0
+                        #self.bomb_generators[i] = self.get_next_bomb_holder(new_bomb_serial)
+                        
+                        #print("moving first bomb away to {}".format(new_bomb_serial))
                         #else:
                         #    print('next doesnt have abomb, being next')
                         #    bomb_serial = bomb_serial_test
-                        self.bomb_serials[i] = next(self.bomb_generators[i])
-                        bomb_serial_n = self.gen_furthest_point()
-                        self.bomb_generators[j] = self.get_next_bomb_holder(bomb_serial_n)
-                        self.bomb_serials[j] = next(self.bomb_generators[j])
-                        self.move_opts[bomb_serial_n][Opts.has_bomb.value] = Bool.yes.value
-                        print("moving second bomb away to {}".format(bomb_serial_n))
+                        #self.bomb_serials[i] = next(self.bomb_generators[i])
+                        #bomb_serial_n = self.gen_furthest_point()
+                        #self.bomb_generators[j] = self.get_next_bomb_holder(bomb_serial_n)
+                        #self.bomb_serials[j] = next(self.bomb_generators[j])
+                        #self.move_opts[bomb_serial_n][Opts.has_bomb.value] = Bool.yes.value
+                        #print("moving second bomb away to {}".format(bomb_serial_n))
 
 
             self.check_dead_moves()
+            self.check_false_sound()
             if self.game_end:
                 self.end_game()
 
         self.stop_tracking_moves()
 
+    def check_false_sound(self):
+        #check for one controller left first
+        for move_serial in self.move_serials:
+            if self.move_opts[move_serial][Opts.selection.value] == Selections.trigger.value and self.move_opts[move_serial][Opts.holding.value] == Holding.not_holding.value:
+                self.move_opts[move_serial][Opts.holding.value] = Holding.holding.value
+                self.start_beep.start_effect()
 
 
-    def place_bomb_away(self):
-        pass
+    def get_alive_player_num(self):
+        num = 0
+        for  move_serial in self.move_serials:
+            if self.dead_moves[move_serial].value == 1:
+                num += 1
+        return num
+
+    def get_num_of_bombs(self):
+        num = 0
+        for  move_serial in self.move_serials:
+            if self.move_opts[move_serial][Opts.has_bomb.value] == Bool.yes.value:
+                num += 1
+        return num
+
+    def remove_all_bombs(self):
+        for  move_serial in self.move_serials:
+            self.move_opts[move_serial][Opts.has_bomb.value] = Bool.no.value
+
+
+    def place_bombs(self):
+        num_players = self.get_alive_player_num()
+        self.remove_all_bombs()
+
+
+        if num_players <= 10:
+            while(len(self.bomb_serials) > 2):
+                del self.bomb_serials[0]
+                del self.bomb_generators[0]
+                del self.holding_arr[0]
+
+        if num_players <= 5:
+            while(len(self.bomb_serials) > 1):
+                del self.bomb_serials[0]
+                del self.bomb_generators[0]
+                del self.holding_arr[0]
+
+        for i, bomb_serial in enumerate(self.bomb_serials):
+            new_bomb_serial = self.gen_furthest_point()
+            self.bomb_generators[i] = self.get_next_bomb_holder(new_bomb_serial)
+            self.bomb_serials[i] = next(self.bomb_generators[i])
+            self.move_opts[self.bomb_serials[i]][Opts.has_bomb.value] = Bool.yes.value
+            
 
     def gen_furthest_point(self):
-        print("doing get furthest point")
+        #random placement if no bombs
+        if self.get_num_of_bombs() == 0:
+            choice = random.choice(self.move_serials)
+            while self.dead_moves[choice].value == 0:
+                choice = random.choice(self.move_serials)
+            return choice
+        #print("doing get furthest point")
         max_dist = 0
         max_dist_serial = None
         #print("here are the alive serials " + str(self.alive_moves))
         #self.print_bombs()
         for move_serial in self.move_serials:
-            print("\ntrying dist for move_serial {}".format(str(move_serial)))
+            #print("\ntrying dist for move_serial {}".format(str(move_serial)))
             #print("@@@@@doing move serial {}".format(str(move_serial)))
             if self.dead_moves[move_serial].value == 1 and  self.move_opts[move_serial][Opts.has_bomb.value] == Bool.no.value:
                 #print("move serial is alive, and does not have a bomb")
@@ -321,9 +403,9 @@ class Bomb():
                 if dist > max_dist:
                     max_dist = dist
                     max_dist_serial = move_serial
-                    print("dist is bigger its {}".format(str(dist)))
-                    print("dist is bigger assigning " + str(max_dist_serial))
-        print("returning the max_dist_serial " + str(max_dist_serial))
+                    #print("dist is bigger its {}".format(str(dist)))
+                    #print("dist is bigger assigning " + str(max_dist_serial))
+        #print("returning the max_dist_serial " + str(max_dist_serial))
         return max_dist_serial
 
     def calc_dist(self, serial):
@@ -333,12 +415,12 @@ class Bomb():
         back_num = start_move_num
         forward_dist = 0
         back_dist = 0
-        print("calcing dist for serial {}".format(str(serial)))
+        #print("calcing dist for serial {}".format(str(serial)))
         self.print_bombs()
         
         while self.move_opts[self.move_serials[forward_num]][Opts.has_bomb.value] == Bool.no.value:
             forward_num = (forward_num + 1) % len(self.move_serials)
-            print ("forward num is {}".format(str(forward_num)))
+            #print ("forward num is {}".format(str(forward_num)))
             while self.dead_moves[self.move_serials[forward_num]].value == 0:
                 forward_num = (forward_num + 1) % len(self.move_serials)
              #   print( "forward NUMMMMM")
@@ -378,7 +460,8 @@ class Bomb():
                                                     dead_move,
                                                     force_color,
                                                     self.bomb_color,
-                                                    opts))
+                                                    opts,
+                                                    self.game_start))
             proc.start()
             self.tracked_moves[move_serial] = proc
             self.dead_moves[move_serial] = dead_move
@@ -408,13 +491,14 @@ class Bomb():
             self.move_opts[move_serial_beg][Opts.has_bomb.value] = Bool.no.value
             #self.move_opts[move_serial_beg][Opts.holding.value] = Holding.not_holding.value
 
-        print("rotate colors print bombs")
+        #print("rotate colors print bombs")
         self.print_bombs()
 
     def print_bombs(self):
         for i, move_serial in enumerate(self.move_serials):
-            print("controller {}, serial {}, is dead {}, is holding {}, has bomb {}".format(i, move_serial, self.dead_moves[move_serial].value, self.move_opts[move_serial][Opts.holding.value], self.move_opts[move_serial][Opts.has_bomb.value]))
-        print("\n")
+            pass
+            #print("controller {}, serial {}, is dead {}, is holding {}, has bomb {}".format(i, move_serial, self.dead_moves[move_serial].value, self.move_opts[move_serial][Opts.holding.value], self.move_opts[move_serial][Opts.has_bomb.value]))
+        #print("\n")
 
             
 

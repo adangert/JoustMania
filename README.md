@@ -114,8 +114,14 @@ Joust
   * Once all players are in a random game mode (excluding commander) will be selected
   * Instructions for the game mode will play and the game will begin
  
-  Ninja (coming soon)
+  Swaper (coming soon)
   ---------------------------------
   * Players start on two teams
   * When you die, you switch to the other team
   
+  Ninja Bomb (coming very soon)
+  ---------------------------------
+  * players sit in a circle each holding a controller
+  * a bomb is passed around, if held too long it will explode
+  * players can try to pass a fake bombs in order to make their opponents explode.
+  * last player remaining wins!

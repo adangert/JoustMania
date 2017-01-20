@@ -1,4 +1,4 @@
-in order to develop for Joustmania there are two scripts that help
+In order to develop for Joustmania there are two scripts that help
 
 first cd into the Joustmania directory
 
@@ -12,7 +12,7 @@ then run:
 
 this imports the psmove api so that python can find it's libraries
 
-finally run:
+finally:
 `sudo python3 piparty.py`
 
 and the game should be running locally in your terminal!

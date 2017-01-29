@@ -21,13 +21,11 @@ Hardware
 ---------------------------
 You will need the following to run JoustMania:
 
-0. A Raspberry Pi 3 B
-0. Micro SD card for the Raspberry Pi
-0. Up to 3, Class 1, Bluetooth 4.0 USB adapters (each adapter can handle 6-7 move controllers)
-0. External USB sound card
-0. Power supply (the Pi will run off of a battery pack)
-0. Speaker
-0. As many PlayStation Move controllers as you can handle
+0. A Raspberry Pi 3 B with sd card
+0. Class 1, Bluetooth 4.0 USB adapters (https://goo.gl/q0j0Fu)
+0. External USB sound card (https://goo.gl/S4vDXF)
+
+Note on Hardware: each bluetooth adapter supports 6 to 7 playstation move controllers, I've tested this build with three adapters and 18 controllers successfully.
 
 Installation
 ---------------------------
@@ -50,6 +48,7 @@ Pairing controllers
 * After a controller has been synced via USB, press the PlayStation sync button (the circular one in the middle) to connect the controller to the Pi
 * This process should only need to be done once, after this the controller should be permenently paired with the Pi and will only need to be turned on via the sync button for any future games
 * All the controllers may restart when pairing, this is expected, just keep plugging in new ones until they are all paired. if you encounter problems restart the Pi, and continue pairing the remaining controllers, again once this process is finished you should not have to connect the controllers to the Pi again via USB
+* If pairing fails for some reason you can run `sudo rm -rf /var/lib/bluetooth/*` in the terminal, reboot and try syncing again
 
 How to select a game mode
 ---------------------------------

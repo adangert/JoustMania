@@ -13,6 +13,7 @@ Awesome Features!!
 
 * 16+ Players simultaneous support! yup you heard that right, massive Joust battles
 * Super easy setup
+* Runs in Headless mode, no screen required
 * Multi game support, go beyond the standard Joust game, with team battles, werewolf, zombies, and commander mode
 * Custom music support, play with your own music
 * Convention mode, no manual instructions needed, the game plays itself and switches between game modes

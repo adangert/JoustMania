@@ -35,7 +35,7 @@ The class 1 adapters allow bluetooth connections up to 300+ feet and allow for t
 Installation
 ---------------------------
 
-0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card (tested with Jessie 2016-09-23 release)
+0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card
 0. Connect the USB Soundcard and bluetooth adapters
 0. Turn on the pi, open a Terminal and run these commands, the pi will reboot on a successful install
 ```

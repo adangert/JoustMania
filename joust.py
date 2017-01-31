@@ -115,6 +115,8 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
                         
                 move_last_value = total
             move.update_leds()
+        else:
+            time.sleep(1)
             
 
 class Joust():

@@ -118,7 +118,7 @@ Joust
  * One commander is chosen for each side, if this commander dies, the other team wins
  * Commanders can activate special abilities that helps their team win
  
-  Random mode (for conventions)
+  Convention/Random mode
   ---------------------------------
   * All players press the A button (middle of controller) to signal they are ready to play
   * Once all players are in a random game mode (excluding commander) will be selected

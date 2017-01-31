@@ -47,7 +47,7 @@ If you have the bluetooth adapters, disable the on-board bluetooth
 ```
 sudo ./disable_internal_bluetooth.sh
 ```
-You can now disconnect the hdmi cable and run JoustMania in headless mode. Joustmania will automatically boot up on restart.
+You can now disconnect the hdmi cable and run JoustMania in headless mode. JoustMania will automatically boot up on restart.
 
 
 Pairing controllers

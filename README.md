@@ -43,7 +43,7 @@ git clone https://github.com/adangert/JoustMania.git
 cd JoustMania
 sudo ./setup.sh
 ```
-once booted up again if you have the bluetooth adapters, disable the on-board bluetooth 
+If you have the bluetooth adapters, disable the on-board bluetooth 
 ```
 sudo ./disable_internal_bluetooth.sh
 ```

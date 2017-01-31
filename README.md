@@ -23,24 +23,32 @@ Hardware
 You will need the following to run JoustMania:
 
 0. A Raspberry Pi 3 B with sd card
-0. Class 1, Bluetooth 4.0 USB adapters (https://goo.gl/q0j0Fu)
 0. External USB sound card (https://goo.gl/S4vDXF)
 
-Note on Hardware: each bluetooth adapter supports 6 to 7 playstation move controllers, I've tested this build with three adapters and 18 controllers successfully.
+Optional and Highly recommended:
+
+0. Class 1, Bluetooth 4.0 USB adapters (https://goo.gl/q0j0Fu)
+
+Note on Hardware: The internal bluetooth is short range and has a high latency, making gameplay laggy and slow, although still possible.
+The class 1 adapters allow bluetooth connections up to 300+ feet and allow for the gameplay to be smooth, each adapter can connect to 6 to seven controllers. I've tested this build with three adapters and 18 controllers successfully.
 
 Installation
 ---------------------------
 
 0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card (tested with Jessie 2016-09-23 release)
-0. Connect your bluetooth adapters, external USB Soundcard, keyboard, mouse and hdmi output
-0. Power up the Pi
-0. connect to the internet (wifi or ethernet)
-0. Open a Terminal located at the top of the desktop (the black monitor icon), run these commands, and you're done!!
+0. Connect the USB Soundcard and bluetooth adapters
+0. Turn on the pi, open a Terminal and run these commands, the pi will reboot on a successful install
 ```
 git clone https://github.com/adangert/JoustMania.git
 cd JoustMania
 sudo ./setup.sh
 ```
+once booted up again if you have the bluetooth adapters, disable the on-board bluetooth 
+```
+sudo ./disable_internal_bluetooth.sh
+```
+You can now disconnect the hdmi cable and run JoustMania in headless mode. Joustmania will automatically boot up on restart.
+
 
 Pairing controllers
 ---------------------------
@@ -49,7 +57,11 @@ Pairing controllers
 * After a controller has been synced via USB, press the PlayStation sync button (the circular one in the middle) to connect the controller to the Pi
 * This process should only need to be done once, after this the controller should be permenently paired with the Pi and will only need to be turned on via the sync button for any future games
 * All the controllers may restart when pairing, this is expected, just keep plugging in new ones until they are all paired. if you encounter problems restart the Pi, and continue pairing the remaining controllers, again once this process is finished you should not have to connect the controllers to the Pi again via USB
-* If pairing fails for some reason you can run `sudo rm -rf /var/lib/bluetooth/*` in the terminal, reboot and try syncing again
+
+If pairing is not working for some reason, or you would like to resync all controllers run the following
+```
+sudo ./reset_bluetooth_connections.sh
+```
 
 How to select a game mode
 ---------------------------------
@@ -67,12 +79,9 @@ Custom Music
 Joust
 ---------------------------------
 * Based off of the original [JS Joust](http://www.jsjoust.com/)
-* The aim of the game is to force all the other players to move their controllers too fast, either by hitting the controller, making them flinch, or anything else you can think of
-* The sensitivity of the controllers is tied to the music, when the music speeds up, you are able to move faster
-* If your controller is going too fast it will flicker and vibrate as a warning
-* If you are knocked out, your controller goes dark and vibrates
-* The last player standing has their controller flash a beautiful rainbow sequence, and all controllers vibrate to indicate the end of the game
-
+* Keep your controller still while trying to jostle others.
+* If your controller is jostled then you are out of the game
+* The music is tied to the gameplay, the faster the music the faster you can move
 
  FFA (all controllers are white)
  ---------------------------------

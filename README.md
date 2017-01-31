@@ -2,16 +2,17 @@
 JoustMania at Magfest 2017!
 ![PiParty Logo](logo/PiPartyLogo2.png)
 
-JS Joust for the Pi!
+What is JoustMania????
 --------------------------------------
 
-* JoustMania is a collection of PlayStation Move enabled party games specifically designed for the Raspberry Pi
-* [Johann Sebastian Joust](http://www.jsjoust.com/) Started the movement game phenomenon, this collection of games attempts to expand upon the basic joust gameplay with new modes, as well as entirely new games
+* JoustMania is a collection of PlayStation Move enabled party games based off of the "Jostling" mechanic introduced in [Johann Sebastian Joust](http://www.jsjoust.com/)
+* this collection of games attempts to expand upon JS Joust with new modes, as well as entirely new games, a platform for experimentation. 
+* JoustMania is also designed to be easy to set up at conventions and is made to run itself with a large group of people. In convention mode, every game is started once everyone is ready, and announces the rules aloud for new players to learn.
 
 Awesome Features!!
 --------------------------------------
 
-* 16+ Players simultaneous support! yup you heard that right, massive Joust battles
+* 16+ Player support
 * Super easy setup
 * Runs in Headless mode, no screen required
 * Multi game support, go beyond the standard Joust game, with team battles, werewolf, zombies, and commander mode

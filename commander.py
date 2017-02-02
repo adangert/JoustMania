@@ -89,8 +89,7 @@ def calculate_flash_time(r,g,b, score):
 def track_move(move_serial, move_num, team, team_num, dead_move, force_color, music_speed, commander_intro, move_opts, power, overdrive):
     #proc = psutil.Process(os.getpid())
     #proc.nice(3)
-    #explosion = Audio('audio/Joust/sounds/Explosion34.wav')
-    #explosion.start_effect()
+
 
     start = False
     no_rumble = time.time() + 1
@@ -124,7 +123,6 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
             elif move_opts[Opts.is_commander.value] == Bool.yes.value and move_opts[Opts.holding.value] == Holding.holding.value:
                     move.set_leds(*Current_commander_colors[team])
             else:
-                #print 'boop'
                 move.set_leds(*Commander_colors[team])
         move.update_leds()
 
@@ -146,9 +144,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
                 total = sum([ax, ay, az])
                 if move_last_value is not None:
                     change = abs(move_last_value - total)
-                    #speed_percent = (music_speed.value - SLOW_MUSIC_SPEED)/(FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED)
-                    #warning = common.lerp(SLOW_WARNING, FAST_WARNING, speed_percent)
-                    #threshold = common.lerp(SLOW_MAX, FAST_MAX, speed_percent)
+
                     if move_opts[Opts.is_commander.value] == Bool.no.value:
                         if overdrive.value == 0:
                             warning = SLOW_WARNING
@@ -196,14 +192,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
                             if (move_opts[Opts.holding.value] == Holding.not_holding.value and move.get_trigger() > 100):
                                 move_opts[Opts.selection.value] = Selections.trigger.value
                                 move_opts[Opts.holding.value] = Holding.holding.value
-                            #elif (move_opts[Opts.holding.value] == Holding.not_holding.value and button == Buttons.middle.value):
-                            #    move_opts[Opts.selection.value] = Selections.a_button.value
-                            #    move_opts[Opts.holding.value] = Holding.holding.value
-                            #elif (move_opts[Opts.holding.value] == Holding.not_holding.value and button == Buttons.triangle.value):
-                            #    move_opts[Opts.selection.value] = Selections.triangle.value
-                            #    move_opts[Opts.holding.value] = Holding.holding.value
-                                
-                            
+
                         
                 move_last_value = total
             move.update_leds()
@@ -244,8 +233,6 @@ class Commander():
         
         
         self.powers = [Value('d', 0.0), Value('d', 0.0)]
-        #self.red_power = Value('d', 0.0)
-        #self.blue_power = Value('d', 0.0)
 
         self.red_overdrive = Value('i', 0)
         self.blue_overdrive = Value('i', 0)
@@ -297,10 +284,6 @@ class Commander():
             force_color = Array('i', [1] * 3)
             opts = Array('i', [0] * 5)
             power = self.powers[self.teams[move_serial]]
-            #if self.teams[move_serial] == Team.red:
-            #    power = self.red_power
-            #else:
-            #    power = self.blue_power
 
             if self.teams[move_serial] == Team.red.value:
                 overdrive = self.red_overdrive
@@ -348,26 +331,6 @@ class Commander():
             added_time = random.uniform(MIN_MUSIC_SLOW_TIME, MAX_MUSIC_SLOW_TIME)
         return time.time() + added_time
 
-    #def change_music_speed(self, fast):
-    #    change_percent = numpy.clip((time.time() - self.change_time)/INTERVAL_CHANGE, 0, 1)
-    #    if fast:
-    #        self.music_speed.value = common.lerp(FAST_MUSIC_SPEED, SLOW_MUSIC_SPEED, change_percent)
-    #    elif not fast:
-    #        self.music_speed.value = common.lerp(SLOW_MUSIC_SPEED, FAST_MUSIC_SPEED, change_percent)
-    #    self.audio.change_ratio(self.music_speed.value)
-
-    #def check_music_speed(self):
-    #    if time.time() > self.change_time and time.time() < self.change_time + INTERVAL_CHANGE:
-    #        self.change_music_speed(self.speed_up)
-    #        self.currently_changing = True
-    #        self.audio.change_chunk_size(True)
-    #    elif time.time() >= self.change_time + INTERVAL_CHANGE and self.currently_changing:
-    #        self.music_speed.value = SLOW_MUSIC_SPEED if self.speed_up else FAST_MUSIC_SPEED
-    #        self.speed_up =  not self.speed_up
-    #        self.change_time = self.get_change_time(speed_up = self.speed_up)
-    #        self.audio.change_ratio(self.music_speed.value)
-     #       self.currently_changing = False
-     #       self.audio.change_chunk_size(False)
 
     def get_winning_team_members(self, winning_team):
         self.end_game_sound(winning_team)
@@ -490,28 +453,6 @@ class Commander():
             self.activated_overdrive[Team.blue.value] = time.time() + 10
             Audio('audio/Commander/sounds/blue overdrive.wav').start_effect()
 
-    #def revive(self, team):
-    #    print ('dadooda')
-    #    dead_team_moves = [ move_serial for move_serial in self.move_opts.keys() if (self.teams[move_serial] == team and self.dead_moves[move_serial].value <= 0) ]
-        #print 'dead_team_moves is ' + str(dead_team_moves)
-    #    for move in dead_team_moves:
-    #        self.dead_moves[move].value = 3
-    #    Audio('audio/Commander/sounds/revive.wav').start_effect()
-    #    if team == Team.red.value:
-    #        Audio('audio/Commander/sounds/red revive.wav').start_effect()
-    #    if team == Team.blue.value:
-     #       Audio('audio/Commander/sounds/blue revive.wav').start_effect()
-
-    #def shift(self, team, commander):
-     #   print ('shifty')
-    #    did_shift = self.change_random_commander(team, exclude_commander = commander)
-   #     if did_shift:
-   #         Audio('audio/Commander/sounds/shift.wav').start_effect()
-   #         if team == Team.red.value:
-    #            Audio('audio/Commander/sounds/red shift.wav').start_effect()
-    #        if team == Team.blue.value:
-    #            Audio('audio/Commander/sounds/blue shift.wav').start_effect()
-    #    return did_shift
         
         
     def check_end_of_overdrive(self):
@@ -532,8 +473,6 @@ class Commander():
         self.powers_active[team] = False
 
     def check_commander_power(self):
-        #print str(self.powers[0].value)
-        #print str(self.powers[1].value)
         for commander in self.current_commander:
             #print self.move_opts[commander][Opts.selection] 
             if self.move_opts[commander][Opts.selection.value] == Selections.trigger.value:
@@ -541,15 +480,6 @@ class Commander():
                 self.reset_power(self.teams[commander])
                 self.move_opts[commander][Opts.selection.value] = Selections.nothing.value
 
-            #if self.move_opts[commander][Opts.selection.value] == Selections.a_button.value:
-            #    self.revive(self.teams[commander])
-            #    self.reset_power(self.teams[commander])
-            #    self.move_opts[commander][Opts.selection.value] = Selections.nothing.value
-                
-            #if self.move_opts[commander][Opts.selection.value] == Selections.triangle.value:
-            #    if self.shift(self.teams[commander], commander):
-             #       self.reset_power(self.teams[commander])
-            #    self.move_opts[commander][Opts.selection.value] = Selections.nothing.value
 
     def check_everyone_in(self):
         for move_serial in self.move_opts.keys():
@@ -559,7 +489,6 @@ class Commander():
         
             
     def commander_intro_audio(self):
-        #print 'BOOOP'
         intro_sound = Audio('audio/Commander/sounds/commander intro.wav')
         intro_sound.start_effect()
         #need while loop here
@@ -601,10 +530,6 @@ class Commander():
         time.sleep(0.8)
         
         while self.running:
-            
-            #self.check_music_speed()
-
-
             self.update_team_powers()
             self.check_commander_power()
             self.check_end_of_overdrive()

@@ -117,6 +117,17 @@ Joust
  * Teams are split into two sides
  * One commander is chosen for each side, if this commander dies, the other team wins
  * Commanders can activate special abilities that helps their team win
+
+  Ninja Bomb
+  ---------------------------------
+  * players sit in a circle each holding a controller
+  * once everyone is in order, all players can press A to start the game. 
+  * a bomb is passed around, by pressing the A button, if held too long it will explode
+  * players can try to pass a fake bombs in order to make their opponents explode.
+  * If a player presses A or trigger while holding a fake bomb, they explode
+  * fake bombs are passed by holding the trigger-button half way, too much or too little and you'll give yourself away
+  * fake bombs can be countered by pressing any of the four front buttons.
+  * last player remaining wins!
  
   Convention/Random mode
   ---------------------------------
@@ -129,9 +140,4 @@ Joust
   * Players start on two teams
   * When you die, you switch to the other team
   
-  Ninja Bomb (coming very soon)
-  ---------------------------------
-  * players sit in a circle each holding a controller
-  * a bomb is passed around, if held too long it will explode
-  * players can try to pass a fake bombs in order to make their opponents explode.
-  * last player remaining wins!
+

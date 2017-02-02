@@ -43,8 +43,7 @@ class Games(Enum):
     Zombies = 4
     Commander = 5
     Ninja = 6
-    Bomb = 7
-    Random = 8
+    Random = 7
 
 class Buttons(Enum):
     middle = 524288

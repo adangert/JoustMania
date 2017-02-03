@@ -103,10 +103,10 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
             move.set_rumble(rumble.value)
             if dead_move.value == 2:
                 no_bomb_color = [150,150,150]
-                no_fake_bomb_color = [150,255,150]
+                no_fake_bomb_color = [120,255,120]
             else:
-                no_bomb_color = [30,30,50]
-                no_fake_bomb_color = [30,50,30]
+                no_bomb_color = [30,30,30]
+                no_fake_bomb_color = [100,100,100]
             if move.poll():
                 
                 button = move.get_buttons()
@@ -116,14 +116,19 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                         faking = True
                         #move_opts[Opts.holding.value] = Holding.holding.value
                         move_opts[Opts.selection.value] = Selections.false_trigger.value
-                        col1 = int(common.lerp(fake_bomb_color[0], no_fake_bomb_color[0], (move.get_trigger()-50)/77))
-                        col2 = int(common.lerp(fake_bomb_color[1], no_fake_bomb_color[1], (move.get_trigger()-50)/77))
-                        col3 = int(common.lerp(fake_bomb_color[2], no_fake_bomb_color[2], (move.get_trigger()-50)/77))
-                        move.set_leds(col1,col2,col3)
-                        if (move.get_trigger() > 127 and move.get_trigger() <= 140):
-                            move.set_leds(*no_fake_bomb_color)
-                        if (move.get_trigger() > 140):
-                            move.set_leds(0,200,0)
+                        if (move.get_trigger() <= 127):
+                            col1 = int(common.lerp(fake_bomb_color[0], no_fake_bomb_color[0], (move.get_trigger()-50)/77))
+                            col2 = int(common.lerp(fake_bomb_color[1], no_fake_bomb_color[1], (move.get_trigger()-50)/77))
+                            col3 = int(common.lerp(fake_bomb_color[2], no_fake_bomb_color[2], (move.get_trigger()-50)/77))
+                            move.set_leds(col1,col2,col3)
+                        #if (move.get_trigger() > 127 and move.get_trigger() <= 140):
+                        #    move.set_leds(*no_fake_bomb_color)
+                        if (move.get_trigger() > 127):
+                            col1 = int(common.lerp(no_fake_bomb_color[0], fake_bomb_color[0], (move.get_trigger()-127)/128))
+                            col2 = int(common.lerp(no_fake_bomb_color[1], fake_bomb_color[1], (move.get_trigger()-127)/128))
+                            col3 = int(common.lerp(no_fake_bomb_color[2], fake_bomb_color[2], (move.get_trigger()-127)/128))
+                            move.set_leds(col1,col2,col3)
+                            #move.set_leds(0,200,0)
                     
 
                     else:
@@ -143,9 +148,6 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                 else:
                     can_fake = True
                     faking = False
-                    #if move_opts[Opts.selection.value] == Selections.a_button.value and move_opts[Opts.holding.value] == Holding.not_holding.value:
-                        #print("BOOOOOM CONTROLLER PUSHED {}, the selection was a and it was not holding :O".format(str(move.get_serial())))
-                        #dead_move.value = 0
                     if false_color.value == 1:
                         move.set_leds(150,20,20)
                     else:
@@ -166,23 +168,13 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                     move_opts[Opts.holding.value] = Holding.holding.value
 
                 if button == Buttons.middle.value and move_opts[Opts.holding.value] == Holding.not_holding.value:
-                    #print("controller {} was not holding, and now it's pushing middle, let's change it's values to a and holding".format(str(move.get_serial())))
                     move_opts[Opts.selection.value] = Selections.a_button.value
                     move_opts[Opts.holding.value] = Holding.holding.value
-                    #if move_opts[Opts.has_bomb.value] == Bool.no.value:
-                    #    if game_start.value == 1 and false_color.value == 1:
-                    #        print("DIED FROM MIDDLE BUTTON FAKED")
-                    #        faked.value = 1
-                            #dead_move.value -= 1
-                            
 
-                            
-                #elif (move_opts[Opts.holding.value] == Holding.not_holding.value and move.get_trigger() > 100):
-                #    move_opts[Opts.selection.value] = Selections.trigger.value
+
                     
                     
                 elif move_opts[Opts.holding.value] == Holding.holding.value and button == Buttons.nothing.value and move.get_trigger() <= 50:
-                    #print("controller {} was holding, and now it's pushing nothing, let's change it's values to nothing and not holding".format(str(move.get_serial())))
                     move_opts[Opts.selection.value] = Selections.nothing.value
                     move_opts[Opts.holding.value] = Holding.not_holding.value
                 
@@ -377,6 +369,8 @@ class Bomb():
                 #if we faked play sound
                 if self.move_opts[move_serial][Opts.selection.value] == Selections.false_trigger.value and self.move_opts[move_serial][Opts.holding.value] == Holding.not_holding.value:
                     faker = self.get_next_serial(move_serial)
+                    self.reset_bomb_time()
+                    self.reset_bomb_length()
                     self.false_colors[faker].value = 1
                     self.start_beep.start_effect()
                     self.move_opts[move_serial][Opts.holding.value] = Holding.holding.value

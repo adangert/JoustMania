@@ -245,7 +245,7 @@ class Bomb():
         self.bomb_length = 5.0
 
     def get_bomb_length(self):
-        self.bomb_length -= 0.2
+        self.bomb_length -= 0.3
         if self.bomb_length < 1:
             self.bomb_length = 1
         return self.bomb_length

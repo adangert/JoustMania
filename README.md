@@ -33,6 +33,12 @@ Optional and **highly recommended**:
 Note on Hardware: The internal bluetooth is short range and has a high latency, making gameplay laggy and slow, although still possible.
 The class 1 adapters allow bluetooth connections up to 300+ feet and allow for the gameplay to be smooth, each adapter can connect to 6 to 7 controllers. I've tested this build with three adapters and 16 controllers successfully.
 
+Optional:
+
+* USB hub for charging controllers (https://www.amazon.com/dp/B00POYDAGS/)
+
+This will allow you to charge 9 controllers at once through the pi
+
 Installation
 ---------------------------
 

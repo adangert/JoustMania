@@ -1,0 +1,27 @@
+<html><head>
+<title>Joustmania!</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<script type=text/javascript src="{{ url_for('static', filename='jquery.js') }}"></script>
+<script>
+$(document).ready(function(){
+    $("#startgame").click(function(){
+        $("#startgame").text("lolbroken");
+    });
+});
+</script>
+<body>
+<h3>Joustmania!</h3>
+Curent mode: {{game_mode}}<br />
+In game: {{in_game}}<br /><br />
+Connected Moves: {{move_count}}<br />
+Alive Moves: {{alive_count}}<br />
+Players remaining: {{active_count}}<br /><br />
+
+{% if in_game %}
+<button id="killgame">Kill Game</button>
+{% else %}
+<button id="changemode">Change Mode</button>
+<button id="startgame">Start Game</button>
+{% endif %}
+
+</body></html>

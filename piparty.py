@@ -11,9 +11,7 @@ import speed_bomb
 import random
 from piaudio import Audio
 from enum import Enum
-from multiprocessing import Process, Value, Array
-
-import website
+from multiprocessing import Process, Value, Array, Queue
 
 TEAM_NUM = 6
 TEAM_COLORS = common.generate_colors(TEAM_NUM)
@@ -147,8 +145,9 @@ def track_move(serial, move_num, move_opts):
             
 
 class Menu():
-    def __init__(self):
+    def __init__(self,command_queue=None, status_queue=None):
         self.move_count = psmove.count_connected()
+        self.alive_count = self.move_count
         self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
         #move controllers that have been taken out of play
         self.out_moves = {}
@@ -166,10 +165,11 @@ class Menu():
         self.game_mode = common.Games.JoustFFA.value
         self.pair = pair.Pair()
 
-        self.webProc = Process(target=website.start)
-        self.webProc.start()
+        self.command_queue = command_queue
+        self.status_queue = status_queue
 
-        self.game_loop()
+        self.i = 0
+
 
     def exclude_out_moves(self):
         for move in self.moves:
@@ -187,6 +187,7 @@ class Menu():
         if psmove.count_connected() != self.move_count:
             self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
             self.move_count = len(self.moves)
+        self.alive_count = len([move.get_serial() for move in self.moves if self.move_opts[move.get_serial()][Opts.alive.value] == Alive.on.value])
 
     def enable_bt_scanning(self, on=True):
         scan_cmd = "hciconfig {0} {1}"
@@ -261,9 +262,21 @@ class Menu():
                 for move_num, move in enumerate(self.moves):
                     self.pair_move(move, move_num)
 
+            self.check_command_queue()
             self.check_for_new_moves()
             self.check_change_mode()
             self.check_start_game()
+
+    def check_command_queue(self):
+    	if self.command_queue:
+    		if not(self.command_queue.empty()):
+    			command = self.command_queue.get()
+    			if command == 'update':
+    				self.status_queue.put({'in_game' : False,
+                                           'game_mode' : common.gameModes[self.game_mode],
+                                           'move_count' : self.move_count,
+                                           'alive_count' : self.alive_count,
+                                           'active_count' : None})
 
     def stop_tracking_moves(self):
         for proc in self.tracked_moves.values():
@@ -340,7 +353,7 @@ class Menu():
             self.tracked_moves = {}
         else:
             #may need to put in moves that have selected to not be in the game
-            joust.Joust(self.game_mode, game_moves, self.teams)
+            joust.Joust(self.game_mode, game_moves, self.teams, self.command_queue, self.status_queue)
             self.tracked_moves = {}
         if random_mode:
             self.game_mode = old_game_mode
@@ -354,3 +367,4 @@ class Menu():
             
 if __name__ == "__main__":
     piparty = Menu()
+    piparty.game_loop()

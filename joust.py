@@ -6,7 +6,7 @@ import random
 import numpy
 from piaudio import Audio
 from enum import Enum
-from multiprocessing import Process, Value, Array
+from multiprocessing import Process, Value, Array, Queue
 
 
 # How fast/slow the music can go
@@ -120,7 +120,7 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
 
 
 class Joust():
-    def __init__(self, game_mode, moves, teams):
+    def __init__(self, game_mode, moves, teams, command_queue=None, status_queue=None):
 
         self.move_serials = moves
         self.game_mode = game_mode
@@ -168,6 +168,9 @@ class Joust():
         self.currently_changing = False
         self.game_end = False
         self.winning_moves = []
+
+        self.command_queue = command_queue
+        self.status_queue = status_queue
         
         
         self.game_loop()
@@ -392,6 +395,7 @@ class Joust():
         time.sleep(0.8)
         
         while self.running:
+            self.check_command_queue()
             self.check_music_speed()
             self.check_end_game()
             self.werewolf_audio_cue()
@@ -399,7 +403,17 @@ class Joust():
                 self.end_game()
 
         self.stop_tracking_moves()
-                    
+         
+    def check_command_queue(self):
+        if self.command_queue:
+            if not(self.command_queue.empty()):
+                command = self.command_queue.get()
+                if command == 'update':
+                    self.status_queue.put({'in_game' : True,
+                                           'game_mode' : common.gameModes[self.game_mode],
+                                           'move_count' : None,
+                                           'alive_count' : len(self.move_serials),
+                                           'active_count' : None})           
                 
                 
         

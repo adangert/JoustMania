@@ -52,3 +52,5 @@ class Buttons(Enum):
     circle = 32
     nothing = 0
     
+gameModes = ['JoustFFA','JoustTeams','JoustRandomTeams','WereJoust','Zombies',
+    'Commander','Ninja','Random']

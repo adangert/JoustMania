@@ -13,6 +13,8 @@ from piaudio import Audio
 from enum import Enum
 from multiprocessing import Process, Value, Array
 
+import website
+
 TEAM_NUM = 6
 TEAM_COLORS = common.generate_colors(TEAM_NUM)
 
@@ -163,6 +165,10 @@ class Menu():
         self.teams = {}
         self.game_mode = common.Games.JoustFFA.value
         self.pair = pair.Pair()
+
+        self.webProc = Process(target=website.start)
+        self.webProc.start()
+
         self.game_loop()
 
     def exclude_out_moves(self):

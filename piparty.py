@@ -9,6 +9,7 @@ import commander
 import ninja
 import speed_bomb
 import random
+import json
 from piaudio import Audio
 from enum import Enum
 from multiprocessing import Process, Value, Array, Queue
@@ -167,6 +168,7 @@ class Menu():
 
         self.command_queue = command_queue
         self.status_queue = status_queue
+        self.command_from_web = ''
 
         self.i = 0
 
@@ -255,6 +257,13 @@ class Menu():
                 for opt in self.move_opts.values():
                     opt[Opts.game_mode.value] = self.game_mode
                 self.game_mode_announcement()
+        if self.command_from_web == 'changemode':
+            self.command_from_web = ''
+            self.game_mode = (self.game_mode + 1) %  GAME_MODES
+            for opt in self.move_opts.values():
+                opt[Opts.game_mode.value] = self.game_mode
+            self.game_mode_announcement()
+
 
     def game_loop(self):
         while True:
@@ -268,15 +277,17 @@ class Menu():
             self.check_start_game()
 
     def check_command_queue(self):
-    	if self.command_queue:
-    		if not(self.command_queue.empty()):
-    			command = self.command_queue.get()
-    			if command == 'update':
-    				self.status_queue.put({'in_game' : False,
-                                           'game_mode' : common.gameModes[self.game_mode],
-                                           'move_count' : self.move_count,
-                                           'alive_count' : self.alive_count,
-                                           'active_count' : None})
+        if self.command_queue:
+            if not(self.command_queue.empty()):
+                command = self.command_queue.get()
+                if command == 'update':
+                    data ={'in_game' : False,
+                           'game_mode' : common.gameModes[self.game_mode],
+                           'move_count' : self.move_count,
+                           'alive_count' : self.alive_count}
+                    self.status_queue.put(json.dumps(data))
+                else:
+                    self.command_from_web = command
 
     def stop_tracking_moves(self):
         for proc in self.tracked_moves.values():
@@ -304,6 +315,9 @@ class Menu():
             for move_opt in self.move_opts.values():
                 if move_opt[Opts.selection.value] == Selections.start_game.value:
                     self.start_game()
+            if self.command_from_web == 'startgame':
+                self.command_from_web = ''
+                self.start_game()
 
     def play_random_instructions(self):
         if self.game_mode == common.Games.JoustFFA.value:

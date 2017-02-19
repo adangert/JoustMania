@@ -4,6 +4,7 @@ import time
 import psutil, os
 import random
 import numpy
+import json
 from piaudio import Audio
 from enum import Enum
 from multiprocessing import Process, Value, Array, Queue
@@ -325,6 +326,12 @@ class Joust():
 
     def end_game(self):
         self.audio.stop_audio()
+
+        if self.game_end == False:
+            END_GAME_PAUSE = 2
+            for move_serial in self.teams.keys():
+                self.winning_moves.append(move_serial)            
+
         end_time = time.time() + END_GAME_PAUSE
         h_value = 0
 
@@ -409,11 +416,13 @@ class Joust():
             if not(self.command_queue.empty()):
                 command = self.command_queue.get()
                 if command == 'update':
-                    self.status_queue.put({'in_game' : True,
-                                           'game_mode' : common.gameModes[self.game_mode],
-                                           'move_count' : None,
-                                           'alive_count' : len(self.move_serials),
-                                           'active_count' : None})           
+                    data ={'in_game' : True,
+                           'game_mode' : common.gameModes[self.game_mode],
+                           'total_players' : len(self.move_serials),
+                           'remaining_players' : len([x[0] for x in self.dead_moves.items() if x[1].value==1])}
+                    self.status_queue.put(json.dumps(data))   
+                elif command == 'killgame':
+                    self.end_game()
                 
                 
         

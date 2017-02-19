@@ -5,22 +5,38 @@ from flask import Flask, render_template
 
 app = Flask(__name__)
 
+# @app.route('/')
+# def index():
+#     commandQueue.put('update')
+#     print('command sent')
+#     updateInfo = statusQueue.get()
+#     print(updateInfo)
+#     return render_template('joustmania.html', **updateInfo)
+
 @app.route('/')
 def index():
-    commandQueue.put('update')
-    print('command sent')
-    updateInfo = statusQueue.get()
-    print(updateInfo)
-    return render_template('joustmania.html', **updateInfo)
+    return render_template('joustmania.html')
 
-@app.route('/#secret')
-def index2():
-    print('oh noes!')
+@app.route('/changemode')
+def change_mode():
+    commandQueue.put('changemode')
+
+@app.route('/startgame')
+def start_game():
+    commandQueue.put('startgame')
+
+@app.route('/killgame')
+def kill_game():
+    commandQueue.put('killgame')
+
+
+@app.route('/updateStatus')
+def update():
     commandQueue.put('update')
     print('command sent')
     updateInfo = statusQueue.get()
     print(updateInfo)
-    return render_template('joustmania.html', **updateInfo)
+    return updateInfo
 
 if __name__ == '__main__':
 

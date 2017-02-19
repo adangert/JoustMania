@@ -3,25 +3,70 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <script type=text/javascript src="{{ url_for('static', filename='jquery.js') }}"></script>
 <script>
-$(document).ready(function(){
-    $("#startgame").click(function(){
-        $("#startgame").text("lolbroken");
+function updateStatus(){
+    $.get('updateStatus','',function(rawdata){
+        info = JSON.parse(rawdata);
+        $('#game_mode').text(info.game_mode);
+        $('#in_game').text(info.in_game);
+        $(".info_box").hide()
+
+        if (info.in_game){
+            $("#gamebuttons").show();
+            if (info.game_mode == 'JoustFFA'){
+                $("#free4all").show();
+                $("#total_players").text(info.total_players)
+                $("#remaining_players").text(info.remaining_players);
+            }
+        } else {
+            $("#mainmenu").show();
+            $("#menubuttons").show()
+            $('#move_count').text(info.move_count);
+            $('#alive_count').text(info.alive_count);
+        }
+        
     });
+};
+
+$(document).ready(function(){
+    $(".info_box").hide()
+    $("#changemode").click(function(){
+        $.get('changemode');
+    });
+    $("#startgame").click(function(){
+        $.get('startgame');
+    });
+    $("#killgame").click(function(){
+        $.get('killgame');
+    });
+    updateStatus();
+    setInterval(updateStatus,2000);
 });
 </script>
 <body>
-<h3>Joustmania!</h3>
-Curent mode: {{game_mode}}<br />
-In game: {{in_game}}<br /><br />
-Connected Moves: {{move_count}}<br />
-Alive Moves: {{alive_count}}<br />
-Players remaining: {{active_count}}<br /><br />
 
-{% if in_game %}
-<button id="killgame">Kill Game</button>
-{% else %}
+<div id="title">
+<h3>Joustmania!</h3>
+Curent mode: <span id="game_mode">Joust Null</span><br />
+In game: <span id="in_game">False</span><br /><br />
+</div>
+
+<div class="info_box" id="mainmenu">
+Connected Moves: <span id="move_count">-999</span><br />
+Alive Moves: <span id="alive_count">-999</span><br /><br />
+</div>
+
+<div class="info_box" id="free4all">
+Total Players: <span id="total_players">-999</span><br />
+Players remaining: <span id="remaining_players">-999</span><br /><br />
+</div>
+
+<div class="info_box" id="menubuttons">
 <button id="changemode">Change Mode</button>
 <button id="startgame">Start Game</button>
-{% endif %}
+</div>
+
+<div class="info_box" id="gamebuttons">
+<button id="killgame">Kill Game</button>
+</div>
 
 </body></html>

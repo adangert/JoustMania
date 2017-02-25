@@ -327,9 +327,10 @@ class Menu():
                     self.pair_move(move, move_num)
 
             self.check_for_new_moves()
-            self.check_change_mode()
-            self.check_admin_controls()
-            self.check_start_game()
+            if len(self.tracked_moves) > 0:
+                self.check_change_mode()
+                self.check_admin_controls()
+                self.check_start_game()
 
     def check_admin_controls(self):
         show_bat = False

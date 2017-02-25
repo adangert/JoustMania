@@ -72,10 +72,19 @@ sudo ./reset_bluetooth_connections.sh
 
 How to select a game mode
 ---------------------------------
-* In order to change between games, on any controller press the select button (located on the left side)
-* The colors of the controllers show which game is selected, for example, for FFA, all controllers will be white
-* Press start (located on the right side) on any controller to launch the selected game, a countdown until the game starts will begin!
+* In order to change between games, on any controller press the select button (located on the left side of a controller)
+* Changing game types will turn you into an Admin
+* Press start (located on the right side) on any controller to launch the selected game
 * In order to remove a controller from play press all four front buttons
+
+Admin Mode (Sensitivity and convention mode settings)
+---------------------------------
+You can become an Admin by changing the game mode via the select button, this will allow you to modify the games settings from the four front buttons on the controller, After a game is played the Admin mode will be reset
+
+* (Cross) Add or remove a game from Convention mode, your controller will be green if the game is added and Red if it is not, Custom Teams mode can not be added to the Convention mode
+* (Circle) Change sensitivity of the game. There are three settings, slow, medium, and fast, you will hear a corresponding sound for each
+* (Square) toggle the playback of instructions for each game
+* (Triangle) show battery level on all controllers
 
 Custom Music
 ---------------------------------
@@ -89,6 +98,13 @@ Joust
 * Keep your controller still while trying to jostle others.
 * If your controller is jostled then you are out of the game
 * The music is tied to the gameplay, the faster the music the faster you can move
+
+ Convention/Random mode
+ ---------------------------------
+ * This is the first mode that JoustMania boots to
+ * This mode allows for multiple game types to be randomly rotated with instructions played before each game
+ * Convention mode will only start with FFA in rotation, more game modes can be added as an Admin (see above)
+ * All players press the A button (middle of controller) to signal they are ready to play, and the game will begin
 
  FFA (all controllers are white)
  ---------------------------------
@@ -135,11 +151,7 @@ Joust
   * fake bombs can be countered by pressing any of the four front buttons.
   * last player remaining wins!
  
-  Convention/Random mode
-  ---------------------------------
-  * All players press the A button (middle of controller) to signal they are ready to play
-  * Once all players are in a random game mode (excluding commander) will be selected
-  * Instructions for the game mode will play and the game will begin
+
  
   Swaper (coming soon)
   ---------------------------------

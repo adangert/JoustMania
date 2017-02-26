@@ -5,6 +5,20 @@ from enum import Enum
 
 color_range = 255
 
+#Human speeds[slow, mid, fast]
+SLOW_WARNING = [0.1, 0.15, 0.28]
+SLOW_MAX = [0.5, 0.8, 1]
+FAST_WARNING = [0.5, 0.6, 0.8]
+FAST_MAX = [1, 1.4, 1.8]
+
+WERE_SLOW_WARNING = [0.2, 0.3, 0.4]
+WERE_SLOW_MAX = [0.7, 0.9, 1.1]
+WERE_FAST_WARNING = [0.6, 0.7, 0.9]
+WERE_FAST_MAX = [1.1, 1.5, 2.0]
+
+ZOMBIE_WARNING = [0.1, 0.15, 0.28]
+ZOMBIE_MAX = [0.5, 0.6, 0.8]
+
 def hsv2rgb(h, s, v):
     return tuple(int(color * color_range) for color in colorsys.hsv_to_rgb(h, s, v))
 
@@ -44,6 +58,7 @@ class Games(Enum):
     Commander = 5
     Ninja = 6
     Random = 7
+
 
 class Buttons(Enum):
     middle = 524288

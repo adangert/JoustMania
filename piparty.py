@@ -20,6 +20,8 @@ TEAM_COLORS = common.generate_colors(TEAM_NUM)
 #the number of game modes
 GAME_MODES = 8
 
+SENSITIVITY_MODES = 3
+
 class Opts(Enum):
     alive = 0
     selection = 1
@@ -36,10 +38,19 @@ class Selections(Enum):
     nothing = 0
     change_mode = 1
     start_game = 2
+    add_game = 3
+    change_sensitivity = 4
+    change_instructions = 5
+    show_battery = 6
 
 class Holding(Enum):
     not_holding = 0
     holding = 1
+
+class Sensitivity(Enum):
+    slow = 0
+    mid = 1
+    fast = 2
 
 
 #These buttons are based off of
@@ -51,9 +62,12 @@ class Buttons(Enum):
     start = 2048
     select = 256
     circle = 32
+    triangle = 16
+    cross = 64
+    square = 128
     nothing = 0
 
-def track_move(serial, move_num, move_opts):
+def track_move(serial, move_num, move_opts, force_color, battery):
     move = common.get_move(serial, move_num)
     move.set_leds(0,0,0)
     move.update_leds()
@@ -76,10 +90,21 @@ def track_move(serial, move_num, move_opts):
                     move.set_rumble(0)
                     move.update_leds()
                     continue
+
+                #show battery level
+                if battery.value == 1:
+                    battery_level = move.get_battery()
+                    if battery_level == 5: # 100% - green
+                        move.set_leds(0, 255, 0)
+                    elif battery_level == 4: # 80% - green-ish
+                        move.set_leds(128, 200, 0)
+                    elif battery_level == 3: # 60% - yellow
+                        move.set_leds(255, 255, 0)
+                    else: # <= 40% - red
+                        move.set_leds(255, 0, 0)
                     
-                if game_mode == common.Games.JoustFFA.value:
-                    move.set_leds(255,255,255)
-                    
+                #custom team mode is the only game mode that
+                #can't be added to con mode
                 elif game_mode == common.Games.JoustTeams.value:
                     if move_opts[Opts.team.value] >= TEAM_NUM:
                         move_opts[Opts.team.value] = 0
@@ -89,6 +114,13 @@ def track_move(serial, move_num, move_opts):
                         if move_opts[Opts.holding.value] == Holding.not_holding.value:
                             move_opts[Opts.team.value] = (move_opts[Opts.team.value] + 1) % TEAM_NUM
                             move_opts[Opts.holding.value] = Holding.holding.value
+
+                #set leds to forced color
+                elif sum(force_color) != 0:
+                    move.set_leds(*force_color)
+
+                elif game_mode == common.Games.JoustFFA.value:
+                    move.set_leds(255,255,255)
                             
                             
                 elif game_mode == common.Games.JoustRandomTeams.value:
@@ -121,6 +153,7 @@ def track_move(serial, move_num, move_opts):
 
 
                 elif game_mode == common.Games.Random.value:
+                    
                     if move_button == Buttons.middle.value:
                         move_opts[Opts.random_start.value] = Alive.off.value
                     if move_opts[Opts.random_start.value] == Alive.on.value:
@@ -130,18 +163,41 @@ def track_move(serial, move_num, move_opts):
                     
 
                 if move_opts[Opts.holding.value] == Holding.not_holding.value:
+                    #Change game mode and become admin controller
                     if move_button == Buttons.select.value:
                         move_opts[Opts.selection.value] = Selections.change_mode.value
                         move_opts[Opts.holding.value] = Holding.holding.value
 
+                    #start the game
                     if move_button == Buttons.start.value:
-                        print ('start')
                         move_opts[Opts.selection.value] = Selections.start_game.value
                         move_opts[Opts.holding.value] = Holding.holding.value
 
+                    #as an admin controller add or remove game from convention mode
+                    if move_button == Buttons.cross.value:
+                        move_opts[Opts.selection.value] = Selections.add_game.value
+                        move_opts[Opts.holding.value] = Holding.holding.value
+
+                    #as an admin controller change sensitivity of controllers
+                    if move_button == Buttons.circle.value:
+                        move_opts[Opts.selection.value] = Selections.change_sensitivity.value
+                        move_opts[Opts.holding.value] = Holding.holding.value
+
+                    #as an admin controller change if instructions play
+                    if move_button == Buttons.square.value:
+                        move_opts[Opts.selection.value] = Selections.change_instructions.value
+                        move_opts[Opts.holding.value] = Holding.holding.value
+
+                    #as an admin show battery level of controllers
+                    if move_button == Buttons.triangle.value:
+                        move_opts[Opts.selection.value] = Selections.show_battery.value
+                        move_opts[Opts.holding.value] = Holding.holding.value
+                    
+
                 if move_button == Buttons.nothing.value:
                     move_opts[Opts.holding.value] = Holding.not_holding.value
-            
+
+
         move.update_leds()
             
 
@@ -150,20 +206,24 @@ class Menu():
         self.move_count = psmove.count_connected()
         self.alive_count = self.move_count
         self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
+        self.admin_move = None
         #move controllers that have been taken out of play
         self.out_moves = {}
-        #may need to make it a dict of a list?
         self.random_added = []
-        self.rand_game_list = list(range(GAME_MODES))
-        self.rand_game_list.remove(common.Games.JoustTeams.value)
-        self.rand_game_list.remove(common.Games.Random.value)
-        self.rand_game_list.remove(common.Games.Commander.value)
+        self.rand_game_list = []
+
+        self.sensitivity = Sensitivity.mid.value
+        self.instructions = True
+        self.show_battery = Value('i', 0)
         
         self.tracked_moves = {}
+        self.force_color = {}
         self.paired_moves = []
         self.move_opts = {}
         self.teams = {}
-        self.game_mode = common.Games.JoustFFA.value
+        self.con_games = [common.Games.JoustFFA.value]
+        self.game_mode = common.Games.Random.value
+        self.old_game_mode = common.Games.Random.value
         self.pair = pair.Pair()
 
         self.command_queue = command_queue
@@ -181,7 +241,6 @@ class Menu():
                     self.out_moves[move.get_serial()] = Alive.off.value
                 else:
                     self.out_moves[move.get_serial()] = Alive.on.value
-                
 
     def check_for_new_moves(self):
         self.enable_bt_scanning(True)
@@ -213,9 +272,12 @@ class Menu():
             if move.connection_type == psmove.Conn_USB:
                 if move_serial not in self.paired_moves:
                     self.pair.pair_move(move)
+                    move.set_leds(255,255,255)
+                    move.update_leds()
                     self.paired_moves.append(move_serial)
             #the move is connected via bluetooth
             else:
+                color = Array('i', [0] * 3)
                 opts = Array('i', [0] * 6)
                 if move_serial in self.teams:
                     opts[Opts.team.value] = self.teams[move_serial]
@@ -224,10 +286,11 @@ class Menu():
                 opts[Opts.game_mode.value] = self.game_mode
                 
                 #now start tracking the move controller
-                proc = Process(target=track_move, args=(move_serial, move_num, opts))
+                proc = Process(target=track_move, args=(move_serial, move_num, opts, color, self.show_battery))
                 proc.start()
                 self.move_opts[move_serial] = opts
                 self.tracked_moves[move_serial] = proc
+                self.force_color[move_serial] = color
                 self.exclude_out_moves()
 
 
@@ -250,8 +313,16 @@ class Menu():
             Audio('audio/Menu/menu Random.wav').start_effect()
 
     def check_change_mode(self):
-        for move_opt in self.move_opts.values():
+        for move, move_opt in self.move_opts.items():
             if move_opt[Opts.selection.value] == Selections.change_mode.value:
+                #remove previous admin, and set new one
+                if self.admin_move:
+                    self.force_color[self.admin_move][0] = 0
+                    self.force_color[self.admin_move][1] = 0
+                    self.force_color[self.admin_move][2] = 0
+                self.admin_move = move
+
+                #change game type
                 self.game_mode = (self.game_mode + 1) %  GAME_MODES
                 move_opt[Opts.selection.value] = Selections.nothing.value
                 for opt in self.move_opts.values():
@@ -273,8 +344,75 @@ class Menu():
 
             self.check_command_queue()
             self.check_for_new_moves()
-            self.check_change_mode()
-            self.check_start_game()
+            if len(self.tracked_moves) > 0:
+                self.check_change_mode()
+                self.check_admin_controls()
+                self.check_start_game()
+
+    def check_admin_controls(self):
+        show_bat = False
+        for move_opt in self.move_opts.values():
+            if move_opt[Opts.selection.value] == Selections.show_battery.value and move_opt[Opts.holding.value] == Holding.holding.value:
+                show_bat = True
+        if show_bat:
+            self.show_battery.value = 1
+        else:
+            self.show_battery.value = 0
+        
+        if self.admin_move:
+            #you can't add custom teams mode to con mode, don't set colors
+            admin_opt = self.move_opts[self.admin_move]
+
+            #to play instructions or not
+            if admin_opt[Opts.selection.value] == Selections.change_instructions.value:
+                admin_opt[Opts.selection.value] = Selections.nothing.value
+                self.instructions = not self.instructions
+                if self.instructions:
+                    Audio('audio/Menu/instructions_on.wav').start_effect()
+                else:
+                    Audio('audio/Menu/instructions_off.wav').start_effect()
+
+            #change sensitivity
+            if admin_opt[Opts.selection.value] == Selections.change_sensitivity.value:
+                admin_opt[Opts.selection.value] = Selections.nothing.value
+                self.sensitivity = (self.sensitivity + 1) %  SENSITIVITY_MODES
+                if self.sensitivity == Sensitivity.slow.value:
+                    Audio('audio/Menu/slow_sensitivity.wav').start_effect()
+                elif self.sensitivity == Sensitivity.mid.value:
+                    Audio('audio/Menu/mid_sensitivity.wav').start_effect()
+                elif self.sensitivity == Sensitivity.fast.value:
+                    Audio('audio/Menu/fast_sensitivity.wav').start_effect()
+                
+            #no admin colors in con custom teams mode
+            if self.game_mode == common.Games.JoustTeams.value or self.game_mode == common.Games.Random.value:
+                self.force_color[self.admin_move][0] = 0
+                self.force_color[self.admin_move][1] = 0
+                self.force_color[self.admin_move][2] = 0
+            else:
+                #if game is in con mode, admin is green, otherwise admin is red
+                if self.game_mode in self.con_games:
+                    self.force_color[self.admin_move][0] = 0
+                    self.force_color[self.admin_move][1] = 200
+
+                else:
+                    self.force_color[self.admin_move][0] = 200
+                    self.force_color[self.admin_move][1] = 0
+
+                #add or remove game from con mode
+                if admin_opt[Opts.selection.value] == Selections.add_game.value:
+                    admin_opt[Opts.selection.value] = Selections.nothing.value
+                    if self.game_mode not in self.con_games:
+                        self.con_games.append(self.game_mode)
+                        Audio('audio/Menu/game_on.wav').start_effect()
+                    elif len(self.con_games) > 1:
+                        self.con_games.remove(self.game_mode)
+                        Audio('audio/Menu/game_off.wav').start_effect()
+                    else:
+                        Audio('audio/Menu/game_err.wav').start_effect()
+            
+                
+            
+            
 
     def check_command_queue(self):
         if self.command_queue:
@@ -344,35 +482,49 @@ class Menu():
         time.sleep(0.2)
         game_moves = [move.get_serial() for move in self.moves if self.out_moves[move.get_serial()] == Alive.on.value]
         self.teams = {serial: self.move_opts[serial][Opts.team.value] for serial in self.tracked_moves.keys() if self.out_moves[serial] == Alive.on.value}
-        old_game_mode = self.game_mode
+
 
         if random_mode:
-            if len(self.rand_game_list) <= 0:
-                self.rand_game_list = list(range(GAME_MODES))
-                self.rand_game_list.remove(common.Games.JoustTeams.value)
-                self.rand_game_list.remove(common.Games.Random.value)
-                self.rand_game_list.remove(common.Games.Commander.value)
-            self.game_mode = random.choice(self.rand_game_list)
-            self.rand_game_list.remove(self.game_mode)
+            if len(self.con_games) <= 1:
+                selected_game = self.con_games[0]
+            else:
+                if len(self.rand_game_list) >= len(self.con_games):
+                    #empty rand game list, append old game, to not play it twice
+                    self.rand_game_list = [self.old_game_mode]
+
+                selected_game = random.choice(self.con_games)
+                while selected_game in self.rand_game_list:
+                    selected_game = random.choice(self.con_games)
+
+                self.old_game_mode = selected_game
+                self.rand_game_list.append(selected_game)
+
+            self.game_mode = selected_game
+
+        if self.instructions:
             self.play_random_instructions()
         
         if self.game_mode == common.Games.Zombies.value:
-            zombie.Zombie(game_moves)
+            zombie.Zombie(game_moves, self.sensitivity)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Commander.value:
-            commander.Commander(game_moves)
+            commander.Commander(game_moves, self.sensitivity)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Ninja.value:
             speed_bomb.Bomb(game_moves)
             self.tracked_moves = {}
         else:
             #may need to put in moves that have selected to not be in the game
-            joust.Joust(self.game_mode, game_moves, self.teams, self.command_queue, self.status_queue)
+            joust.Joust(self.game_mode, game_moves, self.teams, self.sensitivity, self.command_queue, self.status_queue)
             self.tracked_moves = {}
         if random_mode:
-            self.game_mode = old_game_mode
-            Audio('audio/Menu/tradeoff2.wav').start_effect()
-            time.sleep(8)
+            self.game_mode = common.Games.Random.value
+            if self.instructions:
+                Audio('audio/Menu/tradeoff2.wav').start_effect()
+                time.sleep(8)
+            
+        #turn off admin mode so someone can't accidentally press a button    
+        self.admin_move = None
         self.random_added = []
             
 

@@ -22,6 +22,8 @@ MIN_MUSIC_SLOW_TIME = 10
 MAX_MUSIC_SLOW_TIME = 23
 
 #Sensitivity of the contollers
+#changes by the values in common
+#TODO: make commander should be harder to kill
 SLOW_MAX = 1.3
 SLOW_WARNING = 0.28
 FAST_MAX = 2.5
@@ -209,7 +211,16 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
             
 
 class Commander():
-    def __init__(self, moves):
+    def __init__(self, moves, speed):
+        global SLOW_MAX
+        global SLOW_WARNING
+        global FAST_MAX
+        global FAST_WARNING
+        
+        SLOW_MAX = common.SLOW_MAX[speed]
+        SLOW_WARNING = common.SLOW_WARNING[speed]
+        FAST_MAX = common.FAST_MAX[speed]
+        FAST_WARNING = common.FAST_WARNING[speed]
 
         self.move_serials = moves
         self.tracked_moves = {}

@@ -169,7 +169,18 @@ def track_controller(serial, num_try, opts):
 #since only normal music will be playing
 #need to make this a class with zombie killing defs
 class Zombie:
-    def __init__(self, cont_alive):
+    def __init__(self, cont_alive, speed):
+        global human_warning
+        global human_max
+        global zombie_warning
+        global zombie_max
+        
+        human_warning = common.FAST_WARNING[speed]
+        human_max = common.FAST_MAX[speed]
+
+        zombie_warning = common.ZOMBIE_WARNING[speed]
+        zombie_max = common.ZOMBIE_MAX[speed]
+        
         self.humans = []
         self.alive_zombies = []
         self.dead_zombies = {}

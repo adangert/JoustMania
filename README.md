@@ -61,21 +61,33 @@ Pairing controllers
 ---------------------------
 
 * Once you have installed JoustMania, in order to pair controllers, plug them into the Raspberry Pi via USB
+* Once plugged in a controller should turn white indicating that it has been paired correctly
 * After a controller has been synced via USB, press the PlayStation sync button (the circular one in the middle) to connect the controller to the Pi
 * This process should only need to be done once, after this the controller should be permenently paired with the Pi and will only need to be turned on via the sync button for any future games
 * All the controllers may restart when pairing, this is expected, just keep plugging in new ones until they are all paired. if you encounter problems restart the Pi, and continue pairing the remaining controllers, again once this process is finished you should not have to connect the controllers to the Pi again via USB
 
 If pairing is not working for some reason, or you would like to resync all controllers run the following
 ```
-sudo ./reset_bluetooth_connections.sh
+sudo -i
+cd /home/pi/JoustMania/
+./reset_bluetooth_connections.sh
 ```
 
 How to select a game mode
 ---------------------------------
-* In order to change between games, on any controller press the select button (located on the left side)
-* The colors of the controllers show which game is selected, for example, for FFA, all controllers will be white
-* Press start (located on the right side) on any controller to launch the selected game, a countdown until the game starts will begin!
+* In order to change between games, on any controller press the select button (located on the left side of a controller)
+* Changing game types will turn you into an Admin
+* Press start (located on the right side) on any controller to launch the selected game
 * In order to remove a controller from play press all four front buttons
+
+Admin Mode (Sensitivity and convention mode settings)
+---------------------------------
+You can become an Admin by changing the game mode via the select button, this will allow you to modify the games settings from the four front buttons on the controller, After a game is played the Admin mode will be reset
+
+* (Cross) Add or remove a game from Convention mode, your controller will be green if the game is added and Red if it is not, Custom Teams mode can not be added to the Convention mode
+* (Circle) Change sensitivity of the game. There are three settings, slow, medium, and fast, you will hear a corresponding sound for each
+* (Square) toggle the playback of instructions for each game
+* (Triangle) show battery level on all controllers
 
 Custom Music
 ---------------------------------
@@ -89,6 +101,13 @@ Joust
 * Keep your controller still while trying to jostle others.
 * If your controller is jostled then you are out of the game
 * The music is tied to the gameplay, the faster the music the faster you can move
+
+ Convention/Random mode
+ ---------------------------------
+ * This is the first mode that JoustMania boots to
+ * This mode allows for multiple game types to be randomly rotated with instructions played before each game
+ * Convention mode will only start with FFA in rotation, more game modes can be added as an Admin (see above)
+ * All players press the A button (middle of controller) to signal they are ready to play, and the game will begin
 
  FFA (all controllers are white)
  ---------------------------------
@@ -135,11 +154,7 @@ Joust
   * fake bombs can be countered by pressing any of the four front buttons.
   * last player remaining wins!
  
-  Convention/Random mode
-  ---------------------------------
-  * All players press the A button (middle of controller) to signal they are ready to play
-  * Once all players are in a random game mode (excluding commander) will be selected
-  * Instructions for the game mode will play and the game will begin
+
  
   Swaper (coming soon)
   ---------------------------------

@@ -9,9 +9,10 @@ import commander
 import ninja
 import speed_bomb
 import random
+import json
 from piaudio import Audio
 from enum import Enum
-from multiprocessing import Process, Value, Array
+from multiprocessing import Process, Value, Array, Queue
 
 TEAM_NUM = 6
 TEAM_COLORS = common.generate_colors(TEAM_NUM)
@@ -201,8 +202,9 @@ def track_move(serial, move_num, move_opts, force_color, battery):
             
 
 class Menu():
-    def __init__(self):
+    def __init__(self,command_queue=None, status_queue=None):
         self.move_count = psmove.count_connected()
+        self.alive_count = self.move_count
         self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
         self.admin_move = None
         #move controllers that have been taken out of play
@@ -223,7 +225,13 @@ class Menu():
         self.game_mode = common.Games.Random.value
         self.old_game_mode = common.Games.Random.value
         self.pair = pair.Pair()
-        self.game_loop()
+
+        self.command_queue = command_queue
+        self.status_queue = status_queue
+        self.command_from_web = ''
+
+        self.i = 0
+
 
     def exclude_out_moves(self):
         for move in self.moves:
@@ -240,6 +248,7 @@ class Menu():
         if psmove.count_connected() != self.move_count:
             self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
             self.move_count = len(self.moves)
+        self.alive_count = len([move.get_serial() for move in self.moves if self.move_opts[move.get_serial()][Opts.alive.value] == Alive.on.value])
 
     def enable_bt_scanning(self, on=True):
         scan_cmd = "hciconfig {0} {1}"
@@ -319,6 +328,13 @@ class Menu():
                 for opt in self.move_opts.values():
                     opt[Opts.game_mode.value] = self.game_mode
                 self.game_mode_announcement()
+        if self.command_from_web == 'changemode':
+            self.command_from_web = ''
+            self.game_mode = (self.game_mode + 1) %  GAME_MODES
+            for opt in self.move_opts.values():
+                opt[Opts.game_mode.value] = self.game_mode
+            self.game_mode_announcement()
+
 
     def game_loop(self):
         while True:
@@ -326,6 +342,7 @@ class Menu():
                 for move_num, move in enumerate(self.moves):
                     self.pair_move(move, move_num)
 
+            self.check_command_queue()
             self.check_for_new_moves()
             if len(self.tracked_moves) > 0:
                 self.check_change_mode()
@@ -397,6 +414,19 @@ class Menu():
             
             
 
+    def check_command_queue(self):
+        if self.command_queue:
+            if not(self.command_queue.empty()):
+                command = self.command_queue.get()
+                if command == 'update':
+                    data ={'in_game' : False,
+                           'game_mode' : common.gameModes[self.game_mode],
+                           'move_count' : self.move_count,
+                           'alive_count' : self.alive_count}
+                    self.status_queue.put(json.dumps(data))
+                else:
+                    self.command_from_web = command
+
     def stop_tracking_moves(self):
         for proc in self.tracked_moves.values():
             proc.terminate()
@@ -423,6 +453,9 @@ class Menu():
             for move_opt in self.move_opts.values():
                 if move_opt[Opts.selection.value] == Selections.start_game.value:
                     self.start_game()
+            if self.command_from_web == 'startgame':
+                self.command_from_web = ''
+                self.start_game()
 
     def play_random_instructions(self):
         if self.game_mode == common.Games.JoustFFA.value:
@@ -482,7 +515,7 @@ class Menu():
             self.tracked_moves = {}
         else:
             #may need to put in moves that have selected to not be in the game
-            joust.Joust(self.game_mode, game_moves, self.teams, self.sensitivity)
+            joust.Joust(self.game_mode, game_moves, self.teams, self.sensitivity, self.command_queue, self.status_queue)
             self.tracked_moves = {}
         if random_mode:
             self.game_mode = common.Games.Random.value
@@ -500,3 +533,4 @@ class Menu():
             
 if __name__ == "__main__":
     piparty = Menu()
+    piparty.game_loop()

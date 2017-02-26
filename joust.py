@@ -4,9 +4,10 @@ import time
 import psutil, os
 import random
 import numpy
+import json
 from piaudio import Audio
 from enum import Enum
-from multiprocessing import Process, Value, Array
+from multiprocessing import Process, Value, Array, Queue
 
 
 # How fast/slow the music can go
@@ -124,7 +125,7 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
 
 
 class Joust():
-    def __init__(self, game_mode, moves, teams, speed):
+    def __init__(self, game_mode, moves, teams, speed, command_queue=None, status_queue=None):
 
         print("speed is {}".format(speed))
         global SLOW_MAX
@@ -195,6 +196,9 @@ class Joust():
         self.currently_changing = False
         self.game_end = False
         self.winning_moves = []
+
+        self.command_queue = command_queue
+        self.status_queue = status_queue
         
         
         self.game_loop()
@@ -350,6 +354,12 @@ class Joust():
 
     def end_game(self):
         self.audio.stop_audio()
+
+        if self.game_end == False:
+            END_GAME_PAUSE = 2
+            for move_serial in self.teams.keys():
+                self.winning_moves.append(move_serial)            
+
         end_time = time.time() + END_GAME_PAUSE
         h_value = 0
 
@@ -426,6 +436,7 @@ class Joust():
         time.sleep(0.8)
         
         while self.running:
+            self.check_command_queue()
             if self.game_mode != common.Games.WereJoust.value:
                 self.check_music_speed()
             self.check_end_game()
@@ -434,7 +445,19 @@ class Joust():
                 self.end_game()
 
         self.stop_tracking_moves()
-                    
+         
+    def check_command_queue(self):
+        if self.command_queue:
+            if not(self.command_queue.empty()):
+                command = self.command_queue.get()
+                if command == 'update':
+                    data ={'in_game' : True,
+                           'game_mode' : common.gameModes[self.game_mode],
+                           'total_players' : len(self.move_serials),
+                           'remaining_players' : len([x[0] for x in self.dead_moves.items() if x[1].value==1])}
+                    self.status_queue.put(json.dumps(data))   
+                elif command == 'killgame':
+                    self.end_game()
                 
                 
         

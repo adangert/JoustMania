@@ -7,10 +7,12 @@ import numpy
 from piaudio import Audio
 from enum import Enum
 from multiprocessing import Process, Value, Array
+import json
 
 
 #How long the winning moves shall sparkle
 END_GAME_PAUSE = 6
+KILL_GAME_PAUSE = 2
 
 
 class Opts(Enum):
@@ -194,7 +196,7 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
             
 
 class Bomb():
-    def __init__(self, moves):
+    def __init__(self, moves, command_queue, status_queue):
 
         self.move_serials = moves
         self.tracked_moves = {}
@@ -215,6 +217,10 @@ class Bomb():
         self.bomb_length = 5.0
 
         self.game_start = Value('i', 0)
+
+        self.command_queue = command_queue
+        self.status_queue = status_queue
+        self.update_time = 0
 
         try:
             music = 'audio/Commander/music/' + random.choice(os.listdir('audio/Commander/music'))
@@ -291,6 +297,11 @@ class Bomb():
         self.bomb_start_time = time.time()
         
         while self.running:
+
+            if time.time() - 0.1 > self.update_time:
+                self.update_time = time.time()
+                self.check_command_queue()
+
             percentage = 1-((self.bomb_time - time.time())/(self.bomb_time - self.bomb_start_time))
 
             if(percentage > 0.8):
@@ -504,10 +515,6 @@ class Bomb():
             self.move_opts[move_serial_beg][Opts.has_bomb.value] = Bool.yes.value
             self.move_opts[move_serial_beg][Opts.holding.value] = Holding.holding.value
         while len(in_cons) != len(self.move_serials):
-            
-
-
-            
             for move_serial in self.move_serials:
                 for move_serial_beg in self.move_serials:
                     if self.move_opts[move_serial_beg][Opts.selection.value] == Selections.a_button.value:
@@ -585,6 +592,9 @@ class Bomb():
         except:
             print('no audio loaded to stop')
         end_time = time.time() + END_GAME_PAUSE
+
+        self.send_status('ending')
+
         h_value = 0
 
         while (time.time() < end_time):
@@ -607,3 +617,45 @@ class Bomb():
             team_win = Audio('audio/Commander/sounds/blue winner.wav')
         team_win.start_effect()
 
+    def check_command_queue(self):
+        package = None
+        while not(self.command_queue.empty()):
+            #print('what\nwhat\nwhat\nwhat\nwhat\nwhat\nwhat\nwhat\n')
+            package = self.command_queue.get()
+            command = package['command']
+        if not(package == None):
+            if command == 'killgame':
+                self.kill_game()
+        while not(self.status_queue.empty()):
+            self.status_queue.get()
+        self.send_status('in_game')
+
+    def send_status(self,game_status,winning_team=-1):
+        data ={'game_status' : game_status,
+               'game_mode' : 'Ninja',
+               'winning_team' : winning_team,
+               'total_players': len(self.move_serials),
+               'remaining_players': len(self.alive_moves)}
+
+        self.status_queue.put(json.dumps(data))
+
+    def kill_game(self):
+        try:
+            self.audio.stop_audio()
+        except:
+            print('no audio loaded to stop')        
+        self.send_status('killed')
+        all_moves = [x for x in self.dead_moves.keys()]
+        end_time = time.time() + KILL_GAME_PAUSE     
+               
+        h_value = 0
+        while (time.time() < end_time):
+            time.sleep(0.01)
+            color = common.hsv2rgb(h_value, 1, 1)
+            for move in all_moves:
+                color_array = self.force_move_colors[move]
+                common.change_color(color_array, *color)
+            h_value = (h_value + 0.01)
+            if h_value >= 1:
+                h_value = 0
+        self.running = False

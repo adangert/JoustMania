@@ -1,72 +1,271 @@
 <html><head>
 <title>Joustmania!</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<script type=text/javascript src="{{ url_for('static', filename='jquery.js') }}"></script>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+<script type=text/javascript src='{{ url_for('static', filename='jquery.js') }}'></script>
 <script>
 function updateStatus(){
-    $.get('updateStatus','',function(rawdata){
-        info = JSON.parse(rawdata);
-        $('#game_mode').text(info.game_mode);
-        $('#in_game').text(info.in_game);
-        $(".info_box").hide()
+    $.ajax({
+        url: 'updateStatus',
+        timeout: 2000,
+        success: function(rawdata){
+            info = JSON.parse(rawdata);
+            $('.main_status').show()
+            $('#game_mode').text(info.game_mode);
+            $('#game_status').text(info.game_status);
+            $('.info_box').hide()
+            $('.admin').hide()
+            $('.error').hide()
 
-        if (info.in_game){
-            $("#gamebuttons").show();
-            if (info.game_mode == 'JoustFFA'){
-                $("#free4all").show();
-                $("#total_players").text(info.total_players)
-                $("#remaining_players").text(info.remaining_players);
+            if (info.game_mode == 'WereJoust'){
+                team_name = ['Human','Werewolf']
+            } else if (info.game_mode == 'JoustTeams'){
+                team_name = ['Yellow','Green','Cyan','Blue','Magenta','Red'];
+            } else if (info.game_mode == 'JoustRandomTeams'){ //random teams
+                team_name = ['Yellow','Cyan','Magenta','Red'];
+            } else if (info.game_mode == 'Zombies'){
+                team_name = ['Humans', 'Zombies'];
+            } else if (info.game_mode == 'Commander'){
+                team_name = ['Red', 'Blue'];
+            } else { //free for all
+                team_name = ['null'];
             }
-        } else {
-            $("#mainmenu").show();
-            $("#menubuttons").show()
-            $('#move_count').text(info.move_count);
-            $('#alive_count').text(info.alive_count);
+
+            if (info.game_status=='in_game'){
+                $('#gamebuttons').show();
+                if (info.game_mode == 'JoustFFA' || info.game_mode == 'Ninja'){
+                    $('#free4all').show();
+                    $('#total_players').text(info.total_players)
+                    $('#remaining_players').text(info.remaining_players);
+                } else if (info.game_mode == 'Zombies'){
+                    $('#zombies').show()
+                    $('#humans').text(info.humans)
+                    $('#dead_zombies').text(info.dead_zombies)
+                    $('#alive_zombies').text(info.alive_zombies)
+                } else if (info.game_mode == 'Commander'){
+                    $('#commander').show()
+                    $('#red_players').text(info.red_players)
+                    $('#red_alive').text(info.red_alive)
+                    $('#red_od_status').text(info.red_od_status)
+                    $('#blue_players').text(info.blue_players)
+                    $('#blue_alive').text(info.blue_alive)
+                    $('#blue_od_status').text(info.blue_od_status)
+                } else if (info.game_mode == 'Ninja'){
+                    $('#ninja').show()
+                    $('#total_players2').text(info.total_players)
+                } else { //if (info.game_mode == 'JoustRandomTeams' || info.game_mode == 'JoustTeams'){
+                    var team_info = '<br />';
+                    for (i=0; i < info.team_comp.length; i++){
+                        t = info.team_comp[i]
+                        if (t[0] != 0){
+                            team_info += team_name[i] + ' Team: ' + t[1] + '/' + t[0] + '<br />';
+                        }
+                    }
+                    team_info += '<br />';
+                    $('#teams').html(team_info);
+                    $('#teams').show();
+                }
+
+            } else if (info.game_status=='starting'){
+                $('#starting').show();
+                $('#player_count').text(info.alive_count)
+
+            } else if (info.game_status=='ending'){
+                $('#ending').show();
+                $('#team_win').hide();
+                if (info.game_mode != 'JoustFFA' && info.winning_team != -1){
+                    $('#team_win').show();
+                    line = team_name[info.winning_team] + ' Team wins!'
+                    $('#team_win').text(line);
+                }
+
+            } else if (info.game_status=='killed'){
+                $('#killed').show();
+
+            } else  { //selection menu
+                if (admin_menu == true){
+                    $('.admin').show();
+                } else {
+                    $('#mainmenu').show();
+                    $('#menubuttons').show();
+                    $('#move_count').text(info.move_count);
+                    $('#alive_count').text(info.alive_count);
+                }
+            }   
+        },
+        error: function(){
+            $('.main_status').hide()
+            $('.info_box').hide()
+            $('.admin').hide()
+            $('.error').show()
+            console.log('shit broke!')
         }
-        
     });
 };
 
+
 $(document).ready(function(){
-    $(".info_box").hide()
-    $("#changemode").click(function(){
+
+    $('.main_status').hide()
+    $('.info_box').hide()
+    $('.admin').hide()
+    $('.error').hide()
+    admin_menu = false
+
+    $('#changemode').click(function(){
         $.get('changemode');
     });
-    $("#startgame").click(function(){
+    $('#startgame').click(function(){
         $.get('startgame');
     });
-    $("#killgame").click(function(){
+    $('#adminbutton').click(function(){
+        admin_menu = true;
+        $('.info_box').hide();
+        $('.admin').show();
+    });
+    $('#admin_return').click(function(){
+        admin_menu = false;
+        updateStatus();
+    });
+    $('#killgame').click(function(){
         $.get('killgame');
     });
+    $('#admin_update').click(function(){
+        console.log($('#admin_form').serialize())
+        $.ajax({
+            url: 'admin_update',
+            data: $('#admin_form').serialize(),
+            type: 'POST',
+            success: function(response) {
+                console.log(response);
+            },
+            error: function(error) {
+                console.log('oh shit!')
+                console.log(error);
+            }
+        });
+    });
     updateStatus();
-    setInterval(updateStatus,2000);
+    setInterval(updateStatus,1000);
 });
 </script>
 <body>
 
-<div id="title">
-<h3>Joustmania!</h3>
-Curent mode: <span id="game_mode">Joust Null</span><br />
-In game: <span id="in_game">False</span><br /><br />
+<div id='title'>
+
+<img src='{{ url_for('static', filename='PiPartyLogo2small.png') }}' /><br /><br />
 </div>
 
-<div class="info_box" id="mainmenu">
-Connected Moves: <span id="move_count">-999</span><br />
-Alive Moves: <span id="alive_count">-999</span><br /><br />
+<div class='main_status'>
+Curent mode: <span id='game_mode'>Joust Null</span><br />
+Game status: <span id='game_status'>False</span><br />
 </div>
 
-<div class="info_box" id="free4all">
-Total Players: <span id="total_players">-999</span><br />
-Players remaining: <span id="remaining_players">-999</span><br /><br />
+
+<div class='info_box' id='mainmenu'>
+<br />
+Connected Moves: <span id='move_count'>-999</span><br />
+Alive Moves: <span id='alive_count'>-999</span><br /><br />
 </div>
 
-<div class="info_box" id="menubuttons">
-<button id="changemode">Change Mode</button>
-<button id="startgame">Start Game</button>
+<div class='info_box' id='starting'>
+<br />
+Total Players: <span id='player_count'>-999</span><br />
 </div>
 
-<div class="info_box" id="gamebuttons">
-<button id="killgame">Kill Game</button>
+<div class='info_box' id='free4all'>
+<br />
+Total Players: <span id='total_players'>-999</span><br />
+Players remaining: <span id='remaining_players'>-999</span><br /><br />
+</div>
+
+<div class='info_box' id='teams'>
+</div>
+
+<div class='info_box' id="zombies">
+<br />
+Humans: <span id='humans'>-999</span><br />
+Dead Zombies: <span id='dead_zombies'>-999</span><br />
+Alive Zombies: <span id='alive_zombies'>-999</span><br /><br />
+</div>
+
+<div class='info_box' id="commander">
+<br />
+Red Team: <span id='red_alive'>-999</span>/<span id='red_players'>-999</span><br />
+Red Overdrive: <span id='red_od_status'>lol</span><br />
+Blue Team: <span id='blue_alive'>-999</span>/<span id='blue_players'>-999</span><br />
+Blue Overdrive: <span id='blue_od_status'>lol</span><br />
+<br />
+</div>
+
+<div class='info_box' id="ninja">
+<br />
+Total Players: <span id='total_players2'>-999</span><br /><br />
+</div>
+
+<div class='info_box' id='ending'>
+<br />
+Game over!<br />
+<span id='team_win'>Null Team wins!<br /></span>
+<br />
+</div>
+
+<div class='info_box' id='killed'>
+<br />
+Game Killed!<br /><br />
+</div>
+
+<div class='info_box' id='menubuttons'>
+<button id='changemode'>Change Mode</button>
+<button id='startgame'>Start Game</button>
+<button id='adminbutton'>Admin Settings</button>
+</div>
+
+<div class='info_box' id='gamebuttons'>
+<button id='killgame'>Kill Game</button>
+</div>
+
+<div class='admin' id='admin_settings'>
+<h3>Admin Settings</h3>
+
+<form action='' id='admin_form'>
+Note: Does not update if changed from Move admin!
+<p>
+<input type='checkbox' name='move_admin' id='move_admin' checked=checked>
+<label for='move_admin'>Allow Move to change settings</label>
+</p>
+<p>
+<input type='checkbox' name='instructions' id='instructions'>
+<label for='instructions'>Play instructions before game start</label>
+</p>
+<p>
+<select name='sensitivity' id='sensitivity'>
+    <option value=0>Slow</option>
+    <option value=1 selected=selected>Medium</option>
+    <option value=2>Fast</option>
+</select>
+<label for='sensitivity'>Move sensitivity</label>
+</p>
+<p>
+Random Mode Game Selection<br />
+<input type='checkbox' name='toggle_JoustFFA' name='toggle_JoustFFA' checked=checked>
+<label for='toggle_JoustFFA'>Joust Free-for-All</label><br />
+<input type='checkbox' name='toggle_RandomTeams' id='toggle_RandomTeams'>
+<label for='toggle_RandomTeams'>Joust Random Teams</label><br />
+<input type='checkbox' name='toggle_WereJoust' id='toggle_WereJoust'>
+<label for='toggle_WereJoust'>Werewolves</label><br />
+<input type='checkbox' name='toggle_Zombies' id='toggle_Zombies'>
+<label for='toggle_Zombies'>Zombies</label><br />
+<input type='checkbox' name='toggle_Commander' id='toggle_Commander'>
+<label for='toggle_Commander'>Commander</label><br />
+</p>
+</form>
+
+<button id='admin_update'>Save</button>
+<button id='admin_return'>Back</button>
+</div>
+
+<div class="error">
+Cannot connect to Joustmania!
 </div>
 
 </body></html>

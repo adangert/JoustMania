@@ -13,6 +13,8 @@ import json
 from piaudio import Audio
 from enum import Enum
 from multiprocessing import Process, Value, Array, Queue
+import sys
+from webui import WebUI
 
 TEAM_NUM = 6
 TEAM_COLORS = common.generate_colors(TEAM_NUM)
@@ -67,7 +69,7 @@ class Buttons(Enum):
     square = 128
     nothing = 0
 
-def track_move(serial, move_num, move_opts, force_color, battery):
+def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
     move = common.get_move(serial, move_num)
     move.set_leds(0,0,0)
     move.update_leds()
@@ -82,10 +84,12 @@ def track_move(serial, move_num, move_opts, force_color, battery):
             if move_opts[Opts.alive.value] == Alive.off.value:
                 if move_button == Buttons.sync.value:
                     move_opts[Opts.alive.value] = Alive.on.value
+                    dead_count.value = dead_count.value - 1
                 time.sleep(0.1)
             else:
                 if move_button == Buttons.all_buttons.value:
                     move_opts[Opts.alive.value] = Alive.off.value
+                    dead_count.value = dead_count.value + 1
                     move.set_leds(0,0,0)
                     move.set_rumble(0)
                     move.update_leds()
@@ -202,18 +206,19 @@ def track_move(serial, move_num, move_opts, force_color, battery):
             
 
 class Menu():
-    def __init__(self,command_queue=None, status_queue=None):
+    def __init__(self,command_queue=Queue(), status_queue=Queue()):
         self.move_count = psmove.count_connected()
-        self.alive_count = self.move_count
+        self.dead_count = Value('i', 0)
         self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
         self.admin_move = None
+        self.move_can_be_admin = True
         #move controllers that have been taken out of play
         self.out_moves = {}
         self.random_added = []
         self.rand_game_list = []
 
         self.sensitivity = Sensitivity.mid.value
-        self.instructions = True
+        self.instructions = False
         self.show_battery = Value('i', 0)
         
         self.tracked_moves = {}
@@ -232,6 +237,11 @@ class Menu():
 
         self.i = 0
 
+    def start_web(self):
+        webui = WebUI(self.command_queue,self.status_queue)
+        webProc = Process(target=webui.web_loop)
+        webProc.start()
+
 
     def exclude_out_moves(self):
         for move in self.moves:
@@ -248,7 +258,9 @@ class Menu():
         if psmove.count_connected() != self.move_count:
             self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
             self.move_count = len(self.moves)
-        self.alive_count = len([move.get_serial() for move in self.moves if self.move_opts[move.get_serial()][Opts.alive.value] == Alive.on.value])
+        #doesn't work
+        #self.alive_count = len([move.get_serial() for move in self.moves if self.move_opts[move.get_serial()][Opts.alive.value] == Alive.on.value])
+        
 
     def enable_bt_scanning(self, on=True):
         scan_cmd = "hciconfig {0} {1}"
@@ -286,7 +298,7 @@ class Menu():
                 opts[Opts.game_mode.value] = self.game_mode
                 
                 #now start tracking the move controller
-                proc = Process(target=track_move, args=(move_serial, move_num, opts, color, self.show_battery))
+                proc = Process(target=track_move, args=(move_serial, move_num, opts, color, self.show_battery, self.dead_count))
                 proc.start()
                 self.move_opts[move_serial] = opts
                 self.tracked_moves[move_serial] = proc
@@ -313,23 +325,24 @@ class Menu():
             Audio('audio/Menu/menu Random.wav').start_effect()
 
     def check_change_mode(self):
+        change_mode = False
         for move, move_opt in self.move_opts.items():
             if move_opt[Opts.selection.value] == Selections.change_mode.value:
                 #remove previous admin, and set new one
-                if self.admin_move:
-                    self.force_color[self.admin_move][0] = 0
-                    self.force_color[self.admin_move][1] = 0
-                    self.force_color[self.admin_move][2] = 0
-                self.admin_move = move
-
-                #change game type
-                self.game_mode = (self.game_mode + 1) %  GAME_MODES
+                if self.move_can_be_admin:
+                    if self.admin_move:
+                        self.force_color[self.admin_move][0] = 0
+                        self.force_color[self.admin_move][1] = 0
+                        self.force_color[self.admin_move][2] = 0
+                    self.admin_move = move
+                    change_mode = True
                 move_opt[Opts.selection.value] = Selections.nothing.value
-                for opt in self.move_opts.values():
-                    opt[Opts.game_mode.value] = self.game_mode
-                self.game_mode_announcement()
+
         if self.command_from_web == 'changemode':
             self.command_from_web = ''
+            change_mode = True
+
+        if change_mode:
             self.game_mode = (self.game_mode + 1) %  GAME_MODES
             for opt in self.move_opts.values():
                 opt[Opts.game_mode.value] = self.game_mode
@@ -337,17 +350,20 @@ class Menu():
 
 
     def game_loop(self):
+        self.start_web()
         while True:
+            self.i=self.i+1
+            #print(self.i)
             if psmove.count_connected() != len(self.tracked_moves):
                 for move_num, move in enumerate(self.moves):
                     self.pair_move(move, move_num)
-
-            self.check_command_queue()
             self.check_for_new_moves()
             if len(self.tracked_moves) > 0:
                 self.check_change_mode()
                 self.check_admin_controls()
                 self.check_start_game()
+            self.check_command_queue()
+            
 
     def check_admin_controls(self):
         show_bat = False
@@ -374,6 +390,9 @@ class Menu():
 
             #change sensitivity
             if admin_opt[Opts.selection.value] == Selections.change_sensitivity.value:
+                #self.web_admin_update()
+                #return
+
                 admin_opt[Opts.selection.value] = Selections.nothing.value
                 self.sensitivity = (self.sensitivity + 1) %  SENSITIVITY_MODES
                 if self.sensitivity == Sensitivity.slow.value:
@@ -410,22 +429,48 @@ class Menu():
                     else:
                         Audio('audio/Menu/game_err.wav').start_effect()
             
-                
-            
-            
+    def web_admin_update(self,admin_info={'move_admin':True, 'sensitivity':1}):
+
+        if 'move_admin' in admin_info.keys():
+            self.move_can_be_admin = True
+        else:
+            if self.admin_move:
+                self.force_color[self.admin_move][0] = 0
+                self.force_color[self.admin_move][1] = 0
+                self.force_color[self.admin_move][2] = 0
+                self.admin_move = None
+            self.move_can_be_admin = False
+
+        self.instructions = 'instructions' in admin_info.keys()
+        self.sensitivity = int(admin_info['sensitivity'])
+
+        toggles = ['toggle_JoustFFA','toggle_JoustTeams','toggle_RandomTeams',
+            'toggle_WereJoust','toggle_Zombies','toggle_Commander']
+        self.con_games = [i for i,t in enumerate(toggles) if t in admin_info.keys()]
+        if self.con_games == []:
+            self.con_games = [common.Games.JoustFFA.value]
+
 
     def check_command_queue(self):
-        if self.command_queue:
-            if not(self.command_queue.empty()):
-                command = self.command_queue.get()
-                if command == 'update':
-                    data ={'in_game' : False,
-                           'game_mode' : common.gameModes[self.game_mode],
-                           'move_count' : self.move_count,
-                           'alive_count' : self.alive_count}
-                    self.status_queue.put(json.dumps(data))
-                else:
-                    self.command_from_web = command
+        if not(self.command_queue.empty()):
+            package = self.command_queue.get()
+            command = package['command']
+            if command == 'admin_update':
+                self.web_admin_update(package['admin_info'])
+            else:
+                self.command_from_web = command
+        while not(self.status_queue.empty()):
+            self.status_queue.get()
+        self.send_status('menu')
+
+    def send_status(self,game_status):
+        data ={'game_status' : game_status,
+               'game_mode' : common.gameModes[self.game_mode],
+               'move_count' : self.move_count,
+               'alive_count' : self.move_count - self.dead_count.value,
+               'ticker': self.i}
+        self.status_queue.put(json.dumps(data))
+        #print('status sent!')
 
     def stop_tracking_moves(self):
         for proc in self.tracked_moves.values():
@@ -450,9 +495,10 @@ class Menu():
                 
 
         else:
-            for move_opt in self.move_opts.values():
-                if move_opt[Opts.selection.value] == Selections.start_game.value:
-                    self.start_game()
+            if self.move_can_be_admin:
+                for move_opt in self.move_opts.values():
+                    if move_opt[Opts.selection.value] == Selections.start_game.value:
+                        self.start_game()
             if self.command_from_web == 'startgame':
                 self.command_from_web = ''
                 self.start_game()
@@ -476,6 +522,7 @@ class Menu():
 
 
     def start_game(self, random_mode=False):
+        self.send_status('starting')
         self.enable_bt_scanning(False)
         self.exclude_out_moves()
         self.stop_tracking_moves()
@@ -505,13 +552,13 @@ class Menu():
             self.play_random_instructions()
         
         if self.game_mode == common.Games.Zombies.value:
-            zombie.Zombie(game_moves, self.sensitivity)
+            zombie.Zombie(game_moves, self.sensitivity, self.command_queue, self.status_queue)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Commander.value:
-            commander.Commander(game_moves, self.sensitivity)
+            commander.Commander(game_moves, self.sensitivity, self.command_queue, self.status_queue)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Ninja.value:
-            speed_bomb.Bomb(game_moves)
+            speed_bomb.Bomb(game_moves, self.command_queue, self.status_queue)
             self.tracked_moves = {}
         else:
             #may need to put in moves that have selected to not be in the game

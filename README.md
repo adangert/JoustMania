@@ -95,7 +95,7 @@ Custom Music
 * Play your own music, by copying it into the respective folders: /audio/(Joust, Zombie, Commander)/music/
 * WAV files currently supported
 
-Game Rules and variants
+ Game Rules and Variants
 ---------------------------------
 * Keep your controller still while trying to jostle others.
 * If your controller is jostled then you are out of the game

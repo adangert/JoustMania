@@ -95,70 +95,67 @@ Custom Music
 * Play your own music, by copying it into the respective folders: /audio/(Joust, Zombie, Commander)/music/
 * WAV files currently supported
 
- Game Rules and Variants
----------------------------------
+# Game Rules and Variants
 * Keep your controller still while trying to jostle others.
 * If your controller is jostled then you are out of the game
 * The music is tied to the gameplay, the faster the music the faster you can move
 
- Convention/Random mode
- ---------------------------------
+
+ ### Convention/Random mode
  * This is the first mode that JoustMania boots to
  * This mode allows for multiple game types to be randomly rotated with instructions played before each game
  * Convention mode will only start with FFA in rotation, more game modes can be added as an Admin (see above)
  * All players press the A button (middle of controller) to signal they are ready to play, and the game will begin
 
- FFA (all controllers are white)
- ---------------------------------
+
+ ### FFA (all controllers are white)
  * The most basic version of Joust; be the last one standing!
 
- Teams (all controllers are solid colors)
- ---------------------------------
+
+ ### Teams (all controllers are solid colors)
  * This game is the same as Joust FFA however at the beginning players select their team color with the big button in the middle of their controller
  * There are six teams to select from
 
- Random Teams (all controllers changing colors)
- ---------------------------------
+
+ ### Random Teams (all controllers changing colors)
  * Same as Joust Teams, however the teams are randomly assigned at start of play
  * There are three teams in this mode
 
- Werewolfs (one controller red, the rest white)
- ---------------------------------
+
+ ### Werewolfs (one controller red, the rest white)
  * Hidden werewolfs are selected at the beginning of the game.
  * When the countdown starts the werewolf will feel a vibration, letting that player know they are a werewolf
  * After a short period of time, werewolfs will be revealed
  * The Werewolfs only if they are the last remaining
 
- Zombie apocalypse
- ---------------------------------
+
+ ### Zombie apocalypse
  * Two players start out as zombies, and try to infect the humans
  * Humans can shoot random zombies with bullets
  * Bullets are randomly assigned as loot from killing zombies
  * Humans try to survive for a couple of minutes, otherwise zombies win!
  
- Commander
- ---------------------------------
+ 
+ ### Commander
  * Teams are split into two sides
  * One commander is chosen for each side, if this commander dies, the other team wins
  * Commanders can activate special abilities that helps their team win
 
-  Ninja Bomb
-  ---------------------------------
-  * players sit in a circle each holding a controller
-  * once everyone is in order, all players can press A to start the game. 
-  * a bomb is passed around, by pressing the A button, if held too long it will explode
-  * players can try to pass a fake bombs in order to make their opponents explode.
-  * If a player presses A or trigger while holding a fake bomb, they explode
-  * fake bombs are passed by holding the trigger-button half way, too much or too little and you'll give yourself away
-  * fake bombs can be countered by pressing any of the four front buttons.
-  * last player remaining wins!
- 
+
+ ### Ninja Bomb
+ * players sit in a circle each holding a controller
+ * once everyone is in order, all players can press A to start the game. 
+ * a bomb is passed around, by pressing the A button, if held too long it will explode
+ * players can try to pass a fake bombs in order to make their opponents explode.
+ * If a player presses A or trigger while holding a fake bomb, they explode
+ * fake bombs are passed by holding the trigger-button half way, too much or too little and you'll give yourself away
+ * fake bombs can be countered by pressing any of the four front buttons.
+ * last player remaining wins!
 
  
-  Swaper (coming soon)
-  ---------------------------------
-  * Players start on two teams
-  * When you die, you switch to the other team
-  * The last person remaining does not switch
+ ### Swaper (coming soon)
+ * Players start on two teams
+ * When you die, you switch to the other team
+ * The last person remaining does not switch
   
 

@@ -15,7 +15,6 @@ Cool Stuffs!
 * 16+ Player support
 * Super easy setup
 * Runs in Headless mode, no screen required
-* Multi game support, go beyond the standard Joust game, with team battles, werewolf, zombies, and commander mode
 * Custom music support, play with your own music
 * Convention mode, no manual instructions needed, the game plays itself and switches between game modes
 

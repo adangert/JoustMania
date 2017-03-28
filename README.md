@@ -6,10 +6,10 @@ What is JoustMania????
 --------------------------------------
 
 * JoustMania is a collection of PlayStation Move enabled party games based off of the "Jostling" mechanic introduced in [Johann Sebastian Joust](http://www.jsjoust.com/)
-* this collection of games attempts to expand upon JS Joust with new modes, as well as entirely new games, a platform for experimentation. 
-* JoustMania is also designed to be easy to set up at conventions and is made to run itself with a large group of people. In convention mode, every game is started once everyone is ready, and announces the rules aloud for new players to learn.
+* JoustMania includes FFA, Teams, Werewolfs, Zombies, Commander modes, and lots of other goodies!
+* The system is also designed to be easy to set up at conventions and is made to run itself with a large group of people. In convention mode, every game is started once everyone is ready, and announces the rules aloud for new players to learn.
 
-Awesome Features!!
+Cool Stuffs!
 --------------------------------------
 
 * 16+ Player support

@@ -55,6 +55,10 @@ sudo ./disable_internal_bluetooth.sh
 ```
 You can now disconnect the hdmi cable and run JoustMania in headless mode. JoustMania will automatically boot up on restart.
 
+Update Joust Mania
+---------------------------
+You can update Joust Mania by doing a `git pull` in the main directory and rebooting the pi.
+
 
 Pairing controllers
 ---------------------------

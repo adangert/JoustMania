@@ -78,6 +78,11 @@ def track_controller(serial, num_try, opts):
     move.update_leds()
     time.sleep(0.01)
     move_last_value = None
+    vibrate = False
+    vibration_time = time.time() + 1
+    flash_lights = True
+    flash_lights_timer = 0
+    
     while True:
         if move.poll():
             ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
@@ -95,20 +100,21 @@ def track_controller(serial, num_try, opts):
                     warning = zombie_warning
                     threshold = zombie_max
 
-
                 if change > threshold:
                     move.set_leds(255,0,0)
                     move.set_rumble(100)
                     opts[3] = 0
 
                 # Warn
-                elif change > warning:
+                elif change > warning and not vibrate:
                     move.set_leds(20,50,100)
-                    move.set_rumble(110)
+                    vibrate = True
+                    vibration_time = time.time() + 0.5
                     move.update_leds()
 
             #if we are dead
             if opts[3] == 0:
+                vibrate = False
                 move.set_leds(255,0,0)
                 move.update_leds()
                 move.set_rumble(70)
@@ -159,7 +165,22 @@ def track_controller(serial, num_try, opts):
                     opts[2] = 1
                     opts[1] = 4
                     opts[4] = 0
-                    
+
+            if vibrate:
+                flash_lights_timer += 1
+                if flash_lights_timer > 7:
+                    flash_lights_timer = 0
+                    flash_lights = not flash_lights
+                if flash_lights:
+                    move.set_leds(50,0,0)
+                if time.time() < vibration_time - 0.22:
+                    move.set_rumble(70)
+                else:
+                    move.set_rumble(0)
+                if time.time() > vibration_time:
+                    vibrate = False
+            #else:
+            #    move.set_leds(*team_colors[team.value])
             move.update_leds()
             move_last_value = total
 

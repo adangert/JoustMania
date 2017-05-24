@@ -100,6 +100,10 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
     move.set_leds(0,0,0)
     move.update_leds()
     time.sleep(1)
+    vibrate = False
+    vibration_time = time.time() + 1
+    flash_lights = True
+    flash_lights_timer = 0
 
     death_time = 2
     time_of_death = time.time()
@@ -117,6 +121,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
         #if we are not dead
         elif dead_move.value == 1:
             if move.poll():
+
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
                 total = sum([ax, ay, az])
                 if move_last_value is not None:
@@ -133,13 +138,32 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
                             dead_move.value = 0
                             time_of_death = time.time()
 
-                    elif change > warning:
+                    elif change > warning and not vibrate:
                         if time.time() > no_rumble:
+                            vibrate = True
+                            vibration_time = time.time() + 0.5
                             move.set_leds(20,50,100)
-                            move.set_rumble(110)
                     else:
                         move.set_rumble(0)
-                    move.set_leds(*team_colors[team.value])
+                    
+                    if vibrate:
+                        flash_lights_timer += 1
+                        if flash_lights_timer > 7:
+                            flash_lights_timer = 0
+                            flash_lights = not flash_lights
+                        if flash_lights:
+                            move.set_leds(100,100,100)
+                        else:
+                            move.set_leds(*team_colors[team.value])
+                        if time.time() < vibration_time - 0.22:
+                            move.set_rumble(110)
+                        else:
+                            move.set_rumble(0)
+                        if time.time() > vibration_time:
+                            vibrate = False
+                    else:
+                        move.set_leds(*team_colors[team.value])
+                    
 
                 move_last_value = total
             move.update_leds()

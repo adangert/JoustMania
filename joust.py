@@ -57,6 +57,10 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
     move = common.get_move(move_serial, move_num)
     team_colors = common.generate_colors(team_num)
     werewolf = False
+    vibrate = False
+    vibration_time = time.time() + 1
+    flash_lights = True
+    flash_lights_timer = 0
     if team < 0:
         team = (team + 1) * -1
         werewolf = True
@@ -102,10 +106,39 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
                             move.set_rumble(90)
                             dead_move.value = 0
 
-                    elif change > warning:
+                    elif change > warning and not vibrate:
                         if time.time() > no_rumble:
+                            vibrate = True
+                            vibration_time = time.time() + 0.5
                             move.set_leds(20,50,100)
+                            #move.set_rumble(110)
+                    else:
+                        move.set_rumble(0)
+
+                    if vibrate:
+                        flash_lights_timer += 1
+                        if flash_lights_timer > 7:
+                            flash_lights_timer = 0
+                            flash_lights = not flash_lights
+                        if flash_lights:
+                            if game_mode == common.Games.WereJoust.value:
+                                move.set_leds(1,1,1)
+                            else:
+                                move.set_leds(100,100,100)
+                        else:
+                            if game_mode == common.Games.WereJoust.value:
+                                if werewolf_reveal.value == 2 and werewolf:
+                                    move.set_leds(255,0,0)
+                                else:
+                                    move.set_leds(100,100,100)
+                            else:
+                                move.set_leds(*team_colors[team])
+                        if time.time() < vibration_time - 0.22:
                             move.set_rumble(110)
+                        else:
+                            move.set_rumble(0)
+                        if time.time() > vibration_time:
+                            vibrate = False
 
                     else:
                         if game_mode == common.Games.WereJoust.value:
@@ -115,7 +148,7 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
                                 move.set_leds(100,100,100)
                         else:
                             move.set_leds(*team_colors[team])
-                        move.set_rumble(0)
+                        #move.set_rumble(0)
                         
                 move_last_value = total
             move.update_leds()
@@ -317,6 +350,10 @@ class Joust():
                 Audio('audio/Joust/sounds/werewolf reveal 2.wav').start_effect()
                 self.reveal()
                 self.audio_cue = 3
+                self.change_time = time.time()-0.001
+            elif self.audio_cue == 3:
+                self.check_music_speed()
+            
                 
 
     def check_end_game(self):
@@ -403,9 +440,9 @@ class Joust():
         self.change_all_move_colors(80, 0, 0)
         time.sleep(2)
         self.change_all_move_colors(30, 0, 0)
-        time.sleep(18)
+        time.sleep(14)
         self.change_all_move_colors(20, 20, 20)
-        time.sleep(2)
+        time.sleep(6)
         self.start_timer = time.time()
         
 
@@ -424,6 +461,10 @@ class Joust():
         time.sleep(0.02)
         self.audio.start_audio_loop()
         time.sleep(0.8)
+        if self.game_mode == common.Games.WereJoust.value:
+            self.music_speed.value = SLOW_MUSIC_SPEED
+            self.audio.change_ratio(self.music_speed.value)
+            self.speed_up = False
         
         while self.running:
             if self.game_mode != common.Games.WereJoust.value:

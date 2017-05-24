@@ -145,6 +145,12 @@ Custom Music
  * Commanders can activate special abilities that helps their team win
 
 
+ ### Swaper
+ * Players start on two teams
+ * When you die, you switch to the other team
+ * The last person remaining does not switch
+
+
  ### Ninja Bomb
  * players sit in a circle each holding a controller
  * once everyone is in order, all players can press A to start the game. 
@@ -154,11 +160,3 @@ Custom Music
  * fake bombs are passed by holding the trigger-button half way, too much or too little and you'll give yourself away
  * fake bombs can be countered by pressing any of the four front buttons.
  * last player remaining wins!
-
- 
- ### Swaper (coming soon)
- * Players start on two teams
- * When you die, you switch to the other team
- * The last person remaining does not switch
-  
-

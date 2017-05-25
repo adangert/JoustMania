@@ -145,7 +145,7 @@ Custom Music
  * Commanders can activate special abilities that helps their team win
 
 
- ### Swaper
+ ### Swapper
  * Players start on two teams
  * When you die, you switch to the other team
  * The last person remaining does not switch

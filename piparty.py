@@ -452,6 +452,12 @@ class Menu():
         if self.game_mode == common.Games.Commander.value:
             Audio('audio/Menu/commander-instructions.wav').start_effect()
             time.sleep(41)
+        if self.game_mode == common.Games.Ninja.value:
+            Audio('audio/Menu/Ninjabomb-instructions.wav').start_effect()
+            time.sleep(32)
+        if self.game_mode == common.Games.Swapper.value:
+            Audio('audio/Menu/Swapper-instructions.wav').start_effect()
+            time.sleep(14)
 
 
     def start_game(self, random_mode=False):

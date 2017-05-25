@@ -208,6 +208,7 @@ class Swapper():
 
         self.generate_random_teams(self.team_num)
 
+        music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
 
         self.start_beep = Audio('audio/Joust/sounds/start.wav')
         self.start_game = Audio('audio/Joust/sounds/start3.wav')
@@ -218,6 +219,7 @@ class Swapper():
             self.audio = Audio(music, end)
         except:
             print('no audio loaded')
+
         #self.change_time = self.get_change_time(speed_up = True)
         self.change_time = time.time() + 8
         self.speed_up = True
@@ -332,6 +334,10 @@ class Swapper():
     def game_loop(self):
         self.track_moves()
         self.count_down()
+        try:
+            self.audio.start_audio_loop()
+        except:
+            print('no audio loaded to start')
         while self.running:
 
             self.check_end_game()

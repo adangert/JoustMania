@@ -129,7 +129,7 @@ Custom Music
  * Hidden werewolfs are selected at the beginning of the game.
  * When the countdown starts the werewolf will feel a vibration, letting that player know they are a werewolf
  * After a short period of time, werewolfs will be revealed
- * The Werewolfs only if they are the last remaining
+ * Werewolfs win only if they are the last remaining
 
 
  ### Zombie apocalypse
@@ -152,11 +152,11 @@ Custom Music
 
 
  ### Ninja Bomb
- * players stand in a circle each holding a controller
- * all players can press A to start the game. 
- * a bomb is passed around by pressing the A button, if held too long it will explode
- * players can try to pass a traps in order to fake out their opponents.
+ * Players stand in a circle each holding a controller
+ * Players press A to join the game. 
+ * A bomb is passed around by pressing the A button, if held too long it will explode
+ * Players can try to pass a traps in order to fake out their opponents.
  * If a player presses A or trigger while holding a trap, they explode
- * traps are passed by holding the trigger-button half way, too much or too little and you'll give yourself away
- * traps can also be countered by pressing any of the four front buttons.
- * players have two lives, the last player remaining wins!
+ * Traps are passed by holding the trigger-button half way, too much or too little and you'll give yourself away
+ * Traps can also be countered by pressing any of the four front buttons.
+ * Players have two lives, the last player remaining wins!

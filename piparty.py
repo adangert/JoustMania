@@ -8,6 +8,7 @@ import zombie
 import commander
 import ninja
 import swapper
+import tournament
 import speed_bomb
 import random
 from piaudio import Audio
@@ -18,7 +19,7 @@ TEAM_NUM = 6
 TEAM_COLORS = common.generate_colors(TEAM_NUM)
 
 #the number of game modes
-GAME_MODES = 9
+GAME_MODES = 10
 
 SENSITIVITY_MODES = 3
 
@@ -500,6 +501,9 @@ class Menu():
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Swapper.value:
             swapper.Swapper(game_moves, self.sensitivity)
+            self.tracked_moves = {}
+        elif self.game_mode == common.Games.Tournament.value:
+            tournament.Tournament(game_moves, self.sensitivity)
             self.tracked_moves = {}
         else:
             #may need to put in moves that have selected to not be in the game

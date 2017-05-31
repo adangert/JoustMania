@@ -75,8 +75,9 @@ class GameNames(Enum):
     WereJoust = 'Werwolves'
     Zombies = 'Zombies'
     Commander = 'Commander'
+    Swapper = 'Swapper'
     Ninja = 'Ninja Bomb'
     Random = 'Random Mode'
     
 gameModes = ['JoustFFA','JoustTeams','JoustRandomTeams','WereJoust','Zombies',
-    'Commander','Ninja','Random']
+    'Commander','Swapper','Ninja','Random']

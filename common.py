@@ -56,8 +56,9 @@ class Games(Enum):
     WereJoust = 3
     Zombies = 4
     Commander = 5
-    Ninja = 6
-    Random = 7
+    Swapper = 6
+    Ninja = 7
+    Random = 8
 
 
 class Buttons(Enum):

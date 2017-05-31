@@ -7,6 +7,7 @@ import time
 import zombie
 import commander
 import ninja
+import swapper
 import speed_bomb
 import random
 import json
@@ -20,7 +21,7 @@ TEAM_NUM = 6
 TEAM_COLORS = common.generate_colors(TEAM_NUM)
 
 #the number of game modes
-GAME_MODES = 8
+GAME_MODES = 9
 
 SENSITIVITY_MODES = 3
 
@@ -148,6 +149,15 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                         move.set_leds(150,0,0)
                     else:
                         move.set_leds(0,0,150)
+
+                elif game_mode == common.Games.Swapper.value:
+                    if random_color > 0.5:
+                        move.set_leds(150,0,0)
+                    else:
+                        move.set_leds(0,0,150)
+                    random_color += 0.002
+                    if random_color >= 1:
+                        random_color = 0
 
                 elif game_mode == common.Games.Ninja.value:
                     if move_num <= 0:
@@ -319,6 +329,8 @@ class Menu():
             Audio('audio/Menu/menu Zombies.wav').start_effect()
         if self.game_mode == common.Games.Commander.value:
             Audio('audio/Menu/menu Commander.wav').start_effect()
+        if self.game_mode == common.Games.Swapper.value:
+            Audio('audio/Menu/menu Swapper.wav').start_effect()
         if self.game_mode == common.Games.Ninja.value:
             Audio('audio/Menu/menu ninjabomb.wav').start_effect()
         if self.game_mode == common.Games.Random.value:
@@ -519,6 +531,12 @@ class Menu():
         if self.game_mode == common.Games.Commander.value:
             Audio('audio/Menu/commander-instructions.wav').start_effect()
             time.sleep(41)
+        if self.game_mode == common.Games.Ninja.value:
+            Audio('audio/Menu/Ninjabomb-instructions.wav').start_effect()
+            time.sleep(32)
+        if self.game_mode == common.Games.Swapper.value:
+            Audio('audio/Menu/Swapper-instructions.wav').start_effect()
+            time.sleep(14)
 
 
     def start_game(self, random_mode=False):
@@ -560,6 +578,9 @@ class Menu():
         elif self.game_mode == common.Games.Ninja.value:
             speed_bomb.Bomb(game_moves, self.command_queue, self.status_queue)
             self.tracked_moves = {}
+        elif self.game_mode == common.Games.Swapper.value:
+            swapper.Swapper(game_moves, self.sensitivity)
+            self.tracked_moves = {}
         else:
             #may need to put in moves that have selected to not be in the game
             joust.Joust(self.game_mode, game_moves, self.teams, self.sensitivity, self.command_queue, self.status_queue)
@@ -573,10 +594,6 @@ class Menu():
         #turn off admin mode so someone can't accidentally press a button    
         self.admin_move = None
         self.random_added = []
-            
-
-            
-            
             
 if __name__ == "__main__":
     piparty = Menu()

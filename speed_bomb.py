@@ -217,6 +217,9 @@ class Bomb():
         self.bomb_length = 5.0
 
         self.game_start = Value('i', 0)
+        self.current_rand_holder = ''
+        self.next_rand_holder = ''
+        self.prev_rand_holder = ''
 
         self.command_queue = command_queue
         self.status_queue = status_queue
@@ -256,16 +259,37 @@ class Bomb():
             self.bomb_length = 1
         return self.bomb_length
 
+    def get_prev_random_holder(self):
+        return self.bomb_serial
+        
+    
+    def get_next_random_holder(self):
+        #if self.current_rand_holder != self.bomb_serial:
+            #self.current_rand_holder = self.move_serials[random.choice(range(len(self.move_serials)))]
+            #while self.current_rand_holder == self.bomb_serial:
+            #    self.current_rand_holder = self.move_serials[random.choice(range(len(self.move_serials)))]
+        if self.next_rand_holder == self.bomb_serial:
+            self.next_rand_holder = self.move_serials[random.choice(range(len(self.move_serials)))]
+            while self.next_rand_holder == self.bomb_serial or self.dead_moves[self.next_rand_holder].value <= 0:
+                self.next_rand_holder = self.move_serials[random.choice(range(len(self.move_serials)))]
+                self.current_rand_holder = self.bomb_serial
+        #print("returning " + self.next_rand_holder)
+        return self.next_rand_holder
+
+            
+        
+
     def get_next_bomb_holder(self, serial=None):
         if serial:
             holder = self.get_serial_pos(serial)
         else:
             holder = random.choice(range(len(self.move_serials)))
         while True:
-            new_serial = self.move_serials[holder]
-            if self.dead_moves[new_serial].value > 0:
-                yield new_serial
-            holder = (holder +1) % len(self.move_serials)
+            yield self.get_next_random_holder()
+            #new_serial = self.move_serials[holder]
+            #if self.dead_moves[new_serial].value > 0:
+            #    yield new_serial
+            #holder = (holder +1) % len(self.move_serials)
 
         
     def reset_bomb_time(self):
@@ -276,7 +300,8 @@ class Bomb():
         self.track_moves()
         self.print_bombs()
         self.rotate_colors()
-
+        self.bomb_serial = self.move_serials[random.choice(range(len(self.move_serials)))]
+        self.next_rand_holder = self.bomb_serial
         self.bomb_generator = self.get_next_bomb_holder()
 
         self.bomb_serial = next(self.bomb_generator)
@@ -431,28 +456,36 @@ class Bomb():
                         self.false_colors[move_serial].value = 0
 
                 #Probably should get rid of this, or only when we are being faked out
-                elif self.false_colors[move_serial].value == 0  and self.move_opts[move_serial][Opts.holding.value] == Holding.holding.value :
-                    if self.move_opts[move_serial][Opts.selection.value] == Selections.counter.value and self.move_opts[self.get_prev_serial(move_serial)][Opts.has_bomb.value] == Bool.yes.value:
+                #elif self.false_colors[move_serial].value == 0  and self.move_opts[move_serial][Opts.holding.value] == Holding.holding.value :
+                #    if self.move_opts[move_serial][Opts.selection.value] == Selections.counter.value and self.move_opts[self.get_prev_serial(move_serial)][Opts.has_bomb.value] == Bool.yes.value:
 
-                        self.explosion40.start_effect()
-                        self.Fakecountered.start_effect()
-                        self.pause_for_player_death(move_serial)
+                #        self.explosion40.start_effect()
+                #        self.Fakecountered.start_effect()
+                #        self.pause_for_player_death(move_serial)
                         
-                        self.dead_moves[move_serial].value -= 1
+                #        self.dead_moves[move_serial].value -= 1
                         #self.move_opts[move_serial][Opts.holding.value] = Holding.holding.value
 
-                        self.reset_bomb_length()
-                        self.reset_bomb_time()
+                #        self.reset_bomb_length()
+                #        self.reset_bomb_time()
 
-                        self.move_bomb()
-                        print("JUST DIED TO PRESSING COUNTER")
+                #        self.move_bomb()
+                #        print("JUST DIED TO PRESSING COUNTER")
 
                         #check for faked
 
                 
 
     def get_next_serial(self, serial):
+        return self.get_next_random_holder()
+
+
+    
         pos = (self.get_serial_pos(serial) + 1) % len(self.move_serials)
+        #pos = random.choice(range(len(self.move_serials)))
+        #while random_move == pos - 1:
+        #   random_move = random.choice(range(len(self.move_serials))) 
+
         new_serial = self.move_serials[pos]
         while self.dead_moves[new_serial].value == 0:
             pos = (pos + 1) % len(self.move_serials)
@@ -460,6 +493,11 @@ class Bomb():
         return self.move_serials[pos]
 
     def get_prev_serial(self, serial):
+        self.get_next_random_holder()
+        #print("returing prev faker as " + self.get_prev_random_holder())
+        return self.get_prev_random_holder()
+
+    
         pos = (self.get_serial_pos(serial) - 1) % len(self.move_serials)
         new_serial = self.move_serials[pos]
         while self.dead_moves[new_serial].value == 0:
@@ -467,12 +505,10 @@ class Bomb():
             new_serial = self.move_serials[pos]
         return self.move_serials[pos]
 
-
     def get_serial_pos(self, serial):
         for i, move_serial in enumerate(self.move_serials):
             if serial == move_serial:
                 return i
-        
 
     def track_moves(self):
         for move_num, move_serial in enumerate(self.move_serials):
@@ -567,10 +603,12 @@ class Bomb():
             if self.dead_moves[alive_serial].value == 0:
                 if self.move_opts[alive_serial][Opts.has_bomb.value] == Bool.yes.value:
                     self.move_opts[alive_serial][Opts.has_bomb.value] = Bool.no.value
-                    for i, bomb_serial in enumerate(self.bomb_serials):
-                        if bomb_serial == alive_serial:
-                            bomb_serial = next(self.bomb_generators[i])
-                        self.move_opts[bomb_serial][Opts.has_bomb.value] = Bool.yes.value
+                    self.move_bomb()
+                    
+                    #for i, bomb_serial in enumerate(self.bomb_serials):
+                    #if self.bomb_serial == alive_serial:
+                    #    self.bomb_serial = next(self.bomb_generators[i])
+                    #self.move_opts[self.bomb_serial][Opts.has_bomb.value] = Bool.yes.value
                 #remove alive move:
 
                 self.alive_moves.remove(alive_serial)

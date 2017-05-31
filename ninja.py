@@ -7,6 +7,7 @@ import numpy
 from piaudio import Audio
 from enum import Enum
 from multiprocessing import Process, Value, Array
+import json
 
 
 # How fast/slow the music can go
@@ -161,8 +162,10 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
             
 
 class Ninja():
-    def __init__(self, moves):
+    def __init__(self, moves,command_queue, status_queue):
 
+        self.command_queue = command_queue
+        self.status_queue = status_queue
         self.move_serials = moves
         self.tracked_moves = {}
         self.dead_moves = {}
@@ -173,6 +176,9 @@ class Ninja():
         self.team_num = 2
         self.start_timer = time.time()
         self.audio_cue = 0
+
+        self.command_queue = command_queue
+        self.status_queue = status_queue
 
         self.move_opts = {}
 
@@ -325,10 +331,31 @@ class Ninja():
         time.sleep(0.8)
         
         while self.running:
+            self.check_command_queue()
             self.check_end_game()
             if self.game_end:
                 self.end_game()
 
         self.stop_tracking_moves()
+
+    def check_command_queue(self):
+        package = None
+        while not(self.command_queue.empty()):
+            package = self.command_queue.get()
+            command = package['command']
+        if not(package == None):
+            if command == 'killgame':
+                pass
+                #self.end_game()
+        while not(self.status_queue.empty()):
+            self.status_queue.get()
+        self.send_status('in_game')
+
+    def send_status(self,game_status,winning_team=-1):
+        data ={'game_status' : game_status,
+               'game_mode' : 'unknown',
+               'winning_team' : winning_team,
+               'total_players': len(self.move_serials)}
+        self.status_queue.put(json.dumps(data))
                     
                 

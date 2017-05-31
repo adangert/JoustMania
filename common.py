@@ -67,4 +67,16 @@ class Buttons(Enum):
     select = 256
     circle = 32
     nothing = 0
+
+class GameNames(Enum):
+    JoustFFA = "Joust Free-for-All"
+    JoustTeams = "Joust Teams"
+    JoustRandomTeams = "Joust Random Teams"
+    WereJoust = 'Werwolves'
+    Zombies = 'Zombies'
+    Commander = 'Commander'
+    Ninja = 'Ninja Bomb'
+    Random = 'Random Mode'
     
+gameModes = ['JoustFFA','JoustTeams','JoustRandomTeams','WereJoust','Zombies',
+    'Commander','Ninja','Random']

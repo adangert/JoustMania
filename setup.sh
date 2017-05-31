@@ -7,7 +7,7 @@ cd /home/pi
 
 #install components
 sudo apt-get install -y python-dev bluez python3-pyaudio python-pip python3-numpy supervisor python3-scipy python3-pygame cmake libudev-dev swig libbluetooth-dev alsa-utils alsa-tools
-sudo pip3 install psutil
+sudo pip3 install psutil flask
 
 
 #install components for psmoveapi

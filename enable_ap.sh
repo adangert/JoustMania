@@ -1,12 +1,20 @@
-if [ "$EUID" -ne 0 ]
+if [ "$EUID" -ne 0 ];
   then echo "This script needs root... run with sudo"
   exit
 fi
+
+if [ -f ./apfiles/ap_active ]
+	then echo "Script already run"
+	exit
+fi
+
+touch ./apfiles/ap_active
 
 apt-get install dnsmasq hostapd
 
 mv /etc/dhcpcd.conf /etc/dhcpcd.conf.bak
 cp ./apfiles/dhcpcd.conf /etc/dhcpcd.conf
+chown :pi /etc/dhcpcd.conf
 
 mv /etc/network/interfaces /etc/network/interfaces.bak
 cp ./apfiles/interfaces /etc/network/interfaces
@@ -34,7 +42,7 @@ sh -c "iptables-save > /etc/iptables.ipv4.nat"
 mv /etc/rc.local /etc/rc.local.bak
 cp ./apfiles/rc.local /etc/rc.local
 
-sudo service hostapd enable  
-sudo service dnsmasq enable
+update-rc.d hostapd enable
+update-rc.d dnsmasq enable
 
 reboot

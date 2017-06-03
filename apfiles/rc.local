@@ -17,7 +17,7 @@ if [ "$_IP" ]; then
   printf "My IP address is %s\n" "$_IP"
 fi
 
-#Pi access point
+#Access point for JoustMania
 iptables-restore < /etc/iptables.ipv4.nat
 
 exit 0

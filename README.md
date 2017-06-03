@@ -104,7 +104,7 @@ This sets up a wireless access point with the Pi. (Note that this disables norma
 sudo ./disable_ap.sh
 ```
 
-The web interface is current a WIP. Known issues are:
+The web interface is currently a WIP. Known issues are:
 * The settings menu does not update if modified from a Move controller or another device via web browser
 * Newer game modes may not properly dispaly game status
 

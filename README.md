@@ -15,6 +15,7 @@ Cool Stuffs!
 * 16+ Player support
 * Super easy setup
 * Runs in Headless mode, no screen required
+* Optional web interface, view status and change game settings with your phone
 * Custom music support, play with your own music
 * Convention mode, no manual instructions needed, the game plays itself and switches between game modes
 
@@ -91,6 +92,21 @@ You can become an Admin by changing the game mode via the select button, this wi
 * (Circle) Change sensitivity of the game. There are three settings, slow, medium, and fast, you will hear a corresponding sound for each
 * (Square) toggle the playback of instructions for each game
 * (Triangle) show battery level on all controllers
+
+Web Interface
+---------------------------------
+An optional web interface is available that allows you to view the game status and adjust settings from your phone (or anything with a web browser). To enable the web interface, run the command
+```
+sudo ./enable_ap.sh
+```
+This sets up a wireless access point with the Pi. (Note that this disables normal Wi-Fi on the Pi, but a wired connection will still work.) The default SSID is "JOUSTMANIA" and the default password is "joustmania"; both (and other) settings may be adjusted in the apfiles/hostapd.conf file before running enable_ap.sh. To connect to the game, go to http://joust.mania in your web browser. To disable the interface and restore Wi-Fi, run the command
+```
+sudo ./disable_ap.sh
+```
+
+The web interface is current a WIP. Known issues are:
+* The settings menu does not update if modified from a Move controller or another device via web browser
+* Newer game modes may not properly dispaly game status
 
 Custom Music
 ---------------------------------

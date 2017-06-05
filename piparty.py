@@ -22,7 +22,7 @@ TEAM_NUM = 6
 TEAM_COLORS = common.generate_colors(TEAM_NUM)
 
 #the number of game modes
-GAME_MODES = 10
+GAME_MODES = 11
 
 SENSITIVITY_MODES = 3
 
@@ -135,6 +135,16 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                     random_color += 0.001
                     if random_color >= 1:
                         random_color = 0
+
+                elif game_mode == common.Games.Traitor.value:
+                    if move_num <= 0:
+                        move.set_leds(200,0,0)
+                    else:
+                        color = common.hsv2rgb(random_color, 1, 1)
+                        move.set_leds(*color)
+                        random_color += 0.001
+                        if random_color >= 1:
+                            random_color = 0
 
                 elif game_mode == common.Games.WereJoust.value:
                     if move_num <= 0:
@@ -335,6 +345,8 @@ class Menu():
             Audio('audio/Menu/menu Joust Teams.wav').start_effect()
         if self.game_mode == common.Games.JoustRandomTeams.value:
             Audio('audio/Menu/menu Joust Random Teams.wav').start_effect()
+        if self.game_mode == common.Games.Traitor.value:
+            Audio('audio/Menu/menu Traitor.wav').start_effect()
         if self.game_mode == common.Games.WereJoust.value:
             Audio('audio/Menu/menu werewolfs.wav').start_effect()
         if self.game_mode == common.Games.Zombies.value:
@@ -536,6 +548,9 @@ class Menu():
         if self.game_mode == common.Games.JoustRandomTeams.value:
             Audio('audio/Menu/Teams-instructions.wav').start_effect()
             time.sleep(20)
+        if self.game_mode == common.Games.Traitor.value:
+            Audio('audio/Menu/Traitor-instructions.wav').start_effect()
+            time.sleep(18)
         if self.game_mode == common.Games.WereJoust.value:
             Audio('audio/Menu/werewolf-instructions.wav').start_effect()
             time.sleep(20)

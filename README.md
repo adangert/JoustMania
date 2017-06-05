@@ -167,6 +167,12 @@ Custom Music
  * The last person remaining does not switch
 
 
+ ### Tournament
+ * Everyone is paired up 1v1 via controller colors
+ * If your controller is white, wait to be assigned to a new player
+ * The last person remaining wins!
+
+
  ### Ninja Bomb
  * Players stand in a circle each holding a controller
  * Players press A to join the game. 

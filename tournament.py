@@ -74,7 +74,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
             move.set_rumble(0)
             move.update_leds()
             no_rumble = time.time() + 0.5
-        elif dead_move.value == 1:   
+        elif dead_move.value == 1 and team.value != -1:   
             if move.poll():
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
                 total = sum([ax, ay, az])
@@ -84,20 +84,6 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
                     warning = common.lerp(SLOW_WARNING, FAST_WARNING, speed_percent)
                     threshold = common.lerp(SLOW_MAX, FAST_MAX, speed_percent)
 
-                    if change > threshold:
-                        if time.time() > no_rumble:
-                            move.set_leds(0,0,0)
-                            move.set_rumble(90)
-                            dead_move.value = 0
-
-                    elif change > warning and not vibrate:
-                        if time.time() > no_rumble:
-                            vibrate = True
-                            vibration_time = time.time() + 0.5
-                            move.set_leds(20,50,100)
-                            #move.set_rumble(110)
-                    else:
-                        move.set_rumble(0)
 
                     if vibrate:
                         flash_lights_timer += 1
@@ -117,17 +103,38 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
                             move.set_rumble(0)
                         if time.time() > vibration_time:
                             vibrate = False
-
                     else:
                         if team.value != -1:
                             move.set_leds(*team_colors[team.value])
                         else:
                             move.set_leds(100,100,100)
+                            
+                            
+                    if change > threshold:
+                        if time.time() > no_rumble:
+                            move.set_leds(0,0,0)
+                            move.set_rumble(90)
+                            dead_move.value = 0
+
+                    elif change > warning and not vibrate:
+                        if time.time() > no_rumble:
+                            vibrate = True
+                            vibration_time = time.time() + 0.5
+                            move.set_leds(20,50,100)
+
+
                         
                 move_last_value = total
             move.update_leds()
-        elif dead_move.value == 0:
+        else:
+            if dead_move.value < 1:
+                move.set_leds(0,0,0)
+            elif team.value == -1:
+                move.set_leds(100,100,100)
+            move.update_leds()
+                
             time.sleep(0.5)
+            move.set_rumble(0)
 
 
 class Tournament():
@@ -309,39 +316,68 @@ class Tournament():
                     self.teams[arr[0]].value = self.teams[arr[1]].value
                 else:
                     self.teams[arr[1]].value = self.teams[arr[0]].value
-
             elif(type(arr[0]) is not list and type(arr[1]) is list):
                 self.teams[arr[0]].value = -1
                 check_moves(arr[1])
             elif(type(arr[1]) is not list and type(arr[0]) is list):
                 self.teams[arr[1]].value = -1
                 check_moves(arr[0])
-            
+            elif(type(arr[0]) is list and type(arr[1]) is list):
+                check_moves(arr[0])
+                check_moves(arr[1])
         check_moves(self.tourney_list)
+
+    def remove_dead_player(self, dead_serial):
+
         
+        def remove_dead(arr):
+            if type(arr) is list and dead_serial in arr:
+                arr.remove(dead_serial)
+            else:
+                if type(arr[0]) is list:
+                    remove_dead(arr[0])
+                if type(arr[1]) is list:
+                    remove_dead(arr[1])
+        remove_dead(self.tourney_list)
+
+
+        def move_up(arr):
+            if type(arr) is list and len(arr) == 1:
+                return arr[0]
+            else:
+                if type(arr[0]) is list and move_up(arr[0]):
+                    arr[0] = move_up(arr[0])
+                    if type(arr[1]) is not list:
+                        self.teams[arr[1]].value = self.teams[arr[0]].value
+                    else:
+                        self.teams[arr[0]].value = -1
+                elif type(arr[1]) is list and move_up(arr[1]):
+                    arr[1] = move_up(arr[1])
+
+                    if type(arr[0]) is not list:
+                        self.teams[arr[0]].value = self.teams[arr[1]].value
+                    else:
+                        self.teams[arr[1]].value = -1
+        move_up(self.tourney_list)
+
+
 
     def check_end_game(self):
-        winning_team = -100
-        team_win = True
-        #for move_serial, dead in self.dead_moves.items():
+        self.winning_moves = []
+        for move_serial, dead in self.dead_moves.items():
             #if we are alive
-        #    if dead.value == 1:
-        #        if winning_team == -100:
-        #            winning_team = self.get_real_team(self.teams[move_serial])
-        #        elif self.get_real_team(self.teams[move_serial]) != winning_team:
-        #            team_win = False
-        #    if dead.value == 0:
+            if dead.value == 1:
+                self.winning_moves.append(move_serial)
+            if dead.value == 0:
+                self.remove_dead_player(move_serial)
                 #This is to play the sound effect
-        #        self.num_dead += 1
-        #        dead.value = -1
-        #        self.explosion.start_effect()
+                self.num_dead += 1
+                dead.value = -1
+                self.explosion.start_effect()
+        if len(self.winning_moves) <= 1:
+            self.game_end = True
                 
-        #if team_win:
-        #    self.end_game_sound(winning_team)
-        #    for move_serial in self.teams.keys():
-        #        if self.get_real_team(self.teams[move_serial]) == winning_team:
-        #            self.winning_moves.append(move_serial)
-        #    self.game_end = True
+
 
     def stop_tracking_moves(self):
         for proc in self.tracked_moves.values():
@@ -375,11 +411,11 @@ class Tournament():
         time.sleep(0.02)
         self.audio.start_audio_loop()
         time.sleep(0.8)
-
+        self.check_matches()
         
         while self.running:
             self.check_music_speed()
-            self.check_matches()
+            
             self.check_end_game()
             if self.game_end:
                 self.end_game()

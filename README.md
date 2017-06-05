@@ -141,6 +141,12 @@ Custom Music
  * There are three teams in this mode
 
 
+ ### Traitor 
+ * Three teams face off against one another, however there is a traitor on every team
+ * Traitors are on a secret fourth team
+ * If you controller vibrates during the start countdown you are a traitor
+
+
  ### Werewolfs (one controller red, the rest white)
  * Hidden werewolfs are selected at the beginning of the game.
  * When the countdown starts the werewolf will feel a vibration, letting that player know they are a werewolf

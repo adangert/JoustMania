@@ -57,8 +57,9 @@ class Games(Enum):
     Zombies = 4
     Commander = 5
     Swapper = 6
-    Ninja = 7
-    Random = 8
+    Tournament = 7
+    Ninja = 8
+    Random = 9
 
 
 class Buttons(Enum):
@@ -76,8 +77,9 @@ class GameNames(Enum):
     Zombies = 'Zombies'
     Commander = 'Commander'
     Swapper = 'Swapper'
+    Tournament = 'Tournament'
     Ninja = 'Ninja Bomb'
     Random = 'Random Mode'
     
 gameModes = ['JoustFFA','JoustTeams','JoustRandomTeams','WereJoust','Zombies',
-    'Commander','Swapper','Ninja','Random']
+    'Commander','Swapper','Tournament','Ninja','Random']

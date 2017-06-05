@@ -8,6 +8,7 @@ import zombie
 import commander
 import ninja
 import swapper
+import tournament
 import speed_bomb
 import random
 import json
@@ -21,7 +22,7 @@ TEAM_NUM = 6
 TEAM_COLORS = common.generate_colors(TEAM_NUM)
 
 #the number of game modes
-GAME_MODES = 9
+GAME_MODES = 10
 
 SENSITIVITY_MODES = 3
 
@@ -158,6 +159,17 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                     random_color += 0.002
                     if random_color >= 1:
                         random_color = 0
+
+                elif game_mode == common.Games.Tournament.value:
+                    if move_num <= 0:
+                        color = common.hsv2rgb(random_color, 1, 1)
+                        move.set_leds(*color)
+                        random_color += 0.001
+                        if random_color >= 1:
+                            random_color = 0
+                    else:
+                        move.set_leds(200,200,200)
+
 
                 elif game_mode == common.Games.Ninja.value:
                     if move_num <= 0:
@@ -331,6 +343,8 @@ class Menu():
             Audio('audio/Menu/menu Commander.wav').start_effect()
         if self.game_mode == common.Games.Swapper.value:
             Audio('audio/Menu/menu Swapper.wav').start_effect()
+        if self.game_mode == common.Games.Tournament.value:
+            Audio('audio/Menu/menu Tournament.wav').start_effect()
         if self.game_mode == common.Games.Ninja.value:
             Audio('audio/Menu/menu ninjabomb.wav').start_effect()
         if self.game_mode == common.Games.Random.value:
@@ -537,6 +551,9 @@ class Menu():
         if self.game_mode == common.Games.Swapper.value:
             Audio('audio/Menu/Swapper-instructions.wav').start_effect()
             time.sleep(14)
+        if self.game_mode == common.Games.Tournament.value:
+            Audio('audio/Menu/Tournament-instructions.wav').start_effect()
+            time.sleep(21)
 
 
     def start_game(self, random_mode=False):
@@ -580,6 +597,9 @@ class Menu():
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Swapper.value:
             swapper.Swapper(game_moves, self.sensitivity)
+            self.tracked_moves = {}
+        elif self.game_mode == common.Games.Tournament.value:
+            tournament.Tournament(game_moves, self.sensitivity)
             self.tracked_moves = {}
         else:
             #may need to put in moves that have selected to not be in the game

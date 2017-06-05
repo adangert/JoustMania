@@ -228,7 +228,7 @@ class Menu():
         self.rand_game_list = []
 
         self.sensitivity = Sensitivity.mid.value
-        self.instructions = False
+        self.instructions = True
         self.show_battery = Value('i', 0)
         
         self.tracked_moves = {}

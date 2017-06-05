@@ -101,6 +101,8 @@ def track_controller(serial, num_try, opts):
                     warning = zombie_warning
                     threshold = zombie_max
 
+
+
                 if change > threshold:
                     move.set_leds(255,0,0)
                     move.set_rumble(100)
@@ -180,6 +182,8 @@ def track_controller(serial, num_try, opts):
                     move.set_rumble(0)
                 if time.time() > vibration_time:
                     vibrate = False
+
+
             #else:
             #    move.set_leds(*team_colors[team.value])
             move.update_leds()

@@ -102,20 +102,7 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
                         warning = common.lerp(SLOW_WARNING, FAST_WARNING, speed_percent)
                         threshold = common.lerp(SLOW_MAX, FAST_MAX, speed_percent)
 
-                    if change > threshold:
-                        if time.time() > no_rumble:
-                            move.set_leds(0,0,0)
-                            move.set_rumble(90)
-                            dead_move.value = 0
 
-                    elif change > warning and not vibrate:
-                        if time.time() > no_rumble:
-                            vibrate = True
-                            vibration_time = time.time() + 0.5
-                            move.set_leds(20,50,100)
-                            #move.set_rumble(110)
-                    else:
-                        move.set_rumble(0)
 
                     if vibrate:
                         flash_lights_timer += 1
@@ -151,10 +138,24 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
                         else:
                             move.set_leds(*team_colors[team])
                         #move.set_rumble(0)
-                        
+
+
+                    if change > threshold:
+                        if time.time() > no_rumble:
+                            move.set_leds(0,0,0)
+                            move.set_rumble(90)
+                            dead_move.value = 0
+
+                    elif change > warning and not vibrate:
+                        if time.time() > no_rumble:
+                            vibrate = True
+                            vibration_time = time.time() + 0.5
+                            #move.set_leds(20,50,100)
+
                 move_last_value = total
             move.update_leds()
         elif dead_move.value == 0:
+
             time.sleep(0.5)
 
 

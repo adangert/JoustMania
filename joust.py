@@ -212,6 +212,11 @@ class Joust():
         if game_mode == common.Games.JoustRandomTeams.value:
             #this should be 3 for smaller number of controllers
             self.team_num = 4
+        if game_mode == common.Games.Traitor.value:
+            #this should be 3 for smaller number of controllers
+            self.team_num = 3
+            self.werewolf_reveal.value = 0
+            
         if game_mode == common.Games.WereJoust.value:
             self.werewolf_reveal.value = 0
             self.team_num = 1
@@ -241,6 +246,7 @@ class Joust():
         
         self.game_loop()
 
+
     def choose_werewolf(self, were_num):
         for were in range(were_num):
             werewolf = random.choice(self.move_serials)
@@ -251,11 +257,23 @@ class Joust():
     def generate_random_teams(self, team_num):
         team_pick = list(range(team_num))
         print (str(team_pick))
-        for serial in self.move_serials:
+        traitor_pick = True
+        copy_serials = self.move_serials[:]
+
+        while len(copy_serials) >= 1:
+        #for serial in self.move_serials:
+            serial = random.choice(copy_serials)
+            copy_serials.remove(serial)
             random_choice = random.choice(team_pick)
-            self.teams[serial] = random_choice
+            if self.game_mode == common.Games.Traitor.value and traitor_pick:
+                self.teams[serial] = (random_choice * -1) - 1
+            else:
+                self.teams[serial] = random_choice
+            print("doing random choice")
+            print(random_choice)
             team_pick.remove(random_choice)
             if not team_pick:
+                traitor_pick = False
                 team_pick = list(range(team_num))
 
     def track_moves(self):
@@ -412,8 +430,8 @@ class Joust():
         self.running = False
 
     def end_game_sound(self, winning_team):
-
-        self.send_status('ending',abs(winning_team))
+        if self.game_mode != common.Games.Traitor.value:
+            self.send_status('ending',abs(winning_team))
 
         if self.game_mode == common.Games.JoustTeams.value:
             if winning_team == 0:
@@ -439,6 +457,18 @@ class Joust():
             if winning_team == 3:
                 team_win = Audio('audio/Joust/sounds/red team win.wav')
             team_win.start_effect()
+
+        if self.game_mode == common.Games.Traitor.value:
+            if winning_team == -1:
+                team_win = Audio('audio/Joust/sounds/traitor win.wav')
+            if winning_team == 0:
+                team_win = Audio('audio/Joust/sounds/green team win.wav')
+            if winning_team == 1:
+                team_win = Audio('audio/Joust/sounds/blue team win.wav')
+            if winning_team == 2:
+                team_win = Audio('audio/Joust/sounds/red team win.wav')
+            team_win.start_effect()
+            
         if self.game_mode == common.Games.WereJoust.value:
             if winning_team == -1:
                 team_win = Audio('audio/Joust/sounds/werewolf win.wav')
@@ -482,9 +512,10 @@ class Joust():
         while self.running:
             #I think the loop is so fast that this causes 
             #a crash if done every loop
-            if time.time() - 0.1 > self.update_time:
-                self.update_time = time.time()
-                self.check_command_queue()
+            if self.game_mode != common.Games.Traitor.value:
+                if time.time() - 0.1 > self.update_time:
+                    self.update_time = time.time()
+                    self.check_command_queue()
 
             if self.game_mode != common.Games.WereJoust.value:
                 self.check_music_speed()

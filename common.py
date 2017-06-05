@@ -53,13 +53,14 @@ class Games(Enum):
     JoustFFA = 0
     JoustTeams = 1
     JoustRandomTeams = 2
-    WereJoust = 3
-    Zombies = 4
-    Commander = 5
-    Swapper = 6
-    Tournament = 7
-    Ninja = 8
-    Random = 9
+    Traitor = 3
+    WereJoust = 4
+    Zombies = 5
+    Commander = 6
+    Swapper = 7
+    Tournament = 8
+    Ninja = 9
+    Random = 10
 
 
 class Buttons(Enum):
@@ -73,6 +74,7 @@ class GameNames(Enum):
     JoustFFA = "Joust Free-for-All"
     JoustTeams = "Joust Teams"
     JoustRandomTeams = "Joust Random Teams"
+    Traitor = 'Traitor'
     WereJoust = 'Werwolves'
     Zombies = 'Zombies'
     Commander = 'Commander'
@@ -81,5 +83,5 @@ class GameNames(Enum):
     Ninja = 'Ninja Bomb'
     Random = 'Random Mode'
     
-gameModes = ['JoustFFA','JoustTeams','JoustRandomTeams','WereJoust','Zombies',
+gameModes = ['JoustFFA','JoustTeams','JoustRandomTeams','Traitor','WereJoust','Zombies',
     'Commander','Swapper','Tournament','Ninja','Random']

@@ -7,6 +7,7 @@ import numpy
 from piaudio import Audio
 from enum import Enum
 from multiprocessing import Process, Value, Array
+import json
 
 
 # How fast/slow the music can go
@@ -36,6 +37,7 @@ INTERVAL_CHANGE = 1.5
 
 #How long the winning moves shall sparkle
 END_GAME_PAUSE = 4
+KILL_GAME_PAUSE = 4
 
 
 class Opts(Enum):
@@ -229,7 +231,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
             
 
 class Commander():
-    def __init__(self, moves, speed):
+    def __init__(self, moves, speed, command_queue, status_queue):
         global SLOW_MAX
         global SLOW_WARNING
         global FAST_MAX
@@ -239,6 +241,10 @@ class Commander():
         SLOW_WARNING = common.SLOW_WARNING[speed]
         FAST_MAX = common.FAST_MAX[speed]
         FAST_WARNING = common.FAST_WARNING[speed]
+
+        self.command_queue = command_queue
+        self.status_queue = status_queue
+        self.update_time = 0
 
         self.move_serials = moves
         self.tracked_moves = {}
@@ -375,6 +381,8 @@ class Commander():
                 winning_team = (self.teams[commander] + 1) % 2
                 self.get_winning_team_members(winning_team)
                 self.game_end = True
+
+                self.send_status('ending',winning_team)
                 
 
         for move_serial, dead in self.dead_moves.items():
@@ -559,6 +567,10 @@ class Commander():
         time.sleep(0.8)
         
         while self.running:
+            if time.time() - 0.1 > self.update_time:
+                self.update_time = time.time()
+                self.check_command_queue()
+
             self.update_team_powers()
             self.check_commander_power()
             self.check_end_of_overdrive()
@@ -567,6 +579,91 @@ class Commander():
                 self.end_game()
 
         self.stop_tracking_moves()
+
+    def check_command_queue(self):
+        package = None
+        while not(self.command_queue.empty()):
+            package = self.command_queue.get()
+            command = package['command']
+        if not(package == None):
+            if command == 'killgame':
+                self.kill_game()
+        while not(self.status_queue.empty()):
+            self.status_queue.get()
+        self.send_status('in_game')
+
+# class Team(Enum):
+#     red = 0
+#     blue = 1
+
+#self.dead_moves[move_serial] = dead_move
+#1=alive
+#0=dead
+
+    def send_status(self,game_status,winning_team=-1):
+        if self.red_overdrive.value == 1:
+            red_od_status = 'Active'
+        elif self.powers_active[Team.red.value] == True:
+            red_od_status = 'Ready'
+        else:
+            red_od_status = 'Inactive'
+
+        if self.blue_overdrive.value == 1:
+            blue_od_status = 'Active'
+        elif self.powers_active[Team.blue.value] == True:
+            blue_od_status = 'Ready'
+        else:
+            blue_od_status = 'Inactive'
+
+        red_team = [x for x in self.teams.keys() if self.teams[x] == 0]
+        red_alive = [x for x in red_team if self.dead_moves[x].value == 1]
+
+        blue_team = [x for x in self.teams.keys() if self.teams[x] == 1]
+        blue_alive = [x for x in blue_team if self.dead_moves[x].value == 1]
+
+        data ={'game_status' : game_status,
+               'game_mode' : 'Commander',
+               'winning_team' : winning_team,
+               'red_players': len(red_team),
+               'red_alive': len(red_alive),
+               'red_od_status': red_od_status,
+               'blue_players': len(blue_team),
+               'blue_alive': len(blue_alive),
+               'blue_od_status': blue_od_status}
+        self.status_queue.put(json.dumps(data))
+
+    def kill_game(self):
+        try:
+            self.audio.stop_audio()
+        except:
+            print('no audio loaded to stop')        
+        self.send_status('killed')
+        all_moves = [x for x in self.dead_moves.keys()]
+        end_time = time.time() + KILL_GAME_PAUSE     
+        
+        h_value = 0
+        while (time.time() < end_time):
+            time.sleep(0.01)
+            color = common.hsv2rgb(h_value, 1, 1)
+            for move in all_moves:
+                color_array = self.force_move_colors[move]
+                common.change_color(color_array, *color)
+            h_value = (h_value + 0.01)
+            if h_value >= 1:
+                h_value = 0
+
+        # bright = 255
+        # while (time.time() < end_time):
+        #     time.sleep(0.01)
+        #     color = (bright,bright,bright)
+        #     for move in all_moves:
+        #         color_array = self.force_move_colors[move]
+        #         common.change_color(color_array, *color)
+        #     bright = bright - 1
+        #     if bright < 10:
+        #         bright = 10
+
+        self.running = False
                     
                 
                 

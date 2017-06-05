@@ -4,9 +4,10 @@ import time
 import psutil, os
 import random
 import numpy
+import json
 from piaudio import Audio
 from enum import Enum
-from multiprocessing import Process, Value, Array
+from multiprocessing import Process, Value, Array, Queue
 
 
 # How fast/slow the music can go
@@ -44,6 +45,7 @@ INTERVAL_CHANGE = 1.5
 
 #How long the winning moves shall sparkle
 END_GAME_PAUSE = 6
+KILL_GAME_PAUSE = 4
 
 
 def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, force_color, music_speed, werewolf_reveal, show_team_colors):
@@ -100,20 +102,7 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
                         warning = common.lerp(SLOW_WARNING, FAST_WARNING, speed_percent)
                         threshold = common.lerp(SLOW_MAX, FAST_MAX, speed_percent)
 
-                    if change > threshold:
-                        if time.time() > no_rumble:
-                            move.set_leds(0,0,0)
-                            move.set_rumble(90)
-                            dead_move.value = 0
 
-                    elif change > warning and not vibrate:
-                        if time.time() > no_rumble:
-                            vibrate = True
-                            vibration_time = time.time() + 0.5
-                            move.set_leds(20,50,100)
-                            #move.set_rumble(110)
-                    else:
-                        move.set_rumble(0)
 
                     if vibrate:
                         flash_lights_timer += 1
@@ -149,15 +138,29 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
                         else:
                             move.set_leds(*team_colors[team])
                         #move.set_rumble(0)
-                        
+
+
+                    if change > threshold:
+                        if time.time() > no_rumble:
+                            move.set_leds(0,0,0)
+                            move.set_rumble(90)
+                            dead_move.value = 0
+
+                    elif change > warning and not vibrate:
+                        if time.time() > no_rumble:
+                            vibrate = True
+                            vibration_time = time.time() + 0.5
+                            #move.set_leds(20,50,100)
+
                 move_last_value = total
             move.update_leds()
         elif dead_move.value == 0:
+
             time.sleep(0.5)
 
 
 class Joust():
-    def __init__(self, game_mode, moves, teams, speed):
+    def __init__(self, game_mode, moves, teams, speed, command_queue, status_queue):
 
         print("speed is {}".format(speed))
         global SLOW_MAX
@@ -195,6 +198,13 @@ class Joust():
         self.audio_cue = 0
         self.num_dead = 0
         self.show_team_colors = Value('i', 0)
+
+        self.command_queue = command_queue
+        self.status_queue = status_queue
+        self.update_time = 0
+        self.alive_moves = []
+
+        #self.send_status('starting')
         
         self.werewolf_reveal = Value('i', 2)
         if game_mode == common.Games.JoustFFA.value:
@@ -227,8 +237,7 @@ class Joust():
         self.speed_up = True
         self.currently_changing = False
         self.game_end = False
-        self.winning_moves = []
-        
+        self.winning_moves = []        
         
         self.game_loop()
 
@@ -251,7 +260,7 @@ class Joust():
 
     def track_moves(self):
         for move_num, move_serial in enumerate(self.move_serials):
-            
+            self.alive_moves.append(move_serial)
             time.sleep(0.02)
             dead_move = Value('i', 1)
             force_color = Array('i', [1] * 3)
@@ -388,6 +397,7 @@ class Joust():
     def end_game(self):
         self.audio.stop_audio()
         end_time = time.time() + END_GAME_PAUSE
+                
         h_value = 0
 
         while (time.time() < end_time):
@@ -402,6 +412,9 @@ class Joust():
         self.running = False
 
     def end_game_sound(self, winning_team):
+
+        self.send_status('ending',abs(winning_team))
+
         if self.game_mode == common.Games.JoustTeams.value:
             if winning_team == 0:
                 team_win = Audio('audio/Joust/sounds/yellow team win.wav')
@@ -467,6 +480,12 @@ class Joust():
             self.speed_up = False
         
         while self.running:
+            #I think the loop is so fast that this causes 
+            #a crash if done every loop
+            if time.time() - 0.1 > self.update_time:
+                self.update_time = time.time()
+                self.check_command_queue()
+
             if self.game_mode != common.Games.WereJoust.value:
                 self.check_music_speed()
             self.check_end_game()
@@ -475,7 +494,76 @@ class Joust():
                 self.end_game()
 
         self.stop_tracking_moves()
-                    
+         
+    def check_command_queue(self):
+        while not(self.status_queue.empty()):
+            self.status_queue.get()
+        self.send_status('in_game')
+        package = None
+        while not(self.command_queue.empty()):
+            package = self.command_queue.get()
+            command = package['command']
+        if not(package == None):
+            if command == 'killgame':
+                self.kill_game()
+
+    def send_status(self,game_status,winning_team=-1):
+        data ={'game_status' : game_status,
+               'game_mode' : common.gameModes[self.game_mode],
+               'winning_team' : winning_team}
+        if self.game_mode == common.Games.JoustFFA.value:
+            data['total_players'] = len(self.move_serials)
+            data['remaining_players'] = len([x[0] for x in self.dead_moves.items() if x[1].value==1])
+        else:
+            if self.game_mode == common.Games.WereJoust.value:
+                num = 2
+            else:
+                num = self.team_num
+            team_total = [0]*num
+            team_alive = [0]*num
+            for move in self.move_serials:
+                #werewolf team is -1, so let's change that to 1 eh?
+                team = abs(self.teams[move])
+                team_total[team] += 1
+                if self.dead_moves[move].value == 1:
+                    team_alive[team] += 1
+            team_comp = list(zip(team_total,team_alive))
+            data['team_comp'] = team_comp
+        self.status_queue.put(json.dumps(data))
+        #print('status sent!')
+
+    def kill_game(self):
+        try:
+            self.audio.stop_audio()
+        except:
+            print('no audio loaded to stop')        
+        self.send_status('killed')
+        all_moves = [x for x in self.dead_moves.keys()]
+        end_time = time.time() + KILL_GAME_PAUSE     
+        
+        h_value = 0
+        while (time.time() < end_time):
+            time.sleep(0.01)
+            color = common.hsv2rgb(h_value, 1, 1)
+            for move in all_moves:
+                color_array = self.force_move_colors[move]
+                common.change_color(color_array, *color)
+            h_value = (h_value + 0.01)
+            if h_value >= 1:
+                h_value = 0
+
+        # bright = 255
+        # while (time.time() < end_time):
+        #     time.sleep(0.01)
+        #     color = (bright,bright,bright)
+        #     for move in all_moves:
+        #         color_array = self.force_move_colors[move]
+        #         common.change_color(color_array, *color)
+        #     bright = bright - 1
+        #     if bright < 10:
+        #         bright = 10
+
+        self.running = False
                 
                 
         

@@ -55,3 +55,10 @@ docs/_build/
 
 # PyBuilder
 target/
+
+#music files, but not the classical theme
+audio/Joust/music
+audio/Commander/music/
+audio/Zombie/music/
+!audio/Joust/music/classical.wav
+

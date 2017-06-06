@@ -503,7 +503,7 @@ class Menu():
 
     def send_status(self,game_status):
         data ={'game_status' : game_status,
-               'game_mode' : common.gameModes[self.game_mode],
+               'game_mode' : common.gameModeNames[self.game_mode],
                'move_count' : self.move_count,
                'alive_count' : self.move_count - self.dead_count.value,
                'ticker': self.i}

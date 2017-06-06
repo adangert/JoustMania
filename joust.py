@@ -430,8 +430,8 @@ class Joust():
         self.running = False
 
     def end_game_sound(self, winning_team):
-        if self.game_mode != common.Games.Traitor.value:
-            self.send_status('ending',abs(winning_team))
+        #if self.game_mode != common.Games.Traitor.value:
+        self.send_status('ending',winning_team)
 
         if self.game_mode == common.Games.JoustTeams.value:
             if winning_team == 0:
@@ -512,10 +512,9 @@ class Joust():
         while self.running:
             #I think the loop is so fast that this causes 
             #a crash if done every loop
-            if self.game_mode != common.Games.Traitor.value:
-                if time.time() - 0.1 > self.update_time:
-                    self.update_time = time.time()
-                    self.check_command_queue()
+            if time.time() - 0.1 > self.update_time:
+                self.update_time = time.time()
+                self.check_command_queue()
 
             if self.game_mode != common.Games.WereJoust.value:
                 self.check_music_speed()
@@ -540,21 +539,25 @@ class Joust():
 
     def send_status(self,game_status,winning_team=-1):
         data ={'game_status' : game_status,
-               'game_mode' : common.gameModes[self.game_mode],
+               'game_mode' : common.gameModeNames[self.game_mode],
                'winning_team' : winning_team}
         if self.game_mode == common.Games.JoustFFA.value:
             data['total_players'] = len(self.move_serials)
             data['remaining_players'] = len([x[0] for x in self.dead_moves.items() if x[1].value==1])
         else:
-            if self.game_mode == common.Games.WereJoust.value:
-                num = 2
+            if self.game_mode in [common.Games.WereJoust.value, common.Games.Traitor.value]:
+                num = self.team_num + 1
+                data['winning_team'] += 1
             else:
                 num = self.team_num
             team_total = [0]*num
             team_alive = [0]*num
             for move in self.move_serials:
-                #werewolf team is -1, so let's change that to 1 eh?
-                team = abs(self.teams[move])
+                team = self.teams[move]
+                if self.game_mode in [common.Games.WereJoust.value, common.Games.Traitor.value]:
+                        team += 1 #shift so bad guy team is 0
+                        if team < 0:
+                            team = 0
                 team_total[team] += 1
                 if self.dead_moves[move].value == 1:
                     team_alive[team] += 1

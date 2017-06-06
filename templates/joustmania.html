@@ -16,26 +16,30 @@ function updateStatus(){
             $('.admin').hide()
             $('.error').hide()
 
-            if (info.game_mode == 'WereJoust'){
-                team_name = ['Human','Werewolf']
-            } else if (info.game_mode == 'JoustTeams'){
+            if (info.game_mode == 'Werewolves'){
+                team_name = ['Werewolf','Human']
+            } else if (info.game_mode == 'Joust Teams'){
                 team_name = ['Yellow','Green','Cyan','Blue','Magenta','Red'];
-            } else if (info.game_mode == 'JoustRandomTeams'){ //random teams
+            } else if (info.game_mode == 'Joust Random Teams'){
                 team_name = ['Yellow','Cyan','Magenta','Red'];
             } else if (info.game_mode == 'Zombies'){
-                team_name = ['Humans', 'Zombies'];
+                team_name = ['Human','Zombie'];
             } else if (info.game_mode == 'Commander'){
                 team_name = ['Red', 'Blue'];
+            } else if (info.game_mode == 'Traitors'){
+                team_name = ['Traitor','Green','Blue','Red'];
             } else { //free for all
                 team_name = ['null'];
             }
 
             if (info.game_status=='in_game'){
                 $('#gamebuttons').show();
-                if (info.game_mode == 'JoustFFA' || info.game_mode == 'Ninja'){
+                if (info.game_mode == 'Joust Free-for-All' || info.game_mode == 'Ninja'){
                     $('#free4all').show();
                     $('#total_players').text(info.total_players)
                     $('#remaining_players').text(info.remaining_players);
+                } else if (info.game_mode == 'Tournament'){
+                    $('#tournament').show()
                 } else if (info.game_mode == 'Zombies'){
                     $('#zombies').show()
                     $('#humans').text(info.humans)
@@ -49,10 +53,10 @@ function updateStatus(){
                     $('#blue_players').text(info.blue_players)
                     $('#blue_alive').text(info.blue_alive)
                     $('#blue_od_status').text(info.blue_od_status)
-                } else if (info.game_mode == 'Ninja'){
+                } else if (info.game_mode == 'Ninja Bomb'){
                     $('#ninja').show()
-                    $('#total_players2').text(info.total_players)
-                } else { //if (info.game_mode == 'JoustRandomTeams' || info.game_mode == 'JoustTeams'){
+                    $('#total_ninjas').text(info.total_players)
+                } else { //team mode without anything special
                     var team_info = '<br />';
                     for (i=0; i < info.team_comp.length; i++){
                         t = info.team_comp[i]
@@ -72,7 +76,7 @@ function updateStatus(){
             } else if (info.game_status=='ending'){
                 $('#ending').show();
                 $('#team_win').hide();
-                if (info.game_mode != 'JoustFFA' && info.winning_team != -1){
+                if (info.game_mode != 'Joust Free-for-All' && info.winning_team != -1){
                     $('#team_win').show();
                     line = team_name[info.winning_team] + ' Team wins!'
                     $('#team_win').text(line);
@@ -145,7 +149,7 @@ $(document).ready(function(){
         });
     });
     updateStatus();
-    setInterval(updateStatus,1000);
+    setInterval(updateStatus,500);
 });
 </script>
 <body>
@@ -199,7 +203,12 @@ Blue Overdrive: <span id='blue_od_status'>lol</span><br />
 
 <div class='info_box' id="ninja">
 <br />
-Total Players: <span id='total_players2'>-999</span><br /><br />
+Total Players: <span id='total_ninjas'>-999</span><br /><br />
+</div>
+
+<div class='info_box' id="tournament">
+<br />
+Status coming soon to a web browser near you!<br /><br />
 </div>
 
 <div class='info_box' id='ending'>
@@ -228,13 +237,13 @@ Game Killed!<br /><br />
 <h3>Admin Settings</h3>
 
 <form action='' id='admin_form'>
-Note: Does not update if changed from Move admin!
+Note: This screen does not update if changed from Move admin!
 <p>
 <input type='checkbox' name='move_admin' id='move_admin' checked=checked>
 <label for='move_admin'>Allow Move to change settings</label>
 </p>
 <p>
-<input type='checkbox' name='instructions' id='instructions'>
+<input type='checkbox' name='instructions' id='instructions' checked=checked>
 <label for='instructions'>Play instructions before game start</label>
 </p>
 <p>

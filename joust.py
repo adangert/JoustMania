@@ -550,8 +550,8 @@ class Joust():
                 data['winning_team'] += 1
             else:
                 num = self.team_num
-            team_total = [0]*num
             team_alive = [0]*num
+            team_total = [0]*num
             for move in self.move_serials:
                 team = self.teams[move]
                 if self.game_mode in [common.Games.WereJoust.value, common.Games.Traitor.value]:

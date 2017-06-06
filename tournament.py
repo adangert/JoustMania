@@ -5,6 +5,7 @@ import psutil, os
 import random
 import numpy
 import math
+import json
 from piaudio import Audio
 from enum import Enum
 from multiprocessing import Process, Value, Array
@@ -40,6 +41,7 @@ INTERVAL_CHANGE = 1.5
 
 #How long the winning moves shall sparkle
 END_GAME_PAUSE = 6
+KILL_GAME_PAUSE = 4
 
 
 def track_move(move_serial, move_num, team, team_num, dead_move, force_color, music_speed, show_team_colors):
@@ -138,7 +140,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
 
 
 class Tournament():
-    def __init__(self, moves, speed):
+    def __init__(self, moves, speed, command_queue, status_queue):
 
         print("speed is {}".format(speed))
         global SLOW_MAX
@@ -167,6 +169,10 @@ class Tournament():
         self.show_team_colors = Value('i', 0)
 
         self.teams = {}
+
+        self.command_queue = command_queue
+        self.status_queue = status_queue
+        self.update_time = 0
         
         #self.team_num = math.ceil(len(moves)/2)
         self.team_num = len(moves)
@@ -414,6 +420,12 @@ class Tournament():
         self.check_matches()
         
         while self.running:
+            #I think the loop is so fast that this causes 
+            #a crash if done every loop
+            if time.time() - 0.1 > self.update_time:
+                self.update_time = time.time()
+                self.check_command_queue()
+
             self.check_music_speed()
             
             self.check_end_game()
@@ -421,6 +433,47 @@ class Tournament():
                 self.end_game()
 
         self.stop_tracking_moves()
+
+    def check_command_queue(self):
+        while not(self.status_queue.empty()):
+            self.status_queue.get()
+        self.send_status('in_game')
+        package = None
+        while not(self.command_queue.empty()):
+            package = self.command_queue.get()
+            command = package['command']
+        if not(package == None):
+            if command == 'killgame':
+                self.kill_game()
+
+    def kill_game(self):
+        try:
+            self.audio.stop_audio()
+        except:
+            print('no audio loaded to stop')        
+        self.send_status('killed')
+        all_moves = [x for x in self.dead_moves.keys()]
+        end_time = time.time() + KILL_GAME_PAUSE     
+        
+        h_value = 0
+        while (time.time() < end_time):
+            time.sleep(0.01)
+            color = common.hsv2rgb(h_value, 1, 1)
+            for move in all_moves:
+                color_array = self.force_move_colors[move]
+                common.change_color(color_array, *color)
+            h_value = (h_value + 0.01)
+            if h_value >= 1:
+                h_value = 0
+        self.running = False
+
+    def send_status(self,game_status,winning_team=-1):
+        if not(self.status_queue):
+            return
+        data ={'game_status' : game_status,
+               'game_mode' : 'Tournament',
+               'winning_team' : winning_team}
+        self.status_queue.put(json.dumps(data))
                     
                 
                 

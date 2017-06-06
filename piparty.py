@@ -483,7 +483,9 @@ class Menu():
         self.sensitivity = int(admin_info['sensitivity'])
 
         toggles = ['toggle_JoustFFA','toggle_JoustTeams','toggle_RandomTeams',
-            'toggle_WereJoust','toggle_Zombies','toggle_Commander']
+            'toggle_Traitors','toggle_WereJoust','toggle_Zombies',
+            'toggle_Commander','toggle_Swapper','toggle_Tournament',
+            'toggle_Ninja']
         self.con_games = [i for i,t in enumerate(toggles) if t in admin_info.keys()]
         if self.con_games == []:
             self.con_games = [common.Games.JoustFFA.value]
@@ -611,10 +613,10 @@ class Menu():
             speed_bomb.Bomb(game_moves, self.command_queue, self.status_queue)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Swapper.value:
-            swapper.Swapper(game_moves, self.sensitivity)
+            swapper.Swapper(game_moves, self.sensitivity, self.command_queue, self.status_queue)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Tournament.value:
-            tournament.Tournament(game_moves, self.sensitivity)
+            tournament.Tournament(game_moves, self.sensitivity, self.command_queue, self.status_queue)
             self.tracked_moves = {}
         else:
             #may need to put in moves that have selected to not be in the game

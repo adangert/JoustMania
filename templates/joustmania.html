@@ -28,6 +28,8 @@ function updateStatus(){
                 team_name = ['Red', 'Blue'];
             } else if (info.game_mode == 'Traitors'){
                 team_name = ['Traitor','Green','Blue','Red'];
+            } else if (info.game_mode == 'Swapper'){
+                team_name = ['Blue', 'Red'];
             } else { //free for all
                 team_name = ['null'];
             }
@@ -260,12 +262,20 @@ Random Mode Game Selection<br />
 <label for='toggle_JoustFFA'>Joust Free-for-All</label><br />
 <input type='checkbox' name='toggle_RandomTeams' id='toggle_RandomTeams'>
 <label for='toggle_RandomTeams'>Joust Random Teams</label><br />
+<input type='checkbox' name='toggle_Traitors' id='toggle_Traitors'>
+<label for='toggle_Traitors'>Traitors</label><br />
 <input type='checkbox' name='toggle_WereJoust' id='toggle_WereJoust'>
 <label for='toggle_WereJoust'>Werewolves</label><br />
 <input type='checkbox' name='toggle_Zombies' id='toggle_Zombies'>
 <label for='toggle_Zombies'>Zombies</label><br />
 <input type='checkbox' name='toggle_Commander' id='toggle_Commander'>
 <label for='toggle_Commander'>Commander</label><br />
+<input type='checkbox' name='toggle_Swapper' id='toggle_Swapper'>
+<label for='toggle_Swapper'>Swapper</label><br />
+<input type='checkbox' name='toggle_Tournament' id='toggle_Tournament'>
+<label for='toggle_Tournament'>Tournament</label><br />
+<input type='checkbox' name='toggle_Ninja' id='toggle_Ninja'>
+<label for='toggle_Ninja'>Ninja Bomb</label><br />
 </p>
 </form>
 

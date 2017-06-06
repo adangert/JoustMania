@@ -47,6 +47,7 @@ function updateStatus(){
                     $('#humans').text(info.humans)
                     $('#dead_zombies').text(info.dead_zombies)
                     $('#alive_zombies').text(info.alive_zombies)
+                    $('#time_left').text(info.time_left)
                 } else if (info.game_mode == 'Commander'){
                     $('#commander').show()
                     $('#red_players').text(info.red_players)
@@ -60,6 +61,9 @@ function updateStatus(){
                     $('#total_ninjas').text(info.total_players)
                 } else { //team mode without anything special
                     var team_info = '<br />';
+                    if (info.game_mode == 'Werewolves'){//but then I jam a special line for werewolf in
+                        team_info += 'Time to Reveal: ' + info.time_to_reveal + '<br /><br />';
+                    }
                     for (i=0; i < info.team_comp.length; i++){
                         t = info.team_comp[i]
                         if (t[0] != 0){
@@ -189,6 +193,7 @@ Players remaining: <span id='remaining_players'>-999</span><br /><br />
 
 <div class='info_box' id="zombies">
 <br />
+Time remaining: <span id="time_left">OVER 9000</span><br /><br />
 Humans: <span id='humans'>-999</span><br />
 Dead Zombies: <span id='dead_zombies'>-999</span><br />
 Alive Zombies: <span id='alive_zombies'>-999</span><br /><br />

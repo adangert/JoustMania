@@ -563,6 +563,13 @@ class Joust():
                     team_alive[team] += 1
             team_comp = list(zip(team_total,team_alive))
             data['team_comp'] = team_comp
+        if self.game_mode == common.Games.WereJoust.value:
+            thyme = int(self.werewolf_timer - (time.time() - self.start_timer))
+            if thyme < 0:
+                data['time_to_reveal'] = 0
+            else:
+                data['time_to_reveal'] = thyme
+
         self.status_queue.put(json.dumps(data))
         #print('status sent!')
 

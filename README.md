@@ -6,7 +6,7 @@ What is JoustMania????
 --------------------------------------
 
 * JoustMania is a collection of PlayStation Move enabled party games based off of the "Jostling" mechanic introduced in [Johann Sebastian Joust](http://www.jsjoust.com/)
-* JoustMania includes FFA, Teams, Werewolfs, Zombies, Commander modes, and lots of other goodies!
+* JoustMania includes FFA, Teams, Werewolves, Zombies, Commander modes, and lots of other goodies!
 * The system is also designed to be easy to set up at conventions and is made to run itself with a large group of people. In convention mode, every game is started once everyone is ready, and announces the rules aloud for new players to learn.
 
 Cool Stuffs!
@@ -147,11 +147,11 @@ Custom Music
  * If you controller vibrates during the start countdown you are a traitor
 
 
- ### Werewolfs (one controller red, the rest white)
- * Hidden werewolfs are selected at the beginning of the game.
+ ### Werewolves (one controller red, the rest white)
+ * Hidden werewolves are selected at the beginning of the game.
  * When the countdown starts the werewolf will feel a vibration, letting that player know they are a werewolf
- * After a short period of time, werewolfs will be revealed
- * Werewolfs win only if they are the last remaining
+ * After a short period of time, werewolves will be revealed
+ * Werewolves win only if they are the last remaining
 
 
  ### Zombie apocalypse

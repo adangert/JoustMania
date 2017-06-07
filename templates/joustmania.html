@@ -16,31 +16,38 @@ function updateStatus(){
             $('.admin').hide()
             $('.error').hide()
 
-            if (info.game_mode == 'WereJoust'){
-                team_name = ['Human','Werewolf']
-            } else if (info.game_mode == 'JoustTeams'){
+            if (info.game_mode == 'Werewolves'){
+                team_name = ['Werewolf','Human']
+            } else if (info.game_mode == 'Joust Teams'){
                 team_name = ['Yellow','Green','Cyan','Blue','Magenta','Red'];
-            } else if (info.game_mode == 'JoustRandomTeams'){ //random teams
+            } else if (info.game_mode == 'Joust Random Teams'){
                 team_name = ['Yellow','Cyan','Magenta','Red'];
             } else if (info.game_mode == 'Zombies'){
-                team_name = ['Humans', 'Zombies'];
+                team_name = ['Human','Zombie'];
             } else if (info.game_mode == 'Commander'){
                 team_name = ['Red', 'Blue'];
+            } else if (info.game_mode == 'Traitors'){
+                team_name = ['Traitor','Green','Blue','Red'];
+            } else if (info.game_mode == 'Swapper'){
+                team_name = ['Blue', 'Red'];
             } else { //free for all
                 team_name = ['null'];
             }
 
             if (info.game_status=='in_game'){
                 $('#gamebuttons').show();
-                if (info.game_mode == 'JoustFFA' || info.game_mode == 'Ninja'){
+                if (info.game_mode == 'Joust Free-for-All' || info.game_mode == 'Ninja'){
                     $('#free4all').show();
                     $('#total_players').text(info.total_players)
                     $('#remaining_players').text(info.remaining_players);
+                } else if (info.game_mode == 'Tournament'){
+                    $('#tournament').show()
                 } else if (info.game_mode == 'Zombies'){
                     $('#zombies').show()
                     $('#humans').text(info.humans)
                     $('#dead_zombies').text(info.dead_zombies)
                     $('#alive_zombies').text(info.alive_zombies)
+                    $('#time_left').text(info.time_left)
                 } else if (info.game_mode == 'Commander'){
                     $('#commander').show()
                     $('#red_players').text(info.red_players)
@@ -49,11 +56,14 @@ function updateStatus(){
                     $('#blue_players').text(info.blue_players)
                     $('#blue_alive').text(info.blue_alive)
                     $('#blue_od_status').text(info.blue_od_status)
-                } else if (info.game_mode == 'Ninja'){
+                } else if (info.game_mode == 'Ninja Bomb'){
                     $('#ninja').show()
-                    $('#total_players2').text(info.total_players)
-                } else { //if (info.game_mode == 'JoustRandomTeams' || info.game_mode == 'JoustTeams'){
+                    $('#total_ninjas').text(info.total_players)
+                } else { //team mode without anything special
                     var team_info = '<br />';
+                    if (info.game_mode == 'Werewolves'){//but then I jam a special line for werewolf in
+                        team_info += 'Time to Reveal: ' + info.time_to_reveal + '<br /><br />';
+                    }
                     for (i=0; i < info.team_comp.length; i++){
                         t = info.team_comp[i]
                         if (t[0] != 0){
@@ -72,7 +82,7 @@ function updateStatus(){
             } else if (info.game_status=='ending'){
                 $('#ending').show();
                 $('#team_win').hide();
-                if (info.game_mode != 'JoustFFA' && info.winning_team != -1){
+                if (info.game_mode != 'Joust Free-for-All' && info.winning_team != -1){
                     $('#team_win').show();
                     line = team_name[info.winning_team] + ' Team wins!'
                     $('#team_win').text(line);
@@ -145,7 +155,7 @@ $(document).ready(function(){
         });
     });
     updateStatus();
-    setInterval(updateStatus,1000);
+    setInterval(updateStatus,500);
 });
 </script>
 <body>
@@ -183,6 +193,7 @@ Players remaining: <span id='remaining_players'>-999</span><br /><br />
 
 <div class='info_box' id="zombies">
 <br />
+Time remaining: <span id="time_left">OVER 9000</span><br /><br />
 Humans: <span id='humans'>-999</span><br />
 Dead Zombies: <span id='dead_zombies'>-999</span><br />
 Alive Zombies: <span id='alive_zombies'>-999</span><br /><br />
@@ -199,7 +210,12 @@ Blue Overdrive: <span id='blue_od_status'>lol</span><br />
 
 <div class='info_box' id="ninja">
 <br />
-Total Players: <span id='total_players2'>-999</span><br /><br />
+Total Players: <span id='total_ninjas'>-999</span><br /><br />
+</div>
+
+<div class='info_box' id="tournament">
+<br />
+Status coming soon to a web browser near you!<br /><br />
 </div>
 
 <div class='info_box' id='ending'>
@@ -228,13 +244,13 @@ Game Killed!<br /><br />
 <h3>Admin Settings</h3>
 
 <form action='' id='admin_form'>
-Note: Does not update if changed from Move admin!
+Note: This screen does not update if changed from Move admin!
 <p>
 <input type='checkbox' name='move_admin' id='move_admin' checked=checked>
 <label for='move_admin'>Allow Move to change settings</label>
 </p>
 <p>
-<input type='checkbox' name='instructions' id='instructions'>
+<input type='checkbox' name='instructions' id='instructions' checked=checked>
 <label for='instructions'>Play instructions before game start</label>
 </p>
 <p>
@@ -251,12 +267,20 @@ Random Mode Game Selection<br />
 <label for='toggle_JoustFFA'>Joust Free-for-All</label><br />
 <input type='checkbox' name='toggle_RandomTeams' id='toggle_RandomTeams'>
 <label for='toggle_RandomTeams'>Joust Random Teams</label><br />
+<input type='checkbox' name='toggle_Traitors' id='toggle_Traitors'>
+<label for='toggle_Traitors'>Traitors</label><br />
 <input type='checkbox' name='toggle_WereJoust' id='toggle_WereJoust'>
 <label for='toggle_WereJoust'>Werewolves</label><br />
 <input type='checkbox' name='toggle_Zombies' id='toggle_Zombies'>
 <label for='toggle_Zombies'>Zombies</label><br />
 <input type='checkbox' name='toggle_Commander' id='toggle_Commander'>
 <label for='toggle_Commander'>Commander</label><br />
+<input type='checkbox' name='toggle_Swapper' id='toggle_Swapper'>
+<label for='toggle_Swapper'>Swapper</label><br />
+<input type='checkbox' name='toggle_Tournament' id='toggle_Tournament'>
+<label for='toggle_Tournament'>Tournament</label><br />
+<input type='checkbox' name='toggle_Ninja' id='toggle_Ninja'>
+<label for='toggle_Ninja'>Ninja Bomb</label><br />
 </p>
 </form>
 

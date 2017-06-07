@@ -55,6 +55,6 @@ class WebUI():
     def update(self):
         while not(self.statusQueue.empty()):
             self.updateInfo = self.statusQueue.get()
-            print('grabbed info')
-        print(self.updateInfo)
+        #    print('grabbed info')
+        #print(self.updateInfo)
         return self.updateInfo

@@ -430,7 +430,8 @@ class Zombie:
                'humans': len(self.humans),
                'dead_zombies': len(self.dead_zombies),
                'alive_zombies': len(self.alive_zombies),
-               'ticker': self.update_time}
+               'ticker': self.update_time,
+               'time_left': int(self.win_time - (time.time() - self.start_time))}
         self.status_queue.put(json.dumps(data))
 
 

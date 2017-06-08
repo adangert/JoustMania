@@ -109,6 +109,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
     vibration_time = time.time() + 1
     flash_lights = True
     flash_lights_timer = 0
+    change_arr = [0,0,0]
 
     death_time = 8
     time_of_death = time.time()
@@ -151,7 +152,11 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
                 total = sum([ax, ay, az])
                 if move_last_value is not None:
-                    change = abs(move_last_value - total)
+                    change_real = abs(move_last_value - total)
+                    change_arr[0] = change_arr[1]
+                    change_arr[1] = change_arr[2]
+                    change_arr[2] = change_real
+                    change = (change_arr[0] + change_arr[1]+change_arr[2])/3
 
                     if move_opts[Opts.is_commander.value] == Bool.no.value:
                         if overdrive.value == 0:

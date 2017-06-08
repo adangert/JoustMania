@@ -44,7 +44,7 @@ END_GAME_PAUSE = 6
 KILL_GAME_PAUSE = 4
 
 
-def track_move(move_serial, move_num, team, team_num, dead_move, force_color, music_speed, show_team_colors):
+def track_move(move_serial, move_num, team, team_num, dead_move, force_color, music_speed, show_team_colors, invincibility):
     #proc = psutil.Process(os.getpid())
     #proc.nice(3)
     #explosion = Audio('audio/Joust/sounds/Explosion34.wav')
@@ -58,6 +58,8 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
     vibration_time = time.time() + 1
     flash_lights = True
     flash_lights_timer = 0
+    start_inv = False
+    change_arr = [0,0,0]
 
     #keep on looping while move is not dead
     while True:
@@ -81,11 +83,19 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
                 total = sum([ax, ay, az])
                 if move_last_value is not None:
-                    change = abs(move_last_value - total)
+                    change_real = abs(move_last_value - total)
+                    change_arr[0] = change_arr[1]
+                    change_arr[1] = change_arr[2]
+                    change_arr[2] = change_real
+                    change = (change_arr[0] + change_arr[1]+change_arr[2])/3
                     speed_percent = (music_speed.value - SLOW_MUSIC_SPEED)/(FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED)
                     warning = common.lerp(SLOW_WARNING, FAST_WARNING, speed_percent)
                     threshold = common.lerp(SLOW_MAX, FAST_MAX, speed_percent)
-
+                    if not start_inv and invincibility.value == 1:
+                        start_inv = True
+                        vibrate = True
+                        vibration_time = time.time() + 3
+                        
 
                     if vibrate:
                         flash_lights_timer += 1
@@ -105,24 +115,26 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
                             move.set_rumble(0)
                         if time.time() > vibration_time:
                             vibrate = False
+                            start_inv = False
+                            invincibility.value = 0
                     else:
                         if team.value != -1:
                             move.set_leds(*team_colors[team.value])
                         else:
                             move.set_leds(100,100,100)
                             
-                            
-                    if change > threshold:
-                        if time.time() > no_rumble:
-                            move.set_leds(0,0,0)
-                            move.set_rumble(90)
-                            dead_move.value = 0
+                    if invincibility.value == 0:
+                        if change > threshold:
+                            if time.time() > no_rumble:
+                                move.set_leds(0,0,0)
+                                move.set_rumble(90)
+                                dead_move.value = 0
 
-                    elif change > warning and not vibrate:
-                        if time.time() > no_rumble:
-                            vibrate = True
-                            vibration_time = time.time() + 0.5
-                            move.set_leds(20,50,100)
+                        elif change > warning and not vibrate:
+                            if time.time() > no_rumble:
+                                vibrate = True
+                                vibration_time = time.time() + 0.5
+                                move.set_leds(20,50,100)
 
 
                         
@@ -161,6 +173,7 @@ class Tournament():
         self.music_speed = Value('d', 1.5)
         self.running = True
         self.force_move_colors = {}
+        self.invince_moves = {}
         
 
         self.start_timer = time.time()
@@ -241,7 +254,9 @@ class Tournament():
             
             time.sleep(0.02)
             dead_move = Value('i', 1)
+            
             force_color = Array('i', [1] * 3)
+            invincibility = Value('i', 0)
             proc = Process(target=track_move, args=(move_serial,
                                                     move_num,
                                                     self.teams[move_serial],
@@ -249,8 +264,10 @@ class Tournament():
                                                     dead_move,
                                                     force_color,
                                                     self.music_speed,
-                                                    self.show_team_colors))
+                                                    self.show_team_colors,
+                                                    invincibility))
             proc.start()
+            self.invince_moves[move_serial] = invincibility
             self.tracked_moves[move_serial] = proc
             self.dead_moves[move_serial] = dead_move
             self.force_move_colors[move_serial] = force_color
@@ -355,6 +372,8 @@ class Tournament():
                     arr[0] = move_up(arr[0])
                     if type(arr[1]) is not list:
                         self.teams[arr[1]].value = self.teams[arr[0]].value
+                        self.invince_moves[arr[1]].value = 1
+                        self.invince_moves[arr[0]].value = 1
                     else:
                         self.teams[arr[0]].value = -1
                 elif type(arr[1]) is list and move_up(arr[1]):
@@ -362,6 +381,8 @@ class Tournament():
 
                     if type(arr[0]) is not list:
                         self.teams[arr[0]].value = self.teams[arr[1]].value
+                        self.invince_moves[arr[1]].value = 1
+                        self.invince_moves[arr[0]].value = 1
                     else:
                         self.teams[arr[1]].value = -1
         move_up(self.tourney_list)

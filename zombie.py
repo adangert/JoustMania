@@ -83,13 +83,18 @@ def track_controller(serial, num_try, opts):
     vibration_time = time.time() + 1
     flash_lights = True
     flash_lights_timer = 0
+    change_arr=[0,0,0]
     
     while True:
         if move.poll():
             ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
             total = sum([ax, ay, az])
             if move_last_value is not None:
-                change = abs(move_last_value - total)
+                change_real = abs(move_last_value - total)
+                change_arr[0] = change_arr[1]
+                change_arr[1] = change_arr[2]
+                change_arr[2] = change_real
+                change = (change_arr[0] + change_arr[1]+change_arr[2])/3
                 # Dead
 
                 #TODO: should probably only change this

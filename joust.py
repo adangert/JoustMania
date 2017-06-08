@@ -60,6 +60,7 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
     team_colors = common.generate_colors(team_num)
     werewolf = False
     vibrate = False
+    change_arr = [0,0,0]
     vibration_time = time.time() + 1
     flash_lights = True
     flash_lights_timer = 0
@@ -93,7 +94,11 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
                 total = sum([ax, ay, az])
                 if move_last_value is not None:
-                    change = abs(move_last_value - total)
+                    change_real = abs(move_last_value - total)
+                    change_arr[0] = change_arr[1]
+                    change_arr[1] = change_arr[2]
+                    change_arr[2] = change_real
+                    change = (change_arr[0] + change_arr[1]+change_arr[2])/3
                     speed_percent = (music_speed.value - SLOW_MUSIC_SPEED)/(FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED)
                     if werewolf:
                         warning = common.lerp(WERE_SLOW_WARNING, WERE_FAST_WARNING, speed_percent)

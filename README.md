@@ -129,59 +129,59 @@ Custom Music
  * All players press the A button (middle of controller) to signal they are ready to play, and the game will begin
 
 
- ### FFA (2+ players)
+ ### FFA
  * The most basic version of Joust; be the last one standing!
 
 
- ### Teams (4+ players)
+ ### Teams
  * This game is the same as Joust FFA however at the beginning players select their team color with the big button in the middle of their controller
  * There are six teams to select from
 
 
- ### Random Teams (3+ players)
+ ### Random Teams
  * Same as Joust Teams, however the teams are randomly assigned at start of play
  * There are three teams in this mode
 
 
- ### Traitor (6+ players)
+ ### Traitor
  * Three teams face off against one another, however there is a traitor on every team
  * Traitors are on a secret fourth team
  * If you controller vibrates during the start countdown you are a traitor
 
 
- ### Werewolves (6+ players)
+ ### Werewolves
  * Hidden werewolves are selected at the beginning of the game.
  * When the countdown starts the werewolf will feel a vibration, letting that player know they are a werewolf
  * After a short period of time, werewolves will be revealed
  * Werewolves win only if they are the last remaining
 
 
- ### Zombies (10+ players)
+ ### Zombies
  * Two players start out as zombies, and try to infect the humans
  * Humans can shoot random zombies with bullets
  * Bullets are randomly assigned as loot from killing zombies
  * Humans try to survive for a couple of minutes, otherwise zombies win!
  
  
- ### Commander (6+ players)
+ ### Commander
  * Teams are split into two sides
  * One commander is chosen for each side, if this commander dies, the other team wins
  * Commanders can activate special abilities that helps their team win
 
 
- ### Swapper (4+ players)
+ ### Swapper
  * Players start on two teams
  * When you die, you switch to the other team
  * The last person remaining does not switch
 
 
- ### Tournament (2+ players)
+ ### Tournament
  * Everyone is paired up 1v1 via controller colors
  * If your controller is white, wait to be assigned to a new player
  * The last person remaining wins!
 
 
- ### Ninja Bomb (2+ players)
+ ### Ninja Bomb
  * Players stand in a circle each holding a controller
  * Players press A to join the game. 
  * A bomb is passed around by pressing the A button, if held too long it will explode

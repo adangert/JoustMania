@@ -114,10 +114,11 @@ Custom Music
 * Play your own music, by copying it into the respective folders: /audio/(Joust, Zombie, Commander)/music/
 * WAV files currently supported
 
-# Game Rules and Variants
+# Game Rules and Variants 
 * Keep your controller still while trying to jostle others.
 * If your controller is jostled then you are out of the game
 * The music is tied to the gameplay, the faster the music the faster you can move
+* Extended rules can be found on the [Wiki](https://github.com/adangert/JoustMania/wiki/Extended-Rules)
 
 
  ### Convention/Random mode

@@ -16,8 +16,8 @@ WERE_SLOW_MAX = [0.7, 0.9, 1.1]
 WERE_FAST_WARNING = [0.6, 0.7, 0.9]
 WERE_FAST_MAX = [1.1, 1.5, 2.0]
 
-ZOMBIE_WARNING = [0.1, 0.15, 0.28]
-ZOMBIE_MAX = [0.5, 0.6, 0.8]
+ZOMBIE_WARNING = [0.5, 0.6, 0.8]
+ZOMBIE_MAX = [0.8, 1, 1.4]
 
 def hsv2rgb(h, s, v):
     return tuple(int(color * color_range) for color in colorsys.hsv_to_rgb(h, s, v))
@@ -83,7 +83,7 @@ class GameNames(Enum):
     Tournament = 'Tournament'
     Ninja = 'Ninja Bomb'
     Random = 'Random Mode'
-    
+
 gameModeNames = [
     'Joust Free-for-All',
     'Joust Teams',

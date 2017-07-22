@@ -6,12 +6,12 @@ import joust
 import time
 import zombie
 import commander
-import ninja
 import swapper
 import tournament
 import speed_bomb
 import random
 import json
+import configparser
 from piaudio import Audio
 from enum import Enum
 from multiprocessing import Process, Value, Array, Queue
@@ -239,6 +239,10 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
 
 class Menu():
     def __init__(self,command_queue=Queue(), status_queue=Queue()):
+        Config = configparser.ConfigParser()
+        Config.read("joustconfig.ini")
+        self.audio_toggle = Config.getboolean("DEFAULT","audio")
+        
         self.move_count = psmove.count_connected()
         self.dead_count = Value('i', 0)
         self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
@@ -250,7 +254,7 @@ class Menu():
         self.rand_game_list = []
 
         self.sensitivity = Sensitivity.mid.value
-        self.instructions = True
+        self.instructions = False
         self.show_battery = Value('i', 0)
         
         self.tracked_moves = {}
@@ -382,9 +386,15 @@ class Menu():
 
         if change_mode:
             self.game_mode = (self.game_mode + 1) %  GAME_MODES
+            if not self.audio_toggle:
+                if self.game_mode == common.Games.Commander.value:
+                    self.game_mode = (self.game_mode + 1) %  GAME_MODES
+                if self.game_mode == common.Games.WereJoust.value:
+                    self.game_mode = (self.game_mode + 1) %  GAME_MODES
             for opt in self.move_opts.values():
                 opt[Opts.game_mode.value] = self.game_mode
-            self.game_mode_announcement()
+            if self.audio_toggle:
+                self.game_mode_announcement()
 
 
     def game_loop(self):
@@ -421,10 +431,11 @@ class Menu():
             if admin_opt[Opts.selection.value] == Selections.change_instructions.value:
                 admin_opt[Opts.selection.value] = Selections.nothing.value
                 self.instructions = not self.instructions
-                if self.instructions:
-                    Audio('audio/Menu/instructions_on.wav').start_effect()
-                else:
-                    Audio('audio/Menu/instructions_off.wav').start_effect()
+                if self.audio_toggle:
+                    if self.instructions:
+                        Audio('audio/Menu/instructions_on.wav').start_effect()
+                    else:
+                        Audio('audio/Menu/instructions_off.wav').start_effect()
 
             #change sensitivity
             if admin_opt[Opts.selection.value] == Selections.change_sensitivity.value:
@@ -433,12 +444,13 @@ class Menu():
 
                 admin_opt[Opts.selection.value] = Selections.nothing.value
                 self.sensitivity = (self.sensitivity + 1) %  SENSITIVITY_MODES
-                if self.sensitivity == Sensitivity.slow.value:
-                    Audio('audio/Menu/slow_sensitivity.wav').start_effect()
-                elif self.sensitivity == Sensitivity.mid.value:
-                    Audio('audio/Menu/mid_sensitivity.wav').start_effect()
-                elif self.sensitivity == Sensitivity.fast.value:
-                    Audio('audio/Menu/fast_sensitivity.wav').start_effect()
+                if self.audio_toggle:
+                    if self.sensitivity == Sensitivity.slow.value:
+                        Audio('audio/Menu/slow_sensitivity.wav').start_effect()
+                    elif self.sensitivity == Sensitivity.mid.value:
+                        Audio('audio/Menu/mid_sensitivity.wav').start_effect()
+                    elif self.sensitivity == Sensitivity.fast.value:
+                        Audio('audio/Menu/fast_sensitivity.wav').start_effect()
                 
             #no admin colors in con custom teams mode
             if self.game_mode == common.Games.JoustTeams.value or self.game_mode == common.Games.Random.value:
@@ -460,12 +472,15 @@ class Menu():
                     admin_opt[Opts.selection.value] = Selections.nothing.value
                     if self.game_mode not in self.con_games:
                         self.con_games.append(self.game_mode)
-                        Audio('audio/Menu/game_on.wav').start_effect()
+                        if self.audio_toggle:
+                            Audio('audio/Menu/game_on.wav').start_effect()
                     elif len(self.con_games) > 1:
                         self.con_games.remove(self.game_mode)
-                        Audio('audio/Menu/game_off.wav').start_effect()
+                        if self.audio_toggle:
+                            Audio('audio/Menu/game_off.wav').start_effect()
                     else:
-                        Audio('audio/Menu/game_err.wav').start_effect()
+                        if self.audio_toggle:
+                            Audio('audio/Menu/game_err.wav').start_effect()
             
     def web_admin_update(self,admin_info={'move_admin':True, 'sensitivity':1}):
 
@@ -527,7 +542,8 @@ class Menu():
                     start_game = False
                 if self.move_opts[serial][Opts.random_start.value] == Alive.off.value and serial not in self.random_added:
                     self.random_added.append(serial)
-                    Audio('audio/Joust/sounds/start.wav').start_effect()
+                    if self.audio_toggle:
+                        Audio('audio/Joust/sounds/start.wav').start_effect()
             
                     
             if start_game:
@@ -600,33 +616,34 @@ class Menu():
 
             self.game_mode = selected_game
 
-        if self.instructions:
+        if self.instructions and self.audio_toggle:
             self.play_random_instructions()
         
         if self.game_mode == common.Games.Zombies.value:
-            zombie.Zombie(game_moves, self.sensitivity, self.command_queue, self.status_queue)
+            zombie.Zombie(game_moves, self.sensitivity, self.command_queue, self.status_queue, self.audio_toggle)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Commander.value:
             commander.Commander(game_moves, self.sensitivity, self.command_queue, self.status_queue)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Ninja.value:
-            speed_bomb.Bomb(game_moves, self.command_queue, self.status_queue)
+            speed_bomb.Bomb(game_moves, self.command_queue, self.status_queue, self.audio_toggle)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Swapper.value:
-            swapper.Swapper(game_moves, self.sensitivity, self.command_queue, self.status_queue)
+            swapper.Swapper(game_moves, self.sensitivity, self.command_queue, self.status_queue, self.audio_toggle)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Tournament.value:
-            tournament.Tournament(game_moves, self.sensitivity, self.command_queue, self.status_queue)
+            tournament.Tournament(game_moves, self.sensitivity, self.command_queue, self.status_queue, self.audio_toggle)
             self.tracked_moves = {}
         else:
             #may need to put in moves that have selected to not be in the game
-            joust.Joust(self.game_mode, game_moves, self.teams, self.sensitivity, self.command_queue, self.status_queue)
+            joust.Joust(self.game_mode, game_moves, self.teams, self.sensitivity, self.command_queue, self.status_queue, self.audio_toggle)
             self.tracked_moves = {}
         if random_mode:
             self.game_mode = common.Games.Random.value
             if self.instructions:
-                Audio('audio/Menu/tradeoff2.wav').start_effect()
-                time.sleep(8)
+                if self.audio_toggle:
+                    Audio('audio/Menu/tradeoff2.wav').start_effect()
+                    time.sleep(8)
             
         #turn off admin mode so someone can't accidentally press a button    
         self.admin_move = None

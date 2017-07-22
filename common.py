@@ -70,19 +70,6 @@ class Buttons(Enum):
     circle = 32
     nothing = 0
 
-class GameNames(Enum):
-#unused?
-    JoustFFA = "Joust Free-for-All"
-    JoustTeams = "Joust Teams"
-    JoustRandomTeams = "Joust Random Teams"
-    Traitor = 'Traitors'
-    WereJoust = 'Werwolves'
-    Zombies = 'Zombies'
-    Commander = 'Commander'
-    Swapper = 'Swapper'
-    Tournament = 'Tournament'
-    Ninja = 'Ninja Bomb'
-    Random = 'Random Mode'
 
 gameModeNames = [
     'Joust Free-for-All',

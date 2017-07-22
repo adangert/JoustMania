@@ -152,7 +152,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
 
 
 class Tournament():
-    def __init__(self, moves, speed, command_queue, status_queue):
+    def __init__(self, moves, speed, command_queue, status_queue, audio_toggle):
 
         print("speed is {}".format(speed))
         global SLOW_MAX
@@ -165,7 +165,7 @@ class Tournament():
         FAST_MAX = common.FAST_MAX[speed]
         FAST_WARNING = common.FAST_WARNING[speed]
 
-
+        self.audio_toggle = audio_toggle
         self.move_serials = moves
 
         self.tracked_moves = {}
@@ -194,15 +194,17 @@ class Tournament():
         self.generate_random_teams(self.team_num)
 
         self.tourney_list = self.generate_tourney_list(len(moves))
-        print("tourney list is " + str(self.tourney_list))
-
-        music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
-        self.start_beep = Audio('audio/Joust/sounds/start.wav')
-        self.start_game = Audio('audio/Joust/sounds/start3.wav')
-        self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
         fast_resample = False
-        end = False
-        self.audio = Audio(music, end)
+        if self.audio_toggle:
+            print("tourney list is " + str(self.tourney_list))
+
+            music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
+            self.start_beep = Audio('audio/Joust/sounds/start.wav')
+            self.start_game = Audio('audio/Joust/sounds/start3.wav')
+            self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
+            
+            end = False
+            self.audio = Audio(music, end)
         #self.change_time = self.get_change_time(speed_up = True)
         
         self.speed_up = True
@@ -279,16 +281,20 @@ class Tournament():
     #need to do the count_down here
     def count_down(self):
         self.change_all_move_colors(80, 0, 0)
-        self.start_beep.start_effect()
+        if self.audio_toggle:
+            self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(70, 100, 0)
-        self.start_beep.start_effect()
+        if self.audio_toggle:
+            self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 70, 0)
-        self.start_beep.start_effect()
+        if self.audio_toggle:
+            self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 0, 0)
-        self.start_game.start_effect()
+        if self.audio_toggle:
+            self.start_game.start_effect()
 
     def get_change_time(self, speed_up):
         min_moves = len(self.move_serials) - 2
@@ -351,8 +357,6 @@ class Tournament():
         check_moves(self.tourney_list)
 
     def remove_dead_player(self, dead_serial):
-
-        
         def remove_dead(arr):
             if type(arr) is list and dead_serial in arr:
                 arr.remove(dead_serial)
@@ -400,7 +404,8 @@ class Tournament():
                 #This is to play the sound effect
                 self.num_dead += 1
                 dead.value = -1
-                self.explosion.start_effect()
+                if self.audio_toggle:
+                    self.explosion.start_effect()
         if len(self.winning_moves) <= 1:
             self.game_end = True
                 
@@ -436,7 +441,11 @@ class Tournament():
         self.count_down()
         self.change_time = time.time() + 6
         time.sleep(0.02)
-        self.audio.start_audio_loop()
+        if self.audio_toggle:
+            self.audio.start_audio_loop()
+        else:
+            #when no audio is playing set the music speed to middle speed
+            self.music_speed.value = (FAST_MUSIC_SPEED + SLOW_MUSIC_SPEED) / 2
         time.sleep(0.8)
         self.check_matches()
         
@@ -446,8 +455,8 @@ class Tournament():
             if time.time() - 0.1 > self.update_time:
                 self.update_time = time.time()
                 self.check_command_queue()
-
-            self.check_music_speed()
+            if self.audio_toggle:
+                self.check_music_speed()
             
             self.check_end_game()
             if self.game_end:
@@ -468,10 +477,11 @@ class Tournament():
                 self.kill_game()
 
     def kill_game(self):
-        try:
-            self.audio.stop_audio()
-        except:
-            print('no audio loaded to stop')        
+        if self.audio_toggle:
+            try:
+                self.audio.stop_audio()
+            except:
+                print('no audio loaded to stop')        
         self.send_status('killed')
         all_moves = [x for x in self.dead_moves.keys()]
         end_time = time.time() + KILL_GAME_PAUSE     

@@ -196,8 +196,9 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
 
 
 class Bomb():
-    def __init__(self, moves, command_queue, status_queue):
+    def __init__(self, moves, command_queue, status_queue, audio_toggle):
 
+        self.audio_toggle = audio_toggle
         self.move_serials = moves
         self.tracked_moves = {}
         self.dead_moves = {}
@@ -225,24 +226,25 @@ class Bomb():
         self.status_queue = status_queue
         self.update_time = 0
 
-        try:
-            music = 'audio/Commander/music/' + random.choice(os.listdir('audio/Commander/music'))
-        except:
-            print('no music in audio/Commander/music')
-        self.start_beep = Audio('audio/Joust/sounds/start.wav')
-        self.start_game = Audio('audio/Joust/sounds/start3.wav')
-        self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
-        self.fakedout = Audio('audio/Joust/sounds/Fakedout.wav')
-        self.explosion40 = Audio('audio/Joust/sounds/Explosion40.wav')
-        self.countered = Audio('audio/Joust/sounds/countered.wav')
-        self.Fakecountered = Audio('audio/Joust/sounds/FakedoutCounter.wav')
-        self.explosiondeath = Audio('audio/Joust/sounds/explosiondeath.wav')
+        if self.audio_toggle:
+            try:
+                music = 'audio/Commander/music/' + random.choice(os.listdir('audio/Commander/music'))
+            except:
+                print('no music in audio/Commander/music')
+            self.start_beep = Audio('audio/Joust/sounds/start.wav')
+            self.start_game = Audio('audio/Joust/sounds/start3.wav')
+            self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
+            self.fakedout = Audio('audio/Joust/sounds/Fakedout.wav')
+            self.explosion40 = Audio('audio/Joust/sounds/Explosion40.wav')
+            self.countered = Audio('audio/Joust/sounds/countered.wav')
+            self.Fakecountered = Audio('audio/Joust/sounds/FakedoutCounter.wav')
+            self.explosiondeath = Audio('audio/Joust/sounds/explosiondeath.wav')
 
-        end = False
-        try:
-            self.audio = Audio(music, end)
-        except:
-            print('no audio loaded')
+            end = False
+            try:
+                self.audio = Audio(music, end)
+            except:
+                print('no audio loaded')
 
 
         self.game_end = False
@@ -251,10 +253,10 @@ class Bomb():
         self.game_loop()
 
     def reset_bomb_length(self):
-        self.bomb_length = 5.0
+        self.bomb_length = 4.0
 
     def get_bomb_length(self):
-        self.bomb_length -= 0.4
+        self.bomb_length -= 0.3
         if self.bomb_length < 1:
             self.bomb_length = 1
         return self.bomb_length
@@ -298,7 +300,6 @@ class Bomb():
 
     def game_loop(self):
         self.track_moves()
-        self.print_bombs()
         self.rotate_colors()
         self.bomb_serial = self.move_serials[random.choice(range(len(self.move_serials)))]
         self.next_rand_holder = self.bomb_serial
@@ -312,10 +313,11 @@ class Bomb():
         self.game_start.value = 1
         self.count_down()
         time.sleep(0.02)
-        try:
-            self.audio.start_audio_loop()
-        except:
-            print('no audio loaded to start')
+        if self.audio_toggle:
+            try:
+                self.audio.start_audio_loop()
+            except:
+                print('no audio loaded to start')
         time.sleep(0.8)
 
         self.bomb_time = time.time() + self.get_bomb_length()
@@ -341,13 +343,14 @@ class Bomb():
             if self.move_opts[self.bomb_serial][Opts.selection.value] == Selections.a_button.value and self.holding == False:
                 self.reset_bomb_time()
                 self.move_bomb()
-
-                self.start_beep.start_effect()
+                if self.audio_toggle:
+                    self.start_beep.start_effect()
                 self.holding = True
             if time.time() > self.bomb_time:
-                self.explosiondeath.start_effect()
+                if self.audio_toggle:
+                    self.explosiondeath.start_effect()
 
-                self.explosion.start_effect()
+                    self.explosion.start_effect()
                 self.pause_for_player_death(self.bomb_serial)
 
                 self.dead_moves[self.bomb_serial].value -= 1
@@ -408,7 +411,8 @@ class Bomb():
                     self.reset_bomb_time()
                     self.reset_bomb_length()
                     self.false_colors[faker].value = 1
-                    self.start_beep.start_effect()
+                    if self.audio_toggle:
+                        self.start_beep.start_effect()
                     self.move_opts[move_serial][Opts.holding.value] = Holding.holding.value
 
 
@@ -419,8 +423,9 @@ class Bomb():
                     #Pushed middle button, when faked
                     if self.was_faked[move_serial].value == 1:
                         faker = self.get_prev_serial(move_serial)
-                        self.explosion40.start_effect()
-                        self.fakedout.start_effect()
+                        if self.audio_toggle:
+                            self.explosion40.start_effect()
+                            self.fakedout.start_effect()
                         self.pause_for_player_death( move_serial, faker)
 
                         self.dead_moves[move_serial].value -= 1
@@ -432,8 +437,9 @@ class Bomb():
 
 
                     elif self.move_opts[move_serial][Opts.selection.value] == Selections.counter.value:
-                        self.explosion40.start_effect()
-                        self.countered.start_effect()
+                        if self.audio_toggle:
+                            self.explosion40.start_effect()
+                            self.countered.start_effect()
                         self.pause_for_player_death(prev_faker, move_serial )
 
 
@@ -494,7 +500,6 @@ class Bomb():
 
     def get_prev_serial(self, serial):
         self.get_next_random_holder()
-        #print("returing prev faker as " + self.get_prev_random_holder())
         return self.get_prev_random_holder()
 
 
@@ -555,7 +560,8 @@ class Bomb():
                 for move_serial_beg in self.move_serials:
                     if self.move_opts[move_serial_beg][Opts.selection.value] == Selections.a_button.value:
                         if move_serial_beg not in in_cons:
-                            self.start_beep.start_effect()
+                            if self.audio_toggle:
+                                self.start_beep.start_effect()
                             in_cons.append(move_serial_beg)
                     if move_serial_beg in in_cons:
                         common.change_color(self.force_move_colors[move_serial_beg], 100,100,100)
@@ -564,32 +570,25 @@ class Bomb():
                 common.change_color(self.force_move_colors[move_serial], 0,0,0)
         for move_serial_beg in self.move_serials:
             self.move_opts[move_serial_beg][Opts.has_bomb.value] = Bool.no.value
-            #self.move_opts[move_serial_beg][Opts.holding.value] = Holding.not_holding.value
-
-        #print("rotate colors print bombs")
-        self.print_bombs()
-
-    def print_bombs(self):
-        for i, move_serial in enumerate(self.move_serials):
-            pass
-            #print("controller {}, serial {}, is dead {}, is holding {}, has bomb {}".format(i, move_serial, self.dead_moves[move_serial].value, self.move_opts[move_serial][Opts.holding.value], self.move_opts[move_serial][Opts.has_bomb.value]))
-        #print("\n")
-
 
 
     #need to do the count_down here
     def count_down(self):
         self.change_all_move_colors(80, 0, 0)
-        self.start_beep.start_effect()
+        if self.audio_toggle:
+            self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(70, 100, 0)
-        self.start_beep.start_effect()
+        if self.audio_toggle:
+            self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 70, 0)
-        self.start_beep.start_effect()
+        if self.audio_toggle:
+            self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 0, 0)
-        self.start_game.start_effect()
+        if self.audio_toggle:
+            self.start_game.start_effect()
 
 
     def change_all_move_colors(self, r, g, b):
@@ -612,7 +611,8 @@ class Bomb():
                 #remove alive move:
 
                 self.alive_moves.remove(alive_serial)
-                self.explosion.start_effect()
+                if self.audio_toggle:
+                    self.explosion.start_effect()
                 self.reset_bomb_time()
 
         if len(self.alive_moves) <= 1:
@@ -625,10 +625,11 @@ class Bomb():
             time.sleep(0.02)
 
     def end_game(self):
-        try:
-            self.audio.stop_audio()
-        except:
-            print('no audio loaded to stop')
+        if self.audio_toggle:
+            try:
+                self.audio.stop_audio()
+            except:
+                print('no audio loaded to stop')
         end_time = time.time() + END_GAME_PAUSE
 
         self.send_status('ending')
@@ -646,14 +647,6 @@ class Bomb():
                 if h_value >= 1:
                     h_value = 0
         self.running = False
-
-    def end_game_sound(self, winning_team):
-        #if self.game_mode == common.Games.JoustTeams:
-        if winning_team == Team.red.value:
-            team_win = Audio('audio/Commander/sounds/red winner.wav')
-        if winning_team == Team.blue.value:
-            team_win = Audio('audio/Commander/sounds/blue winner.wav')
-        team_win.start_effect()
 
     def check_command_queue(self):
         package = None
@@ -678,10 +671,11 @@ class Bomb():
         self.status_queue.put(json.dumps(data))
 
     def kill_game(self):
-        try:
-            self.audio.stop_audio()
-        except:
-            print('no audio loaded to stop')
+        if self.audio_toggle:
+            try:
+                self.audio.stop_audio()
+            except:
+                print('no audio loaded to stop')
         self.send_status('killed')
         all_moves = [x for x in self.dead_moves.keys()]
         end_time = time.time() + KILL_GAME_PAUSE

@@ -165,13 +165,15 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
 
 
 class Joust():
-    def __init__(self, game_mode, moves, teams, speed, command_queue, status_queue):
+    def __init__(self, game_mode, moves, teams, speed, command_queue, status_queue, audio_toggle):
 
         print("speed is {}".format(speed))
         global SLOW_MAX
         global SLOW_WARNING
         global FAST_MAX
         global FAST_WARNING
+
+        self.audo_toggle = audio_toggle
         
         SLOW_MAX = common.SLOW_MAX[speed]
         SLOW_WARNING = common.SLOW_WARNING[speed]
@@ -234,14 +236,16 @@ class Joust():
             if were_num <= 0:
                 were_num = 1
             self.choose_werewolf(were_num)
-
-        music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
-        self.start_beep = Audio('audio/Joust/sounds/start.wav')
-        self.start_game = Audio('audio/Joust/sounds/start3.wav')
-        self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
+        if self.audo_toggle:
+            music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
+            self.start_beep = Audio('audio/Joust/sounds/start.wav')
+            self.start_game = Audio('audio/Joust/sounds/start3.wav')
+            self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
+            end = False
+            self.audio = Audio(music, end)
         fast_resample = False
-        end = False
-        self.audio = Audio(music, end)
+        
+        
         #self.change_time = self.get_change_time(speed_up = True)
         
         self.speed_up = True
@@ -309,16 +313,20 @@ class Joust():
     #need to do the count_down here
     def count_down(self):
         self.change_all_move_colors(80, 0, 0)
-        self.start_beep.start_effect()
+        if self.audo_toggle:
+            self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(70, 100, 0)
-        self.start_beep.start_effect()
+        if self.audo_toggle:
+            self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 70, 0)
-        self.start_beep.start_effect()
+        if self.audo_toggle:
+            self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 0, 0)
-        self.start_game.start_effect()
+        if self.audo_toggle:
+            self.start_game.start_effect()
 
     def get_change_time(self, speed_up):
         min_moves = len(self.move_serials) - 2
@@ -402,10 +410,13 @@ class Joust():
                 #This is to play the sound effect
                 self.num_dead += 1
                 dead.value = -1
-                self.explosion.start_effect()
+                if self.audo_toggle:
+                    self.explosion.start_effect()
                 
         if team_win:
-            self.end_game_sound(winning_team)
+            self.send_status('ending',winning_team)
+            if self.audo_toggle:
+                self.end_game_sound(winning_team)
             for move_serial in self.teams.keys():
                 if self.get_real_team(self.teams[move_serial]) == winning_team:
                     self.winning_moves.append(move_serial)
@@ -418,7 +429,8 @@ class Joust():
             time.sleep(0.02)
 
     def end_game(self):
-        self.audio.stop_audio()
+        if self.audo_toggle:
+            self.audio.stop_audio()
         end_time = time.time() + END_GAME_PAUSE
                 
         h_value = 0
@@ -436,7 +448,7 @@ class Joust():
 
     def end_game_sound(self, winning_team):
         #if self.game_mode != common.Games.Traitor.value:
-        self.send_status('ending',winning_team)
+        
 
         if self.game_mode == common.Games.JoustTeams.value:
             if winning_team == 0:
@@ -500,14 +512,21 @@ class Joust():
             self.werewolf_intro()
         self.werewolf_reveal.value = 1
         if self.game_mode == common.Games.JoustRandomTeams.value:
-            Audio('audio/Joust/sounds/teams_form.wav').start_effect()
+            if self.audo_toggle:
+                Audio('audio/Joust/sounds/teams_form.wav').start_effect()
             self.show_team_colors.value = 1
             time.sleep(6)
         self.show_team_colors.value = 0
         self.count_down()
         self.change_time = time.time() + 6
         time.sleep(0.02)
-        self.audio.start_audio_loop()
+        if self.audo_toggle:
+            self.audio.start_audio_loop()
+        else:
+            #when no audio is playing set the music speed to middle speed
+            self.music_speed.value = (FAST_MUSIC_SPEED + SLOW_MUSIC_SPEED) / 2
+
+            
         time.sleep(0.8)
         if self.game_mode == common.Games.WereJoust.value:
             self.music_speed.value = SLOW_MUSIC_SPEED
@@ -521,10 +540,11 @@ class Joust():
                 self.update_time = time.time()
                 self.check_command_queue()
 
-            if self.game_mode != common.Games.WereJoust.value:
+            if self.game_mode != common.Games.WereJoust.value and self.audo_toggle:
                 self.check_music_speed()
             self.check_end_game()
-            self.werewolf_audio_cue()
+            if self.audo_toggle:
+                self.werewolf_audio_cue()
             if self.game_end:
                 self.end_game()
 

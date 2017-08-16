@@ -95,11 +95,11 @@ You can become an Admin by changing the game mode via the select button, this wi
 
 Web Interface
 ---------------------------------
-An optional web interface is available that allows you to view the game status and adjust settings from your phone (or anything with a web browser). To enable the web interface, run the command
+Joustmania can also be controlled via a web browser on your laptop or smartphone. If your Pi is on a network, use the IP address of your Pi (for example, http://192.168.1.xxx/). Alternatively, you can turn your Pi in to an access point and connect your device directly to it. To enable this,  run the command
 ```
 sudo ./enable_ap.sh
 ```
-This sets up a wireless access point with the Pi. (Note that this disables normal Wi-Fi on the Pi, but a wired connection will still work.) The default SSID is "JOUSTMANIA" and the default password is "joustmania"; both (and other) settings may be adjusted in the apfiles/hostapd.conf file before running enable_ap.sh. To connect to the game, go to http://joust.mania in your web browser. To disable the interface and restore Wi-Fi, run the command
+Note that this disables normal Wi-Fi on the Pi, but a wired connection will still work. The default SSID is "JOUSTMANIA" and the default password is "joustmania"; both (and other) settings may be adjusted in the apfiles/hostapd.conf file before running enable_ap.sh. To connect to the game, go to http://joust.mania in your web browser. To disable the access point and restore Wi-Fi, run the command
 ```
 sudo ./disable_ap.sh
 ```

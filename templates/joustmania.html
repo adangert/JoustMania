@@ -128,14 +128,9 @@ $(document).ready(function(){
         $.get('startgame');
     });
     $('#adminbutton').click(function(){
-        admin_menu = true;
-        $('.info_box').hide();
-        $('.admin').show();
+        window.location.href = "settings";
     });
-    $('#admin_return').click(function(){
-        admin_menu = false;
-        updateStatus();
-    });
+
     $('#killgame').click(function(){
         $.get('killgame');
     });
@@ -238,54 +233,6 @@ Game Killed!<br /><br />
 
 <div class='info_box' id='gamebuttons'>
 <button id='killgame'>Kill Game</button>
-</div>
-
-<div class='admin' id='admin_settings'>
-<h3>Admin Settings</h3>
-
-<form action='' id='admin_form'>
-Note: This screen does not update if changed from Move admin!
-<p>
-<input type='checkbox' name='move_admin' id='move_admin' checked=checked>
-<label for='move_admin'>Allow Move to change settings</label>
-</p>
-<p>
-<input type='checkbox' name='instructions' id='instructions' checked=checked>
-<label for='instructions'>Play instructions before game start</label>
-</p>
-<p>
-<select name='sensitivity' id='sensitivity'>
-    <option value=0>Slow</option>
-    <option value=1 selected=selected>Medium</option>
-    <option value=2>Fast</option>
-</select>
-<label for='sensitivity'>Move sensitivity</label>
-</p>
-<p>
-Random Mode Game Selection<br />
-<input type='checkbox' name='toggle_JoustFFA' name='toggle_JoustFFA' checked=checked>
-<label for='toggle_JoustFFA'>Joust Free-for-All</label><br />
-<input type='checkbox' name='toggle_RandomTeams' id='toggle_RandomTeams'>
-<label for='toggle_RandomTeams'>Joust Random Teams</label><br />
-<input type='checkbox' name='toggle_Traitors' id='toggle_Traitors'>
-<label for='toggle_Traitors'>Traitors</label><br />
-<input type='checkbox' name='toggle_WereJoust' id='toggle_WereJoust'>
-<label for='toggle_WereJoust'>Werewolves</label><br />
-<input type='checkbox' name='toggle_Zombies' id='toggle_Zombies'>
-<label for='toggle_Zombies'>Zombies</label><br />
-<input type='checkbox' name='toggle_Commander' id='toggle_Commander'>
-<label for='toggle_Commander'>Commander</label><br />
-<input type='checkbox' name='toggle_Swapper' id='toggle_Swapper'>
-<label for='toggle_Swapper'>Swapper</label><br />
-<input type='checkbox' name='toggle_Tournament' id='toggle_Tournament'>
-<label for='toggle_Tournament'>Tournament</label><br />
-<input type='checkbox' name='toggle_Ninja' id='toggle_Ninja'>
-<label for='toggle_Ninja'>Ninja Bomb</label><br />
-</p>
-</form>
-
-<button id='admin_update'>Save</button>
-<button id='admin_return'>Back</button>
 </div>
 
 <div class="error">

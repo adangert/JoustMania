@@ -1,0 +1,37 @@
+<html><head>
+<title>Joustmania!</title>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+
+<body>
+
+<div id='title'>
+
+<img src='{{ url_for('static', filename='PiPartyLogo2small.png') }}' /><br /><br />
+</div>
+
+<div class='admin' id='admin_settings'>
+<h3>Admin Settings</h3>
+
+<form action="/settings" method="POST">
+Note: This screen does not update if changed from Move admin!
+<p>
+{{ form.move_admin }} {{form.move_admin.label}}
+</p>
+<p>
+{{ form.instructions }} {{form.instructions.label}}
+</p>
+<p>
+{{ form.sensitivity }} {{form.sensitivity.label}}
+</p>
+<p>
+Random Mode Game Selection<br />
+{% for item in form.random_modes %}
+    {{ item }} {{ item.label }} <br />
+{% endfor %}
+</p>
+<input type="submit" value="Save Settings">
+</form>
+<a href="/">Go Back</a>
+</div>
+
+</body></html>

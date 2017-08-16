@@ -497,10 +497,7 @@ class Menu():
         self.instructions = 'instructions' in admin_info.keys()
         self.sensitivity = int(admin_info['sensitivity'])
 
-        toggles = ['toggle_JoustFFA','toggle_JoustTeams','toggle_RandomTeams',
-            'toggle_Traitors','toggle_WereJoust','toggle_Zombies',
-            'toggle_Commander','toggle_Swapper','toggle_Tournament',
-            'toggle_Ninja']
+        toggles = ['toggle %s' % s for s in common.gameModeNames]
         self.con_games = [i for i,t in enumerate(toggles) if t in admin_info.keys()]
         if self.con_games == []:
             self.con_games = [common.Games.JoustFFA.value]

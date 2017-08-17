@@ -13,12 +13,11 @@
 <h3>Admin Settings</h3>
 
 <form action="/settings" method="POST">
-Note: This screen does not update if changed from Move admin!
 <p>
-{{ form.move_admin }} {{form.move_admin.label}}
+{{ form.move_admin(checked=settings.move_admin) }} {{form.move_admin.label}}
 </p>
 <p>
-{{ form.instructions }} {{form.instructions.label}}
+{{ form.instructions(checked=settings.instructions) }} {{form.instructions.label}}
 </p>
 <p>
 {{ form.sensitivity }} {{form.sensitivity.label}}
@@ -26,7 +25,7 @@ Note: This screen does not update if changed from Move admin!
 <p>
 Random Mode Game Selection<br />
 {% for item in form.random_modes %}
-    {{ item }} {{ item.label }} <br />
+    {{ item(checked=item.data in settings.con_games) }} {{ item.label }} <br />
 {% endfor %}
 </p>
 <input type="submit" value="Save Settings">

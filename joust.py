@@ -564,7 +564,7 @@ class Joust():
 
     def send_status(self,game_status,winning_team=-1):
         data ={'game_status' : game_status,
-               'game_mode' : common.gameModeNames[self.game_mode],
+               'game_mode' : common.game_mode_names[self.game_mode],
                'winning_team' : winning_team}
         if self.game_mode == common.Games.JoustFFA.value:
             data['total_players'] = len(self.move_serials)

@@ -1,9 +1,10 @@
 from multiprocessing import Queue
 from time import sleep
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for
 from time import sleep
 from wtforms import Form, SelectField, SelectMultipleField, BooleanField, widgets
 import common
+import json
 
 class MultiCheckboxField(SelectMultipleField):
     """
@@ -19,8 +20,7 @@ class SettingsForm(Form):
     move_admin = BooleanField('Allow Move to change settings')
     instructions = BooleanField('Play instructions before game start')
     sensitivity = SelectField('Move sensitivity',choices=[(0,'Slow'),(1,'Medium'),(2,'Fast')],coerce=int)
-    #toggles = [('toggle %s' % s,s) for s in common.gameModeNames]
-    random_modes = MultiCheckboxField('Random Modes',choices=[(s,s) for s in common.gameModeNames])
+    random_modes = MultiCheckboxField('Random Modes',choices=[(s,s) for s in common.game_mode_names if s != "Random"])
 
 class WebUI():
     def __init__(self, command_queue=Queue(), status_queue=Queue()):
@@ -38,7 +38,7 @@ class WebUI():
 
 
     def web_loop(self):
-        self.app.run(host='0.0.0.0', port=80, debug=True)
+        self.app.run(host='0.0.0.0', port=80, debug=False)
 
     #@app.route('/')
     def index(self):
@@ -65,12 +65,20 @@ class WebUI():
         if request.method == 'POST':
             adminInfo = request.form
             print(adminInfo)
-            #self.commandQueue.put({'command': 'admin_update', 'admin_info': adminInfo})
+            self.commandQueue.put({'command': 'admin_update', 'admin_info': adminInfo})
+            sleep(.5) #because it takes a short amount of time to settings to update in the main thread
             return redirect(url_for('settings'))
         else:
-            settingsForm = SettingsForm(request.form)
-            #self.commandQueue.put({'command': 'getsettings'})
-            return render_template('settings.html', form=settingsForm)
+            updateInfo = "{'status':'lol'}"
+            while not(self.statusQueue.empty()):
+                updateInfo = self.statusQueue.get()
+            updateInfo = json.loads(updateInfo)
+            settingsForm = SettingsForm()
+            settingsForm.sensitivity.default = updateInfo['sensitivity']
+            settingsForm.process()
+            print(settingsForm.sensitivity.__dict__)
+            print(updateInfo)
+            return render_template('settings.html', form=settingsForm, settings=updateInfo)
 
     #@app.route('/updateStatus')
     def update(self):

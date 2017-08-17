@@ -107,7 +107,7 @@ function updateStatus(){
             $('.info_box').hide()
             $('.admin').hide()
             $('.error').show()
-            console.log('shit broke!')
+            console.log('something broke!')
         }
     });
 };
@@ -117,8 +117,8 @@ $(document).ready(function(){
 
     $('.main_status').hide()
     $('.info_box').hide()
-    $('.admin').hide()
     $('.error').hide()
+    $('#menubuttons').show()
     admin_menu = false
 
     $('#changemode').click(function(){
@@ -127,27 +127,8 @@ $(document).ready(function(){
     $('#startgame').click(function(){
         $.get('startgame');
     });
-    $('#adminbutton').click(function(){
-        window.location.href = "settings";
-    });
-
     $('#killgame').click(function(){
         $.get('killgame');
-    });
-    $('#admin_update').click(function(){
-        console.log($('#admin_form').serialize())
-        $.ajax({
-            url: 'admin_update',
-            data: $('#admin_form').serialize(),
-            type: 'POST',
-            success: function(response) {
-                console.log(response);
-            },
-            error: function(error) {
-                console.log('oh shit!')
-                console.log(error);
-            }
-        });
     });
     updateStatus();
     setInterval(updateStatus,500);
@@ -228,7 +209,7 @@ Game Killed!<br /><br />
 <div class='info_box' id='menubuttons'>
 <button id='changemode'>Change Mode</button>
 <button id='startgame'>Start Game</button>
-<button id='adminbutton'>Admin Settings</button>
+<a href="/settings">Admin Settings</a>
 </div>
 
 <div class='info_box' id='gamebuttons'>

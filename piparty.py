@@ -497,8 +497,9 @@ class Menu():
         self.instructions = 'instructions' in admin_info.keys()
         self.sensitivity = int(admin_info['sensitivity'])
 
-        toggles = ['toggle %s' % s for s in common.gameModeNames]
-        self.con_games = [i for i,t in enumerate(toggles) if t in admin_info.keys()]
+        selected_games = admin_info.getlist('random_modes')
+        self.con_games = [i for i,t in enumerate(common.game_mode_names) if t in selected_games]
+        print(self.con_games)
         if self.con_games == []:
             self.con_games = [common.Games.JoustFFA.value]
 
@@ -517,10 +518,14 @@ class Menu():
 
     def send_status(self,game_status):
         data ={'game_status' : game_status,
-               'game_mode' : common.gameModeNames[self.game_mode],
+               'game_mode' : common.game_mode_names[self.game_mode],
                'move_count' : self.move_count,
                'alive_count' : self.move_count - self.dead_count.value,
-               'ticker': self.i}
+               'ticker': self.i,
+               'move_admin': self.move_can_be_admin,
+               'instructions': self.instructions,
+               'sensitivity': self.sensitivity,
+               'con_games': [common.game_mode_names[i] for i in self.con_games]}
         self.status_queue.put(json.dumps(data))
         #print('status sent!')
 

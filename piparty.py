@@ -1,4 +1,5 @@
 import os
+import os.path
 import psmove
 import pair
 import common
@@ -235,26 +236,33 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
 
 
         move.update_leds()
-            
 
 class Menu():
     def __init__(self,command_queue=Queue(), status_queue=Queue()):
-        Config = configparser.ConfigParser()
-        Config.read("joustconfig.ini")
-        self.audio_toggle = Config.getboolean("DEFAULT","audio")
-        
+
+        if not os.path.isfile('joustconfig.ini'):
+            self.create_settings()
+        else:
+            config = configparser.ConfigParser()
+            config.read("joustconfig.ini")
+            self.audio_toggle = config.getboolean("GENERAL","audio")
+            self.sensitivity = int(config['GENERAL']['sensitivity'])
+            self.instructions = config.getboolean("GENERAL","instructions")
+            self.con_games = []
+            for i,mode in enumerate(common.game_mode_names):
+                if config.getboolean("CONGAMES",mode):
+                    self.con_games.append(i)
+
+        self.move_can_be_admin = True
         self.move_count = psmove.count_connected()
         self.dead_count = Value('i', 0)
         self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
         self.admin_move = None
-        self.move_can_be_admin = True
         #move controllers that have been taken out of play
         self.out_moves = {}
         self.random_added = []
         self.rand_game_list = []
 
-        self.sensitivity = Sensitivity.mid.value
-        self.instructions = False
         self.show_battery = Value('i', 0)
         
         self.tracked_moves = {}
@@ -262,7 +270,6 @@ class Menu():
         self.paired_moves = []
         self.move_opts = {}
         self.teams = {}
-        self.con_games = [common.Games.JoustFFA.value]
         self.game_mode = common.Games.Random.value
         self.old_game_mode = common.Games.Random.value
         self.pair = pair.Pair()
@@ -436,13 +443,12 @@ class Menu():
                         Audio('audio/Menu/instructions_on.wav').start_effect()
                     else:
                         Audio('audio/Menu/instructions_off.wav').start_effect()
+                self.update_settings_file()
 
             #change sensitivity
             if admin_opt[Opts.selection.value] == Selections.change_sensitivity.value:
-                #self.web_admin_update()
-                #return
-
                 admin_opt[Opts.selection.value] = Selections.nothing.value
+
                 self.sensitivity = (self.sensitivity + 1) %  SENSITIVITY_MODES
                 if self.audio_toggle:
                     if self.sensitivity == Sensitivity.slow.value:
@@ -451,6 +457,7 @@ class Menu():
                         Audio('audio/Menu/mid_sensitivity.wav').start_effect()
                     elif self.sensitivity == Sensitivity.fast.value:
                         Audio('audio/Menu/fast_sensitivity.wav').start_effect()
+                self.update_settings_file()
                 
             #no admin colors in con custom teams mode
             if self.game_mode == common.Games.JoustTeams.value or self.game_mode == common.Games.Random.value:
@@ -481,6 +488,7 @@ class Menu():
                     else:
                         if self.audio_toggle:
                             Audio('audio/Menu/game_err.wav').start_effect()
+                    self.update_settings_file()
             
     def web_admin_update(self,admin_info={'move_admin':True, 'sensitivity':1}):
 
@@ -496,13 +504,34 @@ class Menu():
 
         self.instructions = 'instructions' in admin_info.keys()
         self.sensitivity = int(admin_info['sensitivity'])
+        self.audio_toggle = 'audio' in admin_info.keys()
 
         selected_games = admin_info.getlist('random_modes')
         self.con_games = [i for i,t in enumerate(common.game_mode_names) if t in selected_games]
-        print(self.con_games)
+        #print(self.con_games)
         if self.con_games == []:
             self.con_games = [common.Games.JoustFFA.value]
 
+        self.update_settings_file()
+
+    def update_settings_file(self):
+        config = configparser.ConfigParser()
+        config['GENERAL'] = {
+            'sensitivity' : self.sensitivity,
+            'instructions' : str(self.instructions),
+            'audio': str(self.audio_toggle)
+        }
+        config['CONGAMES'] = {n:i in self.con_games for i,n in enumerate(common.game_mode_names)}
+        with open('joustconfig.ini','w') as ini_file:
+            config.write(ini_file)
+
+    def create_settings(self):
+        self.audio_toggle = True
+        self.sensitivity = Sensitivity.mid.value
+        self.instructions = False
+        self.con_games = [common.Games.JoustFFA.value]
+        self.update_settings_file()
+        os.system('chmod 666 joustconfig.ini')
 
     def check_command_queue(self):
         if not(self.command_queue.empty()):
@@ -525,6 +554,7 @@ class Menu():
                'move_admin': self.move_can_be_admin,
                'instructions': self.instructions,
                'sensitivity': self.sensitivity,
+               'audio': self.audio_toggle,
                'con_games': [common.game_mode_names[i] for i in self.con_games]}
         self.status_queue.put(json.dumps(data))
         #print('status sent!')

@@ -1,12 +1,41 @@
 <html><head>
 <title>Joustmania!</title>
 <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+<script type=text/javascript src='{{ url_for('static', filename='jquery.js') }}'></script>
+<script>
+function updateStatus(){
+    $.ajax({
+        url: 'updateStatus',
+        timeout: 2000,
+        success: function(rawdata){
+            info = JSON.parse(rawdata);
+            if (info.game_status != 'menu'){
+            	window.location.replace("/");
+            }
+        },
+        error: function(){
+            console.log('something broke!')
+        }
+    });
+};
 
+$(document).ready(function(){
+    updateStatus();
+    setInterval(updateStatus,1000);
+});
+</script>
 <body>
 
 <div id='title'>
 
 <img src='{{ url_for('static', filename='PiPartyLogo2small.png') }}' /><br /><br />
+</div>
+<div class="lol">
+{% with message = get_flashed_messages() %}
+  {% if message %}
+    <br>{{message[0]}}<br>
+  {% endif %}
+{% endwith %}
 </div>
 
 <div class='admin' id='admin_settings'>
@@ -20,6 +49,9 @@
 {{ form.instructions(checked=settings.instructions) }} {{form.instructions.label}}
 </p>
 <p>
+{{ form.audio(checked=settings.audio) }} {{form.audio.label}}
+</p>
+<p>
 {{ form.sensitivity }} {{form.sensitivity.label}}
 </p>
 <p>
@@ -30,7 +62,7 @@ Random Mode Game Selection<br />
 </p>
 <input type="submit" value="Save Settings">
 </form>
-<a href="/">Go Back</a>
+<a href="/"><button type="button">Go Back</button></a>
 </div>
 
 </body></html>

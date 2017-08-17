@@ -1,6 +1,6 @@
 from multiprocessing import Queue
 from time import sleep
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, flash
 from time import sleep
 from wtforms import Form, SelectField, SelectMultipleField, BooleanField, widgets
 import common
@@ -19,6 +19,7 @@ class MultiCheckboxField(SelectMultipleField):
 class SettingsForm(Form):
     move_admin = BooleanField('Allow Move to change settings')
     instructions = BooleanField('Play instructions before game start')
+    audio = BooleanField('Play audio')
     sensitivity = SelectField('Move sensitivity',choices=[(0,'Slow'),(1,'Medium'),(2,'Fast')],coerce=int)
     random_modes = MultiCheckboxField('Random Modes',choices=[(s,s) for s in common.game_mode_names if s != "Random"])
 
@@ -26,6 +27,7 @@ class WebUI():
     def __init__(self, command_queue=Queue(), status_queue=Queue()):
 
         self.app = Flask(__name__)
+        self.app.secret_key="MAGFest is a donut"
         self.commandQueue = command_queue
         self.statusQueue = status_queue
 
@@ -64,20 +66,19 @@ class WebUI():
     def settings(self):
         if request.method == 'POST':
             adminInfo = request.form
-            print(adminInfo)
             self.commandQueue.put({'command': 'admin_update', 'admin_info': adminInfo})
             sleep(.5) #because it takes a short amount of time to settings to update in the main thread
+            flash('Settings updated!')
             return redirect(url_for('settings'))
         else:
-            updateInfo = "{'status':'lol'}"
+            updateInfo = self.statusQueue.get()
             while not(self.statusQueue.empty()):
                 updateInfo = self.statusQueue.get()
+            #print(updateInfo)
             updateInfo = json.loads(updateInfo)
             settingsForm = SettingsForm()
             settingsForm.sensitivity.default = updateInfo['sensitivity']
             settingsForm.process()
-            print(settingsForm.sensitivity.__dict__)
-            print(updateInfo)
             return render_template('settings.html', form=settingsForm, settings=updateInfo)
 
     #@app.route('/updateStatus')

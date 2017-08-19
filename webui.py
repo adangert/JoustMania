@@ -1,4 +1,4 @@
-from multiprocessing import Queue
+from multiprocessing import Queue, Manager
 from time import sleep
 from flask import Flask, render_template, request, redirect, url_for, flash
 from time import sleep
@@ -13,7 +13,7 @@ class MultiCheckboxField(SelectMultipleField):
     Iterating the field will produce subfields, allowing custom rendering of
     the enclosed checkbox fields.
     """
-    widget = widgets.ListWidget(prefix_label=False)
+    widget = widgets.ListWidget(prefix_label=True)
     option_widget = widgets.CheckboxInput()
 
 class SettingsForm(Form):
@@ -24,12 +24,13 @@ class SettingsForm(Form):
     random_modes = MultiCheckboxField('Random Modes',choices=[(s,s) for s in common.game_mode_names if s != "Random"])
 
 class WebUI():
-    def __init__(self, command_queue=Queue(), status_queue=Queue()):
+    def __init__(self, command_queue=Queue(), ns=Manager().Namespace()):
 
         self.app = Flask(__name__)
         self.app.secret_key="MAGFest is a donut"
-        self.commandQueue = command_queue
-        self.statusQueue = status_queue
+        self.command_queue = command_queue
+        self.status_ns = ns
+        self.status_ns.status_dict = dict()
 
         self.app.add_url_rule('/','index',self.index)
         self.app.add_url_rule('/changemode','change_mode',self.change_mode)
@@ -48,17 +49,17 @@ class WebUI():
 
     #@app.route('/changemode')
     def change_mode(self):
-        self.commandQueue.put({'command': 'changemode'})
+        self.command_queue.put({'command': 'changemode'})
         return "{'status':'OK'}"
 
     #@app.route('/startgame')
     def start_game(self):
-        self.commandQueue.put({'command': 'startgame'})
+        self.command_queue.put({'command': 'startgame'})
         return "{'status':'OK'}"
 
     #@app.route('/killgame')
     def kill_game(self):
-        self.commandQueue.put({'command': 'killgame'})
+        self.command_queue.put({'command': 'killgame'})
         return "{'status':'OK'}"
 
 
@@ -66,27 +67,23 @@ class WebUI():
     def settings(self):
         if request.method == 'POST':
             adminInfo = request.form
-            self.commandQueue.put({'command': 'admin_update', 'admin_info': adminInfo})
+            self.command_queue.put({'command': 'admin_update', 'admin_info': adminInfo})
             sleep(.5) #because it takes a short amount of time to settings to update in the main thread
             flash('Settings updated!')
             return redirect(url_for('settings'))
         else:
-            updateInfo = self.statusQueue.get()
-            while not(self.statusQueue.empty()):
-                updateInfo = self.statusQueue.get()
-            #print(updateInfo)
-            updateInfo = json.loads(updateInfo)
             settingsForm = SettingsForm()
-            settingsForm.sensitivity.default = updateInfo['sensitivity']
+            settingsForm.sensitivity.default = self.status_ns.status_dict['sensitivity']
             settingsForm.process()
-            return render_template('settings.html', form=settingsForm, settings=updateInfo)
+            return render_template('settings.html', form=settingsForm, settings=self.status_ns.status_dict)
 
     #@app.route('/updateStatus')
     def update(self):
-        updateInfo = "{'status':'lol'}"
-        while not(self.statusQueue.empty()):
-            updateInfo = self.statusQueue.get()
-        return updateInfo
+        return json.dumps(self.status_ns.status_dict)
+
+def start_web(command_queue, ns):
+    webui = WebUI(command_queue,ns)
+    webui.web_loop()
 
 if __name__ == '__main__':
     webui = WebUI()

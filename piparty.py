@@ -15,9 +15,9 @@ import json
 import configparser
 from piaudio import Audio
 from enum import Enum
-from multiprocessing import Process, Value, Array, Queue
+from multiprocessing import Process, Value, Array, Queue, Manager
 import sys
-from webui import WebUI
+from webui import start_web
 
 TEAM_NUM = 6
 TEAM_COLORS = common.generate_colors(TEAM_NUM)
@@ -238,7 +238,7 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
         move.update_leds()
 
 class Menu():
-    def __init__(self,command_queue=Queue(), status_queue=Queue()):
+    def __init__(self,command_queue=Queue(), status_manager=Manager()):
 
         if not os.path.isfile('joustconfig.ini'):
             self.create_settings()
@@ -275,15 +275,16 @@ class Menu():
         self.pair = pair.Pair()
 
         self.command_queue = command_queue
-        self.status_queue = status_queue
+        self.status_manager = status_manager
+        self.status_ns = status_manager.Namespace()
+        self.status_ns.status_dict = dict()
         self.command_from_web = ''
 
         self.i = 0
 
     def start_web(self):
-        webui = WebUI(self.command_queue,self.status_queue)
-        webProc = Process(target=webui.web_loop)
-        webProc.start()
+        web_proc = Process(target=start_web, args=(self.command_queue,self.status_ns))
+        web_proc.start()
 
 
     def exclude_out_moves(self):
@@ -408,7 +409,6 @@ class Menu():
         self.start_web()
         while True:
             self.i=self.i+1
-            #print(self.i)
             if psmove.count_connected() != len(self.tracked_moves):
                 for move_num, move in enumerate(self.moves):
                     self.pair_move(move, move_num)
@@ -418,6 +418,7 @@ class Menu():
                 self.check_admin_controls()
                 self.check_start_game()
             self.check_command_queue()
+            self.update_status('menu')
             
 
     def check_admin_controls(self):
@@ -531,7 +532,7 @@ class Menu():
         self.instructions = False
         self.con_games = [common.Games.JoustFFA.value]
         self.update_settings_file()
-        os.system('chmod 666 joustconfig.ini')
+        os.system('chmod 666 joustconfig.ini') #damn root
 
     def check_command_queue(self):
         if not(self.command_queue.empty()):
@@ -541,11 +542,8 @@ class Menu():
                 self.web_admin_update(package['admin_info'])
             else:
                 self.command_from_web = command
-        while not(self.status_queue.empty()):
-            self.status_queue.get()
-        self.send_status('menu')
 
-    def send_status(self,game_status):
+    def update_status(self,game_status):
         data ={'game_status' : game_status,
                'game_mode' : common.game_mode_names[self.game_mode],
                'move_count' : self.move_count,
@@ -556,7 +554,7 @@ class Menu():
                'sensitivity': self.sensitivity,
                'audio': self.audio_toggle,
                'con_games': [common.game_mode_names[i] for i in self.con_games]}
-        self.status_queue.put(json.dumps(data))
+        self.status_ns.status_dict = data
         #print('status sent!')
 
     def stop_tracking_moves(self):
@@ -622,7 +620,7 @@ class Menu():
 
 
     def start_game(self, random_mode=False):
-        self.send_status('starting')
+        self.update_status('starting')
         self.enable_bt_scanning(False)
         self.exclude_out_moves()
         self.stop_tracking_moves()
@@ -652,23 +650,23 @@ class Menu():
             self.play_random_instructions()
         
         if self.game_mode == common.Games.Zombies.value:
-            zombie.Zombie(game_moves, self.sensitivity, self.command_queue, self.status_queue, self.audio_toggle)
+            zombie.Zombie(game_moves, self.sensitivity, self.command_queue, self.status_ns, self.audio_toggle)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Commander.value:
-            commander.Commander(game_moves, self.sensitivity, self.command_queue, self.status_queue)
+            commander.Commander(game_moves, self.sensitivity, self.command_queue, self.status_ns)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Ninja.value:
-            speed_bomb.Bomb(game_moves, self.command_queue, self.status_queue, self.audio_toggle)
+            speed_bomb.Bomb(game_moves, self.command_queue, self.status_ns, self.audio_toggle)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Swapper.value:
-            swapper.Swapper(game_moves, self.sensitivity, self.command_queue, self.status_queue, self.audio_toggle)
+            swapper.Swapper(game_moves, self.sensitivity, self.command_queue, self.status_ns, self.audio_toggle)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Tournament.value:
-            tournament.Tournament(game_moves, self.sensitivity, self.command_queue, self.status_queue, self.audio_toggle)
+            tournament.Tournament(game_moves, self.sensitivity, self.command_queue, self.status_ns, self.audio_toggle)
             self.tracked_moves = {}
         else:
             #may need to put in moves that have selected to not be in the game
-            joust.Joust(self.game_mode, game_moves, self.teams, self.sensitivity, self.command_queue, self.status_queue, self.audio_toggle)
+            joust.Joust(self.game_mode, game_moves, self.teams, self.sensitivity, self.command_queue, self.status_ns, self.audio_toggle)
             self.tracked_moves = {}
         if random_mode:
             self.game_mode = common.Games.Random.value

@@ -62,3 +62,4 @@ audio/Commander/music/
 audio/Zombie/music/
 !audio/Joust/music/classical.wav
 *.ini
+apfiles/ap_active

@@ -236,7 +236,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
             
 
 class Commander():
-    def __init__(self, moves, speed, command_queue, status_queue):
+    def __init__(self, moves, speed, command_queue, status_ns):
         global SLOW_MAX
         global SLOW_WARNING
         global FAST_MAX
@@ -248,7 +248,7 @@ class Commander():
         FAST_WARNING = common.FAST_WARNING[speed]
 
         self.command_queue = command_queue
-        self.status_queue = status_queue
+        self.status_ns = status_ns
         self.update_time = 0
 
         self.move_serials = moves
@@ -387,7 +387,7 @@ class Commander():
                 self.get_winning_team_members(winning_team)
                 self.game_end = True
 
-                self.send_status('ending',winning_team)
+                self.update_status('ending',winning_team)
                 
 
         for move_serial, dead in self.dead_moves.items():
@@ -575,6 +575,7 @@ class Commander():
             if time.time() - 0.1 > self.update_time:
                 self.update_time = time.time()
                 self.check_command_queue()
+                self.update_status('in_game')
 
             self.update_team_powers()
             self.check_commander_power()
@@ -593,9 +594,7 @@ class Commander():
         if not(package == None):
             if command == 'killgame':
                 self.kill_game()
-        while not(self.status_queue.empty()):
-            self.status_queue.get()
-        self.send_status('in_game')
+        
 
 # class Team(Enum):
 #     red = 0
@@ -605,7 +604,7 @@ class Commander():
 #1=alive
 #0=dead
 
-    def send_status(self,game_status,winning_team=-1):
+    def update_status(self,game_status,winning_team=-1):
         if self.red_overdrive.value == 1:
             red_od_status = 'Active'
         elif self.powers_active[Team.red.value] == True:
@@ -635,14 +634,14 @@ class Commander():
                'blue_players': len(blue_team),
                'blue_alive': len(blue_alive),
                'blue_od_status': blue_od_status}
-        self.status_queue.put(json.dumps(data))
+        self.status_ns.status_dict = data
 
     def kill_game(self):
         try:
             self.audio.stop_audio()
         except:
             print('no audio loaded to stop')        
-        self.send_status('killed')
+        self.update_status('killed')
         all_moves = [x for x in self.dead_moves.keys()]
         end_time = time.time() + KILL_GAME_PAUSE     
         

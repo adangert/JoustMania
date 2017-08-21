@@ -196,7 +196,7 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
 
 
 class Bomb():
-    def __init__(self, moves, command_queue, status_queue, audio_toggle):
+    def __init__(self, moves, command_queue, status_ns, audio_toggle):
 
         self.audio_toggle = audio_toggle
         self.move_serials = moves
@@ -223,7 +223,7 @@ class Bomb():
         self.prev_rand_holder = ''
 
         self.command_queue = command_queue
-        self.status_queue = status_queue
+        self.status_ns = status_ns
         self.update_time = 0
 
         if self.audio_toggle:
@@ -328,6 +328,7 @@ class Bomb():
             if time.time() - 0.1 > self.update_time:
                 self.update_time = time.time()
                 self.check_command_queue()
+                self.update_status('in_game')
 
             percentage = 1-((self.bomb_time - time.time())/(self.bomb_time - self.bomb_start_time))
 
@@ -632,7 +633,7 @@ class Bomb():
                 print('no audio loaded to stop')
         end_time = time.time() + END_GAME_PAUSE
 
-        self.send_status('ending')
+        self.update_status('ending')
 
         h_value = 0
 
@@ -651,24 +652,20 @@ class Bomb():
     def check_command_queue(self):
         package = None
         while not(self.command_queue.empty()):
-            #print('what\nwhat\nwhat\nwhat\nwhat\nwhat\nwhat\nwhat\n')
             package = self.command_queue.get()
             command = package['command']
         if not(package == None):
             if command == 'killgame':
                 self.kill_game()
-        while not(self.status_queue.empty()):
-            self.status_queue.get()
-        self.send_status('in_game')
 
-    def send_status(self,game_status,winning_team=-1):
+    def update_status(self,game_status,winning_team=-1):
         data ={'game_status' : game_status,
                'game_mode' : 'Ninja',
                'winning_team' : winning_team,
                'total_players': len(self.move_serials),
                'remaining_players': len(self.alive_moves)}
 
-        self.status_queue.put(json.dumps(data))
+        self.status_ns.status_dict = data
 
     def kill_game(self):
         if self.audio_toggle:
@@ -676,7 +673,7 @@ class Bomb():
                 self.audio.stop_audio()
             except:
                 print('no audio loaded to stop')
-        self.send_status('killed')
+        self.update_status('killed')
         all_moves = [x for x in self.dead_moves.keys()]
         end_time = time.time() + KILL_GAME_PAUSE
 

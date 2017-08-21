@@ -165,7 +165,7 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
 
 
 class Joust():
-    def __init__(self, game_mode, moves, teams, speed, command_queue, status_queue, audio_toggle):
+    def __init__(self, game_mode, moves, teams, speed, command_queue, status_ns, audio_toggle):
 
         print("speed is {}".format(speed))
         global SLOW_MAX
@@ -207,11 +207,11 @@ class Joust():
         self.show_team_colors = Value('i', 0)
 
         self.command_queue = command_queue
-        self.status_queue = status_queue
+        self.status_ns = status_ns
         self.update_time = 0
         self.alive_moves = []
 
-        #self.send_status('starting')
+        #self.update_status('starting')
         
         self.werewolf_reveal = Value('i', 2)
         if game_mode == common.Games.JoustFFA.value:
@@ -414,7 +414,7 @@ class Joust():
                     self.explosion.start_effect()
                 
         if team_win:
-            self.send_status('ending',winning_team)
+            self.update_status('ending',winning_team)
             if self.audo_toggle:
                 self.end_game_sound(winning_team)
             for move_serial in self.teams.keys():
@@ -539,6 +539,7 @@ class Joust():
             if time.time() - 0.1 > self.update_time:
                 self.update_time = time.time()
                 self.check_command_queue()
+                self.update_status('in_game')
 
             if self.game_mode != common.Games.WereJoust.value and self.audo_toggle:
                 self.check_music_speed()
@@ -551,9 +552,6 @@ class Joust():
         self.stop_tracking_moves()
          
     def check_command_queue(self):
-        while not(self.status_queue.empty()):
-            self.status_queue.get()
-        self.send_status('in_game')
         package = None
         while not(self.command_queue.empty()):
             package = self.command_queue.get()
@@ -562,9 +560,9 @@ class Joust():
             if command == 'killgame':
                 self.kill_game()
 
-    def send_status(self,game_status,winning_team=-1):
+    def update_status(self,game_status,winning_team=-1):
         data ={'game_status' : game_status,
-               'game_mode' : common.gameModeNames[self.game_mode],
+               'game_mode' : common.game_mode_names[self.game_mode],
                'winning_team' : winning_team}
         if self.game_mode == common.Games.JoustFFA.value:
             data['total_players'] = len(self.move_serials)
@@ -595,15 +593,14 @@ class Joust():
             else:
                 data['time_to_reveal'] = thyme
 
-        self.status_queue.put(json.dumps(data))
-        #print('status sent!')
+        self.status_ns.status_dict = data
 
     def kill_game(self):
         try:
             self.audio.stop_audio()
         except:
             print('no audio loaded to stop')        
-        self.send_status('killed')
+        self.update_status('killed')
         all_moves = [x for x in self.dead_moves.keys()]
         end_time = time.time() + KILL_GAME_PAUSE     
         

@@ -71,7 +71,7 @@ class Buttons(Enum):
     nothing = 0
 
 
-gameModeNames = [
+game_mode_names = [
     'Joust Free-for-All',
     'Joust Teams',
     'Joust Random Teams',

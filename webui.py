@@ -65,7 +65,7 @@ class WebUI():
 
     #@app.route('/battery')
     def battery_status(self):
-        return render_template('battery.html',battery_status=self.status_ns.battery_status)
+        return render_template('battery.html',ns=self.status_ns,levels=common.battery_levels)
 
     #@app.route('/settings')
     def settings(self):

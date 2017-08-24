@@ -83,3 +83,14 @@ game_mode_names = [
     'Tournament'
     ,'Ninja Bomb'
     ,'Random']
+
+battery_levels = {
+    0: "Low",
+    1: "20%",
+    2: "40%",
+    3: "60%",
+    4: "80%",
+    5: "100%",
+    238: "Charging",
+    239: "Charged"
+}

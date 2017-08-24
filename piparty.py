@@ -101,13 +101,19 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                 #show battery level
                 if battery.value == 1:
                     battery_level = move.get_battery()
-                    if battery_level == 5: # 100% - green
-                        move.set_leds(0, 255, 0)
-                    elif battery_level == 4: # 80% - blue
+                    #granted a charging move should be dead 
+                    #so it won't light up anyway
+                    if battery_level == 238: # charging - dim
+                        move.set_leds(10,10,10)
+                    elif battery_level == 239: # fully charged - white
+                        move.set_leds(255,255,255)
+                    elif battery_level in [4,5]: # 80%+ - green
+                        move.set_leds(0,255,0)
+                    elif battery_level in [2,3]: # 40%+ - blue
                         move.set_leds(0,0,255)
-                    elif battery_level == 3: # 60% - yellow
+                    elif battery_level == 1: # 20%+ - yellow
                         move.set_leds(255, 255, 0)
-                    else: # <= 40% - red
+                    else: # under 20% - red
                         move.set_leds(255, 0, 0)
                     
                 #custom team mode is the only game mode that
@@ -558,8 +564,11 @@ class Menu():
 
         battery_status = {}
         for move in self.moves:
+            move.poll()
             battery_status[move.get_serial()] = move.get_battery()
         self.status_ns.battery_status = battery_status
+
+        self.status_ns.out_moves = self.out_moves
 
     def stop_tracking_moves(self):
         for proc in self.tracked_moves.values():

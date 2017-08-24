@@ -104,10 +104,6 @@ Note that this disables normal Wi-Fi on the Pi, but a wired connection will stil
 sudo ./disable_ap.sh
 ```
 
-The web interface is currently a WIP. Known issues are:
-* The settings menu does not update if modified from a Move controller or another device via web browser
-* Newer game modes may not properly dispaly game status
-
 Custom Music
 ---------------------------------
 * JoustMania comes with a single classical music piece

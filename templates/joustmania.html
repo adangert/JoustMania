@@ -1,7 +1,5 @@
-<html><head>
-<title>Joustmania!</title>
-<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
-<script type=text/javascript src='{{ url_for('static', filename='jquery.js') }}'></script>
+{% extends "basic.html" %}
+{% block header %}
 <script>
 function updateStatus(){
     $.ajax({
@@ -134,13 +132,9 @@ $(document).ready(function(){
     setInterval(updateStatus,500);
 });
 </script>
-<body>
+{% endblock %}
 
-<div id='title'>
-
-<img src='{{ url_for('static', filename='PiPartyLogo2small.png') }}' /><br /><br />
-</div>
-
+{% block body %}
 <div class='main_status'>
 Curent mode: <span id='game_mode'>Joust Null</span><br />
 Game status: <span id='game_status'>False</span><br />
@@ -222,4 +216,4 @@ Game Killed!<br /><br />
 Cannot connect to Joustmania!
 </div>
 
-</body></html>
+{% endblock %}

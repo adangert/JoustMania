@@ -1,7 +1,5 @@
-<html><head>
-<title>Joustmania!</title>
-<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
-<script type=text/javascript src='{{ url_for('static', filename='jquery.js') }}'></script>
+{% extends "basic.html" %}
+{% block header %}
 <script>
 function updateStatus(){
     $.ajax({
@@ -24,12 +22,12 @@ $(document).ready(function(){
     setInterval(updateStatus,1000);
 });
 </script>
-<body>
+<style>
+p{line-height: 200%}
+</style>
+{% endblock %}
 
-<div id='title'>
-
-<img src='{{ url_for('static', filename='PiPartyLogo2small.png') }}' /><br /><br />
-</div>
+{% block body %}
 <div class="lol">
 {% with message = get_flashed_messages() %}
   {% if message %}
@@ -54,7 +52,7 @@ $(document).ready(function(){
 <p>
 {{ form.sensitivity }} {{form.sensitivity.label}}
 </p>
-<p>
+<p id="random">
 Random Mode Game Selection<br />
 {% for item in form.random_modes %}
     {{ item(checked=item.data in settings.con_games) }} {{ item.label }} <br />
@@ -64,5 +62,4 @@ Random Mode Game Selection<br />
 </form>
 <a href="/"><button type="button">Go Back</button></a>
 </div>
-
-</body></html>
+{% endblock %}

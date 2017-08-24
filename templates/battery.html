@@ -1,6 +1,7 @@
-<html><head>
+{% extends "basic.html" %}
+{% block header %}
 <style>
-table,td {border:1px solid black;  padding:5px; font-weight:bold;}
+table,td {border:1pt solid black;  padding:3pt;}
 table{border-collapse: collapse;}
 
 .batt5, .batt4{background-color:#80ff80;}
@@ -13,15 +14,9 @@ table{border-collapse: collapse;}
 .act1{background-color:lightgray;}
 .act0{background-color:#80ff80;}
 </style>
+{% endblock %}
 
-<title>Joustmania!</title>
-<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
-</head>
-<body>
-
-<div id='title'>
-<img src='{{ url_for('static', filename='PiPartyLogo2small.png') }}' /><br /><br />
-</div>
+{% block body %}
 Note: Does not update during games.<br/><br/>
 <table><tr><td>MAC Address</td><td>Battery</td><td>Active</td></tr>
 {% for move in ns.battery_status %}
@@ -32,5 +27,4 @@ Note: Does not update during games.<br/><br/>
 <br/>
 <a href="/battery"><button type="button">Refresh</button></a>
 <a href="/"><button type="button">Go Back</button></a>
-</body>
-</html>
+{% endblock %}

@@ -1,0 +1,8 @@
+body{font-size: 15pt;}
+button{font-size:16pt;}
+img{text-align: center;}
+input[type=checkbox] {transform: scale(2); vertical-align:middle; margin: 5pt;}
+input {font-size: 16pt;}
+select {font-size: 16pt;}
+table {font-size: 14pt;}
+#title {text-align: center;}

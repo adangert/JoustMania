@@ -103,8 +103,8 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                     battery_level = move.get_battery()
                     if battery_level == 5: # 100% - green
                         move.set_leds(0, 255, 0)
-                    elif battery_level == 4: # 80% - green-ish
-                        move.set_leds(128, 200, 0)
+                    elif battery_level == 4: # 80% - blue
+                        move.set_leds(0,0,255)
                     elif battery_level == 3: # 60% - yellow
                         move.set_leds(255, 255, 0)
                     else: # <= 40% - red
@@ -555,7 +555,11 @@ class Menu():
                'audio': self.audio_toggle,
                'con_games': [common.game_mode_names[i] for i in self.con_games]}
         self.status_ns.status_dict = data
-        #print('status sent!')
+
+        battery_status = {}
+        for move in self.moves:
+            battery_status[move.get_serial()] = move.get_battery()
+        self.status_ns.battery_status = battery_status
 
     def stop_tracking_moves(self):
         for proc in self.tracked_moves.values():

@@ -1,0 +1,14 @@
+<html><head>
+<title>Joustmania!</title>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+</head>
+<body>
+
+<div id='title'>
+<img src='{{ url_for('static', filename='PiPartyLogo2small.png') }}' /><br /><br />
+</div>
+{% for move in battery_status %}
+{{move}} ----- {{battery_status[move]}}<br/>
+{% endfor %}
+</body>
+</html>

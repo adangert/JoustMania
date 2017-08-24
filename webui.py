@@ -37,6 +37,7 @@ class WebUI():
         self.app.add_url_rule('/startgame','start_game',self.start_game)
         self.app.add_url_rule('/killgame','kill_game',self.kill_game)
         self.app.add_url_rule('/updateStatus','update',self.update)
+        self.app.add_url_rule('/battery','battery_status',self.battery_status)
         self.app.add_url_rule('/settings','settings',self.settings, methods=['GET','POST'])
 
 
@@ -62,6 +63,9 @@ class WebUI():
         self.command_queue.put({'command': 'killgame'})
         return "{'status':'OK'}"
 
+    #@app.route('/battery')
+    def battery_status(self):
+        return render_template('battery.html',battery_status=self.status_ns.battery_status)
 
     #@app.route('/settings')
     def settings(self):

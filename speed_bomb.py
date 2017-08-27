@@ -110,7 +110,7 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                 no_bomb_color = [30,30,30]
                 no_fake_bomb_color = [100,100,100]
             if move.poll():
-                
+
                 button = move.get_buttons()
                 if move_opts[Opts.has_bomb.value] == Bool.yes.value:
                     if(move.get_trigger() > 50 and can_fake):
@@ -131,7 +131,7 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                             col3 = int(common.lerp(no_fake_bomb_color[2], fake_bomb_color[2], (move.get_trigger()-127)/128))
                             move.set_leds(col1,col2,col3)
                             #move.set_leds(0,200,0)
-                    
+
 
                     else:
                         move.set_leds(*bomb_color)
@@ -157,7 +157,7 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                     if  move_opts[Opts.holding.value] == Holding.not_holding.value and (move.get_trigger() > 50 or button == Buttons.middle.value):
                         if move_opts[Opts.has_bomb.value] == Bool.no.value:
                             move_opts[Opts.holding.value] = Holding.holding.value
-                            
+
                             if game_start.value == 1 and false_color.value == 1:
                                 print("JUST DIED TO BEING FAKED!!!")
                                 faked.value = 1
@@ -174,12 +174,12 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                     move_opts[Opts.holding.value] = Holding.holding.value
 
 
-                    
-                    
+
+
                 elif move_opts[Opts.holding.value] == Holding.holding.value and button == Buttons.nothing.value and move.get_trigger() <= 50:
                     move_opts[Opts.selection.value] = Selections.nothing.value
                     move_opts[Opts.holding.value] = Holding.not_holding.value
-                
+
         else:
             if super_dead == False:
                 #for i in range(100):
@@ -193,11 +193,12 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
 
         move.update_leds()
         #if we are dead
-            
+
 
 class Bomb():
-    def __init__(self, moves, command_queue, status_queue):
+    def __init__(self, moves, command_queue, status_ns, audio_toggle):
 
+        self.audio_toggle = audio_toggle
         self.move_serials = moves
         self.tracked_moves = {}
         self.dead_moves = {}
@@ -222,36 +223,37 @@ class Bomb():
         self.prev_rand_holder = ''
 
         self.command_queue = command_queue
-        self.status_queue = status_queue
+        self.status_ns = status_ns
         self.update_time = 0
 
-        try:
-            music = 'audio/Commander/music/' + random.choice(os.listdir('audio/Commander/music'))
-        except:
-            print('no music in audio/Commander/music')
-        self.start_beep = Audio('audio/Joust/sounds/start.wav')
-        self.start_game = Audio('audio/Joust/sounds/start3.wav')
-        self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
-        self.fakedout = Audio('audio/Joust/sounds/Fakedout.wav')
-        self.explosion40 = Audio('audio/Joust/sounds/Explosion40.wav')
-        self.countered = Audio('audio/Joust/sounds/countered.wav')
-        self.Fakecountered = Audio('audio/Joust/sounds/FakedoutCounter.wav')
-        self.explosiondeath = Audio('audio/Joust/sounds/explosiondeath.wav')
+        if self.audio_toggle:
+            try:
+                music = 'audio/Commander/music/' + random.choice(os.listdir('audio/Commander/music'))
+            except:
+                print('no music in audio/Commander/music')
+            self.start_beep = Audio('audio/Joust/sounds/start.wav')
+            self.start_game = Audio('audio/Joust/sounds/start3.wav')
+            self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
+            self.fakedout = Audio('audio/Joust/sounds/Fakedout.wav')
+            self.explosion40 = Audio('audio/Joust/sounds/Explosion40.wav')
+            self.countered = Audio('audio/Joust/sounds/countered.wav')
+            self.Fakecountered = Audio('audio/Joust/sounds/FakedoutCounter.wav')
+            self.explosiondeath = Audio('audio/Joust/sounds/explosiondeath.wav')
 
-        end = False
-        try:
-            self.audio = Audio(music, end)
-        except:
-            print('no audio loaded')
+            end = False
+            try:
+                self.audio = Audio(music, end)
+            except:
+                print('no audio loaded')
 
 
         self.game_end = False
 
-        
+
         self.game_loop()
 
     def reset_bomb_length(self):
-        self.bomb_length = 5.0
+        self.bomb_length = 4.0
 
     def get_bomb_length(self):
         self.bomb_length -= 0.3
@@ -261,8 +263,8 @@ class Bomb():
 
     def get_prev_random_holder(self):
         return self.bomb_serial
-        
-    
+
+
     def get_next_random_holder(self):
         #if self.current_rand_holder != self.bomb_serial:
             #self.current_rand_holder = self.move_serials[random.choice(range(len(self.move_serials)))]
@@ -276,8 +278,8 @@ class Bomb():
         #print("returning " + self.next_rand_holder)
         return self.next_rand_holder
 
-            
-        
+
+
 
     def get_next_bomb_holder(self, serial=None):
         if serial:
@@ -291,14 +293,13 @@ class Bomb():
             #    yield new_serial
             #holder = (holder +1) % len(self.move_serials)
 
-        
+
     def reset_bomb_time(self):
         self.bomb_time = time.time() + self.get_bomb_length()
         self.bomb_start_time = time.time()
 
     def game_loop(self):
         self.track_moves()
-        self.print_bombs()
         self.rotate_colors()
         self.bomb_serial = self.move_serials[random.choice(range(len(self.move_serials)))]
         self.next_rand_holder = self.bomb_serial
@@ -306,26 +307,28 @@ class Bomb():
 
         self.bomb_serial = next(self.bomb_generator)
         self.move_opts[self.bomb_serial][Opts.has_bomb.value] = Bool.yes.value
-        
+
 
         self.holding = True
         self.game_start.value = 1
         self.count_down()
         time.sleep(0.02)
-        try:
-            self.audio.start_audio_loop()
-        except:
-            print('no audio loaded to start')
+        if self.audio_toggle:
+            try:
+                self.audio.start_audio_loop()
+            except:
+                print('no audio loaded to start')
         time.sleep(0.8)
-        
+
         self.bomb_time = time.time() + self.get_bomb_length()
         self.bomb_start_time = time.time()
-        
+
         while self.running:
 
             if time.time() - 0.1 > self.update_time:
                 self.update_time = time.time()
                 self.check_command_queue()
+                self.update_status('in_game')
 
             percentage = 1-((self.bomb_time - time.time())/(self.bomb_time - self.bomb_start_time))
 
@@ -341,15 +344,16 @@ class Bomb():
             if self.move_opts[self.bomb_serial][Opts.selection.value] == Selections.a_button.value and self.holding == False:
                 self.reset_bomb_time()
                 self.move_bomb()
-
-                self.start_beep.start_effect()
+                if self.audio_toggle:
+                    self.start_beep.start_effect()
                 self.holding = True
             if time.time() > self.bomb_time:
-                self.explosiondeath.start_effect()
+                if self.audio_toggle:
+                    self.explosiondeath.start_effect()
 
-                self.explosion.start_effect()
+                    self.explosion.start_effect()
                 self.pause_for_player_death(self.bomb_serial)
-                    
+
                 self.dead_moves[self.bomb_serial].value -= 1
 
                 self.reset_bomb_length()
@@ -408,19 +412,21 @@ class Bomb():
                     self.reset_bomb_time()
                     self.reset_bomb_length()
                     self.false_colors[faker].value = 1
-                    self.start_beep.start_effect()
+                    if self.audio_toggle:
+                        self.start_beep.start_effect()
                     self.move_opts[move_serial][Opts.holding.value] = Holding.holding.value
 
 
-                #we are being faked out    
+                #we are being faked out
                 if self.false_colors[move_serial].value == 1:
                     prev_faker = self.get_prev_serial(move_serial)
 
                     #Pushed middle button, when faked
                     if self.was_faked[move_serial].value == 1:
                         faker = self.get_prev_serial(move_serial)
-                        self.explosion40.start_effect()
-                        self.fakedout.start_effect()
+                        if self.audio_toggle:
+                            self.explosion40.start_effect()
+                            self.fakedout.start_effect()
                         self.pause_for_player_death( move_serial, faker)
 
                         self.dead_moves[move_serial].value -= 1
@@ -430,13 +436,14 @@ class Bomb():
                         self.reset_bomb_length()
                         self.move_bomb()
 
-                        
+
                     elif self.move_opts[move_serial][Opts.selection.value] == Selections.counter.value:
-                        self.explosion40.start_effect()
-                        self.countered.start_effect()
+                        if self.audio_toggle:
+                            self.explosion40.start_effect()
+                            self.countered.start_effect()
                         self.pause_for_player_death(prev_faker, move_serial )
 
-                        
+
                         self.dead_moves[prev_faker].value -= 1
                         self.false_colors[move_serial].value = 0
                         self.move_opts[move_serial][Opts.holding.value] = Holding.holding.value
@@ -446,11 +453,11 @@ class Bomb():
                         self.reset_bomb_time()
 
                         self.move_bomb()
-                        
-                        print("JUST DIED TO BEING COUNTERED")
-                        
 
-                        
+                        print("JUST DIED TO BEING COUNTERED")
+
+
+
                     #only do this once per move
                     if self.move_opts[prev_faker][Opts.holding.value] == Holding.not_holding.value:
                         self.false_colors[move_serial].value = 0
@@ -462,7 +469,7 @@ class Bomb():
                 #        self.explosion40.start_effect()
                 #        self.Fakecountered.start_effect()
                 #        self.pause_for_player_death(move_serial)
-                        
+
                 #        self.dead_moves[move_serial].value -= 1
                         #self.move_opts[move_serial][Opts.holding.value] = Holding.holding.value
 
@@ -474,17 +481,17 @@ class Bomb():
 
                         #check for faked
 
-                
+
 
     def get_next_serial(self, serial):
         return self.get_next_random_holder()
 
 
-    
+
         pos = (self.get_serial_pos(serial) + 1) % len(self.move_serials)
         #pos = random.choice(range(len(self.move_serials)))
         #while random_move == pos - 1:
-        #   random_move = random.choice(range(len(self.move_serials))) 
+        #   random_move = random.choice(range(len(self.move_serials)))
 
         new_serial = self.move_serials[pos]
         while self.dead_moves[new_serial].value == 0:
@@ -494,10 +501,9 @@ class Bomb():
 
     def get_prev_serial(self, serial):
         self.get_next_random_holder()
-        #print("returing prev faker as " + self.get_prev_random_holder())
         return self.get_prev_random_holder()
 
-    
+
         pos = (self.get_serial_pos(serial) - 1) % len(self.move_serials)
         new_serial = self.move_serials[pos]
         while self.dead_moves[new_serial].value == 0:
@@ -517,7 +523,7 @@ class Bomb():
             dead_move = Value('i', 2)
             force_color = Array('i', [1] * 3)
             false_color = Value('i', 0)
-            
+
             opts = Array('i', [0] * 5)
             faked = Value('i', 0)
             rumble = Value('i', 0)
@@ -545,7 +551,7 @@ class Bomb():
     def rotate_colors(self):
         move_on = False
         time_change = 0.5
-        
+
         in_cons = []
         for move_serial_beg in self.move_serials:
             self.move_opts[move_serial_beg][Opts.has_bomb.value] = Bool.yes.value
@@ -555,7 +561,8 @@ class Bomb():
                 for move_serial_beg in self.move_serials:
                     if self.move_opts[move_serial_beg][Opts.selection.value] == Selections.a_button.value:
                         if move_serial_beg not in in_cons:
-                            self.start_beep.start_effect()
+                            if self.audio_toggle:
+                                self.start_beep.start_effect()
                             in_cons.append(move_serial_beg)
                     if move_serial_beg in in_cons:
                         common.change_color(self.force_move_colors[move_serial_beg], 100,100,100)
@@ -564,33 +571,26 @@ class Bomb():
                 common.change_color(self.force_move_colors[move_serial], 0,0,0)
         for move_serial_beg in self.move_serials:
             self.move_opts[move_serial_beg][Opts.has_bomb.value] = Bool.no.value
-            #self.move_opts[move_serial_beg][Opts.holding.value] = Holding.not_holding.value
 
-        #print("rotate colors print bombs")
-        self.print_bombs()
-
-    def print_bombs(self):
-        for i, move_serial in enumerate(self.move_serials):
-            pass
-            #print("controller {}, serial {}, is dead {}, is holding {}, has bomb {}".format(i, move_serial, self.dead_moves[move_serial].value, self.move_opts[move_serial][Opts.holding.value], self.move_opts[move_serial][Opts.has_bomb.value]))
-        #print("\n")
-
-            
 
     #need to do the count_down here
     def count_down(self):
         self.change_all_move_colors(80, 0, 0)
-        self.start_beep.start_effect()
+        if self.audio_toggle:
+            self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(70, 100, 0)
-        self.start_beep.start_effect()
+        if self.audio_toggle:
+            self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 70, 0)
-        self.start_beep.start_effect()
+        if self.audio_toggle:
+            self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 0, 0)
-        self.start_game.start_effect()
-        
+        if self.audio_toggle:
+            self.start_game.start_effect()
+
 
     def change_all_move_colors(self, r, g, b):
         for color in self.force_move_colors.values():
@@ -604,7 +604,7 @@ class Bomb():
                 if self.move_opts[alive_serial][Opts.has_bomb.value] == Bool.yes.value:
                     self.move_opts[alive_serial][Opts.has_bomb.value] = Bool.no.value
                     self.move_bomb()
-                    
+
                     #for i, bomb_serial in enumerate(self.bomb_serials):
                     #if self.bomb_serial == alive_serial:
                     #    self.bomb_serial = next(self.bomb_generators[i])
@@ -612,12 +612,13 @@ class Bomb():
                 #remove alive move:
 
                 self.alive_moves.remove(alive_serial)
-                self.explosion.start_effect()
+                if self.audio_toggle:
+                    self.explosion.start_effect()
                 self.reset_bomb_time()
 
         if len(self.alive_moves) <= 1:
             self.end_game()
-    
+
     def stop_tracking_moves(self):
         for proc in self.tracked_moves.values():
             proc.terminate()
@@ -625,13 +626,14 @@ class Bomb():
             time.sleep(0.02)
 
     def end_game(self):
-        try:
-            self.audio.stop_audio()
-        except:
-            print('no audio loaded to stop')
+        if self.audio_toggle:
+            try:
+                self.audio.stop_audio()
+            except:
+                print('no audio loaded to stop')
         end_time = time.time() + END_GAME_PAUSE
 
-        self.send_status('ending')
+        self.update_status('ending')
 
         h_value = 0
 
@@ -647,45 +649,34 @@ class Bomb():
                     h_value = 0
         self.running = False
 
-    def end_game_sound(self, winning_team):
-        #if self.game_mode == common.Games.JoustTeams:
-        if winning_team == Team.red.value:
-            team_win = Audio('audio/Commander/sounds/red winner.wav')
-        if winning_team == Team.blue.value:
-            team_win = Audio('audio/Commander/sounds/blue winner.wav')
-        team_win.start_effect()
-
     def check_command_queue(self):
         package = None
         while not(self.command_queue.empty()):
-            #print('what\nwhat\nwhat\nwhat\nwhat\nwhat\nwhat\nwhat\n')
             package = self.command_queue.get()
             command = package['command']
         if not(package == None):
             if command == 'killgame':
                 self.kill_game()
-        while not(self.status_queue.empty()):
-            self.status_queue.get()
-        self.send_status('in_game')
 
-    def send_status(self,game_status,winning_team=-1):
+    def update_status(self,game_status,winning_team=-1):
         data ={'game_status' : game_status,
                'game_mode' : 'Ninja',
                'winning_team' : winning_team,
                'total_players': len(self.move_serials),
                'remaining_players': len(self.alive_moves)}
 
-        self.status_queue.put(json.dumps(data))
+        self.status_ns.status_dict = data
 
     def kill_game(self):
-        try:
-            self.audio.stop_audio()
-        except:
-            print('no audio loaded to stop')        
-        self.send_status('killed')
+        if self.audio_toggle:
+            try:
+                self.audio.stop_audio()
+            except:
+                print('no audio loaded to stop')
+        self.update_status('killed')
         all_moves = [x for x in self.dead_moves.keys()]
-        end_time = time.time() + KILL_GAME_PAUSE     
-               
+        end_time = time.time() + KILL_GAME_PAUSE
+
         h_value = 0
         while (time.time() < end_time):
             time.sleep(0.01)

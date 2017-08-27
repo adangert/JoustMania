@@ -192,7 +192,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
             
 
 class Swapper():
-    def __init__(self, moves, speed, command_queue, status_queue):
+    def __init__(self, moves, speed, command_queue, status_ns, audio_toggle):
         global SLOW_MAX
         global SLOW_WARNING
         global FAST_MAX
@@ -202,7 +202,8 @@ class Swapper():
         SLOW_WARNING = common.SLOW_WARNING[speed]
         FAST_MAX = common.FAST_MAX[speed]
         FAST_WARNING = common.FAST_WARNING[speed]
-
+        
+        self.audio_toggle = audio_toggle
         self.move_serials = moves
         self.tracked_moves = {}
         self.dead_moves = {}
@@ -218,23 +219,23 @@ class Swapper():
         self.move_opts = {}
 
         self.command_queue = command_queue
-        self.status_queue = status_queue
+        self.status_ns = status_ns
         self.update_time = 0
 
 
         self.generate_random_teams(self.team_num)
+        if self.audio_toggle:
+            music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
 
-        music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
-
-        self.start_beep = Audio('audio/Joust/sounds/start.wav')
-        self.start_game = Audio('audio/Joust/sounds/start3.wav')
-        self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
-        fast_resample = False
-        end = False
-        try:
-            self.audio = Audio(music, end)
-        except:
-            print('no audio loaded')
+            self.start_beep = Audio('audio/Joust/sounds/start.wav')
+            self.start_game = Audio('audio/Joust/sounds/start3.wav')
+            self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
+            fast_resample = False
+            end = False
+            try:
+                self.audio = Audio(music, end)
+            except:
+                print('no audio loaded')
 
         #self.change_time = self.get_change_time(speed_up = True)
         self.change_time = time.time() + 8
@@ -281,16 +282,20 @@ class Swapper():
     #need to do the count_down here
     def count_down(self):
         self.change_all_move_colors(80, 0, 0)
-        self.start_beep.start_effect()
+        if self.audio_toggle:
+            self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(70, 100, 0)
-        self.start_beep.start_effect()
+        if self.audio_toggle:
+            self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 70, 0)
-        self.start_beep.start_effect()
+        if self.audio_toggle:
+            self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 0, 0)
-        self.start_game.start_effect()
+        if self.audio_toggle:
+            self.start_game.start_effect()
 
     def check_end_game(self):
         self.winning_team = -100
@@ -306,7 +311,8 @@ class Swapper():
             if dead.value == 0:
                 #This is to play the sound effect
                 dead.value = -1
-                self.explosion.start_effect()
+                if self.audio_toggle:
+                    self.explosion.start_effect()
         self.game_end = team_win
 
 
@@ -317,14 +323,16 @@ class Swapper():
             time.sleep(0.02)
 
     def end_game(self):
-        try:
-            self.audio.stop_audio()
-        except:
-            print('no audio loaded to stop')
+        if self.audio_toggle:
+            try:
+                self.audio.stop_audio()
+            except:
+                print('no audio loaded to stop')
         end_time = time.time() + END_GAME_PAUSE
         h_value = 0
-        self.send_status('ending',self.winning_team)
-        self.end_game_sound(self.winning_team)
+        self.update_status('ending',self.winning_team)
+        if self.audio_toggle:
+            self.end_game_sound(self.winning_team)
         while (time.time() < end_time):
             time.sleep(0.01)
             win_color = common.hsv2rgb(h_value, 1, 1)
@@ -341,7 +349,6 @@ class Swapper():
         self.running = False
 
     def end_game_sound(self, winning_team):
-        #if self.game_mode == common.Games.JoustTeams:
         if winning_team == Team.red.value:
             team_win = Audio('audio/Commander/sounds/red winner.wav')
         if winning_team == Team.blue.value:
@@ -351,16 +358,18 @@ class Swapper():
     def game_loop(self):
         self.track_moves()
         self.count_down()
-        try:
-            self.audio.start_audio_loop()
-        except:
-            print('no audio loaded to start')
+        if self.audio_toggle:
+            try:
+                self.audio.start_audio_loop()
+            except:
+                print('no audio loaded to start')
         while self.running:
             #I think the loop is so fast that this causes 
             #a crash if done every loop
             if time.time() - 0.1 > self.update_time:
                 self.update_time = time.time()
                 self.check_command_queue()
+                self.update_status('in_game')
 
             self.check_end_game()
             if self.game_end:
@@ -369,9 +378,6 @@ class Swapper():
         self.stop_tracking_moves()
 
     def check_command_queue(self):
-        while not(self.status_queue.empty()):
-            self.status_queue.get()
-        self.send_status('in_game')
         package = None
         while not(self.command_queue.empty()):
             package = self.command_queue.get()
@@ -381,11 +387,12 @@ class Swapper():
                 self.kill_game()
 
     def kill_game(self):
-        try:
-            self.audio.stop_audio()
-        except:
-            print('no audio loaded to stop')        
-        self.send_status('killed')
+        if self.audio_toggle:
+            try:
+                self.audio.stop_audio()
+            except:
+                print('no audio loaded to stop')        
+        self.update_status('killed')
         all_moves = [x for x in self.dead_moves.keys()]
         end_time = time.time() + KILL_GAME_PAUSE     
         
@@ -401,9 +408,7 @@ class Swapper():
                 h_value = 0
         self.running = False
 
-    def send_status(self,game_status,winning_team=-1):
-        if not(self.status_queue):
-            return
+    def update_status(self,game_status,winning_team=-1):
         data ={'game_status' : game_status,
                'game_mode' : 'Swapper',
                'winning_team' : winning_team}
@@ -416,6 +421,6 @@ class Swapper():
                 team_alive[team] += 1
         team_comp = list(zip(team_total,team_alive))
         data['team_comp'] = team_comp
-        self.status_queue.put(json.dumps(data))
+        self.status_ns.status_dict = data
                     
             

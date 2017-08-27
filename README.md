@@ -95,11 +95,11 @@ You can become an Admin by changing the game mode via the select button, this wi
 
 Web Interface
 ---------------------------------
-An optional web interface is available that allows you to view the game status and adjust settings from your phone (or anything with a web browser). To enable the web interface, run the command
+Joustmania can also be controlled via a web browser on your laptop or smartphone. If your Pi is on a network, use the IP address of your Pi (for example, http://192.168.1.xxx/). Alternatively, you can turn your Pi in to an access point and connect your device directly to it. To enable this,  run the command
 ```
 sudo ./enable_ap.sh
 ```
-This sets up a wireless access point with the Pi. (Note that this disables normal Wi-Fi on the Pi, but a wired connection will still work.) The default SSID is "JOUSTMANIA" and the default password is "joustmania"; both (and other) settings may be adjusted in the apfiles/hostapd.conf file before running enable_ap.sh. To connect to the game, go to http://joust.mania in your web browser. To disable the interface and restore Wi-Fi, run the command
+Note that this disables normal Wi-Fi on the Pi, but a wired connection will still work. The default SSID is "JOUSTMANIA" and the default password is "joustmania"; both (and other) settings may be adjusted in the apfiles/hostapd.conf file before running enable_ap.sh. To connect to the game, go to http://joust.mania in your web browser. To disable the access point and restore Wi-Fi, run the command
 ```
 sudo ./disable_ap.sh
 ```
@@ -113,11 +113,15 @@ Custom Music
 * JoustMania comes with a single classical music piece
 * Play your own music, by copying it into the respective folders: /audio/(Joust, Zombie, Commander)/music/
 * WAV files currently supported
+* All music and audio can be disabled by changing `audio = False` in joustconfig.ini, this will also disable tempo sensitivity changes for each game mode
 
-# Game Rules and Variants
+
+# Game Rules and Variants 
 * Keep your controller still while trying to jostle others.
 * If your controller is jostled then you are out of the game
 * The music is tied to the gameplay, the faster the music the faster you can move
+* recommended player count is listed next to every game mode
+* Extended rules can be found on the [Wiki](https://github.com/adangert/JoustMania/wiki/Extended-Rules)
 
 
  ### Convention/Random mode
@@ -127,34 +131,34 @@ Custom Music
  * All players press the A button (middle of controller) to signal they are ready to play, and the game will begin
 
 
- ### FFA (all controllers are white)
+ ### FFA
  * The most basic version of Joust; be the last one standing!
 
 
- ### Teams (all controllers are solid colors)
+ ### Teams
  * This game is the same as Joust FFA however at the beginning players select their team color with the big button in the middle of their controller
  * There are six teams to select from
 
 
- ### Random Teams (all controllers changing colors)
+ ### Random Teams
  * Same as Joust Teams, however the teams are randomly assigned at start of play
  * There are three teams in this mode
 
 
- ### Traitor 
+ ### Traitor
  * Three teams face off against one another, however there is a traitor on every team
  * Traitors are on a secret fourth team
  * If you controller vibrates during the start countdown you are a traitor
 
 
- ### Werewolves (one controller red, the rest white)
+ ### Werewolves
  * Hidden werewolves are selected at the beginning of the game.
  * When the countdown starts the werewolf will feel a vibration, letting that player know they are a werewolf
  * After a short period of time, werewolves will be revealed
  * Werewolves win only if they are the last remaining
 
 
- ### Zombie apocalypse
+ ### Zombies
  * Two players start out as zombies, and try to infect the humans
  * Humans can shoot random zombies with bullets
  * Bullets are randomly assigned as loot from killing zombies

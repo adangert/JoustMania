@@ -200,11 +200,13 @@ def track_controller(serial, num_try, opts):
 #since only normal music will be playing
 #need to make this a class with zombie killing defs
 class Zombie:
-    def __init__(self, cont_alive, speed, command_queue, status_queue):
+    def __init__(self, cont_alive, speed, command_queue, status_ns, audio_toggle):
         global human_warning
         global human_max
         global zombie_warning
         global zombie_max
+
+        self.audio_toggle = audio_toggle
         
         human_warning = common.FAST_WARNING[speed]
         human_max = common.FAST_MAX[speed]
@@ -213,7 +215,7 @@ class Zombie:
         zombie_max = common.ZOMBIE_MAX[speed]
         
         self.command_queue = command_queue
-        self.status_queue = status_queue
+        self.status_ns = status_ns
         self.update_time = 0
 
         self.humans = []
@@ -225,7 +227,8 @@ class Zombie:
         if self.win_time <= 0:
             self.win_time = 60
         self.start_time = time.time()
-        self.pickup = Audio('audio/Zombie/sound_effects/pickup.wav')
+        if self.audio_toggle:
+            self.pickup = Audio('audio/Zombie/sound_effects/pickup.wav')
         self.effect_cue = 0
 
         self.kill_game = False
@@ -302,18 +305,18 @@ class Zombie:
             self.controller_opts[serial] = opts
             self.humans.append(serial)
             
-
-        human_victory = Audio('audio/Zombie/sound_effects/human_victory.wav')
-        zombie_victory = Audio('audio/Zombie/sound_effects/zombie_victory.wav')
-        death = Audio('audio/Zombie/sound_effects/zombie_death.wav')
-        pistol = Audio('audio/Zombie/sound_effects/pistol.wav')
-        shotgun = Audio('audio/Zombie/sound_effects/shotgun.wav')
-        molotov = Audio('audio/Zombie/sound_effects/molotov.wav')
-        try:
-            music = Audio('audio/Zombie/music/' + random.choice(os.listdir('audio/Zombie/music/')))
-            music.start_effect_music()
-        except:
-            print('no music in audio/Zombie/music/')
+        if self.audio_toggle:
+            human_victory = Audio('audio/Zombie/sound_effects/human_victory.wav')
+            zombie_victory = Audio('audio/Zombie/sound_effects/zombie_victory.wav')
+            death = Audio('audio/Zombie/sound_effects/zombie_death.wav')
+            pistol = Audio('audio/Zombie/sound_effects/pistol.wav')
+            shotgun = Audio('audio/Zombie/sound_effects/shotgun.wav')
+            molotov = Audio('audio/Zombie/sound_effects/molotov.wav')
+            try:
+                music = Audio('audio/Zombie/music/' + random.choice(os.listdir('audio/Zombie/music/')))
+                music.start_effect_music()
+            except:
+                print('no music in audio/Zombie/music/')
 
         start_kill = time.time() + 5
         while time.time() < start_kill:
@@ -325,10 +328,12 @@ class Zombie:
             self.controller_opts[random_human][3] = 0
         
         while running:
-            self.audio_cue()
+            if self.audio_toggle:
+                self.audio_cue()
             if time.time() - 0.1 > self.update_time:
                 self.update_time = time.time()
                 self.check_command_queue()
+                self.update_status('in_game')
 
             #human update, loop through the different human controllers
             for serial in self.humans:
@@ -339,14 +344,16 @@ class Zombie:
                     
                 #pistol fired(1 bullet 1 random alive zombie)
                 elif self.controller_opts[serial][1] == 2:
-                    pistol.start_effect()
+                    if self.audio_toggle:
+                        pistol.start_effect()
                     self.kill_zombies(1, [0, 0, 0, 0, 1, 1, 1])
                     self.controller_opts[serial][1] = 0
 
 
                 #molotov fired(5 bullets all alive zombies)
                 elif self.controller_opts[serial][1] == 4:
-                    molotov.start_effect()
+                    if self.audio_toggle:
+                        molotov.start_effect()
                     self.kill_zombies(50, [0, 0, 1, 1, 2, 3])
                     self.controller_opts[serial][1] = 0
 
@@ -382,18 +389,20 @@ class Zombie:
                 colour_range = [[int(x) for x in common.hsv2rgb(*colour)] for colour in HSV]
                 win_controllers = []
                 if len(self.humans) <= 0:
-                    zombie_victory.start_effect()
+                    if self.audio_toggle:
+                        zombie_victory.start_effect()
                     self.alive_zombies.extend(self.dead_zombies.keys())
-                    self.send_status('ending', 1)
+                    self.update_status('ending', 1)
                     win_controllers = self.alive_zombies
                 if (time.time() - self.start_time) > self.win_time:
-                    human_victory.start_effect()
+                    if self.audio_toggle:
+                        human_victory.start_effect()
                     win_controllers = self.humans
-                    self.send_status('ending', 0)
+                    self.update_status('ending', 0)
                 if self.kill_game:
                     self.alive_zombies.extend(self.dead_zombies.keys())
                     win_controllers = self.humans + self.alive_zombies
-                    self.send_status('killed')
+                    self.update_status('killed')
                 #This needs to go in it's own function
                 while time.time() < pause_time:
                     for win_move in moves:
@@ -408,10 +417,11 @@ class Zombie:
                             win_move.update_leds()
                     time.sleep(0.01)
                 running = False
-                try:
-                    music.stop_effect_music()
-                except:
-                    print('no audio loaded')
+                if self.audio_toggle:
+                    try:
+                        music.stop_effect_music()
+                    except:
+                        print('no audio loaded')
 
     def check_command_queue(self):
         package = None
@@ -421,14 +431,9 @@ class Zombie:
         if not(package == None):
             if command == 'killgame':
                 self.kill_game = True
-        while not(self.status_queue.empty()):
-            self.status_queue.get()
-        self.send_status('in_game')
                 
 
-    def send_status(self,game_status,winning_team=-1):
-        if not(self.status_queue):
-            return
+    def update_status(self,game_status,winning_team=-1):
         data ={'game_status' : game_status,
                'game_mode' : 'Zombies',
                'winning_team' : winning_team,
@@ -437,6 +442,6 @@ class Zombie:
                'alive_zombies': len(self.alive_zombies),
                'ticker': self.update_time,
                'time_left': int(self.win_time - (time.time() - self.start_time))}
-        self.status_queue.put(json.dumps(data))
+        self.status_ns.status_dict = data
 
 

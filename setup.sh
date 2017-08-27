@@ -7,18 +7,15 @@ cd /home/pi
 
 #install components
 sudo apt-get install -y python-dev bluez python3-pyaudio python-pip python3-numpy supervisor python3-scipy python3-pygame cmake libudev-dev swig libbluetooth-dev alsa-utils alsa-tools
-sudo pip3 install psutil flask
+sudo pip3 install psutil flask Flask-WTF
 
 
 #install components for psmoveapi
 sudo apt-get install -y \
-    build-essential cmake \
-    libudev-dev libbluetooth-dev libv4l-dev libopencv-dev \
-    openjdk-7-jdk ant liblwjgl-java \
-    python-dev \
-    mono-mcs \
-    swig3.0 \
-    libsdl2-dev freeglut3-dev
+    build-essential \
+    libv4l-dev libopencv-dev \
+    libudev-dev libbluetooth-dev \
+    python-dev swig3.0
 
 #install psmoveapi
 git clone --recursive git://github.com/thp/psmoveapi.git
@@ -26,7 +23,16 @@ cd psmoveapi
 
 mkdir build
 cd build
-JAVA_HOME=/usr/lib/jvm/java-7-openjdk-armhf/ cmake ..
+# we definitely don't need java, opengj, csharp, etc
+cmake .. \
+    -DPSMOVE_BUILD_CSHARP_BINDINGS:BOOL=OFF \
+    -DPSMOVE_BUILD_EXAMPLES:BOOL=OFF \
+    -DPSMOVE_BUILD_JAVA_BINDINGS:BOOL=OFF \
+    -DPSMOVE_BUILD_OPENGL_EXAMPLES:BOOL=OFF \
+    -DPSMOVE_BUILD_PROCESSING_BINDINGS:BOOL=OFF \
+    -DPSMOVE_BUILD_TESTS:BOOL=OFF \
+    -DPSMOVE_BUILD_TRACKER:BOOL=ON \
+    -DPSMOVE_USE_PSEYE:BOOL=OFF
 make -j4
 
 #installs custom supervisor script for running joustmania on startup

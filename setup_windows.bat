@@ -3,12 +3,15 @@
 choco install python3 -y
 choco install git -y
 ::refreshenv
-choco install visualstudio2015community -y
+choco install visualstudio2017community -y -packageParameters "--allWorkloads --includeRecommended --includeOptional --passive"
 git clone --recursive https://github.com/thp/psmoveapi.git
 choco install cmake --installargs 'ADD_CMAKE_TO_PATH=""User""' -y
 set path=C:\Program Files\CMake\bin;%path%
 choco install microsoft-build-tools -y
+choco install visualcpp-build-tools -y
 pip install numpy
 choco install swig -y
-set PATH=%PATH%;C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\MSBuild\15.0\Bin
-psmoveapi/scripts/visualc/build_msvc_2015.bat
+choco install cmake -y
+::set PATH=%PATH%;C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\MSBuild\15.0\Bin
+::set PATH="C:\Program Files\CMake\bin\";%PATH%
+psmoveapi/scripts/visualc/build_msvc.bat 2017

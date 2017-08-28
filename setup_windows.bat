@@ -14,4 +14,5 @@ choco install swig -y
 choco install cmake -y
 ::set PATH=%PATH%;C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\MSBuild\15.0\Bin
 ::set PATH="C:\Program Files\CMake\bin\";%PATH%
+set PYTHONPATH="C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Release";%PYTHONPATH%
 psmoveapi/scripts/visualc/build_msvc.bat 2017

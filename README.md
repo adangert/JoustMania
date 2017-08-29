@@ -23,7 +23,7 @@ Hardware
 ---------------------------
 You will need the following to run JoustMania:
 
-0. A Raspberry Pi 3 B with sd card
+* A Raspberry Pi 3 B with sd card
 
 Optional and **highly recommended**:
 

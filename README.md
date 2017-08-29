@@ -27,7 +27,7 @@ You will need the following to run JoustMania:
 
 Optional and **highly recommended**:
 
-* Class 1, Bluetooth 4.0 USB adapters (http://a.co/9VfgrEp)
+* Class 1, Bluetooth 4.0 USB adapters (http://a.co/8YKP9tG)
 
 Note on Hardware: The internal bluetooth is short range and has a high latency, making gameplay laggy and slow, although still possible.
 The class 1 adapters allow bluetooth connections up to 300+ feet and allow for the gameplay to be smooth, each adapter can connect to 6 to 7 controllers. I've tested this build with three adapters and 16 controllers successfully.

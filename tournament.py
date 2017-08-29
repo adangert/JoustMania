@@ -152,7 +152,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
 
 
 class Tournament():
-    def __init__(self, moves, speed, command_queue, status_ns, audio_toggle):
+    def __init__(self, moves, speed, command_queue, status_ns, audio_toggle, music):
 
         print("speed is {}".format(speed))
         global SLOW_MAX
@@ -198,13 +198,13 @@ class Tournament():
         if self.audio_toggle:
             print("tourney list is " + str(self.tourney_list))
 
-            music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
+##            music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
             self.start_beep = Audio('audio/Joust/sounds/start.wav')
             self.start_game = Audio('audio/Joust/sounds/start3.wav')
             self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
             
             end = False
-            self.audio = Audio(music, end)
+            self.audio = music
         #self.change_time = self.get_change_time(speed_up = True)
         
         self.speed_up = True

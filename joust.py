@@ -165,7 +165,7 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
 
 
 class Joust():
-    def __init__(self, game_mode, moves, teams, speed, command_queue, status_ns, audio_toggle):
+    def __init__(self, game_mode, moves, teams, speed, command_queue, status_ns, audio_toggle, music):
 
         print("speed is {}".format(speed))
         global SLOW_MAX
@@ -243,12 +243,13 @@ class Joust():
                 were_num = 1
             self.choose_werewolf(were_num)
         if self.audo_toggle:
-            music = random.choice(glob.glob("audio/Joust/music/*.wav"))
+            #music = random.choice(glob.glob("audio/Joust/music/*"))
             self.start_beep = Audio('audio/Joust/sounds/start.wav')
             self.start_game = Audio('audio/Joust/sounds/start3.wav')
             self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
             end = False
-            self.audio = Audio(music, end)
+            #self.audio = Audio(music, end)
+            self.audio = music
         fast_resample = False
         
         
@@ -284,8 +285,8 @@ class Joust():
                 self.teams[serial] = (random_choice * -1) - 1
             else:
                 self.teams[serial] = random_choice
-            print("doing random choice")
-            print(random_choice)
+##            print("doing random choice")
+##            print(random_choice)
             team_pick.remove(random_choice)
             if not team_pick:
                 traitor_pick = False
@@ -471,25 +472,46 @@ class Joust():
                 team_win = Audio('audio/Joust/sounds/red team win.wav')
             team_win.start_effect()
         if self.game_mode == common.Games.JoustRandomTeams.value:
-            if winning_team == 0:
-                team_win = Audio('audio/Joust/sounds/yellow team win.wav')
-            if winning_team == 1:
-                team_win = Audio('audio/Joust/sounds/cyan team win.wav')
-            if winning_team == 2:
-                team_win = Audio('audio/Joust/sounds/magenta team win.wav')
-            if winning_team == 3:
-                team_win = Audio('audio/Joust/sounds/red team win.wav')
+            if self.team_num == 2:
+                if winning_team == 0:
+                    team_win = Audio('audio/Joust/sounds/cyan team win.wav')
+                if winning_team == 1:
+                    team_win = Audio('audio/Joust/sounds/red team win.wav')
+            if self.team_num == 3:
+                if winning_team == 0:
+                    team_win = Audio('audio/Joust/sounds/green team win.wav')
+                if winning_team == 1:
+                    team_win = Audio('audio/Joust/sounds/blue team win.wav')
+                if winning_team == 2:
+                    team_win = Audio('audio/Joust/sounds/red team win.wav')
+            else:
+                if winning_team == 0:
+                    team_win = Audio('audio/Joust/sounds/yellow team win.wav')
+                if winning_team == 1:
+                    team_win = Audio('audio/Joust/sounds/cyan team win.wav')
+                if winning_team == 2:
+                    team_win = Audio('audio/Joust/sounds/magenta team win.wav')
+                if winning_team == 3:
+                    team_win = Audio('audio/Joust/sounds/red team win.wav')
             team_win.start_effect()
 
         if self.game_mode == common.Games.Traitor.value:
-            if winning_team == -1:
-                team_win = Audio('audio/Joust/sounds/traitor win.wav')
-            if winning_team == 0:
-                team_win = Audio('audio/Joust/sounds/green team win.wav')
-            if winning_team == 1:
-                team_win = Audio('audio/Joust/sounds/blue team win.wav')
-            if winning_team == 2:
-                team_win = Audio('audio/Joust/sounds/red team win.wav')
+            if self.team_num == 2:
+                if winning_team == -1:
+                    team_win = Audio('audio/Joust/sounds/traitor win.wav')
+                if winning_team == 0:
+                    team_win = Audio('audio/Joust/sounds/cyan team win.wav')
+                if winning_team == 1:
+                    team_win = Audio('audio/Joust/sounds/red team win.wav')
+            else:
+                if winning_team == -1:
+                    team_win = Audio('audio/Joust/sounds/traitor win.wav')
+                if winning_team == 0:
+                    team_win = Audio('audio/Joust/sounds/green team win.wav')
+                if winning_team == 1:
+                    team_win = Audio('audio/Joust/sounds/blue team win.wav')
+                if winning_team == 2:
+                    team_win = Audio('audio/Joust/sounds/red team win.wav')
             team_win.start_effect()
             
         if self.game_mode == common.Games.WereJoust.value:

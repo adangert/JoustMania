@@ -192,7 +192,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
             
 
 class Swapper():
-    def __init__(self, moves, speed, command_queue, status_ns, audio_toggle):
+    def __init__(self, moves, speed, command_queue, status_ns, audio_toggle, music):
         global SLOW_MAX
         global SLOW_WARNING
         global FAST_MAX
@@ -225,7 +225,7 @@ class Swapper():
 
         self.generate_random_teams(self.team_num)
         if self.audio_toggle:
-            music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
+##            music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
 
             self.start_beep = Audio('audio/Joust/sounds/start.wav')
             self.start_game = Audio('audio/Joust/sounds/start3.wav')
@@ -233,7 +233,7 @@ class Swapper():
             fast_resample = False
             end = False
             try:
-                self.audio = Audio(music, end)
+                self.audio = music
             except:
                 print('no audio loaded')
 

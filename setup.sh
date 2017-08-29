@@ -12,8 +12,9 @@ sudo apt-get install -y \
     python-pip python3-numpy supervisor \
     python3-scipy python3-pygame cmake \
     libudev-dev swig libbluetooth-dev \
-    alsa-utils alsa-tools libasound2-dev
-sudo pip3 install psutil flask Flask-WTF pyalsaaudio
+    alsa-utils alsa-tools libasound2-dev ffmpeg
+
+sudo pip3 install psutil flask Flask-WTF pyalsaaudio pydub
 
 #install components for psmoveapi
 sudo apt-get install -y \

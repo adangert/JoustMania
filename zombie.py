@@ -200,7 +200,7 @@ def track_controller(serial, num_try, opts):
 #since only normal music will be playing
 #need to make this a class with zombie killing defs
 class Zombie:
-    def __init__(self, cont_alive, speed, command_queue, status_ns, audio_toggle):
+    def __init__(self, cont_alive, speed, command_queue, status_ns, audio_toggle, music):
         global human_warning
         global human_max
         global zombie_warning
@@ -213,6 +213,8 @@ class Zombie:
 
         zombie_warning = common.ZOMBIE_WARNING[speed]
         zombie_max = common.ZOMBIE_MAX[speed]
+        
+        self.music = music
         
         self.command_queue = command_queue
         self.status_ns = status_ns
@@ -313,8 +315,9 @@ class Zombie:
             shotgun = Audio('audio/Zombie/sound_effects/shotgun.wav')
             molotov = Audio('audio/Zombie/sound_effects/molotov.wav')
             try:
-                music = Audio('audio/Zombie/music/' + random.choice(os.listdir('audio/Zombie/music/')))
-                music.start_effect_music()
+                self.music.start_effect_music()
+##                music = Audio('audio/Zombie/music/' + random.choice(os.listdir('audio/Zombie/music/')))
+##                music.start_effect_music()
             except:
                 print('no music in audio/Zombie/music/')
 
@@ -419,7 +422,7 @@ class Zombie:
                 running = False
                 if self.audio_toggle:
                     try:
-                        music.stop_effect_music()
+                        self.music.stop_effect_music()
                     except:
                         print('no audio loaded')
 

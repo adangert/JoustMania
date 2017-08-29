@@ -236,7 +236,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
             
 
 class Commander():
-    def __init__(self, moves, speed, command_queue, status_ns):
+    def __init__(self, moves, speed, command_queue, status_ns, music):
         global SLOW_MAX
         global SLOW_WARNING
         global FAST_MAX
@@ -285,17 +285,17 @@ class Commander():
 
         
 
-        try:
-            music = 'audio/Commander/music/' + random.choice(os.listdir('audio/Commander/music'))
-        except:
-            print('no music in audio/Commander/music')
+##        try:
+##            music = 'audio/Commander/music/' + random.choice(os.listdir('audio/Commander/music'))
+##        except:
+##            print('no music in audio/Commander/music')
         self.start_beep = Audio('audio/Joust/sounds/start.wav')
         self.start_game = Audio('audio/Joust/sounds/start3.wav')
         self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
         fast_resample = False
         end = False
         try:
-            self.audio = Audio(music, end)
+            self.audio = music
         except:
             print('no audio loaded')
         #self.change_time = self.get_change_time(speed_up = True)

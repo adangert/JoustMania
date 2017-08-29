@@ -1,7 +1,7 @@
 import psmove, pair
 import common, joust
 import zombie, commander, swapper, tournament, speed_bomb
-import time, random, json, configparser, os, os.path, sys
+import time, random, json, configparser, os, os.path, sys, glob
 from piaudio import Audio
 from enum import Enum
 from multiprocessing import Process, Value, Array, Queue, Manager
@@ -274,6 +274,19 @@ class Menu():
         self.command_from_web = ''
 
         self.i = 0
+        #load audio now so it converts before the game begins
+        self.choose_new_music()
+
+    def choose_new_music(self):
+        self.joust_music = Audio(random.choice(glob.glob("audio/Joust/music/*")),False)
+        try:
+            self.zombie_music = Audio(random.choice(glob.glob("audio/Zombie/music/*")),False)
+        except Exception:
+            self.zombie_music = Audio("",False,False)
+        try:
+            self.commander_music = Audio(random.choice(glob.glob("audio/Commander/music/*")),False)
+        except Exception:
+            self.commander_music = Audio("",False,False)
 
     def start_web(self):
         web_proc = Process(target=start_web, args=(self.command_queue,self.status_ns))
@@ -663,23 +676,23 @@ class Menu():
             self.play_random_instructions()
         
         if self.game_mode == common.Games.Zombies.value:
-            zombie.Zombie(game_moves, self.sensitivity, self.command_queue, self.status_ns, self.audio_toggle)
+            zombie.Zombie(game_moves, self.sensitivity, self.command_queue, self.status_ns, self.audio_toggle, self.zombie_music)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Commander.value:
-            commander.Commander(game_moves, self.sensitivity, self.command_queue, self.status_ns)
+            commander.Commander(game_moves, self.sensitivity, self.command_queue, self.status_ns, self.commander_music)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Ninja.value:
-            speed_bomb.Bomb(game_moves, self.command_queue, self.status_ns, self.audio_toggle)
+            speed_bomb.Bomb(game_moves, self.command_queue, self.status_ns, self.audio_toggle, self.commander_music)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Swapper.value:
-            swapper.Swapper(game_moves, self.sensitivity, self.command_queue, self.status_ns, self.audio_toggle)
+            swapper.Swapper(game_moves, self.sensitivity, self.command_queue, self.status_ns, self.audio_toggle, self.joust_music)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Tournament.value:
-            tournament.Tournament(game_moves, self.sensitivity, self.command_queue, self.status_ns, self.audio_toggle)
+            tournament.Tournament(game_moves, self.sensitivity, self.command_queue, self.status_ns, self.audio_toggle, self.joust_music)
             self.tracked_moves = {}
         else:
             #may need to put in moves that have selected to not be in the game
-            joust.Joust(self.game_mode, game_moves, self.teams, self.sensitivity, self.command_queue, self.status_ns, self.audio_toggle)
+            joust.Joust(self.game_mode, game_moves, self.teams, self.sensitivity, self.command_queue, self.status_ns, self.audio_toggle,self.joust_music)
             self.tracked_moves = {}
         if random_mode:
             self.game_mode = common.Games.Random.value
@@ -687,7 +700,8 @@ class Menu():
                 if self.audio_toggle:
                     Audio('audio/Menu/tradeoff2.wav').start_effect()
                     time.sleep(8)
-            
+        #reset music
+        self.choose_new_music()
         #turn off admin mode so someone can't accidentally press a button    
         self.admin_move = None
         self.random_added = []

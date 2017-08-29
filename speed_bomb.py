@@ -196,7 +196,7 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
 
 
 class Bomb():
-    def __init__(self, moves, command_queue, status_ns, audio_toggle):
+    def __init__(self, moves, command_queue, status_ns, audio_toggle, music):
 
         self.audio_toggle = audio_toggle
         self.move_serials = moves
@@ -227,10 +227,10 @@ class Bomb():
         self.update_time = 0
 
         if self.audio_toggle:
-            try:
-                music = 'audio/Commander/music/' + random.choice(os.listdir('audio/Commander/music'))
-            except:
-                print('no music in audio/Commander/music')
+##            try:
+##                music = 'audio/Commander/music/' + random.choice(os.listdir('audio/Commander/music'))
+##            except:
+##                print('no music in audio/Commander/music')
             self.start_beep = Audio('audio/Joust/sounds/start.wav')
             self.start_game = Audio('audio/Joust/sounds/start3.wav')
             self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
@@ -242,7 +242,7 @@ class Bomb():
 
             end = False
             try:
-                self.audio = Audio(music, end)
+                self.audio = music
             except:
                 print('no audio loaded')
 

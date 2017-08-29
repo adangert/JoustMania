@@ -1,4 +1,3 @@
-import pyaudio
 import wave
 import numpy
 import psutil, os
@@ -6,32 +5,40 @@ import time
 import scipy.signal as signal
 from multiprocessing import Process, Value, Lock
 import pygame
+import alsaaudio
 
 
-def audio_loop(file, p, ratio, end, chunk_size, stop_proc):
+def audio_loop(file,  ratio, end, chunk_size, stop_proc):
     time.sleep(0.5)
     proc = psutil.Process(os.getpid())
     proc.nice(-5)
     time.sleep(0.02)
     print ('audio file is ' + str(file))
+    
     while True:
-        #chunk = 2048/2
+
+        device = alsaaudio.PCM()
         wf = wave.open(file, 'rb')
+        device.setchannels(wf.getnchannels())
+
+        device.setformat(alsaaudio.PCM_FORMAT_S16_LE)
+        device.setperiodsize(320)
+        
+        data = wf.readframes(1024)
+        device.setrate(wf.getframerate())
+
         time.sleep(0.03)
         data = wf.readframes(chunk_size.value)
         time.sleep(0.03)
 
-        stream = p.open(
-            format = p.get_format_from_width(wf.getsampwidth()), 
-            channels = wf.getnchannels(),
-            rate = wf.getframerate(),
-            output = True,
-            frames_per_buffer = chunk_size.value)
+
         
         while data != '' and stop_proc.value == 0:
             #need to try locking here for multiprocessing
             array = numpy.fromstring(data, dtype=numpy.int16)
-            result = numpy.reshape(array, (array.size/2, 2))
+            result = numpy.reshape(array, (array.size//2, 2))
+            if (array.size == 0):
+                break
             #split data into seperate channels and resample
             final = numpy.ones((1024,2))
             reshapel = signal.resample(result[:, 0], 1024)
@@ -41,23 +48,20 @@ def audio_loop(file, p, ratio, end, chunk_size, stop_proc):
             final[:, 1] = reshaper
             out_data = final.flatten().astype(numpy.int16).tostring()
             #data = signal.resample(array, chunk_size.value*ratio.value)
-            #stream.write(data.astype(int).tostring())
-            stream.write(out_data)
+            device.write(out_data)
             round_data = (int)(chunk_size.value*ratio.value)
             if round_data % 2 != 0:
                 round_data += 1
             data = wf.readframes(round_data)
-        stream.stop_stream()
-        stream.close()
+
         wf.close()
-        p.terminate()
+        device.close()
+
         
         if end or stop_proc.value == 1:
             break
-    stream.stop_stream()
-    stream.close()
     wf.close()
-    p.terminate()
+    device.close()
 
 
 
@@ -65,7 +69,7 @@ def audio_loop(file, p, ratio, end, chunk_size, stop_proc):
 # Start audio in seperate process to be non-blocking
 class Audio:
     def __init__(self, file, end=False):
-        self.p = pyaudio.PyAudio()
+        self.counter = 1
         self.stop_proc = Value('i', 0)
         self.chunk = 2048
         self.file = file
@@ -73,16 +77,16 @@ class Audio:
         self.chunk_size = Value('i', int(2048/2))
         self.end = end
         #pygame.mixer.init(44100, -16, 2 , 2048)
-        #hey
         pygame.mixer.init(47000, -16, 2 , 4096)
-
-    def start_audio_loop(self):
-        self.p = Process(target=audio_loop, args=(self.file, self.p, self.ratio, self.end, self.chunk_size, self.stop_proc))
+  
+    def start_audio_loop(self):   
+        self.p = Process(target=audio_loop, args=(self.file, self.ratio, self.end, self.chunk_size, self.stop_proc))
         self.p.start()
         
     def stop_audio(self):
         self.stop_proc.value = 1
-        #self.p.terminate()
+        time.sleep(0.1)
+        self.p.terminate()
         self.p.join()
 
     def change_ratio(self, ratio):

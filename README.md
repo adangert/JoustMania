@@ -116,7 +116,7 @@ Custom Music
 * Keep your controller still while trying to jostle others.
 * If your controller is jostled, then you are out of the game!
 * The music is tied to the gameplay, the faster the music the faster you can move
-* Minimum player count is listed next to every game mode
+* Minimum and recommended player count is listed next to every game mode
 * Extended rules can be found on the [Wiki](https://github.com/adangert/JoustMania/wiki/Extended-Rules)
 
 

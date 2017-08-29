@@ -1,0 +1,32 @@
+{% extends "basic.html" %}
+{% block header %}
+<style>
+table,td {border:1pt solid black;  padding:3pt;}
+table{border-collapse: collapse;}
+
+.batt5{background-color:#0080ff;}
+.batt4{background-color:cyan;}
+.batt3{background-color:80ff80;}
+.batt2{background-color:bfff00;}
+.batt1{background-color:yellow;}
+.batt0{background-color:red;}
+.batt238{background-color:gray}
+.batt239{background-color:lightgray}
+
+.act1{background-color:lightgray;}
+.act0{background-color:#80ff80;}
+</style>
+{% endblock %}
+
+{% block body %}
+Note: Does not update during games.<br/><br/>
+<table><tr><td>MAC Address</td><td>Battery</td><td>Active</td></tr>
+{% for move in ns.battery_status %}
+<tr><td>{{move}}</td><td class="batt{{ns.battery_status[move]}}">{{levels[ns.battery_status[move]]}}</td>
+<td class="act{{ns.out_moves[move]}}">{% if ns.out_moves[move] %}No{% else %}Yes{% endif %}</td></tr>
+{% endfor %}
+</table>
+<br/>
+<a href="/battery"><button type="button">Refresh</button></a>
+<a href="/"><button type="button">Go Back</button></a>
+{% endblock %}

@@ -1,22 +1,10 @@
-import os
-import os.path
-import psmove
-import pair
-import common
-import joust
-import time
-import zombie
-import commander
-import swapper
-import tournament
-import speed_bomb
-import random
-import json
-import configparser
+import psmove, pair
+import common, joust
+import zombie, commander, swapper, tournament, speed_bomb
+import time, random, json, configparser, os, os.path, sys
 from piaudio import Audio
 from enum import Enum
 from multiprocessing import Process, Value, Array, Queue, Manager
-import sys
 from webui import start_web
 
 TEAM_NUM = 6
@@ -76,7 +64,7 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
     move = common.get_move(serial, move_num)
     move.set_leds(0,0,0)
     move.update_leds()
-    random_color = 0
+    random_color = random.random()
 
     
     while True:
@@ -101,13 +89,23 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                 #show battery level
                 if battery.value == 1:
                     battery_level = move.get_battery()
-                    if battery_level == 5: # 100% - green
-                        move.set_leds(0, 255, 0)
-                    elif battery_level == 4: # 80% - green-ish
-                        move.set_leds(128, 200, 0)
-                    elif battery_level == 3: # 60% - yellow
+                    #granted a charging move should be dead 
+                    #so it won't light up anyway
+                    if battery_level == 238: # charging - dim
+                        move.set_leds(10,10,10)
+                    elif battery_level == 239: # fully charged - white
+                        move.set_leds(255,255,255)
+                    elif battery_level == 5: # full - blue
+                        move.set_leds(0,0,255)
+                    elif battery_level == 4: # 80% - cyan
+                        move.set_leds(0,255,255)
+                    elif battery_level == 5: # 60% - green
+                        move.set_leds(0,255,0)
+                    elif battery_level == 2: # 40% - lime green
+                        move.set_leds(191,255,0)
+                    elif battery_level == 1: # 20% - yellow
                         move.set_leds(255, 255, 0)
-                    else: # <= 40% - red
+                    else: # under 20% - red
                         move.set_leds(255, 0, 0)
                     
                 #custom team mode is the only game mode that
@@ -131,21 +129,17 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                             
                             
                 elif game_mode == common.Games.JoustRandomTeams.value:
-                    color = common.hsv2rgb(random_color, 1, 1)
+                    color = time.time()/10%1
+                    color = common.hsv2rgb(color, 1, 1)
                     move.set_leds(*color)
-                    random_color += 0.001
-                    if random_color >= 1:
-                        random_color = 0
 
                 elif game_mode == common.Games.Traitor.value:
-                    if move_num <= 0:
+                    if move_num%4 == 2 and time.time()/3%1 < .15:
                         move.set_leds(200,0,0)
                     else:
-                        color = common.hsv2rgb(random_color, 1, 1)
+                        color = 1 - time.time()/10%1
+                        color = common.hsv2rgb(color, 1, 1)
                         move.set_leds(*color)
-                        random_color += 0.001
-                        if random_color >= 1:
-                            random_color = 0
 
                 elif game_mode == common.Games.WereJoust.value:
                     if move_num <= 0:
@@ -163,21 +157,16 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                         move.set_leds(0,0,150)
 
                 elif game_mode == common.Games.Swapper.value:
-                    if random_color > 0.5:
+                    if (time.time()/5 + random_color)%1 > 0.5:
                         move.set_leds(150,0,0)
                     else:
                         move.set_leds(0,0,150)
-                    random_color += 0.002
-                    if random_color >= 1:
-                        random_color = 0
 
                 elif game_mode == common.Games.Tournament.value:
                     if move_num <= 0:
-                        color = common.hsv2rgb(random_color, 1, 1)
+                        color = time.time()/10%1
+                        color = common.hsv2rgb(color, 1, 1)
                         move.set_leds(*color)
-                        random_color += 0.001
-                        if random_color >= 1:
-                            random_color = 0
                     else:
                         move.set_leds(200,200,200)
 
@@ -249,10 +238,14 @@ class Menu():
             self.sensitivity = int(config['GENERAL']['sensitivity'])
             self.instructions = config.getboolean("GENERAL","instructions")
             self.con_games = []
-            for i,mode in enumerate(common.game_mode_names):
+            for i in range(len(common.game_mode_names)):
+                mode = common.game_mode_names[i]
                 if config.getboolean("CONGAMES",mode):
                     self.con_games.append(i)
+            if self.con_games == []:
+                self.con_games = [0]
 
+        self.enforce_minimum = True
         self.move_can_be_admin = True
         self.move_count = psmove.count_connected()
         self.dead_count = Value('i', 0)
@@ -508,7 +501,8 @@ class Menu():
         self.audio_toggle = 'audio' in admin_info.keys()
 
         selected_games = admin_info.getlist('random_modes')
-        self.con_games = [i for i,t in enumerate(common.game_mode_names) if t in selected_games]
+        gmn = common.game_mode_names
+        self.con_games = [i for i in range(len(gmn)) if gmn[i] in selected_games]
         #print(self.con_games)
         if self.con_games == []:
             self.con_games = [common.Games.JoustFFA.value]
@@ -522,7 +516,8 @@ class Menu():
             'instructions' : str(self.instructions),
             'audio': str(self.audio_toggle)
         }
-        config['CONGAMES'] = {n:i in self.con_games for i,n in enumerate(common.game_mode_names)}
+        gmn = common.game_mode_names
+        config['CONGAMES'] = {gmn[i]:i in self.con_games for i in range(len(gmn))}
         with open('joustconfig.ini','w') as ini_file:
             config.write(ini_file)
 
@@ -553,9 +548,17 @@ class Menu():
                'instructions': self.instructions,
                'sensitivity': self.sensitivity,
                'audio': self.audio_toggle,
+               'enforce_minimum': self.enforce_minimum,
                'con_games': [common.game_mode_names[i] for i in self.con_games]}
         self.status_ns.status_dict = data
-        #print('status sent!')
+
+        battery_status = {}
+        for move in self.moves:
+            move.poll()
+            battery_status[move.get_serial()] = move.get_battery()
+        self.status_ns.battery_status = battery_status
+
+        self.status_ns.out_moves = self.out_moves
 
     def stop_tracking_moves(self):
         for proc in self.tracked_moves.values():
@@ -620,26 +623,36 @@ class Menu():
 
 
     def start_game(self, random_mode=False):
-        self.update_status('starting')
         self.enable_bt_scanning(False)
         self.exclude_out_moves()
         self.stop_tracking_moves()
         time.sleep(0.2)
-        game_moves = [move.get_serial() for move in self.moves if self.out_moves[move.get_serial()] == Alive.on.value]
         self.teams = {serial: self.move_opts[serial][Opts.team.value] for serial in self.tracked_moves.keys() if self.out_moves[serial] == Alive.on.value}
+        game_moves = [move.get_serial() for move in self.moves if self.out_moves[move.get_serial()] == Alive.on.value]
 
+        if len(game_moves) < common.minimum_players[self.game_mode] and self.enforce_minimum:
+            Audio('audio/Menu/notenoughplayers.wav').start_effect()
+            self.tracked_moves = {}
+            return
+        self.update_status('starting')
 
         if random_mode:
-            if len(self.con_games) <= 1:
-                selected_game = self.con_games[0]
+            if self.enforce_minimum:
+                good_con_games = [i for i in self.con_games if common.minimum_players[i] <= len(game_moves)]
             else:
-                if len(self.rand_game_list) >= len(self.con_games):
+                good_con_games = self.con_games
+            if len(good_con_games) == 0:
+                selected_game = 0 #force Joust FFA
+            elif len(good_con_games) == 1:
+                selected_game = good_con_games[0]
+            else:
+                if len(self.rand_game_list) >= len(good_con_games):
                     #empty rand game list, append old game, to not play it twice
                     self.rand_game_list = [self.old_game_mode]
 
-                selected_game = random.choice(self.con_games)
+                selected_game = random.choice(good_con_games)
                 while selected_game in self.rand_game_list:
-                    selected_game = random.choice(self.con_games)
+                    selected_game = random.choice(good_con_games)
 
                 self.old_game_mode = selected_game
                 self.rand_game_list.append(selected_game)

@@ -16,12 +16,14 @@ class MultiCheckboxField(SelectMultipleField):
     widget = widgets.ListWidget(prefix_label=True)
     option_widget = widgets.CheckboxInput()
 
+gmn = common.game_mode_names
+
 class SettingsForm(Form):
     move_admin = BooleanField('Allow Move to change settings')
     instructions = BooleanField('Play instructions before game start')
     audio = BooleanField('Play audio')
     sensitivity = SelectField('Move sensitivity',choices=[(0,'Slow'),(1,'Medium'),(2,'Fast')],coerce=int)
-    random_modes = MultiCheckboxField('Random Modes',choices=[(s,s) for s in common.game_mode_names if s != "Random"])
+    random_modes = MultiCheckboxField('Random Modes',choices=[(gmn[i],gmn[i]) for i in range(len(gmn)) if gmn[i] not in ["Random","Joust Teams"]])
 
 class WebUI():
     def __init__(self, command_queue=Queue(), ns=Manager().Namespace()):
@@ -37,6 +39,7 @@ class WebUI():
         self.app.add_url_rule('/startgame','start_game',self.start_game)
         self.app.add_url_rule('/killgame','kill_game',self.kill_game)
         self.app.add_url_rule('/updateStatus','update',self.update)
+        self.app.add_url_rule('/battery','battery_status',self.battery_status)
         self.app.add_url_rule('/settings','settings',self.settings, methods=['GET','POST'])
 
 
@@ -62,6 +65,9 @@ class WebUI():
         self.command_queue.put({'command': 'killgame'})
         return "{'status':'OK'}"
 
+    #@app.route('/battery')
+    def battery_status(self):
+        return render_template('battery.html',ns=self.status_ns,levels=common.battery_levels)
 
     #@app.route('/settings')
     def settings(self):

@@ -62,6 +62,33 @@ class Games(Enum):
     Ninja = 9
     Random = 10
 
+minimum_players = {
+    Games.JoustFFA.value: 2,
+    Games.JoustTeams.value: 3,
+    Games.JoustRandomTeams.value: 3,
+    Games.Traitor.value: 6,
+    Games.WereJoust.value: 3,
+    Games.Zombies.value: 4,
+    Games.Commander.value: 4,
+    Games.Swapper.value: 3,
+    Games.Tournament.value: 3,
+    Games.Ninja.value: 2,
+    Games.Random.value: 2
+}
+
+game_mode_names = {
+    Games.JoustFFA.value: 'Joust Free-for-All',
+    Games.JoustTeams.value: 'Joust Teams',
+    Games.JoustRandomTeams.value: 'Joust Random Teams',
+    Games.Traitor.value: 'Traitors',
+    Games.WereJoust.value: 'Werewolves',
+    Games.Zombies.value: 'Zombies',
+    Games.Commander.value: 'Commander',
+    Games.Swapper.value: 'Swapper',
+    Games.Tournament.value: 'Tournament',
+    Games.Ninja.value: 'Ninja Bomb',
+    Games.Random.value: 'Random'
+}
 
 class Buttons(Enum):
     middle = 524288
@@ -70,16 +97,13 @@ class Buttons(Enum):
     circle = 32
     nothing = 0
 
-
-game_mode_names = [
-    'Joust Free-for-All',
-    'Joust Teams',
-    'Joust Random Teams',
-    'Traitors',
-    'Werewolves',
-    'Zombies',
-    'Commander',
-    'Swapper',
-    'Tournament'
-    ,'Ninja Bomb'
-    ,'Random']
+battery_levels = {
+    0: "Low",
+    1: "20%",
+    2: "40%",
+    3: "60%",
+    4: "80%",
+    5: "100%",
+    238: "Charging",
+    239: "Charged"
+}

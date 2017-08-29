@@ -107,7 +107,7 @@ Custom Music
 ---------------------------------
 * JoustMania comes with a single classical music piece
 * Play your own music, by copying it into the respective folders: /audio/(Joust, Zombie, Commander)/music/
-* WAV files currently supported
+* Supports Mp3, Wav, Ogg, flac and others [Here](http://www.ffmpeg.org/general.html#File-Formats), 
 * All music and audio can be disabled by changing `audio = False` in joustconfig.ini, this will also disable tempo sensitivity changes for each game mode
 
 

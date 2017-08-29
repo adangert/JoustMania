@@ -1,7 +1,7 @@
 import common
 import psmove
 import time
-import psutil, os
+import psutil, os, glob
 import random
 import numpy
 import json
@@ -11,9 +11,9 @@ from multiprocessing import Process, Value, Array, Queue
 
 
 # How fast/slow the music can go
-SLOW_MUSIC_SPEED = 0.5
+SLOW_MUSIC_SPEED = 0.7
 #this was 0.5
-FAST_MUSIC_SPEED = 2.0
+FAST_MUSIC_SPEED = 1.5
 
 # The min and max timeframe in seconds for
 # the speed change to trigger, randomly selected
@@ -194,7 +194,7 @@ class Joust():
         self.game_mode = game_mode
         self.tracked_moves = {}
         self.dead_moves = {}
-        self.music_speed = Value('d', 1.5)
+        self.music_speed = Value('d', SLOW_MUSIC_SPEED)
         self.running = True
         self.force_move_colors = {}
         self.teams = teams
@@ -217,11 +217,17 @@ class Joust():
         if game_mode == common.Games.JoustFFA.value:
             self.team_num = len(moves)
         if game_mode == common.Games.JoustRandomTeams.value:
-            #this should be 3 for smaller number of controllers
-            self.team_num = 4
+            if len(moves) <= 5:
+                self.team_num = 2
+            elif len(moves) in [6,7]:
+                self.team_num = 3
+            else: #8 or more
+                self.team_num = 4
         if game_mode == common.Games.Traitor.value:
-            #this should be 3 for smaller number of controllers
-            self.team_num = 3
+            if len(moves) <= 8:
+                self.team_num = 2
+            else: #9 or more
+                self.team_num = 3
             self.werewolf_reveal.value = 0
             
         if game_mode == common.Games.WereJoust.value:
@@ -237,7 +243,7 @@ class Joust():
                 were_num = 1
             self.choose_werewolf(were_num)
         if self.audo_toggle:
-            music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
+            music = random.choice(glob.glob("audio/Joust/music/*.wav"))
             self.start_beep = Audio('audio/Joust/sounds/start.wav')
             self.start_game = Audio('audio/Joust/sounds/start3.wav')
             self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
@@ -248,7 +254,7 @@ class Joust():
         
         #self.change_time = self.get_change_time(speed_up = True)
         
-        self.speed_up = True
+        self.speed_up = False
         self.currently_changing = False
         self.game_end = False
         self.winning_moves = []        
@@ -522,6 +528,7 @@ class Joust():
         time.sleep(0.02)
         if self.audo_toggle:
             self.audio.start_audio_loop()
+            self.audio.change_ratio(self.music_speed.value)
         else:
             #when no audio is playing set the music speed to middle speed
             self.music_speed.value = (FAST_MUSIC_SPEED + SLOW_MUSIC_SPEED) / 2

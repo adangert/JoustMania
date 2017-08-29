@@ -31,7 +31,7 @@ p{line-height: 200%}
 <div class="lol">
 {% with message = get_flashed_messages() %}
   {% if message %}
-    <br>{{message[0]}}<br>
+    <br>{{message[0]}}<br><a href="/"><button type="button">Go Back</button></a><br>
   {% endif %}
 {% endwith %}
 </div>

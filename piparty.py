@@ -99,7 +99,7 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                         move.set_leds(0,0,255)
                     elif battery_level == 4: # 80% - cyan
                         move.set_leds(0,255,255)
-                    elif battery_level == 5: # 60% - green
+                    elif battery_level == 3: # 60% - green
                         move.set_leds(0,255,0)
                     elif battery_level == 2: # 40% - lime green
                         move.set_leds(191,255,0)

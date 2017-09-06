@@ -1,5 +1,5 @@
 import psmove, pair
-import common, joust
+import common, colors, joust
 import zombie, commander, swapper, tournament, speed_bomb
 import time, random, json, configparser, os, os.path, sys, glob
 from piaudio import Audio
@@ -7,8 +7,8 @@ from enum import Enum
 from multiprocessing import Process, Value, Array, Queue, Manager
 from webui import start_web
 
-TEAM_NUM = len(common.Colors)
-#TEAM_COLORS = common.generate_colors(TEAM_NUM)
+TEAM_NUM = len(colors.TeamColors)
+#TEAM_COLORS = color.generate_colors(TEAM_NUM)
 
 #the number of game modes
 GAME_MODES = len(common.Games)
@@ -113,7 +113,7 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                 elif game_mode == common.Games.JoustTeams.value:
                     if move_opts[Opts.team.value] >= TEAM_NUM:
                         move_opts[Opts.team.value] = 0
-                    move.set_leds(*common.color_list[move_opts[Opts.team.value]].value)
+                    move.set_leds(*colors.color_list[move_opts[Opts.team.value]].value)
                     if move_button == Buttons.middle.value:
                         #allow players to increase their own team
                         if move_opts[Opts.holding.value] == Holding.not_holding.value:
@@ -125,57 +125,56 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                     move.set_leds(*force_color)
 
                 elif game_mode == common.Games.JoustFFA.value:
-                    move.set_leds(255,255,255)
+                    move.set_leds(*colors.ExtraColors.White.value)
                             
                             
                 elif game_mode == common.Games.JoustRandomTeams.value:
                     color = time.time()/10%1
-                    color = common.hsv2rgb(color, 1, 1)
+                    color = colors.hsv2rgb(color, 1, 1)
                     move.set_leds(*color)
 
                 elif game_mode == common.Games.Traitor.value:
                     if move_num%4 == 2 and time.time()/3%1 < .15:
-                        move.set_leds(200,0,0)
+                        move.set_leds(*colors.ExtraColors.Red80.value)
                     else:
                         color = 1 - time.time()/10%1
-                        color = common.hsv2rgb(color, 1, 1)
+                        color = colors.hsv2rgb(color, 1, 1)
                         move.set_leds(*color)
 
                 elif game_mode == common.Games.WereJoust.value:
                     if move_num <= 0:
-                        move.set_leds(150,0,0)
+                        move.set_leds(*colors.ExtraColors.Red60.value)
                     else:
-                        move.set_leds(200,200,200)
+                        move.set_leds(*colors.ExtraColors.White80.value)
 
                 elif game_mode == common.Games.Zombies.value:
-                        move.set_leds(50,150,50)
+                        move.set_leds(*colors.ExtraColors.Zombie.value)
 
                 elif game_mode == common.Games.Commander.value:
                     if move_num % 2 == 0:
-                        move.set_leds(150,0,0)
+                        move.set_leds(*colors.TeamColors.Orange.value)
                     else:
-                        move.set_leds(0,0,150)
+                        move.set_leds(*colors.TeamColors.Blue.value)
 
                 elif game_mode == common.Games.Swapper.value:
                     if (time.time()/5 + random_color)%1 > 0.5:
-                        move.set_leds(150,0,0)
+                        move.set_leds(*colors.TeamColors.Magenta.value)
                     else:
-                        move.set_leds(0,0,150)
-
+                        move.set_leds(*colors.TeamColors.Green.value)
                 elif game_mode == common.Games.Tournament.value:
                     if move_num <= 0:
                         color = time.time()/10%1
-                        color = common.hsv2rgb(color, 1, 1)
+                        color = colors.hsv2rgb(color, 1, 1)
                         move.set_leds(*color)
                     else:
-                        move.set_leds(200,200,200)
+                        move.set_leds(*colors.ExtraColors.White80.value)
 
 
                 elif game_mode == common.Games.Ninja.value:
                     if move_num <= 0:
                         move.set_leds(random.randrange(100, 200),0,0)
                     else:
-                        move.set_leds(200,200,200)
+                        move.set_leds(*colors.ExtraColors.White80.value)
 
 
                 elif game_mode == common.Games.Random.value:

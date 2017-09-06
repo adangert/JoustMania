@@ -1,7 +1,7 @@
 import psmove
 import time
 import random
-import common
+import common, colors
 import os
 from multiprocessing import Process, Value, Array
 from piaudio import Audio
@@ -389,7 +389,7 @@ class Zombie:
                     proc.join()
                 pause_time = time.time() + 3
                 HSV = [(x*1.0/(50*len(self.controllers_alive)), 0.9, 1) for x in range(50*len(self.controllers_alive))]
-                colour_range = [[int(x) for x in common.hsv2rgb(*colour)] for colour in HSV]
+                colour_range = [[int(x) for x in color.hsv2rgb(*colour)] for colour in HSV]
                 win_controllers = []
                 if len(self.humans) <= 0:
                     if self.audio_toggle:

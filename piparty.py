@@ -224,7 +224,7 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
         move.update_leds()
 
 class Menu():
-    def __init__(self,command_queue=Queue(), status_manager=Manager()):
+    def __init__(self,command_queue=Queue(), joust_manager=Manager()):
 
         if not os.path.isfile('joustconfig.ini'):
             self.create_settings()
@@ -265,9 +265,11 @@ class Menu():
         self.pair = pair.Pair()
 
         self.command_queue = command_queue
-        self.status_manager = status_manager
-        self.status_ns = status_manager.Namespace()
-        self.status_ns.status_dict = dict()
+        self.joust_manager = joust_manager
+        self.joust_ns = joust_manager.Namespace()
+        self.joust_ns.status = dict()
+        self.joust_ns.settings = dict()
+        self.joust_ns.battery_status = dict()
         self.command_from_web = ''
 
         self.i = 0
@@ -286,7 +288,7 @@ class Menu():
             self.commander_music = Audio("",False,False)
 
     def start_web(self):
-        web_proc = Process(target=start_web, args=(self.command_queue,self.status_ns))
+        web_proc = Process(target=start_web, args=(self.command_queue,self.joust_ns))
         web_proc.start()
 
 
@@ -550,26 +552,29 @@ class Menu():
                 self.command_from_web = command
 
     def update_status(self,game_status):
-        data ={'game_status' : game_status,
-               'game_mode' : common.game_mode_names[self.game_mode],
-               'move_count' : self.move_count,
-               'alive_count' : self.move_count - self.dead_count.value,
-               'ticker': self.i,
-               'move_admin': self.move_can_be_admin,
-               'instructions': self.instructions,
-               'sensitivity': self.sensitivity,
-               'audio': self.audio_toggle,
-               'enforce_minimum': self.enforce_minimum,
-               'con_games': [common.game_mode_names[i] for i in self.con_games]}
-        self.status_ns.status_dict = data
+        self.joust_ns.status ={
+            'game_status' : game_status,
+            'game_mode' : common.game_mode_names[self.game_mode],
+            'move_count' : self.move_count,
+            'alive_count' : self.move_count - self.dead_count.value,
+            'ticker': self.i
+        }
+        self.joust_ns.settings = {
+            'move_admin': self.move_can_be_admin,
+            'instructions': self.instructions,
+            'sensitivity': self.sensitivity,
+            'audio': self.audio_toggle,
+            'enforce_minimum': self.enforce_minimum,
+            'con_games': [common.game_mode_names[i] for i in self.con_games]
+        }
 
         battery_status = {}
         for move in self.moves:
             move.poll()
             battery_status[move.get_serial()] = move.get_battery()
-        self.status_ns.battery_status = battery_status
+        self.joust_ns.battery_status = battery_status
 
-        self.status_ns.out_moves = self.out_moves
+        self.joust_ns.out_moves = self.out_moves
 
     def stop_tracking_moves(self):
         for proc in self.tracked_moves.values():
@@ -674,23 +679,23 @@ class Menu():
             self.play_random_instructions()
         
         if self.game_mode == common.Games.Zombies.value:
-            zombie.Zombie(game_moves, self.sensitivity, self.command_queue, self.status_ns, self.audio_toggle, self.zombie_music)
+            zombie.Zombie(game_moves, self.sensitivity, self.command_queue, self.joust_ns, self.audio_toggle, self.zombie_music)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Commander.value:
-            commander.Commander(game_moves, self.sensitivity, self.command_queue, self.status_ns, self.commander_music)
+            commander.Commander(game_moves, self.sensitivity, self.command_queue, self.joust_ns, self.commander_music)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Ninja.value:
-            speed_bomb.Bomb(game_moves, self.command_queue, self.status_ns, self.audio_toggle, self.commander_music)
+            speed_bomb.Bomb(game_moves, self.command_queue, self.joust_ns, self.audio_toggle, self.commander_music)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Swapper.value:
-            swapper.Swapper(game_moves, self.sensitivity, self.command_queue, self.status_ns, self.audio_toggle, self.joust_music)
+            swapper.Swapper(game_moves, self.sensitivity, self.command_queue, self.joust_ns, self.audio_toggle, self.joust_music)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Tournament.value:
-            tournament.Tournament(game_moves, self.sensitivity, self.command_queue, self.status_ns, self.audio_toggle, self.joust_music)
+            tournament.Tournament(game_moves, self.sensitivity, self.command_queue, self.joust_ns, self.audio_toggle, self.joust_music)
             self.tracked_moves = {}
         else:
             #may need to put in moves that have selected to not be in the game
-            joust.Joust(self.game_mode, game_moves, self.teams, self.sensitivity, self.command_queue, self.status_ns, self.audio_toggle,self.joust_music)
+            joust.Joust(self.game_mode, game_moves, self.teams, self.sensitivity, self.command_queue, self.joust_ns, self.audio_toggle,self.joust_music)
             self.tracked_moves = {}
         if random_mode:
             self.game_mode = common.Games.Random.value

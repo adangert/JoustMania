@@ -31,8 +31,10 @@ class WebUI():
         self.app = Flask(__name__)
         self.app.secret_key="MAGFest is a donut"
         self.command_queue = command_queue
-        self.status_ns = ns
-        self.status_ns.status_dict = dict()
+        self.joust_ns = ns
+        self.joust_ns.status = dict()
+        self.joust_ns.settings = dict()
+        self.joust_ns.battery_status = dict()
 
         self.app.add_url_rule('/','index',self.index)
         self.app.add_url_rule('/changemode','change_mode',self.change_mode)
@@ -67,7 +69,7 @@ class WebUI():
 
     #@app.route('/battery')
     def battery_status(self):
-        return render_template('battery.html',ns=self.status_ns,levels=common.battery_levels)
+        return render_template('battery.html',ns=self.joust_ns,levels=common.battery_levels)
 
     #@app.route('/settings')
     def settings(self):
@@ -79,13 +81,13 @@ class WebUI():
             return redirect(url_for('settings'))
         else:
             settingsForm = SettingsForm()
-            settingsForm.sensitivity.default = self.status_ns.status_dict['sensitivity']
+            settingsForm.sensitivity.default = self.joust_ns.settings['sensitivity']
             settingsForm.process()
-            return render_template('settings.html', form=settingsForm, settings=self.status_ns.status_dict)
+            return render_template('settings.html', form=settingsForm, settings=self.joust_ns.settings)
 
     #@app.route('/updateStatus')
     def update(self):
-        return json.dumps(self.status_ns.status_dict)
+        return json.dumps(self.joust_ns.status)
 
 def start_web(command_queue, ns):
     webui = WebUI(command_queue,ns)

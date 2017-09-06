@@ -150,7 +150,7 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                 else:
                     can_fake = True
                     faking = False
-                    if false_color.value == 1:
+                    if false_colors.value == 1:
                         move.set_leds(150,20,20)
                     else:
                         move.set_leds(*no_bomb_color)
@@ -158,7 +158,7 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                         if move_opts[Opts.has_bomb.value] == Bool.no.value:
                             move_opts[Opts.holding.value] = Holding.holding.value
 
-                            if game_start.value == 1 and false_color.value == 1:
+                            if game_start.value == 1 and false_colors.value == 1:
                                 print("JUST DIED TO BEING FAKED!!!")
                                 faked.value = 1
                                 #dead_move.value -= 1
@@ -391,12 +391,12 @@ class Bomb():
 
             for move_serial in self.move_serials:
                 #if move_serial == faker_move:
-                #    color.change_color(faker_color_array, random.randrange(100, 200), 10, 10)
+                #    colors.change_color(faker_color_array, random.randrange(100, 200), 10, 10)
                 if move_serial == dead_move:
-                    color.change_color(dead_color_array, 10, random.randrange(100, 200), 10)
+                    colors.change_color(dead_color_array, 10, random.randrange(100, 200), 10)
                     self.rumble[move_serial].value = 150
                 else:
-                    color.change_color(self.force_move_colors[move_serial], 1,1,1)
+                    colors.change_color(self.force_move_colors[move_serial], 1,1,1)
         self.rumble[dead_move].value = 0
         self.change_all_move_colors(0, 0, 0)
 
@@ -565,10 +565,10 @@ class Bomb():
                                 self.start_beep.start_effect()
                             in_cons.append(move_serial_beg)
                     if move_serial_beg in in_cons:
-                        color.change_color(self.force_move_colors[move_serial_beg], 100,100,100)
-                color.change_color(self.force_move_colors[move_serial], 100,0,0)
+                        colors.change_color(self.force_move_colors[move_serial_beg], 100,100,100)
+                colors.change_color(self.force_move_colors[move_serial], 100,0,0)
                 time.sleep(0.5)
-                color.change_color(self.force_move_colors[move_serial], 0,0,0)
+                colors.change_color(self.force_move_colors[move_serial], 0,0,0)
         for move_serial_beg in self.move_serials:
             self.move_opts[move_serial_beg][Opts.has_bomb.value] = Bool.no.value
 
@@ -594,7 +594,7 @@ class Bomb():
 
     def change_all_move_colors(self, r, g, b):
         for color in self.force_move_colors.values():
-            color.change_color(color, r, g, b)
+            colors.change_color(color, r, g, b)
 
     #remove dead controllers, and change bomb holder
     def check_dead_moves(self):
@@ -639,11 +639,11 @@ class Bomb():
 
         while (time.time() < end_time):
             time.sleep(0.01)
-            win_color = color.hsv2rgb(h_value, 1, 1)
+            win_color = colors.hsv2rgb(h_value, 1, 1)
             if len(self.alive_moves) > 0:
                 win_move = self.alive_moves[0]
                 win_color_array = self.force_move_colors[win_move]
-                color.change_color(win_color_array, *win_color)
+                colors.change_color(win_color_array, *win_color)
                 h_value = (h_value + 0.01)
                 if h_value >= 1:
                     h_value = 0
@@ -680,10 +680,10 @@ class Bomb():
         h_value = 0
         while (time.time() < end_time):
             time.sleep(0.01)
-            color = color.hsv2rgb(h_value, 1, 1)
+            color = colors.hsv2rgb(h_value, 1, 1)
             for move in all_moves:
                 color_array = self.force_move_colors[move]
-                color.change_color(color_array, *color)
+                colors.change_color(color_array, *color)
             h_value = (h_value + 0.01)
             if h_value >= 1:
                 h_value = 0

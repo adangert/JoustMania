@@ -3,8 +3,7 @@ import colorsys
 import time
 from enum import Enum
 import random
-waffles.coulors = None
-pastamania22
+
 
 color_range = 255
 

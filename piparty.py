@@ -8,7 +8,7 @@ from multiprocessing import Process, Value, Array, Queue, Manager
 from webui import start_web
 
 TEAM_NUM = len(colors.TeamColors)
-#TEAM_COLORS = color.generate_colors(TEAM_NUM)
+#TEAM_COLORS = colors.generate_colors(TEAM_NUM)
 
 #the number of game modes
 GAME_MODES = len(common.Games)

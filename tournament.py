@@ -53,7 +53,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
     no_rumble = time.time() + 1
     move_last_value = None
     move = common.get_move(move_serial, move_num)
-    team_colors = color.generate_colors(team_num)
+    team_colors = colors.generate_colors(team_num)
     vibrate = False
     vibration_time = time.time() + 1
     flash_lights = True
@@ -276,7 +276,7 @@ class Tournament():
             
     def change_all_move_colors(self, r, g, b):
         for color in self.force_move_colors.values():
-            color.change_color(color, r, g, b)
+            colors.change_color(color, r, g, b)
 
     #need to do the count_down here
     def count_down(self):
@@ -425,10 +425,10 @@ class Tournament():
 
         while (time.time() < end_time):
             time.sleep(0.01)
-            win_color = color.hsv2rgb(h_value, 1, 1)
+            win_color = colors.hsv2rgb(h_value, 1, 1)
             for win_move in self.winning_moves:
                 win_color_array = self.force_move_colors[win_move]
-                color.change_color(win_color_array, *win_color)
+                colors.change_color(win_color_array, *win_color)
             h_value = (h_value + 0.01)
             if h_value >= 1:
                 h_value = 0
@@ -487,10 +487,10 @@ class Tournament():
         h_value = 0
         while (time.time() < end_time):
             time.sleep(0.01)
-            color = color.hsv2rgb(h_value, 1, 1)
+            color = colors.hsv2rgb(h_value, 1, 1)
             for move in all_moves:
                 color_array = self.force_move_colors[move]
-                color.change_color(color_array, *color)
+                colors.change_color(color_array, *color)
             h_value = (h_value + 0.01)
             if h_value >= 1:
                 h_value = 0

@@ -198,7 +198,7 @@ class Joust():
         self.running = True
         self.force_move_colors = {}
         self.teams = teams
-        self.num_teams = len(color.color_list)
+        self.num_teams = len(colors.color_list)
         self.game_mode = game_mode
         self.werewolf_timer = 35
         self.start_timer = time.time()
@@ -242,9 +242,9 @@ class Joust():
 
         print('HELLO THE NUMBER OF TEAMS IS %d' % self.num_teams)
         if game_mode == common.Games.JoustTeams.value:
-            self.team_colors = color.color_list
+            self.team_colors = colors.color_list
         else:
-            self.team_colors = color.generate_team_colors(self.num_teams)
+            self.team_colors = colors.generate_team_colors(self.num_teams)
 
         if game_mode == common.Games.WereJoust.value:
             #were_num = int((len(moves)+2)/4)
@@ -325,7 +325,7 @@ class Joust():
             
     def change_all_move_colors(self, r, g, b):
         for color in self.force_move_colors.values():
-            color.change_color(color, r, g, b)
+            colors.change_color(color, r, g, b)
 
     #need to do the count_down here
     def count_down(self):
@@ -454,10 +454,10 @@ class Joust():
 
         while (time.time() < end_time):
             time.sleep(0.01)
-            win_color = color.hsv2rgb(h_value, 1, 1)
+            win_color = colors.hsv2rgb(h_value, 1, 1)
             for win_move in self.winning_moves:
                 win_color_array = self.force_move_colors[win_move]
-                color.change_color(win_color_array, *win_color)
+                colors.change_color(win_color_array, *win_color)
             h_value = (h_value + 0.01)
             if h_value >= 1:
                 h_value = 0
@@ -588,9 +588,9 @@ class Joust():
             if self.game_mode == common.Games.WereJoust.value:
                 data['team_names'] = ['Werewolves', 'Humans']
             elif self.game_mode == common.Games.Traitor.value:
-                data['team_names'] = ['Traitors'] + [color.name + ' Team' for color in self.team_colors]
+                data['team_names'] = ['Traitors'] + [colors.name + ' Team' for color in self.team_colors]
             elif self.game_mode != common.Games.JoustFFA.value:
-                data['team_names'] = [color.name + ' Team' for color in self.team_colors]
+                data['team_names'] = [colors.name + ' Team' for color in self.team_colors]
         if self.game_mode == common.Games.WereJoust.value:
             thyme = int(self.werewolf_timer - (time.time() - self.start_timer))
             if thyme < 0:
@@ -612,10 +612,10 @@ class Joust():
         h_value = 0
         while (time.time() < end_time):
             time.sleep(0.01)
-            color = color.hsv2rgb(h_value, 1, 1)
+            color = colors.hsv2rgb(h_value, 1, 1)
             for move in all_moves:
                 color_array = self.force_move_colors[move]
-                color.change_color(color_array, *color)
+                colors.change_color(color_array, *color)
             h_value = (h_value + 0.01)
             if h_value >= 1:
                 h_value = 0
@@ -626,7 +626,7 @@ class Joust():
         #     color = (bright,bright,bright)
         #     for move in all_moves:
         #         color_array = self.force_move_colors[move]
-        #         color.change_color(color_array, *color)
+        #         colors.change_color(color_array, *color)
         #     bright = bright - 1
         #     if bright < 10:
         #         bright = 10

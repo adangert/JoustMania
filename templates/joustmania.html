@@ -14,24 +14,6 @@ function updateStatus(){
             $('.admin').hide()
             $('.error').hide()
 
-            if (info.game_mode == 'Werewolves'){
-                team_name = ['Werewolf','Human']
-            } else if (info.game_mode == 'Joust Teams'){
-                team_name = ['Yellow','Green','Cyan','Blue','Magenta','Red'];
-            } else if (info.game_mode == 'Joust Random Teams'){
-                team_name = ['Yellow','Cyan','Magenta','Red'];
-            } else if (info.game_mode == 'Zombies'){
-                team_name = ['Human','Zombie'];
-            } else if (info.game_mode == 'Commander'){
-                team_name = ['Red', 'Blue'];
-            } else if (info.game_mode == 'Traitors'){
-                team_name = ['Traitor','Green','Blue','Red'];
-            } else if (info.game_mode == 'Swapper'){
-                team_name = ['Blue', 'Red'];
-            } else { //free for all
-                team_name = ['null'];
-            }
-
             if (info.game_status=='in_game'){
                 $('#gamebuttons').show();
                 if (info.game_mode == 'Joust Free-for-All' || info.game_mode == 'Ninja'){
@@ -65,7 +47,7 @@ function updateStatus(){
                     for (i=0; i < info.team_comp.length; i++){
                         t = info.team_comp[i]
                         if (t[0] != 0){
-                            team_info += team_name[i] + ' Team: ' + t[1] + '/' + t[0] + '<br />';
+                            team_info += info.team_names[i] + ': ' + t[1] + '/' + t[0] + '<br />';
                         }
                     }
                     team_info += '<br />';
@@ -82,7 +64,7 @@ function updateStatus(){
                 $('#team_win').hide();
                 if (info.game_mode != 'Joust Free-for-All' && info.winning_team != -1){
                     $('#team_win').show();
-                    line = team_name[info.winning_team] + ' Team wins!'
+                    line = info.team_names[info.winning_team] + ' win!'
                     $('#team_win').text(line);
                 }
 

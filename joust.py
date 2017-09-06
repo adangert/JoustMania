@@ -48,7 +48,7 @@ END_GAME_PAUSE = 6
 KILL_GAME_PAUSE = 4
 
 
-def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, force_color, music_speed, werewolf_reveal, show_team_colors):
+def track_move(move_serial, move_num, game_mode, team, team_color_enum, dead_move, force_color, music_speed, werewolf_reveal, show_team_colors):
     #proc = psutil.Process(os.getpid())
     #proc.nice(3)
     #explosion = Audio('audio/Joust/sounds/Explosion34.wav')
@@ -57,7 +57,7 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
     no_rumble = time.time() + 1
     move_last_value = None
     move = common.get_move(move_serial, move_num)
-    team_colors = common.generate_colors(team_num)
+    my_team_colors = team_color_enum.value
     werewolf = False
     vibrate = False
     change_arr = [0,0,0]
@@ -70,7 +70,7 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
     #keep on looping while move is not dead
     while True:
         if show_team_colors.value == 1:
-            move.set_leds(*team_colors[team])
+            move.set_leds(*my_team_colors)
             move.update_leds()
         elif sum(force_color) != 0:
             no_rumble_time = time.time() + 5
@@ -126,7 +126,7 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
                                 else:
                                     move.set_leds(100,100,100)
                             else:
-                                move.set_leds(*team_colors[team])
+                                move.set_leds(*my_team_colors)
                         if time.time() < vibration_time - 0.22:
                             move.set_rumble(110)
                         else:
@@ -141,7 +141,7 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
                             else:
                                 move.set_leds(100,100,100)
                         else:
-                            move.set_leds(*team_colors[team])
+                            move.set_leds(*my_team_colors)
                         #move.set_rumble(0)
 
 
@@ -198,7 +198,7 @@ class Joust():
         self.running = True
         self.force_move_colors = {}
         self.teams = teams
-        self.team_num = 6
+        self.num_teams = len(common.color_list)
         self.game_mode = game_mode
         self.werewolf_timer = 35
         self.start_timer = time.time()
@@ -214,27 +214,37 @@ class Joust():
         #self.update_status('starting')
         
         self.werewolf_reveal = Value('i', 2)
+
         if game_mode == common.Games.JoustFFA.value:
-            self.team_num = len(moves)
+            self.num_teams = len(moves)
+
         if game_mode == common.Games.JoustRandomTeams.value:
             if len(moves) <= 5:
-                self.team_num = 2
+                self.num_teams = 2
             elif len(moves) in [6,7]:
-                self.team_num = 3
+                self.num_teams = 3
             else: #8 or more
-                self.team_num = 4
+                self.num_teams = 4
+
         if game_mode == common.Games.Traitor.value:
             if len(moves) <= 8:
-                self.team_num = 2
+                self.num_teams = 2
             else: #9 or more
-                self.team_num = 3
+                self.num_teams = 3
             self.werewolf_reveal.value = 0
             
         if game_mode == common.Games.WereJoust.value:
             self.werewolf_reveal.value = 0
-            self.team_num = 1
+            self.num_teams = 1
+
         if game_mode != common.Games.JoustTeams.value:
-            self.generate_random_teams(self.team_num)
+            self.generate_random_teams(self.num_teams)
+
+        print('HELLO THE NUMBER OF TEAMS IS %d' % self.num_teams)
+        if game_mode == common.Games.JoustTeams.value:
+            self.team_colors = common.color_list
+        else:
+            self.team_colors = common.generate_team_colors(self.num_teams)
 
         if game_mode == common.Games.WereJoust.value:
             #were_num = int((len(moves)+2)/4)
@@ -270,8 +280,8 @@ class Joust():
                 werewolf = random.choice(self.move_serials)
             self.teams[werewolf] = (self.teams[werewolf] * -1) - 1
 
-    def generate_random_teams(self, team_num):
-        team_pick = list(range(team_num))
+    def generate_random_teams(self, num_teams):
+        team_pick = list(range(num_teams))
         print (str(team_pick))
         traitor_pick = True
         copy_serials = self.move_serials[:]
@@ -290,7 +300,7 @@ class Joust():
             team_pick.remove(random_choice)
             if not team_pick:
                 traitor_pick = False
-                team_pick = list(range(team_num))
+                team_pick = list(range(num_teams))
 
     def track_moves(self):
         for move_num, move_serial in enumerate(self.move_serials):
@@ -302,7 +312,7 @@ class Joust():
                                                     move_num,
                                                     self.game_mode,
                                                     self.teams[move_serial],
-                                                    self.team_num,
+                                                    self.team_colors[self.teams[move_serial]],
                                                     dead_move,
                                                     force_color,
                                                     self.music_speed,
@@ -472,12 +482,12 @@ class Joust():
                 team_win = Audio('audio/Joust/sounds/red team win.wav')
             team_win.start_effect()
         if self.game_mode == common.Games.JoustRandomTeams.value:
-            if self.team_num == 2:
+            if self.num_teams == 2:
                 if winning_team == 0:
                     team_win = Audio('audio/Joust/sounds/cyan team win.wav')
                 if winning_team == 1:
                     team_win = Audio('audio/Joust/sounds/red team win.wav')
-            if self.team_num == 3:
+            if self.num_teams == 3:
                 if winning_team == 0:
                     team_win = Audio('audio/Joust/sounds/green team win.wav')
                 if winning_team == 1:
@@ -496,7 +506,7 @@ class Joust():
             team_win.start_effect()
 
         if self.game_mode == common.Games.Traitor.value:
-            if self.team_num == 2:
+            if self.num_teams == 2:
                 if winning_team == -1:
                     team_win = Audio('audio/Joust/sounds/traitor win.wav')
                 if winning_team == 0:
@@ -598,23 +608,30 @@ class Joust():
             data['remaining_players'] = len([x[0] for x in self.dead_moves.items() if x[1].value==1])
         else:
             if self.game_mode in [common.Games.WereJoust.value, common.Games.Traitor.value]:
-                num = self.team_num + 1
+                num = self.num_teams + 1
                 data['winning_team'] += 1
             else:
-                num = self.team_num
+                num = self.num_teams
             team_alive = [0]*num
             team_total = [0]*num
+            
             for move in self.move_serials:
                 team = self.teams[move]
                 if self.game_mode in [common.Games.WereJoust.value, common.Games.Traitor.value]:
-                        team += 1 #shift so bad guy team is 0
-                        if team < 0:
-                            team = 0
+                    team += 1 #shift so bad guy team is 0
+                    if team < 0:
+                        team = 0
                 team_total[team] += 1
                 if self.dead_moves[move].value == 1:
                     team_alive[team] += 1
             team_comp = list(zip(team_total,team_alive))
             data['team_comp'] = team_comp
+            if self.game_mode == common.Games.WereJoust.value:
+                data['team_names'] = ['Werewolves', 'Humans']
+            elif self.game_mode == common.Games.Traitor.value:
+                data['team_names'] = ['Traitors'] + [color.name + ' Team' for color in self.team_colors]
+            elif self.game_mode != common.Games.JoustFFA.value:
+                data['team_names'] = [color.name + ' Team' for color in self.team_colors]
         if self.game_mode == common.Games.WereJoust.value:
             thyme = int(self.werewolf_timer - (time.time() - self.start_timer))
             if thyme < 0:

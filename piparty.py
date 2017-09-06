@@ -7,11 +7,11 @@ from enum import Enum
 from multiprocessing import Process, Value, Array, Queue, Manager
 from webui import start_web
 
-TEAM_NUM = 6
-TEAM_COLORS = common.generate_colors(TEAM_NUM)
+TEAM_NUM = len(common.Colors)
+#TEAM_COLORS = common.generate_colors(TEAM_NUM)
 
 #the number of game modes
-GAME_MODES = 11
+GAME_MODES = len(common.Games)
 
 SENSITIVITY_MODES = 3
 
@@ -113,7 +113,7 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                 elif game_mode == common.Games.JoustTeams.value:
                     if move_opts[Opts.team.value] >= TEAM_NUM:
                         move_opts[Opts.team.value] = 0
-                    move.set_leds(*TEAM_COLORS[move_opts[Opts.team.value]])
+                    move.set_leds(*common.color_list[move_opts[Opts.team.value]].value)
                     if move_button == Buttons.middle.value:
                         #allow players to increase their own team
                         if move_opts[Opts.holding.value] == Holding.not_holding.value:
@@ -346,6 +346,7 @@ class Menu():
                 if move_serial in self.out_moves:
                     opts[Opts.alive.value] = self.out_moves[move_serial]
                 opts[Opts.game_mode.value] = self.game_mode
+                opts[Opts.team.value] = 3 #starts at yellow
                 
                 #now start tracking the move controller
                 proc = Process(target=track_move, args=(move_serial, move_num, opts, color, self.show_battery, self.dead_count))

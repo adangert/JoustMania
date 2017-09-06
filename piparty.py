@@ -95,18 +95,16 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                         move.set_leds(10,10,10)
                     elif battery_level == 239: # fully charged - white
                         move.set_leds(255,255,255)
-                    elif battery_level == 5: # full - blue
-                        move.set_leds(0,0,255)
-                    elif battery_level == 4: # 80% - cyan
-                        move.set_leds(0,255,255)
-                    elif battery_level == 3: # 60% - green
+                    elif battery_level == 5: # full - green
                         move.set_leds(0,255,0)
-                    elif battery_level == 2: # 40% - lime green
+                    elif battery_level == 4: # 75% - cyan
+                        move.set_leds(0,255,255)
+                    elif battery_level == 3: # 50% - blue
+                        move.set_leds(0,0,255)
+                    elif battery_level == 2: # 25% - yellow
                         move.set_leds(191,255,0)
-                    elif battery_level == 1: # 20% - yellow
-                        move.set_leds(255, 255, 0)
-                    else: # under 20% - red
-                        move.set_leds(255, 0, 0)
+                    else : # under 25% - red
+                        move.set_leds(0, 0, 0)
                     
                 #custom team mode is the only game mode that
                 #can't be added to con mode

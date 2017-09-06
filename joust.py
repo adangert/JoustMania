@@ -588,9 +588,9 @@ class Joust():
             if self.game_mode == common.Games.WereJoust.value:
                 data['team_names'] = ['Werewolves', 'Humans']
             elif self.game_mode == common.Games.Traitor.value:
-                data['team_names'] = ['Traitors'] + [colors.name + ' Team' for color in self.team_colors]
+                data['team_names'] = ['Traitors'] + [color.name + ' Team' for color in self.team_colors]
             elif self.game_mode != common.Games.JoustFFA.value:
-                data['team_names'] = [colors.name + ' Team' for color in self.team_colors]
+                data['team_names'] = [color.name + ' Team' for color in self.team_colors]
         if self.game_mode == common.Games.WereJoust.value:
             thyme = int(self.werewolf_timer - (time.time() - self.start_timer))
             if thyme < 0:

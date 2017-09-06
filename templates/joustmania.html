@@ -30,12 +30,10 @@ function updateStatus(){
                     $('#time_left').text(info.time_left)
                 } else if (info.game_mode == 'Commander'){
                     $('#commander').show()
-                    $('#red_players').text(info.red_players)
-                    $('#red_alive').text(info.red_alive)
-                    $('#red_od_status').text(info.red_od_status)
-                    $('#blue_players').text(info.blue_players)
-                    $('#blue_alive').text(info.blue_alive)
-                    $('#blue_od_status').text(info.blue_od_status)
+                    $('#alpha_team').text(info.team_names[0] + ': ' + info.alpha_alive + '/'+ info.alpha_players)
+                    $('#alpha_od_status').text(info.team_names[0] + ' Overdrive: ' +info.alpha_od_status)
+                    $('#bravo_team').text(info.team_names[1] + ': ' + info.bravo_alive + '/'+ info.bravo_players)
+                    $('#bravo_od_status').text(info.team_names[1] + ' Overdrive: ' +info.bravo_od_status)
                 } else if (info.game_mode == 'Ninja Bomb'){
                     $('#ninja').show()
                     $('#total_ninjas').text(info.total_players)
@@ -153,10 +151,10 @@ Alive Zombies: <span id='alive_zombies'>-999</span><br /><br />
 
 <div class='info_box' id="commander">
 <br />
-Red Team: <span id='red_alive'>-999</span>/<span id='red_players'>-999</span><br />
-Red Overdrive: <span id='red_od_status'>lol</span><br />
-Blue Team: <span id='blue_alive'>-999</span>/<span id='blue_players'>-999</span><br />
-Blue Overdrive: <span id='blue_od_status'>lol</span><br />
+<span id='alpha_team'>Alpha Team: -999/-999</span><br />
+<span id='alpha_od_status'>Alpha Team Overdrive: lol</span><br />
+<span id='bravo_team'>Bravo Team: -999/-999</span><br />
+<span id='bravo_od_status'>Bravo Team Overdrive: lol</span><br />
 <br />
 </div>
 

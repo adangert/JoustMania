@@ -72,6 +72,7 @@ class TeamColors(Enum):
 class ExtraColors(Enum):
     White = (255,255,255)
     White80 = (200,200,200)
+    White60 = (150,150,150)
     Red = (255,0,0)
     Red60 = (150,0,0)
     Red80 = (200,0,0)

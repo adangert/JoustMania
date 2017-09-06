@@ -444,7 +444,8 @@ class Zombie:
                'dead_zombies': len(self.dead_zombies),
                'alive_zombies': len(self.alive_zombies),
                'ticker': self.update_time,
-               'time_left': int(self.win_time - (time.time() - self.start_time))}
+               'time_left': int(self.win_time - (time.time() - self.start_time)),
+               'team_names' : ['Humans', 'Zombies']}
         self.status_ns.status_dict = data
 
 

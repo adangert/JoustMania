@@ -83,11 +83,11 @@ class Buttons(Enum):
     nothing = 0
 
 battery_levels = {
-    0: "Low",
-    1: "20%",
-    2: "40%",
-    3: "60%",
-    4: "80%",
+    0: "Dead",
+    1: "Low",
+    2: "25%",
+    3: "50%",
+    4: "75%",
     5: "100%",
     238: "Charging",
     239: "Charged"

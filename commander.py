@@ -72,14 +72,14 @@ class Bool(Enum):
     yes = 1
 
 
-#red blue
-Commander_colors = [(255,0,0),(0,0,255)]
-Overdrive_colors = [(255,127,0),(0,255,255)]
-Current_commander_colors = [(255,0,255),(0,255,0)]
+#alpha bravo
+Commander_colors = [colors.TeamColors.Orange.value,colors.TeamColors.Blue.value]
+Overdrive_colors = [colors.TeamColors.Yellow.value,colors.TeamColors.Purple.value]
+Current_commander_colors = [colors.TeamColors.Magenta.value,colors.TeamColors.Green.value]
 
 class Team(Enum):
-    red = 0
-    blue = 1
+    alpha = 0
+    bravo = 1
 
 
 def calculate_flash_time(r,g,b, score):
@@ -274,8 +274,8 @@ class Commander():
         
         self.powers = [Value('d', 0.0), Value('d', 0.0)]
 
-        self.red_overdrive = Value('i', 0)
-        self.blue_overdrive = Value('i', 0)
+        self.alpha_overdrive = Value('i', 0)
+        self.bravo_overdrive = Value('i', 0)
 
         
         self.generate_random_teams(self.team_num)
@@ -325,10 +325,10 @@ class Commander():
             opts = Array('i', [0] * 5)
             power = self.powers[self.teams[move_serial]]
 
-            if self.teams[move_serial] == Team.red.value:
-                overdrive = self.red_overdrive
+            if self.teams[move_serial] == Team.alpha.value:
+                overdrive = self.alpha_overdrive
             else:
-                overdrive = self.blue_overdrive
+                overdrive = self.bravo_overdrive
             proc = Process(target=track_move, args=(move_serial,
                                                     move_num,
                                                     self.teams[move_serial],
@@ -431,9 +431,9 @@ class Commander():
 
     def end_game_sound(self, winning_team):
         #if self.game_mode == common.Games.JoustTeams:
-        if winning_team == Team.red.value:
+        if winning_team == Team.alpha.value:
             team_win = Audio('audio/Commander/sounds/red winner.wav')
-        if winning_team == Team.blue.value:
+        if winning_team == Team.bravo.value:
             team_win = Audio('audio/Commander/sounds/blue winner.wav')
         team_win.start_effect()
 
@@ -466,48 +466,48 @@ class Commander():
         return False
             
     def update_team_powers(self):
-        self.powers[Team.red.value].value = max(min((time.time() - self.activated_time[Team.red.value])/(self.time_to_power[Team.red.value] * 1.0),1.0), 0.0)
-        self.powers[Team.blue.value].value = max(min((time.time() - self.activated_time[Team.blue.value])/(self.time_to_power[Team.blue.value] * 1.0), 1.0), 0.0)
+        self.powers[Team.alpha.value].value = max(min((time.time() - self.activated_time[Team.alpha.value])/(self.time_to_power[Team.alpha.value] * 1.0),1.0), 0.0)
+        self.powers[Team.bravo.value].value = max(min((time.time() - self.activated_time[Team.bravo.value])/(self.time_to_power[Team.bravo.value] * 1.0), 1.0), 0.0)
 
         
-        if self.powers_active[Team.red.value] == False:
-            if self.powers[Team.red.value].value >= 1.0:
-                self.powers_active[Team.red.value] = True
+        if self.powers_active[Team.alpha.value] == False:
+            if self.powers[Team.alpha.value].value >= 1.0:
+                self.powers_active[Team.alpha.value] = True
                 Audio('audio/Commander/sounds/power ready.wav').start_effect()
                 Audio('audio/Commander/sounds/red power ready.wav').start_effect()
                 
                 
-        if self.powers_active[Team.blue.value] == False:
-            if self.powers[Team.blue.value].value >= 1.0:
-                self.powers_active[Team.blue.value] = True
+        if self.powers_active[Team.bravo.value] == False:
+            if self.powers[Team.bravo.value].value >= 1.0:
+                self.powers_active[Team.bravo.value] = True
                 Audio('audio/Commander/sounds/power ready.wav').start_effect()
                 Audio('audio/Commander/sounds/blue power ready.wav').start_effect()
                 
             
     def overdrive(self, team):
         Audio('audio/Commander/sounds/overdrive.wav').start_effect()
-        if team == Team.red.value:
-            self.red_overdrive.value = 1
-            self.activated_overdrive[Team.red.value] = time.time() + 10
+        if team == Team.alpha.value:
+            self.alpha_overdrive.value = 1
+            self.activated_overdrive[Team.alpha.value] = time.time() + 10
             Audio('audio/Commander/sounds/red overdrive.wav').start_effect()
         else:
-            self.blue_overdrive.value = 1
-            self.activated_overdrive[Team.blue.value] = time.time() + 10
+            self.bravo_overdrive.value = 1
+            self.activated_overdrive[Team.bravo.value] = time.time() + 10
             Audio('audio/Commander/sounds/blue overdrive.wav').start_effect()
 
         
         
     def check_end_of_overdrive(self):
-        if self.red_overdrive.value == 1:
+        if self.alpha_overdrive.value == 1:
 
-            if time.time() >= self.activated_overdrive[Team.red.value]:
+            if time.time() >= self.activated_overdrive[Team.alpha.value]:
                 #print 'its over'
-                self.red_overdrive.value = 0
-        if self.blue_overdrive.value == 1:
+                self.alpha_overdrive.value = 0
+        if self.bravo_overdrive.value == 1:
             
-            if time.time() >= self.activated_overdrive[Team.blue.value]:
+            if time.time() >= self.activated_overdrive[Team.bravo.value]:
                 #print 'itsa over'
-                self.blue_overdrive.value = 0
+                self.bravo_overdrive.value = 0
 
     def reset_power(self, team):
         self.powers[team].value == 0.0
@@ -547,16 +547,16 @@ class Commander():
                 Audio('audio/Commander/sounds/10 seconds begins.wav').start_effect()
         intro_sound.stop_effect()        
 
-        if self.current_commander[Team.red.value] == '':
-            self.change_random_commander(Team.red.value)
-        if self.current_commander[Team.blue.value] == '':
-            self.change_random_commander(Team.blue.value)
+        if self.current_commander[Team.alpha.value] == '':
+            self.change_random_commander(Team.alpha.value)
+        if self.current_commander[Team.bravo.value] == '':
+            self.change_random_commander(Team.bravo.value)
 
 
         Audio('audio/Commander/sounds/commanders chosen.wav').start_effect()
         time.sleep(4)
-        self.reset_power(Team.red.value)
-        self.reset_power(Team.blue.value)
+        self.reset_power(Team.alpha.value)
+        self.reset_power(Team.bravo.value)
         self.commander_intro.value = 0
 
     def game_loop(self):
@@ -597,43 +597,44 @@ class Commander():
         
 
 # class Team(Enum):
-#     red = 0
-#     blue = 1
+#     alpha = 0
+#     bravo = 1
 
 #self.dead_moves[move_serial] = dead_move
 #1=alive
 #0=dead
 
     def update_status(self,game_status,winning_team=-1):
-        if self.red_overdrive.value == 1:
-            red_od_status = 'Active'
-        elif self.powers_active[Team.red.value] == True:
-            red_od_status = 'Ready'
+        if self.alpha_overdrive.value == 1:
+            alpha_od_status = 'Active'
+        elif self.powers_active[Team.alpha.value] == True:
+            alpha_od_status = 'Ready'
         else:
-            red_od_status = 'Inactive'
+            alpha_od_status = 'Charging'
 
-        if self.blue_overdrive.value == 1:
-            blue_od_status = 'Active'
-        elif self.powers_active[Team.blue.value] == True:
-            blue_od_status = 'Ready'
+        if self.bravo_overdrive.value == 1:
+            bravo_od_status = 'Active'
+        elif self.powers_active[Team.bravo.value] == True:
+            bravo_od_status = 'Ready'
         else:
-            blue_od_status = 'Inactive'
+            bravo_od_status = 'Charging'
 
-        red_team = [x for x in self.teams.keys() if self.teams[x] == 0]
-        red_alive = [x for x in red_team if self.dead_moves[x].value == 1]
+        alpha_team = [x for x in self.teams.keys() if self.teams[x] == 0]
+        alpha_alive = [x for x in alpha_team if self.dead_moves[x].value == 1]
 
-        blue_team = [x for x in self.teams.keys() if self.teams[x] == 1]
-        blue_alive = [x for x in blue_team if self.dead_moves[x].value == 1]
+        bravo_team = [x for x in self.teams.keys() if self.teams[x] == 1]
+        bravo_alive = [x for x in bravo_team if self.dead_moves[x].value == 1]
 
         data ={'game_status' : game_status,
                'game_mode' : 'Commander',
                'winning_team' : winning_team,
-               'red_players': len(red_team),
-               'red_alive': len(red_alive),
-               'red_od_status': red_od_status,
-               'blue_players': len(blue_team),
-               'blue_alive': len(blue_alive),
-               'blue_od_status': blue_od_status}
+               'alpha_players': len(alpha_team),
+               'alpha_alive': len(alpha_alive),
+               'alpha_od_status': alpha_od_status,
+               'bravo_players': len(bravo_team),
+               'bravo_alive': len(bravo_alive),
+               'bravo_od_status': bravo_od_status,
+               'team_names' : ['Orange Team', 'Blue Team']}
         self.status_ns.status_dict = data
 
     def kill_game(self):

@@ -44,7 +44,7 @@ END_GAME_PAUSE = 6
 KILL_GAME_PAUSE = 4
 
 
-def track_move(move_serial, move_num, team, team_num, dead_move, force_color, music_speed, show_team_colors, invincibility):
+def track_move(move_serial, move_num, team, num_teams, dead_move, force_color, music_speed, show_team_colors, invincibility):
     #proc = psutil.Process(os.getpid())
     #proc.nice(3)
     #explosion = Audio('audio/Joust/sounds/Explosion34.wav')
@@ -53,7 +53,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
     no_rumble = time.time() + 1
     move_last_value = None
     move = common.get_move(move_serial, move_num)
-    team_colors = colors.generate_colors(team_num)
+    team_colors = colors.generate_colors(num_teams)
     vibrate = False
     vibration_time = time.time() + 1
     flash_lights = True
@@ -187,11 +187,11 @@ class Tournament():
         self.status_ns = status_ns
         self.update_time = 0
         
-        #self.team_num = math.ceil(len(moves)/2)
-        self.team_num = len(moves)
+        #self.num_teams = math.ceil(len(moves)/2)
+        self.num_teams = len(moves)
 
         
-        self.generate_random_teams(self.team_num)
+        self.generate_random_teams(self.num_teams)
 
         self.tourney_list = self.generate_tourney_list(len(moves))
         fast_resample = False
@@ -239,17 +239,18 @@ class Tournament():
                     arr[i] = random.choice(dup_serials)
                     dup_serials.remove(arr[i])
         insert_move(arr)
+        print(arr)
         return arr
 
 
-    def generate_random_teams(self, team_num):
-        team_pick = list(range(team_num))
+    def generate_random_teams(self, num_teams):
+        team_pick = list(range(num_teams))
         for serial in self.move_serials:
             random_choice = Value('i',  random.choice(team_pick) )
             self.teams[serial] = random_choice
             team_pick.remove(random_choice.value)
             if not team_pick:
-                team_pick = list(range(team_num))
+                team_pick = list(range(num_teams))
 
     def track_moves(self):
         for move_num, move_serial in enumerate(self.move_serials):
@@ -262,7 +263,7 @@ class Tournament():
             proc = Process(target=track_move, args=(move_serial,
                                                     move_num,
                                                     self.teams[move_serial],
-                                                    self.team_num,
+                                                    self.num_teams,
                                                     dead_move,
                                                     force_color,
                                                     self.music_speed,

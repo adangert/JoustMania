@@ -553,8 +553,7 @@ class Commander():
             self.change_random_commander(Team.blue.value)
 
 
-        Audio('audio/Commander/sounds/commanders chosen.wav').start_effect()
-        time.sleep(4)
+        Audio('audio/Commander/sounds/commanders chosen.wav').start_effect_and_wait()
         self.reset_power(Team.red.value)
         self.reset_power(Team.blue.value)
         self.commander_intro.value = 0

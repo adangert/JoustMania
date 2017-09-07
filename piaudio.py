@@ -160,5 +160,9 @@ class Audio:
             if self.delete_file and self.file != "audio/Joust/music/classical.wav":
                 os.remove(self.file)
             
-        
-          
+    def get_length_secs(self):
+        return pygame.mixer.Sound(self.file).get_length()
+
+    def start_effect_and_wait(self):
+	self.start_effect()
+	time.sleep(self.get_length_secs())

@@ -607,32 +607,23 @@ class Menu():
 
     def play_random_instructions(self):
         if self.game_mode == common.Games.JoustFFA.value:
-            Audio('audio/Menu/FFA-instructions.wav').start_effect()
-            time.sleep(15)
+            Audio('audio/Menu/FFA-instructions.wav').start_effect_and_wait()
         if self.game_mode == common.Games.JoustRandomTeams.value:
-            Audio('audio/Menu/Teams-instructions.wav').start_effect()
-            time.sleep(20)
+            Audio('audio/Menu/Teams-instructions.wav').start_effect_and_wait()
         if self.game_mode == common.Games.Traitor.value:
-            Audio('audio/Menu/Traitor-instructions.wav').start_effect()
-            time.sleep(18)
+            Audio('audio/Menu/Traitor-instructions.wav').start_effect_and_wait()
         if self.game_mode == common.Games.WereJoust.value:
-            Audio('audio/Menu/werewolf-instructions.wav').start_effect()
-            time.sleep(20)
+            Audio('audio/Menu/werewolf-instructions.wav').start_effect_and_wait()
         if self.game_mode == common.Games.Zombies.value:
-            Audio('audio/Menu/zombie-instructions.wav').start_effect()
-            time.sleep(48)
+            Audio('audio/Menu/zombie-instructions.wav').start_effect_and_wait()
         if self.game_mode == common.Games.Commander.value:
-            Audio('audio/Menu/commander-instructions.wav').start_effect()
-            time.sleep(41)
+            Audio('audio/Menu/commander-instructions.wav').start_effect_and_wait()
         if self.game_mode == common.Games.Ninja.value:
-            Audio('audio/Menu/Ninjabomb-instructions.wav').start_effect()
-            time.sleep(32)
+            Audio('audio/Menu/Ninjabomb-instructions.wav').start_effect_and_wait()
         if self.game_mode == common.Games.Swapper.value:
-            Audio('audio/Menu/Swapper-instructions.wav').start_effect()
-            time.sleep(14)
+            Audio('audio/Menu/Swapper-instructions.wav').start_effect_and_wait()
         if self.game_mode == common.Games.Tournament.value:
-            Audio('audio/Menu/Tournament-instructions.wav').start_effect()
-            time.sleep(21)
+            Audio('audio/Menu/Tournament-instructions.wav').start_effect_and_wait()
 
 
     def start_game(self, random_mode=False):
@@ -698,8 +689,7 @@ class Menu():
             self.game_mode = common.Games.Random.value
             if self.instructions:
                 if self.audio_toggle:
-                    Audio('audio/Menu/tradeoff2.wav').start_effect()
-                    time.sleep(8)
+                    Audio('audio/Menu/tradeoff2.wav').start_effect_and_wait()
         #reset music
         self.choose_new_music()
         #turn off admin mode so someone can't accidentally press a button    

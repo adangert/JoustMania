@@ -523,8 +523,7 @@ class Joust():
         #self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
         
     def werewolf_intro(self):
-        Audio('audio/Joust/sounds/werewolf intro.wav').start_effect()
-        time.sleep(3)
+        Audio('audio/Joust/sounds/werewolf intro.wav').start_effect_and_wait()
         self.change_all_move_colors(80, 0, 0)
         time.sleep(2)
         self.change_all_move_colors(30, 0, 0)
@@ -540,10 +539,9 @@ class Joust():
             self.werewolf_intro()
         self.werewolf_reveal.value = 1
         if self.game_mode == common.Games.JoustRandomTeams.value:
-            if self.audo_toggle:
-                Audio('audio/Joust/sounds/teams_form.wav').start_effect()
             self.show_team_colors.value = 1
-            time.sleep(6)
+            if self.audo_toggle:
+                Audio('audio/Joust/sounds/teams_form.wav').start_effect_and_wait()
         self.show_team_colors.value = 0
         self.count_down()
         self.change_time = time.time() + 6

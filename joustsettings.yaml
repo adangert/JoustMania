@@ -1,0 +1,6 @@
+con_games: [0]
+enforce_minimum: true
+move_can_be_admin: true
+play_audio: true
+play_instructions: true
+sensitivity: 1

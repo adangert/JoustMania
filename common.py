@@ -3,6 +3,8 @@ import time
 from enum import Enum
 import random
 
+SETTINGSFILE = 'joustsettings.yaml'
+
 #Human speeds[slow, mid, fast]
 SLOW_WARNING = [0.1, 0.15, 0.28]
 SLOW_MAX = [0.5, 0.8, 1]
@@ -74,6 +76,15 @@ game_mode_names = {
     Games.Ninja.value: 'Ninja Bomb',
     Games.Random.value: 'Random'
 }
+
+REQUIRED_SETTINGS = [
+'play_audio',
+'move_can_be_admin',
+'enforce_minimum',
+'sensitivity',
+'play_instructions',
+'con_games'
+]
 
 class Buttons(Enum):
     middle = 524288

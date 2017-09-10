@@ -26,15 +26,18 @@ class SettingsForm(Form):
     random_modes = MultiCheckboxField('Random Modes',choices=[(gmn[i],gmn[i]) for i in range(len(gmn)) if gmn[i] not in ["Random","Joust Teams"]])
 
 class WebUI():
-    def __init__(self, command_queue=Queue(), ns=Manager().Namespace()):
+    def __init__(self, command_queue=Queue(), ns=None):
 
         self.app = Flask(__name__)
         self.app.secret_key="MAGFest is a donut"
         self.command_queue = command_queue
-        self.joust_ns = ns
-        self.joust_ns.status = dict()
-        self.joust_ns.settings = dict()
-        self.joust_ns.battery_status = dict()
+        if ns == None:
+            self.joust_ns = Manager().Namespace()
+            self.joust_ns.status = dict()
+            self.joust_ns.settings = dict()
+            self.joust_ns.battery_status = dict()
+        else:
+            self.joust_ns = ns
 
         self.app.add_url_rule('/','index',self.index)
         self.app.add_url_rule('/changemode','change_mode',self.change_mode)

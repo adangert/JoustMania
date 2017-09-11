@@ -405,7 +405,7 @@ class Menu():
                 if self.game_mode == common.Games.WereJoust:
                     self.game_mode = self.game_mode.next()
             for opt in self.move_opts.values():
-                opt[Opts.game_mode.value] = self.game_mode
+                opt[Opts.game_mode.value] = self.game_mode.value
             if self.audio_toggle:
                 self.game_mode_announcement()
 

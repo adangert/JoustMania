@@ -236,6 +236,9 @@ class Menu():
             self.instructions = config.getboolean("GENERAL","instructions")
             self.con_games = []
             for game in common.Games:
+                # We should probably store .name or .value in the config,
+                # so it is not affected by localization or whatnot, but
+                # it would break existing configs.
                 if config.getboolean("CONGAMES", game.pretty_name):
                     self.con_games.append(game)
             if self.con_games == []:

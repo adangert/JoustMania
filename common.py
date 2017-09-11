@@ -64,16 +64,16 @@ class Games(Enum):
 
     def __new__(cls, value, pretty_name, min_players):
         """This odd constructor lets us keep Foo.value as an integer, but also
-	   add some extra properties to each option."""
+           add some extra properties to each option."""
         obj = object.__new__(cls)
         obj._value_ = value
         obj.pretty_name = pretty_name
-	obj.minimum_players = min_players
+        obj.minimum_players = min_players
         return obj
 
     def next(self):
-	"""Return the next game mode after this one in the list. Wraps around after hitting bottom."""
-	return Games((self.value + 1) % len(Games))
+        """Return the next game mode after this one in the list. Wraps around after hitting bottom."""
+        return Games((self.value + 1) % len(Games))
 
 class Buttons(Enum):
     middle = 524288

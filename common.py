@@ -1,9 +1,9 @@
 import psmove
+import colorsys
 import time
 from enum import Enum
-import random
 
-SETTINGSFILE = 'joustsettings.yaml'
+color_range = 255
 
 #Human speeds[slow, mid, fast]
 SLOW_WARNING = [0.1, 0.15, 0.28]
@@ -18,6 +18,14 @@ WERE_FAST_MAX = [1.1, 1.5, 2.0]
 
 ZOMBIE_WARNING = [0.5, 0.6, 0.8]
 ZOMBIE_MAX = [0.8, 1, 1.4]
+
+def hsv2rgb(h, s, v):
+    return tuple(int(color * color_range) for color in colorsys.hsv_to_rgb(h, s, v))
+
+def generate_colors(color_num):
+    Hue = [ ((num + 1.0)/color_num, 1, 1) for num in range(color_num) ]
+    colors = [ hsv2rgb(*hsv_color) for hsv_color in Hue ]
+    return colors
 
 
 def get_move(serial, move_num):
@@ -35,6 +43,11 @@ def get_move(serial, move_num):
 
 def lerp(a, b, p):
     return a*(1 - p) + b*p
+
+def change_color(color_array, r, g, b):
+    color_array[0] = r
+    color_array[1] = g
+    color_array[2] = b
 
 class Games(Enum):
     JoustFFA = 0
@@ -77,15 +90,6 @@ game_mode_names = {
     Games.Random.value: 'Random'
 }
 
-REQUIRED_SETTINGS = [
-'play_audio',
-'move_can_be_admin',
-'enforce_minimum',
-'sensitivity',
-'play_instructions',
-'con_games'
-]
-
 class Buttons(Enum):
     middle = 524288
     start = 2048
@@ -94,11 +98,11 @@ class Buttons(Enum):
     nothing = 0
 
 battery_levels = {
-    0: "Dead",
-    1: "Low",
-    2: "25%",
-    3: "50%",
-    4: "75%",
+    0: "Low",
+    1: "20%",
+    2: "40%",
+    3: "60%",
+    4: "80%",
     5: "100%",
     238: "Charging",
     239: "Charged"

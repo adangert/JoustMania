@@ -196,9 +196,12 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
 
 
 class Bomb():
-    def __init__(self, moves, command_queue, status_ns, audio_toggle, music):
+    def __init__(self, moves, command_queue, ns, music):
 
-        self.audio_toggle = audio_toggle
+        self.command_queue = command_queue
+        self.ns = ns
+
+        self.play_audio = self.ns.settings['play_audio']
         self.move_serials = moves
         self.tracked_moves = {}
         self.dead_moves = {}
@@ -222,11 +225,10 @@ class Bomb():
         self.next_rand_holder = ''
         self.prev_rand_holder = ''
 
-        self.command_queue = command_queue
-        self.status_ns = status_ns
+        
         self.update_time = 0
 
-        if self.audio_toggle:
+        if self.play_audio:
 ##            try:
 ##                music = 'audio/Commander/music/' + random.choice(os.listdir('audio/Commander/music'))
 ##            except:
@@ -313,7 +315,7 @@ class Bomb():
         self.game_start.value = 1
         self.count_down()
         time.sleep(0.02)
-        if self.audio_toggle:
+        if self.play_audio:
             try:
                 self.audio.start_audio_loop()
             except:
@@ -344,11 +346,11 @@ class Bomb():
             if self.move_opts[self.bomb_serial][Opts.selection.value] == Selections.a_button.value and self.holding == False:
                 self.reset_bomb_time()
                 self.move_bomb()
-                if self.audio_toggle:
+                if self.play_audio:
                     self.start_beep.start_effect()
                 self.holding = True
             if time.time() > self.bomb_time:
-                if self.audio_toggle:
+                if self.play_audio:
                     self.explosiondeath.start_effect()
 
                     self.explosion.start_effect()
@@ -412,7 +414,7 @@ class Bomb():
                     self.reset_bomb_time()
                     self.reset_bomb_length()
                     self.false_colors[faker].value = 1
-                    if self.audio_toggle:
+                    if self.play_audio:
                         self.start_beep.start_effect()
                     self.move_opts[move_serial][Opts.holding.value] = Holding.holding.value
 
@@ -424,7 +426,7 @@ class Bomb():
                     #Pushed middle button, when faked
                     if self.was_faked[move_serial].value == 1:
                         faker = self.get_prev_serial(move_serial)
-                        if self.audio_toggle:
+                        if self.play_audio:
                             self.explosion40.start_effect()
                             self.fakedout.start_effect()
                         self.pause_for_player_death( move_serial, faker)
@@ -438,7 +440,7 @@ class Bomb():
 
 
                     elif self.move_opts[move_serial][Opts.selection.value] == Selections.counter.value:
-                        if self.audio_toggle:
+                        if self.play_audio:
                             self.explosion40.start_effect()
                             self.countered.start_effect()
                         self.pause_for_player_death(prev_faker, move_serial )
@@ -561,7 +563,7 @@ class Bomb():
                 for move_serial_beg in self.move_serials:
                     if self.move_opts[move_serial_beg][Opts.selection.value] == Selections.a_button.value:
                         if move_serial_beg not in in_cons:
-                            if self.audio_toggle:
+                            if self.play_audio:
                                 self.start_beep.start_effect()
                             in_cons.append(move_serial_beg)
                     if move_serial_beg in in_cons:
@@ -576,19 +578,19 @@ class Bomb():
     #need to do the count_down here
     def count_down(self):
         self.change_all_move_colors(80, 0, 0)
-        if self.audio_toggle:
+        if self.play_audio:
             self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(70, 100, 0)
-        if self.audio_toggle:
+        if self.play_audio:
             self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 70, 0)
-        if self.audio_toggle:
+        if self.play_audio:
             self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 0, 0)
-        if self.audio_toggle:
+        if self.play_audio:
             self.start_game.start_effect()
 
 
@@ -612,7 +614,7 @@ class Bomb():
                 #remove alive move:
 
                 self.alive_moves.remove(alive_serial)
-                if self.audio_toggle:
+                if self.play_audio:
                     self.explosion.start_effect()
                 self.reset_bomb_time()
 
@@ -626,7 +628,7 @@ class Bomb():
             time.sleep(0.02)
 
     def end_game(self):
-        if self.audio_toggle:
+        if self.play_audio:
             try:
                 self.audio.stop_audio()
             except:
@@ -665,10 +667,10 @@ class Bomb():
                'total_players': len(self.move_serials),
                'remaining_players': len(self.alive_moves)}
 
-        self.status_ns.status_dict = data
+        self.ns.status = data
 
     def kill_game(self):
-        if self.audio_toggle:
+        if self.play_audio:
             try:
                 self.audio.stop_audio()
             except:

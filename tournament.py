@@ -152,20 +152,25 @@ def track_move(move_serial, move_num, team, num_teams, dead_move, force_color, m
 
 
 class Tournament():
-    def __init__(self, moves, speed, command_queue, status_ns, audio_toggle, music):
+    def __init__(self, moves, command_queue, ns, music):
 
-        print("speed is {}".format(speed))
+        self.command_queue = command_queue
+        self.ns = ns
+
+        self.sensitivity = self.ns.settings['sensitivity']
+        self.play_audio = self.ns.settings['play_audio']
+
+        print("speed is {}".format(self.sensitivity))
         global SLOW_MAX
         global SLOW_WARNING
         global FAST_MAX
         global FAST_WARNING
         
-        SLOW_MAX = common.SLOW_MAX[speed]
-        SLOW_WARNING = common.SLOW_WARNING[speed]
-        FAST_MAX = common.FAST_MAX[speed]
-        FAST_WARNING = common.FAST_WARNING[speed]
+        SLOW_MAX = common.SLOW_MAX[self.sensitivity]
+        SLOW_WARNING = common.SLOW_WARNING[self.sensitivity]
+        FAST_MAX = common.FAST_MAX[self.sensitivity]
+        FAST_WARNING = common.FAST_WARNING[self.sensitivity]
 
-        self.audio_toggle = audio_toggle
         self.move_serials = moves
 
         self.tracked_moves = {}
@@ -180,11 +185,7 @@ class Tournament():
         self.audio_cue = 0
         self.num_dead = 0
         self.show_team_colors = Value('i', 0)
-
         self.teams = {}
-
-        self.command_queue = command_queue
-        self.status_ns = status_ns
         self.update_time = 0
         
         #self.num_teams = math.ceil(len(moves)/2)
@@ -195,7 +196,7 @@ class Tournament():
 
         self.tourney_list = self.generate_tourney_list(len(moves))
         fast_resample = False
-        if self.audio_toggle:
+        if self.play_audio:
             print("tourney list is " + str(self.tourney_list))
 
 ##            music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
@@ -282,19 +283,19 @@ class Tournament():
     #need to do the count_down here
     def count_down(self):
         self.change_all_move_colors(80, 0, 0)
-        if self.audio_toggle:
+        if self.play_audio:
             self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(70, 100, 0)
-        if self.audio_toggle:
+        if self.play_audio:
             self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 70, 0)
-        if self.audio_toggle:
+        if self.play_audio:
             self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 0, 0)
-        if self.audio_toggle:
+        if self.play_audio:
             self.start_game.start_effect()
 
     def get_change_time(self, speed_up):
@@ -405,7 +406,7 @@ class Tournament():
                 #This is to play the sound effect
                 self.num_dead += 1
                 dead.value = -1
-                if self.audio_toggle:
+                if self.play_audio:
                     self.explosion.start_effect()
         if len(self.winning_moves) <= 1:
             self.game_end = True
@@ -443,7 +444,7 @@ class Tournament():
         self.count_down()
         self.change_time = time.time() + 6
         time.sleep(0.02)
-        if self.audio_toggle:
+        if self.play_audio:
             self.audio.start_audio_loop()
         else:
             #when no audio is playing set the music speed to middle speed
@@ -458,7 +459,7 @@ class Tournament():
                 self.update_time = time.time()
                 self.check_command_queue()
                 self.update_status('in_game')
-            if self.audio_toggle:
+            if self.play_audio:
                 self.check_music_speed()
             self.check_end_game()
             if self.game_end:
@@ -476,7 +477,7 @@ class Tournament():
                 self.kill_game()
 
     def kill_game(self):
-        if self.audio_toggle:
+        if self.play_audio:
             try:
                 self.audio.stop_audio()
             except:
@@ -501,7 +502,7 @@ class Tournament():
         data ={'game_status' : game_status,
                'game_mode' : 'Tournament',
                'winning_team' : winning_team}
-        self.status_ns.status_dict = data
+        self.ns.status = data
                     
                 
                 

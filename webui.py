@@ -5,6 +5,7 @@ from time import sleep
 from wtforms import Form, SelectField, SelectMultipleField, BooleanField, widgets
 import common
 import json
+import yaml
 
 class MultiCheckboxField(SelectMultipleField):
     """
@@ -19,11 +20,11 @@ class MultiCheckboxField(SelectMultipleField):
 gmn = common.game_mode_names
 
 class SettingsForm(Form):
-    move_admin = BooleanField('Allow Move to change settings')
-    instructions = BooleanField('Play instructions before game start')
-    audio = BooleanField('Play audio')
+    move_can_be_admin = BooleanField('Allow Move to change settings')
+    play_instructions = BooleanField('Play instructions before game start')
+    play_audio = BooleanField('Play audio')
     sensitivity = SelectField('Move sensitivity',choices=[(0,'Slow'),(1,'Medium'),(2,'Fast')],coerce=int)
-    random_modes = MultiCheckboxField('Random Modes',choices=[(gmn[i],gmn[i]) for i in range(len(gmn)) if gmn[i] not in ["Random","Joust Teams"]])
+    con_games = MultiCheckboxField('Random Modes',choices=[(i,gmn[i]) for i in range(len(gmn)) if gmn[i] not in ["Random","Joust Teams"]])
 
 class WebUI():
     def __init__(self, command_queue=Queue(), ns=None):
@@ -32,12 +33,21 @@ class WebUI():
         self.app.secret_key="MAGFest is a donut"
         self.command_queue = command_queue
         if ns == None:
+<<<<<<< HEAD
             self.joust_ns = Manager().Namespace()
             self.joust_ns.status = dict()
             self.joust_ns.settings = dict()
             self.joust_ns.battery_status = dict()
         else:
             self.joust_ns = ns
+=======
+            self.ns = Manager().Namespace()
+            self.ns.status = dict()
+            self.ns.settings = dict()
+            self.ns.battery_status = dict()
+        else:
+            self.ns = ns
+>>>>>>> master
 
         self.app.add_url_rule('/','index',self.index)
         self.app.add_url_rule('/changemode','change_mode',self.change_mode)
@@ -54,6 +64,10 @@ class WebUI():
     #@app.route('/')
     def index(self):
         return render_template('joustmania.html')
+
+    #@app.route('/updateStatus')
+    def update(self):
+        return json.dumps(self.ns.status)
 
     #@app.route('/changemode')
     def change_mode(self):
@@ -72,18 +86,21 @@ class WebUI():
 
     #@app.route('/battery')
     def battery_status(self):
+<<<<<<< HEAD
         return render_template('battery.html',ns=self.joust_ns,levels=common.battery_levels)
+=======
+        return render_template('battery.html',ns=self.ns,levels=common.battery_levels)
+>>>>>>> master
 
     #@app.route('/settings')
     def settings(self):
         if request.method == 'POST':
-            adminInfo = request.form
-            self.command_queue.put({'command': 'admin_update', 'admin_info': adminInfo})
-            sleep(.5) #because it takes a short amount of time to settings to update in the main thread
+            self.web_settings_update(request.form)
             flash('Settings updated!')
             return redirect(url_for('settings'))
         else:
             settingsForm = SettingsForm()
+<<<<<<< HEAD
             settingsForm.sensitivity.default = self.joust_ns.settings['sensitivity']
             settingsForm.process()
             return render_template('settings.html', form=settingsForm, settings=self.joust_ns.settings)
@@ -91,6 +108,31 @@ class WebUI():
     #@app.route('/updateStatus')
     def update(self):
         return json.dumps(self.joust_ns.status)
+=======
+            settingsForm.sensitivity.default = self.ns.settings['sensitivity']
+            settingsForm.process()
+            return render_template('settings.html', form=settingsForm, settings=self.ns.settings)
+
+    def web_settings_update(self,web_settings):
+        temp_settings = self.ns.settings
+
+        temp_settings['move_can_be_admin'] = 'move_can_be_admin' in web_settings.keys()
+        temp_settings['play_audio'] = 'play_audio' in web_settings.keys()
+        temp_settings['play_instructions'] = 'play_instructions' in web_settings.keys()
+        #secret setting, keep it True
+        #temp_settings['enforce_minimum'] = 'enforce_minimum' in web_settings.keys()
+        temp_settings['sensitivity'] = int(web_settings['sensitivity'])
+        temp_settings['con_games'] = [int(x) for x in web_settings.getlist('con_games')]
+        #print(self.con_games)
+        if temp_settings['con_games'] == []:
+            temp_settings['con_games'] = [common.Games.JoustFFA.value]
+
+        self.ns.settings = temp_settings
+
+        with open(common.SETTINGSFILE,'w') as yaml_file:
+            yaml.dump(self.ns.settings,yaml_file)
+
+>>>>>>> master
 
 def start_web(command_queue, ns):
     webui = WebUI(command_queue,ns)

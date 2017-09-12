@@ -236,19 +236,23 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
             
 
 class Commander():
-    def __init__(self, moves, speed, command_queue, status_ns, music):
+    def __init__(self, moves, command_queue, ns, music):
+
+        self.command_queue = command_queue
+        self.ns = ns
+
+        self.sensitivity = self.ns.settings['sensitivity']
+
         global SLOW_MAX
         global SLOW_WARNING
         global FAST_MAX
         global FAST_WARNING
         
-        SLOW_MAX = common.SLOW_MAX[speed]
-        SLOW_WARNING = common.SLOW_WARNING[speed]
-        FAST_MAX = common.FAST_MAX[speed]
-        FAST_WARNING = common.FAST_WARNING[speed]
+        SLOW_MAX = common.SLOW_MAX[self.sensitivity]
+        SLOW_WARNING = common.SLOW_WARNING[self.sensitivity]
+        FAST_MAX = common.FAST_MAX[self.sensitivity]
+        FAST_WARNING = common.FAST_WARNING[self.sensitivity]
 
-        self.command_queue = command_queue
-        self.status_ns = status_ns
         self.update_time = 0
 
         self.move_serials = moves
@@ -635,7 +639,11 @@ class Commander():
                'bravo_alive': len(bravo_alive),
                'bravo_od_status': bravo_od_status,
                'team_names' : ['Orange Team', 'Blue Team']}
+<<<<<<< HEAD
         self.status_ns.status_dict = data
+=======
+        self.ns.status = data
+>>>>>>> master
 
     def kill_game(self):
         try:

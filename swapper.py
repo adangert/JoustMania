@@ -191,18 +191,24 @@ def track_move(move_serial, move_num, team, num_teams, team_colors, dead_move, f
             
 
 class Swapper():
-    def __init__(self, moves, speed, command_queue, status_ns, audio_toggle, music):
+    def __init__(self, moves, command_queue, ns, music):
+
+        self.command_queue = command_queue
+        self.ns = ns
+
+        self.sensitivity = self.ns.settings['sensitivity']
+        self.play_audio = self.ns.settings['play_audio']
+
         global SLOW_MAX
         global SLOW_WARNING
         global FAST_MAX
         global FAST_WARNING
         
-        SLOW_MAX = common.SLOW_MAX[speed]
-        SLOW_WARNING = common.SLOW_WARNING[speed]
-        FAST_MAX = common.FAST_MAX[speed]
-        FAST_WARNING = common.FAST_WARNING[speed]
+        SLOW_MAX = common.SLOW_MAX[self.sensitivity]
+        SLOW_WARNING = common.SLOW_WARNING[self.sensitivity]
+        FAST_MAX = common.FAST_MAX[self.sensitivity]
+        FAST_WARNING = common.FAST_WARNING[self.sensitivity]
         
-        self.audio_toggle = audio_toggle
         self.move_serials = moves
         self.tracked_moves = {}
         self.dead_moves = {}
@@ -217,14 +223,16 @@ class Swapper():
 
         self.move_opts = {}
 
-        self.command_queue = command_queue
-        self.status_ns = status_ns
         self.update_time = 0
 
         self.team_colors = colors.generate_team_colors(self.num_teams)
 
         self.generate_random_teams(self.num_teams)
+<<<<<<< HEAD
         if self.audio_toggle:
+=======
+        if self.play_audio:
+>>>>>>> master
 ##            music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
 
             self.start_beep = Audio('audio/Joust/sounds/start.wav')
@@ -283,19 +291,19 @@ class Swapper():
     #need to do the count_down here
     def count_down(self):
         self.change_all_move_colors(80, 0, 0)
-        if self.audio_toggle:
+        if self.play_audio:
             self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(70, 100, 0)
-        if self.audio_toggle:
+        if self.play_audio:
             self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 70, 0)
-        if self.audio_toggle:
+        if self.play_audio:
             self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 0, 0)
-        if self.audio_toggle:
+        if self.play_audio:
             self.start_game.start_effect()
 
     def check_end_game(self):
@@ -312,7 +320,7 @@ class Swapper():
             if dead.value == 0:
                 #This is to play the sound effect
                 dead.value = -1
-                if self.audio_toggle:
+                if self.play_audio:
                     self.explosion.start_effect()
         self.game_end = team_win
 
@@ -324,7 +332,7 @@ class Swapper():
             time.sleep(0.02)
 
     def end_game(self):
-        if self.audio_toggle:
+        if self.play_audio:
             try:
                 self.audio.stop_audio()
             except:
@@ -332,7 +340,7 @@ class Swapper():
         end_time = time.time() + END_GAME_PAUSE
         h_value = 0
         self.update_status('ending',self.winning_team)
-        if self.audio_toggle:
+        if self.play_audio:
             self.end_game_sound(self.winning_team)
         while (time.time() < end_time):
             time.sleep(0.01)
@@ -372,7 +380,7 @@ class Swapper():
     def game_loop(self):
         self.track_moves()
         self.count_down()
-        if self.audio_toggle:
+        if self.play_audio:
             try:
                 self.audio.start_audio_loop()
             except:
@@ -401,7 +409,7 @@ class Swapper():
                 self.kill_game()
 
     def kill_game(self):
-        if self.audio_toggle:
+        if self.play_audio:
             try:
                 self.audio.stop_audio()
             except:
@@ -436,6 +444,10 @@ class Swapper():
         team_comp = list(zip(team_total,team_alive))
         data['team_comp'] = team_comp
         data['team_names'] = [color.name + ' Team' for color in self.team_colors]
+<<<<<<< HEAD
         self.status_ns.status_dict = data
+=======
+        self.ns.status = data
+>>>>>>> master
                     
             

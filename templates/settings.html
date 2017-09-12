@@ -1,6 +1,9 @@
 {% extends "basic.html" %}
 {% block header %}
 <script>
+//used to forcibly leave settings page if in game
+//no longer needed since settings can update while in game
+//they just take effect in the next round
 function updateStatus(){
     $.ajax({
         url: 'updateStatus',
@@ -17,10 +20,10 @@ function updateStatus(){
     });
 };
 
-$(document).ready(function(){
-    updateStatus();
-    setInterval(updateStatus,1000);
-});
+//$(document).ready(function(){
+//    updateStatus();
+//    setInterval(updateStatus,1000);
+//});
 </script>
 <style>
 p{line-height: 200%}
@@ -28,6 +31,7 @@ p{line-height: 200%}
 {% endblock %}
 
 {% block body %}
+
 <div class="lol">
 {% with message = get_flashed_messages() %}
   {% if message %}
@@ -38,23 +42,24 @@ p{line-height: 200%}
 
 <div class='admin' id='admin_settings'>
 <h3>Admin Settings</h3>
+Note: Does not update during games.<br/>
 
 <form action="/settings" method="POST">
 <p>
-{{ form.move_admin(checked=settings.move_admin) }} {{form.move_admin.label}}
+{{ form.move_can_be_admin(checked=settings.move_can_be_admin) }} {{form.move_can_be_admin.label}}
 </p>
 <p>
-{{ form.instructions(checked=settings.instructions) }} {{form.instructions.label}}
+{{ form.play_instructions(checked=settings.play_instructions) }} {{form.play_instructions.label}}
 </p>
 <p>
-{{ form.audio(checked=settings.audio) }} {{form.audio.label}}
+{{ form.play_audio(checked=settings.play_audio) }} {{form.play_audio.label}}
 </p>
 <p>
 {{ form.sensitivity }} {{form.sensitivity.label}}
 </p>
 <p id="random">
 Random Mode Game Selection<br />
-{% for item in form.random_modes %}
+{% for item in form.con_games %}
     {{ item(checked=item.data in settings.con_games) }} {{ item.label }} <br />
 {% endfor %}
 </p>

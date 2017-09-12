@@ -4,11 +4,11 @@
 table,td {border:1pt solid black;  padding:3pt;}
 table{border-collapse: collapse;}
 
-.batt5{background-color:#0080ff;}
+.batt5{background-color:#80ff80;}
 .batt4{background-color:cyan;}
-.batt3{background-color:80ff80;}
-.batt2{background-color:bfff00;}
-.batt1{background-color:yellow;}
+.batt3{background-color:#0080ff;}
+.batt2{background-color:yellow;}
+.batt1{background-color:red;}
 .batt0{background-color:red;}
 .batt238{background-color:gray}
 .batt239{background-color:lightgray}
@@ -19,6 +19,7 @@ table{border-collapse: collapse;}
 {% endblock %}
 
 {% block body %}
+<h3>Battery Status</h3>
 Note: Does not update during games.<br/><br/>
 <table><tr><td>MAC Address</td><td>Battery</td><td>Active</td></tr>
 {% for move in ns.battery_status %}

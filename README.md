@@ -65,11 +65,9 @@ Pairing controllers
 
 * Once you have installed JoustMania, in order to pair controllers, plug them into the Raspberry Pi via USB
 * Once plugged in a controller should turn white indicating that it has been paired correctly
-* It is recommended that you pair your controllers directly to the pi, rather than through a USB hub
 * After a controller has been synced via USB, press the PlayStation sync button (the circular one in the middle) to connect the controller to the Pi
 * This process should only need to be done once, after this the controller should be permenently paired with the Pi and will only need to be turned on via the sync button for any future games
 * All the controllers may restart when pairing, this is expected, just keep plugging in new ones until they are all paired. if you encounter problems restart the Pi, and continue pairing the remaining controllers, again once this process is finished you should not have to connect the controllers to the Pi again via USB
-* There is currently a bug where the kernel may crash when pairing controllers, if this happens resart the pi and try pairing the remaining controllers
 
 If pairing is not working for some reason, or you would like to resync all controllers run the following
 ```

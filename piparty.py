@@ -257,6 +257,8 @@ class Menu():
 
         self.show_battery = Value('i', 0)
         
+        #only allow one move to be paired at a time
+        self.pair_one_move = True
         self.tracked_moves = {}
         self.force_color = {}
         self.paired_moves = []
@@ -325,9 +327,7 @@ class Menu():
             for i in range(8):
                 os.popen("sudo hciconfig hci{} up".format(i))
 
-            
-        
-    def pair_move(self, move, move_num):
+    def pair_usb_move(self, move):
         move_serial = move.get_serial()
         if move_serial not in self.tracked_moves:
             if move.connection_type == psmove.Conn_USB:
@@ -336,23 +336,26 @@ class Menu():
                     move.set_leds(255,255,255)
                     move.update_leds()
                     self.paired_moves.append(move_serial)
-            #the move is connected via bluetooth
-            else:
-                color = Array('i', [0] * 3)
-                opts = Array('i', [0] * 6)
-                if move_serial in self.teams:
-                    opts[Opts.team.value] = self.teams[move_serial]
-                if move_serial in self.out_moves:
-                    opts[Opts.alive.value] = self.out_moves[move_serial]
-                opts[Opts.game_mode.value] = self.game_mode.value
-                
-                #now start tracking the move controller
-                proc = Process(target=track_move, args=(move_serial, move_num, opts, color, self.show_battery, self.dead_count))
-                proc.start()
-                self.move_opts[move_serial] = opts
-                self.tracked_moves[move_serial] = proc
-                self.force_color[move_serial] = color
-                self.exclude_out_moves()
+                    self.pair_one_move = False
+        
+    def pair_move(self, move, move_num):
+        move_serial = move.get_serial()
+        if move_serial not in self.tracked_moves:
+            color = Array('i', [0] * 3)
+            opts = Array('i', [0] * 6)
+            if move_serial in self.teams:
+                opts[Opts.team.value] = self.teams[move_serial]
+            if move_serial in self.out_moves:
+                opts[Opts.alive.value] = self.out_moves[move_serial]
+            opts[Opts.game_mode.value] = self.game_mode.value
+            
+            #now start tracking the move controller
+            proc = Process(target=track_move, args=(move_serial, move_num, opts, color, self.show_battery, self.dead_count))
+            proc.start()
+            self.move_opts[move_serial] = opts
+            self.tracked_moves[move_serial] = proc
+            self.force_color[move_serial] = color
+            self.exclude_out_moves()
 
 
     def game_mode_announcement(self):
@@ -414,16 +417,23 @@ class Menu():
         self.start_web()
         while True:
             self.i=self.i+1
-            if psmove.count_connected() != len(self.tracked_moves):
-                for move_num, move in enumerate(self.moves):
-                    self.pair_move(move, move_num)
-            self.check_for_new_moves()
-            if len(self.tracked_moves) > 0:
-                self.check_change_mode()
-                self.check_admin_controls()
-                self.check_start_game()
-            self.check_command_queue()
-            self.update_status('menu')
+            if "0" in os.popen('lsusb | grep "PlayStation Move motion controller" | wc -l').read():
+                self.pair_one_move = True
+                self.paired_moves = []
+            if self.pair_one_move:
+                if psmove.count_connected() != len(self.tracked_moves):
+                    for move_num, move in enumerate(self.moves):
+                        if move.connection_type == psmove.Conn_USB and self.pair_one_move:
+                            self.pair_usb_move(move)
+                        elif move.connection_type != psmove.Conn_USB:
+                            self.pair_move(move, move_num)
+                self.check_for_new_moves()
+                if len(self.tracked_moves) > 0:
+                    self.check_change_mode()
+                    self.check_admin_controls()
+                    self.check_start_game()
+                self.check_command_queue()
+                self.update_status('menu')
             
 
     def check_admin_controls(self):

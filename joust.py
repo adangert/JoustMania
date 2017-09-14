@@ -115,12 +115,12 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
                             flash_lights_timer = 0
                             flash_lights = not flash_lights
                         if flash_lights:
-                            if game_mode == common.Games.WereJoust.value:
+                            if game_mode == common.Games.WereJoust:
                                 move.set_leds(1,1,1)
                             else:
                                 move.set_leds(100,100,100)
                         else:
-                            if game_mode == common.Games.WereJoust.value:
+                            if game_mode == common.Games.WereJoust:
                                 if werewolf_reveal.value == 2 and werewolf:
                                     move.set_leds(255,0,0)
                                 else:
@@ -135,7 +135,7 @@ def track_move(move_serial, move_num, game_mode, team, team_num, dead_move, forc
                             vibrate = False
 
                     else:
-                        if game_mode == common.Games.WereJoust.value:
+                        if game_mode == common.Games.WereJoust:
                             if werewolf_reveal.value == 2 and werewolf:
                                 move.set_leds(255,0,0)
                             else:
@@ -199,7 +199,6 @@ class Joust():
         self.force_move_colors = {}
         self.teams = teams
         self.team_num = 6
-        self.game_mode = game_mode
         self.werewolf_timer = 35
         self.start_timer = time.time()
         self.audio_cue = 0
@@ -214,29 +213,29 @@ class Joust():
         #self.update_status('starting')
         
         self.werewolf_reveal = Value('i', 2)
-        if game_mode == common.Games.JoustFFA.value:
+        if game_mode == common.Games.JoustFFA:
             self.team_num = len(moves)
-        if game_mode == common.Games.JoustRandomTeams.value:
+        if game_mode == common.Games.JoustRandomTeams:
             if len(moves) <= 5:
                 self.team_num = 2
             elif len(moves) in [6,7]:
                 self.team_num = 3
             else: #8 or more
                 self.team_num = 4
-        if game_mode == common.Games.Traitor.value:
+        if game_mode == common.Games.Traitor:
             if len(moves) <= 8:
                 self.team_num = 2
             else: #9 or more
                 self.team_num = 3
             self.werewolf_reveal.value = 0
             
-        if game_mode == common.Games.WereJoust.value:
+        if game_mode == common.Games.WereJoust:
             self.werewolf_reveal.value = 0
             self.team_num = 1
-        if game_mode != common.Games.JoustTeams.value:
+        if game_mode != common.Games.JoustTeams:
             self.generate_random_teams(self.team_num)
 
-        if game_mode == common.Games.WereJoust.value:
+        if game_mode == common.Games.WereJoust:
             #were_num = int((len(moves)+2)/4)
             were_num = int((len(moves)*7)/16)
             if were_num <= 0:
@@ -281,7 +280,7 @@ class Joust():
             serial = random.choice(copy_serials)
             copy_serials.remove(serial)
             random_choice = random.choice(team_pick)
-            if self.game_mode == common.Games.Traitor.value and traitor_pick:
+            if self.game_mode == common.Games.Traitor and traitor_pick:
                 self.teams[serial] = (random_choice * -1) - 1
             else:
                 self.teams[serial] = random_choice
@@ -385,7 +384,7 @@ class Joust():
         self.werewolf_reveal.value = 2
 
     def werewolf_audio_cue(self):
-        if self.game_mode == common.Games.WereJoust.value:
+        if self.game_mode == common.Games.WereJoust:
             #print self.werewolf_timer - (time.time() - self.start_timer)
             if self.werewolf_timer - (time.time() - self.start_timer) <= 30 and self.audio_cue == 0:
                 Audio('audio/Joust/sounds/30 werewolf.wav').start_effect()
@@ -454,10 +453,7 @@ class Joust():
         self.running = False
 
     def end_game_sound(self, winning_team):
-        #if self.game_mode != common.Games.Traitor.value:
-        
-
-        if self.game_mode == common.Games.JoustTeams.value:
+        if self.game_mode == common.Games.JoustTeams:
             if winning_team == 0:
                 team_win = Audio('audio/Joust/sounds/yellow team win.wav')
             if winning_team == 1:
@@ -471,7 +467,7 @@ class Joust():
             if winning_team == 5:
                 team_win = Audio('audio/Joust/sounds/red team win.wav')
             team_win.start_effect()
-        if self.game_mode == common.Games.JoustRandomTeams.value:
+        if self.game_mode == common.Games.JoustRandomTeams:
             if self.team_num == 2:
                 if winning_team == 0:
                     team_win = Audio('audio/Joust/sounds/cyan team win.wav')
@@ -495,7 +491,7 @@ class Joust():
                     team_win = Audio('audio/Joust/sounds/red team win.wav')
             team_win.start_effect()
 
-        if self.game_mode == common.Games.Traitor.value:
+        if self.game_mode == common.Games.Traitor:
             if self.team_num == 2:
                 if winning_team == -1:
                     team_win = Audio('audio/Joust/sounds/traitor win.wav')
@@ -514,7 +510,7 @@ class Joust():
                     team_win = Audio('audio/Joust/sounds/red team win.wav')
             team_win.start_effect()
             
-        if self.game_mode == common.Games.WereJoust.value:
+        if self.game_mode == common.Games.WereJoust:
             if winning_team == -1:
                 team_win = Audio('audio/Joust/sounds/werewolf win.wav')
             else:
@@ -535,10 +531,10 @@ class Joust():
 
     def game_loop(self):
         self.track_moves()
-        if self.game_mode == common.Games.WereJoust.value:
+        if self.game_mode == common.Games.WereJoust:
             self.werewolf_intro()
         self.werewolf_reveal.value = 1
-        if self.game_mode == common.Games.JoustRandomTeams.value:
+        if self.game_mode == common.Games.JoustRandomTeams:
             self.show_team_colors.value = 1
             if self.audo_toggle:
                 Audio('audio/Joust/sounds/teams_form.wav').start_effect_and_wait()
@@ -555,7 +551,7 @@ class Joust():
 
             
         time.sleep(0.8)
-        if self.game_mode == common.Games.WereJoust.value:
+        if self.game_mode == common.Games.WereJoust:
             self.music_speed.value = SLOW_MUSIC_SPEED
             self.audio.change_ratio(self.music_speed.value)
             self.speed_up = False
@@ -568,7 +564,7 @@ class Joust():
                 self.check_command_queue()
                 self.update_status('in_game')
 
-            if self.game_mode != common.Games.WereJoust.value and self.audo_toggle:
+            if self.game_mode != common.Games.WereJoust and self.audo_toggle:
                 self.check_music_speed()
             self.check_end_game()
             if self.audo_toggle:
@@ -589,13 +585,13 @@ class Joust():
 
     def update_status(self,game_status,winning_team=-1):
         data ={'game_status' : game_status,
-               'game_mode' : common.game_mode_names[self.game_mode],
+               'game_mode' : self.game_mode.pretty_name,
                'winning_team' : winning_team}
-        if self.game_mode == common.Games.JoustFFA.value:
+        if self.game_mode == common.Games.JoustFFA:
             data['total_players'] = len(self.move_serials)
             data['remaining_players'] = len([x[0] for x in self.dead_moves.items() if x[1].value==1])
         else:
-            if self.game_mode in [common.Games.WereJoust.value, common.Games.Traitor.value]:
+            if self.game_mode in [common.Games.WereJoust, common.Games.Traitor]:
                 num = self.team_num + 1
                 data['winning_team'] += 1
             else:
@@ -604,7 +600,7 @@ class Joust():
             team_total = [0]*num
             for move in self.move_serials:
                 team = self.teams[move]
-                if self.game_mode in [common.Games.WereJoust.value, common.Games.Traitor.value]:
+                if self.game_mode in [common.Games.WereJoust, common.Games.Traitor]:
                         team += 1 #shift so bad guy team is 0
                         if team < 0:
                             team = 0
@@ -613,7 +609,7 @@ class Joust():
                     team_alive[team] += 1
             team_comp = list(zip(team_total,team_alive))
             data['team_comp'] = team_comp
-        if self.game_mode == common.Games.WereJoust.value:
+        if self.game_mode == common.Games.WereJoust:
             thyme = int(self.werewolf_timer - (time.time() - self.start_timer))
             if thyme < 0:
                 data['time_to_reveal'] = 0

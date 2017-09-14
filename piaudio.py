@@ -164,5 +164,5 @@ class Audio:
         return pygame.mixer.Sound(self.file).get_length()
 
     def start_effect_and_wait(self):
-	self.start_effect()
-	time.sleep(self.get_length_secs())
+        self.start_effect()
+        time.sleep(self.get_length_secs())

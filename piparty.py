@@ -2,7 +2,7 @@ import psmove, pair
 import common, joust
 import zombie, commander, swapper, tournament, speed_bomb
 import time, random, json, configparser, os, os.path, sys, glob
-from piaudio import Audio
+from piaudio import Music, DummyMusic, Audio, InitAudio
 from enum import Enum
 from multiprocessing import Process, Value, Array, Queue, Manager
 from webui import start_web
@@ -279,15 +279,15 @@ class Menu():
         self.choose_new_music()
 
     def choose_new_music(self):
-        self.joust_music = Audio(random.choice(glob.glob("audio/Joust/music/*")),False)
+        self.joust_music = Music(random.choice(glob.glob("audio/Joust/music/*")))
         try:
-            self.zombie_music = Audio(random.choice(glob.glob("audio/Zombie/music/*")),False)
+            self.zombie_music = Music(random.choice(glob.glob("audio/Zombie/music/*")))
         except Exception:
-            self.zombie_music = Audio("",False,False)
+            self.zombie_music = DummyMusic()
         try:
-            self.commander_music = Audio(random.choice(glob.glob("audio/Commander/music/*")),False)
+            self.commander_music = Music(random.choice(glob.glob("audio/Commander/music/*")))
         except Exception:
-            self.commander_music = Audio("",False,False)
+            self.commander_music = DummyMusic()
 
     def start_web(self):
         web_proc = Process(target=start_web, args=(self.command_queue,self.status_ns))
@@ -704,5 +704,6 @@ class Menu():
         self.random_added = []
             
 if __name__ == "__main__":
+    InitAudio()
     piparty = Menu()
     piparty.game_loop()

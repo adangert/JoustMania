@@ -1,25 +1,26 @@
 import wave
+import functools
+import io
 import numpy
 import psutil, os
 import time
 import scipy.signal as signal
-from multiprocessing import Process, Value, Lock, Manager
+from multiprocessing import Process, Value
 import pygame
 import alsaaudio
+import threading
 from pydub import AudioSegment
 
 
-def audio_loop(file,  ratio, end, chunk_size, stop_proc):
+def audio_loop(wav_data, ratio, chunk_size, stop_proc):
     time.sleep(0.5)
     proc = psutil.Process(os.getpid())
     proc.nice(-5)
     time.sleep(0.02)
-    print ('audio file is ' + str(file))
     
     while True:
-
         device = alsaaudio.PCM()
-        wf = wave.open(file, 'rb')
+        wf = wave.open(io.BytesIO(wav_data), 'rb')
         device.setchannels(wf.getnchannels())
 
         device.setformat(alsaaudio.PCM_FORMAT_S16_LE)
@@ -59,110 +60,92 @@ def audio_loop(file,  ratio, end, chunk_size, stop_proc):
         device.close()
 
         
-        if end or stop_proc.value == 1:
+        if stop_proc.value == 1:
             break
     wf.close()
     device.close()
 
-
-#convert between any supported file type and wav
-def convert_audio(file, return_dict):
-    filename, file_extension = os.path.splitext(file)
-    try:
-        song = AudioSegment.from_file(file,file_extension[1:])
-        song.export(filename+".wav", format="wav")
-        return_dict["filename"] = filename+".wav"
-    except Exception:
-        print("error can not convert "+file+" to wav")
-        print("trying to play classical.wav instead")
-        return_dict["filename"] = "audio/Joust/music/classical.wav"
-
-# Start audio in seperate process to be non-blocking
+@functools.lru_cache(maxsize=128)
 class Audio:
-    def __init__(self, file, end=False, musicexists=True):
-        self.musicexists = musicexists
-        if self.musicexists:
-            self.counter = 1
-            self.stop_proc = Value('i', 0)
-            self.chunk = 2048
-            self.manager = Manager()
-            self.return_dict = self.manager.dict()
-            self.input_file = file
-            self.delete_file = False
-            self.can_play = False
-            
-            filename, file_extension = os.path.splitext(self.input_file)
-            if (file_extension.lower() != '.wav'):
-                print('now converting '+self.input_file+' to wav')
-                self.delete_file = True
-                self.convert_p = Process(target=convert_audio, args=(self.input_file, self.return_dict))
-                self.convert_p.start()
-            else:
-                self.can_play = True
-                self.file = self.input_file
-            self.ratio = Value('d' , 1.0)
-            self.chunk_size = Value('i', int(2048/2))
-            self.end = end
-            #pygame.mixer.init(44100, -16, 2 , 2048)
-            pygame.mixer.init(47000, -16, 2 , 4096)
+    def __init__(self, fname):
+        segment = AudioSegment.from_file(fname)
+        buf = io.BytesIO()
+        segment.export(buf, 'wav')
+        buf.seek(0)
+        self.sample_ = pygame.mixer.Sound(file=buf)
+        self.fname_ = fname
   
-    def start_audio_loop(self):
-        if self.musicexists:
-            if(not self.can_play):
-                self.convert_p.join()
-                self.can_play = True
-                self.file = self.return_dict["filename"]
-            self.p = Process(target=audio_loop, args=(self.file, self.ratio, self.end, self.chunk_size, self.stop_proc))
-            self.p.start()
-        
-    def stop_audio(self):
-        if self.musicexists:
-            self.stop_proc.value = 1
-            time.sleep(0.1)
-            self.p.terminate()
-            self.p.join()
-            if self.delete_file and self.file != "audio/Joust/music/classical.wav":
-                os.remove(self.file)
-
-    def change_ratio(self, ratio):
-        if self.musicexists:
-            self.ratio.value = ratio
-
-    def change_chunk_size(self, increase):
-        if self.musicexists:
-            if increase:
-                self.chunk_size.value = int(2048/4)
-            else:
-                self.chunk_size.value = int(2048/2)
-
     #this will not work for files other than wav at the moment
     def start_effect(self):
-        if self.musicexists:
-            self.effect = pygame.mixer.Sound(self.file)
-            self.effect.play()
+        self.sample_.play()
 
     def stop_effect(self):
-        if self.musicexists:
-            self.effect.stop()
+        self.sample_.stop()
 
     def start_effect_music(self):
-        if self.musicexists:
-            if(not self.can_play):
-                self.convert_p.join()
-                self.can_play = True
-                self.file = self.return_dict["filename"]
-            pygame.mixer.music.load(self.file)
-            pygame.mixer.music.play()
+        self.sample_.play(-1)
 
     def stop_effect_music(self):
-        if self.musicexists:
-            pygame.mixer.music.fadeout(1)
-            if self.delete_file and self.file != "audio/Joust/music/classical.wav":
-                os.remove(self.file)
+        self.sample_.stop()
             
     def get_length_secs(self):
-        return pygame.mixer.Sound(self.file).get_length()
+        return self.sample_.get_length()
 
     def start_effect_and_wait(self):
         self.start_effect()
         time.sleep(self.get_length_secs())
+
+@functools.lru_cache(maxsize=16)
+class Music:
+    def __init__(self, fname):
+      self.load_thread_ = threading.Thread(target=lambda: self.load_sample_(fname))
+      self.load_thread_.start()
+
+    def wait_for_sample_(self):
+      if self.load_thread_:
+        self.load_thread_.join()
+        self.load_thread_ = None
+
+    def load_sample_(self, fname):
+        try:
+          segment = AudioSegment.from_file(fname)
+        except:
+          print("error can not convert "+fname+" to wav")
+          print("trying to play classical.wav instead")
+          segment = AudioSegment.from_wav("audio/Joust/music/classical.wav")
+
+        self.fname_ = fname
+        wav_data = io.BytesIO()
+        segment.export(wav_data, 'wav')
+        self.wav_data_ = wav_data.getbuffer()
+
+    def start_audio_loop(self):
+        self.wait_for_sample_()
+        print ('audio file is ' + str(self.fname_))
+        # Start audio in seperate process to be non-blocking
+        self.stop_proc = Value('i', 0)
+        self.ratio = Value('d' , 1.0)
+        self.chunk_size = Value('i', int(2048/2))
+
+        self.p = Process(target=audio_loop, args=(self.wav_data_, self.ratio, self.chunk_size, self.stop_proc))
+        self.p.start()
+    def stop_audio(self):
+        self.stop_proc.value = 1
+        time.sleep(0.1)
+        self.p.terminate()
+    def change_ratio(self, ratio):
+        self.ratio.value = ratio
+    def change_chunk_size(self, increase):
+        if increase:
+            self.chunk_size.value = int(2048/4)
+        else:
+            self.chunk_size.value = int(2048/2)
+
+class DummyMusic:
+    def start_audio_loop(self): pass
+    def stop_audio(self): pass
+    def change_ratio(self): pass
+    def change_chunk_size(self): pass
+
+def InitAudio():
+  pygame.mixer.init(47000, -16, 2 , 4096)

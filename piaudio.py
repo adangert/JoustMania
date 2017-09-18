@@ -11,57 +11,74 @@ import alsaaudio
 import threading
 from pydub import AudioSegment
 
+def audio_loop(wav_data, ratio, stop_proc):
+    # TODO: As a future improvment, we could precompute resampled versions of the track
+    # at the "steady" playback rates, and only do dynamic resampling when transitioning
+    # between them.
 
-def audio_loop(wav_data, ratio, chunk_size, stop_proc):
+    PERIOD=1024 * 4
+    # Two channels, two bytes per sample.
+    PERIOD_BYTES = PERIOD * 2 * 2
+
     time.sleep(0.5)
     proc = psutil.Process(os.getpid())
     proc.nice(-5)
     time.sleep(0.02)
-    
-    while True:
-        device = alsaaudio.PCM()
-        wf = wave.open(io.BytesIO(wav_data), 'rb')
-        device.setchannels(wf.getnchannels())
 
-        device.setformat(alsaaudio.PCM_FORMAT_S16_LE)
-        device.setperiodsize(320)
+    device = alsaaudio.PCM()
+    wf = wave.open(io.BytesIO(wav_data), 'rb')
+    device.setchannels(wf.getnchannels())
+
+    device.setformat(alsaaudio.PCM_FORMAT_S16_LE)
+    device.setperiodsize(PERIOD)
         
-        data = wf.readframes(1024)
-        device.setrate(wf.getframerate())
+    if len(wf.readframes(1)) == 0:
+        raise ValueError("Empty WAV file played.")
+    wf.rewind()
+    device.setrate(wf.getframerate())
 
-        time.sleep(0.03)
-        data = wf.readframes(chunk_size.value)
-        time.sleep(0.03)
+    # Loops samples of up to read_size bytes from the wav file.
+    def ReadSamples(wf, read_size):
+        while True:
+            sample = wf.readframes(read_size)
+            if len(sample) > 0:
+                yield sample
+            else:
+                wf.rewind()
 
+    # Writes incoming samples in chunks of write_size to device.
+    # Quits when stop_proc is set to a non-zero value.
+    def WriteSamples(device, write_size, samples):
+        buf = bytearray()
+        for sample in samples:
+            buf.extend(sample)
+            while len(buf) >= write_size:
+                device.write(buf[:write_size])
+                del buf[:write_size]
+            if stop_proc.value:
+                return
 
-        
-        while data != '' and stop_proc.value == 0:
-            #need to try locking here for multiprocessing
+    # Resamples audio data at the rate given by 'ratio' above.
+    def Resample(samples):
+        for data in samples:
             array = numpy.fromstring(data, dtype=numpy.int16)
-            result = numpy.reshape(array, (array.size//2, 2))
-            if (array.size == 0):
-                break
-            #split data into seperate channels and resample
-            final = numpy.ones((1024,2))
-            reshapel = signal.resample(result[:, 0], 1024)
+            # Split data into seperate channels and resample. Divide by two
+            # since there are two channels. We round to the nearest multiple of
+            # 32 as the resampling is more efficient the closer the sizes are to
+            # being powers of two.
+            num_output_frames = int(array.size / (ratio.value * 2)) & (~0x1f)
+            reshapel = signal.resample(array[0::2], num_output_frames)
+            reshaper = signal.resample(array[1::2], num_output_frames)
 
+            final = numpy.ones((num_output_frames,2))
             final[:, 0] = reshapel
-            reshaper = signal.resample(result[:, 1], 1024)
             final[:, 1] = reshaper
+
             out_data = final.flatten().astype(numpy.int16).tostring()
-            #data = signal.resample(array, chunk_size.value*ratio.value)
-            device.write(out_data)
-            round_data = (int)(chunk_size.value*ratio.value)
-            if round_data % 2 != 0:
-                round_data += 1
-            data = wf.readframes(round_data)
+            yield out_data
 
-        wf.close()
-        device.close()
+    WriteSamples(device, PERIOD_BYTES, Resample(ReadSamples(wf, PERIOD)))
 
-        
-        if stop_proc.value == 1:
-            break
     wf.close()
     device.close()
 
@@ -125,9 +142,8 @@ class Music:
         # Start audio in seperate process to be non-blocking
         self.stop_proc = Value('i', 0)
         self.ratio = Value('d' , 1.0)
-        self.chunk_size = Value('i', int(2048/2))
 
-        self.p = Process(target=audio_loop, args=(self.wav_data_, self.ratio, self.chunk_size, self.stop_proc))
+        self.p = Process(target=audio_loop, args=(self.wav_data_, self.ratio, self.stop_proc))
         self.p.start()
     def stop_audio(self):
         self.stop_proc.value = 1
@@ -135,17 +151,11 @@ class Music:
         self.p.terminate()
     def change_ratio(self, ratio):
         self.ratio.value = ratio
-    def change_chunk_size(self, increase):
-        if increase:
-            self.chunk_size.value = int(2048/4)
-        else:
-            self.chunk_size.value = int(2048/2)
 
 class DummyMusic:
     def start_audio_loop(self): pass
     def stop_audio(self): pass
     def change_ratio(self): pass
-    def change_chunk_size(self): pass
 
 def InitAudio():
-  pygame.mixer.init(47000, -16, 2 , 4096)
+    pygame.mixer.init(47000, -16, 2 , 4096)

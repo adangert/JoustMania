@@ -365,14 +365,12 @@ class Joust():
         if time.time() > self.change_time and time.time() < self.change_time + INTERVAL_CHANGE:
             self.change_music_speed(self.speed_up)
             self.currently_changing = True
-            self.audio.change_chunk_size(True)
         elif time.time() >= self.change_time + INTERVAL_CHANGE and self.currently_changing:
             self.music_speed.value = SLOW_MUSIC_SPEED if self.speed_up else FAST_MUSIC_SPEED
             self.speed_up =  not self.speed_up
             self.change_time = self.get_change_time(speed_up = self.speed_up)
             self.audio.change_ratio(self.music_speed.value)
             self.currently_changing = False
-            self.audio.change_chunk_size(False)
 
     def get_real_team(self, team):
         if team < 0:

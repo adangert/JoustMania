@@ -42,21 +42,6 @@ class Sensitivity(Enum):
     mid = 1
     fast = 2
 
-
-#These buttons are based off of
-#The mapping of PS Move controllers
-class Buttons(Enum):
-    middle = 524288
-    all_buttons = 240
-    sync = 65536
-    start = 2048
-    select = 256
-    circle = 32
-    triangle = 16
-    cross = 64
-    square = 128
-    nothing = 0
-
 def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
     move = common.get_move(serial, move_num)
     move.set_leds(0,0,0)
@@ -68,14 +53,14 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
         time.sleep(0.01)
         if move.poll():
             game_mode = common.Games(move_opts[Opts.game_mode.value])
-            move_button = move.get_buttons()
+            move_button = common.Button(move.get_buttons())
             if move_opts[Opts.alive.value] == Alive.off.value:
-                if move_button == Buttons.sync.value:
+                if move_button == common.Button.SYNC:
                     move_opts[Opts.alive.value] = Alive.on.value
                     dead_count.value = dead_count.value - 1
                 time.sleep(0.1)
             else:
-                if move_button == Buttons.all_buttons.value:
+                if move_button == common.Button.SHAPES:
                     move_opts[Opts.alive.value] = Alive.off.value
                     dead_count.value = dead_count.value + 1
                     move.set_leds(0,0,0)
@@ -111,7 +96,7 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                     if move_opts[Opts.team.value] >= TEAM_NUM:
                         move_opts[Opts.team.value] = 0
                     move.set_leds(*TEAM_COLORS[move_opts[Opts.team.value]])
-                    if move_button == Buttons.middle.value:
+                    if move_button == common.Button.MIDDLE:
                         #allow players to increase their own team
                         if move_opts[Opts.holding.value] == Holding.not_holding.value:
                             move_opts[Opts.team.value] = (move_opts[Opts.team.value] + 1) % TEAM_NUM
@@ -177,7 +162,7 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
 
                 elif game_mode == common.Games.Random:
                     
-                    if move_button == Buttons.middle.value:
+                    if move_button == common.Button.MIDDLE:
                         move_opts[Opts.random_start.value] = Alive.off.value
                     if move_opts[Opts.random_start.value] == Alive.on.value:
                         move.set_leds(0,0,255)
@@ -187,37 +172,37 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
 
                 if move_opts[Opts.holding.value] == Holding.not_holding.value:
                     #Change game mode and become admin controller
-                    if move_button == Buttons.select.value:
+                    if move_button == common.Button.SELECT:
                         move_opts[Opts.selection.value] = Selections.change_mode.value
                         move_opts[Opts.holding.value] = Holding.holding.value
 
                     #start the game
-                    if move_button == Buttons.start.value:
+                    if move_button == common.Button.START:
                         move_opts[Opts.selection.value] = Selections.start_game.value
                         move_opts[Opts.holding.value] = Holding.holding.value
 
                     #as an admin controller add or remove game from convention mode
-                    if move_button == Buttons.cross.value:
+                    if move_button == common.Button.CROSS:
                         move_opts[Opts.selection.value] = Selections.add_game.value
                         move_opts[Opts.holding.value] = Holding.holding.value
 
                     #as an admin controller change sensitivity of controllers
-                    if move_button == Buttons.circle.value:
+                    if move_button == common.Button.CIRCLE:
                         move_opts[Opts.selection.value] = Selections.change_sensitivity.value
                         move_opts[Opts.holding.value] = Holding.holding.value
 
                     #as an admin controller change if instructions play
-                    if move_button == Buttons.square.value:
+                    if move_button == common.Button.SQUARE:
                         move_opts[Opts.selection.value] = Selections.change_instructions.value
                         move_opts[Opts.holding.value] = Holding.holding.value
 
                     #as an admin show battery level of controllers
-                    if move_button == Buttons.triangle.value:
+                    if move_button == common.Button.TRIANGLE:
                         move_opts[Opts.selection.value] = Selections.show_battery.value
                         move_opts[Opts.holding.value] = Holding.holding.value
                     
 
-                if move_button == Buttons.nothing.value:
+                if move_button == common.Button.NONE:
                     move_opts[Opts.holding.value] = Holding.not_holding.value
 
 

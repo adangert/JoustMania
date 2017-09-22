@@ -1,7 +1,7 @@
 import psmove
 import colorsys
 import time
-from enum import Enum
+import enum
 
 color_range = 255
 
@@ -49,7 +49,7 @@ def change_color(color_array, r, g, b):
     color_array[1] = g
     color_array[2] = b
 
-class Games(Enum):
+class Games(enum.Enum):
     JoustFFA = (0, 'Joust Free-for-All', 2)
     JoustTeams = (1, 'Joust Teams', 3)
     JoustRandomTeams = (2, 'Joust Random Teams', 3)
@@ -75,12 +75,25 @@ class Games(Enum):
         """Return the next game mode after this one in the list. Wraps around after hitting bottom."""
         return Games((self.value + 1) % len(Games))
 
-class Buttons(Enum):
-    middle = 524288
-    start = 2048
-    select = 256
-    circle = 32
-    nothing = 0
+#These buttons are based off of
+#The mapping of PS Move controllers
+class Button(enum.Flag):
+    NONE     = 0
+
+    TRIANGLE = psmove.Btn_TRIANGLE
+    CIRCLE   = psmove.Btn_CIRCLE
+    CROSS    = psmove.Btn_CROSS
+    SQUARE   = psmove.Btn_SQUARE
+
+    SELECT   = psmove.Btn_SELECT
+    START    = psmove.Btn_START
+
+    SYNC     = psmove.Btn_PS
+    MIDDLE   = psmove.Btn_MOVE
+    TRIGGER  = psmove.Btn_T
+
+    SHAPES   = TRIANGLE | CIRCLE | CROSS | SQUARE
+
 
 battery_levels = {
     0: "Low",

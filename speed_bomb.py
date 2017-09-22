@@ -33,18 +33,6 @@ class Holding(Enum):
     not_holding = 0
     holding = 1
 
-class Buttons(Enum):
-    middle = 524288
-    all_buttons = 240
-    sync = 65536
-    start = 2048
-    select = 256
-    circle = 32
-    triangle = 16
-    cross = 64
-    square = 128
-    nothing = 0
-
 class Bool(Enum):
     no = 0
     yes = 1
@@ -111,7 +99,7 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                 no_fake_bomb_color = [100,100,100]
             if move.poll():
 
-                button = move.get_buttons()
+                button = common.Button(move.get_buttons())
                 if move_opts[Opts.has_bomb.value] == Bool.yes.value:
                     if(move.get_trigger() > 50 and can_fake):
 
@@ -154,7 +142,7 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                         move.set_leds(150,20,20)
                     else:
                         move.set_leds(*no_bomb_color)
-                    if  move_opts[Opts.holding.value] == Holding.not_holding.value and (move.get_trigger() > 50 or button == Buttons.middle.value):
+                    if  move_opts[Opts.holding.value] == Holding.not_holding.value and (move.get_trigger() > 50 or button == common.Button.MIDDLE):
                         if move_opts[Opts.has_bomb.value] == Bool.no.value:
                             move_opts[Opts.holding.value] = Holding.holding.value
 
@@ -164,19 +152,18 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                                 #dead_move.value -= 1
                     move.set_rumble(0)
 
-                if move_opts[Opts.holding.value] == Holding.not_holding.value and (button == Buttons.triangle.value or button == Buttons.circle.value
-                                                                                   or button == Buttons.cross.value or button == Buttons.square.value):
+                if move_opts[Opts.holding.value] == Holding.not_holding.value and button in common.Button.SHAPES:
                     move_opts[Opts.selection.value] = Selections.counter.value
                     move_opts[Opts.holding.value] = Holding.holding.value
 
-                if button == Buttons.middle.value and move_opts[Opts.holding.value] == Holding.not_holding.value:
+                if button == common.Button.MIDDLE and move_opts[Opts.holding.value] == Holding.not_holding.value:
                     move_opts[Opts.selection.value] = Selections.a_button.value
                     move_opts[Opts.holding.value] = Holding.holding.value
 
 
 
 
-                elif move_opts[Opts.holding.value] == Holding.holding.value and button == Buttons.nothing.value and move.get_trigger() <= 50:
+                elif move_opts[Opts.holding.value] == Holding.holding.value and button == common.Button.NONE and move.get_trigger() <= 50:
                     move_opts[Opts.selection.value] = Selections.nothing.value
                     move_opts[Opts.holding.value] = Holding.not_holding.value
 

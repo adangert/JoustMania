@@ -24,6 +24,7 @@ sudo apt-get install -y  \
     libudev-dev swig libbluetooth-dev \
     alsa-utils alsa-tools libasound2-dev || exit -1
 
+sudo apt-get remove -y python3-pygame
 sudo apt-get install -y -t buster libasound2-dev libasound2 python3-numpy python3-scipy
 sudo python3.6 -m pip install --upgrade virtualenv || exit -1
 sudo python3.6 -m pip install psutil flask Flask-WTF pyalsaaudio pydub pygame || exit -1

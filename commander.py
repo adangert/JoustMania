@@ -57,16 +57,6 @@ class Holding(Enum):
     not_holding = 0
     holding = 1
 
-class Buttons(Enum):
-    middle = 524288
-    all_buttons = 240
-    sync = 65536
-    start = 2048
-    select = 256
-    circle = 32
-    triangle = 16
-    nothing = 0
-
 class Bool(Enum):
     no = 0
     yes = 1
@@ -116,12 +106,12 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
 
     while commander_intro.value == 1:
         if move.poll():
-            button = move.get_buttons()
-            if button == Buttons.middle.value and move_opts[Opts.holding.value] == Holding.not_holding.value:
+            button = common.Button(move.get_buttons())
+            if button == common.Button.MIDDLE and move_opts[Opts.holding.value] == Holding.not_holding.value:
 
                 move_opts[Opts.selection.value] = Selections.a_button.value
                 move_opts[Opts.holding.value] = Holding.holding.value
-            elif button == Buttons.triangle.value and move_opts[Opts.holding.value] == Holding.not_holding.value:
+            elif button == common.Button.TRIANGLE and move_opts[Opts.holding.value] == Holding.not_holding.value:
 
                 move_opts[Opts.selection.value] = Selections.triangle.value
                 move_opts[Opts.holding.value] = Holding.holding.value

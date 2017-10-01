@@ -12,4 +12,7 @@ then run:
 
 and the game should be running locally in your terminal!
 
+You can run unit tests with the provided shell script:
+`./tests`
+
 Happy development!

@@ -6,6 +6,7 @@ from piaudio import Music, DummyMusic, Audio, InitAudio
 from enum import Enum
 from multiprocessing import Process, Value, Array, Queue, Manager
 from webui import start_web
+from games import ffa
 
 TEAM_NUM = 6
 TEAM_COLORS = common.generate_colors(TEAM_NUM)
@@ -218,6 +219,7 @@ class Menu():
             config.read("joustconfig.ini")
             self.audio_toggle = config.getboolean("GENERAL","audio")
             self.sensitivity = int(config['GENERAL']['sensitivity'])
+            self.experimental = config.getboolean('GENERAL', 'experimental') if config.has_option('GENERAL', 'experimental') else False
             self.instructions = config.getboolean("GENERAL","instructions")
             self.con_games = []
             for game in common.Games:
@@ -674,8 +676,14 @@ class Menu():
             tournament.Tournament(game_moves, self.sensitivity, self.command_queue, self.status_ns, self.audio_toggle, self.joust_music)
             self.tracked_moves = {}
         else:
-            #may need to put in moves that have selected to not be in the game
-            joust.Joust(self.game_mode, game_moves, self.teams, self.sensitivity, self.command_queue, self.status_ns, self.audio_toggle,self.joust_music)
+            if self.game_mode == common.Games.JoustFFA and self.experimental:
+                print("Playing EXPERIMENTAL FFA Mode.")
+                moves = [ common.get_move(serial, num) for num, serial in enumerate(game_moves) ]
+                game = ffa.FreeForAll(moves, self.joust_music)
+                game.run_loop()
+            else:
+                #may need to put in moves that have selected to not be in the game
+                joust.Joust(self.game_mode, game_moves, self.teams, self.sensitivity, self.command_queue, self.status_ns, self.audio_toggle,self.joust_music)
             self.tracked_moves = {}
         if random_mode:
             self.game_mode = common.Games.Random

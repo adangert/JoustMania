@@ -1,7 +1,7 @@
-import psmove
 import colorsys
-import time
 import enum
+import psmove
+import time
 
 color_range = 255
 
@@ -105,3 +105,26 @@ battery_levels = {
     psmove.Batt_CHARGING:      "Charging",
     psmove.Batt_CHARGING_DONE: "Charged",
 }
+
+# Common colors lifted from https://xkcd.com/color/rgb/
+# TODO: Add more colors -- probably need to have 14 player colors at least.
+class Color(enum.Enum):
+    BLACK =      0x000000
+    WHITE =      0xffffff
+    RED =        0xff0000
+
+    GREEN =      0x00ff00
+    BLUE =       0x0000ff
+    YELLOW =     0xffff14
+    PURPLE =     0x7e1e9c
+    ORANGE =     0xf97306
+    PINK =       0xff81c0
+    TURQUOISE =  0x06c2ac
+    BROWN =      0x653700
+
+    def rgb_bytes(self):
+        v = self.value
+        return  v >> 16, (v >> 8) & 0xff, v & 0xff
+
+# Red is reserved for warnings/knockouts.
+PLAYER_COLORS = [ c for c in Color if c not in (Color.RED, Color.WHITE, Color.BLACK) ]

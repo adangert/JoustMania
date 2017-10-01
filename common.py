@@ -96,12 +96,12 @@ class Button(enum.Flag):
 
 
 battery_levels = {
-    0: "Low",
-    1: "20%",
-    2: "40%",
-    3: "60%",
-    4: "80%",
-    5: "100%",
-    238: "Charging",
-    239: "Charged"
+    psmove.Batt_MIN:           "Low",
+    psmove.Batt_20Percent:     "20%",
+    psmove.Batt_40Percent:     "40%",
+    psmove.Batt_60Percent:     "60%",
+    psmove.Batt_80Percent:     "80%",
+    psmove.Batt_MAX:           "100%",
+    psmove.Batt_CHARGING:      "Charging",
+    psmove.Batt_CHARGING_DONE: "Charged",
 }

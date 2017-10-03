@@ -9,7 +9,6 @@ function updateStatus(){
             info = JSON.parse(rawdata);
             $('.main_status').show()
             $('#game_mode').text(info.game_mode);
-            $('#game_status').text(info.game_status);
             $('.info_box').hide()
             $('.admin').hide()
             $('.error').hide()
@@ -55,7 +54,7 @@ function updateStatus(){
 
             } else if (info.game_status=='starting'){
                 $('#starting').show();
-                $('#player_count').text(info.alive_count)
+                $('#player_count').text(info.alive_count);
 
             } else if (info.game_status=='ending'){
                 $('#ending').show();
@@ -117,7 +116,6 @@ $(document).ready(function(){
 {% block body %}
 <div class='main_status'>
 Curent mode: <span id='game_mode'>Joust Null</span><br />
-Game status: <span id='game_status'>False</span><br />
 </div>
 
 
@@ -129,7 +127,8 @@ Alive Moves: <span id='alive_count'>-999</span><br /><br />
 
 <div class='info_box' id='starting'>
 <br />
-Total Players: <span id='player_count'>-999</span><br />
+Total Players: <span id='player_count'>-999</span><br /><br />
+Game Starting!<br /><br />
 </div>
 
 <div class='info_box' id='free4all'>

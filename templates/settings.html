@@ -59,8 +59,8 @@ Note: Does not update during games.<br/>
 </p>
 <p id="random">
 Random Mode Game Selection<br />
-{% for item in form.con_games %}
-    {{ item(checked=item.data in settings.con_games) }} {{ item.label }} <br />
+{% for item in form.random_modes %}
+    {{ item(checked=item.data in settings.random_modes) }} {{ item.label }} <br />
 {% endfor %}
 </p>
 <input type="submit" value="Save Settings">

@@ -102,10 +102,10 @@ class WebUI():
         #secret setting, keep it True
         #temp_settings['enforce_minimum'] = 'enforce_minimum' in web_settings.keys()
         temp_settings['sensitivity'] = int(web_settings['sensitivity'])
-        temp_settings['con_games'] = [int(x) for x in web_settings.getlist('con_games')]
-        #print(self.con_games)
-        if temp_settings['con_games'] == []:
-            temp_settings['con_games'] = [common.Games.JoustFFA]
+        temp_settings['random_modes'] = [game.pretty_name for game in common.Games if game.pretty_name in web_settings.getlist('random_modes')]
+        #print(self.random_modes)
+        if temp_settings['random_modes'] == []:
+            temp_settings['random_modes'] = [common.Games.JoustFFA]
 
         self.ns.settings = temp_settings
 

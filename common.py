@@ -122,5 +122,5 @@ REQUIRED_SETTINGS = [
 'enforce_minimum',
 'sensitivity',
 'play_instructions',
-'con_games'
+'random_modes'
 ]

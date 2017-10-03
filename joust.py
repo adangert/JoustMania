@@ -245,6 +245,7 @@ class Joust():
             self.team_colors = colors.color_list
         else:
             self.team_colors = colors.generate_team_colors(self.num_teams)
+            self.generate_random_teams(self.num_teams)
 
         if self.game_mode == common.Games.WereJoust:
 
@@ -490,7 +491,9 @@ class Joust():
             team_win.start_effect()
         
     def werewolf_intro(self):
-        Audio('audio/Joust/sounds/werewolf intro.wav').start_effect_and_wait()
+        #don't wait so colors change during prompts
+        Audio('audio/Joust/sounds/werewolf intro.wav').start_effect()
+        time.sleep(3)
         self.change_all_move_colors(80, 0, 0)
         time.sleep(2)
         self.change_all_move_colors(30, 0, 0)

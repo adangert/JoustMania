@@ -97,7 +97,7 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                     if move_opts[Opts.team.value] >= TEAM_NUM:
                         move_opts[Opts.team.value] = 0
                     move.set_leds(*colors.color_list[move_opts[Opts.team.value]].value)
-                    if move_button == Buttons.middle.value:
+                    if move_button == common.Button.MIDDLE:
                         #allow players to increase their own team
                         if move_opts[Opts.holding.value] == Holding.not_holding.value:
                             move_opts[Opts.team.value] = (move_opts[Opts.team.value] + 1) % TEAM_NUM
@@ -226,6 +226,9 @@ class Menu():
         self.initialize_settings()
         self.update_settings_file()
 
+        #defined outside of ns.settings as it's a purely dev option
+        self.experimental = False
+
         self.move_count = psmove.count_connected()
         self.dead_count = Value('i', 0)
         self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
@@ -314,6 +317,9 @@ class Menu():
             opts = Array('i', [0] * 6)
             if move_serial in self.teams:
                 opts[Opts.team.value] = self.teams[move_serial]
+            else:
+                #initialize to team Yellow
+                opts[Opts.team.value] = 3 
             if move_serial in self.out_moves:
                 opts[Opts.alive.value] = self.out_moves[move_serial]
             opts[Opts.game_mode.value] = self.game_mode.value
@@ -378,7 +384,7 @@ class Menu():
                     self.game_mode = self.game_mode.next()
             for opt in self.move_opts.values():
                 opt[Opts.game_mode.value] = self.game_mode.value
-            if self.ns.settings['play_audio']
+            if self.ns.settings['play_audio']:
                 self.game_mode_announcement()
 
 
@@ -454,7 +460,7 @@ class Menu():
                 self.force_color[self.admin_move][2] = 0
             else:
                 #if game is in con mode, admin is green, otherwise admin is red
-                if self.game_mode in self.ns.settings['con_games']:
+                if self.game_mode.pretty_name in self.ns.settings['random_modes']:
                     self.force_color[self.admin_move][0] = 0
                     self.force_color[self.admin_move][1] = 200
 
@@ -465,16 +471,16 @@ class Menu():
                 #add or remove game from con mode
                 if admin_opt[Opts.selection.value] == Selections.add_game.value:
                     admin_opt[Opts.selection.value] = Selections.nothing.value
-                    if self.game_mode not in self.ns.settings['con_games']:
-                        temp_con_games = self.ns.settings['con_games']
-                        temp_con_games.append(self.game_mode)
-                        self.update_setting('con_games',temp_con_games)
+                    if self.game_mode.pretty_name not in self.ns.settings['random_modes']:
+                        temp_random_modes = self.ns.settings['random_modes']
+                        temp_random_modes.append(self.game_mode.pretty_name)
+                        self.update_setting('random_modes',temp_random_modes)
                         if self.ns.settings['play_audio']:
                             Audio('audio/Menu/game_on.wav').start_effect()
-                    elif len(self.ns.settings['con_games']) > 1:
-                        temp_con_games = self.ns.settings['con_games']
-                        temp_con_games.remove(self.game_mode)
-                        self.update_setting('con_games',temp_con_games)
+                    elif len(self.ns.settings['random_modes']) > 1:
+                        temp_random_modes = self.ns.settings['random_modes']
+                        temp_random_modes.remove(self.game_mode.pretty_name)
+                        self.update_setting('random_modes',temp_random_modes)
                         if self.ns.settings['play_audio']:
                             Audio('audio/Menu/game_off.wav').start_effect()
                     else:
@@ -487,14 +493,15 @@ class Menu():
         temp_settings = ({ 
             'sensitivity': Sensitivity.mid.value,
             'play_instructions': True,
-            'con_games': [common.Games.JoustFFA],
+            #we store the name, not the enum, so the webui can process it more easily
+            'random_modes': [common.Games.JoustFFA.pretty_name],
             'play_audio': True,
             'move_can_be_admin': True,
             'enforce_minimum': True
         })
         try:
             #catch either file opening or yaml loading failing
-            with open(common.SETTINGSFILE,'w') as yaml_file:
+            with open(common.SETTINGSFILE,'r') as yaml_file:
                 temp_settings.update(yaml.load(yaml_file))
         except:
             pass
@@ -503,11 +510,16 @@ class Menu():
             if setting not in temp_settings.keys():
                 temp_settings.pop(setting)
         #random mode games can't be empty
-        if temp_settings['con_games'] == []:
-            temp_settings['con_games'] = [common.Games.JoustFFA]
+        if temp_settings['random_modes'] == []:
+            temp_settings['random_modes'] = [common.Games.JoustFFA.pretty_name]
+        #or these two modes
         for game in [common.Games.JoustTeams,common.Games.Random]:
-            if i in temp_settings['con_games']:
-                temp_settings['con_games'].pop(game)
+            if game.pretty_name in temp_settings['random_modes']:
+                temp_settings['random_modes'].remove(game.pretty_name)
+        #or a non-existent mode
+        for game in temp_settings['random_modes']:
+            if game not in [game.pretty_name for game in common.Games]:
+                temp_settings['random_modes'].remove(game)
         #force these settings
         temp_settings.update({
             'play_audio': True,
@@ -626,23 +638,21 @@ class Menu():
         self.update_status('starting')
 
         if random_mode:
+            good_random_modes = [game for game in common.Games if game.pretty_name in self.ns.settings['random_modes']]
             if self.ns.settings['enforce_minimum']:
-                good_con_games = [game for game in self.ns.settings['con_games'] if game.minimum_players <= len(game_moves)]
-
-            else:
-                good_con_games = self.ns.settings['con_games']
-            if len(good_con_games) == 0:
+                good_random_modes = [game for game in good_random_modes if game.minimum_players <= len(game_moves)]
+            if len(good_random_modes) == 0:
                 selected_game = common.Games.JoustFFA  #force Joust FFA
-            elif len(good_con_games) == 1:
-                selected_game = good_con_games[0]
+            elif len(good_random_modes) == 1:
+                selected_game = good_random_modes[0]
             else:
-                if len(self.rand_game_list) >= len(good_con_games):
+                if len(self.rand_game_list) >= len(good_random_modes):
                     #empty rand game list, append old game, to not play it twice
                     self.rand_game_list = [self.old_game_mode]
 
-                selected_game = random.choice(good_con_games)
+                selected_game = random.choice(good_random_modes)
                 while selected_game in self.rand_game_list:
-                    selected_game = random.choice(good_con_games)
+                    selected_game = random.choice(good_random_modes)
 
                 self.old_game_mode = selected_game
                 self.rand_game_list.append(selected_game)

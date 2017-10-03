@@ -18,22 +18,22 @@ def generate_colors(color_num):
 def generate_team_colors(num_teams):
     if num_teams == 1:
         #only Werewolf, and it's ignored anyway, but let's prevent errors, eh?
-        return [random.choice(color_list)]
+        return [random.choice(team_color_list)]
     if num_teams == 2:
-        team1 = random.choice(color_list)
+        team1 = random.choice(team_color_list)
         team2 = random.choice(dual_teams[team1])
         return [team1,team2]
     elif num_teams == 3:
-        team1 = random.choice(color_list)
+        team1 = random.choice(team_color_list)
         team2 = random.choice(tri_teams[team1])
         allowed = tri_teams[team1] + tri_teams[team2]
         team3_allowed = [x for x in allowed if x in tri_teams[team1] and x in tri_teams[team2]]
         team3 = random.choice(team3_allowed)
         return [team1,team2,team3]
     elif num_teams == 4:
-        team_a = random.choice([TeamColors.Orange,TeamColors.Yellow])
-        team_b = random.choice([TeamColors.Purple,TeamColors.Pink,TeamColors.Magenta])
-        teams = [TeamColors.Green,TeamColors.Blue,team_a,team_b]
+        team_a = random.choice([Colors.Orange,Colors.Yellow])
+        team_b = random.choice([Colors.Purple,Colors.Pink,Colors.Magenta])
+        teams = [Colors.Green,Colors.Blue,team_a,team_b]
         random.shuffle(teams)
         return teams
     elif num_teams in [5,6,7,8]:
@@ -58,8 +58,9 @@ def change_color(color_array, r, g, b):
     color_array[1] = g
     color_array[2] = b
 
-class TeamColors(Enum):
-    Pink = (255,96,96)
+class Colors(Enum):
+    #first 8 are team colors
+    Pink = (255,108,108)
     Magenta = (255,0,192)
     Orange = (255,64,0)
     Yellow = (255,255,0)
@@ -67,12 +68,11 @@ class TeamColors(Enum):
     Turquoise = (0,255,255)
     Blue = (0,0,255)
     Purple = (96,0,255)
-
-#included in case I need them later
-class ExtraColors(Enum):
+    #these are used for various things
     White = (255,255,255)
     White80 = (200,200,200)
     White60 = (150,150,150)
+    White20 = (50,50,50)
     Red = (255,0,0)
     Red60 = (150,0,0)
     Red80 = (200,0,0)
@@ -84,31 +84,31 @@ class ExtraColors(Enum):
     SplatoonGreen = (255,50,120)
     SplatoonPink = (30,220,0)
 
-color_list = [x for x in TeamColors]
+team_color_list = [x for x in Colors][0:8]
 
 #pick one color, then pick among the colors not near the first
 dual_teams = {
-    TeamColors.Pink : [TeamColors.Yellow,TeamColors.Green,TeamColors.Turquoise,TeamColors.Blue],
-    TeamColors.Magenta : [TeamColors.Yellow,TeamColors.Green,TeamColors.Turquoise,TeamColors.Blue],
-    TeamColors.Orange : [TeamColors.Green,TeamColors.Turquoise,TeamColors.Blue,TeamColors.Purple],
-    TeamColors.Yellow : [TeamColors.Turquoise,TeamColors.Blue,TeamColors.Purple,TeamColors.Pink,TeamColors.Magenta],
-    TeamColors.Green : [TeamColors.Purple,TeamColors.Pink,TeamColors.Magenta,TeamColors.Orange],
-    TeamColors.Turquoise : [TeamColors.Purple,TeamColors.Pink,TeamColors.Magenta,TeamColors.Orange,TeamColors.Yellow],
-    TeamColors.Blue : [TeamColors.Pink,TeamColors.Magenta,TeamColors.Orange,TeamColors.Yellow],
-    TeamColors.Purple :  [TeamColors.Orange,TeamColors.Yellow,TeamColors.Green,TeamColors.Turquoise]
+    Colors.Pink : [Colors.Yellow,Colors.Green,Colors.Turquoise,Colors.Blue],
+    Colors.Magenta : [Colors.Yellow,Colors.Green,Colors.Turquoise,Colors.Blue],
+    Colors.Orange : [Colors.Green,Colors.Turquoise,Colors.Blue,Colors.Purple],
+    Colors.Yellow : [Colors.Turquoise,Colors.Blue,Colors.Purple,Colors.Pink,Colors.Magenta],
+    Colors.Green : [Colors.Purple,Colors.Pink,Colors.Magenta,Colors.Orange],
+    Colors.Turquoise : [Colors.Purple,Colors.Pink,Colors.Magenta,Colors.Orange,Colors.Yellow],
+    Colors.Blue : [Colors.Pink,Colors.Magenta,Colors.Orange,Colors.Yellow],
+    Colors.Purple :  [Colors.Orange,Colors.Yellow,Colors.Green,Colors.Turquoise]
 }
 
 #remove pairings from dual_teams that don't have a shared third color
 #pick two colors like dual_team, then pick third shared between those two
 tri_teams = {
-    TeamColors.Pink : [TeamColors.Yellow,TeamColors.Turquoise,TeamColors.Blue],
-    TeamColors.Magenta : [TeamColors.Yellow,TeamColors.Turquoise,TeamColors.Blue],
-    TeamColors.Orange : [TeamColors.Green,TeamColors.Turquoise,TeamColors.Purple],
-    TeamColors.Yellow : [TeamColors.Turquoise,TeamColors.Blue,TeamColors.Purple,TeamColors.Pink,TeamColors.Magenta],
-    TeamColors.Green : [TeamColors.Purple,TeamColors.Orange],
-    TeamColors.Turquoise : [TeamColors.Purple,TeamColors.Pink,TeamColors.Magenta,TeamColors.Orange,TeamColors.Yellow],
-    TeamColors.Blue : [TeamColors.Pink,TeamColors.Magenta,TeamColors.Yellow],
-    TeamColors.Purple :  [TeamColors.Orange,TeamColors.Yellow,TeamColors.Green,TeamColors.Turquoise]
+    Colors.Pink : [Colors.Yellow,Colors.Turquoise,Colors.Blue],
+    Colors.Magenta : [Colors.Yellow,Colors.Turquoise,Colors.Blue],
+    Colors.Orange : [Colors.Green,Colors.Turquoise,Colors.Purple],
+    Colors.Yellow : [Colors.Turquoise,Colors.Blue,Colors.Purple,Colors.Pink,Colors.Magenta],
+    Colors.Green : [Colors.Purple,Colors.Orange],
+    Colors.Turquoise : [Colors.Purple,Colors.Pink,Colors.Magenta,Colors.Orange,Colors.Yellow],
+    Colors.Blue : [Colors.Pink,Colors.Magenta,Colors.Yellow],
+    Colors.Purple :  [Colors.Orange,Colors.Yellow,Colors.Green,Colors.Turquoise]
 }
 
 """
@@ -117,9 +117,9 @@ all groups have green and blue, one of orange/yellow, one of pink/magenta/purple
 """
 
 #at this point just force colors
-five_colors = [TeamColors.Orange,TeamColors.Yellow,TeamColors.Green,TeamColors.Blue,TeamColors.Purple]
-six_colors = [TeamColors.Magenta,TeamColors.Orange,TeamColors.Yellow,TeamColors.Green,TeamColors.Blue,TeamColors.Purple]
-seven_colors = [x for x in TeamColors if x != TeamColors.Pink]
-eight_colors = [x for x in TeamColors]
+five_colors = [Colors.Orange,Colors.Yellow,Colors.Green,Colors.Blue,Colors.Purple]
+six_colors = [Colors.Magenta,Colors.Orange,Colors.Yellow,Colors.Green,Colors.Blue,Colors.Purple]
+seven_colors = team_color_list[1:] #all but pink
+eight_colors = team_color_list
 
 multi_colors = [five_colors,six_colors,seven_colors,eight_colors]

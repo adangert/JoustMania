@@ -8,6 +8,7 @@ import json
 from piaudio import Audio
 from enum import Enum
 from multiprocessing import Process, Value, Array, Queue
+from math import sqrt
 
 
 # How fast/slow the music can go
@@ -92,7 +93,7 @@ def track_move(move_serial, move_num, game_mode, team, team_color_enum, dead_mov
         elif dead_move.value == 1 and werewolf_reveal.value > 0:   
             if move.poll():
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
-                total = sum([ax, ay, az])
+                total = sqrt(sum([ax**2, ay**2, az**2]))
                 if move_last_value is not None:
                     change_real = abs(move_last_value - total)
                     change_arr[0] = change_arr[1]
@@ -184,7 +185,7 @@ class Joust():
         self.running = True
         self.force_move_colors = {}
         self.teams = teams
-        self.num_teams = len(colors.color_list)
+        self.num_teams = len(colors.team_color_list)
 
         self.werewolf_timer = 35
         self.start_timer = time.time()
@@ -242,7 +243,7 @@ class Joust():
         print('HELLO THE NUMBER OF TEAMS IS %d' % self.num_teams)
 
         if self.game_mode == common.Games.JoustTeams:
-            self.team_colors = colors.color_list
+            self.team_colors = colors.team_color_list
         else:
             self.team_colors = colors.generate_team_colors(self.num_teams)
             self.generate_random_teams(self.num_teams)

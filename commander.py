@@ -63,9 +63,9 @@ class Bool(Enum):
 
 
 #alpha bravo
-Commander_colors = [colors.TeamColors.Orange.value,colors.TeamColors.Blue.value]
-Overdrive_colors = [colors.TeamColors.Yellow.value,colors.TeamColors.Purple.value]
-Current_commander_colors = [colors.TeamColors.Magenta.value,colors.TeamColors.Green.value]
+Commander_colors = [colors.Colors.Orange.value,colors.Colors.Blue.value]
+Overdrive_colors = [colors.Colors.Yellow.value,colors.Colors.Purple.value]
+Current_commander_colors = [colors.Colors.Magenta.value,colors.Colors.Green.value]
 
 class Team(Enum):
     alpha = 0

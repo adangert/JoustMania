@@ -9,7 +9,7 @@ from multiprocessing import Process, Value, Array, Queue, Manager
 from games import ffa
 
 
-TEAM_NUM = len(colors.TeamColors)
+TEAM_NUM = len(colors.team_color_list)
 #TEAM_COLORS = colors.generate_colors(TEAM_NUM)
 
 
@@ -76,27 +76,33 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                     battery_level = move.get_battery()
                     #granted a charging move should be dead 
                     #so it won't light up anyway
-                    if battery_level == 238: # charging - dim
-                        move.set_leds(10,10,10)
-                    elif battery_level == 239: # fully charged - white
-                        move.set_leds(255,255,255)
-                    elif battery_level == 5: # full - green
-                        move.set_leds(0,255,0)
-                    elif battery_level == 4: # 75% - cyan
-                        move.set_leds(0,255,255)
-                    elif battery_level == 3: # 50% - blue
-                        move.set_leds(0,0,255)
-                    elif battery_level == 2: # 25% - yellow
-                        move.set_leds(191,255,0)
-                    else : # under 25% - red
-                        move.set_leds(0, 0, 0)
+                    if battery_level == psmove.Batt_CHARGING: 
+                        move.set_leds(*colors.Colors.White20.value)
+
+                    elif battery_level == psmove.Batt_CHARGING_DONE: 
+                        move.set_leds(*colors.Colors.White.value)
+
+                    elif battery_level == psmove.Batt_MAX: 
+                        move.set_leds(*colors.Colors.Green.value)
+
+                    elif battery_level == psmove.Batt_80Percent:
+                        move.set_leds(*colors.Colors.Turquoise.value)
+
+                    elif battery_level == psmove.Batt_60Percent:
+                        move.set_leds(*colors.Colors.Blue.value)
+
+                    elif battery_level == psmove.Batt_40Percent:
+                        move.set_leds(*colors.Colors.Yellow.value)
+
+                    else : # under 40% - you should charge it!
+                        move.set_leds(*colors.Colors.Red.value)
                     
                 #custom team mode is the only game mode that
                 #can't be added to con mode
                 elif game_mode == common.Games.JoustTeams:
                     if move_opts[Opts.team.value] >= TEAM_NUM:
-                        move_opts[Opts.team.value] = 0
-                    move.set_leds(*colors.color_list[move_opts[Opts.team.value]].value)
+                        move_opts[Opts.team.value] = 3
+                    move.set_leds(*colors.team_color_list[move_opts[Opts.team.value]].value)
                     if move_button == common.Button.MIDDLE:
                         #allow players to increase their own team
                         if move_opts[Opts.holding.value] == Holding.not_holding.value:
@@ -108,7 +114,7 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                     move.set_leds(*force_color)
 
                 elif game_mode == common.Games.JoustFFA:
-                    move.set_leds(*colors.ExtraColors.White.value)
+                    move.set_leds(*colors.Colors.White.value)
                             
                 elif game_mode == common.Games.JoustRandomTeams:
                     color = time.time()/10%1
@@ -117,7 +123,7 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
 
                 elif game_mode == common.Games.Traitor:
                     if move_num%4 == 2 and time.time()/3%1 < .15:
-                        move.set_leds(*colors.ExtraColors.Red80.value)
+                        move.set_leds(*colors.Colors.Red80.value)
                     else:
                         color = 1 - time.time()/10%1
                         color = colors.hsv2rgb(color, 1, 1)
@@ -125,25 +131,25 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
 
                 elif game_mode == common.Games.WereJoust:
                     if move_num <= 0:
-                        move.set_leds(*colors.ExtraColors.Red60.value)
+                        move.set_leds(*colors.Colors.Red60.value)
                     else:
-                        move.set_leds(*colors.ExtraColors.White80.value)
+                        move.set_leds(*colors.Colors.White80.value)
 
                 elif game_mode == common.Games.Zombies:
-                        move.set_leds(*colors.ExtraColors.Zombie.value)
+                        move.set_leds(*colors.Colors.Zombie.value)
 
                 elif game_mode == common.Games.Commander:
                     if move_num % 2 == 0:
-                        move.set_leds(*colors.TeamColors.Orange.value)
+                        move.set_leds(*colors.Colors.Orange.value)
                     else:
-                        move.set_leds(*colors.TeamColors.Blue.value)
+                        move.set_leds(*colors.Colors.Blue.value)
 
                 elif game_mode == common.Games.Swapper:
                     if (time.time()/5 + random_color)%1 > 0.5:
-                        move.set_leds(*colors.TeamColors.Magenta.value)
+                        move.set_leds(*colors.Colors.Magenta.value)
                     else:
 
-                        move.set_leds(*colors.TeamColors.Green.value)
+                        move.set_leds(*colors.Colors.Green.value)
 
                 elif game_mode == common.Games.Tournament:
                     if move_num <= 0:
@@ -151,14 +157,14 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                         color = colors.hsv2rgb(color, 1, 1)
                         move.set_leds(*color)
                     else:
-                        move.set_leds(*colors.ExtraColors.White80.value)
+                        move.set_leds(*colors.Colors.White80.value)
 
 
                 elif game_mode == common.Games.Ninja:
                     if move_num <= 0:
                         move.set_leds(random.randrange(100, 200),0,0)
                     else:
-                        move.set_leds(*colors.ExtraColors.White80.value)
+                        move.set_leds(*colors.Colors.White80.value)
 
 
                 elif game_mode == common.Games.Random:

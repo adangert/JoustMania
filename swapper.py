@@ -88,7 +88,7 @@ def track_move(move_serial, move_num, team, num_teams, team_colors, dead_move, f
     move = common.get_move(move_serial, move_num)
     #keep on looping while move is not dead
     ready = False
-    move.set_leds(*colors.ExtraColors.Black.value)
+    move.set_leds(*colors.Colors.Black.value)
     move.update_leds()
     time.sleep(1)
     vibrate = False
@@ -133,7 +133,7 @@ def track_move(move_serial, move_num, team, num_teams, team_colors, dead_move, f
                             flash_lights_timer = 0
                             flash_lights = not flash_lights
                         if flash_lights:
-                            move.set_leds(*colors.ExtraColors.White60.value)
+                            move.set_leds(*colors.Colors.White60.value)
                         else:
                             move.set_leds(*team_colors[team.value].value)
                         if time.time() < vibration_time - 0.22:
@@ -149,7 +149,7 @@ def track_move(move_serial, move_num, team, num_teams, team_colors, dead_move, f
                     if change > threshold:
                         if time.time() > no_rumble:
                             #vibrate = False
-                            move.set_leds(*colors.ExtraColors.Black.value)
+                            move.set_leds(*colors.Colors.Black.value)
                             move.set_rumble(90)
                             dead_move.value = 0
                             time_of_death = time.time()
@@ -169,7 +169,7 @@ def track_move(move_serial, move_num, team, num_teams, team_colors, dead_move, f
             move.update_leds()
         #if we are dead
         elif dead_move.value <= 0:
-            move.set_leds(*colors.ExtraColors.Black.value)
+            move.set_leds(*colors.Colors.Black.value)
             
             if time.time() - time_of_death >= death_time:
                 dead_move.value = 3

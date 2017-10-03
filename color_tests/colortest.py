@@ -7,6 +7,20 @@ def hsv2rgb(h, s, v):
 
 moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
 
+rgbwheel = [
+'FF0000',
+'FF8000',
+'FFFF00',
+'80FF00',
+'00FF00',
+'00FF80',
+'00FFFF',
+'0080FF',
+'0000FF',
+'8000FF',
+'FF00FF',
+'FF0080']
+
 rbywheel = [
 'FE2712',
 'FC600A',
@@ -36,7 +50,7 @@ rbywheel2 = [
 '800080']
 
 joustwheel = [
-'FF6060', #pink
+'FF7070', #pink
 'FF00C0', #magenta
 'FF4000', #orange
 'FFFF00', #yellow
@@ -48,6 +62,20 @@ joustwheel = [
 'FF0000', #red
 'FF3278', #splatoon pink
 '1edc00'] #splatoon green
+
+newcolors = [
+'FFFF00', #yellow
+'6000FF', #purple
+'FF4000', #orange
+'FF6060', #pink
+'00FFFF', #turquoise
+'FF0000', #red
+'ffff14', #YELLOW =     
+'7e1e9c', #PURPLE =     
+'f97306', #ORANGE =     
+'ff81c0', #PINK =       
+'06c2ac', #TURQUOISE =  
+'653700'] #BROWN =      
 
 def colorhex(hex):
 	r = int(hex[0:2],16)

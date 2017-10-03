@@ -185,11 +185,8 @@ class Joust():
         self.force_move_colors = {}
         self.teams = teams
         self.num_teams = len(colors.color_list)
-<<<<<<< HEAD
-        self.game_mode = game_mode
-=======
-        
->>>>>>> master
+
+
         self.werewolf_timer = 35
         self.start_timer = time.time()
         self.audio_cue = 0
@@ -223,17 +220,11 @@ class Joust():
         
         self.werewolf_reveal = Value('i', 2)
 
-<<<<<<< HEAD
-        if game_mode == common.Games.JoustFFA.value:
-            self.num_teams = len(moves)
 
-        if game_mode == common.Games.JoustRandomTeams.value:
-=======
         if self.game_mode == common.Games.JoustFFA.value:
             self.num_teams = len(moves)
 
         if self.game_mode == common.Games.JoustRandomTeams.value:
->>>>>>> master
             if len(moves) <= 5:
                 self.num_teams = 2
             elif len(moves) in [6,7]:
@@ -241,11 +232,9 @@ class Joust():
             else: #8 or more
                 self.num_teams = 4
 
-<<<<<<< HEAD
-        if game_mode == common.Games.Traitor.value:
-=======
+
         if self.game_mode == common.Games.Traitor.value:
->>>>>>> master
+
             if len(moves) <= 8:
                 self.num_teams = 2
             else: #9 or more
@@ -255,18 +244,6 @@ class Joust():
         if self.game_mode == common.Games.WereJoust.value:
             self.werewolf_reveal.value = 0
             self.num_teams = 1
-<<<<<<< HEAD
-
-        if game_mode != common.Games.JoustTeams.value:
-            self.generate_random_teams(self.num_teams)
-
-        print('HELLO THE NUMBER OF TEAMS IS %d' % self.num_teams)
-        if game_mode == common.Games.JoustTeams.value:
-            self.team_colors = colors.color_list
-        else:
-            self.team_colors = colors.generate_team_colors(self.num_teams)
-=======
->>>>>>> master
 
         if self.game_mode != common.Games.JoustTeams.value:
             self.generate_random_teams(self.num_teams)
@@ -640,37 +617,6 @@ class Joust():
         all_moves = [x for x in self.dead_moves.keys()]
         end_time = time.time() + KILL_GAME_PAUSE     
         
-<<<<<<< HEAD
-        h_value = 0
-        while (time.time() < end_time):
-            time.sleep(0.01)
-            color = colors.hsv2rgb(h_value, 1, 1)
-            for move in all_moves:
-                color_array = self.force_move_colors[move]
-                colors.change_color(color_array, *color)
-            h_value = (h_value + 0.01)
-            if h_value >= 1:
-                h_value = 0
-
-        # bright = 255
-=======
-        # h_value = 0
->>>>>>> master
-        # while (time.time() < end_time):
-        #     time.sleep(0.01)
-        #     color = colors.hsv2rgb(h_value, 1, 1)
-        #     for move in all_moves:
-        #         color_array = self.force_move_colors[move]
-        #         colors.change_color(color_array, *color)
-<<<<<<< HEAD
-        #     bright = bright - 1
-        #     if bright < 10:
-        #         bright = 10
-=======
-        #     h_value = (h_value + 0.01)
-        #     if h_value >= 1:
-        #         h_value = 0
-
         bright = 255
         while (time.time() < end_time):
             time.sleep(0.01)
@@ -681,7 +627,6 @@ class Joust():
             bright = bright - 1
             if bright < 10:
                 bright = 10
->>>>>>> master
 
         self.running = False
                 

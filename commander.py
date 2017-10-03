@@ -639,11 +639,9 @@ class Commander():
                'bravo_alive': len(bravo_alive),
                'bravo_od_status': bravo_od_status,
                'team_names' : ['Orange Team', 'Blue Team']}
-<<<<<<< HEAD
-        self.status_ns.status_dict = data
-=======
+
         self.ns.status = data
->>>>>>> master
+
 
     def kill_game(self):
         try:

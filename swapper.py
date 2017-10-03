@@ -228,11 +228,8 @@ class Swapper():
         self.team_colors = colors.generate_team_colors(self.num_teams)
 
         self.generate_random_teams(self.num_teams)
-<<<<<<< HEAD
-        if self.audio_toggle:
-=======
+
         if self.play_audio:
->>>>>>> master
 ##            music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
 
             self.start_beep = Audio('audio/Joust/sounds/start.wav')
@@ -444,10 +441,7 @@ class Swapper():
         team_comp = list(zip(team_total,team_alive))
         data['team_comp'] = team_comp
         data['team_names'] = [color.name + ' Team' for color in self.team_colors]
-<<<<<<< HEAD
-        self.status_ns.status_dict = data
-=======
+
         self.ns.status = data
->>>>>>> master
                     
             

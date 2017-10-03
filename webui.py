@@ -33,21 +33,13 @@ class WebUI():
         self.app.secret_key="MAGFest is a donut"
         self.command_queue = command_queue
         if ns == None:
-<<<<<<< HEAD
-            self.joust_ns = Manager().Namespace()
-            self.joust_ns.status = dict()
-            self.joust_ns.settings = dict()
-            self.joust_ns.battery_status = dict()
-        else:
-            self.joust_ns = ns
-=======
+
             self.ns = Manager().Namespace()
             self.ns.status = dict()
             self.ns.settings = dict()
             self.ns.battery_status = dict()
         else:
             self.ns = ns
->>>>>>> master
 
         self.app.add_url_rule('/','index',self.index)
         self.app.add_url_rule('/changemode','change_mode',self.change_mode)
@@ -86,11 +78,7 @@ class WebUI():
 
     #@app.route('/battery')
     def battery_status(self):
-<<<<<<< HEAD
-        return render_template('battery.html',ns=self.joust_ns,levels=common.battery_levels)
-=======
         return render_template('battery.html',ns=self.ns,levels=common.battery_levels)
->>>>>>> master
 
     #@app.route('/settings')
     def settings(self):
@@ -100,15 +88,6 @@ class WebUI():
             return redirect(url_for('settings'))
         else:
             settingsForm = SettingsForm()
-<<<<<<< HEAD
-            settingsForm.sensitivity.default = self.joust_ns.settings['sensitivity']
-            settingsForm.process()
-            return render_template('settings.html', form=settingsForm, settings=self.joust_ns.settings)
-
-    #@app.route('/updateStatus')
-    def update(self):
-        return json.dumps(self.joust_ns.status)
-=======
             settingsForm.sensitivity.default = self.ns.settings['sensitivity']
             settingsForm.process()
             return render_template('settings.html', form=settingsForm, settings=self.ns.settings)
@@ -131,8 +110,6 @@ class WebUI():
 
         with open(common.SETTINGSFILE,'w') as yaml_file:
             yaml.dump(self.ns.settings,yaml_file)
-
->>>>>>> master
 
 def start_web(command_queue, ns):
     webui = WebUI(command_queue,ns)

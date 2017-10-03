@@ -500,18 +500,11 @@ class Menu():
         })
         try:
             #catch either file opening or yaml loading failing
-<<<<<<< HEAD
             with open(common.SETTINGSFILE,'w') as yaml_file:
                 temp_settings.update(yaml.load(yaml_file))
         except:
             pass
-=======
-            with open(common.SETTINGSFILE,'r') as yaml_file:
-                temp_settings.update(yaml.load(yaml_file))
-                print(temp_settings)
-        except Exception as err:
-            print('error in loading yaml: %s' % err)
->>>>>>> master
+
         for setting in common.REQUIRED_SETTINGS:
             if setting not in temp_settings.keys():
                 temp_settings.pop(setting)
@@ -673,25 +666,6 @@ class Menu():
             self.play_random_instructions()
         
         if self.game_mode == common.Games.Zombies.value:
-<<<<<<< HEAD
-            zombie.Zombie(game_moves, self.sensitivity, self.command_queue, self.ns, self.audio_toggle, self.zombie_music)
-            self.tracked_moves = {}
-        elif self.game_mode == common.Games.Commander.value:
-            commander.Commander(game_moves, self.sensitivity, self.command_queue, self.ns, self.commander_music)
-            self.tracked_moves = {}
-        elif self.game_mode == common.Games.Ninja.value:
-            speed_bomb.Bomb(game_moves, self.command_queue, self.ns, self.audio_toggle, self.commander_music)
-            self.tracked_moves = {}
-        elif self.game_mode == common.Games.Swapper.value:
-            swapper.Swapper(game_moves, self.sensitivity, self.command_queue, self.ns, self.audio_toggle, self.joust_music)
-            self.tracked_moves = {}
-        elif self.game_mode == common.Games.Tournament.value:
-            tournament.Tournament(game_moves, self.sensitivity, self.command_queue, self.ns, self.audio_toggle, self.joust_music)
-            self.tracked_moves = {}
-        else:
-            #may need to put in moves that have selected to not be in the game
-            joust.Joust(self.game_mode, game_moves, self.teams, self.sensitivity, self.command_queue, self.ns, self.audio_toggle,self.joust_music)
-=======
             zombie.Zombie(game_moves, self.command_queue, self.ns, self.zombie_music)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Commander.value:
@@ -709,7 +683,6 @@ class Menu():
         else:
             #may need to put in moves that have selected to not be in the game
             joust.Joust(game_moves, self.command_queue, self.ns, self.joust_music, self.teams, self.game_mode)
->>>>>>> master
             self.tracked_moves = {}
         if random_mode:
             self.game_mode = common.Games.Random.value

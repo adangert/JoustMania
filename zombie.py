@@ -446,10 +446,7 @@ class Zombie:
                'ticker': self.update_time,
                'time_left': int(self.win_time - (time.time() - self.start_time)),
                'team_names' : ['Humans', 'Zombies']}
-<<<<<<< HEAD
-        self.status_ns.status_dict = data
-=======
+
         self.ns.status = data
->>>>>>> master
 
 

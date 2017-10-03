@@ -93,7 +93,8 @@ def track_move(move_serial, move_num, game_mode, team, team_color_enum, dead_mov
         elif dead_move.value == 1 and werewolf_reveal.value > 0:   
             if move.poll():
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
-                total = sqrt(sum([ax**2, ay**2, az**2]))
+                #total = sqrt(sum([ax**2, ay**2, az**2]))
+                total = sum([ax, ay, az])
                 if move_last_value is not None:
                     change_real = abs(move_last_value - total)
                     change_arr[0] = change_arr[1]

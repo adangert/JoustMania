@@ -1,4 +1,4 @@
-import common
+import common, colors
 import psmove
 import time
 import psutil, os
@@ -44,7 +44,7 @@ END_GAME_PAUSE = 6
 KILL_GAME_PAUSE = 4
 
 
-def track_move(move_serial, move_num, team, team_num, dead_move, force_color, music_speed, show_team_colors, invincibility):
+def track_move(move_serial, move_num, team, num_teams, dead_move, force_color, music_speed, show_team_colors, invincibility):
     #proc = psutil.Process(os.getpid())
     #proc.nice(3)
     #explosion = Audio('audio/Joust/sounds/Explosion34.wav')
@@ -53,7 +53,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
     no_rumble = time.time() + 1
     move_last_value = None
     move = common.get_move(move_serial, move_num)
-    team_colors = common.generate_colors(team_num)
+    team_colors = colors.generate_colors(num_teams)
     vibrate = False
     vibration_time = time.time() + 1
     flash_lights = True
@@ -152,20 +152,25 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
 
 
 class Tournament():
-    def __init__(self, moves, speed, command_queue, status_ns, audio_toggle, music):
+    def __init__(self, moves, command_queue, ns, music):
 
-        print("speed is {}".format(speed))
+        self.command_queue = command_queue
+        self.ns = ns
+
+        self.sensitivity = self.ns.settings['sensitivity']
+        self.play_audio = self.ns.settings['play_audio']
+
+        print("speed is {}".format(self.sensitivity))
         global SLOW_MAX
         global SLOW_WARNING
         global FAST_MAX
         global FAST_WARNING
         
-        SLOW_MAX = common.SLOW_MAX[speed]
-        SLOW_WARNING = common.SLOW_WARNING[speed]
-        FAST_MAX = common.FAST_MAX[speed]
-        FAST_WARNING = common.FAST_WARNING[speed]
+        SLOW_MAX = common.SLOW_MAX[self.sensitivity]
+        SLOW_WARNING = common.SLOW_WARNING[self.sensitivity]
+        FAST_MAX = common.FAST_MAX[self.sensitivity]
+        FAST_WARNING = common.FAST_WARNING[self.sensitivity]
 
-        self.audio_toggle = audio_toggle
         self.move_serials = moves
 
         self.tracked_moves = {}
@@ -180,22 +185,18 @@ class Tournament():
         self.audio_cue = 0
         self.num_dead = 0
         self.show_team_colors = Value('i', 0)
-
         self.teams = {}
-
-        self.command_queue = command_queue
-        self.status_ns = status_ns
         self.update_time = 0
         
-        #self.team_num = math.ceil(len(moves)/2)
-        self.team_num = len(moves)
+        #self.num_teams = math.ceil(len(moves)/2)
+        self.num_teams = len(moves)
 
         
-        self.generate_random_teams(self.team_num)
+        self.generate_random_teams(self.num_teams)
 
         self.tourney_list = self.generate_tourney_list(len(moves))
         fast_resample = False
-        if self.audio_toggle:
+        if self.play_audio:
             print("tourney list is " + str(self.tourney_list))
 
 ##            music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
@@ -239,17 +240,18 @@ class Tournament():
                     arr[i] = random.choice(dup_serials)
                     dup_serials.remove(arr[i])
         insert_move(arr)
+        print(arr)
         return arr
 
 
-    def generate_random_teams(self, team_num):
-        team_pick = list(range(team_num))
+    def generate_random_teams(self, num_teams):
+        team_pick = list(range(num_teams))
         for serial in self.move_serials:
             random_choice = Value('i',  random.choice(team_pick) )
             self.teams[serial] = random_choice
             team_pick.remove(random_choice.value)
             if not team_pick:
-                team_pick = list(range(team_num))
+                team_pick = list(range(num_teams))
 
     def track_moves(self):
         for move_num, move_serial in enumerate(self.move_serials):
@@ -262,7 +264,7 @@ class Tournament():
             proc = Process(target=track_move, args=(move_serial,
                                                     move_num,
                                                     self.teams[move_serial],
-                                                    self.team_num,
+                                                    self.num_teams,
                                                     dead_move,
                                                     force_color,
                                                     self.music_speed,
@@ -276,24 +278,24 @@ class Tournament():
             
     def change_all_move_colors(self, r, g, b):
         for color in self.force_move_colors.values():
-            common.change_color(color, r, g, b)
+            colors.change_color(color, r, g, b)
 
     #need to do the count_down here
     def count_down(self):
         self.change_all_move_colors(80, 0, 0)
-        if self.audio_toggle:
+        if self.play_audio:
             self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(70, 100, 0)
-        if self.audio_toggle:
+        if self.play_audio:
             self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 70, 0)
-        if self.audio_toggle:
+        if self.play_audio:
             self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 0, 0)
-        if self.audio_toggle:
+        if self.play_audio:
             self.start_game.start_effect()
 
     def get_change_time(self, speed_up):
@@ -402,7 +404,7 @@ class Tournament():
                 #This is to play the sound effect
                 self.num_dead += 1
                 dead.value = -1
-                if self.audio_toggle:
+                if self.play_audio:
                     self.explosion.start_effect()
         if len(self.winning_moves) <= 1:
             self.game_end = True
@@ -423,10 +425,10 @@ class Tournament():
 
         while (time.time() < end_time):
             time.sleep(0.01)
-            win_color = common.hsv2rgb(h_value, 1, 1)
+            win_color = colors.hsv2rgb(h_value, 1, 1)
             for win_move in self.winning_moves:
                 win_color_array = self.force_move_colors[win_move]
-                common.change_color(win_color_array, *win_color)
+                colors.change_color(win_color_array, *win_color)
             h_value = (h_value + 0.01)
             if h_value >= 1:
                 h_value = 0
@@ -440,7 +442,7 @@ class Tournament():
         self.count_down()
         self.change_time = time.time() + 6
         time.sleep(0.02)
-        if self.audio_toggle:
+        if self.play_audio:
             self.audio.start_audio_loop()
         else:
             #when no audio is playing set the music speed to middle speed
@@ -455,7 +457,7 @@ class Tournament():
                 self.update_time = time.time()
                 self.check_command_queue()
                 self.update_status('in_game')
-            if self.audio_toggle:
+            if self.play_audio:
                 self.check_music_speed()
             self.check_end_game()
             if self.game_end:
@@ -473,7 +475,7 @@ class Tournament():
                 self.kill_game()
 
     def kill_game(self):
-        if self.audio_toggle:
+        if self.play_audio:
             try:
                 self.audio.stop_audio()
             except:
@@ -485,10 +487,10 @@ class Tournament():
         h_value = 0
         while (time.time() < end_time):
             time.sleep(0.01)
-            color = common.hsv2rgb(h_value, 1, 1)
+            color = colors.hsv2rgb(h_value, 1, 1)
             for move in all_moves:
                 color_array = self.force_move_colors[move]
-                common.change_color(color_array, *color)
+                colors.change_color(color_array, *color)
             h_value = (h_value + 0.01)
             if h_value >= 1:
                 h_value = 0
@@ -498,7 +500,7 @@ class Tournament():
         data ={'game_status' : game_status,
                'game_mode' : 'Tournament',
                'winning_team' : winning_team}
-        self.status_ns.status_dict = data
+        self.ns.status = data
                     
                 
                 

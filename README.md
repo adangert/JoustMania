@@ -41,7 +41,7 @@ This will allow you to charge 9 controllers at once through the pi
 Installation
 ---------------------------
 
-0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card
+0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card, this build was tested on the full version of raspian stretch.
 0. Connect the bluetooth adapters and speaker
 0. Turn on the pi, open a Terminal and run these commands, the pi will reboot on a successful install
 ```
@@ -57,17 +57,18 @@ You can now disconnect the hdmi cable and run JoustMania in headless mode. Joust
 
 Update Joust Mania
 ---------------------------
-You can update Joust Mania by doing a `git pull` in the main directory and rebooting the pi.
+You can update Joust Mania by doing a `git pull` in the main directory and running
+```
+./setup.sh
+```
 
 
 Pairing controllers
 ---------------------------
 
-* Once you have installed JoustMania, in order to pair controllers, plug them into the Raspberry Pi via USB
-* Once plugged in a controller should turn white indicating that it has been paired correctly
-* After a controller has been synced via USB, press the PlayStation sync button (the circular one in the middle) to connect the controller to the Pi
-* This process should only need to be done once, after this the controller should be permenently paired with the Pi and will only need to be turned on via the sync button for any future games
-* All the controllers may restart when pairing, this is expected, just keep plugging in new ones until they are all paired. if you encounter problems restart the Pi, and continue pairing the remaining controllers, again once this process is finished you should not have to connect the controllers to the Pi again via USB
+* In order to pair controllers permanently, plug them into the Raspberry Pi via USB
+* Once plugged in, the controller should turn white indicating that it has been paired correctly
+* Press the PlayStation sync button (the circular one in the middle) to wirelessly connect paired controllers to the Pi
 
 If pairing is not working for some reason, or you would like to resync all controllers run the following
 ```

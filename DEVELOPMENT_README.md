@@ -8,13 +8,11 @@ next run:
 this will stop all running Joust mania processes in the background and stop supervisor from restarting them
 
 then run:
-`source pythonpath.sh`
-
-this imports the psmove api so that python can find it's libraries
-
-finally:
-`sudo python3 piparty.py`
+`sudo ./joust.sh`
 
 and the game should be running locally in your terminal!
+
+You can run unit tests with the provided shell script:
+`./tests`
 
 Happy development!

@@ -57,16 +57,6 @@ class Holding(Enum):
     not_holding = 0
     holding = 1
 
-class Buttons(Enum):
-    middle = 524288
-    all_buttons = 240
-    sync = 65536
-    start = 2048
-    select = 256
-    circle = 32
-    triangle = 16
-    nothing = 0
-
 class Bool(Enum):
     no = 0
     yes = 1

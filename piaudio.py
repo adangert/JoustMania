@@ -1,164 +1,161 @@
 import wave
+import functools
+import io
 import numpy
 import psutil, os
 import time
 import scipy.signal as signal
-from multiprocessing import Process, Value, Lock, Manager
+from multiprocessing import Process, Value
 import pygame
 import alsaaudio
+import threading
 from pydub import AudioSegment
 
+def audio_loop(wav_data, ratio, stop_proc):
+    # TODO: As a future improvment, we could precompute resampled versions of the track
+    # at the "steady" playback rates, and only do dynamic resampling when transitioning
+    # between them.
 
-def audio_loop(file,  ratio, end, chunk_size, stop_proc):
+    PERIOD=1024 * 4
+    # Two channels, two bytes per sample.
+    PERIOD_BYTES = PERIOD * 2 * 2
+
     time.sleep(0.5)
     proc = psutil.Process(os.getpid())
     proc.nice(-5)
     time.sleep(0.02)
-    print ('audio file is ' + str(file))
-    
-    while True:
 
-        device = alsaaudio.PCM()
-        wf = wave.open(file, 'rb')
-        device.setchannels(wf.getnchannels())
+    device = alsaaudio.PCM()
+    wf = wave.open(io.BytesIO(wav_data), 'rb')
+    device.setchannels(wf.getnchannels())
 
-        device.setformat(alsaaudio.PCM_FORMAT_S16_LE)
-        device.setperiodsize(320)
+    device.setformat(alsaaudio.PCM_FORMAT_S16_LE)
+    device.setperiodsize(PERIOD)
         
-        data = wf.readframes(1024)
-        device.setrate(wf.getframerate())
+    if len(wf.readframes(1)) == 0:
+        raise ValueError("Empty WAV file played.")
+    wf.rewind()
+    device.setrate(wf.getframerate())
 
-        time.sleep(0.03)
-        data = wf.readframes(chunk_size.value)
-        time.sleep(0.03)
+    # Loops samples of up to read_size bytes from the wav file.
+    def ReadSamples(wf, read_size):
+        while True:
+            sample = wf.readframes(read_size)
+            if len(sample) > 0:
+                yield sample
+            else:
+                wf.rewind()
 
+    # Writes incoming samples in chunks of write_size to device.
+    # Quits when stop_proc is set to a non-zero value.
+    def WriteSamples(device, write_size, samples):
+        buf = bytearray()
+        for sample in samples:
+            buf.extend(sample)
+            while len(buf) >= write_size:
+                device.write(buf[:write_size])
+                del buf[:write_size]
+            if stop_proc.value:
+                return
 
-        
-        while data != '' and stop_proc.value == 0:
-            #need to try locking here for multiprocessing
+    # Resamples audio data at the rate given by 'ratio' above.
+    def Resample(samples):
+        for data in samples:
             array = numpy.fromstring(data, dtype=numpy.int16)
-            result = numpy.reshape(array, (array.size//2, 2))
-            if (array.size == 0):
-                break
-            #split data into seperate channels and resample
-            final = numpy.ones((1024,2))
-            reshapel = signal.resample(result[:, 0], 1024)
+            # Split data into seperate channels and resample. Divide by two
+            # since there are two channels. We round to the nearest multiple of
+            # 32 as the resampling is more efficient the closer the sizes are to
+            # being powers of two.
+            num_output_frames = int(array.size / (ratio.value * 2)) & (~0x1f)
+            reshapel = signal.resample(array[0::2], num_output_frames)
+            reshaper = signal.resample(array[1::2], num_output_frames)
 
+            final = numpy.ones((num_output_frames,2))
             final[:, 0] = reshapel
-            reshaper = signal.resample(result[:, 1], 1024)
             final[:, 1] = reshaper
+
             out_data = final.flatten().astype(numpy.int16).tostring()
-            #data = signal.resample(array, chunk_size.value*ratio.value)
-            device.write(out_data)
-            round_data = (int)(chunk_size.value*ratio.value)
-            if round_data % 2 != 0:
-                round_data += 1
-            data = wf.readframes(round_data)
+            yield out_data
 
-        wf.close()
-        device.close()
+    WriteSamples(device, PERIOD_BYTES, Resample(ReadSamples(wf, PERIOD)))
 
-        
-        if end or stop_proc.value == 1:
-            break
     wf.close()
     device.close()
 
-
-#convert between any supported file type and wav
-def convert_audio(file, return_dict):
-    filename, file_extension = os.path.splitext(file)
-    try:
-        song = AudioSegment.from_file(file,file_extension[1:])
-        song.export(filename+".wav", format="wav")
-        return_dict["filename"] = filename+".wav"
-    except Exception:
-        print("error can not convert "+file+" to wav")
-        print("trying to play classical.wav instead")
-        return_dict["filename"] = "audio/Joust/music/classical.wav"
-
-# Start audio in seperate process to be non-blocking
+@functools.lru_cache(maxsize=128)
 class Audio:
-    def __init__(self, file, end=False, musicexists=True):
-        self.musicexists = musicexists
-        if self.musicexists:
-            self.counter = 1
-            self.stop_proc = Value('i', 0)
-            self.chunk = 2048
-            self.manager = Manager()
-            self.return_dict = self.manager.dict()
-            self.input_file = file
-            self.delete_file = False
-            self.can_play = False
-            
-            filename, file_extension = os.path.splitext(self.input_file)
-            if (file_extension.lower() != '.wav'):
-                print('now converting '+self.input_file+' to wav')
-                self.delete_file = True
-                self.convert_p = Process(target=convert_audio, args=(self.input_file, self.return_dict))
-                self.convert_p.start()
-            else:
-                self.can_play = True
-                self.file = self.input_file
-            self.ratio = Value('d' , 1.0)
-            self.chunk_size = Value('i', int(2048/2))
-            self.end = end
-            #pygame.mixer.init(44100, -16, 2 , 2048)
-            pygame.mixer.init(47000, -16, 2 , 4096)
+    def __init__(self, fname):
+        segment = AudioSegment.from_file(fname)
+        buf = io.BytesIO()
+        segment.export(buf, 'wav')
+        buf.seek(0)
+        self.sample_ = pygame.mixer.Sound(file=buf)
+        self.fname_ = fname
   
-    def start_audio_loop(self):
-        if self.musicexists:
-            if(not self.can_play):
-                self.convert_p.join()
-                self.can_play = True
-                self.file = self.return_dict["filename"]
-            self.p = Process(target=audio_loop, args=(self.file, self.ratio, self.end, self.chunk_size, self.stop_proc))
-            self.p.start()
-        
-    def stop_audio(self):
-        if self.musicexists:
-            self.stop_proc.value = 1
-            time.sleep(0.1)
-            self.p.terminate()
-            self.p.join()
-            if self.delete_file and self.file != "audio/Joust/music/classical.wav":
-                os.remove(self.file)
-
-    def change_ratio(self, ratio):
-        if self.musicexists:
-            self.ratio.value = ratio
-
-    def change_chunk_size(self, increase):
-        if self.musicexists:
-            if increase:
-                self.chunk_size.value = int(2048/4)
-            else:
-                self.chunk_size.value = int(2048/2)
-
     #this will not work for files other than wav at the moment
     def start_effect(self):
-        if self.musicexists:
-            self.effect = pygame.mixer.Sound(self.file)
-            self.effect.play()
+        self.sample_.play()
 
     def stop_effect(self):
-        if self.musicexists:
-            self.effect.stop()
+        self.sample_.stop()
 
     def start_effect_music(self):
-        if self.musicexists:
-            if(not self.can_play):
-                self.convert_p.join()
-                self.can_play = True
-                self.file = self.return_dict["filename"]
-            pygame.mixer.music.load(self.file)
-            pygame.mixer.music.play()
+        self.sample_.play(-1)
 
     def stop_effect_music(self):
-        if self.musicexists:
-            pygame.mixer.music.fadeout(1)
-            if self.delete_file and self.file != "audio/Joust/music/classical.wav":
-                os.remove(self.file)
+        self.sample_.stop()
             
-        
-          
+    def get_length_secs(self):
+        return self.sample_.get_length()
+
+    def start_effect_and_wait(self):
+        self.start_effect()
+        time.sleep(self.get_length_secs())
+
+@functools.lru_cache(maxsize=16)
+class Music:
+    def __init__(self, fname):
+      self.load_thread_ = threading.Thread(target=lambda: self.load_sample_(fname))
+      self.load_thread_.start()
+
+    def wait_for_sample_(self):
+      if self.load_thread_:
+        self.load_thread_.join()
+        self.load_thread_ = None
+
+    def load_sample_(self, fname):
+        try:
+          segment = AudioSegment.from_file(fname)
+        except:
+          print("error can not convert "+fname+" to wav")
+          print("trying to play classical.wav instead")
+          segment = AudioSegment.from_wav("audio/Joust/music/classical.wav")
+
+        self.fname_ = fname
+        wav_data = io.BytesIO()
+        segment.export(wav_data, 'wav')
+        self.wav_data_ = wav_data.getbuffer()
+
+    def start_audio_loop(self):
+        self.wait_for_sample_()
+        print ('audio file is ' + str(self.fname_))
+        # Start audio in seperate process to be non-blocking
+        self.stop_proc = Value('i', 0)
+        self.ratio = Value('d' , 1.0)
+
+        self.p = Process(target=audio_loop, args=(self.wav_data_, self.ratio, self.stop_proc))
+        self.p.start()
+    def stop_audio(self):
+        self.stop_proc.value = 1
+        time.sleep(0.1)
+        self.p.terminate()
+    def change_ratio(self, ratio):
+        self.ratio.value = ratio
+
+class DummyMusic:
+    def start_audio_loop(self): pass
+    def stop_audio(self): pass
+    def change_ratio(self): pass
+
+def InitAudio():
+    pygame.mixer.init(47000, -16, 2 , 4096)

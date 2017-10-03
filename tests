@@ -1,0 +1,6 @@
+#!/bin/bash
+
+export HOME="/home/pi/JoustMania"
+export PYTHONPATH="/home/pi/psmoveapi/build/"
+
+exec $HOME/venv/bin/python3.6 -m unittest discover -s . -p '*_test.py'

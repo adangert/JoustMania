@@ -666,14 +666,14 @@ class Bomb():
         all_moves = [x for x in self.dead_moves.keys()]
         end_time = time.time() + KILL_GAME_PAUSE
 
-        h_value = 0
+        bright = 255
         while (time.time() < end_time):
             time.sleep(0.01)
-            color = colors.hsv2rgb(h_value, 1, 1)
+            color = (bright,0,0)
             for move in all_moves:
                 color_array = self.force_move_colors[move]
                 colors.change_color(color_array, *color)
-            h_value = (h_value + 0.01)
-            if h_value >= 1:
-                h_value = 0
+            bright = bright - 1
+            if bright < 10:
+                bright = 10
         self.running = False

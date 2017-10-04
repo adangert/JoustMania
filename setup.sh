@@ -44,7 +44,7 @@ setup() {
     rm -rf $VENV
     /usr/bin/python3.6 -m virtualenv --system-site-packages $VENV || exit -1
     PYTHON=$VENV/bin/python3.6
-    $PYTHON -m pip install --ignore-installed psutil flask Flask-WTF pyalsaaudio pydub pygame pyaudio pyyaml || exit -1
+    $PYTHON -m pip install --ignore-installed psutil flask Flask-WTF pyalsaaudio pydub pygame pyaudio || exit -1
 
     #install psmoveapi
     git clone --recursive git://github.com/thp/psmoveapi.git

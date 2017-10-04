@@ -1,7 +1,7 @@
 import psmove
 import time
 import random
-import common, colors
+import common
 import os
 from multiprocessing import Process, Value, Array
 from piaudio import Audio
@@ -195,31 +195,31 @@ def track_controller(serial, num_try, opts):
             move_last_value = total
 
 
+
 #we should try one process per controller,
 #since only normal music will be playing
 #need to make this a class with zombie killing defs
 class Zombie:
-    def __init__(self, cont_alive, command_queue, ns, music):
-        
-        self.command_queue = command_queue
-        self.ns = ns
-
-        self.sensitivity = self.ns.settings['sensitivity']
-        self.play_audio = self.ns.settings['play_audio']
-
-        self.music = music
-
+    def __init__(self, cont_alive, speed, command_queue, status_ns, audio_toggle, music):
         global human_warning
         global human_max
         global zombie_warning
         global zombie_max
+
+        self.audio_toggle = audio_toggle
         
-        human_warning = common.FAST_WARNING[self.sensitivity]
-        human_max = common.FAST_MAX[self.sensitivity]
-        zombie_warning = common.ZOMBIE_WARNING[self.sensitivity]
-        zombie_max = common.ZOMBIE_MAX[self.sensitivity]
+        human_warning = common.FAST_WARNING[speed]
+        human_max = common.FAST_MAX[speed]
+
+        zombie_warning = common.ZOMBIE_WARNING[speed]
+        zombie_max = common.ZOMBIE_MAX[speed]
         
+        self.music = music
+        
+        self.command_queue = command_queue
+        self.status_ns = status_ns
         self.update_time = 0
+
         self.humans = []
         self.alive_zombies = []
         self.dead_zombies = {}
@@ -229,7 +229,7 @@ class Zombie:
         if self.win_time <= 0:
             self.win_time = 60
         self.start_time = time.time()
-        if self.play_audio:
+        if self.audio_toggle:
             self.pickup = Audio('audio/Zombie/sound_effects/pickup.wav')
         self.effect_cue = 0
 
@@ -307,7 +307,7 @@ class Zombie:
             self.controller_opts[serial] = opts
             self.humans.append(serial)
             
-        if self.play_audio:
+        if self.audio_toggle:
             human_victory = Audio('audio/Zombie/sound_effects/human_victory.wav')
             zombie_victory = Audio('audio/Zombie/sound_effects/zombie_victory.wav')
             death = Audio('audio/Zombie/sound_effects/zombie_death.wav')
@@ -331,7 +331,7 @@ class Zombie:
             self.controller_opts[random_human][3] = 0
         
         while running:
-            if self.play_audio:
+            if self.audio_toggle:
                 self.audio_cue()
             if time.time() - 0.1 > self.update_time:
                 self.update_time = time.time()
@@ -347,7 +347,7 @@ class Zombie:
                     
                 #pistol fired(1 bullet 1 random alive zombie)
                 elif self.controller_opts[serial][1] == 2:
-                    if self.play_audio:
+                    if self.audio_toggle:
                         pistol.start_effect()
                     self.kill_zombies(1, [0, 0, 0, 0, 1, 1, 1])
                     self.controller_opts[serial][1] = 0
@@ -355,7 +355,7 @@ class Zombie:
 
                 #molotov fired(5 bullets all alive zombies)
                 elif self.controller_opts[serial][1] == 4:
-                    if self.play_audio:
+                    if self.audio_toggle:
                         molotov.start_effect()
                     self.kill_zombies(50, [0, 0, 1, 1, 2, 3])
                     self.controller_opts[serial][1] = 0
@@ -389,16 +389,16 @@ class Zombie:
                     proc.join()
                 pause_time = time.time() + 3
                 HSV = [(x*1.0/(50*len(self.controllers_alive)), 0.9, 1) for x in range(50*len(self.controllers_alive))]
-                colour_range = [[int(x) for x in colors.hsv2rgb(*colour)] for colour in HSV]
+                colour_range = [[int(x) for x in common.hsv2rgb(*colour)] for colour in HSV]
                 win_controllers = []
                 if len(self.humans) <= 0:
-                    if self.play_audio:
+                    if self.audio_toggle:
                         zombie_victory.start_effect()
                     self.alive_zombies.extend(self.dead_zombies.keys())
                     self.update_status('ending', 1)
                     win_controllers = self.alive_zombies
                 if (time.time() - self.start_time) > self.win_time:
-                    if self.play_audio:
+                    if self.audio_toggle:
                         human_victory.start_effect()
                     win_controllers = self.humans
                     self.update_status('ending', 0)
@@ -420,7 +420,7 @@ class Zombie:
                             win_move.update_leds()
                     time.sleep(0.01)
                 running = False
-                if self.play_audio:
+                if self.audio_toggle:
                     try:
                         self.music.stop_effect_music()
                     except:
@@ -444,9 +444,7 @@ class Zombie:
                'dead_zombies': len(self.dead_zombies),
                'alive_zombies': len(self.alive_zombies),
                'ticker': self.update_time,
-               'time_left': int(self.win_time - (time.time() - self.start_time)),
-               'team_names' : ['Humans', 'Zombies']}
-
-        self.ns.status = data
+               'time_left': int(self.win_time - (time.time() - self.start_time))}
+        self.status_ns.status_dict = data
 
 

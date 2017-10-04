@@ -5,7 +5,6 @@ from time import sleep
 from wtforms import Form, SelectField, SelectMultipleField, BooleanField, widgets
 import common
 import json
-import yaml
 
 class MultiCheckboxField(SelectMultipleField):
     """
@@ -19,28 +18,22 @@ class MultiCheckboxField(SelectMultipleField):
 
 
 class SettingsForm(Form):
-    move_can_be_admin = BooleanField('Allow Move to change settings')
-    play_instructions = BooleanField('Play instructions before game start')
-    play_audio = BooleanField('Play audio')
+    move_admin = BooleanField('Allow Move to change settings')
+    instructions = BooleanField('Play instructions before game start')
+    audio = BooleanField('Play audio')
     sensitivity = SelectField('Move sensitivity',choices=[(0,'Slow'),(1,'Medium'),(2,'Fast')],coerce=int)
+
     mode_options = [ game for game in common.Games if game not in [common.Games.Random, common.Games.JoustTeams]]
     random_modes = MultiCheckboxField('Random Modes',choices=[(game.pretty_name, game.pretty_name) for game in mode_options])
 
-
 class WebUI():
-    def __init__(self, command_queue=Queue(), ns=None):
+    def __init__(self, command_queue=Queue(), ns=Manager().Namespace()):
 
         self.app = Flask(__name__)
         self.app.secret_key="MAGFest is a donut"
         self.command_queue = command_queue
-        if ns == None:
-
-            self.ns = Manager().Namespace()
-            self.ns.status = dict()
-            self.ns.settings = dict()
-            self.ns.battery_status = dict()
-        else:
-            self.ns = ns
+        self.status_ns = ns
+        self.status_ns.status_dict = dict()
 
         self.app.add_url_rule('/','index',self.index)
         self.app.add_url_rule('/changemode','change_mode',self.change_mode)
@@ -57,10 +50,6 @@ class WebUI():
     #@app.route('/')
     def index(self):
         return render_template('joustmania.html')
-
-    #@app.route('/updateStatus')
-    def update(self):
-        return json.dumps(self.ns.status)
 
     #@app.route('/changemode')
     def change_mode(self):
@@ -79,38 +68,25 @@ class WebUI():
 
     #@app.route('/battery')
     def battery_status(self):
-        return render_template('battery.html',ns=self.ns,levels=common.battery_levels)
+        return render_template('battery.html',ns=self.status_ns,levels=common.battery_levels)
 
     #@app.route('/settings')
     def settings(self):
         if request.method == 'POST':
-            self.web_settings_update(request.form)
+            adminInfo = request.form
+            self.command_queue.put({'command': 'admin_update', 'admin_info': adminInfo})
+            sleep(.5) #because it takes a short amount of time to settings to update in the main thread
             flash('Settings updated!')
             return redirect(url_for('settings'))
         else:
             settingsForm = SettingsForm()
-            settingsForm.sensitivity.default = self.ns.settings['sensitivity']
+            settingsForm.sensitivity.default = self.status_ns.status_dict['sensitivity']
             settingsForm.process()
-            return render_template('settings.html', form=settingsForm, settings=self.ns.settings)
+            return render_template('settings.html', form=settingsForm, settings=self.status_ns.status_dict)
 
-    def web_settings_update(self,web_settings):
-        temp_settings = self.ns.settings
-
-        temp_settings['move_can_be_admin'] = 'move_can_be_admin' in web_settings.keys()
-        temp_settings['play_audio'] = 'play_audio' in web_settings.keys()
-        temp_settings['play_instructions'] = 'play_instructions' in web_settings.keys()
-        #secret setting, keep it True
-        #temp_settings['enforce_minimum'] = 'enforce_minimum' in web_settings.keys()
-        temp_settings['sensitivity'] = int(web_settings['sensitivity'])
-        temp_settings['random_modes'] = [game.pretty_name for game in common.Games if game.pretty_name in web_settings.getlist('random_modes')]
-        #print(self.random_modes)
-        if temp_settings['random_modes'] == []:
-            temp_settings['random_modes'] = [common.Games.JoustFFA]
-
-        self.ns.settings = temp_settings
-
-        with open(common.SETTINGSFILE,'w') as yaml_file:
-            yaml.dump(self.ns.settings,yaml_file)
+    #@app.route('/updateStatus')
+    def update(self):
+        return json.dumps(self.status_ns.status_dict)
 
 def start_web(command_queue, ns):
     webui = WebUI(command_queue,ns)

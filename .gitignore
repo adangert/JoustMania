@@ -64,7 +64,6 @@ audio/Zombie/music/
 
 #other stuff
 *.ini
-*.yaml
 apfiles/ap_active
 
 

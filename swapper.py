@@ -1,4 +1,4 @@
-import common, colors
+import common
 import psmove
 import time
 import psutil, os
@@ -61,13 +61,13 @@ class Bool(Enum):
     no = 0
     yes = 1
 
-#TODO: remove
-#red blue
-#team_colors = [(255,0,0),(0,0,255)]
 
-#class Team(Enum):
-#    red = 1
-#    blue = 0
+#red blue
+team_colors = [(255,0,0),(0,0,255)]
+
+class Team(Enum):
+    red = 1
+    blue = 0
 
 
 def calculate_flash_time(r,g,b, score):
@@ -78,7 +78,7 @@ def calculate_flash_time(r,g,b, score):
     new_b = int(common.lerp(255, b, flash_percent))
     return (new_r, new_g, new_b)
 
-def track_move(move_serial, move_num, team, num_teams, team_colors, dead_move, force_color, music_speed, move_opts):
+def track_move(move_serial, move_num, team, team_num, dead_move, force_color, music_speed, move_opts):
     #proc = psutil.Process(os.getpid())
     #proc.nice(3)
 
@@ -86,9 +86,10 @@ def track_move(move_serial, move_num, team, num_teams, team_colors, dead_move, f
     no_rumble = time.time() + 1
     move_last_value = None
     move = common.get_move(move_serial, move_num)
+    team_colors = common.generate_colors(team_num)
     #keep on looping while move is not dead
     ready = False
-    move.set_leds(*colors.Colors.Black.value)
+    move.set_leds(0,0,0)
     move.update_leds()
     time.sleep(1)
     vibrate = False
@@ -133,9 +134,9 @@ def track_move(move_serial, move_num, team, num_teams, team_colors, dead_move, f
                             flash_lights_timer = 0
                             flash_lights = not flash_lights
                         if flash_lights:
-                            move.set_leds(*colors.Colors.White60.value)
+                            move.set_leds(100,100,100)
                         else:
-                            move.set_leds(*team_colors[team.value].value)
+                            move.set_leds(*team_colors[team.value])
                         if time.time() < vibration_time - 0.22:
                             move.set_rumble(110)
                         else:
@@ -143,13 +144,13 @@ def track_move(move_serial, move_num, team, num_teams, team_colors, dead_move, f
                         if time.time() > vibration_time:
                             vibrate = False
                     else:
-                        move.set_leds(*team_colors[team.value].value)
+                        move.set_leds(*team_colors[team.value])
 
 
                     if change > threshold:
                         if time.time() > no_rumble:
                             #vibrate = False
-                            move.set_leds(*colors.Colors.Black.value)
+                            move.set_leds(0,0,0)
                             move.set_rumble(90)
                             dead_move.value = 0
                             time_of_death = time.time()
@@ -169,7 +170,7 @@ def track_move(move_serial, move_num, team, num_teams, team_colors, dead_move, f
             move.update_leds()
         #if we are dead
         elif dead_move.value <= 0:
-            move.set_leds(*colors.Colors.Black.value)
+            move.set_leds(0,0,0)
             
             if time.time() - time_of_death >= death_time:
                 dead_move.value = 3
@@ -177,28 +178,22 @@ def track_move(move_serial, move_num, team, num_teams, team_colors, dead_move, f
                 move_last_value = None
                 dead_move.value = 1
                 no_rumble = time.time() + 1
-                team.value = (team.value + 1) % num_teams
+                team.value = (team.value + 1) % team_num
             
 
 class Swapper():
-    def __init__(self, moves, command_queue, ns, music):
-
-        self.command_queue = command_queue
-        self.ns = ns
-
-        self.sensitivity = self.ns.settings['sensitivity']
-        self.play_audio = self.ns.settings['play_audio']
-
+    def __init__(self, moves, speed, command_queue, status_ns, audio_toggle, music):
         global SLOW_MAX
         global SLOW_WARNING
         global FAST_MAX
         global FAST_WARNING
         
-        SLOW_MAX = common.SLOW_MAX[self.sensitivity]
-        SLOW_WARNING = common.SLOW_WARNING[self.sensitivity]
-        FAST_MAX = common.FAST_MAX[self.sensitivity]
-        FAST_WARNING = common.FAST_WARNING[self.sensitivity]
+        SLOW_MAX = common.SLOW_MAX[speed]
+        SLOW_WARNING = common.SLOW_WARNING[speed]
+        FAST_MAX = common.FAST_MAX[speed]
+        FAST_WARNING = common.FAST_WARNING[speed]
         
+        self.audio_toggle = audio_toggle
         self.move_serials = moves
         self.tracked_moves = {}
         self.dead_moves = {}
@@ -206,20 +201,20 @@ class Swapper():
         self.music_speed = Value('d', 1)
         self.running = True
         self.force_move_colors = {}
-        self.num_teams = 2
+        self.team_num = 2
 
         self.start_timer = time.time()
         self.audio_cue = 0
 
         self.move_opts = {}
 
+        self.command_queue = command_queue
+        self.status_ns = status_ns
         self.update_time = 0
 
-        self.team_colors = colors.generate_team_colors(self.num_teams)
 
-        self.generate_random_teams(self.num_teams)
-
-        if self.play_audio:
+        self.generate_random_teams(self.team_num)
+        if self.audio_toggle:
 ##            music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
 
             self.start_beep = Audio('audio/Joust/sounds/start.wav')
@@ -240,14 +235,14 @@ class Swapper():
         self.winning_moves = []
         self.game_loop()
 
-    def generate_random_teams(self, num_teams):
-        team_pick = list(range(num_teams))
+    def generate_random_teams(self, team_num):
+        team_pick = list(range(team_num))
         for serial in self.move_serials:
             random_choice = Value('i',  random.choice(team_pick) )
             self.teams[serial] = random_choice
             team_pick.remove(random_choice.value)
             if not team_pick:
-                team_pick = list(range(num_teams))
+                team_pick = list(range(team_num))
 
     def track_moves(self):
         for move_num, move_serial in enumerate(self.move_serials):
@@ -258,8 +253,7 @@ class Swapper():
             proc = Process(target=track_move, args=(move_serial,
                                                     move_num,
                                                     self.teams[move_serial],
-                                                    self.num_teams,
-                                                    self.team_colors,
+                                                    self.team_num,
                                                     dead_move,
                                                     force_color,
                                                     self.music_speed,
@@ -273,24 +267,24 @@ class Swapper():
             
     def change_all_move_colors(self, r, g, b):
         for color in self.force_move_colors.values():
-            colors.change_color(color, r, g, b)
+            common.change_color(color, r, g, b)
 
     #need to do the count_down here
     def count_down(self):
         self.change_all_move_colors(80, 0, 0)
-        if self.play_audio:
+        if self.audio_toggle:
             self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(70, 100, 0)
-        if self.play_audio:
+        if self.audio_toggle:
             self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 70, 0)
-        if self.play_audio:
+        if self.audio_toggle:
             self.start_beep.start_effect()
         time.sleep(0.75)
         self.change_all_move_colors(0, 0, 0)
-        if self.play_audio:
+        if self.audio_toggle:
             self.start_game.start_effect()
 
     def check_end_game(self):
@@ -307,7 +301,7 @@ class Swapper():
             if dead.value == 0:
                 #This is to play the sound effect
                 dead.value = -1
-                if self.play_audio:
+                if self.audio_toggle:
                     self.explosion.start_effect()
         self.game_end = team_win
 
@@ -319,7 +313,7 @@ class Swapper():
             time.sleep(0.02)
 
     def end_game(self):
-        if self.play_audio:
+        if self.audio_toggle:
             try:
                 self.audio.stop_audio()
             except:
@@ -327,47 +321,34 @@ class Swapper():
         end_time = time.time() + END_GAME_PAUSE
         h_value = 0
         self.update_status('ending',self.winning_team)
-        if self.play_audio:
+        if self.audio_toggle:
             self.end_game_sound(self.winning_team)
         while (time.time() < end_time):
             time.sleep(0.01)
-            win_color = colors.hsv2rgb(h_value, 1, 1)
+            win_color = common.hsv2rgb(h_value, 1, 1)
             for win_move in self.move_serials:
                 if win_move != self.last_move:
                     win_color_array = self.force_move_colors[win_move]
-                    colors.change_color(win_color_array, *win_color)
+                    common.change_color(win_color_array, *win_color)
                 else:
                     win_color_array = self.force_move_colors[win_move]
-                    colors.change_color(win_color_array, 1,1,1)
+                    common.change_color(win_color_array, 1,1,1)
             h_value = (h_value + 0.01)
             if h_value >= 1:
                 h_value = 0
         self.running = False
 
     def end_game_sound(self, winning_team):
-        win_team_name = self.team_colors[winning_team].name
-        if win_team_name == 'Pink':
-            team_win = Audio('audio/Joust/sounds/human win.wav')
-        if win_team_name == 'Magenta':
-            team_win = Audio('audio/Joust/sounds/magenta team win.wav')
-        if win_team_name == 'Orange':
-            team_win = Audio('audio/Joust/sounds/human win.wav')
-        if win_team_name == 'Yellow':
-            team_win = Audio('audio/Joust/sounds/yellow team win.wav')
-        if win_team_name == 'Green':
-            team_win = Audio('audio/Joust/sounds/green team win.wav')
-        if win_team_name == 'Turquoise':
-            team_win = Audio('audio/Joust/sounds/cyan team win.wav')
-        if win_team_name == 'Blue':
-            team_win = Audio('audio/Joust/sounds/blue team win.wav')
-        if win_team_name == 'Purple':
-            team_win = Audio('audio/Joust/sounds/human win.wav')
+        if winning_team == Team.red.value:
+            team_win = Audio('audio/Commander/sounds/red winner.wav')
+        if winning_team == Team.blue.value:
+            team_win = Audio('audio/Commander/sounds/blue winner.wav')
         team_win.start_effect()
 
     def game_loop(self):
         self.track_moves()
         self.count_down()
-        if self.play_audio:
+        if self.audio_toggle:
             try:
                 self.audio.start_audio_loop()
             except:
@@ -396,7 +377,7 @@ class Swapper():
                 self.kill_game()
 
     def kill_game(self):
-        if self.play_audio:
+        if self.audio_toggle:
             try:
                 self.audio.stop_audio()
             except:
@@ -405,16 +386,16 @@ class Swapper():
         all_moves = [x for x in self.dead_moves.keys()]
         end_time = time.time() + KILL_GAME_PAUSE     
         
-        bright = 255
+        h_value = 0
         while (time.time() < end_time):
             time.sleep(0.01)
-            color = (bright,0,0)
+            color = common.hsv2rgb(h_value, 1, 1)
             for move in all_moves:
                 color_array = self.force_move_colors[move]
-                colors.change_color(color_array, *color)
-            bright = bright - 1
-            if bright < 10:
-                bright = 10
+                common.change_color(color_array, *color)
+            h_value = (h_value + 0.01)
+            if h_value >= 1:
+                h_value = 0
         self.running = False
 
     def update_status(self,game_status,winning_team=-1):
@@ -430,8 +411,6 @@ class Swapper():
                 team_alive[team] += 1
         team_comp = list(zip(team_total,team_alive))
         data['team_comp'] = team_comp
-        data['team_names'] = [color.name + ' Team' for color in self.team_colors]
-
-        self.ns.status = data
+        self.status_ns.status_dict = data
                     
             

@@ -1,4 +1,4 @@
-import common, colors
+import common
 import psmove
 import time
 import psutil, os
@@ -62,14 +62,14 @@ class Bool(Enum):
     yes = 1
 
 
-#alpha bravo
-Commander_colors = [colors.Colors.Orange.value,colors.Colors.Blue.value]
-Overdrive_colors = [colors.Colors.Yellow.value,colors.Colors.Purple.value]
-Current_commander_colors = [colors.Colors.Magenta.value,colors.Colors.Green.value]
+#red blue
+Commander_colors = [(255,0,0),(0,0,255)]
+Overdrive_colors = [(255,127,0),(0,255,255)]
+Current_commander_colors = [(255,0,255),(0,255,0)]
 
 class Team(Enum):
-    alpha = 0
-    bravo = 1
+    red = 0
+    blue = 1
 
 
 def calculate_flash_time(r,g,b, score):
@@ -89,7 +89,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
     no_rumble = time.time() + 1
     move_last_value = None
     move = common.get_move(move_serial, move_num)
-    team_colors = colors.generate_colors(team_num)
+    team_colors = common.generate_colors(team_num)
     #keep on looping while move is not dead
     ready = False
     move.set_leds(0,0,0)
@@ -226,23 +226,19 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
             
 
 class Commander():
-    def __init__(self, moves, command_queue, ns, music):
-
-        self.command_queue = command_queue
-        self.ns = ns
-
-        self.sensitivity = self.ns.settings['sensitivity']
-
+    def __init__(self, moves, speed, command_queue, status_ns, music):
         global SLOW_MAX
         global SLOW_WARNING
         global FAST_MAX
         global FAST_WARNING
         
-        SLOW_MAX = common.SLOW_MAX[self.sensitivity]
-        SLOW_WARNING = common.SLOW_WARNING[self.sensitivity]
-        FAST_MAX = common.FAST_MAX[self.sensitivity]
-        FAST_WARNING = common.FAST_WARNING[self.sensitivity]
+        SLOW_MAX = common.SLOW_MAX[speed]
+        SLOW_WARNING = common.SLOW_WARNING[speed]
+        FAST_MAX = common.FAST_MAX[speed]
+        FAST_WARNING = common.FAST_WARNING[speed]
 
+        self.command_queue = command_queue
+        self.status_ns = status_ns
         self.update_time = 0
 
         self.move_serials = moves
@@ -268,8 +264,8 @@ class Commander():
         
         self.powers = [Value('d', 0.0), Value('d', 0.0)]
 
-        self.alpha_overdrive = Value('i', 0)
-        self.bravo_overdrive = Value('i', 0)
+        self.red_overdrive = Value('i', 0)
+        self.blue_overdrive = Value('i', 0)
 
         
         self.generate_random_teams(self.team_num)
@@ -319,10 +315,10 @@ class Commander():
             opts = Array('i', [0] * 5)
             power = self.powers[self.teams[move_serial]]
 
-            if self.teams[move_serial] == Team.alpha.value:
-                overdrive = self.alpha_overdrive
+            if self.teams[move_serial] == Team.red.value:
+                overdrive = self.red_overdrive
             else:
-                overdrive = self.bravo_overdrive
+                overdrive = self.blue_overdrive
             proc = Process(target=track_move, args=(move_serial,
                                                     move_num,
                                                     self.teams[move_serial],
@@ -342,7 +338,7 @@ class Commander():
             
     def change_all_move_colors(self, r, g, b):
         for color in self.force_move_colors.values():
-            colors.change_color(color, r, g, b)
+            common.change_color(color, r, g, b)
 
     #need to do the count_down here
     def count_down(self):
@@ -414,10 +410,10 @@ class Commander():
 
         while (time.time() < end_time):
             time.sleep(0.01)
-            win_color = colors.hsv2rgb(h_value, 1, 1)
+            win_color = common.hsv2rgb(h_value, 1, 1)
             for win_move in self.winning_moves:
                 win_color_array = self.force_move_colors[win_move]
-                colors.change_color(win_color_array, *win_color)
+                common.change_color(win_color_array, *win_color)
             h_value = (h_value + 0.01)
             if h_value >= 1:
                 h_value = 0
@@ -425,9 +421,9 @@ class Commander():
 
     def end_game_sound(self, winning_team):
         #if self.game_mode == common.Games.JoustTeams:
-        if winning_team == Team.alpha.value:
+        if winning_team == Team.red.value:
             team_win = Audio('audio/Commander/sounds/red winner.wav')
-        if winning_team == Team.bravo.value:
+        if winning_team == Team.blue.value:
             team_win = Audio('audio/Commander/sounds/blue winner.wav')
         team_win.start_effect()
 
@@ -460,48 +456,48 @@ class Commander():
         return False
             
     def update_team_powers(self):
-        self.powers[Team.alpha.value].value = max(min((time.time() - self.activated_time[Team.alpha.value])/(self.time_to_power[Team.alpha.value] * 1.0),1.0), 0.0)
-        self.powers[Team.bravo.value].value = max(min((time.time() - self.activated_time[Team.bravo.value])/(self.time_to_power[Team.bravo.value] * 1.0), 1.0), 0.0)
+        self.powers[Team.red.value].value = max(min((time.time() - self.activated_time[Team.red.value])/(self.time_to_power[Team.red.value] * 1.0),1.0), 0.0)
+        self.powers[Team.blue.value].value = max(min((time.time() - self.activated_time[Team.blue.value])/(self.time_to_power[Team.blue.value] * 1.0), 1.0), 0.0)
 
         
-        if self.powers_active[Team.alpha.value] == False:
-            if self.powers[Team.alpha.value].value >= 1.0:
-                self.powers_active[Team.alpha.value] = True
+        if self.powers_active[Team.red.value] == False:
+            if self.powers[Team.red.value].value >= 1.0:
+                self.powers_active[Team.red.value] = True
                 Audio('audio/Commander/sounds/power ready.wav').start_effect()
                 Audio('audio/Commander/sounds/red power ready.wav').start_effect()
                 
                 
-        if self.powers_active[Team.bravo.value] == False:
-            if self.powers[Team.bravo.value].value >= 1.0:
-                self.powers_active[Team.bravo.value] = True
+        if self.powers_active[Team.blue.value] == False:
+            if self.powers[Team.blue.value].value >= 1.0:
+                self.powers_active[Team.blue.value] = True
                 Audio('audio/Commander/sounds/power ready.wav').start_effect()
                 Audio('audio/Commander/sounds/blue power ready.wav').start_effect()
                 
             
     def overdrive(self, team):
         Audio('audio/Commander/sounds/overdrive.wav').start_effect()
-        if team == Team.alpha.value:
-            self.alpha_overdrive.value = 1
-            self.activated_overdrive[Team.alpha.value] = time.time() + 10
+        if team == Team.red.value:
+            self.red_overdrive.value = 1
+            self.activated_overdrive[Team.red.value] = time.time() + 10
             Audio('audio/Commander/sounds/red overdrive.wav').start_effect()
         else:
-            self.bravo_overdrive.value = 1
-            self.activated_overdrive[Team.bravo.value] = time.time() + 10
+            self.blue_overdrive.value = 1
+            self.activated_overdrive[Team.blue.value] = time.time() + 10
             Audio('audio/Commander/sounds/blue overdrive.wav').start_effect()
 
         
         
     def check_end_of_overdrive(self):
-        if self.alpha_overdrive.value == 1:
+        if self.red_overdrive.value == 1:
 
-            if time.time() >= self.activated_overdrive[Team.alpha.value]:
+            if time.time() >= self.activated_overdrive[Team.red.value]:
                 #print 'its over'
-                self.alpha_overdrive.value = 0
-        if self.bravo_overdrive.value == 1:
+                self.red_overdrive.value = 0
+        if self.blue_overdrive.value == 1:
             
-            if time.time() >= self.activated_overdrive[Team.bravo.value]:
+            if time.time() >= self.activated_overdrive[Team.blue.value]:
                 #print 'itsa over'
-                self.bravo_overdrive.value = 0
+                self.blue_overdrive.value = 0
 
     def reset_power(self, team):
         self.powers[team].value == 0.0
@@ -541,15 +537,15 @@ class Commander():
                 Audio('audio/Commander/sounds/10 seconds begins.wav').start_effect()
         intro_sound.stop_effect()        
 
-        if self.current_commander[Team.alpha.value] == '':
-            self.change_random_commander(Team.alpha.value)
-        if self.current_commander[Team.bravo.value] == '':
-            self.change_random_commander(Team.bravo.value)
+        if self.current_commander[Team.red.value] == '':
+            self.change_random_commander(Team.red.value)
+        if self.current_commander[Team.blue.value] == '':
+            self.change_random_commander(Team.blue.value)
 
 
         Audio('audio/Commander/sounds/commanders chosen.wav').start_effect_and_wait()
-        self.reset_power(Team.alpha.value)
-        self.reset_power(Team.bravo.value)
+        self.reset_power(Team.red.value)
+        self.reset_power(Team.blue.value)
         self.commander_intro.value = 0
 
     def game_loop(self):
@@ -590,47 +586,44 @@ class Commander():
         
 
 # class Team(Enum):
-#     alpha = 0
-#     bravo = 1
+#     red = 0
+#     blue = 1
 
 #self.dead_moves[move_serial] = dead_move
 #1=alive
 #0=dead
 
     def update_status(self,game_status,winning_team=-1):
-        if self.alpha_overdrive.value == 1:
-            alpha_od_status = 'Active'
-        elif self.powers_active[Team.alpha.value] == True:
-            alpha_od_status = 'Ready'
+        if self.red_overdrive.value == 1:
+            red_od_status = 'Active'
+        elif self.powers_active[Team.red.value] == True:
+            red_od_status = 'Ready'
         else:
-            alpha_od_status = 'Charging'
+            red_od_status = 'Inactive'
 
-        if self.bravo_overdrive.value == 1:
-            bravo_od_status = 'Active'
-        elif self.powers_active[Team.bravo.value] == True:
-            bravo_od_status = 'Ready'
+        if self.blue_overdrive.value == 1:
+            blue_od_status = 'Active'
+        elif self.powers_active[Team.blue.value] == True:
+            blue_od_status = 'Ready'
         else:
-            bravo_od_status = 'Charging'
+            blue_od_status = 'Inactive'
 
-        alpha_team = [x for x in self.teams.keys() if self.teams[x] == 0]
-        alpha_alive = [x for x in alpha_team if self.dead_moves[x].value == 1]
+        red_team = [x for x in self.teams.keys() if self.teams[x] == 0]
+        red_alive = [x for x in red_team if self.dead_moves[x].value == 1]
 
-        bravo_team = [x for x in self.teams.keys() if self.teams[x] == 1]
-        bravo_alive = [x for x in bravo_team if self.dead_moves[x].value == 1]
+        blue_team = [x for x in self.teams.keys() if self.teams[x] == 1]
+        blue_alive = [x for x in blue_team if self.dead_moves[x].value == 1]
 
         data ={'game_status' : game_status,
                'game_mode' : 'Commander',
                'winning_team' : winning_team,
-               'alpha_players': len(alpha_team),
-               'alpha_alive': len(alpha_alive),
-               'alpha_od_status': alpha_od_status,
-               'bravo_players': len(bravo_team),
-               'bravo_alive': len(bravo_alive),
-               'bravo_od_status': bravo_od_status,
-               'team_names' : ['Orange Team', 'Blue Team']}
-
-        self.ns.status = data
-
+               'red_players': len(red_team),
+               'red_alive': len(red_alive),
+               'red_od_status': red_od_status,
+               'blue_players': len(blue_team),
+               'blue_alive': len(blue_alive),
+               'blue_od_status': blue_od_status}
+        self.status_ns.status_dict = data
 
     def kill_game(self):
         try:
@@ -641,16 +634,27 @@ class Commander():
         all_moves = [x for x in self.dead_moves.keys()]
         end_time = time.time() + KILL_GAME_PAUSE     
         
-        bright = 255
+        h_value = 0
         while (time.time() < end_time):
             time.sleep(0.01)
-            color = (bright,0,0)
+            color = common.hsv2rgb(h_value, 1, 1)
             for move in all_moves:
                 color_array = self.force_move_colors[move]
-                colors.change_color(color_array, *color)
-            bright = bright - 1
-            if bright < 10:
-                bright = 10
+                common.change_color(color_array, *color)
+            h_value = (h_value + 0.01)
+            if h_value >= 1:
+                h_value = 0
+
+        # bright = 255
+        # while (time.time() < end_time):
+        #     time.sleep(0.01)
+        #     color = (bright,bright,bright)
+        #     for move in all_moves:
+        #         color_array = self.force_move_colors[move]
+        #         common.change_color(color_array, *color)
+        #     bright = bright - 1
+        #     if bright < 10:
+        #         bright = 10
 
         self.running = False
                     

@@ -1,3 +1,4 @@
+import asyncio
 import wave
 import functools
 import io
@@ -10,6 +11,8 @@ import pygame
 import alsaaudio
 import threading
 from pydub import AudioSegment
+
+import common
 
 def audio_loop(wav_data, ratio, stop_proc):
     # TODO: As a future improvment, we could precompute resampled versions of the track
@@ -115,13 +118,14 @@ class Audio:
 @functools.lru_cache(maxsize=16)
 class Music:
     def __init__(self, fname):
-      self.load_thread_ = threading.Thread(target=lambda: self.load_sample_(fname))
-      self.load_thread_.start()
+        self.load_thread_ = threading.Thread(target=lambda: self.load_sample_(fname))
+        self.load_thread_.start()
+        self.transition_future_ = asyncio.Future()
 
     def wait_for_sample_(self):
-      if self.load_thread_:
-        self.load_thread_.join()
-        self.load_thread_ = None
+        if self.load_thread_:
+            self.load_thread_.join()
+            self.load_thread_ = None
 
     def load_sample_(self, fname):
         try:
@@ -149,13 +153,34 @@ class Music:
         self.stop_proc.value = 1
         time.sleep(0.1)
         self.p.terminate()
+        self.transition_future_.cancel()
     def change_ratio(self, ratio):
         self.ratio.value = ratio
+
+    def transition_ratio(self, new_ratio, transition_duration=1.0):
+        """Smoothly transitions between the current sampling ratio and the given one.
+           Returns a task that completes once the transition is finished."""
+        async def do_transition():
+            num_steps = 20
+            old_ratio = self.ratio.value
+            for i in range(num_steps):
+                t = (i+1) / 20
+                ratio = common.lerp(old_ratio, new_ratio, t)
+                ratio = old_ratio * (1-t) + new_ratio * t
+                self.change_ratio(ratio)
+                await asyncio.sleep(transition_duration / num_steps)
+
+        self.transition_future_.cancel()
+        self.transition_future_ = asyncio.ensure_future(do_transition())
+        return self.transition_future_
 
 class DummyMusic:
     def start_audio_loop(self): pass
     def stop_audio(self): pass
     def change_ratio(self): pass
+    def transition_ratio(self, new_ratio, transition_duration=None):
+        async def do_nothing(): pass
+        return asyncio.ensure_future(do_nothing())
 
 def InitAudio():
     pygame.mixer.init(47000, -16, 2 , 4096)

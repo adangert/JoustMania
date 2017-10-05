@@ -63,6 +63,7 @@ setup() {
         -DPSMOVE_BUILD_TRACKER:BOOL=ON \
         -DPSMOVE_USE_PSEYE:BOOL=OFF
     make -j4
+    cp /home/pi/psmoveapi/build/{psmove.py,_psmove.so} $VENV/lib/python3.6
 
     #installs custom supervisor script for running joustmania on startup
     sudo cp -r /home/pi/JoustMania/conf/supervisor/ /etc/
@@ -71,12 +72,6 @@ setup() {
     #makes sound card 1(usb audio) to be default output
     #use aplay -l to check sound card number
     #sudo cp /home/pi/JoustMania/asound.conf /etc/
-
-
-    #allows python path to be kept after sudo command
-    OLD='env_reset'
-    NEW='env_keep += "PYTHONPATH"'
-    sudo sed -i -e "s/$OLD/$NEW/g" /etc/sudoers
 
     # Pause a second before rebooting so we can see all the output from this script.
     (sleep 1; sudo reboot) &

@@ -25,7 +25,7 @@ class SettingsForm(Form):
     red_on_kill = SelectField('Kill notification',choices=[(False,'Dark'),(True,'Red')],coerce=bool)
     sensitivity = SelectField('Move sensitivity',choices=[(0,'Slow'),(1,'Medium'),(2,'Fast')],coerce=int)
     mode_options = [ game for game in common.Games if game not in [common.Games.Random, common.Games.JoustTeams]]
-    random_modes = MultiCheckboxField('Random Modes',choices=[(game.pretty_name, game.pretty_name) for game in mode_options])
+    random_modes = MultiCheckboxField('Random Modes',choices=[(game.name, game.pretty_name) for game in mode_options])
     color_lock = BooleanField('Lock team colors')
     color_choices = [(color.name,color.name) for color in colors.team_color_list]
     color_lock_choices = FieldList(SelectField('',choices=color_choices,coerce=str),min_entries=9)

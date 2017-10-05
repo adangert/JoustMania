@@ -93,8 +93,8 @@ def track_move(move_serial, move_num, game_mode, team, team_color_enum, dead_mov
         elif dead_move.value == 1 and werewolf_reveal.value > 0:   
             if move.poll():
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
-                #total = sqrt(sum([ax**2, ay**2, az**2]))
-                total = sum([ax, ay, az])
+                total = sqrt(sum([ax**2, ay**2, az**2]))
+                #total = sum([ax, ay, az])
                 if move_last_value is not None:
                     change_real = abs(move_last_value - total)
                     change_arr[0] = change_arr[1]
@@ -285,26 +285,30 @@ class Joust():
             self.teams[werewolf] = (self.teams[werewolf] * -1) - 1
 
     def generate_random_teams(self, num_teams):
-        team_pick = list(range(num_teams))
-        print (str(team_pick))
-        traitor_pick = True
-        copy_serials = self.move_serials[:]
+        #in FFA, each player is a different team so no need to randomize
+        if num_teams == len(self.move_serials):
+            for i,move in enumerate(self.move_serials):
+                self.teams[serial] = i
+        else:
+            team_pick = list(range(num_teams))
+            traitor_pick = True
+            copy_serials = self.move_serials[:]
 
-        while len(copy_serials) >= 1:
-        #for serial in self.move_serials:
-            serial = random.choice(copy_serials)
-            copy_serials.remove(serial)
-            random_choice = random.choice(team_pick)
-            if self.game_mode == common.Games.Traitor and traitor_pick:
-                self.teams[serial] = (random_choice * -1) - 1
-            else:
-                self.teams[serial] = random_choice
-##            print("doing random choice")
-##            print(random_choice)
-            team_pick.remove(random_choice)
-            if not team_pick:
-                traitor_pick = False
-                team_pick = list(range(num_teams))
+            while len(copy_serials) >= 1:
+            #for serial in self.move_serials:
+                serial = random.choice(copy_serials)
+                copy_serials.remove(serial)
+                random_choice = random.choice(team_pick)
+                if self.game_mode == common.Games.Traitor and traitor_pick:
+                    self.teams[serial] = (random_choice * -1) - 1
+                else:
+                    self.teams[serial] = random_choice
+    ##            print("doing random choice")
+    ##            print(random_choice)
+                team_pick.remove(random_choice)
+                if not team_pick:
+                    traitor_pick = False
+                    team_pick = list(range(num_teams))
 
     def track_moves(self):
         for move_num, move_serial in enumerate(self.move_serials):

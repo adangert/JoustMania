@@ -7,9 +7,14 @@ SETTINGSFILE = 'joustsettings.yaml'
 
 #Human speeds[slow, mid, fast]
 SLOW_WARNING = [0.1, 0.15, 0.28]
-SLOW_MAX = [0.5, 0.8, 1]
+SLOW_MAX = [0.25, 0.8, 1]
 FAST_WARNING = [0.5, 0.6, 0.8]
 FAST_MAX = [1, 1.4, 1.8]
+
+#SLOW_WARNING = [0.1, 0.15, 0.28]
+#SLOW_MAX = [0.5, 0.8, 1]
+#FAST_WARNING = [0.5, 0.6, 0.8]
+#FAST_MAX = [1, 1.4, 1.8]
 
 WERE_SLOW_WARNING = [0.2, 0.3, 0.4]
 WERE_SLOW_MAX = [0.7, 0.9, 1.1]
@@ -122,5 +127,9 @@ REQUIRED_SETTINGS = [
 'enforce_minimum',
 'sensitivity',
 'play_instructions',
-'random_modes'
+'random_modes',
+'color_lock',
+'color_lock_choices',
+'red_on_kill',
+'random_teams'
 ]

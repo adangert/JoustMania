@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 from enum import Enum
 
 class Colors(Enum):
@@ -35,11 +34,4 @@ for a,b,c,d in [(a,b,c,d) for a in range(8) for b in range(a+1,8) for c in range
             bad = True
     if not bad:
         print(quad)
-=======
-import common
 
-for t in [2,3,17]:
-	for i in range(20):
-		teams = common.generate_team_colors(t)
-		print([x.name for x in teams])
->>>>>>> Stashed changes

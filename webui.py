@@ -2,8 +2,8 @@ from multiprocessing import Queue, Manager
 from time import sleep
 from flask import Flask, render_template, request, redirect, url_for, flash
 from time import sleep
-from wtforms import Form, SelectField, SelectMultipleField, BooleanField, widgets
-import common
+from wtforms import Form, SelectField, SelectMultipleField, BooleanField, widgets, FieldList
+import common, colors
 import json
 import yaml
 
@@ -22,10 +22,14 @@ class SettingsForm(Form):
     move_can_be_admin = BooleanField('Allow Move to change settings')
     play_instructions = BooleanField('Play instructions before game start')
     play_audio = BooleanField('Play audio')
+    red_on_kill = SelectField('Kill notification',choices=[(False,'Dark'),(True,'Red')],coerce=bool)
     sensitivity = SelectField('Move sensitivity',choices=[(0,'Slow'),(1,'Medium'),(2,'Fast')],coerce=int)
     mode_options = [ game for game in common.Games if game not in [common.Games.Random, common.Games.JoustTeams]]
     random_modes = MultiCheckboxField('Random Modes',choices=[(game.pretty_name, game.pretty_name) for game in mode_options])
-
+    color_lock = BooleanField('Lock team colors')
+    color_choices = [(color.name,color.name) for color in colors.team_color_list]
+    color_lock_choices = FieldList(SelectField('',choices=color_choices,coerce=str),min_entries=9)
+    random_teams = BooleanField('Randomize teams each round')
 
 class WebUI():
     def __init__(self, command_queue=Queue(), ns=None):
@@ -37,7 +41,14 @@ class WebUI():
 
             self.ns = Manager().Namespace()
             self.ns.status = dict()
-            self.ns.settings = dict()
+            self.ns.settings = {
+                'sensitivity':1, 
+                'red_on_kill':False, 
+                'color_lock_choices':{
+                    2: ['Magenta','Green'],
+                    3: ['Orange','Turquoise','Purple'],
+                    4: ['Yellow','Green','Blue','Purple']
+            }}
             self.ns.battery_status = dict()
         else:
             self.ns = ns
@@ -49,10 +60,14 @@ class WebUI():
         self.app.add_url_rule('/updateStatus','update',self.update)
         self.app.add_url_rule('/battery','battery_status',self.battery_status)
         self.app.add_url_rule('/settings','settings',self.settings, methods=['GET','POST'])
+        self.app.add_url_rule('/rand<num_teams>','randomize',self.randomize_teams)
 
 
     def web_loop(self):
         self.app.run(host='0.0.0.0', port=80, debug=False)
+
+    def web_loop_with_debug(self):
+        self.app.run(host='0.0.0.0', port=80, debug=True)
 
     #@app.route('/')
     def index(self):
@@ -84,33 +99,53 @@ class WebUI():
     #@app.route('/settings')
     def settings(self):
         if request.method == 'POST':
-            self.web_settings_update(request.form)
+            new_settings = SettingsForm(request.form).data
+            self.web_settings_update(new_settings)
             flash('Settings updated!')
             return redirect(url_for('settings'))
         else:
-            settingsForm = SettingsForm()
-            settingsForm.sensitivity.default = self.ns.settings['sensitivity']
-            settingsForm.process()
+            temp_colors = self.ns.settings['color_lock_choices']
+            temp_colors = temp_colors[2] + temp_colors[3] + temp_colors[4]
+            settingsForm = SettingsForm(
+                sensitivity = self.ns.settings['sensitivity'],
+                red_on_kill = self.ns.settings['red_on_kill'],
+                color_lock_choices = temp_colors
+            )
             return render_template('settings.html', form=settingsForm, settings=self.ns.settings)
 
     def web_settings_update(self,web_settings):
         temp_settings = self.ns.settings
+        temp_settings.update(web_settings)
 
-        temp_settings['move_can_be_admin'] = 'move_can_be_admin' in web_settings.keys()
-        temp_settings['play_audio'] = 'play_audio' in web_settings.keys()
-        temp_settings['play_instructions'] = 'play_instructions' in web_settings.keys()
+
         #secret setting, keep it True
         #temp_settings['enforce_minimum'] = 'enforce_minimum' in web_settings.keys()
-        temp_settings['sensitivity'] = int(web_settings['sensitivity'])
-        temp_settings['random_modes'] = [game.pretty_name for game in common.Games if game.pretty_name in web_settings.getlist('random_modes')]
-        #print(self.random_modes)
+        
         if temp_settings['random_modes'] == []:
-            temp_settings['random_modes'] = [common.Games.JoustFFA]
+            temp_settings['random_modes'] = [common.Games.JoustFFA.pretty_name]
+
+        temp_settings['color_lock_choices'] = {
+            2: temp_settings['color_lock_choices'][0:2],
+            3: temp_settings['color_lock_choices'][2:5],
+            4: temp_settings['color_lock_choices'][5:9],
+        }
+        
+        print(temp_settings)
 
         self.ns.settings = temp_settings
 
         with open(common.SETTINGSFILE,'w') as yaml_file:
             yaml.dump(self.ns.settings,yaml_file)
+
+    #@app.route('/rand<num_teams>')
+    def randomize_teams(self,num_teams):
+        if num_teams not in '234':
+            return "what are you doing here?"
+        else:
+            num_teams = int(num_teams)
+            team_colors = colors.generate_team_colors(num_teams)
+            team_colors = [color.name for color in team_colors]
+            return str(team_colors).replace("'",'"')#JSON is dumb and demands double quotes
 
 def start_web(command_queue, ns):
     webui = WebUI(command_queue,ns)
@@ -118,4 +153,4 @@ def start_web(command_queue, ns):
 
 if __name__ == '__main__':
     webui = WebUI()
-    webui.web_loop()
+    webui.web_loop_with_debug()

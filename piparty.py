@@ -508,7 +508,15 @@ class Menu():
             'random_modes': [common.Games.JoustFFA.pretty_name],
             'play_audio': True,
             'move_can_be_admin': True,
-            'enforce_minimum': True
+            'enforce_minimum': True,
+            'red_on_kill': True,
+            'random_teams': True,
+            'color_lock': False,
+            'color_lock_choices':{
+                2: ['Magenta','Green'],
+                3: ['Orange','Turquoise','Purple'],
+                4: ['Yellow','Green','Blue','Purple']
+            }
         })
         try:
             #catch either file opening or yaml loading failing
@@ -517,8 +525,8 @@ class Menu():
         except:
             pass
 
-        for setting in common.REQUIRED_SETTINGS:
-            if setting not in temp_settings.keys():
+        for setting in temp_settings.keys():
+            if setting not in common.REQUIRED_SETTINGS:
                 temp_settings.pop(setting)
         #random mode games can't be empty
         if temp_settings['random_modes'] == []:

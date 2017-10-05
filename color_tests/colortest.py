@@ -1,6 +1,7 @@
 import psmove
 import colorsys
 import time
+from math import sqrt
 
 def hsv2rgb(h, s, v):
     return tuple(int(color * 255) for color in colorsys.hsv_to_rgb(h, s, v))
@@ -78,17 +79,20 @@ newcolors = [
 '653700'] #BROWN =      
 
 def colorhex(hex):
-	r = int(hex[0:2],16)
-	g = int(hex[2:4],16)
-	b = int(hex[4:6],16)
-	return (r,g,b)
+    r = int(hex[0:2],16)
+    g = int(hex[2:4],16)
+    b = int(hex[4:6],16)
+    return (r,g,b)
 
 
 s=0
 while True:
-	for i,move in enumerate(moves):
-		color = colorhex(joustwheel[(s+i)%12])
-		move.set_leds(*color)
-		move.update_leds()
-	time.sleep(0.01)
-	#s += 1
+    for i,move in enumerate(moves):
+        color = colorhex(joustwheel[(s+i)%12])
+        move.set_leds(*color)
+        move.update_leds()
+        move.poll()
+        ax,ay,az = tuple(move.get_accelerometer_frame(psmove.Frame_SecondHalf))
+        print('%+1.1f %+1.1f %+1.1f %+1.1f' % (ax,ay,az,sqrt(sum([ax**2, ay**2, az**2]))))
+    #time.sleep(.1)
+    #s += 1

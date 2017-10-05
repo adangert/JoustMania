@@ -1,18 +1,17 @@
 {% extends "basic.html" %}
 {% block header %}
 <script>
-//used to forcibly leave settings page if in game
-//no longer needed since settings can update while in game
-//they just take effect in the next round
-function updateStatus(){
+function randomize(){
+    clicked = $(':focus')[0].id;
     $.ajax({
-        url: 'updateStatus',
+        url: clicked,
         timeout: 2000,
         success: function(rawdata){
-            info = JSON.parse(rawdata);
-            if (info.game_status != 'menu'){
-            	window.location.replace("/");
-            }
+            console.log(rawdata)
+            teams = JSON.parse(rawdata);
+            $('.'+clicked).each(function(){
+                $(this).val(teams.pop());
+            })
         },
         error: function(){
             console.log('something broke!')
@@ -20,13 +19,25 @@ function updateStatus(){
     });
 };
 
-//$(document).ready(function(){
-//    updateStatus();
-//    setInterval(updateStatus,1000);
-//});
+$(document).ready(function(){
+    $('.rand').click(function(){
+        randomize()
+    });
+
+    $('#random_mode_options').hide();
+    $('#random_toggle').click(function(){
+        $('#random_mode_options').toggle();
+    });
+
+    $('#color_lock_options').hide();
+    $('#color_lock_toggle').click(function(){
+        $('#color_lock_options').toggle();
+    });
+});
 </script>
 <style>
 p{line-height: 200%}
+span {line-height: 200%}
 </style>
 {% endblock %}
 
@@ -55,15 +66,39 @@ Note: Does not update during games.<br/>
 {{ form.play_audio(checked=settings.play_audio) }} {{form.play_audio.label}}
 </p>
 <p>
+{{ form.random_teams(checked=settings.random_teams) }} {{form.random_teams.label}}
+</p>
+<p>
+{{ form.color_lock(checked=settings.color_lock) }} {{form.color_lock.label}}
+</p>
+<p>
+{{ form.red_on_kill }} {{form.red_on_kill.label}}
+</p>
+<p>
 {{ form.sensitivity }} {{form.sensitivity.label}}
 </p>
-<p id="random">
-Random Mode Game Selection<br />
+<p>
+Random Mode Game Selection <button type="button" id="random_toggle">Show/Hide</button><br />
+<span id="random_mode_options">
 {% for item in form.random_modes %}
     {{ item(checked=item.data in settings.random_modes) }} {{ item.label }} <br />
 {% endfor %}
-</p>
-<input type="submit" value="Save Settings">
+</span></p>
+<p>
+Color Lock Selection <button type="button" id="color_lock_toggle">Show/Hide</button><br />
+<span id="color_lock_options">
+Dual Teams<br/>
+{% for i in range(2) %}{{ form.color_lock_choices[i](class_="rand2") }} {% endfor %}<br/>
+<button type="button" class="rand" id="rand2">Randomize</button><br/>
+Tri Teams<br/>
+{% for i in range(2,5) %}{{ form.color_lock_choices[i](class_="rand3") }} {% endfor %}<br/>
+<button type="button" class="rand" id="rand3">Randomize</button><br/>
+Quad Teams<br/>
+{% for i in range(5,9) %}{{ form.color_lock_choices[i](class_="rand4") }} {% endfor %}<br/>
+<button type="button" class="rand" id="rand4">Randomize</button><br/>
+</span></p>
+
+<br/><input type="submit" value="Save Settings">
 </form>
 <a href="/"><button type="button">Go Back</button></a>
 </div>

@@ -57,7 +57,7 @@ class FreeForAll:
            Polls controllers for input, and issues warnings/deaths to players."""
         # Make a copy of the active players, as we may modify it during iteration.
         pace = self.pace_
-        for event in self.players.active_player_events(EventType.ACCELEROMETER):
+        for event in self.players.active_player_events(EventType.SENSOR):
             if event.acceleration_magnitude > pace.death_threshold:
                 self.players.kill_player(event.player)
 

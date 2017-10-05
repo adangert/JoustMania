@@ -291,7 +291,8 @@ class Menu():
         #self.alive_count = len([move.get_serial() for move in self.moves if self.move_opts[move.get_serial()][Opts.alive.value] == Alive.on.value])
         
 
-    def enable_bt_scanning(self, on=True):
+    @staticmethod
+    def enable_bt_scanning(on=True):
         scan_cmd = "hciconfig {0} {1}"
         if on:
             scan = "pscan"

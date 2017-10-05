@@ -1,7 +1,6 @@
+#!/home/pi/JoustMania/venv/bin/python3.6
 import asyncio
 import sys
-
-sys.path.append('/home/pi/psmoveapi/build')
 
 import piaudio
 

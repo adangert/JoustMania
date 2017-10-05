@@ -186,8 +186,12 @@ class Swapper():
         self.command_queue = command_queue
         self.ns = ns
 
-        self.sensitivity = self.ns.settings['sensitivity']
+        #save locally in case settings change from web
         self.play_audio = self.ns.settings['play_audio']
+        self.sensitivity = self.ns.settings['sensitivity']
+        self.color_lock = self.ns.settings['color_lock']
+        self.color_lock_choices = self.ns.settings['color_lock_choices']
+        self.random_teams = self.ns.settings['random_teams']
 
         global SLOW_MAX
         global SLOW_WARNING
@@ -215,7 +219,7 @@ class Swapper():
 
         self.update_time = 0
 
-        self.team_colors = colors.generate_team_colors(self.num_teams)
+        self.team_colors = colors.generate_team_colors(self.num_teams,self.color_lock,self.color_lock_choices)
 
         self.generate_random_teams(self.num_teams)
 
@@ -241,13 +245,19 @@ class Swapper():
         self.game_loop()
 
     def generate_random_teams(self, num_teams):
-        team_pick = list(range(num_teams))
-        for serial in self.move_serials:
-            random_choice = Value('i',  random.choice(team_pick) )
-            self.teams[serial] = random_choice
-            team_pick.remove(random_choice.value)
-            if not team_pick:
-                team_pick = list(range(num_teams))
+        if self.random_teams == False:
+            players_per_team = (len(self.move_serials)//num_teams)+1
+            team_num = [x for x in range(num_teams)]*players_per_team
+            for num,move in zip(team_num,self.move_serials):
+                self.teams[move] = Value('i',num)
+        else:
+            team_pick = list(range(num_teams))
+            for serial in self.move_serials:
+                random_choice = Value('i',  random.choice(team_pick) )
+                self.teams[serial] = random_choice
+                team_pick.remove(random_choice.value)
+                if not team_pick:
+                    team_pick = list(range(num_teams))
 
     def track_moves(self):
         for move_num, move_serial in enumerate(self.move_serials):

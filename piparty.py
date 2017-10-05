@@ -658,6 +658,7 @@ class Menu():
 
         if random_mode:
             good_random_modes = [game for game in common.Games if game.pretty_name in self.ns.settings['random_modes']]
+            good_random_modes = [common.Games[game] for game in self.ns.settings['random_modes']]
             if self.ns.settings['enforce_minimum']:
                 good_random_modes = [game for game in good_random_modes if game.minimum_players <= len(game_moves)]
             if len(good_random_modes) == 0:

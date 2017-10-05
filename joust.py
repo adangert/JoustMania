@@ -177,7 +177,9 @@ class Joust():
         #save locally in case settings change from web
         self.play_audio = self.ns.settings['play_audio']
         self.sensitivity = self.ns.settings['sensitivity']
-
+        self.color_lock = self.ns.settings['color_lock']
+        self.color_lock_choices = self.ns.settings['color_lock_choices']
+        self.random_teams = self.ns.settings['random_teams']
 
         self.move_serials = moves
         self.tracked_moves = {}
@@ -246,7 +248,7 @@ class Joust():
         if self.game_mode == common.Games.JoustTeams:
             self.team_colors = colors.team_color_list
         else:
-            self.team_colors = colors.generate_team_colors(self.num_teams)
+            self.team_colors = colors.generate_team_colors(self.num_teams,self.color_lock,self.color_lock_choices)
             self.generate_random_teams(self.num_teams)
 
         if self.game_mode == common.Games.WereJoust:
@@ -285,10 +287,11 @@ class Joust():
             self.teams[werewolf] = (self.teams[werewolf] * -1) - 1
 
     def generate_random_teams(self, num_teams):
-        #in FFA, each player is a different team so no need to randomize
-        if num_teams == len(self.move_serials):
-            for i,move in enumerate(self.move_serials):
-                self.teams[serial] = i
+        if self.random_teams == False and self.game_mode != common.Games.Traitor:
+            players_per_team = (len(self.move_serials)//num_teams)+1
+            team_num = [x for x in range(num_teams)]*players_per_team
+            for num,move in zip(team_num,self.move_serials):
+                self.teams[move] = num
         else:
             team_pick = list(range(num_teams))
             traitor_pick = True

@@ -80,7 +80,7 @@ def calculate_flash_time(r,g,b, score):
     new_b = int(common.lerp(255, b, flash_percent))
     return (new_r, new_g, new_b)
 
-def track_move(move_serial, move_num, team, team_num, dead_move, force_color, music_speed, commander_intro, move_opts, power, overdrive):
+def track_move(move_serial, move_num, team, num_teams, dead_move, force_color, music_speed, commander_intro, move_opts, power, overdrive):
     #proc = psutil.Process(os.getpid())
     #proc.nice(3)
 
@@ -89,7 +89,7 @@ def track_move(move_serial, move_num, team, team_num, dead_move, force_color, mu
     no_rumble = time.time() + 1
     move_last_value = None
     move = common.get_move(move_serial, move_num)
-    team_colors = colors.generate_colors(team_num)
+    team_colors = colors.generate_colors(num_teams)
     #keep on looping while move is not dead
     ready = False
     move.set_leds(0,0,0)
@@ -232,6 +232,7 @@ class Commander():
         self.ns = ns
 
         self.sensitivity = self.ns.settings['sensitivity']
+        self.random_teams = self.ns.settings['random_teams']
 
         global SLOW_MAX
         global SLOW_WARNING
@@ -252,7 +253,7 @@ class Commander():
         self.music_speed = Value('d', 1)
         self.running = True
         self.force_move_colors = {}
-        self.team_num = 2
+        self.num_teams = 2
         self.werewolf_timer = 35
         self.start_timer = time.time()
         self.audio_cue = 0
@@ -272,7 +273,7 @@ class Commander():
         self.bravo_overdrive = Value('i', 0)
 
         
-        self.generate_random_teams(self.team_num)
+        self.generate_random_teams(self.num_teams)
         self.commander_intro = Value('i', 1)
 
         self.powers_active = [False, False]
@@ -302,14 +303,20 @@ class Commander():
         self.game_loop()
 
 
-    def generate_random_teams(self, team_num):
-        team_pick = list(range(team_num))
-        for serial in self.move_serials:
-            random_choice = random.choice(team_pick)
-            self.teams[serial] = random_choice
-            team_pick.remove(random_choice)
-            if not team_pick:
-                team_pick = list(range(team_num))
+    def generate_random_teams(self, num_teams):
+        if self.random_teams == False:
+            players_per_team = (len(self.move_serials)//num_teams)+1
+            team_num = [x for x in range(num_teams)]*players_per_team
+            for num,move in zip(team_num,self.move_serials):
+                self.teams[move] = num
+        else:
+            team_pick = list(range(num_teams))
+            for serial in self.move_serials:
+                random_choice = random.choice(team_pick)
+                self.teams[serial] = random_choice
+                team_pick.remove(random_choice)
+                if not team_pick:
+                    team_pick = list(range(num_teams))
 
     def track_moves(self):
         for move_num, move_serial in enumerate(self.move_serials):
@@ -326,7 +333,7 @@ class Commander():
             proc = Process(target=track_move, args=(move_serial,
                                                     move_num,
                                                     self.teams[move_serial],
-                                                    self.team_num,
+                                                    self.num_teams,
                                                     dead_move,
                                                     force_color,
                                                     self.music_speed,

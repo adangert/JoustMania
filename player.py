@@ -1,5 +1,7 @@
+import abc
 import asyncio
 import collections
+import enum
 import functools
 import itertools
 import math
@@ -12,18 +14,82 @@ NUM_WARNING_FLASHES=5
 WARNING_FLASH_DURATION=0.1
 RAINBOW_PHASE_DURATION=0.1
 
+class EventType(enum.Flag):
+    ACCELEROMETER = enum.auto()
+    BUTTON_DOWN = enum.auto()
+    BUTTON_UP = enum.auto()
+    # TODO: Add trigger events
+
+class ControllerEvent(abc.ABC):
+    __slots__ = ['player']
+
+    @abc.abstractproperty
+    def type(self): raise NotImplemented()
+
+class AccelerometerEvent(ControllerEvent):
+    """Base class for controller events."""
+    __slots__ = ['acceleration']
+
+    def __init__(self, acceleration):
+        self.acceleration = acceleration
+
+    @property
+    def type(self):
+        return EventType.ACCELEROMETER
+
+    @property
+    def acceleration_magnitude(self):
+        return math.sqrt(sum([ v*v for v in self.acceleration ]))
+
+class ButtonDownEvent(ControllerEvent):
+    """Sent when a player first presses a button."""
+    __slots__ = ['button']
+
+    def __init__(self, button: common.Button):
+        self.button = button
+
+    @property
+    def type(self):
+        return EventType.BUTTON_DOWN
+
+class ButtonUpEvent(ControllerEvent):
+    """Sent when a player first releases a button."""
+    __slots__ = ['button']
+
+    def __init__(self, player, button: common.Button):
+        super().__init__(player)
+        self.button = button
+
+    @property
+    def type(self):
+        return EventType.BUTTON_UP
+
+
 class ControllerState:
     """The state of inputs on a controller at one point in time."""
     __slots__ = ['buttons', 'trigger', 'acceleration']
 
     def __init__(self, move):
         self.buttons = common.Button(move.get_buttons())
-        self.trigger = move.get_trigger() / 100
+        self.trigger = move.get_trigger()
         self.acceleration = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
 
     @property
     def acceleration_magnitude(self):
         return math.sqrt(sum([ v*v for v in self.acceleration ]))
+
+    def get_events_from_state_diff(self, prev_state):
+        # Is this ever false?
+        if prev_state.acceleration != self.acceleration:
+            yield AccelerometerEvent(self.acceleration)
+        new_buttons = self.buttons & (~prev_state.buttons)
+        for button in common.Button:
+            if button in new_buttons:
+                yield ButtonDownEvent(button)
+        released_buttons = prev_state.buttons & (~self.buttons)
+        for button in common.Button:
+            if button in released_buttons:
+                yield ButtonDownEvent(button)
 
 # TODO: Break this out into a util library if it seems useful.
 def with_lock(lock):
@@ -43,11 +109,20 @@ class Player:
         self.effect_lock_ = asyncio.Lock()
         self.warn_ = None
         self.effect_ = None
+        self.previous_state_ = ControllerState(move)
+        self.flush_events_()
 
-    def get_events(self) -> typing.Iterator[ControllerState]:
+    def flush_events_(self):
+        while self.move_.poll(): pass
+
+    def get_events(self) -> typing.Iterator[ControllerEvent]:
         """Returns an iterator over events currently pending on the controller."""
         while self.move_.poll():
-            yield ControllerState(self.move_)
+            state = ControllerState(self.move_)
+            for ev in state.get_events_from_state_diff(self.previous_state_):
+                ev.player = self
+                yield ev
+            self.previous_state_ = state
         # TODO: The moves need to be occasionally prodded to keep their leds lit.
         # If we make the piparty loop async, move this logic in there as a task.
         self.move_.update_leds()
@@ -143,11 +218,10 @@ class PlayerCollection:
     def kill_player(self, player: Player):
         self.active_players.remove(player)
         return player.show_death()
-    def active_player_events(self):
+    def active_player_events(self, event_type: EventType):
         # consider randomizing this so players don't get an advantage by being first in the list.
         for player in list(self.active_players):
-            for event in player.get_events():
-                yield player, event
+            yield from (e for e in player.get_events() if e.type in event_type)
     def cancel_effects(self):
         for player in self.players:
             player.cancel_effect()

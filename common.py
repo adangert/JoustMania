@@ -1,7 +1,10 @@
+import asyncio
 import colorsys
 import enum
+import functools
 import psmove
 import time
+import traceback
 
 color_range = 255
 
@@ -128,3 +131,37 @@ class Color(enum.Enum):
 
 # Red is reserved for warnings/knockouts.
 PLAYER_COLORS = [ c for c in Color if c not in (Color.RED, Color.WHITE, Color.BLACK) ]
+
+def async_print_exceptions(f):
+    """Wraps a coroutine to print exceptions (other than cancellations)."""
+    @functools.wraps(f)
+    async def wrapper(*args, **kwargs):
+        try:
+            await f(*args, **kwargs)
+        except asyncio.CancelledError:
+            raise
+        except:
+            traceback.print_exc()
+            raise
+    return wrapper
+
+# Represents a pace the game is played at, encapsulating the tempo of the music as well
+# as controller sensitivity.
+class GamePace:
+    __slots__ = ['tempo', 'warn_threshold', 'death_threshold']
+    def __init__(self, tempo, warn_threshold, death_threshold):
+        self.tempo = tempo
+        self.warn_threshold = warn_threshold
+        self.death_threshold = death_threshold
+
+    def __str__(self):
+        return '<GamePace tempo=%s, warn=%s, death=%s>' % (self.tempo, self.warn_threshold, self.death_threshold)
+
+# TODO: These are placeholder values.
+# We can't take the values from joust.py, since those are compared to the sum of the
+# three accelerometer dimensions, whereas we compute the magnitude of the acceleration
+# vector.
+SLOW_PACE = GamePace(tempo=0.4, warn_threshold=2, death_threshold=4)
+MEDIUM_PACE = GamePace(tempo=1.0, warn_threshold=3, death_threshold=5)
+FAST_PACE = GamePace(tempo=1.5, warn_threshold=5, death_threshold=9)
+FREEZE_PACE = GamePace(tempo=0, warn_threshold=1.1, death_threshold=1.2)

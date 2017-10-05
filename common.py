@@ -5,8 +5,9 @@ import functools
 import psmove
 import time
 import traceback
+import random
 
-color_range = 255
+SETTINGSFILE = 'joustsettings.yaml'
 
 #Human speeds[slow, mid, fast]
 SLOW_WARNING = [0.1, 0.15, 0.28]
@@ -21,14 +22,6 @@ WERE_FAST_MAX = [1.1, 1.5, 2.0]
 
 ZOMBIE_WARNING = [0.5, 0.6, 0.8]
 ZOMBIE_MAX = [0.8, 1, 1.4]
-
-def hsv2rgb(h, s, v):
-    return tuple(int(color * color_range) for color in colorsys.hsv_to_rgb(h, s, v))
-
-def generate_colors(color_num):
-    Hue = [ ((num + 1.0)/color_num, 1, 1) for num in range(color_num) ]
-    colors = [ hsv2rgb(*hsv_color) for hsv_color in Hue ]
-    return colors
 
 
 def get_move(serial, move_num):
@@ -47,11 +40,6 @@ def get_move(serial, move_num):
 def lerp(a, b, p):
     return a*(1 - p) + b*p
 
-def change_color(color_array, r, g, b):
-    color_array[0] = r
-    color_array[1] = g
-    color_array[2] = b
-
 class Games(enum.Enum):
     JoustFFA = (0, 'Joust Free-for-All', 2)
     JoustTeams = (1, 'Joust Teams', 3)
@@ -64,6 +52,7 @@ class Games(enum.Enum):
     Tournament = (8, 'Tournament', 3)
     Ninja = (9, 'Ninja Bomb', 2)
     Random = (10, 'Random', 2)
+
 
     def __new__(cls, value, pretty_name, min_players):
         """This odd constructor lets us keep Foo.value as an integer, but also
@@ -96,7 +85,6 @@ class Button(enum.Flag):
     TRIGGER  = psmove.Btn_T
 
     SHAPES   = TRIANGLE | CIRCLE | CROSS | SQUARE
-
 
 battery_levels = {
     psmove.Batt_MIN:           "Low",
@@ -165,3 +153,12 @@ SLOW_PACE = GamePace(tempo=0.4, warn_threshold=2, death_threshold=4)
 MEDIUM_PACE = GamePace(tempo=1.0, warn_threshold=3, death_threshold=5)
 FAST_PACE = GamePace(tempo=1.5, warn_threshold=5, death_threshold=9)
 FREEZE_PACE = GamePace(tempo=0, warn_threshold=1.1, death_threshold=1.2)
+
+REQUIRED_SETTINGS = [
+'play_audio',
+'move_can_be_admin',
+'enforce_minimum',
+'sensitivity',
+'play_instructions',
+'random_modes'
+]

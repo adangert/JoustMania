@@ -9,28 +9,9 @@ function updateStatus(){
             info = JSON.parse(rawdata);
             $('.main_status').show()
             $('#game_mode').text(info.game_mode);
-            $('#game_status').text(info.game_status);
             $('.info_box').hide()
             $('.admin').hide()
             $('.error').hide()
-
-            if (info.game_mode == 'Werewolves'){
-                team_name = ['Werewolf','Human']
-            } else if (info.game_mode == 'Joust Teams'){
-                team_name = ['Yellow','Green','Cyan','Blue','Magenta','Red'];
-            } else if (info.game_mode == 'Joust Random Teams'){
-                team_name = ['Yellow','Cyan','Magenta','Red'];
-            } else if (info.game_mode == 'Zombies'){
-                team_name = ['Human','Zombie'];
-            } else if (info.game_mode == 'Commander'){
-                team_name = ['Red', 'Blue'];
-            } else if (info.game_mode == 'Traitors'){
-                team_name = ['Traitor','Green','Blue','Red'];
-            } else if (info.game_mode == 'Swapper'){
-                team_name = ['Blue', 'Red'];
-            } else { //free for all
-                team_name = ['null'];
-            }
 
             if (info.game_status=='in_game'){
                 $('#gamebuttons').show();
@@ -48,12 +29,10 @@ function updateStatus(){
                     $('#time_left').text(info.time_left)
                 } else if (info.game_mode == 'Commander'){
                     $('#commander').show()
-                    $('#red_players').text(info.red_players)
-                    $('#red_alive').text(info.red_alive)
-                    $('#red_od_status').text(info.red_od_status)
-                    $('#blue_players').text(info.blue_players)
-                    $('#blue_alive').text(info.blue_alive)
-                    $('#blue_od_status').text(info.blue_od_status)
+                    $('#alpha_team').text(info.team_names[0] + ': ' + info.alpha_alive + '/'+ info.alpha_players)
+                    $('#alpha_od_status').text(info.team_names[0] + ' Overdrive: ' +info.alpha_od_status)
+                    $('#bravo_team').text(info.team_names[1] + ': ' + info.bravo_alive + '/'+ info.bravo_players)
+                    $('#bravo_od_status').text(info.team_names[1] + ' Overdrive: ' +info.bravo_od_status)
                 } else if (info.game_mode == 'Ninja Bomb'){
                     $('#ninja').show()
                     $('#total_ninjas').text(info.total_players)
@@ -65,7 +44,7 @@ function updateStatus(){
                     for (i=0; i < info.team_comp.length; i++){
                         t = info.team_comp[i]
                         if (t[0] != 0){
-                            team_info += team_name[i] + ' Team: ' + t[1] + '/' + t[0] + '<br />';
+                            team_info += info.team_names[i] + ': ' + t[1] + '/' + t[0] + '<br />';
                         }
                     }
                     team_info += '<br />';
@@ -75,14 +54,14 @@ function updateStatus(){
 
             } else if (info.game_status=='starting'){
                 $('#starting').show();
-                $('#player_count').text(info.alive_count)
+                $('#player_count').text(info.alive_count);
 
             } else if (info.game_status=='ending'){
                 $('#ending').show();
                 $('#team_win').hide();
                 if (info.game_mode != 'Joust Free-for-All' && info.winning_team != -1){
                     $('#team_win').show();
-                    line = team_name[info.winning_team] + ' Team wins!'
+                    line = info.team_names[info.winning_team] + ' win!'
                     $('#team_win').text(line);
                 }
 
@@ -137,7 +116,6 @@ $(document).ready(function(){
 {% block body %}
 <div class='main_status'>
 Curent mode: <span id='game_mode'>Joust Null</span><br />
-Game status: <span id='game_status'>False</span><br />
 </div>
 
 
@@ -149,7 +127,8 @@ Alive Moves: <span id='alive_count'>-999</span><br /><br />
 
 <div class='info_box' id='starting'>
 <br />
-Total Players: <span id='player_count'>-999</span><br />
+Total Players: <span id='player_count'>-999</span><br /><br />
+Game Starting!<br /><br />
 </div>
 
 <div class='info_box' id='free4all'>
@@ -171,10 +150,10 @@ Alive Zombies: <span id='alive_zombies'>-999</span><br /><br />
 
 <div class='info_box' id="commander">
 <br />
-Red Team: <span id='red_alive'>-999</span>/<span id='red_players'>-999</span><br />
-Red Overdrive: <span id='red_od_status'>lol</span><br />
-Blue Team: <span id='blue_alive'>-999</span>/<span id='blue_players'>-999</span><br />
-Blue Overdrive: <span id='blue_od_status'>lol</span><br />
+<span id='alpha_team'>Alpha Team: -999/-999</span><br />
+<span id='alpha_od_status'>Alpha Team Overdrive: lol</span><br />
+<span id='bravo_team'>Bravo Team: -999/-999</span><br />
+<span id='bravo_od_status'>Bravo Team Overdrive: lol</span><br />
 <br />
 </div>
 

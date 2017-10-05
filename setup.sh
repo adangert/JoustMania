@@ -63,6 +63,7 @@ setup() {
         -DPSMOVE_BUILD_TRACKER:BOOL=ON \
         -DPSMOVE_USE_PSEYE:BOOL=OFF
     make -j4
+    cp /home/pi/psmoveapi/build/{psmove.py,_psmove.so} $VENV/lib/python3.6
 
     #installs custom supervisor script for running joustmania on startup
     sudo cp -r /home/pi/JoustMania/conf/supervisor/ /etc/

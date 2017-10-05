@@ -24,7 +24,7 @@ class SettingsForm(Form):
     sensitivity = SelectField('Move sensitivity',choices=[(0,'Slow'),(1,'Medium'),(2,'Fast')],coerce=int)
 
     mode_options = [ game for game in common.Games if game not in [common.Games.Random, common.Games.JoustTeams]]
-    random_modes = MultiCheckboxField('Random Modes',choices=[(game.pretty_name, game.pretty_name) for game in mode_options])
+    random_modes = MultiCheckboxField('Random Modes', choices=[(game.name, game.pretty_name) for game in mode_options])
 
 class WebUI():
     def __init__(self, command_queue=Queue(), ns=Manager().Namespace()):

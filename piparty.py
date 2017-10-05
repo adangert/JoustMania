@@ -223,11 +223,11 @@ class Menu():
             self.instructions = config.getboolean("GENERAL","instructions")
             self.con_games = []
             for game in common.Games:
-                # We should probably store .name or .value in the config,
-                # so it is not affected by localization or whatnot, but
-                # it would break existing configs.
-                if config.getboolean("CONGAMES", game.pretty_name):
-                    self.con_games.append(game)
+                try:
+                    if config.getboolean("CONGAMES", game.name):
+                        self.con_games.append(game)
+                except configparser.NoOptionError:
+                    pass
             if self.con_games == []:
                 self.con_games = [common.Games.JoustFFA]
 
@@ -510,7 +510,7 @@ class Menu():
         self.audio_toggle = 'audio' in admin_info.keys()
 
         selected_games = admin_info.getlist('random_modes')
-        self.con_games = [ game for game in common.Games if game.pretty_name in selected_games]
+        self.con_games = [ game for game in common.Games if game.name in selected_games]
         #print(self.con_games)
         if self.con_games == []:
             self.con_games = [common.Games.JoustFFA]
@@ -524,7 +524,7 @@ class Menu():
             'instructions' : str(self.instructions),
             'audio': str(self.audio_toggle)
         }
-        config['CONGAMES'] = { game.pretty_name : game in self.con_games for game in common.Games }
+        config['CONGAMES'] = { game.name : game in self.con_games for game in common.Games }
         with open('joustconfig.ini','w') as ini_file:
             config.write(ini_file)
 
@@ -556,7 +556,7 @@ class Menu():
                'sensitivity': self.sensitivity,
                'audio': self.audio_toggle,
                'enforce_minimum': self.enforce_minimum,
-               'con_games': [ game.pretty_name for game in self.con_games]}
+               'con_games': [ game.name for game in self.con_games]}
         self.status_ns.status_dict = data
 
         battery_status = {}

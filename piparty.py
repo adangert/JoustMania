@@ -395,16 +395,11 @@ class Menu():
 
 
     def game_loop(self):
-        check_usb_time = 0
         while True:
             self.i=self.i+1
-            #USB move check takes a while and lags webui commands, so check every few seconds
-            #hopefully this doesn't break anything?
-            if time.time() - 5 > check_usb_time:
-                check_usb_time = time.time()
-                if "0" in os.popen('lsusb | grep "PlayStation Move motion controller" | wc -l').read():
-                    self.pair_one_move = True
-                    self.paired_moves = []
+            if not self.pair_one_move and "0" in os.popen('lsusb | grep "PlayStation Move motion controller" | wc -l').read():
+                self.pair_one_move = True
+                self.paired_moves = []
             if self.pair_one_move:
                 if psmove.count_connected() != len(self.tracked_moves):
                     for move_num, move in enumerate(self.moves):

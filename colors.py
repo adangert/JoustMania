@@ -72,6 +72,7 @@ class Colors(Enum):
     Red60 = (150,0,0)
     Red80 = (200,0,0)
     Green80 = (0,200,0)
+    Blue40 = (0,0,100)
     LimeGreen = (100,255,0)
     Zombie = (50,150,50)
     Black = (0,0,0)

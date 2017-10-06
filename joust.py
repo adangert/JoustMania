@@ -84,9 +84,12 @@ def track_move(move_serial, move_num, game_mode, team, team_color_enum, dead_mov
             else:
                 if sum(force_color) == 30:
                     if werewolf:
-                        move.set_leds(255, 0, 0)
+                        if red_on_kill:
+                            move.set_leds(*colors.Colors.Blue40.value)
+                        else:
+                            move.set_leds(*colors.Colors.Red60.value)
                     else:
-                        move.set_leds(0, 0, 0)
+                        move.set_leds(*colors.Colors.Black.value)
                 move.set_rumble(0)
             move.update_leds()
             no_rumble = time.time() + 0.5
@@ -118,15 +121,18 @@ def track_move(move_serial, move_num, game_mode, team, team_color_enum, dead_mov
                             flash_lights = not flash_lights
                         if flash_lights:
                             if game_mode == common.Games.WereJoust:
-                                move.set_leds(*colors.Colors.Black)
+                                move.set_leds(*colors.Colors.Black.value)
                             else:
-                                move.set_leds(*colors.Colors.White40)
+                                move.set_leds(*colors.Colors.White40.value)
                         else:
                             if game_mode == common.Games.WereJoust:
                                 if werewolf_reveal.value == 2 and werewolf:
-                                    move.set_leds(*colors.Colors.Red)
+                                    if red_on_kill:
+                                        move.set_leds(*colors.Colors.Blue40.value)
+                                    else:
+                                        move.set_leds(*colors.Colors.Red60.value)
                                 else:
-                                    move.set_leds(*colors.Colors.White40)
+                                    move.set_leds(*colors.Colors.White40.value)
                             else:
                                 move.set_leds(*my_team_colors)
                         if time.time() < vibration_time - 0.22:
@@ -139,9 +145,12 @@ def track_move(move_serial, move_num, game_mode, team, team_color_enum, dead_mov
                     else:
                         if game_mode == common.Games.WereJoust:
                             if werewolf_reveal.value == 2 and werewolf:
-                                move.set_leds(*colors.Colors.Red)
+                                if red_on_kill:
+                                    move.set_leds(*colors.Colors.Blue40.value)
+                                else:
+                                    move.set_leds(*colors.Colors.Blue40.value)
                             else:
-                                move.set_leds(*colors.Colors.White40)
+                                move.set_leds(*colors.Colors.White40.value)
                         else:
                             move.set_leds(*my_team_colors)
                         #move.set_rumble(0)
@@ -149,7 +158,10 @@ def track_move(move_serial, move_num, game_mode, team, team_color_enum, dead_mov
 
                     if change > threshold:
                         if time.time() > no_rumble:
-                            move.set_leds(*colors.Colors.Black)
+                            if red_on_kill:
+                                move.set_leds(*colors.Colors.Red.value)
+                            else:
+                                move.set_leds(*colors.Colors.Black.value)
                             move.set_rumble(90)
                             dead_move.value = 0
 
@@ -171,6 +183,8 @@ class Joust():
 
         self.command_queue = command_queue
         self.ns = ns
+
+        print(self.ns.settings)
 
         self.game_mode = game_mode
 
@@ -505,9 +519,12 @@ class Joust():
         #don't wait so colors change during prompts
         Audio('audio/Joust/sounds/werewolf intro.wav').start_effect()
         time.sleep(3)
-        self.change_all_move_colors(80, 0, 0)
+        if self.red_on_kill:
+            self.change_all_move_colors(0,0,80)
+        else:
+            self.change_all_move_colors(80,0,0)
         time.sleep(2)
-        self.change_all_move_colors(30, 0, 0)
+        self.change_all_move_colors(0,0,30)
         time.sleep(14)
         self.change_all_move_colors(20, 20, 20)
         time.sleep(6)

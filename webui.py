@@ -22,7 +22,7 @@ class SettingsForm(Form):
     move_can_be_admin = BooleanField('Allow Move to change settings')
     play_instructions = BooleanField('Play instructions before game start')
     play_audio = BooleanField('Play audio')
-    red_on_kill = SelectField('Kill notification',choices=[(False,'Dark'),(True,'Red')],coerce=bool)
+    red_on_kill = SelectField('Kill notification',choices=[(True,'Red'),('','Dark')],coerce=bool)
     sensitivity = SelectField('Move sensitivity',choices=[(0,'Slow'),(1,'Medium'),(2,'Fast')],coerce=int)
     mode_options = [ game for game in common.Games if game not in [common.Games.Random, common.Games.JoustTeams]]
     random_modes = MultiCheckboxField('Random Modes',choices=[(game.name, game.pretty_name) for game in mode_options])
@@ -116,21 +116,16 @@ class WebUI():
     def web_settings_update(self,web_settings):
         temp_settings = self.ns.settings
         temp_settings.update(web_settings)
-
-
         #secret setting, keep it True
         #temp_settings['enforce_minimum'] = 'enforce_minimum' in web_settings.keys()
-        
         if temp_settings['random_modes'] == []:
-            temp_settings['random_modes'] = [common.Games.JoustFFA.pretty_name]
-
+            temp_settings['random_modes'] = [common.Games.JoustFFA.name]
+            
         temp_settings['color_lock_choices'] = {
             2: temp_settings['color_lock_choices'][0:2],
             3: temp_settings['color_lock_choices'][2:5],
             4: temp_settings['color_lock_choices'][5:9],
         }
-        
-        print(temp_settings)
 
         self.ns.settings = temp_settings
 

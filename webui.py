@@ -3,6 +3,7 @@ from time import sleep
 from flask import Flask, render_template, request, redirect, url_for, flash
 from time import sleep
 from wtforms import Form, SelectField, SelectMultipleField, BooleanField, widgets, FieldList
+from os import system
 import common, colors
 import json
 import yaml
@@ -61,6 +62,9 @@ class WebUI():
         self.app.add_url_rule('/battery','battery_status',self.battery_status)
         self.app.add_url_rule('/settings','settings',self.settings, methods=['GET','POST'])
         self.app.add_url_rule('/rand<num_teams>','randomize',self.randomize_teams)
+        self.app.add_url_rule('/power','power',self.power)
+        self.app.add_url_rule('/reboot8675309','reboot',self.reboot)
+        self.app.add_url_rule('/shutdown8675309','shutdown',self.shutdown)
 
 
     def web_loop(self):
@@ -95,6 +99,20 @@ class WebUI():
     #@app.route('/battery')
     def battery_status(self):
         return render_template('battery.html',ns=self.ns,levels=common.battery_levels)
+
+    #@app.route('/power')
+    def power(self):
+        return render_template('power.html')
+
+    #@app.route('/shutdown8675309')
+    def shutdown(self):
+        system('shutdown now')
+        return 'Goodbye!'
+
+    #@app.route('/reboot8675309')
+    def reboot(self):
+        system('shutdown now')
+        return 'Goodbye!'
 
     #@app.route('/settings')
     def settings(self):

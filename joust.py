@@ -84,10 +84,7 @@ def track_move(move_serial, move_num, game_mode, team, team_color_enum, dead_mov
             else:
                 if sum(force_color) == 30:
                     if werewolf:
-                        if red_on_kill:
-                            move.set_leds(*colors.Colors.Blue40.value)
-                        else:
-                            move.set_leds(*colors.Colors.Red60.value)
+                        move.set_leds(*colors.Colors.Blue40.value)
                     else:
                         move.set_leds(*colors.Colors.Black.value)
                 move.set_rumble(0)
@@ -127,10 +124,7 @@ def track_move(move_serial, move_num, game_mode, team, team_color_enum, dead_mov
                         else:
                             if game_mode == common.Games.WereJoust:
                                 if werewolf_reveal.value == 2 and werewolf:
-                                    if red_on_kill:
-                                        move.set_leds(*colors.Colors.Blue40.value)
-                                    else:
-                                        move.set_leds(*colors.Colors.Red60.value)
+                                    move.set_leds(*colors.Colors.Blue40.value)
                                 else:
                                     move.set_leds(*colors.Colors.White40.value)
                             else:
@@ -145,10 +139,7 @@ def track_move(move_serial, move_num, game_mode, team, team_color_enum, dead_mov
                     else:
                         if game_mode == common.Games.WereJoust:
                             if werewolf_reveal.value == 2 and werewolf:
-                                if red_on_kill:
-                                    move.set_leds(*colors.Colors.Blue40.value)
-                                else:
-                                    move.set_leds(*colors.Colors.Blue40.value)
+                                move.set_leds(*colors.Colors.Blue40.value)
                             else:
                                 move.set_leds(*colors.Colors.White40.value)
                         else:
@@ -519,10 +510,7 @@ class Joust():
         #don't wait so colors change during prompts
         Audio('audio/Joust/sounds/werewolf intro.wav').start_effect()
         time.sleep(3)
-        if self.red_on_kill:
-            self.change_all_move_colors(0,0,80)
-        else:
-            self.change_all_move_colors(80,0,0)
+        self.change_all_move_colors(0,0,80)
         time.sleep(2)
         self.change_all_move_colors(0,0,30)
         time.sleep(14)

@@ -86,6 +86,8 @@ class Button(enum.Flag):
 
     SHAPES   = TRIANGLE | CIRCLE | CROSS | SQUARE
 
+all_shapes = [Button.TRIANGLE, Button.CIRCLE, Button.CROSS, Button.SQUARE]
+
 battery_levels = {
     psmove.Batt_MIN:           "Low",
     psmove.Batt_20Percent:     "20%",

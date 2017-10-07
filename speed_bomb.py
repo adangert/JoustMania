@@ -105,6 +105,7 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
 
                         faking = True
                         #move_opts[Opts.holding.value] = Holding.holding.value
+                        
                         move_opts[Opts.selection.value] = Selections.false_trigger.value
                         if (move.get_trigger() <= 127):
                             col1 = int(common.lerp(fake_bomb_color[0], no_fake_bomb_color[0], (move.get_trigger()-50)/77))
@@ -138,7 +139,7 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                 else:
                     can_fake = True
                     faking = False
-                    if false_colors.value == 1:
+                    if false_color.value == 1:
                         move.set_leds(150,20,20)
                     else:
                         move.set_leds(*no_bomb_color)
@@ -146,13 +147,13 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                         if move_opts[Opts.has_bomb.value] == Bool.no.value:
                             move_opts[Opts.holding.value] = Holding.holding.value
 
-                            if game_start.value == 1 and false_colors.value == 1:
+                            if game_start.value == 1 and false_color.value == 1:
                                 print("JUST DIED TO BEING FAKED!!!")
                                 faked.value = 1
                                 #dead_move.value -= 1
                     move.set_rumble(0)
 
-                if move_opts[Opts.holding.value] == Holding.not_holding.value and button in common.Button.SHAPES:
+                if move_opts[Opts.holding.value] == Holding.not_holding.value and (button in  common.all_shapes):
                     move_opts[Opts.selection.value] = Selections.counter.value
                     move_opts[Opts.holding.value] = Holding.holding.value
 
@@ -397,6 +398,7 @@ class Bomb():
 
                 #if we faked play sound
                 if self.move_opts[move_serial][Opts.selection.value] == Selections.false_trigger.value and self.move_opts[move_serial][Opts.holding.value] == Holding.not_holding.value:
+                    print("faked out sound")
                     faker = self.get_next_serial(move_serial)
                     self.reset_bomb_time()
                     self.reset_bomb_length()

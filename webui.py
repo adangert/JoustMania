@@ -1,4 +1,4 @@
-from multiprocessing import Queue, Manager
+from multiprocessing import Queue, Manager, Process
 from time import sleep
 from flask import Flask, render_template, request, redirect, url_for, flash
 from time import sleep
@@ -65,6 +65,7 @@ class WebUI():
         self.app.add_url_rule('/power','power',self.power)
         self.app.add_url_rule('/reboot8675309','reboot',self.reboot)
         self.app.add_url_rule('/shutdown8675309','shutdown',self.shutdown)
+        self.app.add_url_rule('/shutdown','shutdown_lastscreen',self.shutdown_lastscreen)
 
 
     def web_loop(self):
@@ -106,13 +107,27 @@ class WebUI():
 
     #@app.route('/shutdown8675309')
     def shutdown(self):
+        Process(target=self.shutdown_proc).start()
+        #use redirect to conceal the url for tripping the shutdown
+        return redirect(url_for('shutdown_lastscreen'))
+
+    def shutdown_proc(self):
+        sleep(2)
         system('shutdown now')
-        return 'Goodbye!'
+
+    #@app.route('/shutdown_lastscreen')
+    def shutdown_lastscreen(self):
+        return render_template('shutdown.html')
 
     #@app.route('/reboot8675309')
     def reboot(self):
+        Process(target=self.reboot_proc).start()
+        return redirect(url_for('index'))
+
+    def reboot_proc(self):
+        sleep(2)
         system('reboot now')
-        return 'Goodbye!'
+        
 
     #@app.route('/settings')
     def settings(self):

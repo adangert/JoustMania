@@ -5,46 +5,48 @@ import enum
 import functools
 import itertools
 import math
+import time
 import typing
 
 import psmove
 import common
+from numpy import linalg
 
 NUM_WARNING_FLASHES=5
 WARNING_FLASH_DURATION=0.1
 RAINBOW_PHASE_DURATION=0.1
 
 class EventType(enum.Flag):
-    ACCELEROMETER = enum.auto()
+    SENSOR = enum.auto()
     BUTTON_DOWN = enum.auto()
     BUTTON_UP = enum.auto()
     # TODO: Add trigger events
 
 class ControllerEvent(abc.ABC):
-    __slots__ = ['player']
-
     @abc.abstractproperty
     def type(self): raise NotImplemented()
 
-class AccelerometerEvent(ControllerEvent):
+class SensorEvent(ControllerEvent):
     """Base class for controller events."""
-    __slots__ = ['acceleration']
-
-    def __init__(self, acceleration):
+    def __init__(self, acceleration, jerk, gyroscope):
         self.acceleration = acceleration
+        self.jerk = jerk
+        self.gyroscope = gyroscope
 
     @property
     def type(self):
-        return EventType.ACCELEROMETER
+        return EventType.SENSOR
 
     @property
     def acceleration_magnitude(self):
-        return math.sqrt(sum([ v*v for v in self.acceleration ]))
+        return linalg.norm(self.acceleration)
+
+    @property
+    def jerk_magnitude(self):
+        return linalg.norm(self.jerk)
 
 class ButtonDownEvent(ControllerEvent):
     """Sent when a player first presses a button."""
-    __slots__ = ['button']
-
     def __init__(self, button: common.Button):
         self.button = button
 
@@ -54,8 +56,6 @@ class ButtonDownEvent(ControllerEvent):
 
 class ButtonUpEvent(ControllerEvent):
     """Sent when a player first releases a button."""
-    __slots__ = ['button']
-
     def __init__(self, player, button: common.Button):
         super().__init__(player)
         self.button = button
@@ -67,21 +67,23 @@ class ButtonUpEvent(ControllerEvent):
 
 class ControllerState:
     """The state of inputs on a controller at one point in time."""
-    __slots__ = ['buttons', 'trigger', 'acceleration']
-
     def __init__(self, move):
         self.buttons = common.Button(move.get_buttons())
         self.trigger = move.get_trigger()
-        self.acceleration = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
+        self.acceleration = tuple(move.get_accelerometer_frame(psmove.Frame_SecondHalf))
+        self.gyroscope = tuple(move.get_gyroscope_frame(psmove.Frame_SecondHalf))
+        self.ts = time.time()
 
     @property
     def acceleration_magnitude(self):
         return math.sqrt(sum([ v*v for v in self.acceleration ]))
 
     def get_events_from_state_diff(self, prev_state):
-        # Is this ever false?
-        if prev_state.acceleration != self.acceleration:
-            yield AccelerometerEvent(self.acceleration)
+        acc_diff = map(lambda a, b: a - b, self.acceleration, prev_state.acceleration)
+        time_diff = self.ts - prev_state.ts
+        jerk = tuple([ e / time_diff for e in acc_diff ])
+        yield SensorEvent(self.acceleration, jerk, self.gyroscope)
+
         new_buttons = self.buttons & (~prev_state.buttons)
         for button in common.Button:
             if button in new_buttons:
@@ -117,12 +119,12 @@ class Player:
 
     def get_events(self) -> typing.Iterator[ControllerEvent]:
         """Returns an iterator over events currently pending on the controller."""
-        while self.move_.poll():
-            state = ControllerState(self.move_)
-            for ev in state.get_events_from_state_diff(self.previous_state_):
-                ev.player = self
-                yield ev
-            self.previous_state_ = state
+        self.flush_events_()
+        state = ControllerState(self.move_)
+        for ev in state.get_events_from_state_diff(self.previous_state_):
+            ev.player = self
+            yield ev
+        self.previous_state_ = state
         # TODO: The moves need to be occasionally prodded to keep their leds lit.
         # If we make the piparty loop async, move this logic in there as a task.
         self.move_.update_leds()

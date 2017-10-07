@@ -515,26 +515,35 @@ class Menu():
             }
         })
         try:
-            #catch either file opening or yaml loading failing
+            #if anything fails during the settings file load, ignore file and stick with defaults
             with open(common.SETTINGSFILE,'r') as yaml_file:
-                temp_settings.update(yaml.load(yaml_file))
+                file_settings = yaml.load(yaml_file)
+
+            temp_colors = file_settings['color_lock_choices']
+            for key in temp_colors.keys():
+                colorset = temp_colors[key]
+                if len(colorset) != len(set(colorset)):
+                    temp_colors[key] = temp_settings['color_lock_choices'][key]
+
+            for setting in file_settings.keys():
+                if setting not in common.REQUIRED_SETTINGS:
+                    file_settings.pop(setting)
+
+            for game in [common.Games.JoustTeams,common.Games.Random]:
+                if game.name in file_settings['random_modes']:
+                    file_settings['random_modes'].remove(game.name)
+            for game in file_settings['random_modes']:
+                if game not in [game.name for game in common.Games]:
+                    file_settings['random_modes'].remove(game)
+            if file_settings['random_modes'] == []:
+                file_settings['random_modes'] = [common.Games.JoustFFA.name]
+
+            temp_settings.update(file_settings)
+            temp_settings['color_lock_choices'] = temp_colors
+
         except:
             pass
 
-        for setting in temp_settings.keys():
-            if setting not in common.REQUIRED_SETTINGS:
-                temp_settings.pop(setting)
-        #random mode games can't be empty
-        if temp_settings['random_modes'] == []:
-            temp_settings['random_modes'] = [common.Games.JoustFFA.name]
-        #or these two modes
-        for game in [common.Games.JoustTeams,common.Games.Random]:
-            if game.name in temp_settings['random_modes']:
-                temp_settings['random_modes'].remove(game.name)
-        #or a non-existent mode
-        for game in temp_settings['random_modes']:
-            if game not in [game.name for game in common.Games]:
-                temp_settings['random_modes'].remove(game)
         #force these settings
         temp_settings.update({
             'play_audio': True,

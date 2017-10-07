@@ -111,7 +111,7 @@ class WebUI():
 
     #@app.route('/reboot8675309')
     def reboot(self):
-        system('shutdown now')
+        system('reboot now')
         return 'Goodbye!'
 
     #@app.route('/settings')
@@ -119,7 +119,6 @@ class WebUI():
         if request.method == 'POST':
             new_settings = SettingsForm(request.form).data
             self.web_settings_update(new_settings)
-            flash('Settings updated!')
             return redirect(url_for('settings'))
         else:
             temp_colors = self.ns.settings['color_lock_choices']
@@ -132,23 +131,36 @@ class WebUI():
             return render_template('settings.html', form=settingsForm, settings=self.ns.settings)
 
     def web_settings_update(self,web_settings):
+        colors_are_good = True
+        temp_colors = {
+            2: web_settings['color_lock_choices'][0:2],
+            3: web_settings['color_lock_choices'][2:5],
+            4: web_settings['color_lock_choices'][5:9],
+        }
+        for key in temp_colors.keys():
+            colorset = temp_colors[key]
+            if len(colorset) != len(set(colorset)):
+                temp_colors[key] = self.ns.settings['color_lock_choices'][key]
+                colors_are_good = False
+
         temp_settings = self.ns.settings
         temp_settings.update(web_settings)
+        temp_settings['color_lock_choices'] = temp_colors
+
         #secret setting, keep it True
         #temp_settings['enforce_minimum'] = 'enforce_minimum' in web_settings.keys()
         if temp_settings['random_modes'] == []:
             temp_settings['random_modes'] = [common.Games.JoustFFA.name]
-            
-        temp_settings['color_lock_choices'] = {
-            2: temp_settings['color_lock_choices'][0:2],
-            3: temp_settings['color_lock_choices'][2:5],
-            4: temp_settings['color_lock_choices'][5:9],
-        }
 
         self.ns.settings = temp_settings
 
         with open(common.SETTINGSFILE,'w') as yaml_file:
             yaml.dump(self.ns.settings,yaml_file)
+
+        if colors_are_good:
+            flash('Settings updated!')
+        else:
+            flash('Duplicate color lock colors! Other settings saved.')
 
     #@app.route('/rand<num_teams>')
     def randomize_teams(self,num_teams):

@@ -1,0 +1,45 @@
+{% extends "basic.html" %}
+{% block header %}
+<script>
+$(document).ready(function(){
+    $('.panels').hide();
+
+    $('#pick_reboot').click(function(){
+        $('.panels').hide();
+        $('#reboot_panel').show();
+    });
+    $('#pick_shutdown').click(function(){
+        $('.panels').hide();
+        $('#shutdown_panel').show();
+    });
+});
+</script>
+<style>
+p{line-height: 200%}
+span {line-height: 200%}
+</style>
+{% endblock %}
+
+{% block body %}
+<h3>Power Options</h3>
+
+<button type="button" id="pick_reboot">Reboot</button>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<button type="button" id="pick_shutdown">Shut Down</button>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="/"><button type="button">Cancel</button></a>
+<br/><br/>
+<div class="panels" id="reboot_panel">
+Are you sure you want to REBOOT?<br/><br/>
+<a href="/reboot8675309"><button type="button" id="reboot">Reboot</button></a>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="/"><button type="button">Cancel</button></a>
+</div>
+<div class="panels" id="shutdown_panel">
+Are you sure you want to SHUT DOWN?<br/><br/>
+<a href="/shutdown8675309"><button type="button" id="shutdown">Shut Down</button></a>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="/"><button type="button">Cancel</button></a>
+</div>
+
+{% endblock %}

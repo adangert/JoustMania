@@ -49,7 +49,7 @@ END_GAME_PAUSE = 6
 KILL_GAME_PAUSE = 4
 
 
-def track_move(move_serial, move_num, game_mode, team, team_color_enum, dead_move, force_color, music_speed, werewolf_reveal, show_team_colors):
+def track_move(move_serial, move_num, game_mode, team, team_color_enum, dead_move, force_color, music_speed, werewolf_reveal, show_team_colors, red_on_kill):
     #proc = psutil.Process(os.getpid())
     #proc.nice(3)
     #explosion = Audio('audio/Joust/sounds/Explosion34.wav')
@@ -84,17 +84,17 @@ def track_move(move_serial, move_num, game_mode, team, team_color_enum, dead_mov
             else:
                 if sum(force_color) == 30:
                     if werewolf:
-                        move.set_leds(255, 0, 0)
+                        move.set_leds(*colors.Colors.Blue40.value)
                     else:
-                        move.set_leds(0, 0, 0)
+                        move.set_leds(*colors.Colors.Black.value)
                 move.set_rumble(0)
             move.update_leds()
             no_rumble = time.time() + 0.5
         elif dead_move.value == 1 and werewolf_reveal.value > 0:   
             if move.poll():
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
-                #total = sqrt(sum([ax**2, ay**2, az**2]))
-                total = sum([ax, ay, az])
+                total = sqrt(sum([ax**2, ay**2, az**2]))
+                #total = sum([ax, ay, az])
                 if move_last_value is not None:
                     change_real = abs(move_last_value - total)
                     change_arr[0] = change_arr[1]
@@ -118,15 +118,15 @@ def track_move(move_serial, move_num, game_mode, team, team_color_enum, dead_mov
                             flash_lights = not flash_lights
                         if flash_lights:
                             if game_mode == common.Games.WereJoust:
-                                move.set_leds(1,1,1)
+                                move.set_leds(*colors.Colors.Black.value)
                             else:
-                                move.set_leds(100,100,100)
+                                move.set_leds(*colors.Colors.White40.value)
                         else:
                             if game_mode == common.Games.WereJoust:
                                 if werewolf_reveal.value == 2 and werewolf:
-                                    move.set_leds(255,0,0)
+                                    move.set_leds(*colors.Colors.Blue40.value)
                                 else:
-                                    move.set_leds(100,100,100)
+                                    move.set_leds(*colors.Colors.White40.value)
                             else:
                                 move.set_leds(*my_team_colors)
                         if time.time() < vibration_time - 0.22:
@@ -139,9 +139,9 @@ def track_move(move_serial, move_num, game_mode, team, team_color_enum, dead_mov
                     else:
                         if game_mode == common.Games.WereJoust:
                             if werewolf_reveal.value == 2 and werewolf:
-                                move.set_leds(255,0,0)
+                                move.set_leds(*colors.Colors.Blue40.value)
                             else:
-                                move.set_leds(100,100,100)
+                                move.set_leds(*colors.Colors.White40.value)
                         else:
                             move.set_leds(*my_team_colors)
                         #move.set_rumble(0)
@@ -149,7 +149,10 @@ def track_move(move_serial, move_num, game_mode, team, team_color_enum, dead_mov
 
                     if change > threshold:
                         if time.time() > no_rumble:
-                            move.set_leds(0,0,0)
+                            if red_on_kill:
+                                move.set_leds(*colors.Colors.Red.value)
+                            else:
+                                move.set_leds(*colors.Colors.Black.value)
                             move.set_rumble(90)
                             dead_move.value = 0
 
@@ -172,12 +175,17 @@ class Joust():
         self.command_queue = command_queue
         self.ns = ns
 
+        print(self.ns.settings)
+
         self.game_mode = game_mode
 
         #save locally in case settings change from web
         self.play_audio = self.ns.settings['play_audio']
         self.sensitivity = self.ns.settings['sensitivity']
-
+        self.color_lock = self.ns.settings['color_lock']
+        self.color_lock_choices = self.ns.settings['color_lock_choices']
+        self.random_teams = self.ns.settings['random_teams']
+        self.red_on_kill = self.ns.settings['red_on_kill']
 
         self.move_serials = moves
         self.tracked_moves = {}
@@ -246,7 +254,7 @@ class Joust():
         if self.game_mode == common.Games.JoustTeams:
             self.team_colors = colors.team_color_list
         else:
-            self.team_colors = colors.generate_team_colors(self.num_teams)
+            self.team_colors = colors.generate_team_colors(self.num_teams,self.color_lock,self.color_lock_choices)
             self.generate_random_teams(self.num_teams)
 
         if self.game_mode == common.Games.WereJoust:
@@ -285,26 +293,31 @@ class Joust():
             self.teams[werewolf] = (self.teams[werewolf] * -1) - 1
 
     def generate_random_teams(self, num_teams):
-        team_pick = list(range(num_teams))
-        print (str(team_pick))
-        traitor_pick = True
-        copy_serials = self.move_serials[:]
+        if self.random_teams == False and self.game_mode != common.Games.Traitor:
+            players_per_team = (len(self.move_serials)//num_teams)+1
+            team_num = [x for x in range(num_teams)]*players_per_team
+            for num,move in zip(team_num,self.move_serials):
+                self.teams[move] = num
+        else:
+            team_pick = list(range(num_teams))
+            traitor_pick = True
+            copy_serials = self.move_serials[:]
 
-        while len(copy_serials) >= 1:
-        #for serial in self.move_serials:
-            serial = random.choice(copy_serials)
-            copy_serials.remove(serial)
-            random_choice = random.choice(team_pick)
-            if self.game_mode == common.Games.Traitor and traitor_pick:
-                self.teams[serial] = (random_choice * -1) - 1
-            else:
-                self.teams[serial] = random_choice
-##            print("doing random choice")
-##            print(random_choice)
-            team_pick.remove(random_choice)
-            if not team_pick:
-                traitor_pick = False
-                team_pick = list(range(num_teams))
+            while len(copy_serials) >= 1:
+            #for serial in self.move_serials:
+                serial = random.choice(copy_serials)
+                copy_serials.remove(serial)
+                random_choice = random.choice(team_pick)
+                if self.game_mode == common.Games.Traitor and traitor_pick:
+                    self.teams[serial] = (random_choice * -1) - 1
+                else:
+                    self.teams[serial] = random_choice
+    ##            print("doing random choice")
+    ##            print(random_choice)
+                team_pick.remove(random_choice)
+                if not team_pick:
+                    traitor_pick = False
+                    team_pick = list(range(num_teams))
 
     def track_moves(self):
         for move_num, move_serial in enumerate(self.move_serials):
@@ -321,7 +334,8 @@ class Joust():
                                                     force_color,
                                                     self.music_speed,
                                                     self.werewolf_reveal,
-                                                    self.show_team_colors))
+                                                    self.show_team_colors,
+                                                    self.red_on_kill))
             proc.start()
             self.tracked_moves[move_serial] = proc
             self.dead_moves[move_serial] = dead_move
@@ -496,9 +510,9 @@ class Joust():
         #don't wait so colors change during prompts
         Audio('audio/Joust/sounds/werewolf intro.wav').start_effect()
         time.sleep(3)
-        self.change_all_move_colors(80, 0, 0)
+        self.change_all_move_colors(0,0,80)
         time.sleep(2)
-        self.change_all_move_colors(30, 0, 0)
+        self.change_all_move_colors(0,0,30)
         time.sleep(14)
         self.change_all_move_colors(20, 20, 20)
         time.sleep(6)

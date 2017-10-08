@@ -15,7 +15,11 @@ def generate_colors(color_num):
     colors = [ hsv2rgb(*hsv_color) for hsv_color in Hue ]
     return colors
 
-def generate_team_colors(num_teams):
+def generate_team_colors(num_teams, color_lock=False, color_lock_choices=None):
+    if color_lock and color_lock_choices != None and num_teams in [2,3,4]:
+        temp_colors = color_lock_choices[num_teams]
+        return [Colors[c] for c in temp_colors]
+
     if num_teams == 1:
         #only Werewolf, and it's ignored anyway, but let's prevent errors, eh?
         return [random.choice(team_color_list)]
@@ -36,21 +40,11 @@ def generate_team_colors(num_teams):
         teams = [Colors.Green,Colors.Blue,team_a,team_b]
         random.shuffle(teams)
         return teams
-    elif num_teams in [5,6,7,8]:
-        teams =  [five_colors,six_colors,seven_colors,eight_colors][num_teams-5]
-        random.shuffle(teams)
-        return teams
-    elif num_teams > 8:
-        #we're in FFA territory now
-        remaining = eight_colors[:]
-        teams = eight_colors[:]
-        for i in range(7,num_teams):
-            next_team = random.choice(remaining)
-            remaining.remove(next_team)
-            teams.append(next_team)
-            if remaining == []:
-                remaining = eight_colors[:]
-        random.shuffle(teams)
+    elif num_teams > 4:
+        #set colors, we're in FFA territory now
+        sets_needed = (num_teams//8)+1
+        teams = ordered_color_list*sets_needed
+        teams = teams[:num_teams]
         return teams
 
 def change_color(color_array, r, g, b):
@@ -72,11 +66,13 @@ class Colors(Enum):
     White = (255,255,255)
     White80 = (200,200,200)
     White60 = (150,150,150)
+    White40 = (100,100,100)
     White20 = (50,50,50)
     Red = (255,0,0)
     Red60 = (150,0,0)
     Red80 = (200,0,0)
     Green80 = (0,200,0)
+    Blue40 = (0,0,100)
     LimeGreen = (100,255,0)
     Zombie = (50,150,50)
     Black = (0,0,0)
@@ -85,6 +81,8 @@ class Colors(Enum):
     SplatoonPink = (30,220,0)
 
 team_color_list = [x for x in Colors][0:8]
+ordered_color_list = [Colors.Blue,Colors.Yellow,Colors.Green,Colors.Orange,Colors.Purple,
+    Colors.Magenta,Colors.Turquoise,Colors.Pink]
 
 #pick one color, then pick among the colors not near the first
 dual_teams = {
@@ -115,11 +113,3 @@ tri_teams = {
 quad_teams - generated above, here's how
 all groups have green and blue, one of orange/yellow, one of pink/magenta/purple
 """
-
-#at this point just force colors
-five_colors = [Colors.Orange,Colors.Yellow,Colors.Green,Colors.Blue,Colors.Purple]
-six_colors = [Colors.Magenta,Colors.Orange,Colors.Yellow,Colors.Green,Colors.Blue,Colors.Purple]
-seven_colors = team_color_list[1:] #all but pink
-eight_colors = team_color_list
-
-multi_colors = [five_colors,six_colors,seven_colors,eight_colors]

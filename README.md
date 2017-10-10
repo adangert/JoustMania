@@ -38,6 +38,8 @@ Optional:
 
 This will allow you to charge 9 controllers at once through the pi
 
+For questions on hardware, or if you would like to inquire about purchasing a fully setup Joustmania device, please reach out to joustmaniagame@gmail.com
+
 Installation
 ---------------------------
 

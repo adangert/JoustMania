@@ -1,6 +1,10 @@
 ![Magfest 2017](logo/magfest.jpg)
 JoustMania at Magfest 2017!
-![PiParty Logo](logo/PiPartyLogo2.png)
+
+<p align="center">
+  <img src="logo/joustmania2.png" width="700" alt="Joustmania Logo"/>
+</p>
+
 
 What is JoustMania????
 --------------------------------------

@@ -315,7 +315,7 @@ class Zombie:
             shotgun = Audio('audio/Zombie/sound_effects/shotgun.wav')
             molotov = Audio('audio/Zombie/sound_effects/molotov.wav')
             try:
-                self.music.start_effect_music()
+                self.music.start_audio_loop()
 ##                music = Audio('audio/Zombie/music/' + random.choice(os.listdir('audio/Zombie/music/')))
 ##                music.start_effect_music()
             except:
@@ -422,7 +422,7 @@ class Zombie:
                 running = False
                 if self.play_audio:
                     try:
-                        self.music.stop_effect_music()
+                        self.music.stop_audio()
                     except:
                         print('no audio loaded')
 

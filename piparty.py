@@ -7,7 +7,7 @@ from piaudio import Music, DummyMusic, Audio, InitAudio
 from enum import Enum
 from multiprocessing import Process, Value, Array, Queue, Manager
 from games import ffa
-import jmdbus
+import jm_dbus
 
 
 TEAM_NUM = len(colors.team_color_list)

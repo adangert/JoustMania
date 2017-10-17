@@ -72,6 +72,9 @@ setup() {
     #makes sound card 1(usb audio) to be default output
     #use aplay -l to check sound card number
     #sudo cp /home/pi/JoustMania/asound.conf /etc/
+    
+    #Use amixer to set sound output to 100%
+    amixer sset PCM,0 100%
 
     # Pause a second before rebooting so we can see all the output from this script.
     (sleep 1; sudo reboot) &

@@ -7,6 +7,7 @@ from piaudio import Music, DummyMusic, Audio, InitAudio
 from enum import Enum
 from multiprocessing import Process, Value, Array, Queue, Manager
 from games import ffa
+import jm_dbus
 
 
 TEAM_NUM = len(colors.team_color_list)
@@ -291,20 +292,16 @@ class Menu():
         #self.alive_count = len([move.get_serial() for move in self.moves if self.move_opts[move.get_serial()][Opts.alive.value] == Alive.on.value])
         
 
-    @staticmethod
-    def enable_bt_scanning(on=True):
-        scan_cmd = "hciconfig {0} {1}"
-        if on:
-            scan = "pscan"
-        else:
-            scan = "noscan"
-        bt_hcis = os.popen("hcitool dev | grep hci | awk '{print $1}'").read().split('\n')
-        bt_hcis = [bt for bt in bt_hcis if bt]
+    def enable_bt_scanning(self, on=True):
+        bt_hcis = list(jm_dbus.get_hci_dict().keys())
+
         for hci in bt_hcis:
-            scan_enabled = os.popen(scan_cmd.format(hci, scan)).read()
-        if not bt_hcis:
-            for i in range(8):
-                os.popen("sudo hciconfig hci{} up".format(i))
+            if jm_dbus.enable_adapter(hci):
+                self.pair.update_adapters()
+            if on:
+                jm_dbus.enable_pairable(hci)
+            else:
+                jm_dbus.disable_pairable(hci)
 
     def pair_usb_move(self, move):
         move_serial = move.get_serial()

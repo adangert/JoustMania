@@ -78,9 +78,8 @@ Pairing controllers
 
 If pairing is not working for some reason, or you would like to resync all controllers run the following
 ```
-sudo -i
-cd /home/pi/JoustMania/
-./reset_bluetooth_connections.sh
+cd ~/JoustMania/
+python clear_devices.py
 ```
 
 How to select a game mode

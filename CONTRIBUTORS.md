@@ -6,6 +6,9 @@
 * refactoring guru + optimization wizard for Audio
 * working on implementing Joust with python async support
 
+[Robotopera](https://github.com/Robotopera)
+* Updated volume of pi in setup.sh
+
 [burk3](https://github.com/burk3)
 * optimized setup.py
 

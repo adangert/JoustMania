@@ -293,18 +293,13 @@ class Menu():
 
     @staticmethod
     def enable_bt_scanning(on=True):
-        scan_cmd = "hciconfig {0} {1}"
-        if on:
-            scan = "pscan"
-        else:
-            scan = "noscan"
-        bt_hcis = os.popen("hcitool dev | grep hci | awk '{print $1}'").read().split('\n')
-        bt_hcis = [bt for bt in bt_hcis if bt]
+        bt_hcis = list(jm_dbus.get_hci_dict().keys())
+
         for hci in bt_hcis:
-            scan_enabled = os.popen(scan_cmd.format(hci, scan)).read()
-        if not bt_hcis:
-            for i in range(8):
-                os.popen("sudo hciconfig hci{} up".format(i))
+            if on:
+                jm_dbus.start_discovery()
+            else:
+                jm_dbus.stop_discovery()
 
     def pair_usb_move(self, move):
         move_serial = move.get_serial()

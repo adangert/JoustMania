@@ -19,4 +19,7 @@
 [jouva](https://github.com/jouva)
 * cleaned up the readme
 
+[asonix](https://github.com/asonix)
+* changed pair to use DBus instead of poking at /var/lib/bluetooth and hci{config,tool} as root
+
 Thanks for all the help in making Joustmania an awesome game!!

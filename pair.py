@@ -1,7 +1,6 @@
 import psmove
 import os
-import dbus
-from xml.etree import ElementTree
+import jm_dbus
 
 class Pair():
     """
@@ -9,15 +8,7 @@ class Pair():
     """
     def __init__(self):
         """Use DBus to find bluetooth controllers"""
-        bus = dbus.SystemBus()
-        proxy = bus.get_object('org.bluez', '/org/bluez')
-        hcis = self.__get_node_child_names__(proxy)
-        self.hci_dict = {}
-        for hci in hcis:
-            hci_path = os.path.join('/org/bluez', hci)
-            proxy2 = bus.get_object('org.bluez', hci_path)
-            addr = self.__get_adapter_attrib__(proxy2, 'Address')
-            self.hci_dict[hci] = str(addr)
+        self.hci_dict = jm_dbus.get_hci_dict()
 
         devices = self.hci_dict.values()
         self.bt_devices = {}
@@ -28,52 +19,22 @@ class Pair():
 
     def pre_existing_devices(self):
         """
-        Enumerate paired devices
-        
+        Enumerate connected devices
+
         For each device on each adapter, add the device's address to it's adapter's
-        list of paired devices
+        list of connected devices
         """
-        bus = dbus.SystemBus()
         for hci, addr in self.hci_dict.items():
-            hci_path = os.path.join('/org/bluez', hci)
-            proxy = bus.get_object('org.bluez', hci_path)
+            proxy = jm_dbus.get_adapter_proxy(hci)
+            devices = jm_dbus.get_node_child_names(proxy)
 
-            devices = self.__get_node_child_names__(proxy)
-
-            for dev in devices:
-                dev_path = os.path.join('/org/bluez', hci, dev)
-                proxy2 = bus.get_object('org.bluez', dev_path)
-
-                dev_addr = str(self.__get_device_attrib__(proxy2, 'Address'))
-                dev_paired = self.__get_device_attrib__(proxy2, 'Paired').real
-                if dev_paired:
-                    self.bt_devices[addr].append(dev_addr)
-
-    def __get_bluez_attrib__(self, proxy, kind, attrib):
-        """Abstract getting attributes from Bluez DBus Interfaces"""
-        iface = dbus.Interface(proxy, 'org.freedesktop.DBus.Properties')
-        return iface.Get('org.bluez.{0}'.format(kind), attrib)
-
-    def __get_adapter_attrib__(self, proxy, attrib):
-        """Abstract getting attributes from Bluez Adapter1 Interfaces"""
-        return self.__get_bluez_attrib__(proxy, 'Adapter1', attrib)
-
-    def __get_device_attrib__(self, proxy, attrib):
-        """Abstract getting attributes from Bluez Device1 Interfaces"""
-        return self.__get_bluez_attrib__(proxy, 'Device1', attrib)
-
-    def __get_node_child_names__(self, proxy):
-        """Abstract finding child nodes of a DBus Node"""
-        iface = dbus.Interface(proxy, 'org.freedesktop.DBus.Introspectable')
-        tree = ElementTree.fromstring(iface.Introspect())
-        return [child.attrib['name'] for child in tree if child.tag == 'node']
-
+            self.bt_devices[addr] = jm_dbus.get_connected_addresses(hci)
 
     def check_if_not_paired(self, addr):
         for devs in self.bt_devices.keys():
             if addr in self.bt_devices[devs]:
                 return False
-        return True 
+        return True
 
     def get_lowest_bt_device(self):
         num = 9999999

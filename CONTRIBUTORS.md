@@ -1,3 +1,7 @@
+[Aaron Angert](https://github.com/adangert)
+* Author and maintainer
+* Development of most game modes
+
 [Erik Buzan](https://github.com/ericbuzan)
 * Created the awesome Webui for joustmania
 * Updated colors for all the different controllers and games

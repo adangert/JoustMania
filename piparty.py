@@ -298,9 +298,9 @@ class Menu():
 
         for hci in bt_hcis:
             if on:
-                jm_dbus.start_discovery()
+                jm_dbus.start_discovery(hci)
             else:
-                jm_dbus.stop_discovery()
+                jm_dbus.stop_discovery(hci)
 
     def pair_usb_move(self, move):
         move_serial = move.get_serial()

@@ -46,15 +46,31 @@ def get_root_proxy():
     """Get root Bluez DBus node"""
     return BUS.get_object(ORG_BLUEZ, ORG_BLUEZ_PATH)
 
-def start_discovery(hci):
+def get_discovery_filters(hci):
+    """Get information about discovery options"""
     proxy = get_adapter_proxy(hci)
     iface = dbus.Interface(proxy, 'org.bluez.Adapter1')
-    return iface.StartDiscovery()
+    return iface.GetDiscoveryFilters()
+
+def start_discovery(hci):
+    """Start scanning for devices"""
+    proxy = get_adapter_proxy(hci)
+    iface = dbus.Interface(proxy, 'org.bluez.Adapter1')
+    try:
+        return iface.StartDiscovery()
+    except dbus.exceptions.DBusException as e:
+        if "InProgress" not in str(e):
+            raise e
 
 def stop_discovery(hci):
+    """Stop scanning for devices"""
     proxy = get_adapter_proxy(hci)
     iface = dbus.Interface(proxy, 'org.bluez.Adapter1')
-    return iface.StopDiscovery()
+    try:
+        return iface.StopDiscovery()
+    except dbus.exceptions.DBusException as e:
+        if "InProgress" not in str(e):
+            raise e
 
 def get_adapter_proxy(hci):
     """Abstract getting Bluez DBus adapter nodes"""

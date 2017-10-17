@@ -59,7 +59,9 @@ def start_discovery(hci):
     try:
         return iface.StartDiscovery()
     except dbus.exceptions.DBusException as e:
-        if "InProgress" not in str(e):
+        if "InProgress" in str(e) or "NotReady" in str(e):
+            pass
+        else:
             raise e
 
 def stop_discovery(hci):
@@ -69,7 +71,9 @@ def stop_discovery(hci):
     try:
         return iface.StopDiscovery()
     except dbus.exceptions.DBusException as e:
-        if "InProgress" not in str(e):
+        if "InProgress" in str(e) or "NotReady" in str(e):
+            pass
+        else:
             raise e
 
 def get_adapter_proxy(hci):

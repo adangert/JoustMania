@@ -75,6 +75,7 @@ setup() {
     
     #Use amixer to set sound output to 100%
     amixer sset PCM,0 100%
+    sudo alsactl store
 
     # Pause a second before rebooting so we can see all the output from this script.
     (sleep 1; sudo reboot) &

@@ -76,6 +76,30 @@ def stop_discovery(hci):
         else:
             raise e
 
+def enable_adapter(hci):
+    """Set the HCI's Powered attribute to true"""
+    proxy = get_adapter_proxy(hci)
+    iface = dbus.Interface(proxy, 'org.freedesktop.DBus.Properties')
+    try:
+        return iface.Set('org.bluez.Adapter1', 'Powered', True)
+    except dbus.exceptions.DBusException as e:
+        if "rfkill" in str(e):
+            rfkill_unblock(hci)
+            # Recurse after unblocking the bluetooth adapter
+            return enable_adapter(hci)
+        else:
+            raise e
+
+def rfkill_unblock(hci):
+    hci_id = os.popen('rfkill list | grep {0} | cut -d ":" -f 1'.format(hci)).read().split('\n')[0]
+    os.popen('rfkill unblock {0}'.format(hci_id)).read()
+
+def disable_adapter(hci):
+    """Set the HCI's Powered attribute to false"""
+    proxy = get_adapter_proxy(hci)
+    iface = dbus.Interface(proxy, 'org.freedesktop.DBus.Properties')
+    return iface.Set('org.bluez.Adapter1', 'Powered', False)
+
 def get_adapter_proxy(hci):
     """Abstract getting Bluez DBus adapter nodes"""
     hci_path = os.path.join(ORG_BLUEZ_PATH, hci)

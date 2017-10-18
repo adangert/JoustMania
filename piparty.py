@@ -297,6 +297,7 @@ class Menu():
         bt_hcis = list(jm_dbus.get_hci_dict().keys())
 
         for hci in bt_hcis:
+            jm_dbus.enable_adapter(hci)
             if on:
                 jm_dbus.start_discovery(hci)
             else:

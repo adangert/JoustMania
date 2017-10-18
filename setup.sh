@@ -21,7 +21,7 @@ setup() {
         libportmidi-dev portaudio19-dev \
         libsdl-image1.2-dev libsdl-ttf2.0-dev \
         libblas-dev liblapack-dev \
-        bluez bluez-tools supervisor cmake ffmpeg \
+        bluez bluez-tools rfkill supervisor cmake ffmpeg \
         libudev-dev swig libbluetooth-dev \
         alsa-utils alsa-tools libasound2-dev || exit -1
 

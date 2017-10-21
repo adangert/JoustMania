@@ -1,5 +1,4 @@
-#remove onboard bluetooth folders
-rm -rf /var/lib/bluetooth/*
+#!/usr/bin/env bash
 
-reboot
-
+python clear_devices.py
+sudo reboot

@@ -1,12 +1,11 @@
 import psmove, pair
 import common, colors, joust, webui
 import yaml
-import zombie, commander, swapper, tournament, speed_bomb
 import time, random, json, os, os.path, sys, glob
 from piaudio import Music, DummyMusic, Audio, InitAudio
 from enum import Enum
 from multiprocessing import Process, Value, Array, Queue, Manager
-from games import ffa
+from games import ffa, zombie, commander, swapper, tournament, speed_bomb
 
 
 TEAM_NUM = len(colors.team_color_list)

@@ -6,7 +6,8 @@ import numpy
 import psutil, os
 import time
 import scipy.signal as signal
-from multiprocessing import Process, Value
+from multiprocessing import Value
+from threading import Thread
 import pygame
 import alsaaudio
 import threading
@@ -147,13 +148,15 @@ class Music:
         self.stop_proc = Value('i', 0)
         self.ratio = Value('d' , 1.0)
 
-        self.p = Process(target=audio_loop, args=(self.wav_data_, self.ratio, self.stop_proc))
-        self.p.start()
+        self.t = Thread(target=audio_loop, args=(self.wav_data_, self.ratio, self.stop_proc))
+        self.t.start()
+
     def stop_audio(self):
         self.stop_proc.value = 1
         time.sleep(0.1)
-        self.p.terminate()
+        self.t.join()
         self.transition_future_.cancel()
+
     def change_ratio(self, ratio):
         self.ratio.value = ratio
 

@@ -38,14 +38,15 @@ setup() {
     VENV=/home/pi/JoustMania/venv
     # We install nearly all python deps in the virtualenv to avoid concflicts with system, except
     # numpy and scipy because they take forever to build.
-    sudo apt-get install -y -t buster libasound2-dev libasound2 python3-numpy python3-scipy
+    sudo apt-get install -y -t buster libasound2-dev libasound2
     sudo python3.6 -m pip install --upgrade virtualenv || exit -1
 
     # Rebuilding this is pretty cheap, so just do it every time.
     rm -rf $VENV
     /usr/bin/python3.6 -m virtualenv --system-site-packages $VENV || exit -1
     PYTHON=$VENV/bin/python3.6
-    $PYTHON -m pip install --ignore-installed psutil flask Flask-WTF pyalsaaudio pydub pygame pyaudio pyyaml dbus-python || exit -1
+    #slow fix for numpy and scipy, need to try and get this working with the apt-get installs
+    $PYTHON -m pip install --ignore-installed psutil flask Flask-WTF pyalsaaudio pydub pygame pyaudio pyyaml dbus-python numpy scipy || exit -1
 
     #install psmoveapi
     git clone --recursive git://github.com/thp/psmoveapi.git

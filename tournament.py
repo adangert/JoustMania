@@ -81,7 +81,8 @@ def track_move(move_serial, move_num, team, num_teams, dead_move, force_color, m
         elif dead_move.value == 1 and team.value != -1:   
             if move.poll():
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
-                total = sum([ax, ay, az])
+                #total = sum([ax, ay, az])
+                total = sqrt(sum([ax**2, ay**2, az**2]))
                 if move_last_value is not None:
                     change_real = abs(move_last_value - total)
                     change_arr[0] = change_arr[1]

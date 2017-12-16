@@ -6,6 +6,7 @@ import os
 from multiprocessing import Process, Value, Array
 from piaudio import Audio
 import json
+from math import sqrt
 
 
 human_warning = 1

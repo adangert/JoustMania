@@ -8,6 +8,7 @@ import json
 from piaudio import Audio
 from enum import Enum
 from multiprocessing import Process, Value, Array, Queue
+from math import sqrt
 
 
 # How fast/slow the music can go

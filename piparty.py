@@ -169,7 +169,7 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
 
                 elif game_mode == common.Games.Random:
                     
-                    if move_button == common.Button.MIDDLE:
+                    if move.get_trigger() > 100:
                         move_opts[Opts.random_start.value] = Alive.off.value
                     if move_opts[Opts.random_start.value] == Alive.on.value:
                         move.set_leds(0,0,255)

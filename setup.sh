@@ -15,7 +15,7 @@ setup() {
     #TODO: remove pyaudio and dependencies
     #install components
     sudo apt-get install -y  \
-        python3.6 python3.6-dev python3-pip \
+        python3 python3-dev python3-pip \
         python3-pkg-resources python3-setuptools libdpkg-perl \
         libsdl1.2-dev libsdl-mixer1.2-dev libsdl-sound1.2-dev \
         libportmidi-dev portaudio19-dev \
@@ -31,7 +31,7 @@ setup() {
         build-essential \
         libv4l-dev libopencv-dev \
         libudev-dev libbluetooth-dev \
-        python3.6-dev swig3.0 || exit -1
+        swig3.0 || exit -1
 
 
 

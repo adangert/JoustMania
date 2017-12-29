@@ -114,7 +114,7 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                     move.set_leds(*force_color)
 
                 elif game_mode == common.Games.JoustFFA:
-                    move.set_leds(*colors.Colors.White.value)
+                    move.set_leds(*colors.Colors.Orange.value)
                             
                 elif game_mode == common.Games.JoustRandomTeams:
                     color = time.time()/10%1
@@ -133,7 +133,7 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                     if move_num <= 0:
                         move.set_leds(*colors.Colors.Blue40.value)
                     else:
-                        move.set_leds(*colors.Colors.White40.value)
+                        move.set_leds(*colors.Colors.Yellow.value)
 
                 elif game_mode == common.Games.Zombies:
                         move.set_leds(*colors.Colors.Zombie.value)
@@ -157,24 +157,23 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                         color = colors.hsv2rgb(color, 1, 1)
                         move.set_leds(*color)
                     else:
-                        move.set_leds(*colors.Colors.White80.value)
+                        move.set_leds(*colors.Colors.Blue40.value)
 
 
                 elif game_mode == common.Games.Ninja:
                     if move_num <= 0:
                         move.set_leds(random.randrange(100, 200),0,0)
                     else:
-                        move.set_leds(*colors.Colors.White80.value)
+                        move.set_leds(*colors.Colors.Red60.value)
 
 
                 elif game_mode == common.Games.Random:
                     
-                    if move.get_trigger() > 100:
-                        move_opts[Opts.random_start.value] = Alive.off.value
-                    if move_opts[Opts.random_start.value] == Alive.on.value:
                         move.set_leds(0,0,255)
-                    else:
-                        move.set_leds(255,255,0)
+                if move.get_trigger() > 100:
+                        move_opts[Opts.random_start.value] = Alive.off.value
+                if move_opts[Opts.random_start.value] == Alive.off.value:
+                        move.set_leds(255,255,255)
                     
 
                 if move_opts[Opts.holding.value] == Holding.not_holding.value:
@@ -253,8 +252,8 @@ class Menu():
         self.paired_moves = []
         self.move_opts = {}
         self.teams = {}
-        self.game_mode = common.Games.Random
-        self.old_game_mode = common.Games.Random
+        self.game_mode = common.Games.JoustFFA
+        self.old_game_mode = common.Games.JoustFFA
         self.pair = pair.Pair()
 
         self.i = 0
@@ -380,6 +379,7 @@ class Menu():
 
         if change_mode:
             self.game_mode = self.game_mode.next()
+            self.reset_controller_game_state()
             if not self.ns.settings['play_audio']:
                 if self.game_mode == common.Games.Commander:
                     self.game_mode = self.game_mode.next()
@@ -389,7 +389,13 @@ class Menu():
                 opt[Opts.game_mode.value] = self.game_mode.value
             if self.ns.settings['play_audio']:
                 self.game_mode_announcement()
-
+                
+    #all controllers need to opt-in again in order fo the game to start
+    def reset_controller_game_state(self):
+        for move_opt in self.move_opts.values():
+            #on means off here
+            move_opt[Opts.random_start.value] = Alive.on.value
+        self.random_added = []
 
     def game_loop(self):
         while True:
@@ -497,7 +503,7 @@ class Menu():
             'sensitivity': Sensitivity.mid.value,
             'play_instructions': True,
             #we store the name, not the enum, so the webui can process it more easily
-            'random_modes': [common.Games.JoustFFA.name],
+            'random_modes': [common.Games.JoustFFA.name,common.Games.JoustRandomTeams.name,common.Games.WereJoust.name,common.Games.Swapper.name],
             'play_audio': True,
             'move_can_be_admin': True,
             'enforce_minimum': True,
@@ -595,7 +601,7 @@ class Menu():
             proc.join()
             
     def check_start_game(self):
-        if self.game_mode == common.Games.Random:
+        #if self.game_mode == common.Games.Random:
             self.exclude_out_moves()
             start_game = True
             for serial in self.move_opts.keys():
@@ -609,14 +615,17 @@ class Menu():
             
                     
             if start_game:
-                self.start_game(random_mode=True)
+                if self.game_mode == common.Games.Random:
+                    self.start_game(random_mode=True)
+                else:
+                    self.start_game()
                 
 
-        else:
-            if self.ns.settings['move_can_be_admin']:
-                for move_opt in self.move_opts.values():
-                    if move_opt[Opts.selection.value] == Selections.start_game.value:
-                        self.start_game()
+        #else:
+        #    if self.ns.settings['move_can_be_admin']:
+        #        for move_opt in self.move_opts.values():
+        #            if move_opt[Opts.selection.value] == Selections.start_game.value:
+        #                self.start_game()
             if self.command_from_web == 'startgame':
                 self.command_from_web = ''
                 self.start_game()
@@ -646,7 +655,7 @@ class Menu():
         self.enable_bt_scanning(False)
         self.exclude_out_moves()
         self.stop_tracking_moves()
-        time.sleep(0.2)
+        time.sleep(1)
         self.teams = {serial: self.move_opts[serial][Opts.team.value] for serial in self.tracked_moves.keys() if self.out_moves[serial] == Alive.on.value}
         game_moves = [move.get_serial() for move in self.moves if self.out_moves[move.get_serial()] == Alive.on.value]
 

@@ -88,8 +88,12 @@ How to select a game mode
 ---------------------------------
 * In order to change between games, on any controller press the select button (located on the left side of a controller)
 * Changing game types will turn you into an Admin
-* Press start (located on the right side) on any controller to launch the selected game
 * In order to remove a controller from play press all four front buttons
+
+How to start a game
+---------------------------------
+* When a player presses the trigger button their controller will turn white
+* Once all controllers are white the game will begin!
 
 Admin Mode (Sensitivity and convention mode settings)
 ---------------------------------
@@ -126,16 +130,8 @@ Custom Music
 * Minimum and recommended player count is listed next to every game mode
 * Extended rules can be found on the [Wiki](https://github.com/adangert/JoustMania/wiki/Extended-Rules)
 
-
- ### Convention/Random mode
- * This is the first mode that JoustMania boots to
- * This mode allows for multiple game types to be randomly rotated with instructions played before each game
- * Convention mode defaults to only Joust Free-for-All in rotation, more game modes can be added as an Admin or via the web interface (see above)
- * All players press the A button (middle of controller) to signal they are ready to play, and the game will begin
- * Modes with an insufficient number of players will be ignored, if none are available Joust Free-for-All is selected
-
-
  ### Joust Free-for-All (2+ players)
+ * This is the first mode that JoustMania boots to
  * The most basic version of Joust; be the last one standing!
 
 
@@ -196,3 +192,9 @@ Custom Music
  * Traps are passed by holding the trigger-button half way, too much or too little and you'll give yourself away
  * Traps can also be countered by pressing any of the four front buttons.
  * Players have two lives, the last player remaining wins!
+ 
+  ### Convention/Random mode
+
+ * This mode allows for multiple game types to be randomly rotated with instructions played before each game
+ * Convention mode defaults to only Joust Free-for-All in rotation, more game modes can be added as an Admin or via the web interface (see above)
+ * Modes with an insufficient number of players will be ignored, if none are available Joust Free-for-All is selected

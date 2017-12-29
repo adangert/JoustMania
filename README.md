@@ -196,5 +196,5 @@ Custom Music
   ### Convention/Random mode
 
  * This mode allows for multiple game types to be randomly rotated with instructions played before each game
- * Convention mode defaults to only Joust Free-for-All in rotation, more game modes can be added as an Admin or via the web interface (see above)
+ * Random mode defaults to FFA, Random Teams, Werewolves, and Swapper, more game modes can be added or removed as an Admin or via the web interface (see above)
  * Modes with an insufficient number of players will be ignored, if none are available Joust Free-for-All is selected

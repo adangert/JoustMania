@@ -215,7 +215,7 @@ class Fight_club():
         fast_resample = False
         if self.play_audio:
 ##            music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
-            self.loud_beep = Audio('audio/Joust/sounds/loud_beep.wav')
+            self.loud_beep = Audio('audio/Joust/sounds/beep_loud.wav')
             self.start_beep = Audio('audio/Joust/sounds/start.wav')
             self.start_game = Audio('audio/Joust/sounds/start3.wav')
             self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
@@ -320,7 +320,8 @@ class Fight_club():
 
     def check_end_round(self):
         if self.play_audio:
-            if time.time() > self.round_time - (2.5 * (self.timer_beep/4)):
+            if time.time() > self.round_time - (2.3 * (self.timer_beep/4)):
+                print("wowow")
                 self.loud_beep.start_effect()
                 self.timer_beep -= 1
             
@@ -338,7 +339,7 @@ class Fight_club():
             self.invince_moves[self.chosen_defender].value = True
             self.revive_fighters()
             self.reset_round_timer()
-            self.timer_beep = 4
+            
             
     def check_end_game(self):
         
@@ -433,6 +434,7 @@ class Fight_club():
             
     def reset_round_timer(self):
         self.round_time = time.time() + self.round_limit
+        self.timer_beep = 4
         
 
     def game_loop(self):

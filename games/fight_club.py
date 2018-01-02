@@ -340,9 +340,17 @@ class Fight_club():
             self.revive_fighters()
             self.reset_round_timer()
             
-            
+     
+    #check to see if there is a winner,
+    #if there is a tie, have them face off, no time limit
+    #set winning moves
+    def check_winner(self):
+        pass
+     
     def check_end_game(self):
-        
+        if self.round_counter >= self.round_num:
+            self.check_winner()
+            
         
         
         self.winning_moves = []
@@ -433,8 +441,10 @@ class Fight_club():
             self.score[serial] += 1
             
     def reset_round_timer(self):
+        self.round_counter += 1
         self.round_time = time.time() + self.round_limit
         self.timer_beep = 4
+        self.check_end_game()
         
 
     def game_loop(self):
@@ -463,7 +473,6 @@ class Fight_club():
                 #self.check_music_speed()
             self.check_next_fighter()
             self.check_end_round()
-            self.check_end_game()
             if self.game_end:
                 print("end game")
                 self.end_game()

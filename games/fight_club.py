@@ -131,14 +131,12 @@ def track_move(move_serial, move_num, dead_move, force_color, music_speed, show_
                         if change > threshold:
                             #print("over threshold")
                             if time.time() > no_rumble:
-                                print("kill em")
                                 move.set_leds(0,0,0)
                                 move.set_rumble(90)
                                 dead_move.value = -1
 
                         elif change > warning and not vibrate:
                             if time.time() > no_rumble:
-                                print("setting vibrate to true")
                                 vibrate = True
                                 vibration_time = time.time() + 0.5
                                 move.set_leds(20,50,100)
@@ -202,12 +200,13 @@ class Fight_club():
         self.chosen_defender = self.fighter_list.pop()
         self.chosen_fighter = self.fighter_list.pop()
         
-        self.round_num = len(self.move_serials)*3
+        self.round_num = len(self.move_serials)*1
         self.round_counter = 0
         
         self.round_time = time.time()
         self.round_limit = 16
         self.score = {}
+        self.add_initial_score()
         self.timer_beep = 4
         
 
@@ -233,6 +232,10 @@ class Fight_club():
     def create_fighter_list(self):
         self.fighter_list = self.move_serials[:]
         shuffle(self.fighter_list)
+        
+    def add_initial_score(self):
+        for move in self.move_serials:
+            self.score[move] = 0
             
 
 
@@ -321,7 +324,6 @@ class Fight_club():
     def check_end_round(self):
         if self.play_audio:
             if time.time() > self.round_time - (2.3 * (self.timer_beep/4)):
-                print("wowow")
                 self.loud_beep.start_effect()
                 self.timer_beep -= 1
             
@@ -340,12 +342,53 @@ class Fight_club():
             self.revive_fighters()
             self.reset_round_timer()
             
+            
+    def alive_move_count(self):
+        count =0
+        for move, lives in self.dead_moves.items():
+            if lives.value == 1:
+                count += 1
+        return count
+            
+    #more than one tied winner, have them face off
+    def face_off(self):
+        for move in self.winning_moves:
+            self.dead_moves[move].value = 1
+        count_explode = self.alive_move_count()
+        while count_explode > 1:
+            if count_explode > self.alive_move_count():
+                count_explode = self.alive_move_count()
+                if self.play_audio:
+                    self.explosion.start_effect()
+        self.winning_moves = []
+        for move, lives in self.dead_moves.items():
+            if lives.value == 1:
+                self.winning_moves.append(move)
+        self.game_end = True
+        
+            
      
     #check to see if there is a winner,
     #if there is a tie, have them face off, no time limit
     #set winning moves
     def check_winner(self):
-        pass
+        self.winning_moves = []
+        self.winning_score = 0
+        print(self.score.items())
+        for move, score in self.score.items():
+            if score == self.winning_score:
+                self.winning_moves.append(move)
+            if score > self.winning_score:
+                self.winning_moves = []
+                self.winning_moves.append(move)
+                self.winning_score = score
+        if len(self.winning_moves) > 1:
+            self.face_off()
+        else:
+            self.game_end = True
+                
+            
+            
      
     def check_end_game(self):
         if self.round_counter >= self.round_num:
@@ -353,22 +396,22 @@ class Fight_club():
             
         
         
-        self.winning_moves = []
-        for move_serial, dead in self.dead_moves.items():
+        #self.winning_moves = []
+        #for move_serial, dead in self.dead_moves.items():
             #if we are alive
-            if dead.value == 1:
+         #   if dead.value == 1:
                 #self.winning_moves.append(move_serial)
-                pass
-            if dead.value == 0:
-                pass
+           #     pass
+          #  if dead.value == 0:
+            #    pass
                 #This is to play the sound effect
                 #self.num_dead += 1
                 #dead.value = -1
                 #if self.play_audio:
                 #    self.explosion.start_effect()
-        if len(self.winning_moves) <= 1:
+       # if len(self.winning_moves) <= 1:
             #self.game_end = True
-            pass
+        #    pass
                 
 
 

@@ -5,7 +5,7 @@ import time, random, json, os, os.path, sys, glob
 from piaudio import Music, DummyMusic, Audio, InitAudio
 from enum import Enum
 from multiprocessing import Process, Value, Array, Queue, Manager
-from games import ffa, zombie, commander, swapper, tournament, speed_bomb
+from games import ffa, zombie, commander, swapper, tournament, speed_bomb, fight_club
 import jm_dbus
 
 
@@ -150,6 +150,9 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                     else:
 
                         move.set_leds(*colors.Colors.Green.value)
+                        
+                elif game_mode == common.Games.FightClub:
+                        move.set_leds(*colors.Colors.Magenta.value)
 
                 elif game_mode == common.Games.Tournament:
                     if move_num <= 0:
@@ -703,6 +706,13 @@ class Menu():
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Swapper:
             swapper.Swapper(game_moves, self.command_queue, self.ns, self.joust_music)
+            self.tracked_moves = {}
+        elif self.game_mode == common.Games.FightClub:
+            if random.randint(0,1)==1:
+                fight_music = self.commander_music
+            else:
+                fight_music = self.joust_music
+            fight_club.Fight_club(game_moves, self.command_queue, self.ns, fight_music)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Tournament:
             tournament.Tournament(game_moves, self.command_queue, self.ns, self.joust_music)

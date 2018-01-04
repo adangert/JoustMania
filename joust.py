@@ -519,14 +519,14 @@ class Joust():
                 h_value = 0
         self.running = False
 
-    def end_game_sound(self, winning_team):         
+    def end_game_sound(self, winning_team):
         if self.game_mode == common.Games.WereJoust:
             if winning_team == -1:
                 team_win = Audio('audio/Joust/sounds/werewolf win.wav')
             else:
                 team_win = Audio('audio/Joust/sounds/human win.wav')
             team_win.start_effect()
-        elif self.game_mode != common.Games.JoustFFA or self.game_mode != common.Games.NonStop:
+        elif self.game_mode != common.Games.JoustFFA and self.game_mode != common.Games.NonStop:
             win_team_name = self.team_colors[winning_team].name
             if win_team_name == 'Pink':
                 team_win = Audio('audio/Joust/sounds/human win.wav')

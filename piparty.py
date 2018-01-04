@@ -152,7 +152,10 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                         move.set_leds(*colors.Colors.Green.value)
                         
                 elif game_mode == common.Games.FightClub:
-                        move.set_leds(*colors.Colors.Magenta.value)
+                        move.set_leds(*colors.Colors.Green80.value)
+                        
+                elif game_mode == common.Games.NonStop:
+                        move.set_leds(*colors.Colors.Turquoise.value)
 
                 elif game_mode == common.Games.Tournament:
                     if move_num <= 0:
@@ -255,8 +258,8 @@ class Menu():
         self.paired_moves = []
         self.move_opts = {}
         self.teams = {}
-        self.game_mode = common.Games.JoustFFA
-        self.old_game_mode = common.Games.JoustFFA
+        self.game_mode = common.Games.Random
+        self.old_game_mode = common.Games.Random
         self.pair = pair.Pair()
 
         self.i = 0
@@ -363,6 +366,8 @@ class Menu():
             Audio('audio/Menu/menu Random.wav').start_effect()
         if self.game_mode == common.Games.FightClub:
             os.popen('espeak -ven -p 70 -a 200 "Fight Club"')
+        if self.game_mode == common.Games.NonStop:
+            os.popen('espeak -ven -p 70 -a 200 "Non stop joust"')
 
     def check_change_mode(self):
         change_mode = False

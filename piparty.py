@@ -361,6 +361,8 @@ class Menu():
             Audio('audio/Menu/menu ninjabomb.wav').start_effect()
         if self.game_mode == common.Games.Random:
             Audio('audio/Menu/menu Random.wav').start_effect()
+        if self.game_mode == common.Games.FightClub:
+            os.popen('espeak -ven -p 70 -a 200 "Fight Club"')
 
     def check_change_mode(self):
         change_mode = False
@@ -652,7 +654,9 @@ class Menu():
             Audio('audio/Menu/Swapper-instructions.wav').start_effect_and_wait()
         if self.game_mode == common.Games.Tournament:
             Audio('audio/Menu/Tournament-instructions.wav').start_effect_and_wait()
-
+        if self.game_mode == common.Games.FightClub:
+            os.popen('espeak -ven -p 70 -a 200 "Two players fight, the winner must defend thier title, the player with the highest score wins')
+            time.sleep(5)
 
     def start_game(self, random_mode=False):
         self.enable_bt_scanning(False)

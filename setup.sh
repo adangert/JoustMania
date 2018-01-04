@@ -24,7 +24,7 @@ setup() {
         bluez bluez-tools rfkill supervisor cmake ffmpeg \
         libudev-dev swig libbluetooth-dev \
         alsa-utils alsa-tools libasound2-dev \
-        python-dbus-dev libdbus-glib-1-dev || exit -1
+        python-dbus-dev libdbus-glib-1-dev espeak || exit -1
 
     #install components for psmoveapi
     sudo apt-get install -y \

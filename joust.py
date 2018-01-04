@@ -164,9 +164,17 @@ def track_move(move_serial, move_num, game_mode, team, team_color_enum, dead_mov
 
                 move_last_value = total
             move.update_leds()
-        elif dead_move.value == 0:
+        
+        elif dead_move.value < 1:
 
             time.sleep(0.5)
+            if dead_move.value == -1 and game_mode == common.Games.NonStop:
+                time.sleep(2)
+                move_last_value = 0
+                change_arr = [0,0,0]
+                no_rumble = time.time() + 1
+                vibration_time = time.time() + 1
+                dead_move.value = 2
 
 class Joust():
 
@@ -201,6 +209,11 @@ class Joust():
         self.audio_cue = 0
         self.num_dead = 0
         self.show_team_colors = Value('i', 0)
+        
+        self.non_stop_deaths = {}
+        for move in self.move_serials:
+            self.non_stop_deaths[move] = 0
+        self.non_stop_time = time.time() + 150
 
         
         self.update_time = 0
@@ -228,7 +241,7 @@ class Joust():
         WERE_FAST_WARNING = common.WERE_FAST_WARNING[self.sensitivity]
         
         self.werewolf_reveal = Value('i', 2)
-        if game_mode == common.Games.JoustFFA:
+        if game_mode == common.Games.JoustFFA or game_mode == common.Games.NonStop:
             self.num_teams = len(moves)
         if game_mode == common.Games.JoustRandomTeams:
             if len(moves) <= 5:
@@ -269,6 +282,7 @@ class Joust():
             self.start_beep = Audio('audio/Joust/sounds/start.wav')
             self.start_game = Audio('audio/Joust/sounds/start3.wav')
             self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
+            self.revive = Audio('audio/Commander/sounds/revive.wav')
             end = False
             #self.audio = Audio(music, end)
             self.audio = music
@@ -443,10 +457,36 @@ class Joust():
                 #This is to play the sound effect
                 self.num_dead += 1
                 dead.value = -1
+                self.non_stop_deaths[move_serial] += 1
                 if self.play_audio:
                     self.explosion.start_effect()
+            if dead.value == 2:
+                dead.value = 1
+                if self.play_audio:
+                    self.revive.start_effect()
                 
-        if team_win:
+                    
+        if self.game_mode == common.Games.NonStop:
+            if self.audio_cue == 0 and time.time() > self.non_stop_time - 60:
+                Audio('audio/Zombie/sound_effects/1 minute.wav').start_effect()
+                self.audio_cue += 1
+            if self.audio_cue == 1 and time.time() > self.non_stop_time - 30:
+                Audio('audio/Zombie/sound_effects/30 seconds.wav').start_effect()
+                self.audio_cue += 1
+            if time.time() > self.non_stop_time:
+                lowest_score = 100000
+                for move, score in self.non_stop_deaths.items():
+                    self.dead_moves[move].value = 0
+                    if score == lowest_score:
+                        self.winning_moves.append(move)
+                    if score < lowest_score:
+                        lowest_score = score
+                        self.winning_moves = []
+                        self.winning_moves.append(move)
+                self.game_end = True   
+                    
+                
+        elif team_win:
             self.update_status('ending',winning_team)
             if self.play_audio:
                 self.end_game_sound(winning_team)
@@ -486,7 +526,7 @@ class Joust():
             else:
                 team_win = Audio('audio/Joust/sounds/human win.wav')
             team_win.start_effect()
-        elif self.game_mode != common.Games.JoustFFA:
+        elif self.game_mode != common.Games.JoustFFA or self.game_mode != common.Games.NonStop:
             win_team_name = self.team_colors[winning_team].name
             if win_team_name == 'Pink':
                 team_win = Audio('audio/Joust/sounds/human win.wav')
@@ -577,7 +617,7 @@ class Joust():
         data ={'game_status' : game_status,
                'game_mode' : self.game_mode.pretty_name,
                'winning_team' : winning_team}
-        if self.game_mode == common.Games.JoustFFA:
+        if self.game_mode == common.Games.JoustFFA or self.game_mode == common.Games.NonStop:
             data['total_players'] = len(self.move_serials)
             data['remaining_players'] = len([x[0] for x in self.dead_moves.items() if x[1].value==1])
         else:
@@ -604,7 +644,7 @@ class Joust():
                 data['team_names'] = ['Werewolves', 'Humans']
             elif self.game_mode == common.Games.Traitor:
                 data['team_names'] = ['Traitors'] + [color.name + ' Team' for color in self.team_colors]
-            elif self.game_mode != common.Games.JoustFFA:
+            elif self.game_mode != common.Games.JoustFFA or self.game_mode != common.Games.NonStop:
                 data['team_names'] = [color.name + ' Team' for color in self.team_colors]
         if self.game_mode == common.Games.WereJoust:
             thyme = int(self.werewolf_timer - (time.time() - self.start_timer))

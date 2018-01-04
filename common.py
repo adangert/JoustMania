@@ -54,10 +54,11 @@ class Games(enum.Enum):
     Zombies = (5, 'Zombies', 4)
     Commander = (6, 'Commander', 4)
     Swapper = (7, 'Swapper', 3)
-    FightClub = (8, 'Fight Club', 3)
+    FightClub = (8, 'Fight Club', 2)
     Tournament = (9, 'Tournament', 3)
-    Ninja = (10, 'Ninja Bomb', 2)
-    Random = (11, 'Random', 2)
+    NonStop = (10, 'Non Stop Joust', 2)
+    Ninja = (11, 'Ninja Bomb', 2)
+    Random = (12, 'Random', 2)
 
 
     def __new__(cls, value, pretty_name, min_players):

@@ -322,7 +322,7 @@ class Joust():
     def track_moves(self):
         for move_num, move_serial in enumerate(self.move_serials):
             self.alive_moves.append(move_serial)
-            time.sleep(0.02)
+            time.sleep(0.1)
             dead_move = Value('i', 1)
             force_color = Array('i', [1] * 3)
             proc = Process(target=track_move, args=(move_serial,

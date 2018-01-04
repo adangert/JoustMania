@@ -5,7 +5,7 @@ import time, random, json, os, os.path, sys, glob
 from piaudio import Music, DummyMusic, Audio, InitAudio
 from enum import Enum
 from multiprocessing import Process, Value, Array, Queue, Manager
-from games import ffa, zombie, commander, swapper, tournament, speed_bomb
+from games import ffa, zombie, commander, swapper, tournament, speed_bomb, fight_club
 import jm_dbus
 
 
@@ -150,6 +150,9 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                     else:
 
                         move.set_leds(*colors.Colors.Green.value)
+                        
+                elif game_mode == common.Games.FightClub:
+                        move.set_leds(*colors.Colors.Magenta.value)
 
                 elif game_mode == common.Games.Tournament:
                     if move_num <= 0:
@@ -358,6 +361,8 @@ class Menu():
             Audio('audio/Menu/menu ninjabomb.wav').start_effect()
         if self.game_mode == common.Games.Random:
             Audio('audio/Menu/menu Random.wav').start_effect()
+        if self.game_mode == common.Games.FightClub:
+            os.popen('espeak -ven -p 70 -a 200 "Fight Club"')
 
     def check_change_mode(self):
         change_mode = False
@@ -649,7 +654,9 @@ class Menu():
             Audio('audio/Menu/Swapper-instructions.wav').start_effect_and_wait()
         if self.game_mode == common.Games.Tournament:
             Audio('audio/Menu/Tournament-instructions.wav').start_effect_and_wait()
-
+        if self.game_mode == common.Games.FightClub:
+            os.popen('espeak -ven -p 70 -a 200 "Two players fight, the winner must defend thier title, the player with the highest score wins')
+            time.sleep(5)
 
     def start_game(self, random_mode=False):
         self.enable_bt_scanning(False)
@@ -703,6 +710,13 @@ class Menu():
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Swapper:
             swapper.Swapper(game_moves, self.command_queue, self.ns, self.joust_music)
+            self.tracked_moves = {}
+        elif self.game_mode == common.Games.FightClub:
+            if random.randint(0,1)==1:
+                fight_music = self.commander_music
+            else:
+                fight_music = self.joust_music
+            fight_club.Fight_club(game_moves, self.command_queue, self.ns, fight_music)
             self.tracked_moves = {}
         elif self.game_mode == common.Games.Tournament:
             tournament.Tournament(game_moves, self.command_queue, self.ns, self.joust_music)

@@ -408,7 +408,15 @@ class Menu():
         self.random_added = []
 
     def game_loop(self):
+        self.play_menu_music = True
         while True:
+            if self.play_menu_music:
+                self.play_menu_music = False
+                try:
+                    self.menu_music = Music(random.choice(glob.glob("audio/MenuMusic/*")))
+                    self.menu_music.start_audio_loop()
+                except Exception:
+                    self.menu_music = DummyMusic()
             self.i=self.i+1
             if not self.pair_one_move and "0" in os.popen('lsusb | grep "PlayStation Move motion controller" | wc -l').read():
                 self.pair_one_move = True
@@ -670,7 +678,10 @@ class Menu():
         time.sleep(1)
         self.teams = {serial: self.move_opts[serial][Opts.team.value] for serial in self.tracked_moves.keys() if self.out_moves[serial] == Alive.on.value}
         game_moves = [move.get_serial() for move in self.moves if self.out_moves[move.get_serial()] == Alive.on.value]
-
+        try:
+            self.menu_music.stop_audio()
+        except:
+            pass
 
         if len(game_moves) < self.game_mode.minimum_players and self.ns.settings['enforce_minimum']:
             Audio('audio/Menu/notenoughplayers.wav').start_effect()
@@ -741,6 +752,7 @@ class Menu():
             if self.ns.settings['play_instructions']:
                 if self.ns.settings['play_audio']:
                     Audio('audio/Menu/tradeoff2.wav').start_effect_and_wait()
+        self.play_menu_music = True
         #reset music
         self.choose_new_music()
         #turn off admin mode so someone can't accidentally press a button    

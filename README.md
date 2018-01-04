@@ -175,12 +175,24 @@ Custom Music
  * Players start on two teams
  * When you die, you switch to the other team
  * The last person remaining does not switch
+ 
+ 
+ ### Fight Club (2+ Players)
+ * Two players fight eachother
+ * The loser goes to the back of the line
+ * The winner gains a point
+ * The player with the most points at the end wins.
 
 
  ### Tournament (3+ players)
  * Everyone is paired up 1v1 via controller colors
  * If your controller is white, wait to be assigned to a new player
  * The last person remaining wins!
+ 
+ 
+ ### Non Stop Joust (2+ players)
+ * Same as FFA, however when you die you respawn
+ * The player that died the least at the end of the 2.5 minute round wins!
 
 
  ### Ninja Bomb (2+ players)

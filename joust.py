@@ -324,6 +324,8 @@ class Joust():
                 random_choice = random.choice(team_pick)
                 if self.game_mode == common.Games.Traitor and traitor_pick:
                     self.teams[serial] = (random_choice * -1) - 1
+                    #Turn this off for 3 traitors vs 1
+                    traitor_pick = False
                 else:
                     self.teams[serial] = random_choice
     ##            print("doing random choice")
@@ -528,23 +530,32 @@ class Joust():
             team_win.start_effect()
         elif self.game_mode != common.Games.JoustFFA and self.game_mode != common.Games.NonStop:
             win_team_name = self.team_colors[winning_team].name
-            if win_team_name == 'Pink':
-                team_win = Audio('audio/Joust/sounds/human win.wav')
-            if win_team_name == 'Magenta':
-                team_win = Audio('audio/Joust/sounds/magenta team win.wav')
-            if win_team_name == 'Orange':
-                team_win = Audio('audio/Joust/sounds/human win.wav')
-            if win_team_name == 'Yellow':
-                team_win = Audio('audio/Joust/sounds/yellow team win.wav')
-            if win_team_name == 'Green':
-                team_win = Audio('audio/Joust/sounds/green team win.wav')
-            if win_team_name == 'Turquoise':
-                team_win = Audio('audio/Joust/sounds/cyan team win.wav')
-            if win_team_name == 'Blue':
-                team_win = Audio('audio/Joust/sounds/blue team win.wav')
-            if win_team_name == 'Purple':
-                team_win = Audio('audio/Joust/sounds/human win.wav')
-            team_win.start_effect()
+            if winning_team == -1:
+                team_win = Audio('audio/Joust/sounds/traitor win.wav')
+            else:
+                if win_team_name == 'Pink':
+                    os.popen('espeak -ven -p 70 -a 200 "And the winner is ...Pink Team')
+                    #team_win = Audio('audio/Joust/sounds/human win.wav')
+                if win_team_name == 'Magenta':
+                    team_win = Audio('audio/Joust/sounds/magenta team win.wav')
+                if win_team_name == 'Orange':
+                    os.popen('espeak -ven -p 70 -a 200 "And the winner is ... Orange team"')
+                    #team_win = Audio('audio/Joust/sounds/human win.wav')
+                if win_team_name == 'Yellow':
+                    team_win = Audio('audio/Joust/sounds/yellow team win.wav')
+                if win_team_name == 'Green':
+                    team_win = Audio('audio/Joust/sounds/green team win.wav')
+                if win_team_name == 'Turquoise':
+                    team_win = Audio('audio/Joust/sounds/cyan team win.wav')
+                if win_team_name == 'Blue':
+                    team_win = Audio('audio/Joust/sounds/blue team win.wav')
+                if win_team_name == 'Purple':
+                    os.popen('espeak -ven -p 70 -a 200 "And the winner is ... Purple team"')
+                    #team_win = Audio('audio/Joust/sounds/human win.wav')
+            try:
+                team_win.start_effect()
+            except:
+                pass
         
     def werewolf_intro(self):
         #don't wait so colors change during prompts

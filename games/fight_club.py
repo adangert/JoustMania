@@ -212,16 +212,22 @@ class Fight_club():
         self.chosen_defender = self.fighter_list.pop()
         self.chosen_fighter = self.fighter_list.pop()
         
-        self.round_num = len(self.move_serials)*3
-        self.round_counter = 0
+        self.round_num = len(self.move_serials)*2
+        
+        #-1 because we reset at the beginning of the game
+        self.round_counter = -1
         
         self.round_time = time.time()
-        self.round_limit = 16
+        self.round_limit = 22
         self.score = {}
         self.add_initial_score()
         self.timer_beep = 4
         self.high_score = 1
         self.current_winner = ""
+        
+        self.revive_noise = True
+        #just for the sound effects
+        self.revive_time = time.time() + 4
         
         self.colors = {}
         
@@ -234,6 +240,7 @@ class Fight_club():
             self.start_beep = Audio('audio/Joust/sounds/start.wav')
             self.start_game = Audio('audio/Joust/sounds/start3.wav')
             self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
+            self.revive = Audio('audio/Commander/sounds/revive.wav')
             
             end = False
             self.audio = music
@@ -341,9 +348,13 @@ class Fight_club():
 
     def check_end_round(self):
         if self.play_audio:
-            if time.time() > self.round_time - (2.3 * (self.timer_beep/4)):
+            if time.time() > self.round_time - (3 * (self.timer_beep/4)):
                 self.loud_beep.start_effect()
                 self.timer_beep -= 1
+            if time.time() > self.revive_time and self.revive_noise:
+                self.revive_noise = False
+                self.revive.start_effect()
+                
             
         
         if time.time() > self.round_time:
@@ -522,6 +533,9 @@ class Fight_club():
         
             
     def reset_round_timer(self):
+        self.revive_time = time.time() + 4
+        self.revive_noise = True
+        
         self.round_counter += 1
         self.round_time = time.time() + self.round_limit
         self.timer_beep = 4

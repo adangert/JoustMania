@@ -50,7 +50,7 @@ Installation
 0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card, this build was tested on the full version of raspian stretch.
 0. Connect the bluetooth adapters and speaker
 0. Turn on the pi, open a Terminal and run these commands, the pi will reboot on a successful install
-0. If prompted about restarting services select ye
+0. If prompted about restarting services select yes
 
 ```
 git clone https://github.com/adangert/JoustMania.git

@@ -114,6 +114,7 @@ Note that this disables normal Wi-Fi on the Pi, but a wired connection will stil
 ```
 sudo ./disable_ap.sh
 ```
+If Wifi does not come back after issuing this command: go to "/etc/dhcpcd.conf" and open it, look for "#Access point for JoustMania" Change the line below that to "interfaces wlan0" reboot, and your wifi will come back.
 
 Custom Music
 ---------------------------------

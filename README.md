@@ -80,7 +80,8 @@ Pairing controllers
 
 If pairing is not working for some reason, or you would like to resync all controllers run the following
 ```
-cd ~/JoustMania/
+sudo -i
+cd /home/pi/JoustMania/
 ./reset_bluetooth_connections.sh
 ```
 

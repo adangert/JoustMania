@@ -41,6 +41,7 @@ Optional:
 * USB hub for charging controllers (http://a.co/7T3HDmJ)
 
 This will allow you to charge 9 controllers at once through the pi
+
 **Note: the new psmove controllers with a micro charging connection will not work with Joustmaina, this issue is being looked at with the psmoveapi(https://github.com/thp/psmoveapi/issues/353)**
 
 For questions on hardware, or if you would like to inquire about purchasing a fully setup Joustmania device, please reach out to joustmaniagame@gmail.com

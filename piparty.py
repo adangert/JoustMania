@@ -365,9 +365,9 @@ class Menu():
         if self.game_mode == common.Games.Random:
             Audio('audio/Menu/menu Random.wav').start_effect()
         if self.game_mode == common.Games.FightClub:
-            os.popen('espeak -ven -p 70 -a 200 "Fight Club"')
+            Audio('audio/Menu/menu FightClub.wav').start_effect()
         if self.game_mode == common.Games.NonStop:
-            os.popen('espeak -ven -p 70 -a 200 "Non stop joust"')
+            Audio('audio/Menu/menu NonStopJoust.wav').start_effect()
 
     def check_change_mode(self):
         change_mode = False

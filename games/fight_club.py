@@ -242,6 +242,8 @@ class Fight_club():
             self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
             self.revive = Audio('audio/Commander/sounds/revive.wav')
             
+            
+            
             end = False
             self.audio = music
         #self.change_time = self.get_change_time(speed_up = True)
@@ -387,7 +389,9 @@ class Fight_club():
     #more than one tied winner, have them face off
     def face_off(self):
         #print(self.winning_moves)
-        os.popen('espeak -ven -p 70 -a 200 "Tie game..... Face off"')
+        #os.popen('espeak -ven -p 70 -a 200 "Tie game..... Face off"')
+        
+        Audio('audio/Fight_Club/tie_game.wav').start_effect()
         for move in self.move_serials:
             self.dead_moves[move].value = 0
         for move in self.winning_moves:
@@ -433,9 +437,11 @@ class Fight_club():
         if self.round_counter >= self.round_num:
             self.check_winner()
         if self.round_counter == self.round_num - 5:
-            os.popen('espeak -ven -p 70 -a 200 "5 rounds remain"')
+            Audio('audio/Fight_Club/5_rounds.wav').start_effect()
+            #os.popen('espeak -ven -p 70 -a 200 "5 rounds remain"')
         if self.round_counter == self.round_num - 1:
-            os.popen('espeak -ven -p 70 -a 200 "last round"')
+            Audio('audio/Fight_Club/last_round.wav').start_effect()
+            #os.popen('espeak -ven -p 70 -a 200 "last round"')
             
     
     def stop_tracking_moves(self):
@@ -451,7 +457,8 @@ class Fight_club():
         h_value = 0
         for move in self.move_serials:
             self.dead_moves[move].value = 0
-        os.popen('espeak -ven -p 70 -a 200 "winner"')
+        Audio('audio/Fight_Club/game_over.wav').start_effect()
+        #os.popen('espeak -ven -p 70 -a 200 "winner"')
 
         while (time.time() < end_time):
             time.sleep(0.01)
@@ -551,11 +558,14 @@ class Fight_club():
                 self.current_winner = self.chosen_defender
                 saying = random.randint(0,2)
                 if saying == 0:
-                    os.popen('espeak -ven -p 70 -a 200 "Defender has taken the lead"')
+                    Audio('audio/Fight_Club/defender_lead.wav').start_effect()
+                    #os.popen('espeak -ven -p 70 -a 200 "Defender has taken the lead"')
                 elif saying == 1:
-                    os.popen('espeak -ven -p 70 -a 200 "Defender is now winning"')
+                    Audio('audio/Fight_Club/defender_winning.wav').start_effect()
+                    #os.popen('espeak -ven -p 70 -a 200 "Defender is now winning"')
                 elif saying == 2:
-                    os.popen('espeak -ven -p 70 -a 200 "Defender has the high score"')
+                    Audio('audio/Fight_Club/Defender_high_score.wav').start_effect()
+                    #os.popen('espeak -ven -p 70 -a 200 "Defender has the high score"')
         self.check_end_game()
         
 

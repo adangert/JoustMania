@@ -53,6 +53,7 @@ Installation
 0. Connect the bluetooth adapters and speaker
 0. Turn on the pi, open a Terminal and run these commands, the pi will reboot on a successful install
 0. If prompted about restarting services select yes
+0. If something goes wrong during instillation, try running setup.sh again.
 
 ```
 git clone https://github.com/adangert/JoustMania.git

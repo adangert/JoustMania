@@ -64,7 +64,7 @@ If you have the bluetooth adapters, disable the on-board bluetooth
 ```
 sudo ./disable_internal_bluetooth.sh
 ```
-You can now disconnect the hdmi cable and run JoustMania in headless mode. JoustMania will automatically boot up on restart.
+You can now disconnect the hdmi cable and run JoustMania in headless mode. JoustMania will automatically boot up on restart, menu music should start playing once the pi boots up.
 
 Update Joust Mania
 ---------------------------

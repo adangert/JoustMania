@@ -88,7 +88,7 @@ cd /home/pi/JoustMania/
 ./reset_bluetooth_connections.sh
 ```
 
-If controllers seem to pair to only one Bluetooth adapter, it is likely that they share the same Mac address, refer to hits issue: https://github.com/adangert/JoustMania/issues/172
+If controllers seem to pair to only one Bluetooth adapter, it is likely that they share the same Mac address, refer to this issue: https://github.com/adangert/JoustMania/issues/172
 
 How to select a game mode
 ---------------------------------

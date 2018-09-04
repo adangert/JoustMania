@@ -38,7 +38,7 @@ setup() {
     VENV=/home/pi/JoustMania/venv
     # We install nearly all python deps in the virtualenv to avoid concflicts with system, except
     # numpy and scipy because they take forever to build.
-    sudo apt-get install -y -t buster libasound2-dev libasound2 python3-scipy
+    sudo apt-get install -y -t buster libasound2-dev libasound2 python3-scipy cmake
     sudo python3.6 -m pip install --upgrade virtualenv || exit -1
 
     # Rebuilding this is pretty cheap, so just do it every time.

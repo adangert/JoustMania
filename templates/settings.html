@@ -1,17 +1,17 @@
-<html><head>
-<title>Joustmania!</title>
-<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
-<script type=text/javascript src='{{ url_for('static', filename='jquery.js') }}'></script>
+{% extends "basic.html" %}
+{% block header %}
 <script>
-function updateStatus(){
+function randomize(){
+    clicked = $(':focus')[0].id;
     $.ajax({
-        url: 'updateStatus',
+        url: clicked,
         timeout: 2000,
         success: function(rawdata){
-            info = JSON.parse(rawdata);
-            if (info.game_status != 'menu'){
-            	window.location.replace("/");
-            }
+            console.log(rawdata)
+            teams = JSON.parse(rawdata);
+            $('.'+clicked).each(function(){
+                $(this).val(teams.pop());
+            })
         },
         error: function(){
             console.log('something broke!')
@@ -20,49 +20,87 @@ function updateStatus(){
 };
 
 $(document).ready(function(){
-    updateStatus();
-    setInterval(updateStatus,1000);
+    $('.rand').click(function(){
+        randomize()
+    });
+
+    $('#random_mode_options').hide();
+    $('#random_toggle').click(function(){
+        $('#random_mode_options').toggle();
+    });
+
+    $('#color_lock_options').hide();
+    $('#color_lock_toggle').click(function(){
+        $('#color_lock_options').toggle();
+    });
 });
 </script>
-<body>
+<style>
+p{line-height: 200%}
+span {line-height: 200%}
+</style>
+{% endblock %}
 
-<div id='title'>
+{% block body %}
 
-<img src='{{ url_for('static', filename='PiPartyLogo2small.png') }}' /><br /><br />
-</div>
 <div class="lol">
 {% with message = get_flashed_messages() %}
   {% if message %}
-    <br>{{message[0]}}<br>
+    <br>{{message[0]}}<br><a href="/"><button type="button">Go Back</button></a><br>
   {% endif %}
 {% endwith %}
 </div>
 
 <div class='admin' id='admin_settings'>
 <h3>Admin Settings</h3>
+Note: Does not update during games.<br/>
 
 <form action="/settings" method="POST">
 <p>
-{{ form.move_admin(checked=settings.move_admin) }} {{form.move_admin.label}}
+{{ form.move_can_be_admin(checked=settings.move_can_be_admin) }} {{form.move_can_be_admin.label}}
 </p>
 <p>
-{{ form.instructions(checked=settings.instructions) }} {{form.instructions.label}}
+{{ form.play_instructions(checked=settings.play_instructions) }} {{form.play_instructions.label}}
 </p>
 <p>
-{{ form.audio(checked=settings.audio) }} {{form.audio.label}}
+{{ form.play_audio(checked=settings.play_audio) }} {{form.play_audio.label}}
+</p>
+<p>
+{{ form.random_teams(checked=settings.random_teams) }} {{form.random_teams.label}}
+</p>
+<p>
+{{ form.color_lock(checked=settings.color_lock) }} {{form.color_lock.label}}
+</p>
+<p>
+{{ form.red_on_kill }} {{form.red_on_kill.label}}
 </p>
 <p>
 {{ form.sensitivity }} {{form.sensitivity.label}}
 </p>
 <p>
-Random Mode Game Selection<br />
+Random Mode Game Selection <button type="button" id="random_toggle">Show/Hide</button><br />
+<span id="random_mode_options">
 {% for item in form.random_modes %}
-    {{ item(checked=item.data in settings.con_games) }} {{ item.label }} <br />
+    {{ item(checked=item.data in settings.random_modes) }} {{ item.label }} <br />
 {% endfor %}
-</p>
-<input type="submit" value="Save Settings">
-</form>
-<a href="/"><button type="button">Go Back</button></a>
-</div>
+</span></p>
+<p>
+Color Lock Selection <button type="button" id="color_lock_toggle">Show/Hide</button><br />
+<span id="color_lock_options">
+Dual Teams<br/>
+{% for i in range(2) %}{{ form.color_lock_choices[i](class_="rand2") }} {% endfor %}<br/>
+<button type="button" class="rand" id="rand2">Randomize</button><br/>
+Tri Teams<br/>
+{% for i in range(2,5) %}{{ form.color_lock_choices[i](class_="rand3") }} {% endfor %}<br/>
+<button type="button" class="rand" id="rand3">Randomize</button><br/>
+Quad Teams<br/>
+{% for i in range(5,9) %}{{ form.color_lock_choices[i](class_="rand4") }} {% endfor %}<br/>
+<button type="button" class="rand" id="rand4">Randomize</button><br/>
+</span></p>
 
-</body></html>
+<br/><input type="submit" value="Save Settings">
+</form>
+<a href="/"><button type="button">Go Back</button></a><br/><br/><br/>
+<a href="/power"><button type="button">Power Options</button></a>
+</div>
+{% endblock %}

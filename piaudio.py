@@ -1,112 +1,189 @@
-import pyaudio
+import asyncio
 import wave
+import functools
+import io
 import numpy
 import psutil, os
 import time
 import scipy.signal as signal
-from multiprocessing import Process, Value, Lock
+from multiprocessing import Value
+from threading import Thread
 import pygame
+import alsaaudio
+import threading
+from pydub import AudioSegment
 
+import common
 
-def audio_loop(file, p, ratio, end, chunk_size, stop_proc):
+def audio_loop(wav_data, ratio, stop_proc):
+    # TODO: As a future improvment, we could precompute resampled versions of the track
+    # at the "steady" playback rates, and only do dynamic resampling when transitioning
+    # between them.
+
+    PERIOD=1024 * 4
+    # Two channels, two bytes per sample.
+    PERIOD_BYTES = PERIOD * 2 * 2
+
     time.sleep(0.5)
     proc = psutil.Process(os.getpid())
     proc.nice(-5)
     time.sleep(0.02)
-    print ('audio file is ' + str(file))
-    while True:
-        #chunk = 2048/2
-        wf = wave.open(file, 'rb')
-        time.sleep(0.03)
-        data = wf.readframes(chunk_size.value)
-        time.sleep(0.03)
 
-        stream = p.open(
-            format = p.get_format_from_width(wf.getsampwidth()), 
-            channels = wf.getnchannels(),
-            rate = wf.getframerate(),
-            output = True,
-            frames_per_buffer = chunk_size.value)
+    device = alsaaudio.PCM()
+    wf = wave.open(io.BytesIO(wav_data), 'rb')
+    device.setchannels(wf.getnchannels())
+
+    device.setformat(alsaaudio.PCM_FORMAT_S16_LE)
+    device.setperiodsize(PERIOD)
         
-        while data != '' and stop_proc.value == 0:
-            #need to try locking here for multiprocessing
+    if len(wf.readframes(1)) == 0:
+        raise ValueError("Empty WAV file played.")
+    wf.rewind()
+    device.setrate(wf.getframerate())
+
+    # Loops samples of up to read_size bytes from the wav file.
+    def ReadSamples(wf, read_size):
+        while True:
+            sample = wf.readframes(read_size)
+            if len(sample) > 0:
+                yield sample
+            else:
+                wf.rewind()
+
+    # Writes incoming samples in chunks of write_size to device.
+    # Quits when stop_proc is set to a non-zero value.
+    def WriteSamples(device, write_size, samples):
+        buf = bytearray()
+        for sample in samples:
+            buf.extend(sample)
+            while len(buf) >= write_size:
+                device.write(buf[:write_size])
+                del buf[:write_size]
+            if stop_proc.value:
+                return
+
+    # Resamples audio data at the rate given by 'ratio' above.
+    def Resample(samples):
+        for data in samples:
             array = numpy.fromstring(data, dtype=numpy.int16)
-            result = numpy.reshape(array, (array.size/2, 2))
-            #split data into seperate channels and resample
-            final = numpy.ones((1024,2))
-            reshapel = signal.resample(result[:, 0], 1024)
+            # Split data into seperate channels and resample. Divide by two
+            # since there are two channels. We round to the nearest multiple of
+            # 32 as the resampling is more efficient the closer the sizes are to
+            # being powers of two.
+            num_output_frames = int(array.size / (ratio.value * 2)) & (~0x1f)
+            reshapel = signal.resample(array[0::2], num_output_frames)
+            reshaper = signal.resample(array[1::2], num_output_frames)
 
+            final = numpy.ones((num_output_frames,2))
             final[:, 0] = reshapel
-            reshaper = signal.resample(result[:, 1], 1024)
             final[:, 1] = reshaper
+
             out_data = final.flatten().astype(numpy.int16).tostring()
-            #data = signal.resample(array, chunk_size.value*ratio.value)
-            #stream.write(data.astype(int).tostring())
-            stream.write(out_data)
-            round_data = (int)(chunk_size.value*ratio.value)
-            if round_data % 2 != 0:
-                round_data += 1
-            data = wf.readframes(round_data)
-        stream.stop_stream()
-        stream.close()
-        wf.close()
-        p.terminate()
-        
-        if end or stop_proc.value == 1:
-            break
-    stream.stop_stream()
-    stream.close()
+            yield out_data
+
+    WriteSamples(device, PERIOD_BYTES, Resample(ReadSamples(wf, PERIOD)))
+
     wf.close()
-    p.terminate()
+    device.close()
 
-
-
-
-# Start audio in seperate process to be non-blocking
+@functools.lru_cache(maxsize=128)
 class Audio:
-    def __init__(self, file, end=False):
-        self.p = pyaudio.PyAudio()
-        self.stop_proc = Value('i', 0)
-        self.chunk = 2048
-        self.file = file
-        self.ratio = Value('d' , 1.0)
-        self.chunk_size = Value('i', int(2048/2))
-        self.end = end
-        #pygame.mixer.init(44100, -16, 2 , 2048)
-        #hey
-        pygame.mixer.init(47000, -16, 2 , 4096)
+    def __init__(self, fname):
+        segment = AudioSegment.from_file(fname)
+        buf = io.BytesIO()
+        segment.export(buf, 'wav')
+        buf.seek(0)
+        self.sample_ = pygame.mixer.Sound(file=buf)
+        self.fname_ = fname
+  
+    #this will not work for files other than wav at the moment
+    def start_effect(self):
+        self.sample_.play()
+
+    def stop_effect(self):
+        self.sample_.stop()
+
+    def start_effect_music(self):
+        self.sample_.play(-1)
+
+    def stop_effect_music(self):
+        self.sample_.stop()
+            
+    def get_length_secs(self):
+        return self.sample_.get_length()
+
+    def start_effect_and_wait(self):
+        self.start_effect()
+        time.sleep(self.get_length_secs())
+
+@functools.lru_cache(maxsize=16)
+class Music:
+    def __init__(self, fname):
+        self.load_thread_ = threading.Thread(target=lambda: self.load_sample_(fname))
+        self.load_thread_.start()
+        self.transition_future_ = asyncio.Future()
+
+    def wait_for_sample_(self):
+        if self.load_thread_:
+            self.load_thread_.join()
+            self.load_thread_ = None
+
+    def load_sample_(self, fname):
+        try:
+          segment = AudioSegment.from_file(fname)
+        except:
+          print("error can not convert "+fname+" to wav")
+          print("trying to play classical.wav instead")
+          segment = AudioSegment.from_wav("audio/Joust/music/classical.wav")
+
+        self.fname_ = fname
+        wav_data = io.BytesIO()
+        segment.export(wav_data, 'wav')
+        self.wav_data_ = wav_data.getbuffer()
 
     def start_audio_loop(self):
-        self.p = Process(target=audio_loop, args=(self.file, self.p, self.ratio, self.end, self.chunk_size, self.stop_proc))
-        self.p.start()
-        
+        self.wait_for_sample_()
+        print ('audio file is ' + str(self.fname_))
+        # Start audio in seperate process to be non-blocking
+        self.stop_proc = Value('i', 0)
+        self.ratio = Value('d' , 1.0)
+
+        self.t = Thread(target=audio_loop, args=(self.wav_data_, self.ratio, self.stop_proc))
+        self.t.start()
+
     def stop_audio(self):
         self.stop_proc.value = 1
-        #self.p.terminate()
-        self.p.join()
+        time.sleep(0.1)
+        self.t.join()
+        self.transition_future_.cancel()
 
     def change_ratio(self, ratio):
         self.ratio.value = ratio
 
-    def change_chunk_size(self, increase):
-        if increase:
-            self.chunk_size.value = int(2048/4)
-        else:
-            self.chunk_size.value = int(2048/2)
+    def transition_ratio(self, new_ratio, transition_duration=1.0):
+        """Smoothly transitions between the current sampling ratio and the given one.
+           Returns a task that completes once the transition is finished."""
+        async def do_transition():
+            num_steps = 20
+            old_ratio = self.ratio.value
+            for i in range(num_steps):
+                t = (i+1) / 20
+                ratio = common.lerp(old_ratio, new_ratio, t)
+                ratio = old_ratio * (1-t) + new_ratio * t
+                self.change_ratio(ratio)
+                await asyncio.sleep(transition_duration / num_steps)
 
-    def start_effect(self):
-        self.effect = pygame.mixer.Sound(self.file)
-        self.effect.play()
+        self.transition_future_.cancel()
+        self.transition_future_ = asyncio.ensure_future(do_transition())
+        return self.transition_future_
 
-    def stop_effect(self):
-        self.effect.stop()
+class DummyMusic:
+    def start_audio_loop(self): pass
+    def stop_audio(self): pass
+    def change_ratio(self): pass
+    def transition_ratio(self, new_ratio, transition_duration=None):
+        async def do_nothing(): pass
+        return asyncio.ensure_future(do_nothing())
 
-    def start_effect_music(self):
-        pygame.mixer.music.load(self.file)
-        pygame.mixer.music.play()
-
-    def stop_effect_music(self):
-        pygame.mixer.music.fadeout(1)
-            
-        
-          
+def InitAudio():
+    pygame.mixer.init(47000, -16, 2 , 4096)

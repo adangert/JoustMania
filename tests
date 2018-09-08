@@ -1,0 +1,5 @@
+#!/bin/bash
+
+export HOME="/home/pi/JoustMania"
+
+exec $HOME/venv/bin/python3.6 -m unittest discover -s . -p '*_test.py'

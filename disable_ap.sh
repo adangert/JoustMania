@@ -3,6 +3,12 @@ if [ "$EUID" -ne 0 ];
   exit
 fi
 
+
+if [ ! -f ./apfiles/ap_active ]
+	then echo "AP not active... ending"
+	exit
+fi
+
 rm ./apfiles/ap_active
 
 update-rc.d hostapd disable

@@ -15,7 +15,7 @@ setup() {
     #TODO: remove pyaudio and dependencies
     #install components
     sudo apt-get install -y  \
-        python3 python3.6-dev python3-pip \
+        python3 python3-dev python3-pip \
         python3-pkg-resources python3-setuptools libdpkg-perl \
         libsdl1.2-dev libsdl-mixer1.2-dev libsdl-sound1.2-dev \
         libportmidi-dev portaudio19-dev \
@@ -35,10 +35,14 @@ setup() {
 
 
 
+
     VENV=/home/pi/JoustMania/venv
     # We install nearly all python deps in the virtualenv to avoid concflicts with system, except
     # numpy and scipy because they take forever to build.
-    sudo apt-get install -y -t buster libasound2-dev libasound2 python3-scipy cmake
+    sudo apt-get install -y -t buster libasound2-dev libasound2 python3-scipy cmake || exit -1
+
+    #install the python3.6 dev environment
+    sudo apt-get install -y python3.6-dev || exit -1
     sudo python3.6 -m pip install --upgrade virtualenv || exit -1
 
     # Rebuilding this is pretty cheap, so just do it every time.

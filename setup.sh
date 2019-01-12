@@ -41,17 +41,18 @@ setup() {
     # numpy and scipy because they take forever to build.
     sudo apt-get install -y -t buster libasound2-dev libasound2 python3-scipy cmake || exit -1
 
-    #install the python3.6 dev environment
-    sudo apt-get install -y python3.6-dev || exit -1
-    sudo python3.6 -m pip install --upgrade virtualenv || exit -1
+    #install the python3 dev environment
+    sudo apt-get install -y python3-dev || exit -1
+    sudo python3 -m pip install --upgrade virtualenv || exit -1
 
     # Rebuilding this is pretty cheap, so just do it every time.
     rm -rf $VENV
-    /usr/bin/python3.6 -m virtualenv --system-site-packages $VENV || exit -1
-    PYTHON=$VENV/bin/python3.6
+    /usr/bin/python3 -m virtualenv --system-site-packages $VENV || exit -1
+    PYTHON=$VENV/bin/python3
     $PYTHON -m pip install --ignore-installed psutil flask Flask-WTF pyalsaaudio pydub pygame pyaudio pyyaml dbus-python || exit -1
 
     #install psmoveapi
+    rm -rf psmoveapi
     git clone --recursive git://github.com/thp/psmoveapi.git
     cd psmoveapi
 
@@ -68,7 +69,7 @@ setup() {
         -DPSMOVE_BUILD_TRACKER:BOOL=ON \
         -DPSMOVE_USE_PSEYE:BOOL=OFF
     make -j4
-    cp /home/pi/psmoveapi/build/{psmove.py,_psmove.so} $VENV/lib/python3.6
+    cp /home/pi/psmoveapi/build/{psmove.py,_psmove.so} $VENV/lib/python3
 
     #installs custom supervisor script for running joustmania on startup
     sudo cp -r /home/pi/JoustMania/conf/supervisor/ /etc/

@@ -12,6 +12,7 @@ import pygame
 import alsaaudio
 import threading
 from pydub import AudioSegment
+from multiprocessing import Process, Value, Array, Queue, Manager
 
 import common
 
@@ -148,7 +149,7 @@ class Music:
         self.stop_proc = Value('i', 0)
         self.ratio = Value('d' , 1.0)
 
-        self.t = Thread(target=audio_loop, args=(self.wav_data_, self.ratio, self.stop_proc))
+        self.t = Process(target=audio_loop, args=(self.wav_data_, self.ratio, self.stop_proc))
         self.t.start()
 
     def stop_audio(self):

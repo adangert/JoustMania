@@ -45,14 +45,14 @@ class Sensitivity(Enum):
     mid = 1
     fast = 2
 
-def track_move(serial, move_num, move, move_opts, force_color, battery, dead_count, restart, menu):
+def track_move(serial, move_num, move, move_opts, force_color, battery, dead_count, restart, menu, kill_proc):
     move.set_leds(0,0,0)
     move.update_leds()
     random_color = random.random()
 
     
     while True:
-        if(restart.value ==1 or menu.value == 0):
+        if(restart.value ==1 or menu.value == 0 or kill_proc.value):
             return
         time.sleep(0.01)
         if move.poll():
@@ -288,6 +288,7 @@ class Menu():
         self.false_colors = {}
         self.was_faked = {}
         self.rumble = {}
+        self.kill_controller_proc = {}
         
         self.i = 0
         #load audio now so it converts before the game begins
@@ -345,6 +346,7 @@ class Menu():
                     self.pair_one_move = False
         
     def pair_move(self, move, move_num):
+        print("NOW PAIRING MOVE")
         move_serial = move.get_serial()
         if move_serial not in self.tracked_moves:
             color = Array('i', [0] * 3)
@@ -376,6 +378,7 @@ class Menu():
             false_color = Value('i', 0)
             faked = Value('i', 0)
             rumble = Value('i', 0)
+            kill_proc = Value('b', False)
             
             
             proc = Process(target= controller_process.main_track_move, args=(self.menu, self.restart, move_serial, move_num, opts, color, self.show_battery, \
@@ -383,7 +386,7 @@ class Menu():
                                                                              self.music_speed, self.werewolf_reveal, self.show_team_colors, self.red_on_kill,zombie_opt,\
                                                                              self.commander_intro, commander_move_opt, self.commander_powers, self.commander_overdrive,\
                                                                              five_controller_opt, self.swapper_team_colors, invincibility, fight_club_color, self.num_teams,\
-                                                                             self.bomb_color,self.game_start,false_color, faked, rumble))
+                                                                             self.bomb_color,self.game_start,false_color, faked, rumble, kill_proc))
 
             
             proc.start()
@@ -401,6 +404,7 @@ class Menu():
             self.false_colors[move_serial] = false_color
             self.was_faked[move_serial] = faked
             self.rumble[move_serial] = rumble
+            self.kill_controller_proc[move_serial] = kill_proc
             
             
             
@@ -489,12 +493,25 @@ class Menu():
                 self.pair_one_move = True
                 self.paired_moves = []
             if self.pair_one_move:
-                if psmove.count_connected() != len(self.tracked_moves):
+                if psmove.count_connected() > len(self.tracked_moves):
                     for move_num, move in enumerate(self.moves):
                         if move.connection_type == psmove.Conn_USB and self.pair_one_move:
                             self.pair_usb_move(move)
                         elif move.connection_type != psmove.Conn_USB:
                             self.pair_move(move, move_num)
+                elif(len(self.tracked_moves) > len(self.moves)):
+                    connected_serials = [x.get_serial() for x in self.moves]
+                    tracked_serials = self.tracked_moves.keys()
+                    keys_to_kill = []
+                    for serial in tracked_serials:
+                        if serial not in connected_serials:
+                            self.kill_controller_proc[serial].value = True
+                            self.tracked_moves[serial].join()
+                            self.tracked_moves[serial].terminate()
+                            keys_to_kill.append(serial)
+                    for key in keys_to_kill:
+                        del self.tracked_moves[key]
+
                 self.check_for_new_moves()
                 if len(self.tracked_moves) > 0:
                     self.check_change_mode()

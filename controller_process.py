@@ -4,16 +4,16 @@ import common, colors, joust, webui, piparty
 def main_track_move(menu, restart, move_serial, move_num, move_opts, force_color, battery, dead_count, game_mode, \
                     team, team_color_enum, dead_move, music_speed, werewolf_reveal, show_team_colors, red_on_kill, zombie_opt,\
                     commander_intro, commander_move_opt, commander_powers, commander_overdrive,five_controller_opt, swapper_team_colors,\
-                    invincibility, fight_club_color, num_teams,bomb_color,game_start,false_color, faked, rumble):
+                    invincibility, fight_club_color, num_teams,bomb_color,game_start,false_color, faked, rumble, kill_proc):
     print("starting Controller Process")
     
     move = common.get_move(move_serial, move_num)
-    while(True):
+    while(not kill_proc.value):
         move.set_rumble(0)
         if(restart.value == 1):
             pass
         elif (menu.value == 1):
-            piparty.track_move(move_serial, move_num, move, move_opts, force_color, battery, dead_count, restart, menu)
+            piparty.track_move(move_serial, move_num, move, move_opts, force_color, battery, dead_count, restart, menu, kill_proc)
         elif(game_mode.value == common.Games.Zombies.value):
             zombie.track_controller(move, zombie_opt, restart, menu)
         elif(game_mode.value == common.Games.Commander.value):

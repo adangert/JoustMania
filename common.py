@@ -37,6 +37,7 @@ def get_move(serial, move_num):
         for move_num in range(psmove.count_connected()):
             move = psmove.PSMove(move_num)
             if move.get_serial() == serial:
+                print("returning " +str(move.get_serial()))
                 return move
         return None
     else:

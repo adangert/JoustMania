@@ -46,16 +46,10 @@ END_GAME_PAUSE = 12
 KILL_GAME_PAUSE = 4
 
 
-def track_move(move_serial, move_num, dead_move, force_color, music_speed, color, invincibility):
-    #proc = psutil.Process(os.getpid())
-    #proc.nice(3)
-    #explosion = Audio('audio/Joust/sounds/Explosion34.wav')
-    #explosion.start_effect()
+def track_move(move, dead_move, force_color, music_speed, color, invincibility, menu, restart):
     start = False
     no_rumble = time.time() + 1
     move_last_value = None
-    move = common.get_move(move_serial, move_num)
-    #team_colors = colors.generate_colors(num_teams)
     vibrate = False
     vibration_time = time.time() + 1
     flash_lights = True
@@ -65,12 +59,8 @@ def track_move(move_serial, move_num, dead_move, force_color, music_speed, color
 
     #keep on looping while move is not dead
     while True:
-        #if show_team_colors.value == 1:
-        #    if team.value != -1:
-        #        move.set_leds(*team_colors[team.value])
-        #    else:
-        #        move.set_leds(100,100,100)
-        #    move.update_leds()
+        if(menu.value == 1 or restart.value == 1):
+            return
         if sum(force_color) != 0:
             no_rumble_time = time.time() + 5
             time.sleep(0.01)
@@ -138,7 +128,6 @@ def track_move(move_serial, move_num, dead_move, force_color, music_speed, color
                             
                     if not invincibility.value:
                         if change > threshold:
-                            #print("over threshold")
                             if time.time() > no_rumble:
                                 move.set_leds(*colors.Colors.Red.value)
                                 move.set_rumble(90)
@@ -170,7 +159,7 @@ def track_move(move_serial, move_num, dead_move, force_color, music_speed, color
 
 
 class Fight_club():
-    def __init__(self, moves, command_queue, ns, music):
+    def __init__(self, moves, command_queue, ns, music, show_team_colors, music_speed, dead_moves, force_move_colors, invincible_moves, fight_club_colors, restart):
 
         self.command_queue = command_queue
         self.ns = ns
@@ -192,17 +181,19 @@ class Fight_club():
         self.move_serials = moves
 
         self.tracked_moves = {}
-        self.dead_moves = {}
-        self.music_speed = Value('d', 1.5)
+        self.dead_moves = dead_moves
+        self.music_speed = music_speed
+        self.music_speed.value = 1.5 #Value('d', 1.5)
         self.running = True
-        self.force_move_colors = {}
-        self.invince_moves = {}
+        self.force_move_colors = force_move_colors
+        self.invince_moves = invincible_moves
         
 
         self.start_timer = time.time()
         self.audio_cue = 0
         self.num_dead = 0
-        self.show_team_colors = Value('i', 0)
+        self.show_team_colors = show_team_colors
+        self.show_team_colors.value = 0 #Value('i', 0)
         self.teams = {}
         self.update_time = 0
         
@@ -229,13 +220,13 @@ class Fight_club():
         #just for the sound effects
         self.revive_time = time.time() + 4
         
-        self.colors = {}
+        self.colors = fight_club_colors
+        self.restart = restart
         
 
 
         fast_resample = False
         if self.play_audio:
-##            music = 'audio/Joust/music/' + random.choice(os.listdir('audio/Joust/music'))
             self.loud_beep = Audio('audio/Joust/sounds/beep_loud.wav')
             self.start_beep = Audio('audio/Joust/sounds/start.wav')
             self.start_game = Audio('audio/Joust/sounds/start3.wav')
@@ -246,7 +237,6 @@ class Fight_club():
             
             end = False
             self.audio = music
-        #self.change_time = self.get_change_time(speed_up = True)
         
         self.speed_up = True
         self.currently_changing = False
@@ -268,24 +258,13 @@ class Fight_club():
         for move_num, move_serial in enumerate(self.move_serials):
             
             time.sleep(0.1)
-            dead_move = Value('i', 0)
+            for i in range(3):
+                self.force_move_colors[move_serial][i] = 1
             
-            force_color = Array('i', [1] * 3)
-            invincibility = Value('b', True)
-            color = Value('i', 0)
-            proc = Process(target=track_move, args=(move_serial,
-                                                    move_num,
-                                                    dead_move,
-                                                    force_color,
-                                                    self.music_speed,
-                                                    color,
-                                                    invincibility))
-            proc.start()
-            self.colors[move_serial] = color
-            self.invince_moves[move_serial] = invincibility
-            self.tracked_moves[move_serial] = proc
-            self.dead_moves[move_serial] = dead_move
-            self.force_move_colors[move_serial] = force_color
+            self.colors[move_serial].value = 0
+            self.invince_moves[move_serial].value = True
+            self.dead_moves[move_serial].value = 0
+            
             
     def change_all_move_colors(self, r, g, b):
         for color in self.force_move_colors.values():
@@ -388,8 +367,6 @@ class Fight_club():
     
     #more than one tied winner, have them face off
     def face_off(self):
-        #print(self.winning_moves)
-        #os.popen('espeak -ven -p 70 -a 200 "Tie game..... Face off"')
         
         Audio('audio/Fight_Club/tie_game.wav').start_effect()
         for move in self.move_serials:
@@ -438,17 +415,12 @@ class Fight_club():
             self.check_winner()
         if self.round_counter == self.round_num - 5:
             Audio('audio/Fight_Club/5_rounds.wav').start_effect()
-            #os.popen('espeak -ven -p 70 -a 200 "5 rounds remain"')
         if self.round_counter == self.round_num - 1:
             Audio('audio/Fight_Club/last_round.wav').start_effect()
-            #os.popen('espeak -ven -p 70 -a 200 "last round"')
             
     
     def stop_tracking_moves(self):
-        for proc in self.tracked_moves.values():
-            proc.terminate()
-            proc.join()
-            time.sleep(0.02)
+        self.restart.value = 1
 
     def end_game(self):
         self.audio.stop_audio()
@@ -486,9 +458,7 @@ class Fight_club():
             self.dead_moves[self.chosen_defender].value = 0
             self.colors[self.chosen_defender].value = 0
             self.chosen_defender = self.chosen_fighter
-            #self.colors[self.chosen_defender].value = 1
             self.chosen_fighter = self.fighter_list.pop()
-            #self.colors[self.chosen_fighter].value = 2
             self.revive_fighters()
             self.reset_round_timer()
             
@@ -502,7 +472,6 @@ class Fight_club():
             self.colors[self.chosen_fighter].value = 0
             self.dead_moves[self.chosen_fighter].value = 0
             self.chosen_fighter = self.fighter_list.pop()
-            #self.colors[self.chosen_fighter].value = 2
             self.revive_fighters()
             self.reset_round_timer()
             
@@ -559,18 +528,16 @@ class Fight_club():
                 saying = random.randint(0,2)
                 if saying == 0:
                     Audio('audio/Fight_Club/defender_lead.wav').start_effect()
-                    #os.popen('espeak -ven -p 70 -a 200 "Defender has taken the lead"')
                 elif saying == 1:
                     Audio('audio/Fight_Club/defender_winning.wav').start_effect()
-                    #os.popen('espeak -ven -p 70 -a 200 "Defender is now winning"')
                 elif saying == 2:
                     Audio('audio/Fight_Club/Defender_high_score.wav').start_effect()
-                    #os.popen('espeak -ven -p 70 -a 200 "Defender has the high score"')
         self.check_end_game()
         
 
     def game_loop(self):
         self.track_moves()
+        self.restart.value = 0
         self.show_team_colors.value = 0
         self.count_down()
         self.change_time = time.time() + 6
@@ -592,8 +559,6 @@ class Fight_club():
                 self.update_time = time.time()
                 self.check_command_queue()
                 self.update_status('in_game')
-            #if self.play_audio:
-                #self.check_music_speed()
             self.check_next_fighter()
             self.check_end_round()
             if self.game_end:

@@ -68,13 +68,7 @@ zombie_min_respawn_time = 2
 
 
 
-def track_controller(serial, num_try, opts):
-    move = psmove.PSMove(num_try)
-    if move.get_serial() != serial:
-        for move_num in range(psmove.count_connected()):
-            move = psmove.PSMove(move_num)
-            if move.get_serial() == serial:
-                break
+def track_controller(move, opts, restart, menu):
     time.sleep(0.01)
     move.set_leds(200,200,200)
     move.update_leds()
@@ -87,6 +81,8 @@ def track_controller(serial, num_try, opts):
     change_arr=[0,0,0]
     
     while True:
+        if(restart.value == 1 or menu.value == 1):
+            break
         if move.poll():
             ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
             #total = sum([ax, ay, az])
@@ -201,7 +197,7 @@ def track_controller(serial, num_try, opts):
 #since only normal music will be playing
 #need to make this a class with zombie killing defs
 class Zombie:
-    def __init__(self, cont_alive, command_queue, ns, music):
+    def __init__(self, cont_alive, command_queue, ns, music,restart, zombie_opts):
         
         self.command_queue = command_queue
         self.ns = ns
@@ -210,6 +206,7 @@ class Zombie:
         self.play_audio = self.ns.settings['play_audio']
 
         self.music = music
+        self.restart = restart
 
         global human_warning
         global human_max
@@ -225,7 +222,7 @@ class Zombie:
         self.humans = []
         self.alive_zombies = []
         self.dead_zombies = {}
-        self.controller_opts = {}
+        self.controller_opts = zombie_opts
         self.controllers_alive = cont_alive
         self.win_time =  ((len(self.controllers_alive) * 3)/16) * 60
         if self.win_time <= 0:
@@ -293,22 +290,25 @@ class Zombie:
     def Start(self):
         running = True
         moves = []
+        print("gonna get moves")
         for move_num in range(len(self.controllers_alive)):
             moves.append(common.get_move(self.controllers_alive[move_num], move_num))
-
+        print("GOT THE MOVES")
         serials = self.controllers_alive
         processes = []
         
         for num_try, serial in enumerate(serials):
             starting_bullets = 0
-            #starting_bullets = random.choice([0, 1])
-            opts = Array('i', [0, 0, 0, 1, starting_bullets, 1, 1])
-            p = Process(target=track_controller, args=(serial, num_try, opts))
-            p.start()
-            processes.append(p)
-            self.controller_opts[serial] = opts
+            self.controller_opts[serial][0] = 0
+            self.controller_opts[serial][1] = 0
+            self.controller_opts[serial][2] = 0
+            self.controller_opts[serial][3] = 1
+            self.controller_opts[serial][4] = starting_bullets
+            self.controller_opts[serial][5] = 1
+            self.controller_opts[serial][6] = 1
             self.humans.append(serial)
-            
+        self.restart.value = 0
+        print("started the controllers")
         if self.play_audio:
             human_victory = Audio('audio/Zombie/sound_effects/human_victory.wav')
             zombie_victory = Audio('audio/Zombie/sound_effects/zombie_victory.wav')
@@ -318,8 +318,6 @@ class Zombie:
             molotov = Audio('audio/Zombie/sound_effects/molotov.wav')
             try:
                 self.music.start_audio_loop()
-##                music = Audio('audio/Zombie/music/' + random.choice(os.listdir('audio/Zombie/music/')))
-##                music.start_effect_music()
             except:
                 print('no music in audio/Zombie/music/')
 
@@ -386,9 +384,7 @@ class Zombie:
 
             #win scenario
             if len(self.humans) <= 0 or (time.time() - self.start_time) > self.win_time or self.kill_game:
-                for proc in processes:
-                    proc.terminate()
-                    proc.join()
+                self.restart.value = 1
                 pause_time = time.time() + 3
                 HSV = [(x*1.0/(50*len(self.controllers_alive)), 0.9, 1) for x in range(50*len(self.controllers_alive))]
                 colour_range = [[int(x) for x in colors.hsv2rgb(*colour)] for colour in HSV]

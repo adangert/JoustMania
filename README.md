@@ -44,7 +44,7 @@ This will allow you to charge 9 controllers at once through the pi
 
 A good power supply is recommended, (if you see a lightning bolt at the top right of your screen it means your pi is under voltage) Something like this should work well: (https://www.amazon.com/dp/B00L88M8TE)
 
-For questions on hardware, or if you would like to inquire about purchasing a fully setup Joustmania device, please reach out to joustmaniagame@gmail.com
+I am currently selling fully set up Joustmania devices (pi, case, correct bluetooth, sd card) for $79 with included shipping domestically. If you would like to inquire about purchasing a fully setup Joustmania device, please reach out to joustmaniagame@gmail.com
 
 Installation
 ---------------------------

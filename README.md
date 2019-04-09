@@ -23,6 +23,7 @@ Cool Stuffs!
 * Custom music support, play with your own music
 * Convention mode, no manual instructions needed, the game plays itself and switches between game modes
 
+
 Hardware
 ---------------------------
 I am currently selling fully set up Joustmania devices (pi, case, bluetooth dongle, sd card) for $79 with included shipping domestically. If you would like to inquire about purchasing a fully setup Joustmania device, please reach out to joustmaniagame@gmail.com
@@ -219,3 +220,8 @@ Custom Music
  * This mode allows for multiple game types to be randomly rotated with instructions played before each game
  * Random mode defaults to FFA, Random Teams, Werewolves, and Swapper, more game modes can be added or removed as an Admin or via the web interface (see above)
  * Modes with an insufficient number of players will be ignored, if none are available Joust Free-for-All is selected
+ 
+Support and funding
+--------------------------
+If you love this game you can support its development by helping out with my patreon here:
+https://www.patreon.com/adangert

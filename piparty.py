@@ -64,13 +64,14 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
                     dead_count.value = dead_count.value - 1
                 time.sleep(0.1)
             else:
-                if move_button == common.Button.SHAPES:
-                    move_opts[Opts.alive.value] = Alive.off.value
-                    dead_count.value = dead_count.value + 1
-                    move.set_leds(0,0,0)
-                    move.set_rumble(0)
-                    move.update_leds()
-                    continue
+                #remove this function for now, doesn't work
+                #if move_button == common.Button.SHAPES:
+                    #move_opts[Opts.alive.value] = Alive.off.value
+                    #dead_count.value = dead_count.value + 1
+                    #move.set_leds(0,0,0)
+                    #move.set_rumble(0)
+                    #move.update_leds()
+                    #continue
 
                 #show battery level
                 if battery.value == 1:
@@ -259,8 +260,8 @@ class Menu():
         self.paired_moves = []
         self.move_opts = {}
         self.teams = {}
-        self.game_mode = common.Games.Random
-        self.old_game_mode = common.Games.Random
+        self.game_mode = common.Games[self.ns.settings['current_game']]
+        self.old_game_mode = self.game_mode
         self.pair = pair.Pair()
         
         self.menu = Value('i', 1)
@@ -305,13 +306,16 @@ class Menu():
         self.commander_music.load_audio(random.choice(glob.glob("audio/Commander/music/*")))
 
     def exclude_out_moves(self):
-        for move in self.moves:
-            serial = move.get_serial()
-            if serial in self.move_opts:
-                if self.move_opts[move.get_serial()][Opts.alive.value] == Alive.off.value:
-                    self.out_moves[move.get_serial()] = Alive.off.value
-                else:
-                    self.out_moves[move.get_serial()] = Alive.on.value
+        pass
+        #currently does not work with the new stability update
+        #hold in the sync button to remove it from the game
+        #for move in self.moves:
+            #serial = move.get_serial()
+            #if serial in self.move_opts:
+                #if self.move_opts[move.get_serial()][Opts.alive.value] == Alive.off.value:
+                    #self.out_moves[move.get_serial()] = Alive.off.value
+                #else:
+                    #self.out_moves[move.get_serial()] = Alive.on.value
 
     def check_for_new_moves(self):
         self.enable_bt_scanning(True)
@@ -388,7 +392,6 @@ class Menu():
                                                                              five_controller_opt, self.swapper_team_colors, invincibility, fight_club_color, self.num_teams,\
                                                                              self.bomb_color,self.game_start,false_color, faked, rumble, kill_proc))
 
-            
             proc.start()
             self.move_opts[move_serial] = opts
             self.tracked_moves[move_serial] = proc
@@ -405,12 +408,35 @@ class Menu():
             self.was_faked[move_serial] = faked
             self.rumble[move_serial] = rumble
             self.kill_controller_proc[move_serial] = kill_proc
-            
+            self.out_moves[move.get_serial()] = Alive.on.value
             
             
             
             self.exclude_out_moves()
 
+
+    #def kill_controller(self, move_serial):
+
+
+    def remove_controller(self, move_serial):
+            self.kill_controller_proc[move_serial].value = True
+            self.tracked_moves[move_serial].join()
+            self.tracked_moves[move_serial].terminate()
+            del self.move_opts[move_serial]
+            #del self.tracked_moves[move_serial] 
+            del self.force_color[move_serial] 
+            del self.controller_teams[move_serial] 
+            del self.controller_colors[move_serial] 
+            del self.dead_moves[move_serial] 
+            del self.zombie_opts[move_serial] 
+            del self.commander_move_opts[move_serial] 
+            del self.five_controller_opts[move_serial] 
+            del self.fight_club_colors[move_serial] 
+            del self.invincible_moves[move_serial] 
+            del self.false_colors[move_serial] 
+            del self.was_faked[move_serial] 
+            del self.rumble[move_serial] 
+            del self.kill_controller_proc[move_serial] 
 
     def game_mode_announcement(self):
         if self.game_mode == common.Games.JoustFFA:
@@ -460,6 +486,7 @@ class Menu():
 
         if change_mode:
             self.game_mode = self.game_mode.next()
+            self.update_setting('current_game',self.game_mode.name)
             self.reset_controller_game_state()
             if not self.ns.settings['play_audio']:
                 if self.game_mode == common.Games.Commander:
@@ -493,6 +520,7 @@ class Menu():
                 self.pair_one_move = True
                 self.paired_moves = []
             if self.pair_one_move:
+                #check if there are any controllers that were shut off
                 if psmove.count_connected() > len(self.tracked_moves):
                     for move_num, move in enumerate(self.moves):
                         if move.connection_type == psmove.Conn_USB and self.pair_one_move:
@@ -505,12 +533,15 @@ class Menu():
                     keys_to_kill = []
                     for serial in tracked_serials:
                         if serial not in connected_serials:
-                            self.kill_controller_proc[serial].value = True
-                            self.tracked_moves[serial].join()
-                            self.tracked_moves[serial].terminate()
+                            #self.kill_controller_proc[serial].value = True
+                            self.remove_controller(serial)
+                            #self.tracked_moves[serial].join()
+                            #self.tracked_moves[serial].terminate()
                             keys_to_kill.append(serial)
                     for key in keys_to_kill:
                         del self.tracked_moves[key]
+                        if key == self.admin_move:
+                            self.admin_move = None
 
                 self.check_for_new_moves()
                 if len(self.tracked_moves) > 0:
@@ -606,6 +637,7 @@ class Menu():
             'play_instructions': True,
             #we store the name, not the enum, so the webui can process it more easily
             'random_modes': [common.Games.JoustFFA.name,common.Games.JoustRandomTeams.name,common.Games.WereJoust.name,common.Games.Swapper.name],
+            'current_game': common.Games.JoustFFA.name,
             'play_audio': True,
             'move_can_be_admin': True,
             'enforce_minimum': True,

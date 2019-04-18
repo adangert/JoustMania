@@ -97,7 +97,7 @@ How to select a game mode
 ---------------------------------
 * In order to change between games, on any controller press the select button (located on the left side of a controller)
 * Changing game types will turn you into an Admin
-* In order to remove a controller from play press all four front buttons
+* In order to remove a controller from play, hold the playstation button to turn off the controller.
 
 How to start a game
 ---------------------------------

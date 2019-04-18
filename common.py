@@ -167,6 +167,7 @@ FREEZE_PACE = GamePace(tempo=0, warn_threshold=1.1, death_threshold=1.2)
 REQUIRED_SETTINGS = [
 'play_audio',
 'move_can_be_admin',
+'current_game',
 'enforce_minimum',
 'sensitivity',
 'play_instructions',

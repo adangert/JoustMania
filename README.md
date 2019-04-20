@@ -76,7 +76,6 @@ You can update Joust Mania by doing a `git pull` in the main directory and runni
 ./setup.sh
 ```
 
-
 Pairing controllers
 ---------------------------
 

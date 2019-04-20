@@ -23,7 +23,6 @@ Cool Stuffs!
 * Custom music support, play with your own music
 * Convention mode, no manual instructions needed, the game plays itself and switches between game modes
 
-
 Hardware
 ---------------------------
 I am currently selling fully set up Joustmania devices (pi, case, bluetooth dongle, sd card) for $79 (or the $10 tier on [patreon](https://www.patreon.com/adangert)) with included shipping domestically. If you would like to inquire about purchasing a fully setup Joustmania device, please reach out to joustmaniagame@gmail.com

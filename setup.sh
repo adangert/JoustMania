@@ -1,5 +1,5 @@
 #!/bin/bash
-
+#test
 setup() {
     # Prevent apt from prompting us about restarting services.
     export DEBIAN_FRONTEND=noninteractive

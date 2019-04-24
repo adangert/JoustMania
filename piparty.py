@@ -231,7 +231,6 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
 class Menu():
     def __init__(self):
         self.big_update = update.check_for_update()
-        self.big_update = True
         self.command_queue = Queue()
         self.joust_manager = Manager()
         self.ns = self.joust_manager.Namespace()

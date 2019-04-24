@@ -8,6 +8,8 @@ from multiprocessing import Process, Value, Array, Queue, Manager
 from games import ffa, zombie, commander, swapper, tournament, speed_bomb, fight_club
 import jm_dbus
 import controller_process
+import update
+
 
 TEAM_NUM = len(colors.team_color_list)
 #TEAM_COLORS = colors.generate_colors(TEAM_NUM)
@@ -35,6 +37,7 @@ class Selections(Enum):
     change_sensitivity = 4
     change_instructions = 5
     show_battery = 6
+    update = 7
 
 class Holding(Enum):
     not_holding = 0
@@ -72,6 +75,9 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
                     #move.set_rumble(0)
                     #move.update_leds()
                     #continue
+                if move_button == common.Button.UPDATE:
+                    move_opts[Opts.selection.value] = Selections.update.value
+                    move_opts[Opts.holding.value] = Holding.holding.value
 
                 #show battery level
                 if battery.value == 1:
@@ -224,7 +230,8 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
 
 class Menu():
     def __init__(self):
-
+        self.big_update = update.check_for_update()
+        self.big_update = True
         self.command_queue = Queue()
         self.joust_manager = Manager()
         self.ns = self.joust_manager.Namespace()
@@ -299,6 +306,8 @@ class Menu():
         self.commander_music = Music("commander")
         
         self.choose_new_music()
+
+
 
     def choose_new_music(self):
         self.joust_music.load_audio(random.choice(glob.glob("audio/Joust/music/*")))
@@ -507,6 +516,12 @@ class Menu():
             for i in range(3):
                 self.force_color[serial][i] = 0
         self.random_added = []
+        
+    def check_update(self):
+         for move, move_opt in self.move_opts.items():
+            if move_opt[Opts.selection.value] == Selections.update.value:
+                if self.big_update:
+                    update.big_update()
 
     def game_loop(self):
         self.play_menu_music = True
@@ -548,6 +563,7 @@ class Menu():
                     self.check_change_mode()
                     self.check_admin_controls()
                     self.check_start_game()
+                    self.check_update()
                 self.check_command_queue()
                 self.update_status('menu')
             
@@ -872,6 +888,7 @@ class Menu():
         self.menu.value = 1
         self.restart.value =0
         self.reset_controller_game_state()
+
             
 if __name__ == "__main__":
     InitAudio()

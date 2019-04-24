@@ -70,10 +70,7 @@ You can now disconnect the hdmi cable and run JoustMania in headless mode. Joust
 
 Update Joust Mania
 ---------------------------
-You can update Joust Mania by doing a `git pull` in the main directory and running
-```
-./setup.sh
-```
+Joustmania will auto update when started and connected to the internet. Sometimes there is a large update, it will say so, then you can press the start and select buttons on a controller to start this update, wait until the pi reboots.
 
 Pairing controllers
 ---------------------------

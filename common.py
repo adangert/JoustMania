@@ -93,6 +93,7 @@ class Button(enum.Flag):
     TRIGGER  = psmove.Btn_T
 
     SHAPES   = TRIANGLE | CIRCLE | CROSS | SQUARE
+    UPDATE   = SELECT | START
 
 all_shapes = [Button.TRIANGLE, Button.CIRCLE, Button.CROSS, Button.SQUARE]
 

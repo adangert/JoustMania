@@ -98,7 +98,8 @@ setup() {
     sudo systemctl disable hciuart || exit -1
 
     uname2="$(stat --format '%U' '/home/pi/JoustMania/setup.sh')"
-    if [ "${uname2}" = "root" ]; then
+    uname3="$(stat --format '%U' '/home/pi/JoustMania/piparty.py')"
+    if [ "${uname2}" = "root" ] || [ "${uname3}" = "root" ] ; then
         sudo chown -R pi:pi /home/pi/JoustMania/
         espeak "permisions updated, please wait after reboot for Joustmania to start"
     else

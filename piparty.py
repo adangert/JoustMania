@@ -521,6 +521,7 @@ class Menu():
             if move_opt[Opts.selection.value] == Selections.update.value:
                 if self.big_update:
                     update.big_update()
+                    self.big_update = False
 
     def game_loop(self):
         self.play_menu_music = True

@@ -97,7 +97,7 @@ setup() {
     sudo grep -qxF 'dtoverlay=pi3-disable-bt' /boot/config.txt || echo "dtoverlay=pi3-disable-bt" | sudo tee -a /boot/config.txt
     sudo systemctl disable hciuart || exit -1
 
-    uname2="$(stat --format '%U' 'setup.sh')"
+    uname2="$(stat --format '%U' '/home/pi/JoustMania/setup.sh')"
     if [ "${uname2}" = "root" ]; then
         sudo chown -R pi:pi /home/pi/JoustMania/
         espeak "permisions updated, please wait after reboot for Joustmania to start"

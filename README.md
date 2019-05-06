@@ -98,7 +98,7 @@ How to start a game
 
 Admin Mode (Sensitivity and convention mode settings)
 ---------------------------------
-You can become an Admin by changing the game mode via the select button, this will allow you to modify the games settings from the four front buttons on the controller, After a game is played the Admin mode will be reset
+You can become an Admin by pressing all four front buttons on any controller, this will allow you to modify the games settings from the four front buttons on the controller, After a game is played the Admin mode will be reset
 
 * (Cross) Add or remove a game from Convention mode, your controller will be green if the game is added and Red if it is not, Custom Teams mode can not be added to the Convention mode
 * (Circle) Change sensitivity of the game. There are three settings, slow, medium, and fast, you will hear a corresponding sound for each

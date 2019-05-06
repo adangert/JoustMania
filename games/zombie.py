@@ -9,11 +9,11 @@ import json
 from math import sqrt
 
 
-human_warning = 1
-human_max = 1.8
+#human_warning = 1
+#human_max = 1.8
 
-zombie_warning = 0.6
-zombie_max = 1.0
+#zombie_warning = 0.6
+#zombie_max = 1.0
 zombie_spawn_invincibility = 2
 
 zombie_max_respawn_time = 30
@@ -68,7 +68,7 @@ zombie_min_respawn_time = 2
 
 
 
-def track_controller(move, opts, restart, menu):
+def track_controller(move, opts, restart, menu, controller_sensitivity):
     time.sleep(0.01)
     move.set_leds(200,200,200)
     move.update_leds()
@@ -78,45 +78,43 @@ def track_controller(move, opts, restart, menu):
     vibration_time = time.time() + 1
     flash_lights = True
     flash_lights_timer = 0
-    change_arr=[0,0,0]
+    #change_arr=[0,0,0]
+    change = 0
+    
+    human_warning = controller_sensitivity[3] 
+    human_max = controller_sensitivity[2]
+    zombie_warning = controller_sensitivity[9]
+    zombie_max = controller_sensitivity[8]
     
     while True:
         if(restart.value == 1 or menu.value == 1):
             break
         if move.poll():
             ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
-            #total = sum([ax, ay, az])
             total = sqrt(sum([ax**2, ay**2, az**2]))
-            if move_last_value is not None:
-                change_real = abs(move_last_value - total)
-                change_arr[0] = change_arr[1]
-                change_arr[1] = change_arr[2]
-                change_arr[2] = change_real
-                change = (change_arr[0] + change_arr[1]+change_arr[2])/3
-                # Dead
+            change = (change * 4 + total)/5
+            # Dead
 
-                #TODO: should probably only change this
-                # when the state changes (i.e. human death)
-                if opts[0] == 0:
-                    warning = human_warning
-                    threshold = human_max
-                if opts[0] == 1:
-                    warning = zombie_warning
-                    threshold = zombie_max
+            #TODO: should probably only change this
+            # when the state changes (i.e. human death)
+            if opts[0] == 0:
+                warning = human_warning
+                threshold = human_max
+            if opts[0] == 1:
+                warning = zombie_warning
+                threshold = zombie_max
 
+            if change > threshold:
+                move.set_leds(255,0,0)
+                move.set_rumble(100)
+                opts[3] = 0
 
-
-                if change > threshold:
-                    move.set_leds(255,0,0)
-                    move.set_rumble(100)
-                    opts[3] = 0
-
-                # Warn
-                elif change > warning and not vibrate:
-                    move.set_leds(20,50,100)
-                    vibrate = True
-                    vibration_time = time.time() + 0.5
-                    move.update_leds()
+            # Warn
+            elif change > warning and not vibrate:
+                move.set_leds(20,50,100)
+                vibrate = True
+                vibration_time = time.time() + 0.5
+                move.update_leds()
 
             #if we are dead
             if opts[3] == 0:
@@ -190,7 +188,7 @@ def track_controller(move, opts, restart, menu):
             #else:
             #    move.set_leds(*team_colors[team.value])
             move.update_leds()
-            move_last_value = total
+            #move_last_value = total
 
 
 #we should try one process per controller,
@@ -207,16 +205,6 @@ class Zombie:
 
         self.music = music
         self.restart = restart
-
-        global human_warning
-        global human_max
-        global zombie_warning
-        global zombie_max
-        
-        human_warning = common.FAST_WARNING[self.sensitivity]
-        human_max = common.FAST_MAX[self.sensitivity]
-        zombie_warning = common.ZOMBIE_WARNING[self.sensitivity]
-        zombie_max = common.ZOMBIE_MAX[self.sensitivity]
         
         self.update_time = 0
         self.humans = []

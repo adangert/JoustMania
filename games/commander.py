@@ -23,15 +23,7 @@ MAX_MUSIC_FAST_TIME = 8
 MIN_MUSIC_SLOW_TIME = 10
 MAX_MUSIC_SLOW_TIME = 23
 
-#Sensitivity of the contollers
-#changes by the values in common
 #TODO: make commander should be harder to kill
-SLOW_MAX = 1.3
-SLOW_WARNING = 0.28
-FAST_MAX = 2.5
-FAST_WARNING = 1.3
-
-
 
 #How long the speed change takes
 INTERVAL_CHANGE = 1.5
@@ -81,7 +73,7 @@ def calculate_flash_time(r,g,b, score):
     new_b = int(common.lerp(255, b, flash_percent))
     return (new_r, new_g, new_b)
 
-def track_move(move, team, dead_move, force_color, music_speed, commander_intro, move_opts, commander_powers, commander_overdrive, restart, menu):
+def track_move(move, team, dead_move, force_color, music_speed, commander_intro, move_opts, commander_powers, commander_overdrive, restart, menu, controller_sensitivity):
     if team == Team.alpha.value:
         overdrive = commander_overdrive[0]
         power = commander_powers[0]
@@ -102,7 +94,13 @@ def track_move(move, team, dead_move, force_color, music_speed, commander_intro,
     vibration_time = time.time() + 1
     flash_lights = True
     flash_lights_timer = 0
-    change_arr = [0,0,0]
+    change = 0
+    #change_arr = [0,0,0]
+    
+    SLOW_MAX = controller_sensitivity[0]
+    SLOW_WARNING = controller_sensitivity[1]
+    FAST_MAX = controller_sensitivity[2]
+    FAST_WARNING = controller_sensitivity[3] 
 
     death_time = 8
     time_of_death = time.time()
@@ -145,66 +143,60 @@ def track_move(move, team, dead_move, force_color, music_speed, commander_intro,
         elif dead_move.value == 1:
             if move.poll():
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
-                #total = sum([ax, ay, az])
                 total = sqrt(sum([ax**2, ay**2, az**2]))
-                if move_last_value is not None:
-                    change_real = abs(move_last_value - total)
-                    change_arr[0] = change_arr[1]
-                    change_arr[1] = change_arr[2]
-                    change_arr[2] = change_real
-                    change = (change_arr[0] + change_arr[1]+change_arr[2])/3
+                change = (change * 4 + total)/5
 
-                    if move_opts[Opts.is_commander.value] == Bool.no.value:
-                        if overdrive.value == 0:
-                            warning = SLOW_WARNING
-                            threshold = SLOW_MAX
-                        else:
-                            warning = FAST_WARNING
-                            threshold = FAST_MAX
-                    else:
-                        #if affected by overdrive, this could make the power better
+                if move_opts[Opts.is_commander.value] == Bool.no.value:
+                    if overdrive.value == 0:
                         warning = SLOW_WARNING
                         threshold = SLOW_MAX
-                        
-
-                    if change > threshold:
-                        if time.time() > no_rumble:
-                            move.set_leds(0,0,0)
-                            move.set_rumble(90)
-                            dead_move.value = 0
-                            time_of_death = time.time()
-
-                    elif change > warning and not vibrate:
-                        if time.time() > no_rumble:
-                            move.set_leds(20,50,100)
-                            vibrate = True
-                            vibration_time = time.time() + 0.5
-
                     else:
-                        if move_opts[Opts.is_commander.value] == Bool.no.value:
-                            if overdrive.value == 0:
-                                move.set_leds(*Commander_colors[team])
-                            else:
-                                move.set_leds(*Overdrive_colors[team])
+                        warning = FAST_WARNING
+                        threshold = FAST_MAX
+                else:
+                    #if affected by overdrive, this could make the power better
+                    warning = SLOW_WARNING
+                    threshold = SLOW_MAX
+                    
+
+                if change > threshold:
+                    if time.time() > no_rumble:
+                        move.set_leds(0,0,0)
+                        move.set_rumble(90)
+                        dead_move.value = 0
+                        time_of_death = time.time()
+
+                elif change > warning and not vibrate:
+                    if time.time() > no_rumble:
+                        move.set_leds(20,50,100)
+                        vibrate = True
+                        vibration_time = time.time() + 0.5
+
+                else:
+                    if move_opts[Opts.is_commander.value] == Bool.no.value:
+                        if overdrive.value == 0:
+                            move.set_leds(*Commander_colors[team])
                         else:
-                            move.set_leds(*calculate_flash_time(Current_commander_colors[team][0],Current_commander_colors[team][1],Current_commander_colors[team][2], power.value))
-                        move.set_rumble(0)
+                            move.set_leds(*Overdrive_colors[team])
+                    else:
+                        move.set_leds(*calculate_flash_time(Current_commander_colors[team][0],Current_commander_colors[team][1],Current_commander_colors[team][2], power.value))
+                    move.set_rumble(0)
 
 
-                    if move_opts[Opts.is_commander.value] == Bool.yes.value:
-                        if (move.get_buttons() == 0 and move.get_trigger() < 10):
-                            move_opts[Opts.holding.value] = Holding.not_holding.value
-                            
-                        button = move.get_buttons()
-                        #print str(power.value)
-                        if power.value >= 1.0:
-                            #press trigger for overdrive
-                            if (move_opts[Opts.holding.value] == Holding.not_holding.value and move.get_trigger() > 100):
-                                move_opts[Opts.selection.value] = Selections.trigger.value
-                                move_opts[Opts.holding.value] = Holding.holding.value
+                if move_opts[Opts.is_commander.value] == Bool.yes.value:
+                    if (move.get_buttons() == 0 and move.get_trigger() < 10):
+                        move_opts[Opts.holding.value] = Holding.not_holding.value
+                        
+                    button = move.get_buttons()
+                    #print str(power.value)
+                    if power.value >= 1.0:
+                        #press trigger for overdrive
+                        if (move_opts[Opts.holding.value] == Holding.not_holding.value and move.get_trigger() > 100):
+                            move_opts[Opts.selection.value] = Selections.trigger.value
+                            move_opts[Opts.holding.value] = Holding.holding.value
 
                         
-                move_last_value = total
+                #move_last_value = total
                 if vibrate:
                     flash_lights_timer += 1
                     if flash_lights_timer > 7:
@@ -240,16 +232,6 @@ class Commander():
 
         self.sensitivity = self.ns.settings['sensitivity']
         self.random_teams = self.ns.settings['random_teams']
-
-        global SLOW_MAX
-        global SLOW_WARNING
-        global FAST_MAX
-        global FAST_WARNING
-        
-        SLOW_MAX = common.SLOW_MAX[self.sensitivity]
-        SLOW_WARNING = common.SLOW_WARNING[self.sensitivity]
-        FAST_MAX = common.FAST_MAX[self.sensitivity]
-        FAST_WARNING = common.FAST_WARNING[self.sensitivity]
 
         self.update_time = 0
 

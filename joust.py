@@ -9,6 +9,7 @@ from piaudio import Audio
 from enum import Enum
 from multiprocessing import Process, Value, Array, Queue
 from math import sqrt
+import statistics
 
 
 # How fast/slow the music can go
@@ -30,16 +31,16 @@ END_MAX_MUSIC_SLOW_TIME = 12
 
 #Default Sensitivity of the contollers
 #These are changed from the options in common
-SLOW_MAX = 1
-SLOW_WARNING = 0.28
-FAST_MAX = 1.8
-FAST_WARNING = 0.8
+#SLOW_MAX = 1
+#SLOW_WARNING = 0.28
+#FAST_MAX = 1.8
+#FAST_WARNING = 0.8
 
 #Sensitivity of the werewolf contollers
-WERE_SLOW_MAX = 1.4
-WERE_SLOW_WARNING = 0.5
-WERE_FAST_MAX = 2.3
-WERE_FAST_WARNING = 1.2
+#WERE_SLOW_MAX = 1.4
+#WERE_SLOW_WARNING = 0.5
+#WERE_FAST_MAX = 2.3
+#WERE_FAST_WARNING = 1.2
 
 #How long the speed change takes
 INTERVAL_CHANGE = 1.5
@@ -49,17 +50,31 @@ END_GAME_PAUSE = 6
 KILL_GAME_PAUSE = 4
 
 
-def track_move(move, game_mode, team, team_color_enum, dead_move, force_color, music_speed, werewolf_reveal, show_team_colors, red_on_kill, restart, menu):
+def track_move(move, game_mode, team, team_color_enum, dead_move, force_color, \
+    music_speed, werewolf_reveal, show_team_colors, red_on_kill, restart, menu, controller_sensitivity):
+        
+    SLOW_MAX = controller_sensitivity[0]
+    SLOW_WARNING = controller_sensitivity[1]
+    FAST_MAX = controller_sensitivity[2]
+    FAST_WARNING = controller_sensitivity[3] 
+    
+    WERE_SLOW_MAX = controller_sensitivity[4]
+    WERE_SLOW_WARNING = controller_sensitivity[5]
+    WERE_FAST_MAX = controller_sensitivity[6]
+    WERE_FAST_WARNING = controller_sensitivity[7] 
+    
     start = False
-    no_rumble = time.time() + 1
+    no_rumble = time.time() + 2
     move_last_value = None
     my_team_colors = team_color_enum
     werewolf = False
     vibrate = False
-    change_arr = [0,0,0]
+    change_arr = [0]*8
     vibration_time = time.time() + 1
     flash_lights = True
     flash_lights_timer = 0
+    previous_average = 0
+    change = 0
     if team < 0:
         team = (team + 1) * -1
         werewolf = True
@@ -92,48 +107,27 @@ def track_move(move, game_mode, team, team_color_enum, dead_move, force_color, m
             if move.poll():
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
                 total = sqrt(sum([ax**2, ay**2, az**2]))
-                #total = sum([ax, ay, az])
-                if move_last_value is not None:
-                    change_real = abs(move_last_value - total)
-                    change_arr[0] = change_arr[1]
-                    change_arr[1] = change_arr[2]
-                    change_arr[2] = change_real
-                    change = (change_arr[0] + change_arr[1]+change_arr[2])/3
-                    speed_percent = (music_speed.value - SLOW_MUSIC_SPEED)/(FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED)
-                    if werewolf:
-                        warning = common.lerp(WERE_SLOW_WARNING, WERE_FAST_WARNING, speed_percent)
-                        threshold = common.lerp(WERE_SLOW_MAX, WERE_FAST_MAX, speed_percent) 
-                    else:
-                        warning = common.lerp(SLOW_WARNING, FAST_WARNING, speed_percent)
-                        threshold = common.lerp(SLOW_MAX, FAST_MAX, speed_percent)
+                change = (change * 4 + total)/5
+                speed_percent = (music_speed.value - SLOW_MUSIC_SPEED)/(FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED)
+                if werewolf:
+                    warning = common.lerp(WERE_SLOW_WARNING, WERE_FAST_WARNING, speed_percent)
+                    threshold = common.lerp(WERE_SLOW_MAX, WERE_FAST_MAX, speed_percent) 
+                else:
+                    warning = common.lerp(SLOW_WARNING, FAST_WARNING, speed_percent)
+                    threshold = common.lerp(SLOW_MAX, FAST_MAX, speed_percent)
 
 
 
-                    if vibrate:
-                        flash_lights_timer += 1
-                        if flash_lights_timer > 7:
-                            flash_lights_timer = 0
-                            flash_lights = not flash_lights
-                        if flash_lights:
-                            if game_mode == common.Games.WereJoust.value:
-                                move.set_leds(*colors.Colors.Black.value)
-                            else:
-                                move.set_leds(*colors.Colors.White40.value)
+                if vibrate:
+                    flash_lights_timer += 1
+                    if flash_lights_timer > 7:
+                        flash_lights_timer = 0
+                        flash_lights = not flash_lights
+                    if flash_lights:
+                        if game_mode == common.Games.WereJoust.value:
+                            move.set_leds(*colors.Colors.Black.value)
                         else:
-                            if game_mode == common.Games.WereJoust.value:
-                                if werewolf_reveal.value == 2 and werewolf:
-                                    move.set_leds(*colors.Colors.Blue40.value)
-                                else:
-                                    move.set_leds(*colors.Colors.White40.value)
-                            else:
-                                move.set_leds(*my_team_colors)
-                        if time.time() < vibration_time - 0.22:
-                            move.set_rumble(110)
-                        else:
-                            move.set_rumble(0)
-                        if time.time() > vibration_time:
-                            vibrate = False
-
+                            move.set_leds(*colors.Colors.White40.value)
                     else:
                         if game_mode == common.Games.WereJoust.value:
                             if werewolf_reveal.value == 2 and werewolf:
@@ -142,25 +136,40 @@ def track_move(move, game_mode, team, team_color_enum, dead_move, force_color, m
                                 move.set_leds(*colors.Colors.White40.value)
                         else:
                             move.set_leds(*my_team_colors)
-                        #move.set_rumble(0)
+                    if time.time() < vibration_time-0.25:
+                        move.set_rumble(90)
+                    else:
+                        move.set_rumble(0)
+                    if time.time() > vibration_time:
+                        vibrate = False
+
+                else:
+                    if game_mode == common.Games.WereJoust.value:
+                        if werewolf_reveal.value == 2 and werewolf:
+                            move.set_leds(*colors.Colors.Blue40.value)
+                        else:
+                            move.set_leds(*colors.Colors.White40.value)
+                    else:
+                        move.set_leds(*my_team_colors)
+                    #move.set_rumble(0)
 
 
-                    if change > threshold:
-                        if time.time() > no_rumble:
-                            if red_on_kill:
-                                move.set_leds(*colors.Colors.Red.value)
-                            else:
-                                move.set_leds(*colors.Colors.Black.value)
-                            move.set_rumble(90)
-                            dead_move.value = 0
+                if change > threshold:
+                    if time.time() > no_rumble:
+                        if red_on_kill:
+                            move.set_leds(*colors.Colors.Red.value)
+                        else:
+                            move.set_leds(*colors.Colors.Black.value)
+                        move.set_rumble(90)
+                        dead_move.value = 0
 
-                    elif change > warning and not vibrate:
-                        if time.time() > no_rumble:
-                            vibrate = True
-                            vibration_time = time.time() + 0.5
-                            #move.set_leds(20,50,100)
+                elif change > warning and not vibrate:
+                    if time.time() > no_rumble:
+                        vibrate = True
+                        vibration_time = time.time() + 0.5
+                        #move.set_leds(20,50,100)
 
-                move_last_value = total
+                #move_last_value = total
             move.update_leds()
         
         elif dead_move.value < 1:
@@ -222,25 +231,6 @@ class Joust():
         self.alive_moves = []
 
         #self.update_status('starting')
-
-        print("speed is {}".format(self.sensitivity))
-        global SLOW_MAX
-        global SLOW_WARNING
-        global FAST_MAX
-        global FAST_WARNING
-
-        SLOW_MAX = common.SLOW_MAX[self.sensitivity]
-        SLOW_WARNING = common.SLOW_WARNING[self.sensitivity]
-        FAST_MAX = common.FAST_MAX[self.sensitivity]
-        FAST_WARNING = common.FAST_WARNING[self.sensitivity]
-
-        print("SLOWMAX IS {}".format(SLOW_MAX))
-
-        #Sensitivity of the werewolf contollers
-        WERE_SLOW_MAX = common.WERE_SLOW_MAX[self.sensitivity]
-        WERE_SLOW_WARNING = common.WERE_SLOW_WARNING[self.sensitivity]
-        WERE_FAST_MAX = common.WERE_FAST_MAX[self.sensitivity]
-        WERE_FAST_WARNING = common.WERE_FAST_WARNING[self.sensitivity]
         
         self.werewolf_reveal = werewolf_reveal
         self.werewolf_reveal.value = 2

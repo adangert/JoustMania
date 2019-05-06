@@ -15,7 +15,7 @@ TEAM_NUM = len(colors.team_color_list)
 #TEAM_COLORS = colors.generate_colors(TEAM_NUM)
 
 
-SENSITIVITY_MODES = 3
+SENSITIVITY_MODES = 5
 
 class Opts(Enum):
     alive = 0
@@ -38,15 +38,18 @@ class Selections(Enum):
     change_instructions = 5
     show_battery = 6
     update = 7
+    admin = 8
 
 class Holding(Enum):
     not_holding = 0
     holding = 1
 
 class Sensitivity(Enum):
-    slow = 0
-    mid = 1
-    fast = 2
+    ultra_slow = 0
+    slow = 1
+    mid = 2
+    fast = 3
+    ultra_fast = 4
 
 def track_move(serial, move_num, move, move_opts, force_color, battery, dead_count, restart, menu, kill_proc):
     move.set_leds(0,0,0)
@@ -67,14 +70,10 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
                     dead_count.value = dead_count.value - 1
                 time.sleep(0.1)
             else:
-                #remove this function for now, doesn't work
-                #if move_button == common.Button.SHAPES:
-                    #move_opts[Opts.alive.value] = Alive.off.value
-                    #dead_count.value = dead_count.value + 1
-                    #move.set_leds(0,0,0)
-                    #move.set_rumble(0)
-                    #move.update_leds()
-                    #continue
+                if move_button == common.Button.SHAPES:
+                    move_opts[Opts.selection.value] = Selections.admin.value
+                    move_opts[Opts.holding.value] = Holding.holding.value
+                    
                 if move_button == common.Button.UPDATE:
                     move_opts[Opts.selection.value] = Selections.update.value
                     move_opts[Opts.holding.value] = Holding.holding.value
@@ -296,6 +295,7 @@ class Menu():
         self.was_faked = {}
         self.rumble = {}
         self.kill_controller_proc = {}
+        self.controller_sensitivity = Array('d', [0] *10)
         
         self.i = 0
         #load audio now so it converts before the game begins
@@ -394,7 +394,7 @@ class Menu():
             
             
             proc = Process(target= controller_process.main_track_move, args=(self.menu, self.restart, move_serial, move_num, opts, color, self.show_battery, \
-                                                                             self.dead_count, self.controller_game_mode, team, team_color_enum, dead_move, \
+                                                                              self.dead_count, self.controller_game_mode, team, team_color_enum, self.controller_sensitivity, dead_move, \
                                                                              self.music_speed, self.werewolf_reveal, self.show_team_colors, self.red_on_kill,zombie_opt,\
                                                                              self.commander_intro, commander_move_opt, self.commander_powers, self.commander_overdrive,\
                                                                              five_controller_opt, self.swapper_team_colors, invincibility, fight_club_color, self.num_teams,\
@@ -480,11 +480,11 @@ class Menu():
             if move_opt[Opts.selection.value] == Selections.change_mode.value:
                 #remove previous admin, and set new one
                 if self.ns.settings['move_can_be_admin']:
-                    if self.admin_move:
-                        self.force_color[self.admin_move][0] = 0
-                        self.force_color[self.admin_move][1] = 0
-                        self.force_color[self.admin_move][2] = 0
-                    self.admin_move = move
+                    #if self.admin_move:
+                        #self.force_color[self.admin_move][0] = 0
+                        #self.force_color[self.admin_move][1] = 0
+                        #self.force_color[self.admin_move][2] = 0
+                    #self.admin_move = move
                     change_mode = True
                 move_opt[Opts.selection.value] = Selections.nothing.value
 
@@ -505,6 +505,20 @@ class Menu():
                 opt[Opts.game_mode.value] = self.game_mode.value
             if self.ns.settings['play_audio']:
                 self.game_mode_announcement()
+                
+    def check_new_admin(self):
+        for move, move_opt in self.move_opts.items():
+            if move_opt[Opts.selection.value] == Selections.admin.value:
+                #remove previous admin, and set new one
+                if self.ns.settings['move_can_be_admin']:
+                    #set the old admin_move to have no colors
+                    if self.admin_move:
+                        self.force_color[self.admin_move][0] = 0
+                        self.force_color[self.admin_move][1] = 0
+                        self.force_color[self.admin_move][2] = 0
+                    self.admin_move = move
+                move_opt[Opts.selection.value] = Selections.nothing.value
+        
                 
     #all controllers need to opt-in again in order fo the game to start
     def reset_controller_game_state(self):
@@ -560,6 +574,7 @@ class Menu():
 
                 self.check_for_new_moves()
                 if len(self.tracked_moves) > 0:
+                    self.check_new_admin()
                     self.check_change_mode()
                     self.check_admin_controls()
                     self.check_start_game()
@@ -604,12 +619,16 @@ class Menu():
 
                 self.update_setting('sensitivity', (self.ns.settings['sensitivity'] + 1) %  SENSITIVITY_MODES)
                 if self.ns.settings['play_audio']:
-                    if self.ns.settings['sensitivity'] == Sensitivity.slow.value:
-                        Audio('audio/Menu/slow_sensitivity.wav').start_effect()
+                    if self.ns.settings['sensitivity'] == Sensitivity.ultra_slow.value:
+                        Audio('audio/Menu/ultra_high.wav').start_effect()
+                    elif self.ns.settings['sensitivity'] == Sensitivity.slow.value:
+                        Audio('audio/Menu/high.wav').start_effect()
                     elif self.ns.settings['sensitivity'] == Sensitivity.mid.value:
-                        Audio('audio/Menu/mid_sensitivity.wav').start_effect()
+                        Audio('audio/Menu/medium.wav').start_effect()
                     elif self.ns.settings['sensitivity'] == Sensitivity.fast.value:
-                        Audio('audio/Menu/fast_sensitivity.wav').start_effect()
+                        Audio('audio/Menu/low.wav').start_effect()
+                    elif self.ns.settings['sensitivity'] == Sensitivity.ultra_fast.value:
+                        Audio('audio/Menu/ultra_low.wav').start_effect()
                 
             #no admin colors in con custom teams mode
             if self.game_mode == common.Games.JoustTeams or self.game_mode == common.Games.Random:
@@ -818,6 +837,20 @@ class Menu():
         self.menu.value = 0
         self.restart.value =1
         self.update_status('starting')
+        
+        self.sensitivity = self.ns.settings['sensitivity']
+        self.controller_sensitivity[0] = common.SLOW_MAX[self.sensitivity]
+        self.controller_sensitivity[1] = common.SLOW_WARNING[self.sensitivity]
+        self.controller_sensitivity[2] = common.FAST_MAX[self.sensitivity]
+        self.controller_sensitivity[3] = common.FAST_WARNING[self.sensitivity]
+        
+        self.controller_sensitivity[4] = common.WERE_SLOW_MAX[self.sensitivity]
+        self.controller_sensitivity[5] = common.WERE_SLOW_WARNING[self.sensitivity]
+        self.controller_sensitivity[6] = common.WERE_FAST_MAX[self.sensitivity]
+        self.controller_sensitivity[7] = common.WERE_FAST_WARNING[self.sensitivity]
+    
+        self.controller_sensitivity[8] = common.ZOMBIE_MAX[self.sensitivity]
+        self.controller_sensitivity[9] = common.ZOMBIE_WARNING[self.sensitivity]
 
         if random_mode:
             good_random_modes = [game for game in common.Games if game.name in self.ns.settings['random_modes']]

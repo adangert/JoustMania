@@ -23,15 +23,6 @@ MAX_MUSIC_FAST_TIME = 8
 MIN_MUSIC_SLOW_TIME = 10
 MAX_MUSIC_SLOW_TIME = 23
 
-#Sensitivity of the contollers
-#changes by the values in common
-#TODO: make commander should be harder to kill
-SLOW_MAX = 1.3
-SLOW_WARNING = 0.28
-FAST_MAX = 2.5
-FAST_WARNING = 1.3
-
-
 
 #How long the speed change takes
 INTERVAL_CHANGE = 1.5
@@ -79,7 +70,7 @@ def calculate_flash_time(r,g,b, score):
     new_b = int(common.lerp(255, b, flash_percent))
     return (new_r, new_g, new_b)
 
-def track_move(move, team, num_teams, team_colors, dead_move, force_color, music_speed, move_opts, restart, menu):
+def track_move(move, team, num_teams, team_colors, dead_move, force_color, music_speed, move_opts, restart, menu, controller_sensitivity):
     start = False
     no_rumble = time.time() + 1
     move_last_value = None
@@ -92,7 +83,12 @@ def track_move(move, team, num_teams, team_colors, dead_move, force_color, music
     vibration_time = time.time() + 1
     flash_lights = True
     flash_lights_timer = 0
-    change_arr = [0,0,0]
+    change = 0
+    
+    SLOW_MAX = controller_sensitivity[0]
+    SLOW_WARNING = controller_sensitivity[1]
+    FAST_MAX = controller_sensitivity[2]
+    FAST_WARNING = controller_sensitivity[3] 
 
     death_time = 2
     time_of_death = time.time()
@@ -114,66 +110,58 @@ def track_move(move, team, num_teams, team_colors, dead_move, force_color, music
             if move.poll():
 
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
-                #total = sum([ax, ay, az])
                 total = sqrt(sum([ax**2, ay**2, az**2]))
-                if move_last_value is not None:
-                    change_real = abs(move_last_value - total)
-                    change_arr[0] = change_arr[1]
-                    change_arr[1] = change_arr[2]
-                    change_arr[2] = change_real
-                    change = (change_arr[0] + change_arr[1]+change_arr[2])/3
-
-                    warning = SLOW_WARNING
-                    threshold = SLOW_MAX
+                change = (change * 4 + total)/5
+                
+                warning = SLOW_WARNING
+                threshold = SLOW_MAX
 
 
-                    if vibrate:
-                        flash_lights_timer += 1
-                        if flash_lights_timer > 7:
-                            flash_lights_timer = 0
-                            flash_lights = not flash_lights
-                        if flash_lights:
-                            move.set_leds(*colors.Colors.White60.value)
-                        else:
-                            if(team.value == 0):
-                                
-                                move.set_leds(team_colors[0],team_colors[1],team_colors[2])
-                            else:
-                                move.set_leds(team_colors[3],team_colors[4],team_colors[5])
-                        if time.time() < vibration_time - 0.22:
-                            move.set_rumble(110)
-                        else:
-                            move.set_rumble(0)
-                        if time.time() > vibration_time:
-                            vibrate = False
+                if vibrate:
+                    flash_lights_timer += 1
+                    if flash_lights_timer > 7:
+                        flash_lights_timer = 0
+                        flash_lights = not flash_lights
+                    if flash_lights:
+                        move.set_leds(*colors.Colors.White60.value)
                     else:
                         if(team.value == 0):
                             
                             move.set_leds(team_colors[0],team_colors[1],team_colors[2])
                         else:
                             move.set_leds(team_colors[3],team_colors[4],team_colors[5])
+                    if time.time() < vibration_time - 0.22:
+                        move.set_rumble(110)
+                    else:
+                        move.set_rumble(0)
+                    if time.time() > vibration_time:
+                        vibrate = False
+                else:
+                    if(team.value == 0):
+                        
+                        move.set_leds(team_colors[0],team_colors[1],team_colors[2])
+                    else:
+                        move.set_leds(team_colors[3],team_colors[4],team_colors[5])
 
 
-                    if change > threshold:
-                        if time.time() > no_rumble:
-                            #vibrate = False
-                            move.set_leds(*colors.Colors.Black.value)
-                            move.set_rumble(90)
-                            dead_move.value = 0
-                            time_of_death = time.time()
+                if change > threshold:
+                    if time.time() > no_rumble:
+                        #vibrate = False
+                        move.set_leds(*colors.Colors.Black.value)
+                        move.set_rumble(90)
+                        dead_move.value = 0
+                        time_of_death = time.time()
 
-                    elif change > warning and not vibrate:
-                        if time.time() > no_rumble:
-                            vibrate = True
-                            vibration_time = time.time() + 0.5
-                            move.set_leds(20,50,100)
-                    #else:
-                    #    move.set_rumble(0)
+                elif change > warning and not vibrate:
+                    if time.time() > no_rumble:
+                        vibrate = True
+                        vibration_time = time.time() + 0.5
+                        move.set_leds(20,50,100)
+                #else:
+                #    move.set_rumble(0)
                     
 
                     
-
-                move_last_value = total
             move.update_leds()
         #if we are dead
         elif dead_move.value <= 0:
@@ -200,16 +188,6 @@ class Swapper():
         self.color_lock = self.ns.settings['color_lock']
         self.color_lock_choices = self.ns.settings['color_lock_choices']
         self.random_teams = self.ns.settings['random_teams']
-
-        global SLOW_MAX
-        global SLOW_WARNING
-        global FAST_MAX
-        global FAST_WARNING
-        
-        SLOW_MAX = common.SLOW_MAX[self.sensitivity]
-        SLOW_WARNING = common.SLOW_WARNING[self.sensitivity]
-        FAST_MAX = common.FAST_MAX[self.sensitivity]
-        FAST_WARNING = common.FAST_WARNING[self.sensitivity]
         
         self.move_serials = moves
         self.tracked_moves = {}

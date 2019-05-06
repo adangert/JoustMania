@@ -30,14 +30,6 @@ END_MAX_MUSIC_FAST_TIME = 10
 END_MIN_MUSIC_SLOW_TIME = 8
 END_MAX_MUSIC_SLOW_TIME = 12
 
-#Default Sensitivity of the contollers
-#These are changed from the options in common
-SLOW_MAX = 1
-SLOW_WARNING = 0.28
-FAST_MAX = 1.8
-FAST_WARNING = 0.8
-
-
 #How long the speed change takes
 INTERVAL_CHANGE = 1.5
 
@@ -46,7 +38,7 @@ END_GAME_PAUSE = 12
 KILL_GAME_PAUSE = 4
 
 
-def track_move(move, dead_move, force_color, music_speed, color, invincibility, menu, restart):
+def track_move(move, dead_move, force_color, music_speed, color, invincibility, menu, restart, controller_sensitivity):
     start = False
     no_rumble = time.time() + 1
     move_last_value = None
@@ -55,7 +47,12 @@ def track_move(move, dead_move, force_color, music_speed, color, invincibility, 
     flash_lights = True
     flash_lights_timer = 0
     start_inv = False
-    change_arr = [0,0,0]
+    change = 0
+    
+    SLOW_MAX = controller_sensitivity[0]
+    SLOW_WARNING = controller_sensitivity[1]
+    FAST_MAX = controller_sensitivity[2]
+    FAST_WARNING = controller_sensitivity[3] 
 
     #keep on looping while move is not dead
     while True:
@@ -73,75 +70,66 @@ def track_move(move, dead_move, force_color, music_speed, color, invincibility, 
         elif dead_move.value == 1: #and not invincibility.value:   
             if move.poll():
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
-                #total = sum([ax, ay, az])
                 total = sqrt(sum([ax**2, ay**2, az**2]))
-                if move_last_value is not None:
-                    change_real = abs(move_last_value - total)
-                    change_arr[0] = change_arr[1]
-                    change_arr[1] = change_arr[2]
-                    change_arr[2] = change_real
-                    change = (change_arr[0] + change_arr[1]+change_arr[2])/3
-                    speed_percent = (music_speed.value - SLOW_MUSIC_SPEED)/(FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED)
-                    warning = common.lerp(SLOW_WARNING, FAST_WARNING, speed_percent)
-                    threshold = common.lerp(SLOW_MAX, FAST_MAX, speed_percent)
-                    if not start_inv and invincibility.value:
-                        start_inv = True
-                        vibrate = True
-                        vibration_time = time.time() + 4
-                        
-
-                    if vibrate:
-                        flash_lights_timer += 1
-                        if flash_lights_timer > 7:
-                            flash_lights_timer = 0
-                            flash_lights = not flash_lights
-                        if flash_lights:
-                            #move.set_leds(100,100,100)
-                            if color.value == 1:
-                                move.set_leds(*colors.Colors.Orange.value)
-                            if color.value == 2:
-                                move.set_leds(*colors.Colors.Blue.value)
-                            if color.value == 4:
-                                move.set_leds(*colors.Colors.Green.value)
-                        else:
-                            #if team.value != -1:
-                            #    move.set_leds(*team_colors[team.value])
-                            #else:
-                            move.set_leds(10,10,10)
-                        if time.time() < vibration_time - 0.22:
-                            move.set_rumble(110)
-                        else:
-                            move.set_rumble(0)
-                        if time.time() > vibration_time:
-                            #print("vibrate to false")
-                            vibrate = False
-                            start_inv = False
-                            invincibility.value = False
-                    else:
-                        #move.set_leds(100,200,100)
+                change = (change * 4 + total)/5
+               
+                speed_percent = (music_speed.value - SLOW_MUSIC_SPEED)/(FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED)
+                warning = common.lerp(SLOW_WARNING, FAST_WARNING, speed_percent)
+                threshold = common.lerp(SLOW_MAX, FAST_MAX, speed_percent)
+                if not start_inv and invincibility.value:
+                    start_inv = True
+                    vibrate = True
+                    vibration_time = time.time() + 4
+                    
+                if vibrate:
+                    flash_lights_timer += 1
+                    if flash_lights_timer > 7:
+                        flash_lights_timer = 0
+                        flash_lights = not flash_lights
+                    if flash_lights:
+                        #move.set_leds(100,100,100)
                         if color.value == 1:
                             move.set_leds(*colors.Colors.Orange.value)
                         if color.value == 2:
                             move.set_leds(*colors.Colors.Blue.value)
                         if color.value == 4:
                             move.set_leds(*colors.Colors.Green.value)
-                            
-                    if not invincibility.value:
-                        if change > threshold:
-                            if time.time() > no_rumble:
-                                move.set_leds(*colors.Colors.Red.value)
-                                move.set_rumble(90)
-                                dead_move.value = -1
-
-                        elif change > warning and not vibrate:
-                            if time.time() > no_rumble:
-                                vibrate = True
-                                vibration_time = time.time() + 0.5
-                                move.set_leds(20,50,100)
-
-
+                    else:
+                        #if team.value != -1:
+                        #    move.set_leds(*team_colors[team.value])
+                        #else:
+                        move.set_leds(10,10,10)
+                    if time.time() < vibration_time - 0.22:
+                        move.set_rumble(110)
+                    else:
+                        move.set_rumble(0)
+                    if time.time() > vibration_time:
+                        #print("vibrate to false")
+                        vibrate = False
+                        start_inv = False
+                        invincibility.value = False
+                else:
+                    #move.set_leds(100,200,100)
+                    if color.value == 1:
+                        move.set_leds(*colors.Colors.Orange.value)
+                    if color.value == 2:
+                        move.set_leds(*colors.Colors.Blue.value)
+                    if color.value == 4:
+                        move.set_leds(*colors.Colors.Green.value)
                         
-                move_last_value = total
+                if not invincibility.value:
+                    if change > threshold:
+                        if time.time() > no_rumble:
+                            move.set_leds(*colors.Colors.Red.value)
+                            move.set_rumble(90)
+                            dead_move.value = -1
+
+                    elif change > warning and not vibrate:
+                        if time.time() > no_rumble:
+                            vibrate = True
+                            vibration_time = time.time() + 0.5
+                            move.set_leds(20,50,100)
+
             move.update_leds()
         else:
             if dead_move.value < 1:
@@ -166,17 +154,6 @@ class Fight_club():
 
         self.sensitivity = self.ns.settings['sensitivity']
         self.play_audio = self.ns.settings['play_audio']
-
-        print("speed is {}".format(self.sensitivity))
-        global SLOW_MAX
-        global SLOW_WARNING
-        global FAST_MAX
-        global FAST_WARNING
-        
-        SLOW_MAX = common.SLOW_MAX[self.sensitivity]
-        SLOW_WARNING = common.SLOW_WARNING[self.sensitivity]
-        FAST_MAX = common.FAST_MAX[self.sensitivity]
-        FAST_WARNING = common.FAST_WARNING[self.sensitivity]
 
         self.move_serials = moves
 

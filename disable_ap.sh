@@ -1,6 +1,8 @@
-if [ "$EUID" -ne 0 ];
-  then echo "This script needs root... run with sudo"
-  exit
+#!/bin/bash
+
+if [ $UID -ne 0 ]; then
+  echo "Not root. Using sudo."
+  exec sudo $0
 fi
 
 

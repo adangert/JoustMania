@@ -67,7 +67,7 @@ You can now disconnect the hdmi cable and run JoustMania in headless mode. Joust
 
 Update Joust Mania
 ---------------------------
-Joustmania will auto update when started and connected to the internet. Sometimes there is a large update, it will say so, then you can press the start and select buttons on a controller to start this update, wait until the pi reboots.
+Joustmania will auto update when started and connected to the internet. Sometimes there is a large update, it will say so, then you can press the start and select buttons on a controller to start this update, wait until the pi reboots. If you have the AP enabled, you may need to disable it first to gain access to the internet.
 
 Pairing controllers
 ---------------------------
@@ -110,7 +110,7 @@ Joustmania can also be controlled via a web browser on your laptop or smartphone
 ```
 sudo ./enable_ap.sh
 ```
-Note that this disables normal Wi-Fi on the Pi, but a wired connection will still work. The default SSID is "JOUSTMANIA" and the default password is "joustmania"; both (and other) settings may be adjusted in the apfiles/hostapd.conf file before running enable_ap.sh. To connect to the game, go to http://10.3.141.1/ in your web browser. To disable the access point and restore Wi-Fi, run the command
+Note that this disables normal Wi-Fi on the Pi, the ethernet connection may not work either. The default SSID is "JOUSTMANIA" and the default password is "joustmania"; both (and other) settings may be adjusted in the apfiles/hostapd.conf file before running enable_ap.sh. To connect to the game, go to http://10.3.141.1/ in your web browser. To disable the access point and restore Wi-Fi, run the command
 ```
 sudo ./disable_ap.sh
 ```

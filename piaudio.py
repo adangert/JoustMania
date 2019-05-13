@@ -9,82 +9,86 @@ import scipy.signal as signal
 from multiprocessing import Value
 from threading import Thread
 import pygame
-import alsaaudio
+# import alsaaudio
 import threading
 from pydub import AudioSegment
 
 import common
 
 def audio_loop(wav_data, ratio, stop_proc):
+    pass
     # TODO: As a future improvment, we could precompute resampled versions of the track
     # at the "steady" playback rates, and only do dynamic resampling when transitioning
     # between them.
 
-    PERIOD=1024 * 4
-    # Two channels, two bytes per sample.
-    PERIOD_BYTES = PERIOD * 2 * 2
-
-    time.sleep(0.5)
-    proc = psutil.Process(os.getpid())
-    proc.nice(-5)
-    time.sleep(0.02)
-
-    device = alsaaudio.PCM()
-    wf = wave.open(io.BytesIO(wav_data), 'rb')
-    device.setchannels(wf.getnchannels())
-
-    device.setformat(alsaaudio.PCM_FORMAT_S16_LE)
-    device.setperiodsize(PERIOD)
-        
-    if len(wf.readframes(1)) == 0:
-        raise ValueError("Empty WAV file played.")
-    wf.rewind()
-    device.setrate(wf.getframerate())
+    # PERIOD=1024 * 4
+    # # Two channels, two bytes per sample.
+    # PERIOD_BYTES = PERIOD * 2 * 2
+    #
+    # time.sleep(0.5)
+    # proc = psutil.Process(os.getpid())
+    # proc.nice(-5)
+    # time.sleep(0.02)
+    #
+    # device = alsaaudio.PCM()
+    # wf = wave.open(io.BytesIO(wav_data), 'rb')
+    # device.setchannels(wf.getnchannels())
+    #
+    # device.setformat(alsaaudio.PCM_FORMAT_S16_LE)
+    # device.setperiodsize(PERIOD)
+    #
+    # if len(wf.readframes(1)) == 0:
+    #     raise ValueError("Empty WAV file played.")
+    # wf.rewind()
+    # device.setrate(wf.getframerate())
 
     # Loops samples of up to read_size bytes from the wav file.
     def ReadSamples(wf, read_size):
-        while True:
-            sample = wf.readframes(read_size)
-            if len(sample) > 0:
-                yield sample
-            else:
-                wf.rewind()
+        pass
+        # while True:
+        #     sample = wf.readframes(read_size)
+        #     if len(sample) > 0:
+        #         yield sample
+        #     else:
+        #         wf.rewind()
 
     # Writes incoming samples in chunks of write_size to device.
     # Quits when stop_proc is set to a non-zero value.
     def WriteSamples(device, write_size, samples):
-        buf = bytearray()
-        for sample in samples:
-            buf.extend(sample)
-            while len(buf) >= write_size:
-                device.write(buf[:write_size])
-                del buf[:write_size]
-            if stop_proc.value:
-                return
+        pass
+        # buf = bytearray()
+        # for sample in samples:
+        #     buf.extend(sample)
+        #     while len(buf) >= write_size:
+        #         device.write(buf[:write_size])
+        #         del buf[:write_size]
+        #     if stop_proc.value:
+        #         return
 
     # Resamples audio data at the rate given by 'ratio' above.
     def Resample(samples):
-        for data in samples:
-            array = numpy.fromstring(data, dtype=numpy.int16)
-            # Split data into seperate channels and resample. Divide by two
-            # since there are two channels. We round to the nearest multiple of
-            # 32 as the resampling is more efficient the closer the sizes are to
-            # being powers of two.
-            num_output_frames = int(array.size / (ratio.value * 2)) & (~0x1f)
-            reshapel = signal.resample(array[0::2], num_output_frames)
-            reshaper = signal.resample(array[1::2], num_output_frames)
+        pass
+        # for data in samples:
+        #     array = numpy.fromstring(data, dtype=numpy.int16)
+        #     # Split data into seperate channels and resample. Divide by two
+        #     # since there are two channels. We round to the nearest multiple of
+        #     # 32 as the resampling is more efficient the closer the sizes are to
+        #     # being powers of two.
+        #     num_output_frames = int(array.size / (ratio.value * 2)) & (~0x1f)
+        #     reshapel = signal.resample(array[0::2], num_output_frames)
+        #     reshaper = signal.resample(array[1::2], num_output_frames)
+        #
+        #     final = numpy.ones((num_output_frames,2))
+        #     final[:, 0] = reshapel
+        #     final[:, 1] = reshaper
+        #
+        #     out_data = final.flatten().astype(numpy.int16).tostring()
+        #     yield out_data
 
-            final = numpy.ones((num_output_frames,2))
-            final[:, 0] = reshapel
-            final[:, 1] = reshaper
-
-            out_data = final.flatten().astype(numpy.int16).tostring()
-            yield out_data
-
-    WriteSamples(device, PERIOD_BYTES, Resample(ReadSamples(wf, PERIOD)))
-
-    wf.close()
-    device.close()
+    # WriteSamples(device, PERIOD_BYTES, Resample(ReadSamples(wf, PERIOD)))
+    #
+    # wf.close()
+    # device.close()
 
 @functools.lru_cache(maxsize=128)
 class Audio:
@@ -95,7 +99,7 @@ class Audio:
         buf.seek(0)
         self.sample_ = pygame.mixer.Sound(file=buf)
         self.fname_ = fname
-  
+
     #this will not work for files other than wav at the moment
     def start_effect(self):
         self.sample_.play()
@@ -108,7 +112,7 @@ class Audio:
 
     def stop_effect_music(self):
         self.sample_.stop()
-            
+
     def get_length_secs(self):
         return self.sample_.get_length()
 

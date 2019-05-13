@@ -6,7 +6,11 @@ from piaudio import Music, DummyMusic, Audio, InitAudio
 from enum import Enum
 from multiprocessing import Process, Value, Array, Queue, Manager
 from games import ffa, zombie, commander, swapper, tournament, speed_bomb, fight_club
-import jm_dbus
+from sys import platform
+if platform == "linux" or platform == "linux2":
+    import jm_dbus
+elif platform == "windows":
+    import win_jm_dbus as jm_dbus
 
 
 TEAM_NUM = len(colors.team_color_list)
@@ -51,7 +55,7 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
     move.update_leds()
     random_color = random.random()
 
-    
+
     while True:
         time.sleep(0.01)
         if move.poll():
@@ -74,15 +78,15 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                 #show battery level
                 if battery.value == 1:
                     battery_level = move.get_battery()
-                    #granted a charging move should be dead 
+                    #granted a charging move should be dead
                     #so it won't light up anyway
-                    if battery_level == psmove.Batt_CHARGING: 
+                    if battery_level == psmove.Batt_CHARGING:
                         move.set_leds(*colors.Colors.White20.value)
 
-                    elif battery_level == psmove.Batt_CHARGING_DONE: 
+                    elif battery_level == psmove.Batt_CHARGING_DONE:
                         move.set_leds(*colors.Colors.White.value)
 
-                    elif battery_level == psmove.Batt_MAX: 
+                    elif battery_level == psmove.Batt_MAX:
                         move.set_leds(*colors.Colors.Green.value)
 
                     elif battery_level == psmove.Batt_80Percent:
@@ -96,7 +100,7 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
 
                     else : # under 40% - you should charge it!
                         move.set_leds(*colors.Colors.Red.value)
-                    
+
                 #custom team mode is the only game mode that
                 #can't be added to con mode
                 elif game_mode == common.Games.JoustTeams:
@@ -115,7 +119,7 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
 
                 elif game_mode == common.Games.JoustFFA:
                     move.set_leds(*colors.Colors.Orange.value)
-                            
+
                 elif game_mode == common.Games.JoustRandomTeams:
                     color = time.time()/10%1
                     color = colors.hsv2rgb(color, 1, 1)
@@ -150,10 +154,10 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                     else:
 
                         move.set_leds(*colors.Colors.Green.value)
-                        
+
                 elif game_mode == common.Games.FightClub:
                         move.set_leds(*colors.Colors.Green80.value)
-                        
+
                 elif game_mode == common.Games.NonStop:
                         move.set_leds(*colors.Colors.Turquoise.value)
 
@@ -174,13 +178,13 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
 
 
                 elif game_mode == common.Games.Random:
-                    
+
                         move.set_leds(0,0,255)
                 if move.get_trigger() > 100:
                         move_opts[Opts.random_start.value] = Alive.off.value
                 if move_opts[Opts.random_start.value] == Alive.off.value:
                         move.set_leds(255,255,255)
-                    
+
 
                 if move_opts[Opts.holding.value] == Holding.not_holding.value:
                     #Change game mode and become admin controller
@@ -212,7 +216,7 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                     if move_button == common.Button.TRIANGLE:
                         move_opts[Opts.selection.value] = Selections.show_battery.value
                         move_opts[Opts.holding.value] = Holding.holding.value
-                    
+
 
                 if move_button == common.Button.NONE:
                     move_opts[Opts.holding.value] = Holding.not_holding.value
@@ -250,7 +254,7 @@ class Menu():
         self.rand_game_list = []
 
         self.show_battery = Value('i', 0)
-        
+
         #only allow one move to be paired at a time
         self.pair_one_move = True
         self.tracked_moves = {}
@@ -294,7 +298,7 @@ class Menu():
             self.move_count = len(self.moves)
         #doesn't work
         #self.alive_count = len([move.get_serial() for move in self.moves if self.move_opts[move.get_serial()][Opts.alive.value] == Alive.on.value])
-        
+
 
     def enable_bt_scanning(self, on=True):
         bt_hcis = list(jm_dbus.get_hci_dict().keys())
@@ -317,7 +321,7 @@ class Menu():
                     move.update_leds()
                     self.paired_moves.append(move_serial)
                     self.pair_one_move = False
-        
+
     def pair_move(self, move, move_num):
         move_serial = move.get_serial()
         if move_serial not in self.tracked_moves:
@@ -327,11 +331,11 @@ class Menu():
                 opts[Opts.team.value] = self.teams[move_serial]
             else:
                 #initialize to team Yellow
-                opts[Opts.team.value] = 3 
+                opts[Opts.team.value] = 3
             if move_serial in self.out_moves:
                 opts[Opts.alive.value] = self.out_moves[move_serial]
             opts[Opts.game_mode.value] = self.game_mode.value
-            
+
             #now start tracking the move controller
             proc = Process(target=track_move, args=(move_serial, move_num, opts, color, self.show_battery, self.dead_count))
             proc.start()
@@ -399,7 +403,7 @@ class Menu():
                 opt[Opts.game_mode.value] = self.game_mode.value
             if self.ns.settings['play_audio']:
                 self.game_mode_announcement()
-                
+
     #all controllers need to opt-in again in order fo the game to start
     def reset_controller_game_state(self):
         for move_opt in self.move_opts.values():
@@ -435,7 +439,7 @@ class Menu():
                     self.check_start_game()
                 self.check_command_queue()
                 self.update_status('menu')
-            
+
 
     def check_admin_controls(self):
         show_bat = False
@@ -479,7 +483,7 @@ class Menu():
                         Audio('audio/Menu/mid_sensitivity.wav').start_effect()
                     elif self.ns.settings['sensitivity'] == Sensitivity.fast.value:
                         Audio('audio/Menu/fast_sensitivity.wav').start_effect()
-                
+
             #no admin colors in con custom teams mode
             if self.game_mode == common.Games.JoustTeams or self.game_mode == common.Games.Random:
                 self.force_color[self.admin_move][0] = 0
@@ -514,10 +518,10 @@ class Menu():
                         if self.ns.settings['play_audio']:
                             Audio('audio/Menu/game_err.wav').start_effect()
                     self.update_settings_file()
-            
+
     def initialize_settings(self):
         #default settings
-        temp_settings = ({ 
+        temp_settings = ({
             'sensitivity': Sensitivity.mid.value,
             'play_instructions': True,
             #we store the name, not the enum, so the webui can process it more easily
@@ -571,7 +575,7 @@ class Menu():
             'enforce_minimum': True
         })
         self.ns.settings = temp_settings
-    
+
     def update_settings_file(self):
         with open(common.SETTINGSFILE,'w') as yaml_file:
             yaml.dump(self.ns.settings,yaml_file)
@@ -617,7 +621,7 @@ class Menu():
         for proc in self.tracked_moves.values():
             proc.terminate()
             proc.join()
-            
+
     def check_start_game(self):
         #if self.game_mode == common.Games.Random:
             self.exclude_out_moves()
@@ -630,14 +634,14 @@ class Menu():
                     self.random_added.append(serial)
                     if self.ns.settings['play_audio']:
                         Audio('audio/Joust/sounds/start.wav').start_effect()
-            
-                    
+
+
             if start_game:
                 if self.game_mode == common.Games.Random:
                     self.start_game(random_mode=True)
                 else:
                     self.start_game()
-                
+
 
         #else:
         #    if self.ns.settings['move_can_be_admin']:
@@ -714,7 +718,7 @@ class Menu():
 
         if self.ns.settings['play_instructions'] and self.ns.settings['play_audio']:
             self.play_random_instructions()
-        
+
         if self.game_mode == common.Games.Zombies:
             zombie.Zombie(game_moves, self.command_queue, self.ns, self.zombie_music)
             self.tracked_moves = {}
@@ -755,10 +759,10 @@ class Menu():
         self.play_menu_music = True
         #reset music
         self.choose_new_music()
-        #turn off admin mode so someone can't accidentally press a button    
+        #turn off admin mode so someone can't accidentally press a button
         self.admin_move = None
         self.random_added = []
-            
+
 if __name__ == "__main__":
     InitAudio()
     piparty = Menu()

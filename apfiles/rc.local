@@ -19,6 +19,19 @@ fi
 
 #Access point for JoustMania
 #iptables-restore < /etc/iptables.ipv4.nat
-hostapd /etc/hostapd/hostapd.conf
+#hostapd /etc/hostapd/hostapd.conf
+
+sleep 5
+#ifdown wlan0
+
+#sleep 2
+#rm -f /var/run/wpa_supplicant/wlan0
+#ifup wlan0
+#iptables -t nat -A POSTROUTING -s 192.168.2.0/24 ! -d 192.168.2.0.0/24 -j MASQUERADE
+#hostapd -B /etc/hostapd/hostapd.conf
+#dnsmasq
+
+hostapd -B /etc/hostapd/hostapd.conf
+dnsmasq
 
 exit 0

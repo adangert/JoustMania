@@ -47,15 +47,15 @@ cp ./apfiles/interfaces /etc/network/interfaces
 #sudo service dhcpcd restart
 #ifdown wlan0; ifup wlan0
 
-#mv /etc/sysctl.conf /etc/sysctl.conf.bak
-#cp ./apfiles/sysctl.conf /etc/sysctl.conf
+mv /etc/sysctl.conf /etc/sysctl.conf.bak
+cp ./apfiles/sysctl.conf /etc/sysctl.conf
 
 #updates for allowing joustmania to work
-#echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
-#echo 1 > /proc/sys/net/ipv4/ip_forward
-#iptables -t nat -A POSTROUTING -s 172.24.1.0/24 ! -d 172.24.1.0/24 -j MASQUERADE
+echo 1 > /proc/sys/net/ipv4/ip_forward
+iptables -t nat -A POSTROUTING -s 10.3.141.0/24 ! -d 10.3.141.0/24 -j MASQUERADE
+sh -c "iptables-save > /etc/iptables.ipv4.nat"
+
 #iptables-save > /etc/iptables/rules.v4
-#sh -c "iptables-save > /etc/iptables.ipv4.nat"
 
 #iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE  
 #iptables -A FORWARD -i eth0 -o wlan0 -m state --state RELATED,ESTABLISHED -j ACCEPT  

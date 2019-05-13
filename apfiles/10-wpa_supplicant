@@ -1,0 +1,23 @@
+if [ -z "$wpa_supplicant_conf" ]; then
+	for x in \
+		/etc/wpa_supplicant/wpa_supplicant-"$interface".conf \
+		/etc/wpa_supplicant/wpa_supplicant.conf \
+		/etc/wpa_supplicant-"$interface".conf \
+		/etc/wpa_supplicant.conf \
+	; do
+		if [ -s "$x" ]; then
+			wpa_supplicant_conf="$x"
+			break
+		fi
+	done
+fi
+: ${wpa_supplicant_conf:=/etc/wpa_supplicant.conf}
+
+if [ "$ifwireless" = "1" ] && \
+    type wpa_supplicant >/dev/null 2>&1 && \
+    type wpa_cli >/dev/null 2>&1
+then
+	if [ "$reason" = "IPV4LL" ]; then
+		wpa_supplicant -B -iwlan0 -f/var/log/wpa_supplicant.log -c/etc/wpa_supplicant/wpa_supplicant.conf
+	fi
+fi

@@ -1,0 +1,5 @@
+allow-hotplug uap0
+auto uap0
+iface uap0 inet static
+    address 172.24.1.1
+    netmask 255.255.255.0

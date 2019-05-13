@@ -18,6 +18,7 @@ if [ "$_IP" ]; then
 fi
 
 #Access point for JoustMania
-iptables-restore < /etc/iptables.ipv4.nat
+#iptables-restore < /etc/iptables.ipv4.nat
+hostapd /etc/hostapd/hostapd.conf
 
 exit 0

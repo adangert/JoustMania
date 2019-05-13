@@ -31,4 +31,10 @@ mv /etc/sysctl.conf.bak /etc/sysctl.conf
 
 mv /etc/rc.local.bak /etc/rc.local
 
+rm /etc/network/interfaces.d/ap
+
+rm /etc/udev/rules.d/90-wireless.rules
+
+mv /lib/dhcpcd/dhcpcd-hooks/10-wpa_supplicant.bak /lib/dhcpcd/dhcpcd-hooks/10-wpa_supplicant 
+
 reboot

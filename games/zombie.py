@@ -9,11 +9,11 @@ import json
 from math import sqrt
 
 
-human_warning = 1
-human_max = 1.8
+#human_warning = 1
+#human_max = 1.8
 
-zombie_warning = 0.6
-zombie_max = 1.0
+#zombie_warning = 0.6
+#zombie_max = 1.0
 zombie_spawn_invincibility = 2
 
 zombie_max_respawn_time = 30
@@ -68,13 +68,7 @@ zombie_min_respawn_time = 2
 
 
 
-def track_controller(serial, num_try, opts):
-    move = psmove.PSMove(num_try)
-    if move.get_serial() != serial:
-        for move_num in range(psmove.count_connected()):
-            move = psmove.PSMove(move_num)
-            if move.get_serial() == serial:
-                break
+def track_controller(move, opts, restart, menu, controller_sensitivity):
     time.sleep(0.01)
     move.set_leds(200,200,200)
     move.update_leds()
@@ -84,43 +78,43 @@ def track_controller(serial, num_try, opts):
     vibration_time = time.time() + 1
     flash_lights = True
     flash_lights_timer = 0
-    change_arr=[0,0,0]
+    #change_arr=[0,0,0]
+    change = 0
+    
+    human_warning = controller_sensitivity[3] 
+    human_max = controller_sensitivity[2]
+    zombie_warning = controller_sensitivity[9]
+    zombie_max = controller_sensitivity[8]
     
     while True:
+        if(restart.value == 1 or menu.value == 1):
+            break
         if move.poll():
             ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
-            #total = sum([ax, ay, az])
             total = sqrt(sum([ax**2, ay**2, az**2]))
-            if move_last_value is not None:
-                change_real = abs(move_last_value - total)
-                change_arr[0] = change_arr[1]
-                change_arr[1] = change_arr[2]
-                change_arr[2] = change_real
-                change = (change_arr[0] + change_arr[1]+change_arr[2])/3
-                # Dead
+            change = (change * 4 + total)/5
+            # Dead
 
-                #TODO: should probably only change this
-                # when the state changes (i.e. human death)
-                if opts[0] == 0:
-                    warning = human_warning
-                    threshold = human_max
-                if opts[0] == 1:
-                    warning = zombie_warning
-                    threshold = zombie_max
+            #TODO: should probably only change this
+            # when the state changes (i.e. human death)
+            if opts[0] == 0:
+                warning = human_warning
+                threshold = human_max
+            if opts[0] == 1:
+                warning = zombie_warning
+                threshold = zombie_max
 
+            if change > threshold:
+                move.set_leds(255,0,0)
+                move.set_rumble(100)
+                opts[3] = 0
 
-
-                if change > threshold:
-                    move.set_leds(255,0,0)
-                    move.set_rumble(100)
-                    opts[3] = 0
-
-                # Warn
-                elif change > warning and not vibrate:
-                    move.set_leds(20,50,100)
-                    vibrate = True
-                    vibration_time = time.time() + 0.5
-                    move.update_leds()
+            # Warn
+            elif change > warning and not vibrate:
+                move.set_leds(20,50,100)
+                vibrate = True
+                vibration_time = time.time() + 0.5
+                move.update_leds()
 
             #if we are dead
             if opts[3] == 0:
@@ -194,14 +188,14 @@ def track_controller(serial, num_try, opts):
             #else:
             #    move.set_leds(*team_colors[team.value])
             move.update_leds()
-            move_last_value = total
+            #move_last_value = total
 
 
 #we should try one process per controller,
 #since only normal music will be playing
 #need to make this a class with zombie killing defs
 class Zombie:
-    def __init__(self, cont_alive, command_queue, ns, music):
+    def __init__(self, cont_alive, command_queue, ns, music,restart, zombie_opts):
         
         self.command_queue = command_queue
         self.ns = ns
@@ -210,22 +204,13 @@ class Zombie:
         self.play_audio = self.ns.settings['play_audio']
 
         self.music = music
-
-        global human_warning
-        global human_max
-        global zombie_warning
-        global zombie_max
-        
-        human_warning = common.FAST_WARNING[self.sensitivity]
-        human_max = common.FAST_MAX[self.sensitivity]
-        zombie_warning = common.ZOMBIE_WARNING[self.sensitivity]
-        zombie_max = common.ZOMBIE_MAX[self.sensitivity]
+        self.restart = restart
         
         self.update_time = 0
         self.humans = []
         self.alive_zombies = []
         self.dead_zombies = {}
-        self.controller_opts = {}
+        self.controller_opts = zombie_opts
         self.controllers_alive = cont_alive
         self.win_time =  ((len(self.controllers_alive) * 3)/16) * 60
         if self.win_time <= 0:
@@ -293,22 +278,25 @@ class Zombie:
     def Start(self):
         running = True
         moves = []
+        print("gonna get moves")
         for move_num in range(len(self.controllers_alive)):
             moves.append(common.get_move(self.controllers_alive[move_num], move_num))
-
+        print("GOT THE MOVES")
         serials = self.controllers_alive
         processes = []
         
         for num_try, serial in enumerate(serials):
             starting_bullets = 0
-            #starting_bullets = random.choice([0, 1])
-            opts = Array('i', [0, 0, 0, 1, starting_bullets, 1, 1])
-            p = Process(target=track_controller, args=(serial, num_try, opts))
-            p.start()
-            processes.append(p)
-            self.controller_opts[serial] = opts
+            self.controller_opts[serial][0] = 0
+            self.controller_opts[serial][1] = 0
+            self.controller_opts[serial][2] = 0
+            self.controller_opts[serial][3] = 1
+            self.controller_opts[serial][4] = starting_bullets
+            self.controller_opts[serial][5] = 1
+            self.controller_opts[serial][6] = 1
             self.humans.append(serial)
-            
+        self.restart.value = 0
+        print("started the controllers")
         if self.play_audio:
             human_victory = Audio('audio/Zombie/sound_effects/human_victory.wav')
             zombie_victory = Audio('audio/Zombie/sound_effects/zombie_victory.wav')
@@ -318,8 +306,6 @@ class Zombie:
             molotov = Audio('audio/Zombie/sound_effects/molotov.wav')
             try:
                 self.music.start_audio_loop()
-##                music = Audio('audio/Zombie/music/' + random.choice(os.listdir('audio/Zombie/music/')))
-##                music.start_effect_music()
             except:
                 print('no music in audio/Zombie/music/')
 
@@ -386,9 +372,7 @@ class Zombie:
 
             #win scenario
             if len(self.humans) <= 0 or (time.time() - self.start_time) > self.win_time or self.kill_game:
-                for proc in processes:
-                    proc.terminate()
-                    proc.join()
+                self.restart.value = 1
                 pause_time = time.time() + 3
                 HSV = [(x*1.0/(50*len(self.controllers_alive)), 0.9, 1) for x in range(50*len(self.controllers_alive))]
                 colour_range = [[int(x) for x in colors.hsv2rgb(*colour)] for colour in HSV]

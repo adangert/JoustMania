@@ -50,16 +50,10 @@ def calculate_flash_time(r,g,b, score):
     new_b = int(common.lerp(255, b, flash_percent))
     return (new_r, new_g, new_b)
 
-def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_opts, game_start, false_color, faked, rumble):
-    #proc = psutil.Process(os.getpid())
-    #proc.nice(3)
-
-
+def track_move(move, dead_move, force_color,bomb_color, move_opts, game_start, false_color, faked, rumble, menu, restart):
     start = False
     no_rumble = time.time() + 1
     move_last_value = None
-    move = common.get_move(move_serial, move_num)
-
     #keep on looping while move is not dead
     ready = False
     move.set_leds(0,0,0)
@@ -79,7 +73,9 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
 
     move_opts[Opts.holding.value] = Holding.not_holding.value
     move_opts[Opts.selection.value] = Selections.nothing.value
-    while  not super_dead:
+    while  True:
+        if(menu.value == 1 or restart.value == 1):
+            return
         if sum(force_color) != 0 and game_start.value == 1:
             no_rumble_time = time.time() + 5
             time.sleep(0.01)
@@ -104,7 +100,6 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                     if(move.get_trigger() > 50 and can_fake):
 
                         faking = True
-                        #move_opts[Opts.holding.value] = Holding.holding.value
                         
                         move_opts[Opts.selection.value] = Selections.false_trigger.value
                         if (move.get_trigger() <= 127):
@@ -112,14 +107,11 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                             col2 = int(common.lerp(fake_bomb_color[1], no_fake_bomb_color[1], (move.get_trigger()-50)/77))
                             col3 = int(common.lerp(fake_bomb_color[2], no_fake_bomb_color[2], (move.get_trigger()-50)/77))
                             move.set_leds(col1,col2,col3)
-                        #if (move.get_trigger() > 127 and move.get_trigger() <= 140):
-                        #    move.set_leds(*no_fake_bomb_color)
                         if (move.get_trigger() > 127):
                             col1 = int(common.lerp(no_fake_bomb_color[0], fake_bomb_color[0], (move.get_trigger()-127)/128))
                             col2 = int(common.lerp(no_fake_bomb_color[1], fake_bomb_color[1], (move.get_trigger()-127)/128))
                             col3 = int(common.lerp(no_fake_bomb_color[2], fake_bomb_color[2], (move.get_trigger()-127)/128))
                             move.set_leds(col1,col2,col3)
-                            #move.set_leds(0,200,0)
 
 
                     else:
@@ -127,10 +119,8 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                         if game_start.value == 0:
                             move.set_leds(*force_color)
                             move.update_leds()
-                        #move_opts[Opts.holding.value] == Holding.not_holding.value
 
                         if faking:
-                            #move_opts[Opts.selection.value] = Selections.not_holding.value
                             if game_start.value == 1:
                                 can_fake = False
                             faking = False
@@ -150,7 +140,6 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
                             if game_start.value == 1 and false_color.value == 1:
                                 print("JUST DIED TO BEING FAKED!!!")
                                 faked.value = 1
-                                #dead_move.value -= 1
                     move.set_rumble(0)
 
                 if move_opts[Opts.holding.value] == Holding.not_holding.value and (button in  common.all_shapes):
@@ -170,21 +159,18 @@ def track_move(move_serial, move_num, dead_move, force_color,bomb_color, move_op
 
         else:
             if super_dead == False:
-                #for i in range(100):
-                #    time.sleep(0.01)
-                #    move.set_leds(0,random.randrange(100, 200),0)
-                #    move.set_rumble(200)
-                #    move.update_leds()
                 super_dead = True
+
             move.set_rumble(0)
             move.set_leds(0,0,0)
+            time.sleep(2)
 
         move.update_leds()
         #if we are dead
 
 
 class Bomb():
-    def __init__(self, moves, command_queue, ns, music):
+    def __init__(self, moves, command_queue, ns, music, bomb_color, game_start, five_move_opts, dead_moves, force_move_colors, false_colors, was_faked, rumble, music_speed,restart):
 
         self.command_queue = command_queue
         self.ns = ns
@@ -192,23 +178,28 @@ class Bomb():
         self.play_audio = self.ns.settings['play_audio']
         self.move_serials = moves
         self.tracked_moves = {}
-        self.dead_moves = {}
+        self.dead_moves = dead_moves
         self.alive_moves = []
         self.teams = {}
-        self.music_speed = Value('d', 1)
+        self.music_speed = music_speed
+        self.music_speed.value = 1 
         self.running = True
-        self.force_move_colors = {}
-        self.bomb_color = Array('i', [0] * 3)
+        self.force_move_colors = force_move_colors
+        self.bomb_color = bomb_color
+        for i in range(3):
+            self.bomb_color[i] = 0
         self.start_timer = time.time()
         self.audio_cue = 0
         self.num_bombs = 2
-        self.move_opts = {}
-        self.false_colors = {}
-        self.was_faked = {}
-        self.rumble = {}
+        self.move_opts = five_move_opts
+        self.false_colors = false_colors
+        self.was_faked = was_faked
+        self.rumble = rumble
         self.bomb_length = 5.0
+        self.restart = restart
 
-        self.game_start = Value('i', 0)
+        self.game_start = game_start
+        self.game_start.value = 0 
         self.current_rand_holder = ''
         self.next_rand_holder = ''
         self.prev_rand_holder = ''
@@ -217,10 +208,6 @@ class Bomb():
         self.update_time = 0
 
         if self.play_audio:
-##            try:
-##                music = 'audio/Commander/music/' + random.choice(os.listdir('audio/Commander/music'))
-##            except:
-##                print('no music in audio/Commander/music')
             self.start_beep = Audio('audio/Joust/sounds/start.wav')
             self.start_game = Audio('audio/Joust/sounds/start3.wav')
             self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
@@ -256,16 +243,11 @@ class Bomb():
 
 
     def get_next_random_holder(self):
-        #if self.current_rand_holder != self.bomb_serial:
-            #self.current_rand_holder = self.move_serials[random.choice(range(len(self.move_serials)))]
-            #while self.current_rand_holder == self.bomb_serial:
-            #    self.current_rand_holder = self.move_serials[random.choice(range(len(self.move_serials)))]
         if self.next_rand_holder == self.bomb_serial:
             self.next_rand_holder = self.move_serials[random.choice(range(len(self.move_serials)))]
             while self.next_rand_holder == self.bomb_serial or self.dead_moves[self.next_rand_holder].value <= 0:
                 self.next_rand_holder = self.move_serials[random.choice(range(len(self.move_serials)))]
                 self.current_rand_holder = self.bomb_serial
-        #print("returning " + self.next_rand_holder)
         return self.next_rand_holder
 
 
@@ -278,10 +260,6 @@ class Bomb():
             holder = random.choice(range(len(self.move_serials)))
         while True:
             yield self.get_next_random_holder()
-            #new_serial = self.move_serials[holder]
-            #if self.dead_moves[new_serial].value > 0:
-            #    yield new_serial
-            #holder = (holder +1) % len(self.move_serials)
 
 
     def reset_bomb_time(self):
@@ -290,6 +268,7 @@ class Bomb():
 
     def game_loop(self):
         self.track_moves()
+        self.restart.value = 0
         self.rotate_colors()
         self.bomb_serial = self.move_serials[random.choice(range(len(self.move_serials)))]
         self.next_rand_holder = self.bomb_serial
@@ -380,8 +359,6 @@ class Bomb():
                 faker_color_array = self.force_move_colors[faker_move]
 
             for move_serial in self.move_serials:
-                #if move_serial == faker_move:
-                #    colors.change_color(faker_color_array, random.randrange(100, 200), 10, 10)
                 if move_serial == dead_move:
                     colors.change_color(dead_color_array, 10, random.randrange(100, 200), 10)
                     self.rumble[move_serial].value = 150
@@ -453,25 +430,6 @@ class Bomb():
                     if self.move_opts[prev_faker][Opts.holding.value] == Holding.not_holding.value:
                         self.false_colors[move_serial].value = 0
 
-                #Probably should get rid of this, or only when we are being faked out
-                #elif self.false_colors[move_serial].value == 0  and self.move_opts[move_serial][Opts.holding.value] == Holding.holding.value :
-                #    if self.move_opts[move_serial][Opts.selection.value] == Selections.counter.value and self.move_opts[self.get_prev_serial(move_serial)][Opts.has_bomb.value] == Bool.yes.value:
-
-                #        self.explosion40.start_effect()
-                #        self.Fakecountered.start_effect()
-                #        self.pause_for_player_death(move_serial)
-
-                #        self.dead_moves[move_serial].value -= 1
-                        #self.move_opts[move_serial][Opts.holding.value] = Holding.holding.value
-
-                #        self.reset_bomb_length()
-                #        self.reset_bomb_time()
-
-                #        self.move_bomb()
-                #        print("JUST DIED TO PRESSING COUNTER")
-
-                        #check for faked
-
 
 
     def get_next_serial(self, serial):
@@ -480,9 +438,6 @@ class Bomb():
 
 
         pos = (self.get_serial_pos(serial) + 1) % len(self.move_serials)
-        #pos = random.choice(range(len(self.move_serials)))
-        #while random_move == pos - 1:
-        #   random_move = random.choice(range(len(self.move_serials)))
 
         new_serial = self.move_serials[pos]
         while self.dead_moves[new_serial].value == 0:
@@ -510,33 +465,14 @@ class Bomb():
     def track_moves(self):
         for move_num, move_serial in enumerate(self.move_serials):
             self.alive_moves.append(move_serial)
-            time.sleep(0.02)
-            dead_move = Value('i', 2)
-            force_color = Array('i', [1] * 3)
-            false_color = Value('i', 0)
-
-            opts = Array('i', [0] * 5)
-            faked = Value('i', 0)
-            rumble = Value('i', 0)
-
-            proc = Process(target=track_move, args=(move_serial,
-                                                    move_num,
-                                                    dead_move,
-                                                    force_color,
-                                                    self.bomb_color,
-                                                    opts,
-                                                    self.game_start,
-                                                    false_color,
-                                                    faked,
-                                                    rumble))
-            proc.start()
-            self.tracked_moves[move_serial] = proc
-            self.dead_moves[move_serial] = dead_move
-            self.force_move_colors[move_serial] = force_color
-            self.move_opts[move_serial] = opts
-            self.false_colors[move_serial] = false_color
-            self.was_faked[move_serial] = faked
-            self.rumble[move_serial] = rumble
+            self.dead_moves[move_serial].value = 2 
+            for i in range(3):
+                self.force_move_colors[move_serial][i] = 1 
+            for i in range(5):
+                self.move_opts[move_serial][i] = 0 
+            self.false_colors[move_serial].value = 0 
+            self.was_faked[move_serial].value = 0 
+            self.rumble[move_serial].value = 0 
 
 
     def rotate_colors(self):
@@ -596,12 +532,6 @@ class Bomb():
                     self.move_opts[alive_serial][Opts.has_bomb.value] = Bool.no.value
                     self.move_bomb()
 
-                    #for i, bomb_serial in enumerate(self.bomb_serials):
-                    #if self.bomb_serial == alive_serial:
-                    #    self.bomb_serial = next(self.bomb_generators[i])
-                    #self.move_opts[self.bomb_serial][Opts.has_bomb.value] = Bool.yes.value
-                #remove alive move:
-
                 self.alive_moves.remove(alive_serial)
                 if self.play_audio:
                     self.explosion.start_effect()
@@ -611,10 +541,7 @@ class Bomb():
             self.end_game()
 
     def stop_tracking_moves(self):
-        for proc in self.tracked_moves.values():
-            proc.terminate()
-            proc.join()
-            time.sleep(0.02)
+        self.restart.value = 1
 
     def end_game(self):
         if self.play_audio:

@@ -1,6 +1,8 @@
-if [ "$EUID" -ne 0 ];
-  then echo "This script needs root... run with sudo"
-  exit
+#!/bin/bash
+
+if [ $UID -ne 0 ]; then
+  echo "Not root. Using sudo."
+  exec sudo $0
 fi
 
 
@@ -28,5 +30,13 @@ mv /etc/dnsmasq.conf.bak /etc/dnsmasq.conf
 mv /etc/sysctl.conf.bak /etc/sysctl.conf
 
 mv /etc/rc.local.bak /etc/rc.local
+
+rm /etc/network/interfaces.d/ap
+
+rm /etc/network/interfaces.d/station
+
+rm /etc/udev/rules.d/90-wireless.rules
+
+mv /lib/dhcpcd/dhcpcd-hooks/10-wpa_supplicant.bak /lib/dhcpcd/dhcpcd-hooks/10-wpa_supplicant 
 
 reboot

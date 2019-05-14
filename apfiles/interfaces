@@ -3,24 +3,38 @@
 # Please note that this file is written to be used with dhcpcd
 # For static IP, consult /etc/dhcpcd.conf and 'man dhcpcd.conf'
 
+
+allow-hotplug wlan0
+auto wlan0
+iface wlan0 inet dhcp
+	#wcp-conf /etc/wpa_supplicant/wpa_supplicant.conf
+
+
 # Include files from /etc/network/interfaces.d:
 source-directory /etc/network/interfaces.d
 
-auto lo
-iface lo inet loopback
+#allow-hotplug wlan0
+#iface wlan0 inet dhcp
+#  pre-up sleep 10
+#  wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
 
-auto eth0
-iface eth0 inet dhcp
+#auto lo
+#iface lo inet loopback
+
+#auto eth0
+#iface eth0 inet dhcp
 
 #Access point for JoustMania
-allow-hotplug wlan0
-iface wlan0 inet static  
-    address 172.24.1.1
-    netmask 255.255.255.0
-    network 172.24.1.0
-    broadcast 172.24.1.255
+#allow-hotplug wlan0
+#iface wlan0 inet static  
+#    address 172.24.1.1
+#    netmask 255.255.255.0
+#    network 172.24.1.0
+#    broadcast 172.24.1.255
+
+#this was already commented out
 #    wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
 
-allow-hotplug wlan1
-iface wlan1 inet manual
-    wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
+#allow-hotplug wlan1
+#iface wlan1 inet manual
+#    wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf

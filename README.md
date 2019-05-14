@@ -16,7 +16,7 @@ What is JoustMania????
 Cool Stuffs!
 --------------------------------------
 
-* 16+ Player support
+* 18+ Player support
 * Super easy setup
 * Runs in Headless mode, no screen required
 * Optional web interface, view status and change game settings with your phone
@@ -25,7 +25,9 @@ Cool Stuffs!
 
 Hardware
 ---------------------------
-You will need the following to run JoustMania:
+I am currently selling fully set up Joustmania devices (pi, case, bluetooth dongle, sd card) for $79 (or the $10 tier on [patreon](https://www.patreon.com/adangert)) with included shipping domestically. If you would like to inquire about purchasing a fully setup Joustmania device, please reach out to joustmaniagame@gmail.com
+
+If you would like to build your own device you will need the following:
 
 * A Raspberry Pi 3 B with sd card
 
@@ -34,7 +36,7 @@ Optional and **highly recommended**:
 * Class 1, Bluetooth 4.0 USB adapters (http://a.co/8YKP9tG)
 
 Note on Hardware: The internal bluetooth is short range and has a high latency, making gameplay laggy and slow, although still possible.
-The class 1 adapters allow bluetooth connections up to 300+ feet and allow for the gameplay to be smooth, each adapter can connect to 6 to 7 controllers. I've tested this build with three adapters and 16 controllers successfully.
+The class 1 adapters allow bluetooth connections up to 300+ feet and allow for the gameplay to be smooth, each adapter can connect to 6 to 7 controllers. I've tested this build with four adapters and 18 controllers successfully.
 
 Optional:
 
@@ -42,9 +44,9 @@ Optional:
 
 This will allow you to charge 9 controllers at once through the pi
 
-**Note: the new psmove controllers with a micro charging connection will not work with Joustmaina, this issue is being looked at with the psmoveapi(https://github.com/thp/psmoveapi/issues/353)**
+A good power supply is recommended, (if you see a lightning bolt at the top right of your screen it means your pi is under voltage) Something like this should work well: (https://www.amazon.com/dp/B00L88M8TE)
 
-For questions on hardware, or if you would like to inquire about purchasing a fully setup Joustmania device, please reach out to joustmaniagame@gmail.com
+
 
 Installation
 ---------------------------
@@ -60,19 +62,12 @@ git clone https://github.com/adangert/JoustMania.git
 cd JoustMania
 sudo ./setup.sh
 ```
-If you have the bluetooth adapters, disable the on-board bluetooth 
-```
-sudo ./disable_internal_bluetooth.sh
-```
+
 You can now disconnect the hdmi cable and run JoustMania in headless mode. JoustMania will automatically boot up on restart, menu music should start playing once the pi boots up.
 
 Update Joust Mania
 ---------------------------
-You can update Joust Mania by doing a `git pull` in the main directory and running
-```
-./setup.sh
-```
-
+Joustmania will auto update when started and connected to the internet. Sometimes there is a large update, it will say so, then you can press the start and select buttons on a controller to start this update, wait until the pi reboots. If you have the AP enabled, you may need to disable it first to gain access to the internet.
 
 Pairing controllers
 ---------------------------
@@ -93,8 +88,7 @@ If controllers seem to pair to only one Bluetooth adapter, it is likely that the
 How to select a game mode
 ---------------------------------
 * In order to change between games, on any controller press the select button (located on the left side of a controller)
-* Changing game types will turn you into an Admin
-* In order to remove a controller from play press all four front buttons
+* In order to remove a controller from play, hold the playstation button to turn off the controller.
 
 How to start a game
 ---------------------------------
@@ -103,7 +97,7 @@ How to start a game
 
 Admin Mode (Sensitivity and convention mode settings)
 ---------------------------------
-You can become an Admin by changing the game mode via the select button, this will allow you to modify the games settings from the four front buttons on the controller, After a game is played the Admin mode will be reset
+You can become an Admin by pressing all four front buttons on any controller, this will allow you to modify the games settings from the four front buttons on the controller, After a game is played the Admin mode will be reset
 
 * (Cross) Add or remove a game from Convention mode, your controller will be green if the game is added and Red if it is not, Custom Teams mode can not be added to the Convention mode
 * (Circle) Change sensitivity of the game. There are three settings, slow, medium, and fast, you will hear a corresponding sound for each
@@ -116,7 +110,7 @@ Joustmania can also be controlled via a web browser on your laptop or smartphone
 ```
 sudo ./enable_ap.sh
 ```
-Note that this disables normal Wi-Fi on the Pi, but a wired connection will still work. The default SSID is "JOUSTMANIA" and the default password is "joustmania"; both (and other) settings may be adjusted in the apfiles/hostapd.conf file before running enable_ap.sh. To connect to the game, go to http://joust.mania in your web browser. To disable the access point and restore Wi-Fi, run the command
+Note that this disables normal Wi-Fi on the Pi, the ethernet connection may not work either. The default SSID is "JOUSTMANIA" and the default password is "joustmania"; both (and other) settings may be adjusted in the apfiles/hostapd.conf file before running enable_ap.sh. To connect to the game, go to http://10.3.141.1/ in your web browser. To disable the access point and restore Wi-Fi, run the command
 ```
 sudo ./disable_ap.sh
 ```
@@ -217,3 +211,8 @@ Custom Music
  * This mode allows for multiple game types to be randomly rotated with instructions played before each game
  * Random mode defaults to FFA, Random Teams, Werewolves, and Swapper, more game modes can be added or removed as an Admin or via the web interface (see above)
  * Modes with an insufficient number of players will be ignored, if none are available Joust Free-for-All is selected
+ 
+Support and funding
+--------------------------
+If you love this game you can support its development by helping out with my patreon here:
+https://www.patreon.com/adangert

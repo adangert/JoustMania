@@ -11,13 +11,15 @@ if platform == "linux" or platform == "linux2":
     import jm_dbus
 elif platform == "windows":
     import win_jm_dbus as jm_dbus
+import controller_process
+import update
 
 
 TEAM_NUM = len(colors.team_color_list)
 #TEAM_COLORS = colors.generate_colors(TEAM_NUM)
 
 
-SENSITIVITY_MODES = 3
+SENSITIVITY_MODES = 5
 
 class Opts(Enum):
     alive = 0
@@ -39,24 +41,29 @@ class Selections(Enum):
     change_sensitivity = 4
     change_instructions = 5
     show_battery = 6
+    update = 7
+    admin = 8
 
 class Holding(Enum):
     not_holding = 0
     holding = 1
 
 class Sensitivity(Enum):
-    slow = 0
-    mid = 1
-    fast = 2
+    ultra_slow = 0
+    slow = 1
+    mid = 2
+    fast = 3
+    ultra_fast = 4
 
-def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
-    move = common.get_move(serial, move_num)
+def track_move(serial, move_num, move, move_opts, force_color, battery, dead_count, restart, menu, kill_proc):
     move.set_leds(0,0,0)
     move.update_leds()
     random_color = random.random()
 
 
     while True:
+        if(restart.value ==1 or menu.value == 0 or kill_proc.value):
+            return
         time.sleep(0.01)
         if move.poll():
             game_mode = common.Games(move_opts[Opts.game_mode.value])
@@ -68,12 +75,12 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
                 time.sleep(0.1)
             else:
                 if move_button == common.Button.SHAPES:
-                    move_opts[Opts.alive.value] = Alive.off.value
-                    dead_count.value = dead_count.value + 1
-                    move.set_leds(0,0,0)
-                    move.set_rumble(0)
-                    move.update_leds()
-                    continue
+                    move_opts[Opts.selection.value] = Selections.admin.value
+                    move_opts[Opts.holding.value] = Holding.holding.value
+                    
+                if move_button == common.Button.UPDATE:
+                    move_opts[Opts.selection.value] = Selections.update.value
+                    move_opts[Opts.holding.value] = Holding.holding.value
 
                 #show battery level
                 if battery.value == 1:
@@ -226,7 +233,7 @@ def track_move(serial, move_num, move_opts, force_color, battery, dead_count):
 
 class Menu():
     def __init__(self):
-
+        self.big_update = update.check_for_update()
         self.command_queue = Queue()
         self.joust_manager = Manager()
         self.ns = self.joust_manager.Namespace()
@@ -262,33 +269,65 @@ class Menu():
         self.paired_moves = []
         self.move_opts = {}
         self.teams = {}
-        self.game_mode = common.Games.Random
-        self.old_game_mode = common.Games.Random
+        self.game_mode = common.Games[self.ns.settings['current_game']]
+        self.old_game_mode = self.game_mode
         self.pair = pair.Pair()
-
+        
+        self.menu = Value('i', 1)
+        self.controller_game_mode = Value('i',1)
+        self.restart = Value('i',0)
+        self.controller_teams = {}
+        self.controller_colors = {}
+        self.dead_moves = {}
+        self.music_speed= Value('d', 0)
+        self.werewolf_reveal = Value('i', 2)
+        self.show_team_colors = Value('i', 0)
+        self.red_on_kill = Value('i', 0)
+        self.zombie_opts = {}
+        self.commander_intro = Value('i',1)
+        self.commander_move_opts = {}
+        self.commander_powers = [Value('d', 0.0), Value('d', 0.0)]
+        self.commander_overdrive = [Value('i', 0), Value('i', 0)]
+        self.five_controller_opts = {}
+        self.swapper_team_colors = Array('i',[0]*6)
+        self.fight_club_colors = {}
+        self.invincible_moves = {}
+        self.num_teams = Value('i',1)
+        self.bomb_color = Array('i', [0] * 3)
+        self.game_start = Value('i', 0)
+        self.false_colors = {}
+        self.was_faked = {}
+        self.rumble = {}
+        self.kill_controller_proc = {}
+        self.controller_sensitivity = Array('d', [0] *10)
+        
         self.i = 0
         #load audio now so it converts before the game begins
+        self.menu_music = Music("menu")
+        self.joust_music = Music("joust")
+        self.zombie_music = Music("zombie")
+        self.commander_music = Music("commander")
+        
         self.choose_new_music()
 
+
+
     def choose_new_music(self):
-        self.joust_music = Music(random.choice(glob.glob("audio/Joust/music/*")))
-        try:
-            self.zombie_music = Music(random.choice(glob.glob("audio/Zombie/music/*")))
-        except Exception:
-            self.zombie_music = DummyMusic()
-        try:
-            self.commander_music = Music(random.choice(glob.glob("audio/Commander/music/*")))
-        except Exception:
-            self.commander_music = DummyMusic()
+        self.joust_music.load_audio(random.choice(glob.glob("audio/Joust/music/*")))
+        self.zombie_music.load_audio(random.choice(glob.glob("audio/Zombie/music/*")))
+        self.commander_music.load_audio(random.choice(glob.glob("audio/Commander/music/*")))
 
     def exclude_out_moves(self):
-        for move in self.moves:
-            serial = move.get_serial()
-            if serial in self.move_opts:
-                if self.move_opts[move.get_serial()][Opts.alive.value] == Alive.off.value:
-                    self.out_moves[move.get_serial()] = Alive.off.value
-                else:
-                    self.out_moves[move.get_serial()] = Alive.on.value
+        pass
+        #currently does not work with the new stability update
+        #hold in the sync button to remove it from the game
+        #for move in self.moves:
+            #serial = move.get_serial()
+            #if serial in self.move_opts:
+                #if self.move_opts[move.get_serial()][Opts.alive.value] == Alive.off.value:
+                    #self.out_moves[move.get_serial()] = Alive.off.value
+                #else:
+                    #self.out_moves[move.get_serial()] = Alive.on.value
 
     def check_for_new_moves(self):
         self.enable_bt_scanning(True)
@@ -323,10 +362,12 @@ class Menu():
                     self.pair_one_move = False
 
     def pair_move(self, move, move_num):
+        print("NOW PAIRING MOVE")
         move_serial = move.get_serial()
         if move_serial not in self.tracked_moves:
             color = Array('i', [0] * 3)
             opts = Array('i', [0] * 6)
+            
             if move_serial in self.teams:
                 opts[Opts.team.value] = self.teams[move_serial]
             else:
@@ -337,13 +378,77 @@ class Menu():
             opts[Opts.game_mode.value] = self.game_mode.value
 
             #now start tracking the move controller
-            proc = Process(target=track_move, args=(move_serial, move_num, opts, color, self.show_battery, self.dead_count))
+            
+            
+            
+            team = Value('i',0)
+            team_color_enum = Array('i',[0]*3)
+            dead_move = Value( 'i',0)
+            zombie_opt = Array('i', [0, 0, 0, 1, 0, 1, 1])
+            five_controller_opt = Array('i',[0]*5)
+            
+            
+            commander_move_opt = Array('i', [0] * 5)
+            invincibility = Value('b', True)
+            fight_club_color = Value('i', 0)
+            false_color = Value('i', 0)
+            faked = Value('i', 0)
+            rumble = Value('i', 0)
+            kill_proc = Value('b', False)
+            
+            
+            proc = Process(target= controller_process.main_track_move, args=(self.menu, self.restart, move_serial, move_num, opts, color, self.show_battery, \
+                                                                              self.dead_count, self.controller_game_mode, team, team_color_enum, self.controller_sensitivity, dead_move, \
+                                                                             self.music_speed, self.werewolf_reveal, self.show_team_colors, self.red_on_kill,zombie_opt,\
+                                                                             self.commander_intro, commander_move_opt, self.commander_powers, self.commander_overdrive,\
+                                                                             five_controller_opt, self.swapper_team_colors, invincibility, fight_club_color, self.num_teams,\
+                                                                             self.bomb_color,self.game_start,false_color, faked, rumble, kill_proc))
+
             proc.start()
             self.move_opts[move_serial] = opts
             self.tracked_moves[move_serial] = proc
             self.force_color[move_serial] = color
+            self.controller_teams[move_serial] = team
+            self.controller_colors[move_serial] = team_color_enum
+            self.dead_moves[move_serial] = dead_move
+            self.zombie_opts[move_serial] = zombie_opt
+            self.commander_move_opts[move_serial] = commander_move_opt
+            self.five_controller_opts[move_serial] = five_controller_opt
+            self.fight_club_colors[move_serial] = fight_club_color
+            self.invincible_moves[move_serial] = invincibility
+            self.false_colors[move_serial] = false_color
+            self.was_faked[move_serial] = faked
+            self.rumble[move_serial] = rumble
+            self.kill_controller_proc[move_serial] = kill_proc
+            self.out_moves[move.get_serial()] = Alive.on.value
+            
+            
+            
             self.exclude_out_moves()
 
+
+    #def kill_controller(self, move_serial):
+
+
+    def remove_controller(self, move_serial):
+            self.kill_controller_proc[move_serial].value = True
+            self.tracked_moves[move_serial].join()
+            self.tracked_moves[move_serial].terminate()
+            del self.move_opts[move_serial]
+            #del self.tracked_moves[move_serial] 
+            del self.force_color[move_serial] 
+            del self.controller_teams[move_serial] 
+            del self.controller_colors[move_serial] 
+            del self.dead_moves[move_serial] 
+            del self.zombie_opts[move_serial] 
+            del self.commander_move_opts[move_serial] 
+            del self.five_controller_opts[move_serial] 
+            del self.fight_club_colors[move_serial] 
+            del self.invincible_moves[move_serial] 
+            del self.false_colors[move_serial] 
+            del self.was_faked[move_serial] 
+            del self.rumble[move_serial] 
+            del self.kill_controller_proc[move_serial] 
 
     def game_mode_announcement(self):
         if self.game_mode == common.Games.JoustFFA:
@@ -379,11 +484,11 @@ class Menu():
             if move_opt[Opts.selection.value] == Selections.change_mode.value:
                 #remove previous admin, and set new one
                 if self.ns.settings['move_can_be_admin']:
-                    if self.admin_move:
-                        self.force_color[self.admin_move][0] = 0
-                        self.force_color[self.admin_move][1] = 0
-                        self.force_color[self.admin_move][2] = 0
-                    self.admin_move = move
+                    #if self.admin_move:
+                        #self.force_color[self.admin_move][0] = 0
+                        #self.force_color[self.admin_move][1] = 0
+                        #self.force_color[self.admin_move][2] = 0
+                    #self.admin_move = move
                     change_mode = True
                 move_opt[Opts.selection.value] = Selections.nothing.value
 
@@ -393,6 +498,7 @@ class Menu():
 
         if change_mode:
             self.game_mode = self.game_mode.next()
+            self.update_setting('current_game',self.game_mode.name)
             self.reset_controller_game_state()
             if not self.ns.settings['play_audio']:
                 if self.game_mode == common.Games.Commander:
@@ -403,40 +509,80 @@ class Menu():
                 opt[Opts.game_mode.value] = self.game_mode.value
             if self.ns.settings['play_audio']:
                 self.game_mode_announcement()
-
+                
+    def check_new_admin(self):
+        for move, move_opt in self.move_opts.items():
+            if move_opt[Opts.selection.value] == Selections.admin.value:
+                #remove previous admin, and set new one
+                if self.ns.settings['move_can_be_admin']:
+                    #set the old admin_move to have no colors
+                    if self.admin_move:
+                        self.force_color[self.admin_move][0] = 0
+                        self.force_color[self.admin_move][1] = 0
+                        self.force_color[self.admin_move][2] = 0
+                    self.admin_move = move
+                move_opt[Opts.selection.value] = Selections.nothing.value
+        
+                
     #all controllers need to opt-in again in order fo the game to start
     def reset_controller_game_state(self):
         for move_opt in self.move_opts.values():
             #on means off here
             move_opt[Opts.random_start.value] = Alive.on.value
+        for serial in self.move_opts.keys():
+            for i in range(3):
+                self.force_color[serial][i] = 0
         self.random_added = []
+        
+    def check_update(self):
+         for move, move_opt in self.move_opts.items():
+            if move_opt[Opts.selection.value] == Selections.update.value:
+                if self.big_update:
+                    update.big_update()
+                    self.big_update = False
 
     def game_loop(self):
         self.play_menu_music = True
         while True:
             if self.play_menu_music:
                 self.play_menu_music = False
-                try:
-                    self.menu_music = Music(random.choice(glob.glob("audio/MenuMusic/*")))
-                    self.menu_music.start_audio_loop()
-                except Exception:
-                    self.menu_music = DummyMusic()
+                self.menu_music.load_audio(random.choice(glob.glob("audio/MenuMusic/*")))
+                self.menu_music.start_audio_loop()
             self.i=self.i+1
             if not self.pair_one_move and "0" in os.popen('lsusb | grep "PlayStation Move motion controller" | wc -l').read():
                 self.pair_one_move = True
                 self.paired_moves = []
             if self.pair_one_move:
-                if psmove.count_connected() != len(self.tracked_moves):
+                #check if there are any controllers that were shut off
+                if psmove.count_connected() > len(self.tracked_moves):
                     for move_num, move in enumerate(self.moves):
                         if move.connection_type == psmove.Conn_USB and self.pair_one_move:
                             self.pair_usb_move(move)
                         elif move.connection_type != psmove.Conn_USB:
                             self.pair_move(move, move_num)
+                elif(len(self.tracked_moves) > len(self.moves)):
+                    connected_serials = [x.get_serial() for x in self.moves]
+                    tracked_serials = self.tracked_moves.keys()
+                    keys_to_kill = []
+                    for serial in tracked_serials:
+                        if serial not in connected_serials:
+                            #self.kill_controller_proc[serial].value = True
+                            self.remove_controller(serial)
+                            #self.tracked_moves[serial].join()
+                            #self.tracked_moves[serial].terminate()
+                            keys_to_kill.append(serial)
+                    for key in keys_to_kill:
+                        del self.tracked_moves[key]
+                        if key == self.admin_move:
+                            self.admin_move = None
+
                 self.check_for_new_moves()
                 if len(self.tracked_moves) > 0:
+                    self.check_new_admin()
                     self.check_change_mode()
                     self.check_admin_controls()
                     self.check_start_game()
+                    self.check_update()
                 self.check_command_queue()
                 self.update_status('menu')
 
@@ -477,13 +623,17 @@ class Menu():
 
                 self.update_setting('sensitivity', (self.ns.settings['sensitivity'] + 1) %  SENSITIVITY_MODES)
                 if self.ns.settings['play_audio']:
-                    if self.ns.settings['sensitivity'] == Sensitivity.slow.value:
-                        Audio('audio/Menu/slow_sensitivity.wav').start_effect()
+                    if self.ns.settings['sensitivity'] == Sensitivity.ultra_slow.value:
+                        Audio('audio/Menu/ultra_high.wav').start_effect()
+                    elif self.ns.settings['sensitivity'] == Sensitivity.slow.value:
+                        Audio('audio/Menu/high.wav').start_effect()
                     elif self.ns.settings['sensitivity'] == Sensitivity.mid.value:
-                        Audio('audio/Menu/mid_sensitivity.wav').start_effect()
+                        Audio('audio/Menu/medium.wav').start_effect()
                     elif self.ns.settings['sensitivity'] == Sensitivity.fast.value:
-                        Audio('audio/Menu/fast_sensitivity.wav').start_effect()
-
+                        Audio('audio/Menu/low.wav').start_effect()
+                    elif self.ns.settings['sensitivity'] == Sensitivity.ultra_fast.value:
+                        Audio('audio/Menu/ultra_low.wav').start_effect()
+                
             #no admin colors in con custom teams mode
             if self.game_mode == common.Games.JoustTeams or self.game_mode == common.Games.Random:
                 self.force_color[self.admin_move][0] = 0
@@ -526,6 +676,7 @@ class Menu():
             'play_instructions': True,
             #we store the name, not the enum, so the webui can process it more easily
             'random_modes': [common.Games.JoustFFA.name,common.Games.JoustRandomTeams.name,common.Games.WereJoust.name,common.Games.Swapper.name],
+            'current_game': common.Games.JoustFFA.name,
             'play_audio': True,
             'move_can_be_admin': True,
             'enforce_minimum': True,
@@ -637,6 +788,7 @@ class Menu():
 
 
             if start_game:
+                print("starting game")
                 if self.game_mode == common.Games.Random:
                     self.start_game(random_mode=True)
                 else:
@@ -675,10 +827,10 @@ class Menu():
             os.popen('espeak -ven -p 70 -a 200 "Two players fight, the winner must defend thier title, the player with the highest score wins')
             time.sleep(5)
 
+
     def start_game(self, random_mode=False):
         self.enable_bt_scanning(False)
         self.exclude_out_moves()
-        self.stop_tracking_moves()
         time.sleep(1)
         self.teams = {serial: self.move_opts[serial][Opts.team.value] for serial in self.tracked_moves.keys() if self.out_moves[serial] == Alive.on.value}
         game_moves = [move.get_serial() for move in self.moves if self.out_moves[move.get_serial()] == Alive.on.value]
@@ -689,9 +841,25 @@ class Menu():
 
         if len(game_moves) < self.game_mode.minimum_players and self.ns.settings['enforce_minimum']:
             Audio('audio/Menu/notenoughplayers.wav').start_effect()
-            self.tracked_moves = {}
+            self.reset_controller_game_state()
             return
+        self.menu.value = 0
+        self.restart.value =1
         self.update_status('starting')
+        
+        self.sensitivity = self.ns.settings['sensitivity']
+        self.controller_sensitivity[0] = common.SLOW_MAX[self.sensitivity]
+        self.controller_sensitivity[1] = common.SLOW_WARNING[self.sensitivity]
+        self.controller_sensitivity[2] = common.FAST_MAX[self.sensitivity]
+        self.controller_sensitivity[3] = common.FAST_WARNING[self.sensitivity]
+        
+        self.controller_sensitivity[4] = common.WERE_SLOW_MAX[self.sensitivity]
+        self.controller_sensitivity[5] = common.WERE_SLOW_WARNING[self.sensitivity]
+        self.controller_sensitivity[6] = common.WERE_FAST_MAX[self.sensitivity]
+        self.controller_sensitivity[7] = common.WERE_FAST_WARNING[self.sensitivity]
+    
+        self.controller_sensitivity[8] = common.ZOMBIE_MAX[self.sensitivity]
+        self.controller_sensitivity[9] = common.ZOMBIE_WARNING[self.sensitivity]
 
         if random_mode:
             good_random_modes = [game for game in common.Games if game.name in self.ns.settings['random_modes']]
@@ -715,32 +883,29 @@ class Menu():
                 self.rand_game_list.append(selected_game)
 
             self.game_mode = selected_game
+        self.controller_game_mode.value = self.game_mode.value
 
         if self.ns.settings['play_instructions'] and self.ns.settings['play_audio']:
             self.play_random_instructions()
 
         if self.game_mode == common.Games.Zombies:
-            zombie.Zombie(game_moves, self.command_queue, self.ns, self.zombie_music)
-            self.tracked_moves = {}
+            zombie.Zombie(game_moves, self.command_queue, self.ns, self.zombie_music, self.restart, self.zombie_opts)
         elif self.game_mode == common.Games.Commander:
-            commander.Commander(game_moves, self.command_queue, self.ns, self.commander_music)
-            self.tracked_moves = {}
+            commander.Commander(game_moves, self.command_queue, self.ns, self.commander_music, self.dead_moves,  self.commander_intro, self.commander_move_opts, \
+                                self.commander_powers, self.commander_overdrive, self.music_speed, self.force_color, self.restart, self.controller_teams)
         elif self.game_mode == common.Games.Ninja:
-            speed_bomb.Bomb(game_moves, self.command_queue, self.ns, self.commander_music)
-            self.tracked_moves = {}
+            speed_bomb.Bomb(game_moves, self.command_queue, self.ns, self.commander_music,  self.bomb_color, self.game_start, self.five_controller_opts, self.dead_moves, self.force_color, self.false_colors, self.was_faked, self.rumble, self.music_speed,self.restart)
         elif self.game_mode == common.Games.Swapper:
-            swapper.Swapper(game_moves, self.command_queue, self.ns, self.joust_music)
-            self.tracked_moves = {}
+            swapper.Swapper(game_moves, self.command_queue, self.ns, self.joust_music, \
+                            self.swapper_team_colors, self.dead_moves, self.music_speed, self.force_color, self.five_controller_opts, self.controller_teams, self.restart)
         elif self.game_mode == common.Games.FightClub:
             if random.randint(0,1)==1:
                 fight_music = self.commander_music
             else:
                 fight_music = self.joust_music
-            fight_club.Fight_club(game_moves, self.command_queue, self.ns, fight_music)
-            self.tracked_moves = {}
+            fight_club.Fight_club(game_moves, self.command_queue, self.ns, fight_music, self.show_team_colors, self.music_speed, self.dead_moves, self.force_color, self.invincible_moves, self.fight_club_colors, self.restart)
         elif self.game_mode == common.Games.Tournament:
-            tournament.Tournament(game_moves, self.command_queue, self.ns, self.joust_music)
-            self.tracked_moves = {}
+            tournament.Tournament(game_moves, self.command_queue, self.ns, self.joust_music,  self.show_team_colors, self.music_speed, self.controller_teams, self.dead_moves, self.force_color, self.invincible_moves, self.num_teams, self.restart)
         else:
             if self.game_mode == common.Games.JoustFFA and self.experimental:
                 print("Playing EXPERIMENTAL FFA Mode.")
@@ -749,8 +914,7 @@ class Menu():
                 game.run_loop()
             else:
                 #may need to put in moves that have selected to not be in the game
-                joust.Joust(game_moves, self.command_queue, self.ns, self.joust_music, self.teams, self.game_mode)
-            self.tracked_moves = {}
+                joust.Joust(game_moves, self.command_queue, self.ns, self.joust_music, self.teams, self.game_mode, self.controller_teams, self.controller_colors, self.dead_moves, self.force_color,self.music_speed,self.werewolf_reveal, self.show_team_colors, self.red_on_kill, self.restart)
         if random_mode:
             self.game_mode = common.Games.Random
             if self.ns.settings['play_instructions']:
@@ -762,7 +926,12 @@ class Menu():
         #turn off admin mode so someone can't accidentally press a button
         self.admin_move = None
         self.random_added = []
+        self.reset_controller_game_state()
+        self.menu.value = 1
+        self.restart.value =0
+        self.reset_controller_game_state()
 
+            
 if __name__ == "__main__":
     InitAudio()
     piparty = Menu()

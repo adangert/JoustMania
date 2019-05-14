@@ -10,23 +10,31 @@ import random
 SETTINGSFILE = 'joustsettings.yaml'
 
 #Human speeds[slow, mid, fast]
-SLOW_WARNING = [0.1, 0.15, 0.28]
-SLOW_MAX = [0.25, 0.8, 1]
-FAST_WARNING = [0.5, 0.6, 0.8]
-FAST_MAX = [1, 1.4, 1.8]
-
 #SLOW_WARNING = [0.1, 0.15, 0.28]
-#SLOW_MAX = [0.5, 0.8, 1]
+#SLOW_MAX = [0.25, 0.8, 1]
 #FAST_WARNING = [0.5, 0.6, 0.8]
 #FAST_MAX = [1, 1.4, 1.8]
 
-WERE_SLOW_WARNING = [0.2, 0.3, 0.4]
-WERE_SLOW_MAX = [0.7, 0.9, 1.1]
-WERE_FAST_WARNING = [0.6, 0.7, 0.9]
-WERE_FAST_MAX = [1.1, 1.5, 2.0]
+SLOW_WARNING = [1.0, 1.3, 1.6, 2.0, 2.5]
+SLOW_MAX = [1.1, 1.5, 1.8, 2.5, 3.2]
+FAST_WARNING = [1.3, 1.6, 1.9, 2.7, 2.8]
+FAST_MAX = [1.5, 1.8, 2.8, 3.2, 3.5]
 
-ZOMBIE_WARNING = [0.5, 0.6, 0.8]
-ZOMBIE_MAX = [0.8, 1, 1.4]
+#WERE_SLOW_WARNING = [0.2, 0.3, 0.4]
+#WERE_SLOW_MAX = [0.7, 0.9, 1.1]
+#WERE_FAST_WARNING = [0.6, 0.7, 0.9]
+#WERE_FAST_MAX = [1.1, 1.5, 2.0]
+
+WERE_SLOW_WARNING = [1.1, 1.4, 1.7, 2.1, 2.9]
+WERE_SLOW_MAX = [1.2, 1.6, 1.9, 2.6, 3.9]
+WERE_FAST_WARNING = [1.4, 1.7, 2.0, 2.8, 3.5]
+WERE_FAST_MAX = [1.6, 1.9, 2.9, 3.3, 4.9]
+
+#ZOMBIE_WARNING = [0.5, 0.6, 0.8]
+#ZOMBIE_MAX = [0.8, 1, 1.4]
+
+ZOMBIE_WARNING = [1.2, 1.5, 1.8, 2.6, 2.7]
+ZOMBIE_MAX = [1.4, 1.7, 2.7, 3.1, 3.4]
 
 
 def get_move(serial, move_num):
@@ -37,6 +45,7 @@ def get_move(serial, move_num):
         for move_num in range(psmove.count_connected()):
             move = psmove.PSMove(move_num)
             if move.get_serial() == serial:
+                print("returning " +str(move.get_serial()))
                 return move
         return None
     else:
@@ -92,6 +101,7 @@ class Button(enum.Flag):
     TRIGGER  = psmove.Btn_T
 
     SHAPES   = TRIANGLE | CIRCLE | CROSS | SQUARE
+    UPDATE   = SELECT | START
 
 all_shapes = [Button.TRIANGLE, Button.CIRCLE, Button.CROSS, Button.SQUARE]
 
@@ -166,6 +176,7 @@ FREEZE_PACE = GamePace(tempo=0, warn_threshold=1.1, death_threshold=1.2)
 REQUIRED_SETTINGS = [
 'play_audio',
 'move_can_be_admin',
+'current_game',
 'enforce_minimum',
 'sensitivity',
 'play_instructions',

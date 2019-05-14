@@ -23,15 +23,7 @@ MAX_MUSIC_FAST_TIME = 8
 MIN_MUSIC_SLOW_TIME = 10
 MAX_MUSIC_SLOW_TIME = 23
 
-#Sensitivity of the contollers
-#changes by the values in common
 #TODO: make commander should be harder to kill
-SLOW_MAX = 1.3
-SLOW_WARNING = 0.28
-FAST_MAX = 2.5
-FAST_WARNING = 1.3
-
-
 
 #How long the speed change takes
 INTERVAL_CHANGE = 1.5
@@ -81,16 +73,18 @@ def calculate_flash_time(r,g,b, score):
     new_b = int(common.lerp(255, b, flash_percent))
     return (new_r, new_g, new_b)
 
-def track_move(move_serial, move_num, team, num_teams, dead_move, force_color, music_speed, commander_intro, move_opts, power, overdrive):
-    #proc = psutil.Process(os.getpid())
-    #proc.nice(3)
-
-
+def track_move(move, team, dead_move, force_color, music_speed, commander_intro, move_opts, commander_powers, commander_overdrive, restart, menu, controller_sensitivity):
+    if team == Team.alpha.value:
+        overdrive = commander_overdrive[0]
+        power = commander_powers[0]
+    else:
+        overdrive = commander_overdrive[1]
+        power = commander_powers[1]
+    
     start = False
     no_rumble = time.time() + 1
     move_last_value = None
-    move = common.get_move(move_serial, move_num)
-    team_colors = colors.generate_colors(num_teams)
+    team_colors = colors.generate_colors(2)
     #keep on looping while move is not dead
     ready = False
     move.set_leds(0,0,0)
@@ -100,7 +94,13 @@ def track_move(move_serial, move_num, team, num_teams, dead_move, force_color, m
     vibration_time = time.time() + 1
     flash_lights = True
     flash_lights_timer = 0
-    change_arr = [0,0,0]
+    change = 0
+    #change_arr = [0,0,0]
+    
+    SLOW_MAX = controller_sensitivity[0]
+    SLOW_WARNING = controller_sensitivity[1]
+    FAST_MAX = controller_sensitivity[2]
+    FAST_WARNING = controller_sensitivity[3] 
 
     death_time = 8
     time_of_death = time.time()
@@ -130,6 +130,8 @@ def track_move(move_serial, move_num, team, num_teams, dead_move, force_color, m
     move_opts[Opts.selection.value] = Selections.nothing.value
 
     while True:
+        if(restart.value == 1 or menu.value == 1):
+            return
         if sum(force_color) != 0:
             no_rumble_time = time.time() + 5
             time.sleep(0.01)
@@ -141,66 +143,60 @@ def track_move(move_serial, move_num, team, num_teams, dead_move, force_color, m
         elif dead_move.value == 1:
             if move.poll():
                 ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
-                #total = sum([ax, ay, az])
                 total = sqrt(sum([ax**2, ay**2, az**2]))
-                if move_last_value is not None:
-                    change_real = abs(move_last_value - total)
-                    change_arr[0] = change_arr[1]
-                    change_arr[1] = change_arr[2]
-                    change_arr[2] = change_real
-                    change = (change_arr[0] + change_arr[1]+change_arr[2])/3
+                change = (change * 4 + total)/5
 
-                    if move_opts[Opts.is_commander.value] == Bool.no.value:
-                        if overdrive.value == 0:
-                            warning = SLOW_WARNING
-                            threshold = SLOW_MAX
-                        else:
-                            warning = FAST_WARNING
-                            threshold = FAST_MAX
-                    else:
-                        #if affected by overdrive, this could make the power better
+                if move_opts[Opts.is_commander.value] == Bool.no.value:
+                    if overdrive.value == 0:
                         warning = SLOW_WARNING
                         threshold = SLOW_MAX
-                        
-
-                    if change > threshold:
-                        if time.time() > no_rumble:
-                            move.set_leds(0,0,0)
-                            move.set_rumble(90)
-                            dead_move.value = 0
-                            time_of_death = time.time()
-
-                    elif change > warning and not vibrate:
-                        if time.time() > no_rumble:
-                            move.set_leds(20,50,100)
-                            vibrate = True
-                            vibration_time = time.time() + 0.5
-
                     else:
-                        if move_opts[Opts.is_commander.value] == Bool.no.value:
-                            if overdrive.value == 0:
-                                move.set_leds(*Commander_colors[team])
-                            else:
-                                move.set_leds(*Overdrive_colors[team])
+                        warning = FAST_WARNING
+                        threshold = FAST_MAX
+                else:
+                    #if affected by overdrive, this could make the power better
+                    warning = SLOW_WARNING
+                    threshold = SLOW_MAX
+                    
+
+                if change > threshold:
+                    if time.time() > no_rumble:
+                        move.set_leds(0,0,0)
+                        move.set_rumble(90)
+                        dead_move.value = 0
+                        time_of_death = time.time()
+
+                elif change > warning and not vibrate:
+                    if time.time() > no_rumble:
+                        move.set_leds(20,50,100)
+                        vibrate = True
+                        vibration_time = time.time() + 0.5
+
+                else:
+                    if move_opts[Opts.is_commander.value] == Bool.no.value:
+                        if overdrive.value == 0:
+                            move.set_leds(*Commander_colors[team])
                         else:
-                            move.set_leds(*calculate_flash_time(Current_commander_colors[team][0],Current_commander_colors[team][1],Current_commander_colors[team][2], power.value))
-                        move.set_rumble(0)
+                            move.set_leds(*Overdrive_colors[team])
+                    else:
+                        move.set_leds(*calculate_flash_time(Current_commander_colors[team][0],Current_commander_colors[team][1],Current_commander_colors[team][2], power.value))
+                    move.set_rumble(0)
 
 
-                    if move_opts[Opts.is_commander.value] == Bool.yes.value:
-                        if (move.get_buttons() == 0 and move.get_trigger() < 10):
-                            move_opts[Opts.holding.value] = Holding.not_holding.value
-                            
-                        button = move.get_buttons()
-                        #print str(power.value)
-                        if power.value >= 1.0:
-                            #press trigger for overdrive
-                            if (move_opts[Opts.holding.value] == Holding.not_holding.value and move.get_trigger() > 100):
-                                move_opts[Opts.selection.value] = Selections.trigger.value
-                                move_opts[Opts.holding.value] = Holding.holding.value
+                if move_opts[Opts.is_commander.value] == Bool.yes.value:
+                    if (move.get_buttons() == 0 and move.get_trigger() < 10):
+                        move_opts[Opts.holding.value] = Holding.not_holding.value
+                        
+                    button = move.get_buttons()
+                    #print str(power.value)
+                    if power.value >= 1.0:
+                        #press trigger for overdrive
+                        if (move_opts[Opts.holding.value] == Holding.not_holding.value and move.get_trigger() > 100):
+                            move_opts[Opts.selection.value] = Selections.trigger.value
+                            move_opts[Opts.holding.value] = Holding.holding.value
 
                         
-                move_last_value = total
+                #move_last_value = total
                 if vibrate:
                     flash_lights_timer += 1
                     if flash_lights_timer > 7:
@@ -228,7 +224,8 @@ def track_move(move_serial, move_num, team, num_teams, dead_move, force_color, m
             
 
 class Commander():
-    def __init__(self, moves, command_queue, ns, music):
+    def __init__(self, moves, command_queue, ns, music, dead_moves, commander_intro, commander_move_opt,\
+                 commander_powers, commander_overdrive, music_speed,force_color, restart, controller_teams):
 
         self.command_queue = command_queue
         self.ns = ns
@@ -236,56 +233,49 @@ class Commander():
         self.sensitivity = self.ns.settings['sensitivity']
         self.random_teams = self.ns.settings['random_teams']
 
-        global SLOW_MAX
-        global SLOW_WARNING
-        global FAST_MAX
-        global FAST_WARNING
-        
-        SLOW_MAX = common.SLOW_MAX[self.sensitivity]
-        SLOW_WARNING = common.SLOW_WARNING[self.sensitivity]
-        FAST_MAX = common.FAST_MAX[self.sensitivity]
-        FAST_WARNING = common.FAST_WARNING[self.sensitivity]
-
         self.update_time = 0
 
         self.move_serials = moves
         self.tracked_moves = {}
-        self.dead_moves = {}
+        self.dead_moves = dead_moves
         self.teams = {}
-        self.music_speed = Value('d', 1)
+        self.music_speed = music_speed
+        self.music_speed.value = 1
         self.running = True
-        self.force_move_colors = {}
+        self.force_move_colors = force_color
         self.num_teams = 2
         self.werewolf_timer = 35
         self.start_timer = time.time()
         self.audio_cue = 0
 
-        self.move_opts = {}
+        self.move_opts = commander_move_opt
         self.current_commander = ["",""]
 
         self.time_to_power = [20,20]
         self.activated_time = [time.time(), time.time()]
 
         self.activated_overdrive = [time.time(), time.time()]
+        self.controller_teams = controller_teams
         
-        
-        self.powers = [Value('d', 0.0), Value('d', 0.0)]
+        self.powers = commander_powers
+        self.powers[0].value = 0.0
+        self.powers[1].value = 0.0
+        self.restart = restart
 
-        self.alpha_overdrive = Value('i', 0)
-        self.bravo_overdrive = Value('i', 0)
+        self.alpha_overdrive = commander_overdrive[0]
+        self.alpha_overdrive.value = 0
+        self.bravo_overdrive = commander_overdrive[1]
+        self.alpha_overdrive.value = 1
 
         
         self.generate_random_teams(self.num_teams)
-        self.commander_intro = Value('i', 1)
+        self.commander_intro = commander_intro
+        self.commander_intro.value = 1
 
         self.powers_active = [False, False]
 
         
 
-##        try:
-##            music = 'audio/Commander/music/' + random.choice(os.listdir('audio/Commander/music'))
-##        except:
-##            print('no music in audio/Commander/music')
         self.start_beep = Audio('audio/Joust/sounds/start.wav')
         self.start_game = Audio('audio/Joust/sounds/start3.wav')
         self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
@@ -322,32 +312,14 @@ class Commander():
 
     def track_moves(self):
         for move_num, move_serial in enumerate(self.move_serials):
-            time.sleep(0.02)
-            dead_move = Value('i', 1)
-            force_color = Array('i', [1] * 3)
-            opts = Array('i', [0] * 5)
-            power = self.powers[self.teams[move_serial]]
-
-            if self.teams[move_serial] == Team.alpha.value:
-                overdrive = self.alpha_overdrive
-            else:
-                overdrive = self.bravo_overdrive
-            proc = Process(target=track_move, args=(move_serial,
-                                                    move_num,
-                                                    self.teams[move_serial],
-                                                    self.num_teams,
-                                                    dead_move,
-                                                    force_color,
-                                                    self.music_speed,
-                                                    self.commander_intro,
-                                                    opts,
-                                                    power,
-                                                    overdrive))
-            proc.start()
-            self.tracked_moves[move_serial] = proc
-            self.dead_moves[move_serial] = dead_move
-            self.force_move_colors[move_serial] = force_color
-            self.move_opts[move_serial] = opts
+            self.controller_teams[move_serial].value = self.teams[move_serial]
+            self.dead_moves[move_serial].value = 1
+            self.force_move_colors[move_serial][0] = 1
+            self.force_move_colors[move_serial][1] = 1
+            self.force_move_colors[move_serial][2] = 1
+            for i in range(5):
+                self.move_opts[move_serial][i] = 0
+            
             
     def change_all_move_colors(self, r, g, b):
         for color in self.force_move_colors.values():
@@ -408,10 +380,7 @@ class Commander():
 
 
     def stop_tracking_moves(self):
-        for proc in self.tracked_moves.values():
-            proc.terminate()
-            proc.join()
-            time.sleep(0.02)
+        self.restart.value = 1
 
     def end_game(self):
         try:
@@ -563,6 +532,7 @@ class Commander():
 
     def game_loop(self):
         self.track_moves()
+        self.restart.value = 0
         self.commander_intro_audio()
         
         self.count_down()

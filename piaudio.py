@@ -9,13 +9,18 @@ import scipy.signal as signal
 from multiprocessing import Value
 from threading import Thread
 import pygame
-# import alsaaudio
+from sys import platform
+if platform == "linux" or platform == "linux2":
+    import alsaaudio
 import threading
 from pydub import AudioSegment
 from multiprocessing import Process, Value, Array, Queue, Manager
 
 
 import common
+
+def win_audio_loop(fname,ratio,stop_proc):
+    pass
 
 def audio_loop(fname, ratio, stop_proc):
     # TODO: As a future improvment, we could precompute resampled versions of the track
@@ -31,9 +36,9 @@ def audio_loop(fname, ratio, stop_proc):
     time.sleep(0.02)
     wav_data = None
 
-    
-        
-    song_loaded = False    
+
+
+    song_loaded = False
     while(True):
         if(stop_proc.value == 1):
             pass
@@ -56,7 +61,7 @@ def audio_loop(fname, ratio, stop_proc):
 
                 device.setformat(alsaaudio.PCM_FORMAT_S16_LE)
                 device.setperiodsize(PERIOD)
-                    
+
                 if len(wf.readframes(1)) == 0:
                     raise ValueError("Empty WAV file played.")
                 wf.rewind()
@@ -143,20 +148,22 @@ class Music:
     def __init__(self, name):
         self.name = name
         self.transition_future_ = asyncio.Future()
-        
+
         self.stop_proc = Value('i', 1)
         self.ratio = Value('d' , 1.0)
         manager = Manager()
         self.fname = manager.dict()
         self.fname['song'] = ''
-
-        self.t = Process(target=audio_loop, args=(self.fname, self.ratio, self.stop_proc))
+        if platform == "linux" or platform == "linux2":
+            self.t = Process(target=audio_loop, args=(self.fname, self.ratio, self.stop_proc))
+        elif "win" in platform:
+            self.t = Process(target=win_audio_loop, args=(self.fname, self.ratio, self.stop_proc))
         self.t.start()
 
 
     def load_audio(self, fname):
         self.fname['song'] = fname
-        
+
     def start_audio_loop(self):
         self.stop_proc.value = 0
 

@@ -22,19 +22,19 @@ from multiprocessing import Process, Value, Array, Queue, Manager
 import common
 
 def win_audio_loop(fname,ratio,stop_proc):
+    p = pyaudio.PyAudio()
     #define stream chunk
     chunk = 1024
 
     #open a wav format music
     while(True):
         if(stop_proc.value):
-
             pass
         elif(fname['song'] != ''):
             print(fname['song'])
             f = wave.open(fname['song'])
             #instantiate PyAudio
-            p = pyaudio.PyAudio()
+
             #open stream
             stream = p.open(format = p.get_format_from_width(f.getsampwidth()),
                             channels = f.getnchannels(),
@@ -69,16 +69,20 @@ def win_audio_loop(fname,ratio,stop_proc):
                 data = f.readframes(chunk)
                 data = Resample(data)
                 if stop_proc.value:
-                    return
+                    stream.stop_stream()
+                    stream.close()
+                    break
+                # if stop_proc.value:
+                #     return
 
 
 
             #stop stream
-            stream.stop_stream()
-            stream.close()
-
-            #close PyAudio
-            p.terminate()
+            # stream.stop_stream()
+            # stream.close()
+            #
+            # #close PyAudio
+            # p.terminate()
 
 def audio_loop(fname, ratio, stop_proc):
     # TODO: As a future improvment, we could precompute resampled versions of the track

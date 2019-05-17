@@ -12,6 +12,8 @@ import pygame
 from sys import platform
 if platform == "linux" or platform == "linux2":
     import alsaaudio
+else:
+    import pyaudio
 import threading
 from pydub import AudioSegment
 from multiprocessing import Process, Value, Array, Queue, Manager
@@ -20,7 +22,63 @@ from multiprocessing import Process, Value, Array, Queue, Manager
 import common
 
 def win_audio_loop(fname,ratio,stop_proc):
-    pass
+    #define stream chunk
+    chunk = 1024
+
+    #open a wav format music
+    while(True):
+        if(stop_proc.value):
+
+            pass
+        elif(fname['song'] != ''):
+            print(fname['song'])
+            f = wave.open(fname['song'])
+            #instantiate PyAudio
+            p = pyaudio.PyAudio()
+            #open stream
+            stream = p.open(format = p.get_format_from_width(f.getsampwidth()),
+                            channels = f.getnchannels(),
+                            rate = f.getframerate(),
+                            output = True)
+
+
+            # Resamples audio data at the rate given by 'ratio' above.
+            def Resample(data):
+                # for data in samples:
+                array = numpy.fromstring(data, dtype=numpy.int16)
+                # Split data into seperate channels and resample. Divide by two
+                # since there are two channels. We round to the nearest multiple of
+                # 32 as the resampling is more efficient the closer the sizes are to
+                # being powers of two.
+                num_output_frames = int(array.size / (ratio.value * 2)) & (~0x1f)
+                reshapel = signal.resample(array[0::2], num_output_frames)
+                reshaper = signal.resample(array[1::2], num_output_frames)
+
+                final = numpy.ones((num_output_frames,2))
+                final[:, 0] = reshapel
+                final[:, 1] = reshaper
+
+                out_data = final.flatten().astype(numpy.int16).tostring()
+                return out_data
+            #read data
+            data = f.readframes(chunk)
+
+            #play stream
+            while data:
+                stream.write(data)
+                data = f.readframes(chunk)
+                data = Resample(data)
+                if stop_proc.value:
+                    return
+
+
+
+            #stop stream
+            stream.stop_stream()
+            stream.close()
+
+            #close PyAudio
+            p.terminate()
 
 def audio_loop(fname, ratio, stop_proc):
     # TODO: As a future improvment, we could precompute resampled versions of the track

@@ -67,19 +67,21 @@ def win_audio_loop(fname,ratio,stop_proc):
             while data:
                 stream.write(data)
                 data = f.readframes(chunk)
-                data = Resample(data)
+                try:
+                    if data:
+                        data = Resample(data)
+                except:
+                    pass
                 if stop_proc.value:
                     stream.stop_stream()
                     stream.close()
                     break
-                # if stop_proc.value:
-                #     return
 
 
 
             #stop stream
-            # stream.stop_stream()
-            # stream.close()
+            stream.stop_stream()
+            stream.close()
             #
             # #close PyAudio
             # p.terminate()

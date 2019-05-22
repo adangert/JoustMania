@@ -4,7 +4,7 @@ import yaml
 import time, random, json, os, os.path, sys, glob
 from piaudio import Music, DummyMusic, Audio, InitAudio
 from enum import Enum
-from multiprocessing import Process, Value, Array, Queue, Manager
+from multiprocessing import Process, Value, Array, Queue, Manager, freeze_support
 from games import ffa, zombie, commander, swapper, tournament, speed_bomb, fight_club
 from sys import platform
 if platform == "linux" or platform == "linux2":
@@ -240,10 +240,8 @@ class Menu():
         self.command_queue = Queue()
         self.joust_manager = Manager()
         self.ns = self.joust_manager.Namespace()
-
         self.web_proc = Process(target=webui.start_web, args=(self.command_queue,self.ns))
         self.web_proc.start()
-
         self.ns.status = dict()
         self.ns.settings = dict()
         self.ns.battery_status = dict()
@@ -253,7 +251,6 @@ class Menu():
 
         #defined outside of ns.settings as it's a purely dev option
         self.experimental = False
-
         self.move_count = psmove.count_connected()
         self.dead_count = Value('i', 0)
         self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
@@ -310,9 +307,7 @@ class Menu():
         self.joust_music = Music("joust")
         self.zombie_music = Music("zombie")
         self.commander_music = Music("commander")
-
         self.choose_new_music()
-
 
 
     def choose_new_music(self):
@@ -335,6 +330,7 @@ class Menu():
     def check_for_new_moves(self):
         self.enable_bt_scanning(True)
         #need to start tracking of new moves in here
+
         if psmove.count_connected() != self.move_count:
             self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
             self.move_count = len(self.moves)
@@ -366,7 +362,6 @@ class Menu():
                     self.pair_one_move = False
 
     def pair_move(self, move, move_num):
-        print("NOW PAIRING MOVE")
         move_serial = move.get_serial()
         if move_serial not in self.tracked_moves:
             color = Array('i', [0] * 3)
@@ -410,6 +405,7 @@ class Menu():
 
             proc.start()
             self.move_opts[move_serial] = opts
+
             self.tracked_moves[move_serial] = proc
             self.force_color[move_serial] = color
             self.controller_teams[move_serial] = team
@@ -553,9 +549,14 @@ class Menu():
                 self.menu_music.load_audio(random.choice(glob.glob("audio/MenuMusic/*")))
                 self.menu_music.start_audio_loop()
             self.i=self.i+1
-            if not self.pair_one_move and "0" in os.popen('lsusb | grep "PlayStation Move motion controller" | wc -l').read():
-                self.pair_one_move = True
-                self.paired_moves = []
+            if "linux" in platform:
+                if not self.pair_one_move and "0" in os.popen('lsusb | grep "PlayStation Move motion controller" | wc -l').read():
+                    self.pair_one_move = True
+                    self.paired_moves = []
+            else:
+                if not self.pair_one_move:
+                    self.pair_one_move = True
+                    self.paired_moves = []
             if self.pair_one_move:
                 #check if there are any controllers that were shut off
                 if psmove.count_connected() > len(self.tracked_moves):
@@ -765,7 +766,6 @@ class Menu():
         }
 
         battery_status = {}
-        # print(self.moves)
         for move in self.moves:
             move.poll()
             battery_status[move.get_serial()] = move.get_battery()
@@ -938,6 +938,8 @@ class Menu():
 
 
 if __name__ == "__main__":
+    if "win" in platform:
+        freeze_support()
     InitAudio()
     piparty = Menu()
     piparty.game_loop()

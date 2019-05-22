@@ -72,7 +72,8 @@ class Pair():
         # return ''
 
     def pair_move(self, move):
-        pass
+        result = move.pair()
+        return result
         # if move and move.get_serial():
         #     if move.connection_type == psmove.Conn_USB:
         #         self.pre_existing_devices()

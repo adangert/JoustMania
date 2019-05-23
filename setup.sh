@@ -94,7 +94,7 @@ setup() {
     
     #This will disable on-board bluetooth
     #This will allow only class one long range btdongles to connect to psmove controllers
-    sudo grep -qxF 'dtoverlay=pi3-disable-bt' /boot/config.txt || echo "dtoverlay=pi3-disable-bt" | sudo tee -a /boot/config.txt
+    sudo grep -qxF 'dtoverlay=pi3-disable-bt' /boot/config.txt || { echo "dtoverlay=pi3-disable-bt" | sudo tee -a /boot/config.txt; sudo rm -rf /var/lib/bluetooth/*; }
     sudo systemctl disable hciuart || exit -1
 
     uname2="$(stat --format '%U' '/home/pi/JoustMania/setup.sh')"
@@ -105,6 +105,9 @@ setup() {
     else
         echo "no permissions to update"
     fi
+    
+    #Newest Kernel version breaks psmove controller support, need to downgrade to one that works.
+    sudo rpi-update 00bb2894c0a4349464c19ba62f62b8d9e17a1a9e
 
     espeak "Joustmania successfully updated, now rebooting"
     # Pause a second before rebooting so we can see all the output from this script.

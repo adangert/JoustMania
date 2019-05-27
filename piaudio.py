@@ -9,13 +9,82 @@ import scipy.signal as signal
 from multiprocessing import Value
 from threading import Thread
 import pygame
-import alsaaudio
+from sys import platform
+if platform == "linux" or platform == "linux2":
+    import alsaaudio
+else:
+    import pyaudio
 import threading
 from pydub import AudioSegment
 from multiprocessing import Process, Value, Array, Queue, Manager
 
 
 import common
+
+def win_audio_loop(fname,ratio,stop_proc):
+    p = pyaudio.PyAudio()
+    #define stream chunk
+    chunk = 1024
+
+    #open a wav format music
+    while(True):
+        if(stop_proc.value):
+            pass
+        elif(fname['song'] != ''):
+            print(fname['song'])
+            f = wave.open(fname['song'])
+            #instantiate PyAudio
+
+            #open stream
+            stream = p.open(format = p.get_format_from_width(f.getsampwidth()),
+                            channels = f.getnchannels(),
+                            rate = f.getframerate(),
+                            output = True)
+
+
+            # Resamples audio data at the rate given by 'ratio' above.
+            def Resample(data):
+                # for data in samples:
+                array = numpy.fromstring(data, dtype=numpy.int16)
+                # Split data into seperate channels and resample. Divide by two
+                # since there are two channels. We round to the nearest multiple of
+                # 32 as the resampling is more efficient the closer the sizes are to
+                # being powers of two.
+                num_output_frames = int(array.size / (ratio.value * 2)) & (~0x1f)
+                reshapel = signal.resample(array[0::2], num_output_frames)
+                reshaper = signal.resample(array[1::2], num_output_frames)
+
+                final = numpy.ones((num_output_frames,2))
+                final[:, 0] = reshapel
+                final[:, 1] = reshaper
+
+                out_data = final.flatten().astype(numpy.int16).tostring()
+                return out_data
+            #read data
+            data = f.readframes(chunk)
+
+            #play stream
+            while data:
+                stream.write(data)
+                data = f.readframes(chunk)
+                try:
+                    if data:
+                        data = Resample(data)
+                except:
+                    pass
+                if stop_proc.value:
+                    stream.stop_stream()
+                    stream.close()
+                    break
+
+
+
+            #stop stream
+            stream.stop_stream()
+            stream.close()
+            #
+            # #close PyAudio
+            # p.terminate()
 
 def audio_loop(fname, ratio, stop_proc):
     # TODO: As a future improvment, we could precompute resampled versions of the track
@@ -31,9 +100,9 @@ def audio_loop(fname, ratio, stop_proc):
     time.sleep(0.02)
     wav_data = None
 
-    
-        
-    song_loaded = False    
+
+
+    song_loaded = False
     while(True):
         if(stop_proc.value == 1):
             pass
@@ -56,7 +125,7 @@ def audio_loop(fname, ratio, stop_proc):
 
                 device.setformat(alsaaudio.PCM_FORMAT_S16_LE)
                 device.setperiodsize(PERIOD)
-                    
+
                 if len(wf.readframes(1)) == 0:
                     raise ValueError("Empty WAV file played.")
                 wf.rewind()
@@ -117,7 +186,7 @@ class Audio:
         buf.seek(0)
         self.sample_ = pygame.mixer.Sound(file=buf)
         self.fname_ = fname
-  
+
     #this will not work for files other than wav at the moment
     def start_effect(self):
         self.sample_.play()
@@ -130,7 +199,7 @@ class Audio:
 
     def stop_effect_music(self):
         self.sample_.stop()
-            
+
     def get_length_secs(self):
         return self.sample_.get_length()
 
@@ -143,20 +212,22 @@ class Music:
     def __init__(self, name):
         self.name = name
         self.transition_future_ = asyncio.Future()
-        
+
         self.stop_proc = Value('i', 1)
         self.ratio = Value('d' , 1.0)
         manager = Manager()
         self.fname = manager.dict()
         self.fname['song'] = ''
-
-        self.t = Process(target=audio_loop, args=(self.fname, self.ratio, self.stop_proc))
+        if platform == "linux" or platform == "linux2":
+            self.t = Process(target=audio_loop, args=(self.fname, self.ratio, self.stop_proc))
+        elif "win" in platform:
+            self.t = Process(target=win_audio_loop, args=(self.fname, self.ratio, self.stop_proc))
         self.t.start()
 
 
     def load_audio(self, fname):
         self.fname['song'] = fname
-        
+
     def start_audio_loop(self):
         self.stop_proc.value = 0
 

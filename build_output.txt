@@ -1,0 +1,1962 @@
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\scripts\visualc>build_msvc.bat 2017
+The system cannot find the path specified.
+Applying libusb dynamic CRT patch...
+C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/scripts/visualc/../..//scripts/visualc/libusb_dynamic_crt.patch:10: trailing whitespace.
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/scripts/visualc/../..//scripts/visualc/libusb_dynamic_crt.patch:19: trailing whitespace.
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/scripts/visualc/../..//scripts/visualc/libusb_dynamic_crt.patch:32: trailing whitespace.
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/scripts/visualc/../..//scripts/visualc/libusb_dynamic_crt.patch:41: trailing whitespace.
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+warning: 4 lines add whitespace errors.
+
+Building libusb
+Microsoft (R) Build Engine version 15.3.409.57025 for .NET Framework
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+  core.c
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  descriptor.c
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  hotplug.c
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  io.c
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  poll_windows.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  strerror.c
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  sync.c
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  threads_windows.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  windows_nt_common.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  windows_winusb.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  Generating Code...
+  libusb_static_2017.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\..\x64\Debug\lib\libusb-1.0.lib
+Microsoft (R) Build Engine version 15.3.409.57025 for .NET Framework
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+  core.c
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  descriptor.c
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  hotplug.c
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  io.c
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  poll_windows.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  strerror.c
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  sync.c
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+c:\users\aaron\documents\github\joustmania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  threads_windows.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  windows_nt_common.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  windows_winusb.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(426): warning C4324: 'libusb_device': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\libusb\libusbi.h(438): warning C4324: 'libusb_device_handle': structure was padded due to alignment specifier [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\libusb_static_2017.vcxproj]
+  libusb_static_2017.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\libusb-1.0\msvc\..\x64\Release\lib\libusb-1.0.lib
+Cloning into 'opencv'...
+remote: Counting objects: 5531, done.
+remote: Compressing objects: 100% (4854/4854), done.
+remote: Total 5531 (delta 784), reused 3319 (delta 443), pack-reused 0
+Receiving objects: 100% (5531/5531), 70.19 MiB | 3.96 MiB/s, done.
+Resolving deltas: 100% (784/784), done.
+Note: checking out '92387b1ef8fad15196dd5f7fb4931444a68bc93a'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by performing another checkout.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -b with the checkout command again. Example:
+
+  git checkout -b <new-branch-name>
+
+Checking out files: 100% (4651/4651), done.
+
+Generating OpenCV solution
+-- The CXX compiler identification is MSVC 19.11.25507.1
+-- The C compiler identification is MSVC 19.11.25507.1
+-- Check for working CXX compiler: C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/VC/Tools/MSVC/14.11.25503/bin/HostX86/x64/cl.exe
+-- Check for working CXX compiler: C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/VC/Tools/MSVC/14.11.25503/bin/HostX86/x64/cl.exe -- works
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Check for working C compiler: C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/VC/Tools/MSVC/14.11.25503/bin/HostX86/x64/cl.exe
+-- Check for working C compiler: C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/VC/Tools/MSVC/14.11.25503/bin/HostX86/x64/cl.exe -- works
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Can't detect runtime and/or arch
+-- Performing Test HAVE_CXX_FSIGNED_CHAR
+-- Performing Test HAVE_CXX_FSIGNED_CHAR - Failed
+-- Performing Test HAVE_C_FSIGNED_CHAR
+-- Performing Test HAVE_C_FSIGNED_CHAR - Failed
+-- Check if the system is big endian
+-- Searching 16 bit integer
+-- Looking for sys/types.h
+-- Looking for sys/types.h - found
+-- Looking for stdint.h
+-- Looking for stdint.h - found
+-- Looking for stddef.h
+-- Looking for stddef.h - found
+-- Check size of unsigned short
+-- Check size of unsigned short - done
+-- Using unsigned short
+-- Check if the system is big endian - little endian
+-- Looking for fseeko
+-- Looking for fseeko - not found
+-- Looking for unistd.h
+-- Looking for unistd.h - not found
+-- Check size of off64_t
+-- Check size of off64_t - failed
+-- ICV: Downloading ippicv_windows_20151201.zip...
+-- ICV: Unpacking ippicv_windows_20151201.zip to C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/3rdparty/ippicv/unpack...
+-- ICV: Package successfully downloaded
+-- found IPP (ICV version): 9.0.1 [9.0.1]
+-- at: C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/3rdparty/ippicv/unpack/ippicv_win
+-- Found PythonInterp: C:/Python27amd64/python.exe (found suitable version "2.7.13", minimum required is "2.7")
+-- Found PythonLibs: C:/Python27amd64/libs/python27.lib (found suitable exact version "2.7.13")
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+ImportError: No module named numpy.distutils
+-- Found PythonInterp: C:/Python36/python.exe (found suitable version "3.6.2", minimum required is "3.4")
+-- Found PythonLibs: optimized;C:/Python36/libs/python36.lib;debug;C:/Python36/libs/python36_d.lib (found suitable exact version "3.6.2")
+-- Could NOT find JNI (missing:  JAVA_AWT_LIBRARY JAVA_JVM_LIBRARY JAVA_INCLUDE_PATH JAVA_INCLUDE_PATH2 JAVA_AWT_INCLUDE_PATH)
+-- Could NOT find Matlab (missing:  MATLAB_MEX_SCRIPT MATLAB_INCLUDE_DIRS MATLAB_ROOT_DIR MATLAB_LIBRARIES MATLAB_LIBRARY_DIRS MATLAB_MEXEXT MATLAB_ARCH MATLAB_BIN)
+-- VTK is not found. Please set -DVTK_DIR in CMake to VTK build directory, or to VTK install subdirectory with VTKConfig.cmake file
+-- Module opencv_shape disabled because opencv_video dependency can't be resolved!
+-- Module opencv_stitching disabled because opencv_objdetect dependency can't be resolved!
+-- Module opencv_superres disabled because opencv_video dependency can't be resolved!
+-- Module opencv_videostab disabled because opencv_video dependency can't be resolved!
+--
+-- General configuration for OpenCV 3.1.0 =====================================
+--   Version control:               3.1.0
+--
+--   Platform:
+--     Host:                        Windows 10.0.14393 AMD64
+--     CMake:                       3.8.2
+--     CMake generator:             Visual Studio 15 2017 Win64
+--     CMake build tool:            C:\Program Files (x86)\Microsoft Visual Studio\2017\Community/MSBuild/15.0/Bin/MSBuild.exe
+--     MSVC:                        1911
+--
+--   C/C++:
+--     Built as dynamic libs?:      NO
+--     C++ Compiler:                C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/VC/Tools/MSVC/14.11.25503/bin/HostX86/x64/cl.exe  (ver 19.11.25507.1)
+--     C++ flags (Release):         /DWIN32 /D_WINDOWS /W4 /GR /EHa  /D _CRT_SECURE_NO_DEPRECATE /D _CRT_NONSTDC_NO_DEPRECATE /D _SCL_SECURE_NO_WARNINGS /Gy /bigobj /Oi  /wd4251 /wd4324 /wd4275 /wd4589 /MP8  /MD /O2 /Ob2 /DNDEBUG  /Zi
+--     C++ flags (Debug):           /DWIN32 /D_WINDOWS /W4 /GR /EHa  /D _CRT_SECURE_NO_DEPRECATE /D _CRT_NONSTDC_NO_DEPRECATE /D _SCL_SECURE_NO_WARNINGS /Gy /bigobj /Oi  /wd4251 /wd4324 /wd4275 /wd4589 /MP8  /MDd /Zi /Ob0 /Od /RTC1
+--     C Compiler:                  C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/VC/Tools/MSVC/14.11.25503/bin/HostX86/x64/cl.exe
+--     C flags (Release):           /DWIN32 /D_WINDOWS /W3  /D _CRT_SECURE_NO_DEPRECATE /D _CRT_NONSTDC_NO_DEPRECATE /D _SCL_SECURE_NO_WARNINGS /Gy /bigobj /Oi    /MP8  /MD /O2 /Ob2 /DNDEBUG  /Zi
+--     C flags (Debug):             /DWIN32 /D_WINDOWS /W3  /D _CRT_SECURE_NO_DEPRECATE /D _CRT_NONSTDC_NO_DEPRECATE /D _SCL_SECURE_NO_WARNINGS /Gy /bigobj /Oi    /MP8  /MDd /Zi /Ob0 /Od /RTC1
+--     Linker flags (Release):      /machine:x64  /INCREMENTAL:NO  /debug
+--     Linker flags (Debug):        /machine:x64  /debug /INCREMENTAL
+--     Precompiled headers:         YES
+--     Extra dependencies:          comctl32 gdi32 ole32 setupapi ws2_32 vfw32
+--     3rdparty dependencies:       zlib libjpeg libwebp libpng ippicv
+--
+--   OpenCV modules:
+--     To be built:                 core flann imgproc ml imgcodecs videoio highgui features2d calib3d python3
+--     Disabled:                    objdetect photo video world
+--     Disabled by dependency:      shape stitching superres videostab
+--     Unavailable:                 cudaarithm cudabgsegm cudacodec cudafeatures2d cudafilters cudaimgproc cudalegacy cudaobjdetect cudaoptflow cudastereo cudawarping cudev java python2 ts viz
+--
+--   Windows RT support:            NO
+--
+--   GUI:
+--     QT:                          NO
+--     Win32 UI:                    YES
+--     OpenGL support:              NO
+--     VTK support:                 NO
+--
+--   Media I/O:
+--     ZLib:                        build (ver 1.2.8)
+--     JPEG:                        build (ver 90)
+--     WEBP:                        build (ver 0.3.1)
+--     PNG:                         build (ver 1.6.19)
+--     TIFF:                        NO
+--     JPEG 2000:                   NO
+--     OpenEXR:                     NO
+--     GDAL:                        NO
+--
+--   Video I/O:
+--     Video for Windows:           YES
+--     DC1394 1.x:                  NO
+--     DC1394 2.x:                  NO
+--     FFMPEG:                      NO
+--       codec:                     NO
+--       format:                    NO
+--       util:                      NO
+--       swscale:                   NO
+--       resample:                  NO
+--       gentoo-style:              NO
+--     GStreamer:                   NO
+--     OpenNI:                      NO
+--     OpenNI PrimeSensor Modules:  NO
+--     OpenNI2:                     NO
+--     PvAPI:                       NO
+--     GigEVisionSDK:               NO
+--     DirectShow:                  YES
+--     Media Foundation:            NO
+--     XIMEA:                       NO
+--     Intel PerC:                  NO
+--
+--   Parallel framework:            Concurrency
+--
+--   Other third-party libraries:
+--     Use IPP:                     9.0.1 [9.0.1]
+--          at:                     C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/3rdparty/ippicv/unpack/ippicv_win
+--     Use IPP Async:               NO
+--     Use Eigen:                   NO
+--     Use Cuda:                    NO
+--     Use OpenCL:                  YES
+--     Use custom HAL:              NO
+--
+--   OpenCL:
+--     Version:                     dynamic
+--     Include path:                C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/3rdparty/include/opencl/1.2
+--     Use AMDFFT:                  NO
+--     Use AMDBLAS:                 NO
+--
+--   Python 2:
+--     Interpreter:                 C:/Python27amd64/python.exe (ver 2.7.13)
+--
+--   Python 3:
+--     Interpreter:                 C:/Python36/python.exe (ver 3.6.2)
+--     Libraries:                   optimized C:/Python36/libs/python36.lib debug C:/Python36/libs/python36_d.lib (ver 3.6.2)
+--     numpy:                       C:/Python36/lib/site-packages/numpy/core/include (ver 1.13.1)
+--     packages path:               C:/Python36/Lib/site-packages
+--
+--   Python (for build):            C:/Python27amd64/python.exe
+--
+--   Java:
+--     ant:                         NO
+--     JNI:                         NO
+--     Java wrappers:               NO
+--     Java tests:                  NO
+--
+--   Matlab:                        Matlab not found or implicitly disabled
+--
+--   Tests and samples:
+--     Tests:                       NO
+--     Performance tests:           NO
+--     C/C++ Examples:              NO
+--
+--   Install path:                  C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/install
+--
+--   cvconfig.h is in:              C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build
+-- -----------------------------------------------------------------
+--
+-- Configuring done
+-- Generating done
+-- Build files have been written to: C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build
+
+Building OpenCV
+Microsoft (R) Build Engine version 15.3.409.57025 for .NET Framework
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+  Checking Build System
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/3rdparty/zlib/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/3rdparty/libjpeg/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/3rdparty/libwebp/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/3rdparty/libpng/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/include/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/calib3d/.calib3d/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/core/.core/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudaarithm/.cudaarithm/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudabgsegm/.cudabgsegm/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudacodec/.cudacodec/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudafeatures2d/.cudafeatures2d/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudafilters/.cudafilters/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudaimgproc/.cudaimgproc/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudalegacy/.cudalegacy/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudaobjdetect/.cudaobjdetect/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudaoptflow/.cudaoptflow/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudastereo/.cudastereo/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudawarping/.cudawarping/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudev/.cudev/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/features2d/.features2d/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/flann/.flann/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/highgui/.highgui/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/imgcodecs/.imgcodecs/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/imgproc/.imgproc/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/java/.java/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/ml/.ml/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/objdetect/.objdetect/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/photo/.photo/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/python/.python/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/python/.python/python2/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/python/.python/python3/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/shape/.shape/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/stitching/.stitching/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/superres/.superres/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/ts/.ts/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/video/.video/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/videoio/.videoio/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/videostab/.videostab/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/viz/.viz/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/world/.world/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/core/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/flann/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/imgproc/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/ml/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/imgcodecs/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/videoio/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/highgui/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/features2d/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/calib3d/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/python3/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/doc/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/data/CMakeFiles/generate.stamp is up-to-date.
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/3rdparty/zlib/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/3rdparty/libjpeg/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/3rdparty/libwebp/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/3rdparty/libjpeg/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/3rdparty/libwebp/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/3rdparty/zlib/CMakeFiles/generate.stamp is up-to-date.
+  adler32.c
+  compress.c
+  jaricom.c
+  crc32.c
+  alpha.c
+  deflate.c
+  jcapimin.c
+  gzclose.c
+  jcapistd.c
+  gzlib.c
+  jcarith.c
+  jccoefct.c
+  gzread.c
+  gzwrite.c
+  jccolor.c
+  jcdctmgr.c
+  jchuff.c
+  inflate.c
+  infback.c
+  inftrees.c
+  jcinit.c
+  inffast.c
+  trees.c
+  uncompr.c
+  zutil.c
+  jcmainct.c
+  jcmarker.c
+  jcmaster.c
+  jcomapi.c
+  jcparam.c
+  jcprepct.c
+  jcsample.c
+  jctrans.c
+  jdapimin.c
+  jdapistd.c
+  jdarith.c
+  jdatadst.c
+  buffer.c
+  idec.c
+  io.c
+  vp8.c
+  webp.c
+  cpu.c
+  dec.c
+  dec_neon.c
+  jdatasrc.c
+  jdcoefct.c
+  dec_sse2.c
+  enc.c
+  jdcolor.c
+  zlib.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\3rdparty\lib\Debug\zlibd.lib
+  jddctmgr.c
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/3rdparty/libpng/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/core/CMakeLists.txt
+  jdhuff.c
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/3rdparty/libpng/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/core/CMakeFiles/generate.stamp is up-to-date.
+  Generating opencl_kernels_core.cpp, opencl_kernels_core.hpp
+  jdinput.c
+  jdmainct.c
+  png.c
+  pngerror.c
+  pngget.c
+  pngmem.c
+  pngpread.c
+  pngread.c
+  pngrio.c
+  pngrtran.c
+  opencv_core_pch.cpp
+  jdmarker.c
+  jdmaster.c
+  jdmerge.c
+  jdpostct.c
+  enc_neon.c
+  enc_sse2.c
+  lossless.c
+  upsampling.c
+  jdsample.c
+  jdtrans.c
+  jerror.c
+  jfdctflt.c
+  upsampling_neon.c
+  upsampling_sse2.c
+  jfdctfst.c
+  jfdctint.c
+  yuv.c
+  analysis.c
+  backward_references.c
+  config.c
+  cost.c
+  jidctflt.c
+  filter.c
+  jidctfst.c
+  histogram.c
+  jidctint.c
+  jmemansi.c
+  iterator.c
+  jmemmgr.c
+  picture.c
+  pngrutil.c
+  jquant1.c
+  pngset.c
+  jquant2.c
+  jutils.c
+  pngtrans.c
+  pngwio.c
+  pngwrite.c
+  algorithm.cpp
+  alloc.cpp
+  arithm.cpp
+  array.cpp
+  command_line_parser.cpp
+  conjugate_gradient.cpp
+  convert.cpp
+  copy.cpp
+  pngwtran.c
+  cuda_gpu_mat.cpp
+  cuda_host_mem.cpp
+  syntax.c
+  pngwutil.c
+  cuda_info.cpp
+  token.c
+  webpenc.c
+  cuda_stream.cpp
+  muxedit.c
+  datastructs.cpp
+  directx.cpp
+  downhill_simplex.cpp
+  muxinternal.c
+  libjpeg.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\3rdparty\lib\Debug\libjpegd.lib
+  muxread.c
+  dxt.cpp
+  bit_reader.c
+  bit_writer.c
+  gl_core_3_1.cpp
+  color_cache.c
+  filters.c
+  huffman.c
+  glob.cpp
+  huffman_encode.c
+  quant_levels.c
+  quant_levels_dec.c
+  rescaler.c
+  thread.c
+  utils.c
+  kmeans.cpp
+  lapack.cpp
+  lda.cpp
+  libpng.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\3rdparty\lib\Debug\libpngd.lib
+  lpsolver.cpp
+  mathfuncs.cpp
+  mathfuncs_core.cpp
+  matmul.cpp
+  matop.cpp
+  matrix.cpp
+  matrix_decomp.cpp
+  merge.cpp
+  frame.c
+  ocl.cpp
+  opencl_clamdblas.cpp
+  opencl_clamdfft.cpp
+  opencl_core.cpp
+  opengl.cpp
+  out.cpp
+  parallel.cpp
+  parallel_pthreads.cpp
+  pca.cpp
+  persistence.cpp
+  rand.cpp
+  split.cpp
+  stat.cpp
+  layer.c
+  stl.cpp
+  system.cpp
+  tables.cpp
+  types.cpp
+  umatrix.cpp
+  va_intel.cpp
+  quant.c
+C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\algorithm(911): warning C4244: '=': conversion from 'int' to 'char', possible loss of data (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\src\oc
+l.cpp) [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\modules\core\opencv_core.vcxproj]
+  C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\algorithm(924): note: see reference to function template instantiation '_OutIt std::_Transform_no_deprecate<_InIt,_OutIt,int(__cdecl *)(int)>(_InIt,_InIt,_OutIt,_Fn &)' being compiled
+          with
+          [
+              _OutIt=std::_String_iterator<std::_String_val<std::_Simple_types<char>>>,
+              _InIt=std::_String_iterator<std::_String_val<std::_Simple_types<char>>>,
+              _Fn=int (__cdecl *)(int)
+          ] (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\src\ocl.cpp)
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\src\ocl.cpp(2332): note: see reference to function template instantiation '_OutIt std::transform<std::_String_iterator<std::_String_val<std::_Simple_types<_Ty>>>,std::_String_iterator<std::_String_val<std::_Simple_t
+  ypes<_Ty>>>,int(__cdecl *)(int)>(_InIt,_InIt,_OutIt,_Fn)' being compiled
+          with
+          [
+              _OutIt=std::_String_iterator<std::_String_val<std::_Simple_types<char>>>,
+              _Ty=char,
+              _InIt=std::_String_iterator<std::_String_val<std::_Simple_types<char>>>,
+              _Fn=int (__cdecl *)(int)
+          ]
+  opencl_kernels_core.cpp
+  tree.c
+  vp8l.c
+parallel_pthreads.obj : warning LNK4221: This object file does not define any previously undefined public symbols, so it will not be used by any link operation that consumes this library [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\modules\core\opencv_core.vcxproj]
+opencl_clamdfft.obj : warning LNK4221: This object file does not define any previously undefined public symbols, so it will not be used by any link operation that consumes this library [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\modules\core\opencv_core.vcxproj]
+opencl_clamdblas.obj : warning LNK4221: This object file does not define any previously undefined public symbols, so it will not be used by any link operation that consumes this library [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\modules\core\opencv_core.vcxproj]
+  alpha.c
+  opencv_core.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\Debug\opencv_core310d.lib
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/ml/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/imgproc/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/flann/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/imgproc/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/flann/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/ml/CMakeFiles/generate.stamp is up-to-date.
+  Generating opencl_kernels_imgproc.cpp, opencl_kernels_imgproc.hpp
+  opencv_flann_pch.cpp
+  opencv_ml_pch.cpp
+  opencv_imgproc_pch.cpp
+  frame.c
+  layer.c
+  ann_mlp.cpp
+  boost.cpp
+  data.cpp
+  em.cpp
+  gbt.cpp
+  inner_functions.cpp
+  kdtree.cpp
+  knearest.cpp
+  lr.cpp
+  nbayes.cpp
+  quant.c
+  accum.cpp
+  approx.cpp
+  blend.cpp
+  canny.cpp
+  clahe.cpp
+  color.cpp
+  colormap.cpp
+  connectedcomponents.cpp
+  contours.cpp
+  flann.cpp
+  miniflann.cpp
+  convhull.cpp
+  rtrees.cpp
+  svm.cpp
+  testset.cpp
+  tree.cpp
+  corner.cpp
+  cornersubpix.cpp
+  demosaicing.cpp
+  tree.c
+  deriv.cpp
+  distransform.cpp
+  drawing.cpp
+  emd.cpp
+  featureselect.cpp
+  filter.cpp
+  floodfill.cpp
+  gabor.cpp
+  generalized_hough.cpp
+  geometry.cpp
+  grabcut.cpp
+  vp8l.c
+  hershey_fonts.cpp
+  histogram.cpp
+  hough.cpp
+  imgwarp.cpp
+  intersection.cpp
+  linefit.cpp
+  libwebp.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\3rdparty\lib\Debug\libwebpd.lib
+  lsd.cpp
+  main.cpp
+gbt.obj : warning LNK4221: This object file does not define any previously undefined public symbols, so it will not be used by any link operation that consumes this library [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\modules\ml\opencv_ml.vcxproj]
+  matchcontours.cpp
+  min_enclosing_triangle.cpp
+  moments.cpp
+  opencv_ml.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\Debug\opencv_ml310d.lib
+  morph.cpp
+  phasecorr.cpp
+  pyramids.cpp
+  rotcalipers.cpp
+  samplers.cpp
+  segmentation.cpp
+  shapedescr.cpp
+  smooth.cpp
+  spatialgradient.cpp
+  subdivision2d.cpp
+  sumpixels.cpp
+  tables.cpp
+  templmatch.cpp
+  thresh.cpp
+  undistort.cpp
+  utils.cpp
+  opencl_kernels_imgproc.cpp
+main.obj : warning LNK4221: This object file does not define any previously undefined public symbols, so it will not be used by any link operation that consumes this library [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\modules\imgproc\opencv_imgproc.vcxproj]
+  opencv_imgproc.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\Debug\opencv_imgproc310d.lib
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/imgcodecs/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/imgcodecs/CMakeFiles/generate.stamp is up-to-date.
+  opencv_imgcodecs_pch.cpp
+  opencv_flann.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\Debug\opencv_flann310d.lib
+  loadsave.cpp
+  utils.cpp
+  grfmt_base.cpp
+  grfmt_bmp.cpp
+  grfmt_exr.cpp
+  grfmt_gdal.cpp
+  grfmt_hdr.cpp
+  grfmt_jpeg.cpp
+  grfmt_jpeg2000.cpp
+  grfmt_png.cpp
+  grfmt_pxm.cpp
+  grfmt_sunras.cpp
+  grfmt_tiff.cpp
+  grfmt_webp.cpp
+  bitstrm.cpp
+  rgbe.cpp
+  jpeg_exif.cpp
+grfmt_jpeg2000.obj : warning LNK4221: This object file does not define any previously undefined public symbols, so it will not be used by any link operation that consumes this library [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\modules\imgcodecs\opencv_imgcodecs.vcxp
+roj]
+grfmt_gdal.obj : warning LNK4221: This object file does not define any previously undefined public symbols, so it will not be used by any link operation that consumes this library [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\modules\imgcodecs\opencv_imgcodecs.vcxproj]
+grfmt_exr.obj : warning LNK4221: This object file does not define any previously undefined public symbols, so it will not be used by any link operation that consumes this library [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\modules\imgcodecs\opencv_imgcodecs.vcxproj]
+  opencv_imgcodecs.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\Debug\opencv_imgcodecs310d.lib
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/videoio/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/videoio/CMakeFiles/generate.stamp is up-to-date.
+  opencv_videoio_pch.cpp
+  cap.cpp
+  cap_images.cpp
+  cap_mjpeg_encoder.cpp
+  cap_mjpeg_decoder.cpp
+  cap_cmu.cpp
+  cap_dshow.cpp
+  cap_vfw.cpp
+cap_cmu.obj : warning LNK4221: This object file does not define any previously undefined public symbols, so it will not be used by any link operation that consumes this library [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\modules\videoio\opencv_videoio.vcxproj]
+  opencv_videoio.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\Debug\opencv_videoio310d.lib
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/highgui/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/highgui/CMakeFiles/generate.stamp is up-to-date.
+  opencv_highgui_pch.cpp
+  window.cpp
+  window_w32.cpp
+  opencv_highgui.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\Debug\opencv_highgui310d.lib
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/features2d/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/features2d/CMakeFiles/generate.stamp is up-to-date.
+  Generating opencl_kernels_features2d.cpp, opencl_kernels_features2d.hpp
+  opencv_features2d_pch.cpp
+  agast.cpp
+  agast_score.cpp
+  akaze.cpp
+  bagofwords.cpp
+  blobdetector.cpp
+  brisk.cpp
+  draw.cpp
+  dynamic.cpp
+  evaluation.cpp
+  fast.cpp
+  fast_score.cpp
+  feature2d.cpp
+  gftt.cpp
+  kaze.cpp
+  AKAZEFeatures.cpp
+  KAZEFeatures.cpp
+  fed.cpp
+  nldiffusion_functions.cpp
+  keypoint.cpp
+  main.cpp
+  matchers.cpp
+  mser.cpp
+  orb.cpp
+  opencl_kernels_features2d.cpp
+main.obj : warning LNK4221: This object file does not define any previously undefined public symbols, so it will not be used by any link operation that consumes this library [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\modules\features2d\opencv_features2d.vcxproj]
+dynamic.obj : warning LNK4221: This object file does not define any previously undefined public symbols, so it will not be used by any link operation that consumes this library [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\modules\features2d\opencv_features2d.vcxproj]
+  opencv_features2d.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\Debug\opencv_features2d310d.lib
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/calib3d/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/calib3d/CMakeFiles/generate.stamp is up-to-date.
+  Generating opencl_kernels_calib3d.cpp, opencl_kernels_calib3d.hpp
+  opencv_calib3d_pch.cpp
+  calibinit.cpp
+  calibration.cpp
+  checkchessboard.cpp
+  circlesgrid.cpp
+  compat_ptsetreg.cpp
+  compat_stereo.cpp
+  dls.cpp
+  epnp.cpp
+  fisheye.cpp
+  five-point.cpp
+  fundam.cpp
+  homography_decomp.cpp
+  levmarq.cpp
+  main.cpp
+  p3p.cpp
+  polynom_solver.cpp
+  posit.cpp
+C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\xmemory0(856): warning C4244: 'initializing': conversion from 'int' to 'unsigned char', possible loss of data (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\
+modules\calib3d\src\fisheye.cpp) [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\modules\calib3d\opencv_calib3d.vcxproj]
+  C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\xmemory(92): note: see reference to function template instantiation 'void std::_Default_allocator_traits<_Alloc>::construct<_Ty,int&>(_Alloc &,_Objty *const ,int &)' being compiled
+          with
+          [
+              _Alloc=std::allocator<uchar>,
+              _Ty=unsigned char,
+              _Objty=unsigned char
+          ] (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp)
+  C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\xmemory(92): note: see reference to function template instantiation 'void std::_Default_allocator_traits<_Alloc>::construct<_Ty,int&>(_Alloc &,_Objty *const ,int &)' being compiled
+          with
+          [
+              _Alloc=std::allocator<uchar>,
+              _Ty=unsigned char,
+              _Objty=unsigned char
+          ] (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp)
+  C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\xmemory(125): note: see reference to function template instantiation '_FwdIt std::_Uninitialized_copy_al_unchecked<_Iter,unsigned char*,_Alloc>(_InIt,_InIt,_FwdIt,_Alloc &,std::_General_ptr_iterator_t
+  ag,std::_Any_tag)' being compiled
+          with
+          [
+              _FwdIt=unsigned char *,
+              _Iter=int *,
+              _Alloc=std::allocator<uchar>,
+              _InIt=int *
+          ] (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp)
+  C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\vector(1914): note: see reference to function template instantiation '_FwdIt *std::_Uninitialized_copy<_Iter,unsigned char*,std::allocator<_Ty>>(_InIt,_InIt,_FwdIt,_Alloc &)' being compiled
+          with
+          [
+              _FwdIt=unsigned char *,
+              _Iter=int *,
+              _Ty=uchar,
+              _InIt=int *,
+              _Alloc=std::allocator<uchar>
+          ] (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp)
+  C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\vector(1208): note: see reference to function template instantiation 'unsigned char *std::vector<uchar,std::allocator<_Ty>>::_Ucopy<_Iter>(_Iter,_Iter,unsigned char *)' being compiled
+          with
+          [
+              _Ty=uchar,
+              _Iter=int *
+          ] (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp)
+  C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\vector(1208): note: see reference to function template instantiation 'unsigned char *std::vector<uchar,std::allocator<_Ty>>::_Ucopy<_Iter>(_Iter,_Iter,unsigned char *)' being compiled
+          with
+          [
+              _Ty=uchar,
+              _Iter=int *
+          ] (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp)
+  C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\vector(1312): note: see reference to function template instantiation 'void std::vector<uchar,std::allocator<_Ty>>::_Insert_range<int*>(std::_Vector_const_iterator<std::_Vector_val<std::_Simple_types<_
+  Ty>>>,_Iter,_Iter,std::forward_iterator_tag)' being compiled
+          with
+          [
+              _Ty=uchar,
+              _Iter=int *
+          ] (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp)
+  C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\vector(1312): note: see reference to function template instantiation 'void std::vector<uchar,std::allocator<_Ty>>::_Insert_range<int*>(std::_Vector_const_iterator<std::_Vector_val<std::_Simple_types<_
+  Ty>>>,_Iter,_Iter,std::forward_iterator_tag)' being compiled
+          with
+          [
+              _Ty=uchar,
+              _Iter=int *
+          ] (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp)
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp(906): note: see reference to function template instantiation 'std::_Vector_iterator<std::_Vector_val<std::_Simple_types<_Ty>>> std::vector<_Ty,std::allocator<_Ty>>::insert<std::_Vector_iterator<st
+  d::_Vector_val<std::_Simple_types<int>>>,void>(std::_Vector_const_iterator<std::_Vector_val<std::_Simple_types<_Ty>>>,_Iter,_Iter)' being compiled
+          with
+          [
+              _Ty=uchar,
+              _Iter=std::_Vector_iterator<std::_Vector_val<std::_Simple_types<int>>>
+          ]
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp(906): note: see reference to function template instantiation 'std::_Vector_iterator<std::_Vector_val<std::_Simple_types<_Ty>>> std::vector<_Ty,std::allocator<_Ty>>::insert<std::_Vector_iterator<st
+  d::_Vector_val<std::_Simple_types<int>>>,void>(std::_Vector_const_iterator<std::_Vector_val<std::_Simple_types<_Ty>>>,_Iter,_Iter)' being compiled
+          with
+          [
+              _Ty=uchar,
+              _Iter=std::_Vector_iterator<std::_Vector_val<std::_Simple_types<int>>>
+          ]
+  ptsetreg.cpp
+  quadsubpix.cpp
+  rho.cpp
+  solvepnp.cpp
+  stereobm.cpp
+  stereosgbm.cpp
+  triangulate.cpp
+  upnp.cpp
+  opencl_kernels_calib3d.cpp
+main.obj : warning LNK4221: This object file does not define any previously undefined public symbols, so it will not be used by any link operation that consumes this library [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\modules\calib3d\opencv_calib3d.vcxproj]
+  opencv_calib3d.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\Debug\opencv_calib3d310d.lib
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/python/python3/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/python3/CMakeFiles/generate.stamp is up-to-date.
+  Generating pyopencv_generated_include.h, pyopencv_generated_funcs.h, pyopencv_generated_types.h, pyopencv_generated_type_reg.h, pyopencv_generated_ns_reg.h
+  C:\Python36\lib\re.py:212: FutureWarning: split() requires a non-empty pattern match.
+    return _compile(pattern, flags).split(string, maxsplit)
+  cv2.cpp
+     Creating library C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/lib/Debug/cv2.lib and object C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/lib/Debug/cv2.exp
+  opencv_python3.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\python3\Debug\cv2.cp36-win_amd64.pyd
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/CMakeFiles/generate.stamp is up-to-date.
+Microsoft (R) Build Engine version 15.3.409.57025 for .NET Framework
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+  Checking Build System
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/3rdparty/zlib/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/3rdparty/libjpeg/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/3rdparty/libwebp/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/3rdparty/libpng/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/include/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/calib3d/.calib3d/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/core/.core/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudaarithm/.cudaarithm/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudabgsegm/.cudabgsegm/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudacodec/.cudacodec/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudafeatures2d/.cudafeatures2d/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudafilters/.cudafilters/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudaimgproc/.cudaimgproc/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudalegacy/.cudalegacy/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudaobjdetect/.cudaobjdetect/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudaoptflow/.cudaoptflow/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudastereo/.cudastereo/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudawarping/.cudawarping/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/cudev/.cudev/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/features2d/.features2d/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/flann/.flann/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/highgui/.highgui/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/imgcodecs/.imgcodecs/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/imgproc/.imgproc/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/java/.java/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/ml/.ml/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/objdetect/.objdetect/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/photo/.photo/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/python/.python/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/python/.python/python2/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/python/.python/python3/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/shape/.shape/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/stitching/.stitching/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/superres/.superres/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/ts/.ts/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/video/.video/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/videoio/.videoio/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/videostab/.videostab/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/viz/.viz/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/world/.world/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/core/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/flann/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/imgproc/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/ml/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/imgcodecs/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/videoio/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/highgui/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/features2d/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/calib3d/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/python3/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/doc/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/data/CMakeFiles/generate.stamp is up-to-date.
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/3rdparty/libwebp/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/3rdparty/libjpeg/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/3rdparty/zlib/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/3rdparty/libwebp/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/3rdparty/libjpeg/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/3rdparty/zlib/CMakeFiles/generate.stamp is up-to-date.
+  adler32.c
+  compress.c
+  crc32.c
+  deflate.c
+  gzclose.c
+  alpha.c
+  gzlib.c
+  gzread.c
+  gzwrite.c
+  jaricom.c
+  jcapimin.c
+  jcapistd.c
+  jcarith.c
+  jccoefct.c
+  jccolor.c
+  jcdctmgr.c
+  jchuff.c
+  inflate.c
+  infback.c
+  inftrees.c
+  jcinit.c
+  inffast.c
+  trees.c
+  uncompr.c
+  zutil.c
+  jcmainct.c
+  jcmarker.c
+  jcmaster.c
+  jcomapi.c
+  jcparam.c
+  buffer.c
+  idec.c
+  io.c
+  vp8.c
+  webp.c
+  cpu.c
+  dec.c
+  dec_neon.c
+  jcprepct.c
+  jcsample.c
+  dec_sse2.c
+  enc.c
+  jctrans.c
+  jdapimin.c
+  jdapistd.c
+  jdarith.c
+  zlib.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\3rdparty\lib\Release\zlib.lib
+  jdatadst.c
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/core/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/3rdparty/libpng/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/core/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/3rdparty/libpng/CMakeFiles/generate.stamp is up-to-date.
+  Generating opencl_kernels_core.cpp, opencl_kernels_core.hpp
+  jdatasrc.c
+  -- C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/core/opencl_kernels_core.hpp contains same content
+  png.c
+  pngerror.c
+  pngget.c
+  pngmem.c
+  pngpread.c
+  pngread.c
+  pngrio.c
+  pngrtran.c
+  opencv_core_pch.cpp
+  jdcoefct.c
+  jdcolor.c
+  jddctmgr.c
+  jdhuff.c
+  enc_neon.c
+  enc_sse2.c
+  jdinput.c
+  jdmainct.c
+  jdmarker.c
+  lossless.c
+  jdmaster.c
+  upsampling.c
+  upsampling_neon.c
+  upsampling_sse2.c
+  yuv.c
+  analysis.c
+  jdmerge.c
+  jdpostct.c
+  backward_references.c
+  config.c
+  cost.c
+  filter.c
+  histogram.c
+  iterator.c
+  jdsample.c
+  jdtrans.c
+  jerror.c
+  jfdctflt.c
+  picture.c
+  jfdctfst.c
+  jfdctint.c
+  algorithm.cpp
+  alloc.cpp
+  arithm.cpp
+  array.cpp
+  command_line_parser.cpp
+  conjugate_gradient.cpp
+  convert.cpp
+  pngrutil.c
+  copy.cpp
+  pngset.c
+  cuda_gpu_mat.cpp
+  pngtrans.c
+  pngwio.c
+  pngwrite.c
+  jidctflt.c
+  jidctfst.c
+  cuda_host_mem.cpp
+  jidctint.c
+  jmemansi.c
+  cuda_info.cpp
+  syntax.c
+  cuda_stream.cpp
+  pngwtran.c
+  jmemmgr.c
+  pngwutil.c
+  jquant1.c
+  datastructs.cpp
+  token.c
+  jquant2.c
+  webpenc.c
+  jutils.c
+  directx.cpp
+  downhill_simplex.cpp
+  muxedit.c
+  muxinternal.c
+  dxt.cpp
+  muxread.c
+  bit_reader.c
+  bit_writer.c
+  gl_core_3_1.cpp
+  color_cache.c
+  glob.cpp
+  filters.c
+  huffman.c
+  huffman_encode.c
+  libjpeg.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\3rdparty\lib\Release\libjpeg.lib
+  quant_levels.c
+  quant_levels_dec.c
+  rescaler.c
+  thread.c
+  utils.c
+  kmeans.cpp
+  libpng.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\3rdparty\lib\Release\libpng.lib
+  lapack.cpp
+  lda.cpp
+  lpsolver.cpp
+  mathfuncs.cpp
+  mathfuncs_core.cpp
+  matmul.cpp
+  frame.c
+  matop.cpp
+  matrix.cpp
+  matrix_decomp.cpp
+  merge.cpp
+  ocl.cpp
+  opencl_clamdblas.cpp
+  opencl_clamdfft.cpp
+  opencl_core.cpp
+  layer.c
+  opengl.cpp
+  out.cpp
+  parallel.cpp
+  quant.c
+  parallel_pthreads.cpp
+  tree.c
+  pca.cpp
+  persistence.cpp
+  rand.cpp
+  split.cpp
+  stat.cpp
+  stl.cpp
+  system.cpp
+  tables.cpp
+  types.cpp
+  vp8l.c
+C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\algorithm(911): warning C4244: '=': conversion from 'int' to 'char', possible loss of data (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\src\oc
+l.cpp) [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\modules\core\opencv_core.vcxproj]
+  C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\algorithm(924): note: see reference to function template instantiation '_OutIt std::_Transform_no_deprecate<_InIt,_OutIt,int(__cdecl *)(int)>(_InIt,_InIt,_OutIt,_Fn &)' being compiled
+          with
+          [
+              _OutIt=std::_String_iterator<std::_String_val<std::_Simple_types<char>>>,
+              _InIt=std::_String_iterator<std::_String_val<std::_Simple_types<char>>>,
+              _Fn=int (__cdecl *)(int)
+          ] (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\src\ocl.cpp)
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\src\ocl.cpp(2332): note: see reference to function template instantiation '_OutIt std::transform<std::_String_iterator<std::_String_val<std::_Simple_types<_Ty>>>,std::_String_iterator<std::_String_val<std::_Simple_t
+  ypes<_Ty>>>,int(__cdecl *)(int)>(_InIt,_InIt,_OutIt,_Fn)' being compiled
+          with
+          [
+              _OutIt=std::_String_iterator<std::_String_val<std::_Simple_types<char>>>,
+              _Ty=char,
+              _InIt=std::_String_iterator<std::_String_val<std::_Simple_types<char>>>,
+              _Fn=int (__cdecl *)(int)
+          ]
+  alpha.c
+  umatrix.cpp
+  va_intel.cpp
+  opencl_kernels_core.cpp
+  frame.c
+  layer.c
+  quant.c
+  tree.c
+  opencv_core.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\Release\opencv_core310.lib
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/ml/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/flann/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/imgproc/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/flann/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/ml/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/imgproc/CMakeFiles/generate.stamp is up-to-date.
+  Generating opencl_kernels_imgproc.cpp, opencl_kernels_imgproc.hpp
+  opencv_ml_pch.cpp
+  opencv_flann_pch.cpp
+  -- C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/imgproc/opencl_kernels_imgproc.hpp contains same content
+  opencv_imgproc_pch.cpp
+  vp8l.c
+  libwebp.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\3rdparty\lib\Release\libwebp.lib
+  ann_mlp.cpp
+  boost.cpp
+  data.cpp
+  em.cpp
+  gbt.cpp
+  inner_functions.cpp
+  kdtree.cpp
+  knearest.cpp
+  lr.cpp
+  accum.cpp
+  approx.cpp
+  blend.cpp
+  canny.cpp
+  clahe.cpp
+  color.cpp
+  colormap.cpp
+  connectedcomponents.cpp
+  nbayes.cpp
+  contours.cpp
+  flann.cpp
+  miniflann.cpp
+  convhull.cpp
+  corner.cpp
+  rtrees.cpp
+  cornersubpix.cpp
+  svm.cpp
+  demosaicing.cpp
+  testset.cpp
+  deriv.cpp
+  tree.cpp
+  distransform.cpp
+  drawing.cpp
+  emd.cpp
+  featureselect.cpp
+  filter.cpp
+  floodfill.cpp
+  gabor.cpp
+  generalized_hough.cpp
+  geometry.cpp
+  grabcut.cpp
+  hershey_fonts.cpp
+  histogram.cpp
+  hough.cpp
+  imgwarp.cpp
+  intersection.cpp
+  linefit.cpp
+  lsd.cpp
+  main.cpp
+  matchcontours.cpp
+  min_enclosing_triangle.cpp
+  opencv_ml.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\Release\opencv_ml310.lib
+  moments.cpp
+  morph.cpp
+  phasecorr.cpp
+  pyramids.cpp
+  rotcalipers.cpp
+  samplers.cpp
+  segmentation.cpp
+  shapedescr.cpp
+  smooth.cpp
+  spatialgradient.cpp
+  subdivision2d.cpp
+  sumpixels.cpp
+  tables.cpp
+  templmatch.cpp
+  thresh.cpp
+  undistort.cpp
+  utils.cpp
+  opencl_kernels_imgproc.cpp
+  opencv_imgproc.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\Release\opencv_imgproc310.lib
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/imgcodecs/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/imgcodecs/CMakeFiles/generate.stamp is up-to-date.
+  opencv_imgcodecs_pch.cpp
+  opencv_flann.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\Release\opencv_flann310.lib
+  loadsave.cpp
+  utils.cpp
+  grfmt_base.cpp
+  grfmt_bmp.cpp
+  grfmt_exr.cpp
+  grfmt_gdal.cpp
+  grfmt_hdr.cpp
+  grfmt_jpeg.cpp
+  grfmt_jpeg2000.cpp
+  grfmt_png.cpp
+  grfmt_pxm.cpp
+  grfmt_sunras.cpp
+  grfmt_tiff.cpp
+  grfmt_webp.cpp
+  bitstrm.cpp
+  rgbe.cpp
+  jpeg_exif.cpp
+  opencv_imgcodecs.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\Release\opencv_imgcodecs310.lib
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/videoio/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/videoio/CMakeFiles/generate.stamp is up-to-date.
+  opencv_videoio_pch.cpp
+  cap.cpp
+  cap_images.cpp
+  cap_mjpeg_encoder.cpp
+  cap_mjpeg_decoder.cpp
+  cap_cmu.cpp
+  cap_dshow.cpp
+  cap_vfw.cpp
+  opencv_videoio.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\Release\opencv_videoio310.lib
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/highgui/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/highgui/CMakeFiles/generate.stamp is up-to-date.
+  opencv_highgui_pch.cpp
+  window.cpp
+  window_w32.cpp
+  opencv_highgui.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\Release\opencv_highgui310.lib
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/features2d/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/features2d/CMakeFiles/generate.stamp is up-to-date.
+  Generating opencl_kernels_features2d.cpp, opencl_kernels_features2d.hpp
+  -- C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/features2d/opencl_kernels_features2d.hpp contains same content
+  opencv_features2d_pch.cpp
+  agast.cpp
+  agast_score.cpp
+  akaze.cpp
+  bagofwords.cpp
+  blobdetector.cpp
+  brisk.cpp
+  draw.cpp
+  dynamic.cpp
+  evaluation.cpp
+  fast.cpp
+  fast_score.cpp
+  feature2d.cpp
+  gftt.cpp
+  kaze.cpp
+  AKAZEFeatures.cpp
+  KAZEFeatures.cpp
+  fed.cpp
+  nldiffusion_functions.cpp
+  keypoint.cpp
+  main.cpp
+  matchers.cpp
+  mser.cpp
+  orb.cpp
+  opencl_kernels_features2d.cpp
+  opencv_features2d.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\Release\opencv_features2d310.lib
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/calib3d/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/calib3d/CMakeFiles/generate.stamp is up-to-date.
+  Generating opencl_kernels_calib3d.cpp, opencl_kernels_calib3d.hpp
+  -- C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/calib3d/opencl_kernels_calib3d.hpp contains same content
+  opencv_calib3d_pch.cpp
+  calibinit.cpp
+  calibration.cpp
+  checkchessboard.cpp
+  circlesgrid.cpp
+  compat_ptsetreg.cpp
+  compat_stereo.cpp
+  dls.cpp
+  epnp.cpp
+  fisheye.cpp
+  five-point.cpp
+  fundam.cpp
+  homography_decomp.cpp
+  levmarq.cpp
+C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\xmemory0(856): warning C4244: 'initializing': conversion from 'int' to 'unsigned char', possible loss of data (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\
+modules\calib3d\src\fisheye.cpp) [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\modules\calib3d\opencv_calib3d.vcxproj]
+  C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\xmemory(92): note: see reference to function template instantiation 'void std::_Default_allocator_traits<_Alloc>::construct<_Ty,int&>(_Alloc &,_Objty *const ,int &)' being compiled
+          with
+          [
+              _Alloc=std::allocator<uchar>,
+              _Ty=unsigned char,
+              _Objty=unsigned char
+          ] (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp)
+  C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\xmemory(92): note: see reference to function template instantiation 'void std::_Default_allocator_traits<_Alloc>::construct<_Ty,int&>(_Alloc &,_Objty *const ,int &)' being compiled
+          with
+          [
+              _Alloc=std::allocator<uchar>,
+              _Ty=unsigned char,
+              _Objty=unsigned char
+          ] (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp)
+  C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\xmemory(125): note: see reference to function template instantiation '_FwdIt std::_Uninitialized_copy_al_unchecked<_Iter,unsigned char*,_Alloc>(_InIt,_InIt,_FwdIt,_Alloc &,std::_General_ptr_iterator_t
+  ag,std::_Any_tag)' being compiled
+          with
+          [
+              _FwdIt=unsigned char *,
+              _Iter=int *,
+              _Alloc=std::allocator<uchar>,
+              _InIt=int *
+          ] (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp)
+  C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\vector(1914): note: see reference to function template instantiation '_FwdIt *std::_Uninitialized_copy<_Iter,unsigned char*,std::allocator<_Ty>>(_InIt,_InIt,_FwdIt,_Alloc &)' being compiled
+          with
+          [
+              _FwdIt=unsigned char *,
+              _Iter=int *,
+              _Ty=uchar,
+              _InIt=int *,
+              _Alloc=std::allocator<uchar>
+          ] (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp)
+  C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\vector(1208): note: see reference to function template instantiation 'unsigned char *std::vector<uchar,std::allocator<_Ty>>::_Ucopy<_Iter>(_Iter,_Iter,unsigned char *)' being compiled
+          with
+          [
+              _Ty=uchar,
+              _Iter=int *
+          ] (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp)
+  C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\vector(1208): note: see reference to function template instantiation 'unsigned char *std::vector<uchar,std::allocator<_Ty>>::_Ucopy<_Iter>(_Iter,_Iter,unsigned char *)' being compiled
+          with
+          [
+              _Ty=uchar,
+              _Iter=int *
+          ] (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp)
+  C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\vector(1312): note: see reference to function template instantiation 'void std::vector<uchar,std::allocator<_Ty>>::_Insert_range<int*>(std::_Vector_const_iterator<std::_Vector_val<std::_Simple_types<_
+  Ty>>>,_Iter,_Iter,std::forward_iterator_tag)' being compiled
+          with
+          [
+              _Ty=uchar,
+              _Iter=int *
+          ] (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp)
+  C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.11.25503\include\vector(1312): note: see reference to function template instantiation 'void std::vector<uchar,std::allocator<_Ty>>::_Insert_range<int*>(std::_Vector_const_iterator<std::_Vector_val<std::_Simple_types<_
+  Ty>>>,_Iter,_Iter,std::forward_iterator_tag)' being compiled
+          with
+          [
+              _Ty=uchar,
+              _Iter=int *
+          ] (compiling source file C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp)
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp(906): note: see reference to function template instantiation 'std::_Vector_iterator<std::_Vector_val<std::_Simple_types<_Ty>>> std::vector<_Ty,std::allocator<_Ty>>::insert<std::_Vector_iterator<st
+  d::_Vector_val<std::_Simple_types<int>>>,void>(std::_Vector_const_iterator<std::_Vector_val<std::_Simple_types<_Ty>>>,_Iter,_Iter)' being compiled
+          with
+          [
+              _Ty=uchar,
+              _Iter=std::_Vector_iterator<std::_Vector_val<std::_Simple_types<int>>>
+          ]
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\calib3d\src\fisheye.cpp(906): note: see reference to function template instantiation 'std::_Vector_iterator<std::_Vector_val<std::_Simple_types<_Ty>>> std::vector<_Ty,std::allocator<_Ty>>::insert<std::_Vector_iterator<st
+  d::_Vector_val<std::_Simple_types<int>>>,void>(std::_Vector_const_iterator<std::_Vector_val<std::_Simple_types<_Ty>>>,_Iter,_Iter)' being compiled
+          with
+          [
+              _Ty=uchar,
+              _Iter=std::_Vector_iterator<std::_Vector_val<std::_Simple_types<int>>>
+          ]
+  main.cpp
+  p3p.cpp
+  polynom_solver.cpp
+  posit.cpp
+  ptsetreg.cpp
+  quadsubpix.cpp
+  rho.cpp
+  solvepnp.cpp
+  stereobm.cpp
+  stereosgbm.cpp
+  triangulate.cpp
+  upnp.cpp
+  opencl_kernels_calib3d.cpp
+  opencv_calib3d.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\Release\opencv_calib3d310.lib
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/modules/python/python3/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/modules/python3/CMakeFiles/generate.stamp is up-to-date.
+  Generating pyopencv_generated_include.h, pyopencv_generated_funcs.h, pyopencv_generated_types.h, pyopencv_generated_type_reg.h, pyopencv_generated_ns_reg.h
+  C:\Python36\lib\re.py:212: FutureWarning: split() requires a non-empty pattern match.
+    return _compile(pattern, flags).split(string, maxsplit)
+  cv2.cpp
+     Creating library C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/lib/Release/cv2.lib and object C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/lib/Release/cv2.exp
+  opencv_python3.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\build\lib\python3\Release\cv2.cp36-win_amd64.pyd
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/opencv/build/CMakeFiles/generate.stamp is up-to-date.
+
+Generating PSMoveAPI solution
+-- The C compiler identification is MSVC 19.11.25507.1
+-- The CXX compiler identification is MSVC 19.11.25507.1
+-- Check for working C compiler: C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/VC/Tools/MSVC/14.11.25503/bin/HostX86/x64/cl.exe
+-- Check for working C compiler: C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/VC/Tools/MSVC/14.11.25503/bin/HostX86/x64/cl.exe -- works
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working CXX compiler: C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/VC/Tools/MSVC/14.11.25503/bin/HostX86/x64/cl.exe
+-- Check for working CXX compiler: C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/VC/Tools/MSVC/14.11.25503/bin/HostX86/x64/cl.exe -- works
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found LIBUSB: optimized;C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/libusb-1.0/x64/Release/lib/libusb-1.0.lib;debug;C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/libusb-1.0/x64/Debug/lib/libusb-1.0.lib
+
+  Tracker
+    Tracker library:  Yes
+    PS Eye support:   Yes
+    Use PS3EYEDriver: Yes
+
+  Build configuration
+    Debug build:      No
+    Library license:  GPL (see README.md for details)
+    BlueZ 5 support:  No (for pairing on Linux only)
+    Pocket C.H.I.P:   No
+-- Looking for pthread.h
+-- Looking for pthread.h - not found
+-- Found Threads: TRUE
+-- Could NOT find Vulkan (missing:  VULKAN_LIBRARY VULKAN_INCLUDE_DIR)
+-- Using Win32 for window creation
+
+  Additional targets
+    C example apps:   Yes
+    OpenGL examples:  Yes
+    C test programs:  Yes
+CMake Deprecation Warning at C:/Program Files/CMake/share/cmake-3.8/Modules/UseSWIG.cmake:226 (message):
+  SWIG_ADD_MODULE is deprecated.  Use SWIG_ADD_LIBRARY instead.
+Call Stack (most recent call first):
+  bindings/CMakeLists.txt:24 (swig_add_module)
+  CMakeLists.txt:8 (include)
+
+
+CMake Deprecation Warning at C:/Program Files/CMake/share/cmake-3.8/Modules/UseSWIG.cmake:226 (message):
+  SWIG_ADD_MODULE is deprecated.  Use SWIG_ADD_LIBRARY instead.
+Call Stack (most recent call first):
+  bindings/CMakeLists.txt:130 (swig_add_module)
+  CMakeLists.txt:8 (include)
+
+
+
+  Language bindings
+    Python:           Yes
+    Java:             No (JNI not found)
+    C#:               Yes
+    Processing:       No (JNI not found)
+
+-- Configuring done
+-- Generating done
+-- Build files have been written to: C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build
+
+Building PSMoveAPI
+Microsoft (R) Build Engine version 15.3.409.57025 for .NET Framework
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+  Checking Build System
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/external/glfw/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/external/glfw/src/CMakeFiles/generate.stamp is up-to-date.
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/glfw/src/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/external/glfw/src/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  context.c
+  hid.c
+  hid.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(393): warning C4456: declaration of 'res' hides previous local declaration [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(267): note: see declaration of 'res'
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(633): warning C4267: 'function': conversion from 'size_t' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(639): warning C4245: '=': conversion from 'int' to 'DWORD', signed/unsigned mismatch [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(650): warning C4245: '=': conversion from 'int' to 'DWORD', signed/unsigned mismatch [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(676): warning C4267: 'function': conversion from 'size_t' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(730): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(746): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(752): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(774): warning C4267: 'function': conversion from 'size_t' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(775): warning C4267: 'function': conversion from 'size_t' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(810): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(823): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(836): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(849): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(393): warning C4456: declaration of 'res' hides previous local declaration [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(267): note: see declaration of 'res'
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(633): warning C4267: 'function': conversion from 'size_t' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(639): warning C4245: '=': conversion from 'int' to 'DWORD', signed/unsigned mismatch [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(650): warning C4245: '=': conversion from 'int' to 'DWORD', signed/unsigned mismatch [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(676): warning C4267: 'function': conversion from 'size_t' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(730): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(746): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(752): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(774): warning C4267: 'function': conversion from 'size_t' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(775): warning C4267: 'function': conversion from 'size_t' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(810): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(823): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(836): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(849): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+  psmove.c
+  psmove.c
+  init.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\psmove.c(2183): warning C4244: 'return': conversion from 'uint64_t' to 'long', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\psmove.c(2220): warning C4013: 'mkdir' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\psmove.c(2183): warning C4244: 'return': conversion from 'uint64_t' to 'long', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\psmove.c(2220): warning C4013: 'mkdir' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+  psmove_calibration.c
+  psmove_calibration.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\init.c(197): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+  moved_client.c
+  moved_client.c
+  input.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\daemon\moved_client.c(111): warning C4996: 'inet_addr': Use inet_pton() or InetPton() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_s
+tatic.vcxproj]
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.15063.0\um\winsock2.h(1830): note: see declaration of 'inet_addr'
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\daemon\moved_client.c(116): warning C4996: 'gethostbyname': Use getaddrinfo() or GetAddrInfoW() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\p
+smoveapi_static.vcxproj]
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.15063.0\um\winsock2.h(2218): note: see declaration of 'gethostbyname'
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\daemon\moved_client.c(111): warning C4996: 'inet_addr': Use inet_pton() or InetPton() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.v
+cxproj]
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.15063.0\um\winsock2.h(1830): note: see declaration of 'inet_addr'
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\daemon\moved_client.c(116): warning C4996: 'gethostbyname': Use getaddrinfo() or GetAddrInfoW() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\p
+smoveapi.vcxproj]
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.15063.0\um\winsock2.h(2218): note: see declaration of 'gethostbyname'
+  moved_monitor.c
+  moved_monitor.c
+  psmove_port_windows.c
+  psmove_port_windows.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\input.c(465): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\input.c(475): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\input.c(485): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\input.c(496): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\input.c(507): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\input.c(518): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\input.c(529): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\input.c(539): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\input.c(604): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+  monitor.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\platform\psmove_port_windows.c(437): warning C4244: 'function': conversion from 'double' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\platform\psmove_port_windows.c(480): warning C4244: 'function': conversion from 'double' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\platform\psmove_port_windows.c(608): warning C4146: unary minus operator applied to unsigned type, result still unsigned [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\platform\psmove_port_windows.c(437): warning C4244: 'function': conversion from 'double' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\platform\psmove_port_windows.c(480): warning C4244: 'function': conversion from 'double' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\platform\psmove_port_windows.c(608): warning C4146: unary minus operator applied to unsigned type, result still unsigned [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+  psmove_math.c
+  psmove_math.c
+  psmove_vector.c
+  psmove_vector.c
+  Generating Code...
+  Generating Code...
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\monitor.c(370): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+  vulkan.c
+  psmove_orientation.cpp
+  psmove_orientation.cpp
+  window.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\window.c(796): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\window.c(807): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\window.c(818): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\window.c(829): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\window.c(840): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\window.c(851): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\window.c(862): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+  win32_init.c
+  psmoveapi.cpp
+  psmoveapi.cpp
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\win32_init.c(299): warning C4244: '=': conversion from 'int' to 'short', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+  win32_joystick.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\psmoveapi.cpp(230): warning C4244: 'argument': conversion from 'uint32_t' to 'unsigned char', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\psmoveapi.cpp(231): warning C4244: 'argument': conversion from 'uint32_t' to 'unsigned char', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\psmoveapi.cpp(230): warning C4244: 'argument': conversion from 'uint32_t' to 'unsigned char', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\psmoveapi.cpp(231): warning C4244: 'argument': conversion from 'uint32_t' to 'unsigned char', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+  win32_monitor.c
+  psmove_alignment.cpp
+  psmove_alignment.cpp
+  win32_time.c
+  win32_tls.c
+  psmove_quaternion.cpp
+  psmove_quaternion.cpp
+  win32_window.c
+  Generating Code...
+  Generating Code...
+  wgl_context.c
+     Creating library C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Debug/psmoveapi.lib and object C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Debug/psmoveapi.exp
+  psmoveapi_static.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Debug\psmoveapi_static.lib
+  egl_context.c
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  camera_control.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\include\opencv2/core/types_c.h(929): warning C4013: 'cvRound' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_tracker_static.vcxproj]
+  Generating Code...
+  psmoveapi.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Debug\psmoveapi.dll
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  tracker_helpers.c
+  multiple.c
+  example.c
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\include\opencv2/core/types_c.h(929): warning C4013: 'cvRound' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_tracker_static.vcxproj]
+  camera_control_win32.c
+  camera_control.c
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\include\opencv2/core/types_c.h(929): warning C4013: 'cvRound' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_tracker_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\include\opencv2/core/types_c.h(929): warning C4013: 'cvRound' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_tracker.vcxproj]
+  psmovecli.cpp
+  glfw.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\Debug\glfw3.lib
+  Generating Code...
+  tracker_helpers.c
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\include\opencv2/core/types_c.h(929): warning C4013: 'cvRound' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_tracker.vcxproj]
+  multiple.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Debug\multiple.exe
+  example.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Debug\example.exe
+  example_new_api.cpp
+  camera_control_win32.c
+  psmove_tracker.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\include\opencv2/core/types_c.h(929): warning C4013: 'cvRound' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_tracker.vcxproj]
+c:\users\aaron\documents\github\joustmania\psmoveapi\src\utils\moved.cpp(70): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmove.vcxproj]
+c:\users\aaron\documents\github\joustmania\psmoveapi\src\utils\moved.cpp(187): warning C4244: '=': conversion from 'SOCKET' to 'int', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmove.vcxproj]
+c:\users\aaron\documents\github\joustmania\psmoveapi\src\utils\moved.cpp(302): warning C4458: declaration of 'output' hides class member [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmove.vcxproj]
+  c:\users\aaron\documents\github\joustmania\psmoveapi\src\utils\moved.cpp(59): note: see declaration of 'psmove_dev::output'
+  Generating Code...
+c:\users\aaron\documents\github\joustmania\psmoveapi\src\utils\psmovepair.c(139): warning C4702: unreachable code [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmove.vcxproj]
+  psmove_tracker.c
+  example_new_api.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Debug\example_new_api.exe
+     Creating library C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Debug/psmove.lib and object C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Debug/psmove.exp
+  psmove.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Debug\psmove.exe
+  psmove_fusion.cpp
+  psmove_fusion.cpp
+  ps3eye.cpp
+  ps3eye.cpp
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\PS3EYEDriver\src\ps3eye.cpp(1126): warning C4458: declaration of 'frame_rate' hides class member [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_tracker_static.vcxproj]
+  c:\users\aaron\documents\github\joustmania\psmoveapi\external\ps3eyedriver\src\ps3eye.h(210): note: see declaration of 'ps3eye::PS3EYECam::frame_rate'
+  ps3eye_capi.cpp
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\PS3EYEDriver\src\ps3eye.cpp(1126): warning C4458: declaration of 'frame_rate' hides class member [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_tracker.vcxproj]
+  c:\users\aaron\documents\github\joustmania\psmoveapi\external\ps3eyedriver\src\ps3eye.h(210): note: see declaration of 'ps3eye::PS3EYECam::frame_rate'
+  ps3eye_capi.cpp
+  Generating Code...
+  psmoveapi_tracker_static.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Debug\psmoveapi_tracker_static.lib
+  Generating Code...
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  Swig source
+  Swig source
+  psmoveCSHARP_wrap.c
+  psmovePYTHON_wrap.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveCSHARP_wrap.c(332): warning C4244: 'function': conversion from 'int' to 'unsigned char', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_csharp.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveCSHARP_wrap.c(335): warning C4244: 'function': conversion from 'int' to 'unsigned char', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_csharp.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveCSHARP_wrap.c(491): warning C4098: 'set_remote_config': 'void' function returning a value [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_csharp.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveCSHARP_wrap.c(501): warning C4098: 'reinit': 'void' function returning a value [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_csharp.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(2484): warning C4459: declaration of 'swig_this' hides global declaration [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\_psmove.vcxproj]
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(2225): note: see declaration of 'swig_this'
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(2559): warning C4459: declaration of 'swig_this' hides global declaration [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\_psmove.vcxproj]
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(2225): note: see declaration of 'swig_this'
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(3245): warning C4127: conditional expression is constant [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\_psmove.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(3251): warning C4127: conditional expression is constant [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\_psmove.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(3660): warning C4244: 'function': conversion from 'int' to 'unsigned char', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\_psmove.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(3663): warning C4244: 'function': conversion from 'int' to 'unsigned char', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\_psmove.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(3819): warning C4098: 'set_remote_config': 'void' function returning a value [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\_psmove.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(3829): warning C4098: 'reinit': 'void' function returning a value [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\_psmove.vcxproj]
+c:\users\aaron\documents\github\joustmania\psmoveapi\build\psmovepython_wrap.c(3254): warning C4701: potentially uninitialized local variable 'v' used [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\_psmove.vcxproj]
+     Creating library C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Debug/psmoveapi_csharp.lib and object C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Debug/psmoveapi_csharp.exp
+     Creating library C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Debug/_psmove.lib and object C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Debug/_psmove.exp
+  psmoveapi_csharp.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Debug\psmoveapi_csharp.dll
+  _psmove.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Debug\_psmove.pyd
+     Creating library C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Debug/psmoveapi_tracker.lib and object C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Debug/psmoveapi_tracker.exp
+LINK : warning LNK4098: defaultlib 'LIBCMTD' conflicts with use of other libs; use /NODEFAULTLIB:library [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_tracker.vcxproj]
+  psmoveapi_tracker.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Debug\psmoveapi_tracker.dll
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  tracker_camera_calibration.cpp
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  test_opengl3.cpp
+  test_tracker.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\include\opencv2/core/types_c.h(929): warning C4013: 'cvRound' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_tracker.vcxproj]
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.15063.0\shared\minwindef.h(130): warning C4005: 'APIENTRY': macro redefinition [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl3.vcxproj]
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\include\GLFW/glfw3.h(98): note: see previous definition of 'APIENTRY'
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl3.cpp(76): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl3.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl3.cpp(367): warning C4244: 'argument': conversion from 'time_t' to 'unsigned int', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl3.vcxproj]
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  distance_calibration.c
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\include\opencv2/core/types_c.h(929): warning C4013: 'cvRound' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\distance_calibration.vcxproj]
+  test_opengl2.cpp
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.15063.0\shared\minwindef.h(130): warning C4005: 'APIENTRY': macro redefinition [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl2.vcxproj]
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\include\GLFW/glfw3.h(98): note: see previous definition of 'APIENTRY'
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  test_opengl3.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Debug\test_opengl3.exe
+  test_opengl.cpp
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl2.cpp(76): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl2.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl2.cpp(99): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl2.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl2.cpp(101): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl2.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl2.cpp(102): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl2.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl2.cpp(103): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl2.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl2.cpp(109): warning C4305: 'argument': truncation from 'double' to 'float' [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl2.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl2.cpp(195): warning C4456: declaration of 'i' hides previous local declaration [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl2.vcxproj]
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl2.cpp(180): note: see declaration of 'i'
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl2.cpp(409): warning C4244: 'argument': conversion from 'time_t' to 'unsigned int', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl2.vcxproj]
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.15063.0\shared\minwindef.h(130): warning C4005: 'APIENTRY': macro redefinition [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl.vcxproj]
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\include\GLFW/glfw3.h(98): note: see previous definition of 'APIENTRY'
+  test_opengl.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Debug\test_opengl.exe
+  test_tracker.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Debug\test_tracker.exe
+  distance_calibration.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Debug\distance_calibration.exe
+  test_opengl2.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Debug\test_opengl2.exe
+  tracker_camera_calibration.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Debug\tracker_camera_calibration.exe
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+Microsoft (R) Build Engine version 15.3.409.57025 for .NET Framework
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+  Checking Build System
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/external/glfw/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/external/glfw/src/CMakeFiles/generate.stamp is up-to-date.
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/external/glfw/src/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/external/glfw/src/CMakeFiles/generate.stamp is up-to-date.
+  context.c
+  hid.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(393): warning C4456: declaration of 'res' hides previous local declaration [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(267): note: see declaration of 'res'
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(633): warning C4267: 'function': conversion from 'size_t' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(639): warning C4245: '=': conversion from 'int' to 'DWORD', signed/unsigned mismatch [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(650): warning C4245: '=': conversion from 'int' to 'DWORD', signed/unsigned mismatch [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(676): warning C4267: 'function': conversion from 'size_t' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(730): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(746): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(752): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(774): warning C4267: 'function': conversion from 'size_t' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(775): warning C4267: 'function': conversion from 'size_t' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(810): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(823): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(836): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(849): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+  psmove.c
+  init.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\psmove.c(2183): warning C4244: 'return': conversion from 'uint64_t' to 'long', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\psmove.c(2220): warning C4013: 'mkdir' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+  psmove_calibration.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\init.c(197): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+  moved_client.c
+  input.c
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  hid.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\daemon\moved_client.c(111): warning C4996: 'inet_addr': Use inet_pton() or InetPton() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.v
+cxproj]
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.15063.0\um\winsock2.h(1830): note: see declaration of 'inet_addr'
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\daemon\moved_client.c(116): warning C4996: 'gethostbyname': Use getaddrinfo() or GetAddrInfoW() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\p
+smoveapi.vcxproj]
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.15063.0\um\winsock2.h(2218): note: see declaration of 'gethostbyname'
+  moved_monitor.c
+  psmove_port_windows.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\input.c(465): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\input.c(475): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\input.c(485): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\input.c(496): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\input.c(507): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\input.c(518): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\input.c(529): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\input.c(539): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\input.c(604): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+  monitor.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(393): warning C4456: declaration of 'res' hides previous local declaration [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(267): note: see declaration of 'res'
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(633): warning C4267: 'function': conversion from 'size_t' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(639): warning C4245: '=': conversion from 'int' to 'DWORD', signed/unsigned mismatch [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(650): warning C4245: '=': conversion from 'int' to 'DWORD', signed/unsigned mismatch [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(676): warning C4267: 'function': conversion from 'size_t' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(730): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(746): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(752): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(774): warning C4267: 'function': conversion from 'size_t' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(775): warning C4267: 'function': conversion from 'size_t' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(810): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(823): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(836): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\hidapi\windows\hid.c(849): warning C4267: 'function': conversion from 'size_t' to 'ULONG', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+  psmove.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\platform\psmove_port_windows.c(437): warning C4244: 'function': conversion from 'double' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\platform\psmove_port_windows.c(480): warning C4244: 'function': conversion from 'double' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\platform\psmove_port_windows.c(608): warning C4146: unary minus operator applied to unsigned type, result still unsigned [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+  psmove_math.c
+  psmove_vector.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\monitor.c(370): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+  Generating Code...
+  vulkan.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\psmove.c(2183): warning C4244: 'return': conversion from 'uint64_t' to 'long', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\psmove.c(2220): warning C4013: 'mkdir' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+  psmove_calibration.c
+  moved_client.c
+  window.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\daemon\moved_client.c(111): warning C4996: 'inet_addr': Use inet_pton() or InetPton() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_s
+tatic.vcxproj]
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.15063.0\um\winsock2.h(1830): note: see declaration of 'inet_addr'
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\daemon\moved_client.c(116): warning C4996: 'gethostbyname': Use getaddrinfo() or GetAddrInfoW() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\p
+smoveapi_static.vcxproj]
+  C:\Program Files (x86)\Windows Kits\10\Include\10.0.15063.0\um\winsock2.h(2218): note: see declaration of 'gethostbyname'
+  moved_monitor.c
+  psmove_port_windows.c
+  psmove_orientation.cpp
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\window.c(796): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\window.c(807): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\window.c(818): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\window.c(829): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\window.c(840): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\window.c(851): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\window.c(862): warning C4152: nonstandard extension, function/data pointer conversion in expression [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+  win32_init.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\platform\psmove_port_windows.c(437): warning C4244: 'function': conversion from 'double' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\platform\psmove_port_windows.c(480): warning C4244: 'function': conversion from 'double' to 'DWORD', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\platform\psmove_port_windows.c(608): warning C4146: unary minus operator applied to unsigned type, result still unsigned [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+  psmove_math.c
+  psmove_vector.c
+  Generating Code...
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\src\win32_init.c(299): warning C4244: '=': conversion from 'int' to 'short', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\glfw.vcxproj]
+  win32_joystick.c
+  psmoveapi.cpp
+  psmove_orientation.cpp
+  win32_monitor.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\psmoveapi.cpp(230): warning C4244: 'argument': conversion from 'uint32_t' to 'unsigned char', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\psmoveapi.cpp(231): warning C4244: 'argument': conversion from 'uint32_t' to 'unsigned char', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi.vcxproj]
+  win32_time.c
+  psmove_alignment.cpp
+  psmoveapi.cpp
+  win32_tls.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\psmoveapi.cpp(230): warning C4244: 'argument': conversion from 'uint32_t' to 'unsigned char', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\src\psmoveapi.cpp(231): warning C4244: 'argument': conversion from 'uint32_t' to 'unsigned char', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_static.vcxproj]
+  psmove_quaternion.cpp
+  win32_window.c
+  wgl_context.c
+  psmove_alignment.cpp
+  Generating Code...
+  egl_context.c
+  psmove_quaternion.cpp
+  Generating Code...
+     Creating library C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Release/psmoveapi.lib and object C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Release/psmoveapi.exp
+  Generating Code...
+  psmoveapi.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Release\psmoveapi.dll
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  multiple.c
+  example.c
+  camera_control.c
+  glfw.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\external\glfw\src\Release\glfw3.lib
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\include\opencv2/core/types_c.h(929): warning C4013: 'cvRound' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_tracker.vcxproj]
+  tracker_helpers.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\include\opencv2/core/types_c.h(929): warning C4013: 'cvRound' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_tracker.vcxproj]
+  camera_control_win32.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\include\opencv2/core/types_c.h(929): warning C4013: 'cvRound' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_tracker.vcxproj]
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  example.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Release\example.exe
+  multiple.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Release\multiple.exe
+  example_new_api.cpp
+  Generating Code...
+  psmoveapi_static.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Release\psmoveapi_static.lib
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  psmovecli.cpp
+  camera_control.c
+  psmove_tracker.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\include\opencv2/core/types_c.h(929): warning C4013: 'cvRound' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_tracker_static.vcxproj]
+  tracker_helpers.c
+  example_new_api.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Release\example_new_api.exe
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\include\opencv2/core/types_c.h(929): warning C4013: 'cvRound' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_tracker_static.vcxproj]
+  camera_control_win32.c
+c:\users\aaron\documents\github\joustmania\psmoveapi\src\utils\moved.cpp(70): warning C4267: 'return': conversion from 'size_t' to 'int', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmove.vcxproj]
+c:\users\aaron\documents\github\joustmania\psmoveapi\src\utils\moved.cpp(187): warning C4244: '=': conversion from 'SOCKET' to 'int', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmove.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\include\opencv2/core/types_c.h(929): warning C4013: 'cvRound' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_tracker_static.vcxproj]
+c:\users\aaron\documents\github\joustmania\psmoveapi\src\utils\moved.cpp(302): warning C4458: declaration of 'output' hides class member [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmove.vcxproj]
+  c:\users\aaron\documents\github\joustmania\psmoveapi\src\utils\moved.cpp(59): note: see declaration of 'psmove_dev::output'
+c:\users\aaron\documents\github\joustmania\psmoveapi\src\utils\psmovepair.c(139): warning C4702: unreachable code [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmove.vcxproj]
+  Generating Code...
+  psmove_tracker.c
+     Creating library C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Release/psmove.lib and object C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Release/psmove.exp
+  psmove.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Release\psmove.exe
+  psmove_fusion.cpp
+  ps3eye.cpp
+  psmove_fusion.cpp
+  ps3eye.cpp
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\PS3EYEDriver\src\ps3eye.cpp(1126): warning C4458: declaration of 'frame_rate' hides class member [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_tracker.vcxproj]
+  c:\users\aaron\documents\github\joustmania\psmoveapi\external\ps3eyedriver\src\ps3eye.h(210): note: see declaration of 'ps3eye::PS3EYECam::frame_rate'
+  ps3eye_capi.cpp
+  Generating Code...
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\PS3EYEDriver\src\ps3eye.cpp(1126): warning C4458: declaration of 'frame_rate' hides class member [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_tracker_static.vcxproj]
+  c:\users\aaron\documents\github\joustmania\psmoveapi\external\ps3eyedriver\src\ps3eye.h(210): note: see declaration of 'ps3eye::PS3EYECam::frame_rate'
+  ps3eye_capi.cpp
+  Generating Code...
+  libusb-1.0.lib(core.obj) : MSIL .netmodule or module compiled with /GL found; restarting link with /LTCG; add /LTCG to the link command line to improve linker performance
+  psmoveapi_tracker_static.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Release\psmoveapi_tracker_static.lib
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  Swig source
+  Swig source
+  psmoveCSHARP_wrap.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveCSHARP_wrap.c(332): warning C4244: 'function': conversion from 'int' to 'unsigned char', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_csharp.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveCSHARP_wrap.c(335): warning C4244: 'function': conversion from 'int' to 'unsigned char', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_csharp.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveCSHARP_wrap.c(491): warning C4098: 'set_remote_config': 'void' function returning a value [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_csharp.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveCSHARP_wrap.c(501): warning C4098: 'reinit': 'void' function returning a value [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_csharp.vcxproj]
+  psmovePYTHON_wrap.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(2484): warning C4459: declaration of 'swig_this' hides global declaration [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\_psmove.vcxproj]
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(2225): note: see declaration of 'swig_this'
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(2559): warning C4459: declaration of 'swig_this' hides global declaration [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\_psmove.vcxproj]
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(2225): note: see declaration of 'swig_this'
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(3245): warning C4127: conditional expression is constant [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\_psmove.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(3251): warning C4127: conditional expression is constant [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\_psmove.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(3660): warning C4244: 'function': conversion from 'int' to 'unsigned char', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\_psmove.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(3663): warning C4244: 'function': conversion from 'int' to 'unsigned char', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\_psmove.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(3819): warning C4098: 'set_remote_config': 'void' function returning a value [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\_psmove.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmovePYTHON_wrap.c(3829): warning C4098: 'reinit': 'void' function returning a value [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\_psmove.vcxproj]
+     Creating library C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Release/psmoveapi_csharp.lib and object C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Release/psmoveapi_csharp.exp
+  psmoveapi_csharp.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Release\psmoveapi_csharp.dll
+     Creating library C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Release/_psmove.lib and object C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Release/_psmove.exp
+  _psmove.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Release\_psmove.pyd
+     Creating library C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Release/psmoveapi_tracker.lib and object C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/Release/psmoveapi_tracker.exp
+LINK : warning LNK4098: defaultlib 'LIBCMT' conflicts with use of other libs; use /NODEFAULTLIB:library [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\psmoveapi_tracker.vcxproj]
+  Generating code
+  Finished generating code
+  psmoveapi_tracker.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Release\psmoveapi_tracker.dll
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  tracker_camera_calibration.cpp
+  test_tracker.c
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\include\opencv2/core/types_c.h(929): warning C4013: 'cvRound' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_tracker.vcxproj]
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  distance_calibration.c
+  test_opengl2.cpp
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\opencv\modules\core\include\opencv2/core/types_c.h(929): warning C4013: 'cvRound' undefined; assuming extern returning int [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\distance_calibration.vcxproj]
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.15063.0\shared\minwindef.h(130): warning C4005: 'APIENTRY': macro redefinition [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl2.vcxproj]
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\include\GLFW/glfw3.h(98): note: see previous definition of 'APIENTRY'
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl2.cpp(76): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl2.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl2.cpp(99): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl2.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl2.cpp(101): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl2.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl2.cpp(102): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl2.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl2.cpp(103): warning C4244: '=': conversion from 'double' to 'float', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl2.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl2.cpp(109): warning C4305: 'argument': truncation from 'double' to 'float' [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl2.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl2.cpp(195): warning C4456: declaration of 'i' hides previous local declaration [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl2.vcxproj]
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl2.cpp(180): note: see declaration of 'i'
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl2.cpp(409): warning C4244: 'argument': conversion from 'time_t' to 'unsigned int', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl2.vcxproj]
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+  test_opengl.cpp
+  test_opengl3.cpp
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.15063.0\shared\minwindef.h(130): warning C4005: 'APIENTRY': macro redefinition [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl.vcxproj]
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\include\GLFW/glfw3.h(98): note: see previous definition of 'APIENTRY'
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.15063.0\shared\minwindef.h(130): warning C4005: 'APIENTRY': macro redefinition [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl3.vcxproj]
+  C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\external\glfw\include\GLFW/glfw3.h(98): note: see previous definition of 'APIENTRY'
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl3.cpp(76): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl3.vcxproj]
+C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\examples\c\test_opengl3.cpp(367): warning C4244: 'argument': conversion from 'time_t' to 'unsigned int', possible loss of data [C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\test_opengl3.vcxproj]
+  test_opengl2.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Release\test_opengl2.exe
+  test_opengl3.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Release\test_opengl3.exe
+  test_opengl.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Release\test_opengl.exe
+  test_tracker.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Release\test_tracker.exe
+  distance_calibration.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Release\distance_calibration.exe
+  tracker_camera_calibration.vcxproj -> C:\Users\Aaron\Documents\GitHub\JoustMania\psmoveapi\build\Release\tracker_camera_calibration.exe
+  Building Custom Rule C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/CMakeLists.txt
+  CMake does not need to re-run because C:/Users/Aaron/Documents/GitHub/JoustMania/psmoveapi/build/CMakeFiles/generate.stamp is up-to-date.
+
+Build completed successfully

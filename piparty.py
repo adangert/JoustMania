@@ -1,12 +1,18 @@
-import psmove, pair
+import psmove
 import common, colors, joust, webui
 import yaml
 import time, random, json, os, os.path, sys, glob
 from piaudio import Music, DummyMusic, Audio, InitAudio
 from enum import Enum
-from multiprocessing import Process, Value, Array, Queue, Manager
+from multiprocessing import Process, Value, Array, Queue, Manager, freeze_support
 from games import ffa, zombie, commander, swapper, tournament, speed_bomb, fight_club
-import jm_dbus
+from sys import platform
+if platform == "linux" or platform == "linux2":
+    import jm_dbus
+    import pair
+elif "win" in platform:
+    import win_jm_dbus as jm_dbus
+    import win_pair as pair
 import controller_process
 import update
 
@@ -56,7 +62,7 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
     move.update_leds()
     random_color = random.random()
 
-    
+
     while True:
         if(restart.value ==1 or menu.value == 0 or kill_proc.value):
             return
@@ -73,7 +79,7 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
                 if move_button == common.Button.SHAPES:
                     move_opts[Opts.selection.value] = Selections.admin.value
                     move_opts[Opts.holding.value] = Holding.holding.value
-                    
+
                 if move_button == common.Button.UPDATE:
                     move_opts[Opts.selection.value] = Selections.update.value
                     move_opts[Opts.holding.value] = Holding.holding.value
@@ -81,15 +87,15 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
                 #show battery level
                 if battery.value == 1:
                     battery_level = move.get_battery()
-                    #granted a charging move should be dead 
+                    #granted a charging move should be dead
                     #so it won't light up anyway
-                    if battery_level == psmove.Batt_CHARGING: 
+                    if battery_level == psmove.Batt_CHARGING:
                         move.set_leds(*colors.Colors.White20.value)
 
-                    elif battery_level == psmove.Batt_CHARGING_DONE: 
+                    elif battery_level == psmove.Batt_CHARGING_DONE:
                         move.set_leds(*colors.Colors.White.value)
 
-                    elif battery_level == psmove.Batt_MAX: 
+                    elif battery_level == psmove.Batt_MAX:
                         move.set_leds(*colors.Colors.Green.value)
 
                     elif battery_level == psmove.Batt_80Percent:
@@ -103,7 +109,7 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
 
                     else : # under 40% - you should charge it!
                         move.set_leds(*colors.Colors.Red.value)
-                    
+
                 #custom team mode is the only game mode that
                 #can't be added to con mode
                 elif game_mode == common.Games.JoustTeams:
@@ -122,7 +128,7 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
 
                 elif game_mode == common.Games.JoustFFA:
                     move.set_leds(*colors.Colors.Orange.value)
-                            
+
                 elif game_mode == common.Games.JoustRandomTeams:
                     color = time.time()/10%1
                     color = colors.hsv2rgb(color, 1, 1)
@@ -157,10 +163,10 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
                     else:
 
                         move.set_leds(*colors.Colors.Green.value)
-                        
+
                 elif game_mode == common.Games.FightClub:
                         move.set_leds(*colors.Colors.Green80.value)
-                        
+
                 elif game_mode == common.Games.NonStop:
                         move.set_leds(*colors.Colors.Turquoise.value)
 
@@ -181,13 +187,13 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
 
 
                 elif game_mode == common.Games.Random:
-                    
+
                         move.set_leds(0,0,255)
                 if move.get_trigger() > 100:
                         move_opts[Opts.random_start.value] = Alive.off.value
                 if move_opts[Opts.random_start.value] == Alive.off.value:
                         move.set_leds(255,255,255)
-                    
+
 
                 if move_opts[Opts.holding.value] == Holding.not_holding.value:
                     #Change game mode and become admin controller
@@ -219,7 +225,7 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
                     if move_button == common.Button.TRIANGLE:
                         move_opts[Opts.selection.value] = Selections.show_battery.value
                         move_opts[Opts.holding.value] = Holding.holding.value
-                    
+
 
                 if move_button == common.Button.NONE:
                     move_opts[Opts.holding.value] = Holding.not_holding.value
@@ -229,14 +235,13 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
 
 class Menu():
     def __init__(self):
-        self.big_update = update.check_for_update()
+        if platform == "linux" or platform == "linux2":
+            self.big_update = update.check_for_update()
         self.command_queue = Queue()
         self.joust_manager = Manager()
         self.ns = self.joust_manager.Namespace()
-
         self.web_proc = Process(target=webui.start_web, args=(self.command_queue,self.ns))
         self.web_proc.start()
-
         self.ns.status = dict()
         self.ns.settings = dict()
         self.ns.battery_status = dict()
@@ -246,7 +251,6 @@ class Menu():
 
         #defined outside of ns.settings as it's a purely dev option
         self.experimental = False
-
         self.move_count = psmove.count_connected()
         self.dead_count = Value('i', 0)
         self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
@@ -257,7 +261,7 @@ class Menu():
         self.rand_game_list = []
 
         self.show_battery = Value('i', 0)
-        
+
         #only allow one move to be paired at a time
         self.pair_one_move = True
         self.tracked_moves = {}
@@ -268,7 +272,7 @@ class Menu():
         self.game_mode = common.Games[self.ns.settings['current_game']]
         self.old_game_mode = self.game_mode
         self.pair = pair.Pair()
-        
+
         self.menu = Value('i', 1)
         self.controller_game_mode = Value('i',1)
         self.restart = Value('i',0)
@@ -296,16 +300,14 @@ class Menu():
         self.rumble = {}
         self.kill_controller_proc = {}
         self.controller_sensitivity = Array('d', [0] *10)
-        
+
         self.i = 0
         #load audio now so it converts before the game begins
         self.menu_music = Music("menu")
         self.joust_music = Music("joust")
         self.zombie_music = Music("zombie")
         self.commander_music = Music("commander")
-        
         self.choose_new_music()
-
 
 
     def choose_new_music(self):
@@ -328,23 +330,25 @@ class Menu():
     def check_for_new_moves(self):
         self.enable_bt_scanning(True)
         #need to start tracking of new moves in here
+
         if psmove.count_connected() != self.move_count:
             self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
             self.move_count = len(self.moves)
         #doesn't work
         #self.alive_count = len([move.get_serial() for move in self.moves if self.move_opts[move.get_serial()][Opts.alive.value] == Alive.on.value])
-        
+
 
     def enable_bt_scanning(self, on=True):
-        bt_hcis = list(jm_dbus.get_hci_dict().keys())
+        if platform == "linux" or platform == "linux2":
+            bt_hcis = list(jm_dbus.get_hci_dict().keys())
 
-        for hci in bt_hcis:
-            if jm_dbus.enable_adapter(hci):
-                self.pair.update_adapters()
-            if on:
-                jm_dbus.enable_pairable(hci)
-            else:
-                jm_dbus.disable_pairable(hci)
+            for hci in bt_hcis:
+                if jm_dbus.enable_adapter(hci):
+                    self.pair.update_adapters()
+                if on:
+                    jm_dbus.enable_pairable(hci)
+                else:
+                    jm_dbus.disable_pairable(hci)
 
     def pair_usb_move(self, move):
         move_serial = move.get_serial()
@@ -356,14 +360,13 @@ class Menu():
                     move.update_leds()
                     self.paired_moves.append(move_serial)
                     self.pair_one_move = False
-        
+
     def pair_move(self, move, move_num):
-        print("NOW PAIRING MOVE")
         move_serial = move.get_serial()
         if move_serial not in self.tracked_moves:
             color = Array('i', [0] * 3)
             opts = Array('i', [0] * 6)
-            
+
             if move_serial in self.teams:
                 opts[Opts.team.value] = self.teams[move_serial]
             else:
@@ -372,18 +375,18 @@ class Menu():
             if move_serial in self.out_moves:
                 opts[Opts.alive.value] = self.out_moves[move_serial]
             opts[Opts.game_mode.value] = self.game_mode.value
-            
+
             #now start tracking the move controller
-            
-            
-            
+
+
+
             team = Value('i',0)
             team_color_enum = Array('i',[0]*3)
             dead_move = Value( 'i',0)
             zombie_opt = Array('i', [0, 0, 0, 1, 0, 1, 1])
             five_controller_opt = Array('i',[0]*5)
-            
-            
+
+
             commander_move_opt = Array('i', [0] * 5)
             invincibility = Value('b', True)
             fight_club_color = Value('i', 0)
@@ -391,8 +394,8 @@ class Menu():
             faked = Value('i', 0)
             rumble = Value('i', 0)
             kill_proc = Value('b', False)
-            
-            
+
+
             proc = Process(target= controller_process.main_track_move, args=(self.menu, self.restart, move_serial, move_num, opts, color, self.show_battery, \
                                                                               self.dead_count, self.controller_game_mode, team, team_color_enum, self.controller_sensitivity, dead_move, \
                                                                              self.music_speed, self.werewolf_reveal, self.show_team_colors, self.red_on_kill,zombie_opt,\
@@ -402,6 +405,7 @@ class Menu():
 
             proc.start()
             self.move_opts[move_serial] = opts
+
             self.tracked_moves[move_serial] = proc
             self.force_color[move_serial] = color
             self.controller_teams[move_serial] = team
@@ -417,9 +421,9 @@ class Menu():
             self.rumble[move_serial] = rumble
             self.kill_controller_proc[move_serial] = kill_proc
             self.out_moves[move.get_serial()] = Alive.on.value
-            
-            
-            
+
+
+
             self.exclude_out_moves()
 
 
@@ -431,20 +435,20 @@ class Menu():
             self.tracked_moves[move_serial].join()
             self.tracked_moves[move_serial].terminate()
             del self.move_opts[move_serial]
-            #del self.tracked_moves[move_serial] 
-            del self.force_color[move_serial] 
-            del self.controller_teams[move_serial] 
-            del self.controller_colors[move_serial] 
-            del self.dead_moves[move_serial] 
-            del self.zombie_opts[move_serial] 
-            del self.commander_move_opts[move_serial] 
-            del self.five_controller_opts[move_serial] 
-            del self.fight_club_colors[move_serial] 
-            del self.invincible_moves[move_serial] 
-            del self.false_colors[move_serial] 
-            del self.was_faked[move_serial] 
-            del self.rumble[move_serial] 
-            del self.kill_controller_proc[move_serial] 
+            #del self.tracked_moves[move_serial]
+            del self.force_color[move_serial]
+            del self.controller_teams[move_serial]
+            del self.controller_colors[move_serial]
+            del self.dead_moves[move_serial]
+            del self.zombie_opts[move_serial]
+            del self.commander_move_opts[move_serial]
+            del self.five_controller_opts[move_serial]
+            del self.fight_club_colors[move_serial]
+            del self.invincible_moves[move_serial]
+            del self.false_colors[move_serial]
+            del self.was_faked[move_serial]
+            del self.rumble[move_serial]
+            del self.kill_controller_proc[move_serial]
 
     def game_mode_announcement(self):
         if self.game_mode == common.Games.JoustFFA:
@@ -505,7 +509,7 @@ class Menu():
                 opt[Opts.game_mode.value] = self.game_mode.value
             if self.ns.settings['play_audio']:
                 self.game_mode_announcement()
-                
+
     def check_new_admin(self):
         for move, move_opt in self.move_opts.items():
             if move_opt[Opts.selection.value] == Selections.admin.value:
@@ -518,8 +522,8 @@ class Menu():
                         self.force_color[self.admin_move][2] = 0
                     self.admin_move = move
                 move_opt[Opts.selection.value] = Selections.nothing.value
-        
-                
+
+
     #all controllers need to opt-in again in order fo the game to start
     def reset_controller_game_state(self):
         for move_opt in self.move_opts.values():
@@ -529,7 +533,7 @@ class Menu():
             for i in range(3):
                 self.force_color[serial][i] = 0
         self.random_added = []
-        
+
     def check_update(self):
          for move, move_opt in self.move_opts.items():
             if move_opt[Opts.selection.value] == Selections.update.value:
@@ -545,9 +549,14 @@ class Menu():
                 self.menu_music.load_audio(random.choice(glob.glob("audio/MenuMusic/*")))
                 self.menu_music.start_audio_loop()
             self.i=self.i+1
-            if not self.pair_one_move and "0" in os.popen('lsusb | grep "PlayStation Move motion controller" | wc -l').read():
-                self.pair_one_move = True
-                self.paired_moves = []
+            if "linux" in platform:
+                if not self.pair_one_move and "0" in os.popen('lsusb | grep "PlayStation Move motion controller" | wc -l').read():
+                    self.pair_one_move = True
+                    self.paired_moves = []
+            else:
+                if not self.pair_one_move:
+                    self.pair_one_move = True
+                    self.paired_moves = []
             if self.pair_one_move:
                 #check if there are any controllers that were shut off
                 if psmove.count_connected() > len(self.tracked_moves):
@@ -581,7 +590,7 @@ class Menu():
                     self.check_update()
                 self.check_command_queue()
                 self.update_status('menu')
-            
+
 
     def check_admin_controls(self):
         show_bat = False
@@ -629,7 +638,7 @@ class Menu():
                         Audio('audio/Menu/low.wav').start_effect()
                     elif self.ns.settings['sensitivity'] == Sensitivity.ultra_fast.value:
                         Audio('audio/Menu/ultra_low.wav').start_effect()
-                
+
             #no admin colors in con custom teams mode
             if self.game_mode == common.Games.JoustTeams or self.game_mode == common.Games.Random:
                 self.force_color[self.admin_move][0] = 0
@@ -664,10 +673,10 @@ class Menu():
                         if self.ns.settings['play_audio']:
                             Audio('audio/Menu/game_err.wav').start_effect()
                     self.update_settings_file()
-            
+
     def initialize_settings(self):
         #default settings
-        temp_settings = ({ 
+        temp_settings = ({
             'sensitivity': Sensitivity.mid.value,
             'play_instructions': True,
             #we store the name, not the enum, so the webui can process it more easily
@@ -722,7 +731,7 @@ class Menu():
             'enforce_minimum': True
         })
         self.ns.settings = temp_settings
-    
+
     def update_settings_file(self):
         with open(common.SETTINGSFILE,'w') as yaml_file:
             yaml.dump(self.ns.settings,yaml_file)
@@ -764,6 +773,11 @@ class Menu():
 
         self.ns.out_moves = self.out_moves
 
+    def stop_tracking_moves(self):
+        for proc in self.tracked_moves.values():
+            proc.terminate()
+            proc.join()
+
     def check_start_game(self):
         #if self.game_mode == common.Games.Random:
             self.exclude_out_moves()
@@ -776,15 +790,15 @@ class Menu():
                     self.random_added.append(serial)
                     if self.ns.settings['play_audio']:
                         Audio('audio/Joust/sounds/start.wav').start_effect()
-            
-                    
+
+
             if start_game:
                 print("starting game")
                 if self.game_mode == common.Games.Random:
                     self.start_game(random_mode=True)
                 else:
                     self.start_game()
-                
+
 
         #else:
         #    if self.ns.settings['move_can_be_admin']:
@@ -837,18 +851,18 @@ class Menu():
         self.menu.value = 0
         self.restart.value =1
         self.update_status('starting')
-        
+
         self.sensitivity = self.ns.settings['sensitivity']
         self.controller_sensitivity[0] = common.SLOW_MAX[self.sensitivity]
         self.controller_sensitivity[1] = common.SLOW_WARNING[self.sensitivity]
         self.controller_sensitivity[2] = common.FAST_MAX[self.sensitivity]
         self.controller_sensitivity[3] = common.FAST_WARNING[self.sensitivity]
-        
+
         self.controller_sensitivity[4] = common.WERE_SLOW_MAX[self.sensitivity]
         self.controller_sensitivity[5] = common.WERE_SLOW_WARNING[self.sensitivity]
         self.controller_sensitivity[6] = common.WERE_FAST_MAX[self.sensitivity]
         self.controller_sensitivity[7] = common.WERE_FAST_WARNING[self.sensitivity]
-    
+
         self.controller_sensitivity[8] = common.ZOMBIE_MAX[self.sensitivity]
         self.controller_sensitivity[9] = common.ZOMBIE_WARNING[self.sensitivity]
 
@@ -878,7 +892,7 @@ class Menu():
 
         if self.ns.settings['play_instructions'] and self.ns.settings['play_audio']:
             self.play_random_instructions()
-        
+
         if self.game_mode == common.Games.Zombies:
             zombie.Zombie(game_moves, self.command_queue, self.ns, self.zombie_music, self.restart, self.zombie_opts)
         elif self.game_mode == common.Games.Commander:
@@ -914,7 +928,7 @@ class Menu():
         self.play_menu_music = True
         #reset music
         self.choose_new_music()
-        #turn off admin mode so someone can't accidentally press a button    
+        #turn off admin mode so someone can't accidentally press a button
         self.admin_move = None
         self.random_added = []
         self.reset_controller_game_state()
@@ -922,8 +936,10 @@ class Menu():
         self.restart.value =0
         self.reset_controller_game_state()
 
-            
+
 if __name__ == "__main__":
+    if "win" in platform:
+        freeze_support()
     InitAudio()
     piparty = Menu()
     piparty.game_loop()

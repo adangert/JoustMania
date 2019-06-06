@@ -51,7 +51,7 @@ KILL_GAME_PAUSE = 4
 
 
 def track_move(move, game_mode, team, team_color_enum, dead_move, force_color, \
-    music_speed, werewolf_reveal, show_team_colors, red_on_kill, restart, menu, controller_sensitivity):
+    music_speed, werewolf_reveal, show_team_colors, red_on_kill, restart, menu, controller_sensitivity, dead_invince):
         
     SLOW_MAX = controller_sensitivity[0]
     SLOW_WARNING = controller_sensitivity[1]
@@ -62,6 +62,8 @@ def track_move(move, game_mode, team, team_color_enum, dead_move, force_color, \
     WERE_SLOW_WARNING = controller_sensitivity[5]
     WERE_FAST_MAX = controller_sensitivity[6]
     WERE_FAST_WARNING = controller_sensitivity[7] 
+    
+    dead_invince.value = False
     
     start = False
     no_rumble = time.time() + 2
@@ -153,15 +155,19 @@ def track_move(move, game_mode, team, team_color_enum, dead_move, force_color, \
                         move.set_leds(*my_team_colors)
                     #move.set_rumble(0)
 
-
-                if change > threshold:
+                
+                if change > threshold and not dead_invince.value:
                     if time.time() > no_rumble:
+                        dead_invince.value = True
                         if red_on_kill:
                             move.set_leds(*colors.Colors.Red.value)
                         else:
                             move.set_leds(*colors.Colors.Black.value)
                         move.set_rumble(90)
                         dead_move.value = 0
+                        move.update_leds()
+                        time.sleep(0.75)
+                        dead_invince.value = False
 
                 elif change > warning and not vibrate:
                     if time.time() > no_rumble:

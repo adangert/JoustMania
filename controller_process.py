@@ -4,7 +4,7 @@ import common, colors, joust, webui, piparty
 def main_track_move(menu, restart, move_serial, move_num, move_opts, force_color, battery, dead_count, game_mode, \
                     team, team_color_enum, controller_sensitivity, dead_move, music_speed, werewolf_reveal, show_team_colors, red_on_kill, zombie_opt,\
                     commander_intro, commander_move_opt, commander_powers, commander_overdrive,five_controller_opt, swapper_team_colors,\
-                    invincibility, fight_club_color, num_teams,bomb_color,game_start,false_color, faked, rumble, kill_proc):
+                    invincibility, fight_club_color, num_teams,bomb_color,game_start,false_color, faked, rumble, dead_invince, kill_proc):
     print("starting Controller Process")
     
     move = common.get_move(move_serial, move_num)
@@ -30,5 +30,5 @@ def main_track_move(menu, restart, move_serial, move_num, move_opts, force_color
             speed_bomb.track_move(move, dead_move, force_color,bomb_color, five_controller_opt, game_start, false_color, faked, rumble, menu, restart)
         else:
             joust.track_move(move, game_mode.value, team.value, team_color_enum, dead_move, force_color, \
-                             music_speed, werewolf_reveal, show_team_colors, red_on_kill, restart, menu, controller_sensitivity)
+                             music_speed, werewolf_reveal, show_team_colors, red_on_kill, restart, menu, controller_sensitivity, dead_invince)
          

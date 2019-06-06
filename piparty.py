@@ -300,6 +300,7 @@ class Menu():
         self.rumble = {}
         self.kill_controller_proc = {}
         self.controller_sensitivity = Array('d', [0] *10)
+        self.dead_invince = Value('b', False)
 
         self.i = 0
         #load audio now so it converts before the game begins
@@ -401,7 +402,7 @@ class Menu():
                                                                              self.music_speed, self.werewolf_reveal, self.show_team_colors, self.red_on_kill,zombie_opt,\
                                                                              self.commander_intro, commander_move_opt, self.commander_powers, self.commander_overdrive,\
                                                                              five_controller_opt, self.swapper_team_colors, invincibility, fight_club_color, self.num_teams,\
-                                                                             self.bomb_color,self.game_start,false_color, faked, rumble, kill_proc))
+                                                                             self.bomb_color,self.game_start,false_color, faked, rumble, self.dead_invince, kill_proc))
 
             proc.start()
             self.move_opts[move_serial] = opts

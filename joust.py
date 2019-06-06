@@ -166,7 +166,7 @@ def track_move(move, game_mode, team, team_color_enum, dead_move, force_color, \
                         move.set_rumble(90)
                         dead_move.value = 0
                         move.update_leds()
-                        time.sleep(0.75)
+                        time.sleep(0.5)
                         dead_invince.value = False
 
                 elif change > warning and not vibrate:

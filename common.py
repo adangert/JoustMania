@@ -15,18 +15,18 @@ SETTINGSFILE = 'joustsettings.yaml'
 #FAST_WARNING = [0.5, 0.6, 0.8]
 #FAST_MAX = [1, 1.4, 1.8]
 
-SLOW_WARNING = [1.0, 1.3, 1.6, 2.0, 2.5]
-SLOW_MAX = [1.1, 1.5, 1.8, 2.5, 3.2]
-FAST_WARNING = [1.3, 1.6, 1.9, 2.7, 2.8]
-FAST_MAX = [1.5, 1.8, 2.8, 3.2, 3.5]
+SLOW_WARNING = [1.2, 1.3, 1.6, 2.0, 2.5]
+SLOW_MAX = [1.3, 1.5, 1.8, 2.5, 3.2]
+FAST_WARNING = [1.4, 1.6, 1.9, 2.7, 2.8]
+FAST_MAX = [1.6, 1.8, 2.8, 3.2, 3.5]
 
 #WERE_SLOW_WARNING = [0.2, 0.3, 0.4]
 #WERE_SLOW_MAX = [0.7, 0.9, 1.1]
 #WERE_FAST_WARNING = [0.6, 0.7, 0.9]
 #WERE_FAST_MAX = [1.1, 1.5, 2.0]
 
-WERE_SLOW_WARNING = [1.1, 1.4, 1.7, 2.1, 2.9]
-WERE_SLOW_MAX = [1.2, 1.6, 1.9, 2.6, 3.9]
+WERE_SLOW_WARNING = [1.2, 1.4, 1.7, 2.1, 2.9]
+WERE_SLOW_MAX = [1.3, 1.6, 1.9, 2.6, 3.9]
 WERE_FAST_WARNING = [1.4, 1.7, 2.0, 2.8, 3.5]
 WERE_FAST_MAX = [1.6, 1.9, 2.9, 3.3, 4.9]
 

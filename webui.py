@@ -24,7 +24,7 @@ class SettingsForm(Form):
     play_instructions = BooleanField('Play instructions before game start')
     play_audio = BooleanField('Play audio')
     red_on_kill = SelectField('Kill notification',choices=[(True,'Red'),('','Dark')],coerce=bool)
-    sensitivity = SelectField('Move sensitivity',choices=[(0,'Slow'),(1,'Medium'),(2,'Fast')],coerce=int)
+    sensitivity = SelectField('Move sensitivity',choices=[(0,'Ultra High'),(1,'High'),(2,'Medium'),(3,'Low'),(4,'Ultra Low')],coerce=int)
     mode_options = [ game for game in common.Games if game not in [common.Games.Random, common.Games.JoustTeams]]
     random_modes = MultiCheckboxField('Random Modes',choices=[(game.name, game.pretty_name) for game in mode_options])
     color_lock = BooleanField('Lock team colors')

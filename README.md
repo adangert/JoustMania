@@ -16,6 +16,7 @@ What is JoustMania????
 Cool Stuffs!
 --------------------------------------
 
+* Now on [Windows & Steam!](https://store.steampowered.com/app/1093850/JoustMania/)
 * 18+ Player support
 * Super easy setup
 * Runs in Headless mode, no screen required

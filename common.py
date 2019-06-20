@@ -82,6 +82,10 @@ class Games(enum.Enum):
     def next(self):
         """Return the next game mode after this one in the list. Wraps around after hitting bottom."""
         return Games((self.value + 1) % len(Games))
+        
+    def previous(self):
+        """Return the previous game mode after this one in the list. Wraps around after hitting bottom."""
+        return Games((self.value - 1) % len(Games))
 
 #These buttons are based off of
 #The mapping of PS Move controllers

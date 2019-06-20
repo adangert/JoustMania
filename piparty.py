@@ -37,8 +37,8 @@ class Alive(Enum):
 
 class Selections(Enum):
     nothing = 0
-    change_mode = 1
-    start_game = 2
+    change_mode_forward = 1
+    change_mode_backward = 2
     add_game = 3
     change_sensitivity = 4
     change_instructions = 5
@@ -198,12 +198,12 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
                 if move_opts[Opts.holding.value] == Holding.not_holding.value:
                     #Change game mode and become admin controller
                     if move_button == common.Button.SELECT:
-                        move_opts[Opts.selection.value] = Selections.change_mode.value
+                        move_opts[Opts.selection.value] = Selections.change_mode_backward.value
                         move_opts[Opts.holding.value] = Holding.holding.value
 
                     #start the game
                     if move_button == common.Button.START:
-                        move_opts[Opts.selection.value] = Selections.start_game.value
+                        move_opts[Opts.selection.value] = Selections.change_mode_forward.value
                         move_opts[Opts.holding.value] = Holding.holding.value
 
                     #as an admin controller add or remove game from convention mode
@@ -481,16 +481,20 @@ class Menu():
 
     def check_change_mode(self):
         change_mode = False
+        change_forward = True
         for move, move_opt in self.move_opts.items():
-            if move_opt[Opts.selection.value] == Selections.change_mode.value:
-                #remove previous admin, and set new one
+            if move_opt[Opts.selection.value] == Selections.change_mode_forward.value:
+                #change the game mode if allowed
                 if self.ns.settings['move_can_be_admin']:
-                    #if self.admin_move:
-                        #self.force_color[self.admin_move][0] = 0
-                        #self.force_color[self.admin_move][1] = 0
-                        #self.force_color[self.admin_move][2] = 0
-                    #self.admin_move = move
                     change_mode = True
+                    change_forward = True
+                move_opt[Opts.selection.value] = Selections.nothing.value
+                
+            if move_opt[Opts.selection.value] == Selections.change_mode_backward.value:
+                #change the game mode if allowed
+                if self.ns.settings['move_can_be_admin']:
+                    change_mode = True
+                    change_forward = False
                 move_opt[Opts.selection.value] = Selections.nothing.value
 
         if self.command_from_web == 'changemode':
@@ -498,7 +502,10 @@ class Menu():
             change_mode = True
 
         if change_mode:
-            self.game_mode = self.game_mode.next()
+            if change_forward:
+                self.game_mode = self.game_mode.next()
+            else:
+                self.game_mode = self.game_mode.previous()
             self.update_setting('current_game',self.game_mode.name)
             self.reset_controller_game_state()
             if not self.ns.settings['play_audio']:

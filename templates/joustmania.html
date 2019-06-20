@@ -76,6 +76,7 @@ function updateStatus(){
                     $('#menubuttons').show();
                     $('#move_count').text(info.move_count);
                     $('#alive_count').text(info.alive_count);
+                    $('#git_hash').text(info.git_hash);
                 }
             }   
         },
@@ -193,6 +194,11 @@ Game Killed!<br /><br />
 
 <div class="error">
 Cannot connect to Joustmania!
+</div>
+
+<div class='main_status'>
+<br />
+current Joustmania version: <span id='git_hash'>Null</span><br />
 </div>
 
 {% endblock %}

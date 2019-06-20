@@ -237,6 +237,7 @@ class Menu():
     def __init__(self):
         if platform == "linux" or platform == "linux2":
             self.big_update = update.check_for_update()
+        self.git_hash = update.run_command("git rev-parse HEAD")[:7]
         self.command_queue = Queue()
         self.joust_manager = Manager()
         self.ns = self.joust_manager.Namespace()
@@ -770,7 +771,8 @@ class Menu():
             'game_mode' : self.game_mode.pretty_name,
             'move_count' : self.move_count,
             'alive_count' : self.move_count - self.dead_count.value,
-            'ticker': self.i
+            'ticker': self.i,
+            'git_hash': self.git_hash
         }
 
         battery_status = {}

@@ -17,11 +17,12 @@ if [ "$_IP" ]; then
   printf "My IP address is %s\n" "$_IP"
 fi
 
+
 #Access point for JoustMania
-iptables-restore < /etc/iptables.ipv4.nat
+#iptables-restore < /etc/iptables.ipv4.nat
 #hostapd /etc/hostapd/hostapd.conf
 
-sleep 5
+#sleep 5
 #ifdown wlan0
 
 #sleep 2

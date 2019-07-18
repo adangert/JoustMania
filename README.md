@@ -32,11 +32,11 @@ If you would like to build your own device you will need the following:
 
 * A Raspberry Pi 3 B with sd card
 
-Optional and **highly recommended**:
+Optional and recommended:
 
 * Class 1, Bluetooth 4.0 USB adapters (http://a.co/8YKP9tG)
 
-Note on Hardware: The internal bluetooth is short range and has a high latency, making gameplay laggy and slow, although still possible.
+Note on Hardware: The internal bluetooth is shorter range and has a slightly higher latency
 The class 1 adapters allow bluetooth connections up to 300+ feet and allow for the gameplay to be smooth, each adapter can connect to 6 to 7 controllers. I've tested this build with four adapters and 18 controllers successfully.
 
 Optional:
@@ -62,6 +62,10 @@ Installation
 git clone https://github.com/adangert/JoustMania.git
 cd JoustMania
 sudo ./setup.sh
+```
+If you have bluetooth adapters you can run the following instead to disable internal bluetooth:
+```
+sudo ./setup.sh --disable_internal_bt
 ```
 
 You can now disconnect the hdmi cable and run JoustMania in headless mode. JoustMania will automatically boot up on restart, menu music should start playing once the pi boots up.

@@ -30,7 +30,7 @@ I am currently selling fully set up Joustmania devices (pi, case, bluetooth dong
 
 If you would like to build your own device you will need the following:
 
-* A Raspberry Pi 3 B with sd card
+* A Raspberry Pi 4 B with sd card
 
 Optional and recommended:
 
@@ -45,14 +45,11 @@ Optional:
 
 This will allow you to charge 9 controllers at once through the pi
 
-A good power supply is recommended, (if you see a lightning bolt at the top right of your screen it means your pi is under voltage) Something like this should work well: (https://www.amazon.com/dp/B00L88M8TE)
-
-
 
 Installation
 ---------------------------
 
-0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card, this build was tested on the full version of raspian stretch.
+0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card, this build was tested on the full version of raspian buster.
 0. Connect the bluetooth adapters and speaker
 0. Turn on the pi, open a Terminal and run these commands, the pi will reboot on a successful install
 0. If prompted about restarting services select yes

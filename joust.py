@@ -415,13 +415,13 @@ class Joust():
     def werewolf_audio_cue(self):
         if self.game_mode == common.Games.WereJoust:
             if self.werewolf_timer - (time.time() - self.start_timer) <= 30 and self.audio_cue == 0:
-                Audio('audio/Joust/sounds/30 werewolf.wav').start_effect()
+                Audio('audio/Joust/vox/' + common.VOX + '/30 werewolf.wav').start_effect()
                 self.audio_cue = 1
             if self.werewolf_timer - (time.time() - self.start_timer) <= 10 and self.audio_cue == 1:
-                Audio('audio/Joust/sounds/10 werewolf.wav').start_effect()
+                Audio('audio/Joust/vox/' + common.VOX + '/10 werewolf.wav').start_effect()
                 self.audio_cue = 2
             if self.werewolf_timer - (time.time() - self.start_timer) <= 0 and self.audio_cue == 2:
-                Audio('audio/Joust/sounds/werewolf reveal 2.wav').start_effect()
+                Audio('audio/Joust/vox/' + common.VOX + '/werewolf reveal 2.wav').start_effect()
                 self.reveal()
                 self.audio_cue = 3
                 self.change_time = time.time()-0.001
@@ -451,14 +451,14 @@ class Joust():
                 dead.value = 1
                 if self.play_audio:
                     self.revive.start_effect()
-                
-                    
+
+
         if self.game_mode == common.Games.NonStop:
             if self.audio_cue == 0 and time.time() > self.non_stop_time - 60:
-                Audio('audio/Zombie/sound_effects/1 minute.wav').start_effect()
+                Audio('audio/Zombie/vox/' + common.VOX + '/1 minute.wav').start_effect()
                 self.audio_cue += 1
             if self.audio_cue == 1 and time.time() > self.non_stop_time - 30:
-                Audio('audio/Zombie/sound_effects/30 seconds.wav').start_effect()
+                Audio('audio/Zombie/vox/' + common.VOX + '/30 seconds.wav').start_effect()
                 self.audio_cue += 1
             if time.time() > self.non_stop_time:
                 lowest_score = 100000
@@ -506,34 +506,40 @@ class Joust():
     def end_game_sound(self, winning_team):
         if self.game_mode == common.Games.WereJoust:
             if winning_team == -1:
-                team_win = Audio('audio/Joust/sounds/werewolf win.wav')
+                team_win = Audio('audio/Joust/vox/' + common.VOX + '/werewolf win.wav')
             else:
-                team_win = Audio('audio/Joust/sounds/human win.wav')
+                team_win = Audio('audio/Joust/vox/' + common.VOX + '/human win.wav')
             team_win.start_effect()
         elif self.game_mode != common.Games.JoustFFA and self.game_mode != common.Games.NonStop:
             win_team_name = self.team_colors[winning_team].name
             if winning_team == -1:
-                team_win = Audio('audio/Joust/sounds/traitor win.wav')
+                team_win = Audio('audio/Joust/vox/' + common.VOX + '/traitor win.wav')
             else:
                 if win_team_name == 'Pink':
-                    os.popen('espeak -ven -p 70 -a 200 "And the winner is ...Pink Team')
-                    #team_win = Audio('audio/Joust/sounds/human win.wav')
+                    if common.VOX == 'aaron':
+                        os.popen('espeak -ven -p 70 -a 200 "And the winner is ...Pink Team')
+                    else:
+                        team_win = Audio('audio/Joust/vox/' + common.VOX + '/pink team win.wav')
                 if win_team_name == 'Magenta':
-                    team_win = Audio('audio/Joust/sounds/magenta team win.wav')
+                    team_win = Audio('audio/Joust/vox/' + common.VOX + '/magenta team win.wav')
                 if win_team_name == 'Orange':
-                    os.popen('espeak -ven -p 70 -a 200 "And the winner is ... Orange team"')
-                    #team_win = Audio('audio/Joust/sounds/human win.wav')
+                    if common.VOX == 'aaron':
+                        os.popen('espeak -ven -p 70 -a 200 "And the winner is ...Orange Team')
+                    else:
+                        team_win = Audio('audio/Joust/vox/' + common.VOX + '/orange team win.wav')
                 if win_team_name == 'Yellow':
-                    team_win = Audio('audio/Joust/sounds/yellow team win.wav')
+                    team_win = Audio('audio/Joust/vox/' + common.VOX + '/yellow team win.wav')
                 if win_team_name == 'Green':
-                    team_win = Audio('audio/Joust/sounds/green team win.wav')
+                    team_win = Audio('audio/Joust/vox/' + common.VOX + '/green team win.wav')
                 if win_team_name == 'Turquoise':
-                    team_win = Audio('audio/Joust/sounds/cyan team win.wav')
+                    team_win = Audio('audio/Joust/vox/' + common.VOX + '/cyan team win.wav')
                 if win_team_name == 'Blue':
-                    team_win = Audio('audio/Joust/sounds/blue team win.wav')
+                    team_win = Audio('audio/Joust/vox/' + common.VOX + '/blue team win.wav')
                 if win_team_name == 'Purple':
-                    os.popen('espeak -ven -p 70 -a 200 "And the winner is ... Purple team"')
-                    #team_win = Audio('audio/Joust/sounds/human win.wav')
+                    if common.VOX == 'aaron':
+                        os.popen('espeak -ven -p 70 -a 200 "And the winner is ...Purple Team')
+                    else:
+                        team_win = Audio('audio/Joust/vox/' + common.VOX + '/purple team win.wav')
             try:
                 team_win.start_effect()
             except:
@@ -541,7 +547,7 @@ class Joust():
         
     def werewolf_intro(self):
         #don't wait so colors change during prompts
-        Audio('audio/Joust/sounds/werewolf intro.wav').start_effect()
+        Audio('audio/Joust/vox/' + common.VOX + '/werewolf intro.wav').start_effect()
         time.sleep(3)
         self.change_all_move_colors(0,0,80)
         time.sleep(2)

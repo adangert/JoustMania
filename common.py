@@ -190,3 +190,6 @@ REQUIRED_SETTINGS = [
 'red_on_kill',
 'random_teams'
 ]
+
+VOX = 'ivy'
+# VOX = 'aaron'

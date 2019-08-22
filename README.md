@@ -104,7 +104,7 @@ You can become an Admin by pressing all four front buttons on any controller, th
 * (Cross) Add or remove a game from Convention mode, your controller will be green if the game is added and Red if it is not, Custom Teams mode can not be added to the Convention mode
 * (Circle) Change sensitivity of the game. There are three settings, slow, medium, and fast, you will hear a corresponding sound for each
 * (Square) toggle the playback of instructions for each game
-* (Triangle) show battery level on all controllers
+* (Triangle) show battery level on all controllers (full charge is Green, 80% is Turquoise, 60% is Blue, 40% is Yellow, under 40% is Red)
 
 Web Interface
 ---------------------------------

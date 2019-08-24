@@ -211,11 +211,11 @@ class Bomb():
             self.start_beep = Audio('audio/Joust/sounds/start.wav')
             self.start_game = Audio('audio/Joust/sounds/start3.wav')
             self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
-            self.fakedout = Audio('audio/Joust/sounds/Fakedout.wav')
+            self.fakedout = Audio('audio/Joust/vox/' + common.VOX + '/Fakedout.wav')
             self.explosion40 = Audio('audio/Joust/sounds/Explosion40.wav')
-            self.countered = Audio('audio/Joust/sounds/countered.wav')
-            self.Fakecountered = Audio('audio/Joust/sounds/FakedoutCounter.wav')
-            self.explosiondeath = Audio('audio/Joust/sounds/explosiondeath.wav')
+            self.countered = Audio('audio/Joust/vox/' + common.VOX + '/countered.wav')
+            self.Fakecountered = Audio('audio/Joust/vox/' + common.VOX + '/FakedoutCounter.wav')
+            self.explosiondeath = Audio('audio/Joust/vox/' + common.VOX + '/explosiondeath.wav')
 
             end = False
             try:
@@ -471,7 +471,7 @@ class Bomb():
             for i in range(5):
                 self.move_opts[move_serial][i] = 0 
             self.false_colors[move_serial].value = 0 
-            self.was_faked[move_serial].value = 0 
+            self.was_faked[move_serial].value = 0
             self.rumble[move_serial].value = 0 
 
 

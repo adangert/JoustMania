@@ -181,7 +181,7 @@ class Swapper():
 
         self.command_queue = command_queue
         self.ns = ns
-
+        self.voice = self.ns.settings['menu_voice']
         #save locally in case settings change from web
         self.play_audio = self.ns.settings['play_audio']
         self.sensitivity = self.ns.settings['sensitivity']
@@ -333,21 +333,30 @@ class Swapper():
     def end_game_sound(self, winning_team):
         win_team_name = self.team_colors[winning_team].name
         if win_team_name == 'Pink':
-            team_win = Audio('audio/Joust/sounds/human win.wav')
+            if self.voice == 'aaron':
+                os.popen('espeak -ven -p 70 -a 200 "And the winner is ...Pink Team')
+            else:
+                team_win = Audio('audio/Joust/vox/' + self.voice + '/pink team win.wav')
         if win_team_name == 'Magenta':
-            team_win = Audio('audio/Joust/sounds/magenta team win.wav')
+            team_win = Audio('audio/Joust/vox/' + self.voice + '/magenta team win.wav')
         if win_team_name == 'Orange':
-            team_win = Audio('audio/Joust/sounds/human win.wav')
+            if self.voice == 'aaron':
+                os.popen('espeak -ven -p 70 -a 200 "And the winner is ...Orange Team')
+            else:
+                team_win = Audio('audio/Joust/vox/' + self.voice + '/orange team win.wav')
         if win_team_name == 'Yellow':
-            team_win = Audio('audio/Joust/sounds/yellow team win.wav')
+            team_win = Audio('audio/Joust/vox/' + self.voice + '/yellow team win.wav')
         if win_team_name == 'Green':
-            team_win = Audio('audio/Joust/sounds/green team win.wav')
+            team_win = Audio('audio/Joust/vox/' + self.voice + '/green team win.wav')
         if win_team_name == 'Turquoise':
-            team_win = Audio('audio/Joust/sounds/cyan team win.wav')
+            team_win = Audio('audio/Joust/vox/' + self.voice + '/cyan team win.wav')
         if win_team_name == 'Blue':
-            team_win = Audio('audio/Joust/sounds/blue team win.wav')
+            team_win = Audio('audio/Joust/vox/' + self.voice + '/blue team win.wav')
         if win_team_name == 'Purple':
-            team_win = Audio('audio/Joust/sounds/human win.wav')
+            if self.voice == 'aaron':
+                os.popen('espeak -ven -p 70 -a 200 "And the winner is ...Purple Team')
+            else:
+                team_win = Audio('audio/Joust/vox/' + self.voice + '/purple team win.wav')
         team_win.start_effect()
 
     def game_loop(self):

@@ -188,5 +188,6 @@ REQUIRED_SETTINGS = [
 'color_lock',
 'color_lock_choices',
 'red_on_kill',
-'random_teams'
+'random_teams',
+'menu_voice',
 ]

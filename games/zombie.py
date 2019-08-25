@@ -199,7 +199,7 @@ class Zombie:
         
         self.command_queue = command_queue
         self.ns = ns
-
+        self.voice = self.ns.settings['menu_voice']
         self.sensitivity = self.ns.settings['sensitivity']
         self.play_audio = self.ns.settings['play_audio']
 
@@ -258,19 +258,19 @@ class Zombie:
 
     def audio_cue(self):
         if self.win_time - (time.time() - self.start_time) <= 10 and self.effect_cue <= 4:
-            Audio('audio/Zombie/vox/' + common.VOX + '/10 seconds left.wav').start_effect()
+            Audio('audio/Zombie/vox/' + self.voice + '/10 seconds left.wav').start_effect()
             self.effect_cue = 5
         elif self.win_time - (time.time() - self.start_time) <= 30 and self.effect_cue <= 3:
-            Audio('audio/Zombie/vox/' + common.VOX + '/30 seconds.wav').start_effect()
+            Audio('audio/Zombie/vox/' + self.voice + '/30 seconds.wav').start_effect()
             self.effect_cue = 4
         elif self.win_time - (time.time() - self.start_time) <= 1*60 and self.effect_cue <= 2:
-            Audio('audio/Zombie/vox/' + common.VOX + '/1 minute.wav').start_effect()
+            Audio('audio/Zombie/vox/' + self.voice + '/1 minute.wav').start_effect()
             self.effect_cue = 3
         elif self.win_time - (time.time() - self.start_time) <= 3*60 and self.effect_cue <= 1:
-            Audio('audio/Zombie/vox/' + common.VOX + '/3 minutes.wav').start_effect()
+            Audio('audio/Zombie/vox/' + self.voice + '/3 minutes.wav').start_effect()
             self.effect_cue = 2
         #elif self.win_time - (time.time() - self.start_time) <= 5*60 and self.effect_cue <= 0:
-        #   Audio('audio/Zombie/vox/' + common.VOX + '/5 minutes.wav').start_effect()
+        #   Audio('audio/Zombie/vox/' + self.voice + '/5 minutes.wav').start_effect()
         #   self.effect_cue = 1
 
         
@@ -298,9 +298,9 @@ class Zombie:
         self.restart.value = 0
         print("started the controllers")
         if self.play_audio:
-            human_victory = Audio('audio/Zombie/vox/' + common.VOX + '/human_victory.wav')
-            zombie_victory = Audio('audio/Zombie/vox/' + common.VOX + '/zombie_victory.wav')
-            death = Audio('audio/Zombie/vox/' + common.VOX + '/zombie_death.wav')
+            human_victory = Audio('audio/Zombie/vox/' + self.voice + '/human_victory.wav')
+            zombie_victory = Audio('audio/Zombie/vox/' + self.voice + '/zombie_victory.wav')
+            death = Audio('audio/Zombie/vox/' + self.voice + '/zombie_death.wav')
             pistol = Audio('audio/Zombie/sounds/pistol.wav')
             shotgun = Audio('audio/Zombie/sounds/shotgun.wav')
             molotov = Audio('audio/Zombie/sounds/molotov.wav')

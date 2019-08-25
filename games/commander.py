@@ -229,6 +229,7 @@ class Commander():
 
         self.command_queue = command_queue
         self.ns = ns
+        self.voice = self.ns.settings['menu_voice']
 
         self.sensitivity = self.ns.settings['sensitivity']
         self.random_teams = self.ns.settings['random_teams']
@@ -404,9 +405,9 @@ class Commander():
     def end_game_sound(self, winning_team):
         #if self.game_mode == common.Games.JoustTeams:
         if winning_team == Team.alpha.value:
-            team_win = Audio('audio/Commander/vox/' + common.VOX + '/red winner.wav')
+            team_win = Audio('audio/Commander/vox/' + self.voice + '/red winner.wav')
         if winning_team == Team.bravo.value:
-            team_win = Audio('audio/Commander/vox/' + common.VOX + '/blue winner.wav')
+            team_win = Audio('audio/Commander/vox/' + self.voice + '/blue winner.wav')
         team_win.start_effect()
 
     def check_commander_select(self):
@@ -446,14 +447,14 @@ class Commander():
             if self.powers[Team.alpha.value].value >= 1.0:
                 self.powers_active[Team.alpha.value] = True
                 Audio('audio/Commander/sounds/power ready.wav').start_effect()
-                Audio('audio/Commander/vox/' + common.VOX + '/red power ready.wav').start_effect()
+                Audio('audio/Commander/vox/' + self.voice + '/red power ready.wav').start_effect()
                 
 
         if self.powers_active[Team.bravo.value] == False:
             if self.powers[Team.bravo.value].value >= 1.0:
                 self.powers_active[Team.bravo.value] = True
                 Audio('audio/Commander/sounds/power ready.wav').start_effect()
-                Audio('audio/Commander/vox/' + common.VOX + '/blue power ready.wav').start_effect()
+                Audio('audio/Commander/vox/' + self.voice + '/blue power ready.wav').start_effect()
                 
             
     def overdrive(self, team):
@@ -461,11 +462,11 @@ class Commander():
         if team == Team.alpha.value:
             self.alpha_overdrive.value = 1
             self.activated_overdrive[Team.alpha.value] = time.time() + 10
-            Audio('audio/Commander/vox/' + common.VOX + '/red overdrive.wav').start_effect()
+            Audio('audio/Commander/vox/' + self.voice + '/red overdrive.wav').start_effect()
         else:
             self.bravo_overdrive.value = 1
             self.activated_overdrive[Team.bravo.value] = time.time() + 10
-            Audio('audio/Commander/vox/' + common.VOX + '/blue overdrive.wav').start_effect()
+            Audio('audio/Commander/vox/' + self.voice + '/blue overdrive.wav').start_effect()
 
 
         
@@ -503,7 +504,7 @@ class Commander():
         
             
     def commander_intro_audio(self):
-        intro_sound = Audio('audio/Commander/vox/' + common.VOX + '/commander intro.wav')
+        intro_sound = Audio('audio/Commander/vox/' + self.voice + '/commander intro.wav')
         intro_sound.start_effect()
         #need while loop here
         play_last_one = True
@@ -516,7 +517,7 @@ class Commander():
 
             if time.time() > battle_ready_time and play_last_one:
                 play_last_one = False
-                Audio('audio/Commander/vox/' + common.VOX + '/10 seconds begins.wav').start_effect()
+                Audio('audio/Commander/vox/' + self.voice + '/10 seconds begins.wav').start_effect()
         intro_sound.stop_effect()
 
         if self.current_commander[Team.alpha.value] == '':
@@ -525,7 +526,7 @@ class Commander():
             self.change_random_commander(Team.bravo.value)
 
 
-        Audio('audio/Commander/vox/' + common.VOX + '/commanders chosen.wav').start_effect_and_wait()
+        Audio('audio/Commander/vox/' + self.voice + '/commanders chosen.wav').start_effect_and_wait()
         self.reset_power(Team.alpha.value)
         self.reset_power(Team.bravo.value)
         self.commander_intro.value = 0

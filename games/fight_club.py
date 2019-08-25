@@ -151,6 +151,8 @@ class Fight_club():
 
         self.command_queue = command_queue
         self.ns = ns
+        
+        self.voice = self.ns.settings['menu_voice']
 
         self.sensitivity = self.ns.settings['sensitivity']
         self.play_audio = self.ns.settings['play_audio']
@@ -345,7 +347,7 @@ class Fight_club():
     #more than one tied winner, have them face off
     def face_off(self):
         
-        Audio('audio/Fight_Club/vox/' + common.VOX + '/tie_game.wav').start_effect()
+        Audio('audio/Fight_Club/vox/' + self.voice + '/tie_game.wav').start_effect()
         for move in self.move_serials:
             self.dead_moves[move].value = 0
         for move in self.winning_moves:
@@ -391,9 +393,9 @@ class Fight_club():
         if self.round_counter >= self.round_num:
             self.check_winner()
         if self.round_counter == self.round_num - 5:
-            Audio('audio/Fight_Club/vox/' + common.VOX + '/5_rounds.wav').start_effect()
+            Audio('audio/Fight_Club/vox/' + self.voice + '/5_rounds.wav').start_effect()
         if self.round_counter == self.round_num - 1:
-            Audio('audio/Fight_Club/vox/' + common.VOX + '/last_round.wav').start_effect()
+            Audio('audio/Fight_Club/vox/' + self.voice + '/last_round.wav').start_effect()
 
     
     def stop_tracking_moves(self):
@@ -406,7 +408,7 @@ class Fight_club():
         h_value = 0
         for move in self.move_serials:
             self.dead_moves[move].value = 0
-        Audio('audio/Fight_Club/vox/' + common.VOX + '/game_over.wav').start_effect()
+        Audio('audio/Fight_Club/vox/' + self.voice + '/game_over.wav').start_effect()
         #os.popen('espeak -ven -p 70 -a 200 "winner"')
 
         while (time.time() < end_time):
@@ -504,11 +506,11 @@ class Fight_club():
                 self.current_winner = self.chosen_defender
                 saying = random.randint(0,2)
                 if saying == 0:
-                    Audio('audio/Fight_Club/vox/' + common.VOX + '/defender_lead.wav').start_effect()
+                    Audio('audio/Fight_Club/vox/' + self.voice + '/defender_lead.wav').start_effect()
                 elif saying == 1:
-                    Audio('audio/Fight_Club/vox/' + common.VOX + '/defender_winning.wav').start_effect()
+                    Audio('audio/Fight_Club/vox/' + self.voice + '/defender_winning.wav').start_effect()
                 elif saying == 2:
-                    Audio('audio/Fight_Club/vox/' + common.VOX + '/Defender_high_score.wav').start_effect()
+                    Audio('audio/Fight_Club/vox/' + self.voice + '/Defender_high_score.wav').start_effect()
         self.check_end_game()
         
 

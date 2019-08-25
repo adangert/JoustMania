@@ -235,9 +235,7 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
 
 class Menu():
     def __init__(self):
-        if platform == "linux" or platform == "linux2":
-            self.big_update = update.check_for_update()
-        self.git_hash = update.run_command("git rev-parse HEAD")[:7]
+
         self.command_queue = Queue()
         self.joust_manager = Manager()
         self.ns = self.joust_manager.Namespace()
@@ -249,6 +247,12 @@ class Menu():
         self.command_from_web = ''
         self.initialize_settings()
         self.update_settings_file()
+        
+        #check for update
+        if platform == "linux" or platform == "linux2":
+            self.big_update = update.check_for_update(self.ns.settings['menu_voice'])
+        self.git_hash = update.run_command("git rev-parse HEAD")[:7]
+        
 
         #defined outside of ns.settings as it's a purely dev option
         self.experimental = False
@@ -424,8 +428,6 @@ class Menu():
             self.kill_controller_proc[move_serial] = kill_proc
             self.out_moves[move.get_serial()] = Alive.on.value
 
-
-
             self.exclude_out_moves()
 
 
@@ -454,31 +456,31 @@ class Menu():
 
     def game_mode_announcement(self):
         if self.game_mode == common.Games.JoustFFA:
-            Audio('audio/Menu/vox/' + common.VOX + '/menu Joust FFA.wav').start_effect()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/menu Joust FFA.wav').start_effect()
         if self.game_mode == common.Games.JoustTeams:
-            Audio('audio/Menu/vox/' + common.VOX + '/menu Joust Teams.wav').start_effect()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/menu Joust Teams.wav').start_effect()
         if self.game_mode == common.Games.JoustRandomTeams:
-            Audio('audio/Menu/vox/' + common.VOX + '/menu Joust Random Teams.wav').start_effect()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/menu Joust Random Teams.wav').start_effect()
         if self.game_mode == common.Games.Traitor:
-            Audio('audio/Menu/vox/' + common.VOX + '/menu Traitor.wav').start_effect()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/menu Traitor.wav').start_effect()
         if self.game_mode == common.Games.WereJoust:
-            Audio('audio/Menu/vox/' + common.VOX + '/menu Werewolves.wav').start_effect()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/menu Werewolves.wav').start_effect()
         if self.game_mode == common.Games.Zombies:
-            Audio('audio/Menu/vox/' + common.VOX + '/menu Zombies.wav').start_effect()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/menu Zombies.wav').start_effect()
         if self.game_mode == common.Games.Commander:
-            Audio('audio/Menu/vox/' + common.VOX + '/menu Commander.wav').start_effect()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/menu Commander.wav').start_effect()
         if self.game_mode == common.Games.Swapper:
-            Audio('audio/Menu/vox/' + common.VOX + '/menu Swapper.wav').start_effect()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/menu Swapper.wav').start_effect()
         if self.game_mode == common.Games.Tournament:
-            Audio('audio/Menu/vox/' + common.VOX + '/menu Tournament.wav').start_effect()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/menu Tournament.wav').start_effect()
         if self.game_mode == common.Games.Ninja:
-            Audio('audio/Menu/vox/' + common.VOX + '/menu ninjabomb.wav').start_effect()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/menu ninjabomb.wav').start_effect()
         if self.game_mode == common.Games.Random:
-            Audio('audio/Menu/vox/' + common.VOX + '/menu Random.wav').start_effect()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/menu Random.wav').start_effect()
         if self.game_mode == common.Games.FightClub:
-            Audio('audio/Menu/vox/' + common.VOX + '/menu FightClub.wav').start_effect()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/menu FightClub.wav').start_effect()
         if self.game_mode == common.Games.NonStop:
-            Audio('audio/Menu/vox/' + common.VOX + '/menu NonStopJoust.wav').start_effect()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/menu NonStopJoust.wav').start_effect()
 
     def check_change_mode(self):
         change_mode = False
@@ -547,7 +549,7 @@ class Menu():
          for move, move_opt in self.move_opts.items():
             if move_opt[Opts.selection.value] == Selections.update.value:
                 if self.big_update:
-                    update.big_update()
+                    update.big_update(self.ns.settings['menu_voice'])
                     self.big_update = False
 
     def game_loop(self):
@@ -627,9 +629,9 @@ class Menu():
                 self.update_setting('play_instructions', not self.ns.settings['play_instructions'])
                 if self.ns.settings['play_audio']:
                     if self.ns.settings['play_instructions']:
-                        Audio('audio/Menu/vox/' + common.VOX + '/instructions_on.wav').start_effect()
+                        Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/instructions_on.wav').start_effect()
                     else:
-                        Audio('audio/Menu/vox/' + common.VOX + '/instructions_off.wav').start_effect()
+                        Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/instructions_off.wav').start_effect()
 
             #change sensitivity
             if admin_opt[Opts.selection.value] == Selections.change_sensitivity.value:
@@ -638,15 +640,15 @@ class Menu():
                 self.update_setting('sensitivity', (self.ns.settings['sensitivity'] + 1) %  SENSITIVITY_MODES)
                 if self.ns.settings['play_audio']:
                     if self.ns.settings['sensitivity'] == Sensitivity.ultra_slow.value:
-                        Audio('audio/Menu/vox/' + common.VOX + '/ultra_high.wav').start_effect()
+                        Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/ultra_high.wav').start_effect()
                     elif self.ns.settings['sensitivity'] == Sensitivity.slow.value:
-                        Audio('audio/Menu/vox/' + common.VOX + '/high.wav').start_effect()
+                        Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/high.wav').start_effect()
                     elif self.ns.settings['sensitivity'] == Sensitivity.mid.value:
-                        Audio('audio/Menu/vox/' + common.VOX + '/medium.wav').start_effect()
+                        Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/medium.wav').start_effect()
                     elif self.ns.settings['sensitivity'] == Sensitivity.fast.value:
-                        Audio('audio/Menu/vox/' + common.VOX + '/low.wav').start_effect()
+                        Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/low.wav').start_effect()
                     elif self.ns.settings['sensitivity'] == Sensitivity.ultra_fast.value:
-                        Audio('audio/Menu/vox/' + common.VOX + '/ultra_low.wav').start_effect()
+                        Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/ultra_low.wav').start_effect()
 
             #no admin colors in con custom teams mode
             if self.game_mode == common.Games.JoustTeams or self.game_mode == common.Games.Random:
@@ -692,6 +694,7 @@ class Menu():
             'random_modes': [common.Games.JoustFFA.name,common.Games.JoustRandomTeams.name,common.Games.WereJoust.name,common.Games.Swapper.name],
             'current_game': common.Games.JoustFFA.name,
             'play_audio': True,
+            'menu_voice': 'ivy',
             'move_can_be_admin': True,
             'enforce_minimum': True,
             'red_on_kill': True,
@@ -747,7 +750,7 @@ class Menu():
         #option to make file editable by non-root
         #let's leave it as root only, people shouldn't
         #mess with the config file for now
-        #os.system('chmod 666 %s' % com mon.SETTINGSFILE)
+        os.system('chmod 666 %s' % common.SETTINGSFILE)
 
     def update_setting(self,key,val):
         temp_settings = self.ns.settings
@@ -821,28 +824,28 @@ class Menu():
 
     def play_random_instructions(self):
         if self.game_mode == common.Games.JoustFFA:
-            Audio('audio/Menu/vox/' + common.VOX + '/FFA-instructions.wav').start_effect_and_wait()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/FFA-instructions.wav').start_effect_and_wait()
         if self.game_mode == common.Games.JoustRandomTeams:
-            Audio('audio/Menu/vox/' + common.VOX + '/Teams-instructions.wav').start_effect_and_wait()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/Teams-instructions.wav').start_effect_and_wait()
         if self.game_mode == common.Games.Traitor:
-            Audio('audio/Menu/vox/' + common.VOX + '/Traitor-instructions.wav').start_effect_and_wait()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/Traitor-instructions.wav').start_effect_and_wait()
         if self.game_mode == common.Games.WereJoust:
-            Audio('audio/Menu/vox/' + common.VOX + '/werewolf-instructions.wav').start_effect_and_wait()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/werewolf-instructions.wav').start_effect_and_wait()
         if self.game_mode == common.Games.Zombies:
-            Audio('audio/Menu/vox/' + common.VOX + '/zombie-instructions.wav').start_effect_and_wait()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/zombie-instructions.wav').start_effect_and_wait()
         if self.game_mode == common.Games.Commander:
-            Audio('audio/Menu/vox/' + common.VOX + '/commander-instructions.wav').start_effect_and_wait()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/commander-instructions.wav').start_effect_and_wait()
         if self.game_mode == common.Games.Ninja:
-            Audio('audio/Menu/vox/' + common.VOX + '/Ninjabomb-instructions.wav').start_effect_and_wait()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/Ninjabomb-instructions.wav').start_effect_and_wait()
         if self.game_mode == common.Games.Swapper:
-            Audio('audio/Menu/vox/' + common.VOX + '/Swapper-instructions.wav').start_effect_and_wait()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/Swapper-instructions.wav').start_effect_and_wait()
         if self.game_mode == common.Games.Tournament:
-            Audio('audio/Menu/vox/' + common.VOX + '/Tournament-instructions.wav').start_effect_and_wait()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/Tournament-instructions.wav').start_effect_and_wait()
         if self.game_mode == common.Games.FightClub:
-            if common.VOX == 'aaron':
+            if self.ns.settings['menu_voice'] == 'aaron':
                 os.popen('espeak -ven -p 70 -a 200 "Two players fight, the winner must defend their title, the player with the highest score wins')
             else:
-                Audio('audio/Menu/vox/' + common.VOX + '/Fightclub-instructions.wav').start_effect_and_wait()
+                Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/Fightclub-instructions.wav').start_effect_and_wait()
             time.sleep(5)
 
 
@@ -858,7 +861,7 @@ class Menu():
             pass
 
         if len(game_moves) < self.game_mode.minimum_players and self.ns.settings['enforce_minimum']:
-            Audio('audio/Menu/vox/' + common.VOX + '/notenoughplayers.wav').start_effect()
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/notenoughplayers.wav').start_effect()
             self.reset_controller_game_state()
             return
         self.menu.value = 0
@@ -937,7 +940,7 @@ class Menu():
             self.game_mode = common.Games.Random
             if self.ns.settings['play_instructions']:
                 if self.ns.settings['play_audio']:
-                    Audio('audio/Menu/vox/' + common.VOX + '/tradeoff2.wav').start_effect_and_wait()
+                    Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/tradeoff2.wav').start_effect_and_wait()
         self.play_menu_music = True
         #reset music
         self.choose_new_music()

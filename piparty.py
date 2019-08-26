@@ -16,7 +16,6 @@ elif "win" in platform:
 import controller_process
 import update
 
-
 TEAM_NUM = len(colors.team_color_list)
 #TEAM_COLORS = colors.generate_colors(TEAM_NUM)
 
@@ -247,12 +246,12 @@ class Menu():
         self.command_from_web = ''
         self.initialize_settings()
         self.update_settings_file()
-        
+
         #check for update
         if platform == "linux" or platform == "linux2":
             self.big_update = update.check_for_update(self.ns.settings['menu_voice'])
         self.git_hash = update.run_command("git rev-parse HEAD")[:7]
-        
+
 
         #defined outside of ns.settings as it's a purely dev option
         self.experimental = False
@@ -492,7 +491,7 @@ class Menu():
                     change_mode = True
                     change_forward = True
                 move_opt[Opts.selection.value] = Selections.nothing.value
-                
+
             if move_opt[Opts.selection.value] == Selections.change_mode_backward.value:
                 #change the game mode if allowed
                 if self.ns.settings['move_can_be_admin']:
@@ -750,7 +749,8 @@ class Menu():
         #option to make file editable by non-root
         #let's leave it as root only, people shouldn't
         #mess with the config file for now
-        os.system('chmod 666 %s' % common.SETTINGSFILE)
+        if platform == "linux" or platform == "linux2":
+            os.system('chmod 666 %s' % common.SETTINGSFILE)
 
     def update_setting(self,key,val):
         temp_settings = self.ns.settings

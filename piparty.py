@@ -250,7 +250,9 @@ class Menu():
         #check for update
         if platform == "linux" or platform == "linux2":
             self.big_update = update.check_for_update(self.ns.settings['menu_voice'])
-        self.git_hash = update.run_command("git rev-parse HEAD")[:7]
+            self.git_hash = update.run_command("git rev-parse HEAD")[:7]
+        else:
+            self.git_hash = "0000000"
 
 
         #defined outside of ns.settings as it's a purely dev option

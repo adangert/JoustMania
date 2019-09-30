@@ -54,7 +54,7 @@ setup() {
     #espeak "downloading PS move API"
     #install psmoveapi (currently adangert's for opencv 3 support)
     rm -rf psmoveapi
-    git clone --recursive git://github.com/adangert/psmoveapi.git
+    git clone --recursive git://github.com/thp/psmoveapi.git
     cd psmoveapi
 
     #espeak "compiling PS move API components"
@@ -71,7 +71,8 @@ setup() {
         -DPSMOVE_BUILD_TRACKER:BOOL=ON \
         -DPSMOVE_USE_PSEYE:BOOL=OFF
     make -j4
-    cp /home/pi/psmoveapi/build/{psmove.py,_psmove.so} $VENV/lib/python3
+    #I don't believe we need this
+    #cp /home/pi/psmoveapi/build/{psmove.py,_psmove.so} $VENV/lib/python3
 
     #installs custom supervisor script for running joustmania on startup
     sudo cp -r /home/pi/JoustMania/conf/supervisor/ /etc/

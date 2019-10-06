@@ -185,6 +185,7 @@ class Audio:
         segment.export(buf, 'wav')
         buf.seek(0)
         self.sample_ = pygame.mixer.Sound(file=buf)
+        self.sample_.set_volume(0.6)
         self.fname_ = fname
 
     #this will not work for files other than wav at the moment

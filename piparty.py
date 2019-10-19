@@ -44,6 +44,7 @@ class Selections(Enum):
     show_battery = 6
     update = 7
     admin = 8
+    change_setting_control = 9
 
 class Holding(Enum):
     not_holding = 0
@@ -115,11 +116,7 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
                     if move_opts[Opts.team.value] >= TEAM_NUM:
                         move_opts[Opts.team.value] = 3
                     move.set_leds(*colors.team_color_list[move_opts[Opts.team.value]].value)
-                    if move_button == common.Button.MIDDLE:
-                        #allow players to increase their own team
-                        if move_opts[Opts.holding.value] == Holding.not_holding.value:
-                            move_opts[Opts.team.value] = (move_opts[Opts.team.value] + 1) % TEAM_NUM
-                            move_opts[Opts.holding.value] = Holding.holding.value
+
 
                 #set leds to forced color
                 elif sum(force_color) != 0:
@@ -195,12 +192,12 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
 
 
                 if move_opts[Opts.holding.value] == Holding.not_holding.value:
-                    #Change game mode and become admin controller
+                    #Change game mode backwards
                     if move_button == common.Button.SELECT:
                         move_opts[Opts.selection.value] = Selections.change_mode_backward.value
                         move_opts[Opts.holding.value] = Holding.holding.value
 
-                    #start the game
+                    #Change game mode forwards
                     if move_button == common.Button.START:
                         move_opts[Opts.selection.value] = Selections.change_mode_forward.value
                         move_opts[Opts.holding.value] = Holding.holding.value
@@ -224,6 +221,13 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
                     if move_button == common.Button.TRIANGLE:
                         move_opts[Opts.selection.value] = Selections.show_battery.value
                         move_opts[Opts.holding.value] = Holding.holding.value
+                        
+                    if move_button == common.Button.MIDDLE:
+                        #allow players to increase their own team
+                        move_opts[Opts.selection.value] = Selections.change_setting_control.value
+                        if game_mode == common.Games.JoustTeams:
+                            move_opts[Opts.team.value] = (move_opts[Opts.team.value] + 1) % TEAM_NUM
+                        move_opts[Opts.holding.value] = Holding.holding.value
 
 
                 if move_button == common.Button.NONE:
@@ -246,6 +250,9 @@ class Menu():
         self.command_from_web = ''
         self.initialize_settings()
         self.update_settings_file()
+        
+        self.admin_options = ["random_team_size"]
+        self.admin_control_option = 0
 
         #check for update
         if platform == "linux" or platform == "linux2":
@@ -321,18 +328,6 @@ class Menu():
         self.joust_music.load_audio(random.choice(glob.glob("audio/Joust/music/*")))
         self.zombie_music.load_audio(random.choice(glob.glob("audio/Zombie/music/*")))
         self.commander_music.load_audio(random.choice(glob.glob("audio/Commander/music/*")))
-
-    def exclude_out_moves(self):
-        pass
-        #currently does not work with the new stability update
-        #hold in the sync button to remove it from the game
-        #for move in self.moves:
-            #serial = move.get_serial()
-            #if serial in self.move_opts:
-                #if self.move_opts[move.get_serial()][Opts.alive.value] == Alive.off.value:
-                    #self.out_moves[move.get_serial()] = Alive.off.value
-                #else:
-                    #self.out_moves[move.get_serial()] = Alive.on.value
 
     def check_for_new_moves(self):
         self.enable_bt_scanning(True)
@@ -428,8 +423,6 @@ class Menu():
             self.rumble[move_serial] = rumble
             self.kill_controller_proc[move_serial] = kill_proc
             self.out_moves[move.get_serial()] = Alive.on.value
-
-            self.exclude_out_moves()
 
 
     #def kill_controller(self, move_serial):
@@ -623,6 +616,14 @@ class Menu():
         if self.admin_move:
             #you can't add custom teams mode to con mode, don't set colors
             admin_opt = self.move_opts[self.admin_move]
+            
+            #change game settings
+            if admin_opt[Opts.selection.value] == Selections.change_setting_control.value:
+                admin_opt[Opts.selection.value] = Selections.nothing.value
+                self.admin_control_option = (self.admin_control_option + 1) % len(self.admin_options)
+                if(self.admin_options[self.admin_control_option] == 'random_team_size'):
+                    Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/adminop_random_team_size.wav').start_effect()
+                
 
             #to play instructions or not
             if admin_opt[Opts.selection.value] == Selections.change_instructions.value:
@@ -795,7 +796,6 @@ class Menu():
 
     def check_start_game(self):
         #if self.game_mode == common.Games.Random:
-            self.exclude_out_moves()
             start_game = True
             for serial in self.move_opts.keys():
                 #on means off here
@@ -853,7 +853,6 @@ class Menu():
 
     def start_game(self, random_mode=False):
         self.enable_bt_scanning(False)
-        self.exclude_out_moves()
         time.sleep(1)
         self.teams = {serial: self.move_opts[serial][Opts.team.value] for serial in self.tracked_moves.keys() if self.out_moves[serial] == Alive.on.value}
         game_moves = [move.get_serial() for move in self.moves if self.out_moves[move.get_serial()] == Alive.on.value]

@@ -45,6 +45,7 @@ class Selections(Enum):
     update = 7
     admin = 8
     change_setting_control = 9
+    start_game = 10
 
 class Holding(Enum):
     not_holding = 0
@@ -185,13 +186,16 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
                 elif game_mode == common.Games.Random:
 
                         move.set_leds(0,0,255)
-                if move.get_trigger() > 100:
-                        move_opts[Opts.random_start.value] = Alive.off.value
-                if move_opts[Opts.random_start.value] == Alive.off.value:
-                        move.set_leds(255,255,255)
+
 
 
                 if move_opts[Opts.holding.value] == Holding.not_holding.value:
+                    if move.get_trigger() > 100:
+                            move_opts[Opts.selection.value] = Selections.start_game.value
+                            move_opts[Opts.holding.value] = Holding.holding.value
+                            #move_opts[Opts.random_start.value] = Alive.off.value
+                    if move_opts[Opts.random_start.value] == Alive.off.value:
+                            move.set_leds(255,255,255)
                     #Change game mode backwards
                     if move_button == common.Button.SELECT:
                         move_opts[Opts.selection.value] = Selections.change_mode_backward.value
@@ -230,7 +234,7 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
                         move_opts[Opts.holding.value] = Holding.holding.value
 
 
-                if move_button == common.Button.NONE:
+                if move_button == common.Button.NONE and move.get_trigger() <= 100:
                     move_opts[Opts.holding.value] = Holding.not_holding.value
 
 
@@ -425,9 +429,6 @@ class Menu():
             self.out_moves[move.get_serial()] = Alive.on.value
 
 
-    #def kill_controller(self, move_serial):
-
-
     def remove_controller(self, move_serial):
             self.kill_controller_proc[move_serial].value = True
             self.tracked_moves[move_serial].join()
@@ -476,23 +477,41 @@ class Menu():
         if self.game_mode == common.Games.NonStop:
             Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/menu NonStopJoust.wav').start_effect()
 
+    def check_game_trigger(self):
+        for move, move_opt in self.move_opts.items():
+            if move != self.admin_move:
+                if move_opt[Opts.selection.value] == Selections.start_game.value:
+                    move_opt[Opts.random_start.value] = Alive.off.value
+                    move_opt[Opts.selection.value] = Selections.nothing.value
+            else:
+                if move_opt[Opts.selection.value] == Selections.start_game.value:
+                    #turn admin back to regular player
+                    self.force_color[self.admin_move][0] = 0
+                    self.force_color[self.admin_move][1] = 0
+                    self.force_color[self.admin_move][2] = 0
+                    self.admin_move = None
+                    move_opt[Opts.selection.value] = Selections.nothing.value
+            
+        
+
     def check_change_mode(self):
         change_mode = False
         change_forward = True
         for move, move_opt in self.move_opts.items():
-            if move_opt[Opts.selection.value] == Selections.change_mode_forward.value:
-                #change the game mode if allowed
-                if self.ns.settings['move_can_be_admin']:
-                    change_mode = True
-                    change_forward = True
-                move_opt[Opts.selection.value] = Selections.nothing.value
+            if move != self.admin_move:
+                if move_opt[Opts.selection.value] == Selections.change_mode_forward.value:
+                    #change the game mode if allowed
+                    if self.ns.settings['move_can_be_admin']:
+                        change_mode = True
+                        change_forward = True
+                    move_opt[Opts.selection.value] = Selections.nothing.value
 
-            if move_opt[Opts.selection.value] == Selections.change_mode_backward.value:
-                #change the game mode if allowed
-                if self.ns.settings['move_can_be_admin']:
-                    change_mode = True
-                    change_forward = False
-                move_opt[Opts.selection.value] = Selections.nothing.value
+                if move_opt[Opts.selection.value] == Selections.change_mode_backward.value:
+                    #change the game mode if allowed
+                    if self.ns.settings['move_can_be_admin']:
+                        change_mode = True
+                        change_forward = False
+                    move_opt[Opts.selection.value] = Selections.nothing.value
 
         if self.command_from_web == 'changemode':
             self.command_from_web = ''
@@ -590,6 +609,7 @@ class Menu():
                 if len(self.tracked_moves) > 0:
                     self.check_new_admin()
                     self.check_change_mode()
+                    self.check_game_trigger()
                     self.check_admin_controls()
                     self.check_start_game()
                     self.check_update()

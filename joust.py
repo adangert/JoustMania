@@ -29,19 +29,6 @@ END_MAX_MUSIC_FAST_TIME = 10
 END_MIN_MUSIC_SLOW_TIME = 8
 END_MAX_MUSIC_SLOW_TIME = 12
 
-#Default Sensitivity of the contollers
-#These are changed from the options in common
-#SLOW_MAX = 1
-#SLOW_WARNING = 0.28
-#FAST_MAX = 1.8
-#FAST_WARNING = 0.8
-
-#Sensitivity of the werewolf contollers
-#WERE_SLOW_MAX = 1.4
-#WERE_SLOW_WARNING = 0.5
-#WERE_FAST_MAX = 2.3
-#WERE_FAST_WARNING = 1.2
-
 #How long the speed change takes
 INTERVAL_CHANGE = 1.5
 
@@ -244,12 +231,6 @@ class Joust():
             self.num_teams = len(moves)
         if game_mode == common.Games.JoustRandomTeams:
             self.num_teams=num_teams
-            #if len(moves) <= 5:
-            #    self.num_teams = 2
-            #elif len(moves) in [6,7]:
-            #    self.num_teams = 3
-            #else: #8 or more
-            #    self.num_teams = 4
         if game_mode == common.Games.Traitor:
 
             if len(moves) <= 8:
@@ -271,7 +252,6 @@ class Joust():
 
         if self.game_mode == common.Games.WereJoust:
 
-            #were_num = int((len(moves)+2)/4)
             were_num = int((len(moves)*7)/16)
             if were_num <= 0:
                 were_num = 1
@@ -282,12 +262,8 @@ class Joust():
             self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
             self.revive = Audio('audio/Commander/sounds/revive.wav')
             end = False
-            #self.audio = Audio(music, end)
             self.audio = music
         fast_resample = False
-        
-        
-        #self.change_time = self.get_change_time(speed_up = True)
         
         self.speed_up = False
         self.currently_changing = False

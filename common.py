@@ -190,4 +190,5 @@ REQUIRED_SETTINGS = [
 'red_on_kill',
 'random_teams',
 'menu_voice',
+'random_team_size',
 ]

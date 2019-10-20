@@ -190,7 +190,7 @@ def track_move(move, game_mode, team, team_color_enum, dead_move, force_color, \
 
 class Joust():
 
-    def __init__(self, moves, command_queue, ns, music, teams, game_mode,controller_teams, controller_colors, dead_moves, force_move_colors,music_speed,werewolf_reveal, show_team_colors, red_on_kill, restart):
+    def __init__(self, moves, command_queue, ns, music, teams, game_mode,controller_teams, controller_colors, dead_moves, force_move_colors,music_speed,werewolf_reveal, show_team_colors, red_on_kill, restart, num_teams=4):
         self.command_queue = command_queue
         self.ns = ns
         self.voice = self.ns.settings['menu_voice']
@@ -243,12 +243,13 @@ class Joust():
         if game_mode == common.Games.JoustFFA or game_mode == common.Games.NonStop:
             self.num_teams = len(moves)
         if game_mode == common.Games.JoustRandomTeams:
-            if len(moves) <= 5:
-                self.num_teams = 2
-            elif len(moves) in [6,7]:
-                self.num_teams = 3
-            else: #8 or more
-                self.num_teams = 4
+            self.num_teams=num_teams
+            #if len(moves) <= 5:
+            #    self.num_teams = 2
+            #elif len(moves) in [6,7]:
+            #    self.num_teams = 3
+            #else: #8 or more
+            #    self.num_teams = 4
         if game_mode == common.Games.Traitor:
 
             if len(moves) <= 8:

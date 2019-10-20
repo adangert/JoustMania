@@ -21,6 +21,7 @@ TEAM_NUM = len(colors.team_color_list)
 
 
 SENSITIVITY_MODES = 5
+RANDOM_TEAM_SIZES = 6
 
 class Opts(Enum):
     alive = 0
@@ -643,8 +644,23 @@ class Menu():
                 self.admin_control_option = (self.admin_control_option + 1) % len(self.admin_options)
                 if(self.admin_options[self.admin_control_option] == 'random_team_size'):
                     Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/adminop_random_team_size.wav').start_effect()
+                    
+            if admin_opt[Opts.selection.value] == Selections.change_mode_forward.value:
+                admin_opt[Opts.selection.value] = Selections.nothing.value
+                if(self.admin_options[self.admin_control_option] == 'random_team_size'):
+                    self.update_setting('random_team_size', (self.ns.settings['random_team_size'] + 1) %  (RANDOM_TEAM_SIZES+1))
+                    if (self.ns.settings['random_team_size'] < 2):
+                        self.update_setting('random_team_size', 2)
+                    Audio('audio/Menu/vox/{}/adminop_{}.wav'.format(self.ns.settings['menu_voice'],self.ns.settings['random_team_size'])).start_effect()
                 
-
+            if admin_opt[Opts.selection.value] == Selections.change_mode_backward.value:
+                admin_opt[Opts.selection.value] = Selections.nothing.value
+                if(self.admin_options[self.admin_control_option] == 'random_team_size'):
+                    self.update_setting('random_team_size', (self.ns.settings['random_team_size'] - 1))
+                    if (self.ns.settings['random_team_size'] < 2):
+                        self.update_setting('random_team_size', RANDOM_TEAM_SIZES)
+                    Audio('audio/Menu/vox/{}/adminop_{}.wav'.format(self.ns.settings['menu_voice'],self.ns.settings['random_team_size'])).start_effect()
+                
             #to play instructions or not
             if admin_opt[Opts.selection.value] == Selections.change_instructions.value:
                 admin_opt[Opts.selection.value] = Selections.nothing.value
@@ -722,6 +738,7 @@ class Menu():
             'red_on_kill': True,
             'random_teams': True,
             'color_lock': False,
+            'random_team_size': 4,
             'color_lock_choices':{
                 2: ['Magenta','Green'],
                 3: ['Orange','Turquoise','Purple'],
@@ -956,7 +973,7 @@ class Menu():
                 game.run_loop()
             else:
                 #may need to put in moves that have selected to not be in the game
-                joust.Joust(game_moves, self.command_queue, self.ns, self.joust_music, self.teams, self.game_mode, self.controller_teams, self.controller_colors, self.dead_moves, self.force_color,self.music_speed,self.werewolf_reveal, self.show_team_colors, self.red_on_kill, self.restart)
+                joust.Joust(game_moves, self.command_queue, self.ns, self.joust_music, self.teams, self.game_mode, self.controller_teams, self.controller_colors, self.dead_moves, self.force_color,self.music_speed,self.werewolf_reveal, self.show_team_colors, self.red_on_kill, self.restart,self.ns.settings['random_team_size'])
         if random_mode:
             self.game_mode = common.Games.Random
             if self.ns.settings['play_instructions']:

@@ -86,14 +86,14 @@ ordered_color_list = [Colors.Blue,Colors.Yellow,Colors.Green,Colors.Orange,Color
 
 #pick one color, then pick among the colors not near the first
 dual_teams = {
-    Colors.Pink : [Colors.Yellow,Colors.Green,Colors.Turquoise,Colors.Blue],
-    Colors.Magenta : [Colors.Yellow,Colors.Green,Colors.Turquoise,Colors.Blue],
+    Colors.Pink : [Colors.Yellow,Colors.Green],
+    Colors.Magenta : [Colors.Yellow,Colors.Green],
     Colors.Orange : [Colors.Green,Colors.Turquoise,Colors.Blue,Colors.Purple],
     Colors.Yellow : [Colors.Turquoise,Colors.Blue,Colors.Purple,Colors.Pink,Colors.Magenta],
     Colors.Green : [Colors.Purple,Colors.Pink,Colors.Magenta,Colors.Orange],
-    Colors.Turquoise : [Colors.Purple,Colors.Pink,Colors.Magenta,Colors.Orange,Colors.Yellow],
-    Colors.Blue : [Colors.Pink,Colors.Magenta,Colors.Orange,Colors.Yellow],
-    Colors.Purple :  [Colors.Orange,Colors.Yellow,Colors.Green,Colors.Turquoise]
+    Colors.Turquoise : [Colors.Purple,Colors.Orange,Colors.Yellow],
+    Colors.Blue : [Colors.Orange,Colors.Yellow],
+    Colors.Purple :  [Colors.Orange,Colors.Yellow,Colors.Green]
 }
 
 #remove pairings from dual_teams that don't have a shared third color
@@ -104,9 +104,9 @@ tri_teams = {
     Colors.Orange : [Colors.Green,Colors.Turquoise,Colors.Purple],
     Colors.Yellow : [Colors.Turquoise,Colors.Blue,Colors.Purple,Colors.Pink,Colors.Magenta],
     Colors.Green : [Colors.Purple,Colors.Orange],
-    Colors.Turquoise : [Colors.Purple,Colors.Pink,Colors.Magenta,Colors.Orange,Colors.Yellow],
+    Colors.Turquoise : [Colors.Pink,Colors.Magenta,Colors.Orange,Colors.Yellow],
     Colors.Blue : [Colors.Pink,Colors.Magenta,Colors.Yellow],
-    Colors.Purple :  [Colors.Orange,Colors.Yellow,Colors.Green,Colors.Turquoise]
+    Colors.Purple :  [Colors.Orange,Colors.Yellow,Colors.Green]
 }
 
 """

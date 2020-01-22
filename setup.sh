@@ -81,10 +81,10 @@ setup() {
     amixer sset PCM,0 100%
     sudo alsactl store
     
-    
     #This will disable on-board bluetooth with the --disable_internal_bt command line option
     #This will allow only class one long range btdongles to connect to psmove controllers
     if [ "$1" = "--disable_internal_bt" ]; then
+	echo "disabling internal bt"
         sudo grep -qxF 'dtoverlay=pi3-disable-bt' /boot/config.txt || { echo "dtoverlay=pi3-disable-bt" | sudo tee -a /boot/config.txt; sudo rm -rf /var/lib/bluetooth/*; }
         sudo systemctl disable hciuart || exit -1
     fi
@@ -103,4 +103,4 @@ setup() {
     (sleep 1; sudo reboot) &
 }
 
-setup 2>&1 | tee setup.log
+setup $1 2>&1 | tee setup.log

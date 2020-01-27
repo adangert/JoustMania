@@ -47,6 +47,7 @@ class Selections(Enum):
     admin = 8
     change_setting_control = 9
     start_game = 10
+    force_start_game = 11
 
 class Holding(Enum):
     not_holding = 0
@@ -63,6 +64,7 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
     move.set_leds(0,0,0)
     move.update_leds()
     random_color = random.random()
+    force_start_timer = 0
 
 
     while True:
@@ -194,9 +196,8 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
                     if move.get_trigger() > 100:
                             move_opts[Opts.selection.value] = Selections.start_game.value
                             move_opts[Opts.holding.value] = Holding.holding.value
-                            #move_opts[Opts.random_start.value] = Alive.off.value
-                    if move_opts[Opts.random_start.value] == Alive.off.value:
-                            move.set_leds(255,255,255)
+                            force_start_timer = time.time()
+
                     #Change game mode backwards
                     if move_button == common.Button.SELECT:
                         move_opts[Opts.selection.value] = Selections.change_mode_backward.value
@@ -233,9 +234,17 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
                         if game_mode == common.Games.JoustTeams:
                             move_opts[Opts.team.value] = (move_opts[Opts.team.value] + 1) % TEAM_NUM
                         move_opts[Opts.holding.value] = Holding.holding.value
+                
+                if  (move_opts[Opts.selection.value] == Selections.start_game.value and \
+                     move_opts[Opts.holding.value] == Holding.holding.value and \
+                     time.time()-force_start_timer >2):
+                    move_opts[Opts.selection.value] = Selections.force_start_game.value
+                    
+                if move_opts[Opts.random_start.value] == Alive.off.value:
+                    move.set_leds(255,255,255)
 
 
-                if move_button == common.Button.NONE and move.get_trigger() <= 100:
+                if move_opts[Opts.holding.value] == Holding.holding.value and move_button == common.Button.NONE and move.get_trigger() <= 100:
                     move_opts[Opts.holding.value] = Holding.not_holding.value
 
 
@@ -485,7 +494,8 @@ class Menu():
                     move_opt[Opts.random_start.value] = Alive.off.value
                     move_opt[Opts.selection.value] = Selections.nothing.value
             else:
-                if move_opt[Opts.selection.value] == Selections.start_game.value:
+                if (move_opt[Opts.selection.value] == Selections.start_game.value and \
+                    move_opt[Opts.holding.value] == Holding.not_holding.value):
                     #turn admin back to regular player
                     self.force_color[self.admin_move][0] = 0
                     self.force_color[self.admin_move][1] = 0
@@ -637,6 +647,11 @@ class Menu():
         if self.admin_move:
             #you can't add custom teams mode to con mode, don't set colors
             admin_opt = self.move_opts[self.admin_move]
+            
+            if admin_opt[Opts.selection.value] == Selections.force_start_game.value:
+                admin_opt[Opts.random_start.value] = Alive.off.value
+                self.start_game()
+                return;
             
             #change game settings
             if admin_opt[Opts.selection.value] == Selections.change_setting_control.value:
@@ -892,7 +907,7 @@ class Menu():
         self.enable_bt_scanning(False)
         time.sleep(1)
         self.teams = {serial: self.move_opts[serial][Opts.team.value] for serial in self.tracked_moves.keys() if self.out_moves[serial] == Alive.on.value}
-        game_moves = [move.get_serial() for move in self.moves if self.out_moves[move.get_serial()] == Alive.on.value]
+        game_moves = [move.get_serial() for move in self.moves if self.out_moves[move.get_serial()] == Alive.on.value and (self.move_opts[move.get_serial()])[Opts.random_start.value] == Alive.off.value  ]
         try:
             self.menu_music.stop_audio()
         except:

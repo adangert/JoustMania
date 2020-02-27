@@ -607,7 +607,9 @@ class Menu():
                     for serial in tracked_serials:
                         if serial not in connected_serials:
                             #self.kill_controller_proc[serial].value = True
-                            self.remove_controller(serial)
+                            #check to see if the controller has not been removed already
+                            if serial in self.move_opts.keys():
+                                self.remove_controller(serial)
                             #self.tracked_moves[serial].join()
                             #self.tracked_moves[serial].terminate()
                             keys_to_kill.append(serial)
@@ -908,6 +910,9 @@ class Menu():
         time.sleep(1)
         self.teams = {serial: self.move_opts[serial][Opts.team.value] for serial in self.tracked_moves.keys() if self.out_moves[serial] == Alive.on.value}
         game_moves = [move.get_serial() for move in self.moves if self.out_moves[move.get_serial()] == Alive.on.value and (self.move_opts[move.get_serial()])[Opts.random_start.value] == Alive.off.value  ]
+        for move in [move.get_serial() for move in self.moves if move.get_serial() not in game_moves]:
+            print("we are removing controller: {}".format(move))
+            self.remove_controller(move)
         try:
             self.menu_music.stop_audio()
         except:
@@ -1004,7 +1009,16 @@ class Menu():
         self.menu.value = 1
         self.restart.value =0
         self.reset_controller_game_state()
-
+        self.retrack_removed_controllers(game_moves)
+        
+    def retrack_removed_controllers(self, game_moves):
+        self.check_for_new_moves()
+        for move_serial in [move.get_serial() for move in self.moves if move.get_serial() not in game_moves]:
+            #This allows joustmania to re-find the removed controller
+            del self.tracked_moves[move_serial]
+        
+        
+        
 
 if __name__ == "__main__":
     if "win" in platform:

@@ -63,7 +63,6 @@ sudo ./setup.sh --disable_internal_bt
 If you would not like to turn off the internal bluetooth (this is not recommended) leave off --disable_internal_bt
 
 You can now disconnect the hdmi cable and run JoustMania in headless mode. JoustMania will automatically boot up on restart, menu music should start playing once the pi boots up.
-With some bluetooth adapters and ps4 controllers, pushing the playstation sync button after plugging it into the pi may be necessary for it to connnect.
 
 Update Joust Mania
 ---------------------------
@@ -84,6 +83,7 @@ cd /home/pi/JoustMania/
 ```
 
 If controllers seem to pair to only one Bluetooth adapter, it is likely that they share the same Mac address, refer to this issue: https://github.com/adangert/JoustMania/issues/172
+With some bluetooth adapters and ps4 controllers, pushing the playstation sync button after plugging it into the pi may be necessary for it to pair correctly.
 
 How to select a game mode
 ---------------------------------

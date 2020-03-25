@@ -83,6 +83,7 @@ cd /home/pi/JoustMania/
 ```
 
 If controllers seem to pair to only one Bluetooth adapter, it is likely that they share the same Mac address, refer to this issue: https://github.com/adangert/JoustMania/issues/172
+
 With some bluetooth adapters and ps4 controllers, pushing the playstation sync button after plugging it into the pi may be necessary for it to pair correctly.
 
 How to select a game mode

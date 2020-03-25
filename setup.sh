@@ -31,7 +31,7 @@ setup() {
         build-essential \
         libv4l-dev libopencv-dev \
         libudev-dev libbluetooth-dev \
-        swig3.0 || exit -1
+        swig3.0 libusb-dev || exit -1
 
     #espeak "Installing software libraries"
     VENV=/home/pi/JoustMania/venv

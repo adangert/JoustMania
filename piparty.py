@@ -910,6 +910,12 @@ class Menu():
         time.sleep(1)
         self.teams = {serial: self.move_opts[serial][Opts.team.value] for serial in self.tracked_moves.keys() if self.out_moves[serial] == Alive.on.value}
         game_moves = [move.get_serial() for move in self.moves if self.out_moves[move.get_serial()] == Alive.on.value and (self.move_opts[move.get_serial()])[Opts.random_start.value] == Alive.off.value  ]
+        if len(game_moves) < self.game_mode.minimum_players and self.ns.settings['enforce_minimum']:
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/notenoughplayers.wav').start_effect()
+            self.reset_controller_game_state()
+            return
+        
+        
         for move in [move.get_serial() for move in self.moves if move.get_serial() not in game_moves]:
             print("we are removing controller: {}".format(move))
             self.remove_controller(move)
@@ -918,10 +924,7 @@ class Menu():
         except:
             pass
 
-        if len(game_moves) < self.game_mode.minimum_players and self.ns.settings['enforce_minimum']:
-            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/notenoughplayers.wav').start_effect()
-            self.reset_controller_game_state()
-            return
+
         self.menu.value = 0
         self.restart.value =1
         self.update_status('starting')

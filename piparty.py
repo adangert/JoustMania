@@ -1015,7 +1015,8 @@ class Menu():
         self.check_for_new_moves()
         for move_serial in [move.get_serial() for move in self.moves if move.get_serial() not in game_moves]:
             #This allows joustmania to re-find the removed controller
-            del self.tracked_moves[move_serial]
+            if move_serial in self.tracked_moves.keys():
+                del self.tracked_moves[move_serial]
         
         
         

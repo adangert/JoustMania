@@ -40,7 +40,7 @@ def tester():
 def check_for_update(voice):
     process = run_command("sudo runuser -l pi -c 'cd /home/pi/JoustMania/;pwd'")
     process = run_command("sudo runuser -l pi -c 'cd /home/pi/JoustMania/;git fetch'")
-    diff_files = run_command("sudo runuser -l pi -c 'cd /home/pi/JoustMania/;git diff origin/master --name-only'").split()
+    diff_files = run_command("sudo runuser -l pi -c 'cd /home/pi/JoustMania/;git diff origin/master --name-only --cached'").split()
     print(diff_files)
 
 

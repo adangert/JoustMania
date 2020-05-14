@@ -1,6 +1,7 @@
 ![Magfest 2017](logo/magfest.jpg)
 JoustMania at Magfest 2017!
 
+
 <p align="center">
   <img src="logo/joustmania2.png" width="700" alt="Joustmania Logo"/>
 </p>

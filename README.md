@@ -63,7 +63,7 @@ sudo ./setup.sh --disable_internal_bt
 ```
 If you would not like to turn off the internal bluetooth (this is not recommended) leave off --disable_internal_bt
 
-You can now disconnect the hdmi cable and run JoustMania in headless mode. JoustMania will automatically boot up on restart, menu music should start playing once the pi boots up.
+You can now disconnect the hdmi cable and run JoustMania in headless mode. JoustMania will automatically boot up on restart, menu music should start playing once the pi boots up. Note audio will only play out of HDMI when plugged into a monitor, and only out of the audio jack when unpluged from a monitor.
 
 Update Joust Mania
 ---------------------------

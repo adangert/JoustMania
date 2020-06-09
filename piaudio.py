@@ -9,6 +9,8 @@ import scipy.signal as signal
 from multiprocessing import Value
 from threading import Thread
 import pygame
+import random
+import glob
 from sys import platform
 if platform == "linux" or platform == "linux2":
     import alsaaudio
@@ -109,7 +111,8 @@ def audio_loop(fname, ratio, stop_proc):
         elif(fname['song'] != ''):
             if(song_loaded == False):
                 try:
-                  segment = AudioSegment.from_file(fname['song'])
+                  random_song = random.choice(glob.glob(fname['song']))
+                  segment = AudioSegment.from_file(random_song)
                 except:
                   segment = AudioSegment.from_wav("audio/Joust/music/classical.wav")
 
@@ -138,7 +141,8 @@ def audio_loop(fname, ratio, stop_proc):
                         if len(sample) > 0:
                             yield sample
                         else:
-                            wf.rewind()
+                            return
+                            
 
                 # Writes incoming samples in chunks of write_size to device.
                 # Quits when stop_proc is set to a non-zero value.
@@ -172,7 +176,6 @@ def audio_loop(fname, ratio, stop_proc):
                         yield out_data
 
                 WriteSamples(device, PERIOD_BYTES, Resample(ReadSamples(wf, PERIOD)))
-                print("closing everything")
                 wf.close()
                 device.close()
                 song_loaded = False

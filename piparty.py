@@ -339,9 +339,9 @@ class Menu():
 
 
     def choose_new_music(self):
-        self.joust_music.load_audio(random.choice(glob.glob("audio/Joust/music/*")))
-        self.zombie_music.load_audio(random.choice(glob.glob("audio/Zombie/music/*")))
-        self.commander_music.load_audio(random.choice(glob.glob("audio/Commander/music/*")))
+        self.joust_music.load_audio("audio/Joust/music/*")
+        self.zombie_music.load_audio("audio/Zombie/music/*")
+        self.commander_music.load_audio("audio/Commander/music/*")
 
     def check_for_new_moves(self):
         self.enable_bt_scanning(True)
@@ -581,7 +581,7 @@ class Menu():
         while True:
             if self.play_menu_music:
                 self.play_menu_music = False
-                self.menu_music.load_audio(random.choice(glob.glob("audio/Menu/music/*")))
+                self.menu_music.load_audio("audio/Menu/music/*")
                 self.menu_music.start_audio_loop()
             self.i=self.i+1
             if "linux" in platform:

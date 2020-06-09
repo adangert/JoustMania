@@ -33,8 +33,8 @@ def win_audio_loop(fname,ratio,stop_proc):
         if(stop_proc.value):
             pass
         elif(fname['song'] != ''):
-            print(fname['song'])
-            f = wave.open(fname['song'])
+            # print(fname['song'])
+            f = wave.open(random.choice(glob.glob(fname['song'])))
             #instantiate PyAudio
 
             #open stream

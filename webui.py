@@ -31,6 +31,8 @@ class SettingsForm(Form):
     color_choices = [(color.name,color.name) for color in colors.team_color_list]
     color_lock_choices = FieldList(SelectField('',choices=color_choices,coerce=str),min_entries=9)
     random_teams = BooleanField('Randomize teams each round')
+    force_all_start = BooleanField('When force starting start with all or only those who pushed trigger')
+    random_team_size = SelectField('size of random teams',choices=[(2,'2'),(3,'3'),(4,'4'),(5,'5'),(6,'6')],coerce=int)
 
 class WebUI():
     def __init__(self, command_queue=Queue(), ns=None):
@@ -44,7 +46,9 @@ class WebUI():
             self.ns.status = dict()
             self.ns.settings = {
                 'sensitivity':1, 
-                'red_on_kill':False, 
+                'red_on_kill':False,
+                'random_team_size':3,
+                'force_all_start':False,
                 'color_lock_choices':{
                     2: ['Magenta','Green'],
                     3: ['Orange','Turquoise','Purple'],
@@ -141,6 +145,8 @@ class WebUI():
             settingsForm = SettingsForm(
                 sensitivity = self.ns.settings['sensitivity'],
                 red_on_kill = self.ns.settings['red_on_kill'],
+                random_team_size = self.ns.settings['random_team_size'],
+                force_all_start = self.ns.settings['force_all_start'],
                 color_lock_choices = temp_colors
             )
             return render_template('settings.html', form=settingsForm, settings=self.ns.settings)

@@ -78,6 +78,12 @@ Note: Does not update during games.<br/>
 {{ form.sensitivity }} {{form.sensitivity.label}}
 </p>
 <p>
+{{ form.force_all_start }} {{form.force_all_start.label}}
+</p>
+<p>
+{{ form.random_team_size }} {{form.random_team_size.label}}
+</p>
+<p>
 Random Mode Game Selection <button type="button" id="random_toggle">Show/Hide</button><br />
 <span id="random_mode_options">
 {% for item in form.random_modes %}

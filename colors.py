@@ -32,7 +32,10 @@ def generate_team_colors(num_teams, color_lock=False, color_lock_choices=None):
         team2 = random.choice(tri_teams[team1])
         allowed = tri_teams[team1] + tri_teams[team2]
         team3_allowed = [x for x in allowed if x in tri_teams[team1] and x in tri_teams[team2]]
-        team3 = random.choice(team3_allowed)
+        if team3_allowed:
+            team3 = random.choice(team3_allowed)
+        else:
+            team3 = Colors.White
         return [team1,team2,team3]
     elif num_teams == 4:
         team_a = random.choice([Colors.Orange,Colors.Yellow])

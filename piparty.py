@@ -265,7 +265,7 @@ class Menu():
         self.initialize_settings()
         self.update_settings_file()
         
-        self.admin_options = ["random_team_size"]
+        self.admin_options = ["random_team_size","force_all_start"]
         self.admin_control_option = 0
 
         #check for update
@@ -283,6 +283,8 @@ class Menu():
         self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
         self.admin_move = None
         #move controllers that have been taken out of play
+        #I think we can probably get rid of this since out_moves are just turning off the controller now
+        #needs testing
         self.out_moves = {}
         self.random_added = []
         self.rand_game_list = []
@@ -661,6 +663,8 @@ class Menu():
                 self.admin_control_option = (self.admin_control_option + 1) % len(self.admin_options)
                 if(self.admin_options[self.admin_control_option] == 'random_team_size'):
                     Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/adminop_random_team_size.wav').start_effect()
+                elif(self.admin_options[self.admin_control_option] == 'force_all_start'):
+                    Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/adminop_force_all_start.wav').start_effect()
                     
             if admin_opt[Opts.selection.value] == Selections.change_mode_forward.value:
                 admin_opt[Opts.selection.value] = Selections.nothing.value
@@ -669,6 +673,9 @@ class Menu():
                     if (self.ns.settings['random_team_size'] < 2):
                         self.update_setting('random_team_size', 2)
                     Audio('audio/Menu/vox/{}/adminop_{}.wav'.format(self.ns.settings['menu_voice'],self.ns.settings['random_team_size'])).start_effect()
+                elif(self.admin_options[self.admin_control_option] == 'force_all_start'):
+                    self.update_setting('force_all_start', not self.ns.settings['force_all_start'] )
+                    Audio('audio/Menu/vox/{}/adminop_{}.wav'.format(self.ns.settings['menu_voice'],self.ns.settings['force_all_start'])).start_effect()
                 
             if admin_opt[Opts.selection.value] == Selections.change_mode_backward.value:
                 admin_opt[Opts.selection.value] = Selections.nothing.value
@@ -677,6 +684,9 @@ class Menu():
                     if (self.ns.settings['random_team_size'] < 2):
                         self.update_setting('random_team_size', RANDOM_TEAM_SIZES)
                     Audio('audio/Menu/vox/{}/adminop_{}.wav'.format(self.ns.settings['menu_voice'],self.ns.settings['random_team_size'])).start_effect()
+                elif(self.admin_options[self.admin_control_option] == 'force_all_start'):
+                    self.update_setting('force_all_start', not self.ns.settings['force_all_start'] )
+                    Audio('audio/Menu/vox/{}/adminop_{}.wav'.format(self.ns.settings['menu_voice'],self.ns.settings['force_all_start'])).start_effect()
                 
             #to play instructions or not
             if admin_opt[Opts.selection.value] == Selections.change_instructions.value:
@@ -756,6 +766,7 @@ class Menu():
             'random_teams': True,
             'color_lock': False,
             'random_team_size': 4,
+            'force_all_start':False,
             'color_lock_choices':{
                 2: ['Magenta','Green'],
                 3: ['Orange','Turquoise','Purple'],
@@ -908,8 +919,14 @@ class Menu():
     def start_game(self, random_mode=False):
         self.enable_bt_scanning(False)
         time.sleep(1)
-        self.teams = {serial: self.move_opts[serial][Opts.team.value] for serial in self.tracked_moves.keys() if self.out_moves[serial] == Alive.on.value}
-        game_moves = [move.get_serial() for move in self.moves if self.out_moves[move.get_serial()] == Alive.on.value and (self.move_opts[move.get_serial()])[Opts.random_start.value] == Alive.off.value  ]
+        if(not self.ns.settings['force_all_start']):
+            #start with only controllers that have pushed trigger
+            self.teams = {serial: self.move_opts[serial][Opts.team.value] for serial in self.tracked_moves.keys() if self.out_moves[serial] == Alive.on.value}
+            game_moves = [move.get_serial() for move in self.moves if self.out_moves[move.get_serial()] == Alive.on.value and (self.move_opts[move.get_serial()])[Opts.random_start.value] == Alive.off.value  ]
+        else:
+            #start with all controllers (even ones who have not pushed trigger)
+            self.teams = {serial: self.move_opts[serial][Opts.team.value] for serial in self.tracked_moves.keys() if self.out_moves[serial] == Alive.on.value}
+            game_moves = [move.get_serial() for move in self.moves if self.out_moves[move.get_serial()] == Alive.on.value]
         if len(game_moves) < self.game_mode.minimum_players and self.ns.settings['enforce_minimum']:
             Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/notenoughplayers.wav').start_effect()
             self.reset_controller_game_state()

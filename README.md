@@ -105,7 +105,7 @@ You can become an Admin by pressing all four front buttons on any controller, th
 * (Circle) Change sensitivity of the game. There are three settings, slow, medium, and fast, you will hear a corresponding sound for each
 * (Square) toggle the playback of instructions for each game
 * (Triangle) show battery level on all controllers (full charge is Green, 80% is Turquoise, 60% is Blue, 40% is Yellow, under 40% is Red)
-* The middle button can also be used to rotate through different options, then the start and select buttons can be used to increase and decrease that amount, currently this will allow you to change the amount of teams for random team mode.
+* The middle button can also be used to rotate through different options, then the start and select buttons can be used to increase and decrease that amount, currently this will allow you to change the amount of teams for random team mode, and whether force start works with everyone or just who pushed the trigger button.
 * Holding down the trigger button for two seconds in admin mode will force start the game with the current players.
 
 Web Interface

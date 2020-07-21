@@ -801,7 +801,7 @@ class Menu():
             temp_settings['color_lock_choices'] = temp_colors
 
         except:
-            pass
+            print("we found an exception when loading the settings!")
 
         #force these settings
         temp_settings.update({

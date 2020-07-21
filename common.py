@@ -191,4 +191,5 @@ REQUIRED_SETTINGS = [
 'random_teams',
 'menu_voice',
 'random_team_size',
+'force_all_start',
 ]

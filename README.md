@@ -27,7 +27,7 @@ Cool Stuffs!
 
 Hardware
 ---------------------------
-I am currently selling fully set up Joustmania devices (pi, case, bluetooth dongle, sd card) for $79 (or the $10 tier on [patreon](https://www.patreon.com/adangert)) with included shipping domestically. If you would like to inquire about purchasing a fully setup Joustmania device, please reach out to joustmaniagame@gmail.com
+I am currently selling fully set up Joustmania devices (pi, case, bluetooth dongle, sd card) for $100 (or the tiers on [patreon](https://www.patreon.com/adangert)) with included shipping domestically. If you would like to inquire about purchasing a fully setup Joustmania device, please reach out to joustmaniagame@gmail.com
 
 If you would like to build your own device you will need the following:
 

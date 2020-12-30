@@ -183,11 +183,12 @@ def audio_loop(fname, ratio, stop_proc):
 @functools.lru_cache(maxsize=128)
 class Audio:
     def __init__(self, fname):
-        segment = AudioSegment.from_file(fname)
-        buf = io.BytesIO()
-        segment.export(buf, 'wav')
-        buf.seek(0)
-        self.sample_ = pygame.mixer.Sound(file=buf)
+        #these are probably not necessary
+        #segment = AudioSegment.from_file(fname)
+        #buf = io.BytesIO()
+        #segment.export(buf, 'wav')
+        #buf.seek(0)
+        self.sample_ = pygame.mixer.Sound(file=fname)
         self.fname_ = fname
 
     #this will not work for files other than wav at the moment

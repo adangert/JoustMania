@@ -1,6 +1,7 @@
 from games import ffa, zombie, commander, swapper, tournament, speed_bomb, fight_club
 import common, colors, joust, webui, piparty
 #this should all be refactored to use the same options per game
+#this file is used for multiprocessing
 def main_track_move(menu, restart, move_serial, move_num, move_opts, force_color, battery, dead_count, game_mode, \
                     team, team_color_enum, controller_sensitivity, dead_move, music_speed, werewolf_reveal, show_team_colors, red_on_kill, zombie_opt,\
                     commander_intro, commander_move_opt, commander_powers, commander_overdrive,five_controller_opt, swapper_team_colors,\

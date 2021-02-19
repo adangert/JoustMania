@@ -23,7 +23,7 @@ setup() {
         bluez bluez-tools rfkill supervisor cmake ffmpeg \
         libudev-dev swig libbluetooth-dev \
         alsa-utils alsa-tools libasound2-dev libsdl2-mixer-2.0-0 \
-        python-dbus-dev libdbus-glib-1-dev espeak || exit -1
+        python-dbus-dev libdbus-glib-1-dev espeak libatlas-base-dev || exit -1
 
     #espeak "Installing PS move A.P.I. software updates"
     #install components for psmoveapi

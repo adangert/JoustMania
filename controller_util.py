@@ -5,6 +5,9 @@ import psmove
 import player
 import piparty
 import math
+import filterpy
+from filterpy.kalman import ExtendedKalmanFilter
+#https://thepoorengineer.com/en/ekf-impl/
 
 
 # Continually prints sensor readings from the first controller found.
@@ -20,6 +23,9 @@ def Normalize(v):
 
 async def Loop(plr):
     print("Acceleration                      Jerk                                       Gyro")
+    rk = ExtendedKalmanFilter(dim_x=3,dim_z=6)
+    rk.x = array([0,0,0])
+    # rk.F = 
     while True:
         for event in plr.get_events():
             if event.type != player.EventType.SENSOR:
@@ -32,6 +38,7 @@ async def Loop(plr):
                 FormatVec(event.gyroscope),
                 VecLen(event.gyroscope)), end='')
 
+        #this should be the minimum amount to capture packets
         await asyncio.sleep(1/30)
 
 

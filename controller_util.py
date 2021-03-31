@@ -8,7 +8,8 @@ import math
 import filterpy
 from filterpy.kalman import ExtendedKalmanFilter
 #https://thepoorengineer.com/en/ekf-impl/
-
+#https://github.com/rlabbe/Kalman-and-Bayesian-Filters-in-Python/blob/master/11-Extended-Kalman-Filters.ipynb
+#https://kusemanohar.info/2020/04/08/sensor-fusion-extended-kalman-filter-ekf/
 
 # Continually prints sensor readings from the first controller found.
 
@@ -22,10 +23,42 @@ def Normalize(v):
     return tuple([ e / m for e in v ])
 
 async def Loop(plr):
-    print("Acceleration                      Jerk                                       Gyro")
+    print("Acceleration   Jerk    Gyro")
+    dt = 0.05
     rk = ExtendedKalmanFilter(dim_x=3,dim_z=6)
+    #initial starting values
+    #we care about linear acceleration.
+    #orientation, acceleration, velocity?
+    #gyroscope, accelerometer
+    
     rk.x = array([0,0,0])
-    # rk.F = 
+    
+    #state transition matrix
+    rk.F = eye(3) + array([[0, 1, 0],
+                       [0, 0, 0],
+                       [0, 0, 0]]) * dt
+
+    range_std = 5. # meters
+    rk.R = np.diag([range_std**2])
+    rk.Q[0:2, 0:2] = Q_discrete_white_noise(2, dt=dt, var=0.1)
+    rk.Q[2,2] = 0.1
+    rk.P *= 50
+
+    xs, track = [], []
+    for i in range(int(20/dt)):
+        z = radar.get_range()
+        track.append((radar.pos, radar.vel, radar.alt))
+        
+        rk.update(array([z]), HJacobian_at, hx)
+        xs.append(rk.x)
+        rk.predict()
+
+    xs = asarray(xs)
+    track = asarray(track)
+    time = np.arange(0, len(xs)*dt, dt)
+    ekf_internal.plot_radar(xs, track, time)
+    
+    
     while True:
         for event in plr.get_events():
             if event.type != player.EventType.SENSOR:

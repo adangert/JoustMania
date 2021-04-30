@@ -9,6 +9,7 @@ import filterpy
 from filterpy.kalman import ExtendedKalmanFilter
 #https://thepoorengineer.com/en/ekf-impl/
 #https://github.com/rlabbe/Kalman-and-Bayesian-Filters-in-Python/blob/master/11-Extended-Kalman-Filters.ipynb
+#link 3
 #https://kusemanohar.info/2020/04/08/sensor-fusion-extended-kalman-filter-ekf/
 
 # Continually prints sensor readings from the first controller found.
@@ -31,9 +32,22 @@ async def Loop(plr):
     #orientation, acceleration, velocity?
     #gyroscope, accelerometer
     
-    rk.x = array([0,0,0])
+    #From Link3 we are going to use orientation, linear velocity, gyroscope bias, and accelerometer bias
+    #for the Joustmania game we don't care so much about position
+    
+    
+    rk.x = array([0,0,0,0])
     
     #state transition matrix
+    #again Link3
+    #This needs to be linearized likely with a program that can find the Jacobian
+    #x_dot = 
+    #[G(X_2)^(-1)(W_m-x_4-n_g),
+    #[g + R(x_2)(a_m-x_5-n_a)
+    #n_bg
+    #n_ba]
+    
+    #currently incorect, needs to be updated with maths
     rk.F = eye(3) + array([[0, 1, 0],
                        [0, 0, 0],
                        [0, 0, 0]]) * dt

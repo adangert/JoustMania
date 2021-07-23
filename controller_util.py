@@ -19,14 +19,14 @@ def FormatVec(v, places=5):
     return ', '.join([ fmt.format(e) for e in v ])
 def VecLen(v):
     return math.sqrt(sum([ e*e for e in v ]))
-def Normalize(v):
+def Normalize(v):n
     m = VecLen(v)
     return tuple([ e / m for e in v ])
 
 async def Loop(plr):
     print("Acceleration   Jerk    Gyro")
     dt = 0.05
-    rk = ExtendedKalmanFilter(dim_x=3,dim_z=6)
+    rk = ExtendedKalmanFilter(dim_x=12,dim_z=6)
     #initial starting values
     #we care about linear acceleration.
     #orientation, acceleration, velocity?
@@ -35,8 +35,8 @@ async def Loop(plr):
     #From Link3 we are going to use orientation, linear velocity, gyroscope bias, and accelerometer bias
     #for the Joustmania game we don't care so much about position
     
-    
-    rk.x = array([0,0,0,0])
+    #there is 4 states each with 3 variables,.
+    rk.x = array([0,0,0,0,0,0,0,0,0,0,0,0])
     
     #state transition matrix
     #again Link3
@@ -48,6 +48,11 @@ async def Loop(plr):
     #n_ba]
     
     #currently incorect, needs to be updated with maths
+    #we need dead reconing for the orientation first:
+    
+    #current orientation 
+    #look at github code next
+    
     rk.F = eye(3) + array([[0, 1, 0],
                        [0, 0, 0],
                        [0, 0, 0]]) * dt

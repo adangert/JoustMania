@@ -12,7 +12,23 @@ from filterpy.kalman import ExtendedKalmanFilter
 #link 3
 #https://kusemanohar.info/2020/04/08/sensor-fusion-extended-kalman-filter-ekf/
 
+#Check this one out:
+#https://github.com/mrsp/imu_ekf/blob/7fb544b99bfb2638e008517105e18a369bef5f18/src/imu_estimator.cpp
+#https://github.com/soarbear/imu_ekf/blob/master/imu_extended_kalman_filter.py
+
+#another good link:
+#https://nitinjsanket.github.io/tutorials/attitudeest/kf
+
+#we are trying to find the best process model of an IMU that contains linear acceleration
+#because that is the value we care most about and the one we want to track
+
 # Continually prints sensor readings from the first controller found.
+
+#notes 9/30/21
+#well if we have the orientation!! then we can just get the linear acceleration by subtraction of it.
+
+#so maybe we should just try the standard tutorials and then just do some regular estimation of linear accelration after we have
+#orientation and acceleration
 
 def FormatVec(v, places=5):
     fmt = '{:%d.2f}' % places
@@ -32,7 +48,7 @@ async def Loop(plr):
     #orientation, acceleration, velocity?
     #gyroscope, accelerometer
     
-    #From Link3 we are going to use orientation, linear velocity, gyroscope bias, and accelerometer bias
+    #From Link3 we are going to use orientation, linear acceleration, gyroscope bias, and accelerometer bias
     #for the Joustmania game we don't care so much about position
     
     #there is 4 states each with 3 variables,.
@@ -52,6 +68,9 @@ async def Loop(plr):
     
     #current orientation 
     #look at github code next
+    
+    #So the question is, how does orientation affect linear velocity??
+    
     
     rk.F = eye(3) + array([[0, 1, 0],
                        [0, 0, 0],

@@ -115,6 +115,9 @@ class Player:
         self.flush_events_()
 
     def flush_events_(self):
+        #why do we ever want to flush the events????
+        #it seems like this is wasted data?
+        
         while self.move_.poll(): pass
 
     def get_events(self) -> typing.Iterator[ControllerEvent]:

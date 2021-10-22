@@ -80,7 +80,7 @@ If pairing is not working for some reason, or you would like to resync all contr
 ```
 sudo -i
 cd /home/pi/JoustMania/
-./reset_bluetooth_connections.sh
+sudo ./reset_bluetooth_connections.sh
 ```
 
 If controllers seem to pair to only one Bluetooth adapter, it is likely that they share the same Mac address, refer to this issue: https://github.com/adangert/JoustMania/issues/172

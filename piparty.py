@@ -998,7 +998,7 @@ class Menu():
             swapper.Swapper(game_moves, self.command_queue, self.ns, self.joust_music, \
                             self.swapper_team_colors, self.dead_moves, self.music_speed, self.force_color, self.five_controller_opts, self.controller_teams, self.restart)
         elif self.game_mode == common.Games.FightClub:
-            if random.randint(0,1)==1:
+            if random.random() > 0.2:
                 fight_music = self.commander_music
             else:
                 fight_music = self.joust_music

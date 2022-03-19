@@ -42,7 +42,7 @@ The class 1 adapters allow bluetooth connections up to 300+ feet and allow for t
 
 Optional:
 
-* USB hub for charging controllers (http://a.co/7T3HDmJ)
+* USB hub for charging controllers(https://www.amazon.com/gp/product/B00HL7Z46K) (http://a.co/7T3HDmJ)
 
 This will allow you to charge 9 controllers at once through the pi
 

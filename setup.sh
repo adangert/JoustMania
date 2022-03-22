@@ -53,8 +53,12 @@ setup() {
     espeak "downloading PS move API"
     #install psmoveapi (currently adangert's for opencv 3 support)
     rm -rf psmoveapi
-    git clone --recursive git://github.com/thp/psmoveapi.git
+    git clone https://github.com/thp/psmoveapi.git
     cd psmoveapi
+    sed -i 's/git:/https:/' .gitmodules
+    git submodule sync --recursive
+    git submodule update --init --recursive
+
 
     espeak "compiling PS move API components"
     mkdir build

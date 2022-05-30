@@ -775,8 +775,10 @@ class Menu():
         })
         try:
             #if anything fails during the settings file load, ignore file and stick with defaults
+            print("loading settings")
             with open(common.SETTINGSFILE,'r') as yaml_file:
-                file_settings = yaml.load(yaml_file)
+                file_settings = yaml.safe_load(yaml_file)
+            print(file_settings)
 
             temp_colors = file_settings['color_lock_choices']
             for key in temp_colors.keys():
@@ -800,8 +802,9 @@ class Menu():
             temp_settings.update(file_settings)
             temp_settings['color_lock_choices'] = temp_colors
 
-        except:
+        except Exception as e:
             print("we found an exception when loading the settings!")
+            print(e)
 
         #force these settings
         temp_settings.update({

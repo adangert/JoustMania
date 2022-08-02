@@ -48,7 +48,7 @@ setup() {
     /usr/bin/python3 -m virtualenv --system-site-packages $VENV || exit -1
     PYTHON=$VENV/bin/python3
     espeak "installing virtual environment dependencies"
-    $PYTHON -m pip install --ignore-installed filterpy psutil flask Flask-WTF pyalsaaudio pydub pygame pyaudio pyyaml dbus-python || exit -1
+    $PYTHON -m pip install --ignore-installed psutil flask Flask-WTF pyalsaaudio pydub pygame pyaudio pyyaml dbus-python || exit -1
 
     espeak "downloading PS move API"
     #install psmoveapi (currently adangert's for opencv 3 support)

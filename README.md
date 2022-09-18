@@ -27,7 +27,7 @@ Cool Stuffs!
 
 Hardware
 ---------------------------
-I am currently selling fully set up Joustmania devices (pi 4gb model, case, bluetooth dongle, sd card) for $140 (or the tiers on [patreon](https://www.patreon.com/adangert)) with included shipping domestically. If you would like to inquire about purchasing a fully setup Joustmania device, please reach out to joustmaniagame@gmail.com
+I am currently selling fully set up Joustmania devices (pi 4gb model, case, bluetooth dongle, sd card) for $200 with included shipping domestically. If you would like to inquire about purchasing a fully setup Joustmania device, please reach out to joustmaniagame@gmail.com
 
 If you would like to build your own device you will need the following:
 
@@ -78,7 +78,7 @@ Pairing controllers
 
 If pairing is not working for some reason, or you would like to resync all controllers run the following
 ```
-cd /home/pi/JoustMania/
+cd JoustMania
 sudo ./reset_bluetooth_connections.sh
 ```
 

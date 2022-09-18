@@ -1,4 +1,4 @@
-#!/home/pi/JoustMania/venv/bin/python3.6
+
 import asyncio
 import sys
 

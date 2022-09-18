@@ -3,6 +3,7 @@ import subprocess
 from piaudio import Audio, InitAudio
 import time
 import shlex
+import os
 
 if __name__ == "__main__":
     InitAudio()
@@ -24,13 +25,13 @@ def run_command(command):
 
 def big_update(voice):
     Audio('audio/Menu/vox/' + voice + '/update_started.wav').start_effect_and_wait()
-    current_hash = run_command("sudo runuser -l pi -c 'cd /home/pi/JoustMania/;git rev-parse HEAD'").strip()
-    run_command("sudo runuser -l pi -c 'cd /home/pi/JoustMania/;git checkout master'")
-    run_command("sudo runuser -l pi -c 'cd /home/pi/JoustMania/;git pull'")
-    run_command("sudo /home/pi/JoustMania/setup.sh")
+    current_hash = run_command("sudo runuser -l pi -c 'cd {};git rev-parse HEAD'".format(os.getcwd())).strip()
+    run_command("sudo runuser -l pi -c 'cd {};git checkout master'".format(os.getcwd()))
+    run_command("sudo runuser -l pi -c 'cd {};git pull'".format(os.getcwd()))
+    run_command("sudo /home/{}/JoustMania/setup.sh".format(os.getlogin()))
     #it failed if it got this far
     time.sleep(3)
-    run_command("sudo runuser -l pi -c 'cd /home/pi/JoustMania/;git checkout {}'".format(current_hash))
+    run_command("sudo runuser -l pi -c 'cd {};git checkout {}'".format(os.getcwd(),current_hash))
     Audio('audio/Menu/vox/' + voice + '/joustmania_failed.wav').start_effect_and_wait()
     
 def tester():
@@ -38,9 +39,14 @@ def tester():
     print(current_hash)
 
 def check_for_update(voice):
-    process = run_command("sudo runuser -l pi -c 'cd /home/pi/JoustMania/;pwd'")
-    process = run_command("sudo runuser -l pi -c 'cd /home/pi/JoustMania/;git fetch'")
-    diff_files = run_command("sudo runuser -l pi -c 'cd /home/pi/JoustMania/;git diff origin/master --name-only --cached'").split()
+    print("checking out login@@@@@@@@@@@@@@@@@@@")
+    print(os.getcwd())
+    print(os.path.expanduser('~'))
+    print(os.environ.get("USERNAME"))
+    #print(os.getlogin())
+    process = run_command("sudo runuser -l pi -c 'cd {};pwd'".format(os.getcwd()))
+    process = run_command("sudo runuser -l pi -c 'cd {};git fetch'".format(os.getcwd()))
+    diff_files = run_command("sudo runuser -l pi -c 'cd {};git diff origin/master --name-only --cached'".format(os.getcwd())).split()
     print(diff_files)
 
 
@@ -50,7 +56,7 @@ def check_for_update(voice):
 
     elif (len(diff_files) >= 1):
         print("doing small pull")
-        pull = run_command("sudo runuser -l pi -c 'cd /home/pi/JoustMania/;git pull'")
+        pull = run_command("sudo runuser -l pi -c 'cd {};git pull'".format(os.getcwd()))
         Audio('audio/Menu/vox/' + voice + '/joustmania_updated.wav').start_effect_and_wait()
         return False
 

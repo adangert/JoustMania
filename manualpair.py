@@ -1,7 +1,8 @@
 import sys
 import os
 import time
-sys.path.insert(0, '/home/pi/psmoveapi/build/')
+add_dir = '{}/../psmoveapi/build/'.format(os.getcwd())
+sys.path.insert(0, add_dir)
 import psmove
 import pair
 

@@ -5,6 +5,10 @@ if [ $UID -ne 0 ]; then
   exec sudo $0
 fi
 
-export HOME="/home/pi/JoustMania"
-export PYTHONPATH="/home/pi/psmoveapi/build/"
-exec /home/pi/JoustMania/venv/bin/python3 /home/pi/JoustMania/piparty.py
+#sets the username of the system, supervisord does not have a login
+#so we need to use the who command. 
+HOMENAME=`who | head -n1 | cut -d " " -f1`
+
+export HOME="/home/$HOMENAME/JoustMania"
+export PYTHONPATH="/home/$HOMENAME/psmoveapi/build/"
+exec /home/$HOMENAME/JoustMania/venv/bin/python3 /home/$HOMENAME/JoustMania/piparty.py

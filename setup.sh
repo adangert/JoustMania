@@ -3,12 +3,15 @@
 setup() {
     # Prevent apt from prompting us about restarting services.
     export DEBIAN_FRONTEND=noninteractive
+    HOMENAME=`logname`
+    HOMEDIR=/home/$HOMENAME
+    cd $HOMEDIR
     sudo apt-get install -y espeak
-    
+
     espeak "starting software upgrade"
     sudo apt-get update -y || exit -1
     sudo apt-get upgrade -y || exit -1
-    cd /home/pi
+
     espeak "Installing required software dependencies"
     #TODO: remove pyaudio and dependencies
     #install components
@@ -33,7 +36,7 @@ setup() {
         libusb-dev || exit -1
 
     espeak "Installing software libraries"
-    VENV=/home/pi/JoustMania/venv
+    VENV=$HOMEDIR/JoustMania/venv
     # We install nearly all python deps in the virtualenv to avoid concflicts with system, except
     # numpy and scipy because they take forever to build.
     sudo apt-get install -y libasound2-dev libasound2 python3-scipy cmake || exit -1
@@ -70,9 +73,14 @@ setup() {
         -DPSMOVE_BUILD_TRACKER:BOOL=OFF \
         -DPSMOVE_USE_PSEYE:BOOL=OFF
     make -j4
-
+    
+    #change the supervisord directory to our own homename
+    #this replaces pi default username in joust.conf,
+    sed -i -e "s/pi/$HOMENAME/g" $HOMEDIR/JoustMania/conf/supervisor/conf.d/joust.conf
+    
+    
     #installs custom supervisor script for running joustmania on startup
-    sudo cp -r /home/pi/JoustMania/conf/supervisor/ /etc/
+    sudo cp -r $HOMEDIR/JoustMania/conf/supervisor/ /etc/
     
     #Use amixer to set sound output to 100%
     amixer sset PCM,0 100%
@@ -86,10 +94,10 @@ setup() {
         sudo systemctl disable hciuart || exit -1
     fi
 
-    uname2="$(stat --format '%U' '/home/pi/JoustMania/setup.sh')"
-    uname3="$(stat --format '%U' '/home/pi/JoustMania/piparty.py')"
+    uname2="$(stat --format '%U' $HOMEDIR'/JoustMania/setup.sh')"
+    uname3="$(stat --format '%U' $HOMEDIR'/JoustMania/piparty.py')"
     if [ "${uname2}" = "root" ] || [ "${uname3}" = "root" ] ; then
-        sudo chown -R pi:pi /home/pi/JoustMania/
+        sudo chown -R $HOMENAME:$HOMENAME $HOMEDIR/JoustMania/
         espeak "permisions updated, please wait after reboot for Joustmania to start"
     else
         echo "no permissions to update"

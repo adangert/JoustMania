@@ -1,3 +1,7 @@
+
+#joustmania specific files
+conf/supervisor/conf.d/joust.conf
+
 .python_history
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -23,6 +27,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+.local
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

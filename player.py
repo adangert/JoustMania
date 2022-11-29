@@ -68,6 +68,7 @@ class ButtonUpEvent(ControllerEvent):
 class ControllerState:
     """The state of inputs on a controller at one point in time."""
     def __init__(self, move):
+        self.our_buttons = move.get_buttons()
         self.buttons = common.Button(move.get_buttons())
         self.trigger = move.get_trigger()
         self.acceleration = tuple(move.get_accelerometer_frame(psmove.Frame_SecondHalf))

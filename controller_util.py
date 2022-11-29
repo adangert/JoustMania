@@ -3,13 +3,12 @@ import psmove
 import player
 import piparty
 import math
-import filterpy
+#import filterpy
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import numpy as np
 from itertools import count
 import random
-
 import multiprocessing
 import matplotlib.animation as animation
 from multiprocessing import Process
@@ -174,7 +173,6 @@ async def Loop(plr,q):
     # plt.pause(0.001)
     while True:
         
-        
         for event in plr.get_events():
             if event.type != player.EventType.SENSOR:
                 continue
@@ -207,32 +205,32 @@ async def Loop(plr,q):
 
 def runGraph(q):
     # Parameters
-    print('show')
+    # print('show')
     x_len = 200         # Number of points to display
     y_range = [-10, 10]  # Range of possible Y values to display
 
     # Create figure for plotting
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
+    fig, axs = plt.subplots(2)
+    # fig = plt.figure()
+    # ax = fig.add_subplot(1, 1, 1)
     xs = list(range(0, 200))
     ys = [0] * x_len
-    ax.set_ylim(y_range)
+    axs[0].set_ylim(y_range)
 
     # Create a blank line. We will update the line in animate
-    line, = ax.plot(xs, ys)
+    line, = axs[0].plot(xs, ys)
 
     # Add labels
-    plt.title('TMP102 Temperature over Time')
-    plt.xlabel('Samples')
-    plt.ylabel('Temperature (deg C)')
+    axs[0].set_title('Acceleration Magnitude')
+    # plt.xlabel('Samples')
+    # plt.ylabel('Temperature (deg C)')
 
     # This function is called periodically from FuncAnimation
     def animate(i, ys):
         while not q.empty():
             temp_c = q.get()
             # print(q.get())
-            # Read temperature (Celsius) from TMP102
-        # temp_c = np.random.random(1)*40
+            # temp_c = np.random.random(1)*40
 
             # Add y to list
             ys.append(temp_c)
@@ -259,23 +257,24 @@ def runGraph(q):
 
 def MainProgram():
      while 1:
-         # print('Main program')
+         print('Main program')
          time.sleep(0.5)
 
 
 def Main():
+    print("starting main")
     q = multiprocessing.Queue()
     p = Process(target=runGraph, args=(q,))
     p.start()
     # MainProgram()
-    
     # piparty.Menu.enable_bt_scanning()
     
-    move = psmove.PSMove(0)
+    move = psmove.PSMove()
     # move.enable_orientation(True)
     p1 = player.Player(move)
     asyncio.get_event_loop().run_until_complete(Loop(p1,q))
     p.join()
 
 if __name__ == '__main__':
+    #print("hello this is the main program")
     Main()

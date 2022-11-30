@@ -123,56 +123,9 @@ async def Loop(plr,q):
     #we should first get the gyro and accelerometer data and plot it
     #so we can see how noisy it is 
 
-    # plt.pause(0.0001)
-    
-    # size=100
-    # line1 = []
-    # x_vec = np.linspace(0,1,size+1)[0:-1]
-    # y1_data = np.random.randn(len(x_vec))
-    # print(x_vec)
-    # print(y1_data)
-    # if line1==[]:
-        
-        # # this is the call to matplotlib that allows dynamic plotting
-        # plt.ion()
-        # fig = plt.figure(figsize=(13,6))
-        # # ax = fig.add_subplot(111)
-        # # create a variable for the line so we can later update it
-             
-        # #update plot label/title
-        # plt.ylabel('Y Label')
-        # plt.title('Title: {}'.format("acceleration"))
-        # x = np.arange(0, 2*np.pi, 0.01)
-        # ax = plt.axes(xlim=(0, 100), ylim=(-1, 1))
-        # Color = [ 1 ,0.498039, 0.313725];
-        # # line, = ax.plot([], [], '*',color = Color)
-        # # line1, = ax.plot(x_vec,y1_data,'-o',alpha=0.8) 
-        # x = np.arange(0, 2*np.pi, 0.01)
-        # line, = ax.plot(x, np.sin(x))
-    
-    # # y1_data = []
-    # def update_function(i):
-        # print("UPDATING")
-        # # line.set_data(y1_data)
-        # # return line
-        # # x = np.linspace(0, i+1, i+1)
-        # # ts = 5*np.cos(x * 0.02 * np.pi) * np.sin(np.cos(x)  * 0.02 * np.pi)
-        # # line.set_data(x, ts)
-        # line.set_ydata(np.sin(x + i/10.0)) 
-        # return line,
-        
-    # def init():
-        # print("INITIALIZING")
-        # line.set_ydata(np.ma.array(x, mask=True))
-        # # line.set_data([], [])
-        # print("ok now")
-        # return line,
-    # ani = FuncAnimation(fig, update_function,  init_func=init, repeat=False, interval=200,  blit=True)
-    # # plt.pause(0.0001)
-    # # plt.show()
-    # plt.pause(0.001)
+
     while True:
-        
+        #we could try just changing this to the change in jerk over time (smoothed out?)
         for event in plr.get_events():
             if event.type != player.EventType.SENSOR:
                 continue
@@ -184,7 +137,14 @@ async def Loop(plr,q):
                 event.jerk_magnitude,
                 FormatVec(event.gyroscope),
                 VecLen(event.gyroscope)), end='')
-            q.put(float(event.acceleration_magnitude))
+            disp_tup = ( float(event.acceleration_magnitude), event.acceleration[0], event.acceleration[1], event.acceleration[2],
+                VecLen(event.gyroscope), event.gyroscope[0], event.gyroscope[1], event.gyroscope[2],
+                event.jerk_magnitude, event.jerk[0],event.jerk[1],event.jerk[2])
+            q.put(disp_tup)
+            # q.put(float(event.acceleration_magnitude))
+            
+            
+            
             # y1_data  = np.delete(y1_data, [0])
             # y1_data = np.append(y1_data,[float(event.acceleration_magnitude)])
             # # y1_data.pop(0)
@@ -205,60 +165,84 @@ async def Loop(plr,q):
 
 def runGraph(q):
     # Parameters
-    # print('show')
-    x_len = 200         # Number of points to display
-    y_range = [-10, 10]  # Range of possible Y values to display
+    x_len = 100         # Number of points to display
+    y_range = [-0.05, 0.05]  # Range of possible Y values to display
 
     # Create figure for plotting
-    fig, axs = plt.subplots(2)
+    n_rows = 4
+    n_cols = 4
+    num_plots = n_rows * n_cols
+    fig, axs = plt.subplots(n_rows,n_cols)
     # fig = plt.figure()
     # ax = fig.add_subplot(1, 1, 1)
-    xs = list(range(0, 200))
-    ys = [0] * x_len
-    axs[0].set_ylim(y_range)
+    xs = list(range(0, x_len))
+    mag_ys = [0] * x_len
+    
+    # acc_x_xs = list(range(0, x_len))
+    acc_x_ys = [0] * x_len
+    
+    plots_ys = [[0]* x_len for x in range(num_plots)]
+    
+    plots = []
+    for x in range(n_rows):
+        for y in range(n_cols):
+            axs[y,x].set_ylim(y_range)
+            plots.append(axs[y,x].plot(xs, plots_ys[y+(x*n_rows)])[0])
 
-    # Create a blank line. We will update the line in animate
-    line, = axs[0].plot(xs, ys)
+
+
+    # plots.append(axs[0,0].plot(xs, plots_ys[0])[0])
+    # plots.append(axs[1,0].plot(xs, plots_ys[1])[0])
+    # plots.append(axs[2,0].plot(xs, plots_ys[2])[0])
+    # plots.append(axs[3,0].plot(xs, plots_ys[3])[0])
 
     # Add labels
-    axs[0].set_title('Acceleration Magnitude')
+    # axs[0,0].set_title('Acceleration Magnitude')
+    # axs[0,1].set_title('Acceleration x')
+    # axs[0,2].set_title('Acceleration y')
+    # axs[0,3].set_title('Acceleration z')
     # plt.xlabel('Samples')
     # plt.ylabel('Temperature (deg C)')
 
     # This function is called periodically from FuncAnimation
-    def animate(i, ys):
+    def animate(i):
+        nonlocal mag_ys, acc_x_ys, plots, plots_ys
         while not q.empty():
-            temp_c = q.get()
-            # print(q.get())
-            # temp_c = np.random.random(1)*40
+            q_val = q.get()
+            
+            for j, plt in enumerate(plots):
+                if(j < len(q_val)):
+                    q_val_info = q_val[j]
+                    plots_ys[j].append(q_val_info)
+                    plots_ys[j] = plots_ys[j][-x_len:]
+                    plots[j].set_ydata(plots_ys[j])
+                
+            
+            # q_mag = q_val[0]
+            # q_acc_x = q_val[1]
 
-            # Add y to list
-            ys.append(temp_c)
+            # # Add y to list
+            # mag_ys.append(q_mag)
+            # acc_x_ys.append(q_acc_x)
 
-            # Limit y list to set number of items
-            ys = ys[-x_len:]
+            # # Limit y list to set number of items
+            # mag_ys = mag_ys[-x_len:]
+            # acc_x_ys = acc_x_ys[-x_len:]
 
-        # Update line with new Y values
-            line.set_ydata(ys)
+            # # Update line with new Y values
+            # mag.set_ydata(mag_ys)
+            # acc_x.set_ydata(acc_x_ys)
 
-        return line,
+        return plots
 
 
     # Set up plot to call animate() function periodically
 
     ani = animation.FuncAnimation(fig,
         animate,
-        fargs=(ys,),
         interval=20,
         blit=True)
     plt.show()
-
-
-
-def MainProgram():
-     while 1:
-         print('Main program')
-         time.sleep(0.5)
 
 
 def Main():
@@ -266,10 +250,9 @@ def Main():
     q = multiprocessing.Queue()
     p = Process(target=runGraph, args=(q,))
     p.start()
-    # MainProgram()
     # piparty.Menu.enable_bt_scanning()
     
-    move = psmove.PSMove()
+    move = psmove.PSMove(0)
     # move.enable_orientation(True)
     p1 = player.Player(move)
     asyncio.get_event_loop().run_until_complete(Loop(p1,q))

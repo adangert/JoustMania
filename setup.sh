@@ -58,7 +58,7 @@ setup() {
     rm -rf psmoveapi
     git clone --recursive https://github.com/thp/psmoveapi.git 
     cd psmoveapi
-
+    git checkout 8a1f8d035e9c82c5c134d848d9fbb4dd37a34b58
 
     espeak "compiling PS move API components"
     mkdir build

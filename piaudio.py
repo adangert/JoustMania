@@ -20,7 +20,6 @@ import threading
 from pydub import AudioSegment
 from multiprocessing import Process, Value, Array, Queue, Manager
 
-
 import common
 
 def win_audio_loop(fname,ratio,stop_proc):
@@ -88,6 +87,8 @@ def win_audio_loop(fname,ratio,stop_proc):
             # #close PyAudio
             # p.terminate()
 
+
+
 def audio_loop(fname, ratio, stop_proc):
     # TODO: As a future improvment, we could precompute resampled versions of the track
     # at the "steady" playback rates, and only do dynamic resampling when transitioning
@@ -122,17 +123,13 @@ def audio_loop(fname, ratio, stop_proc):
                 song_loaded = True
                 continue
             elif(stop_proc.value == 0):
-                device = alsaaudio.PCM()
                 wf = wave.open(io.BytesIO(wav_data), 'rb')
-                device.setchannels(wf.getnchannels())
-
-                device.setformat(alsaaudio.PCM_FORMAT_S16_LE)
-                device.setperiodsize(PERIOD)
-
                 if len(wf.readframes(1)) == 0:
                     raise ValueError("Empty WAV file played.")
                 wf.rewind()
-                device.setrate(wf.getframerate())
+                
+                device = alsaaudio.PCM(channels=wf.getnchannels(), rate=wf.getframerate(), \
+                    format=alsaaudio.PCM_FORMAT_S16_LE, periodsize=PERIOD, device='default')
 
                 # Loops samples of up to read_size bytes from the wav file.
                 def ReadSamples(wf, read_size):
@@ -151,7 +148,11 @@ def audio_loop(fname, ratio, stop_proc):
                     for sample in samples:
                         buf.extend(sample)
                         while len(buf) >= write_size:
-                            device.write(buf[:write_size])
+                            try:
+                                device.write(buf[:write_size])
+                            except alsaaudio.ALSAAudioError as e:
+                                print("Error writing to ALSA device: {}".format(e))
+                                break
                             del buf[:write_size]
                         if stop_proc.value:
                             return
@@ -174,7 +175,7 @@ def audio_loop(fname, ratio, stop_proc):
 
                         out_data = final.flatten().astype(numpy.int16).tostring()
                         yield out_data
-
+                     
                 WriteSamples(device, PERIOD_BYTES, Resample(ReadSamples(wf, PERIOD)))
                 wf.close()
                 device.close()

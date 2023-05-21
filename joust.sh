@@ -9,6 +9,6 @@ fi
 #so we need to use the who command. 
 HOMENAME=`who | head -n1 | cut -d " " -f1`
 
-export HOME="/home/$HOMENAME/JoustMania"
+export HOME="/root"
 export PYTHONPATH="/home/$HOMENAME/psmoveapi/build/"
 exec /home/$HOMENAME/JoustMania/venv/bin/python3 /home/$HOMENAME/JoustMania/piparty.py

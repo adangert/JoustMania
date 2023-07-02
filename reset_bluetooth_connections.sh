@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 
-python clear_devices.py
+python3 clear_devices.py
 sudo reboot

@@ -117,7 +117,7 @@ class WebUI():
 
     def shutdown_proc(self):
         sleep(2)
-        system('shutdown now')
+        system("supervisorctl stop joustmania ; shutdown -H now ; kill $(ps aux | grep 'piparty' | awk '{print $2}')")
 
     #@app.route('/shutdown_lastscreen')
     def shutdown_lastscreen(self):
@@ -130,7 +130,7 @@ class WebUI():
 
     def reboot_proc(self):
         sleep(2)
-        system('reboot now')
+        system("supervisorctl stop joustmania ; reboot now ; kill $(ps aux | grep 'piparty' | awk '{print $2}')")
         
 
     #@app.route('/settings')

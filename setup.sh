@@ -97,6 +97,10 @@ setup() {
         sudo systemctl disable hciuart || exit -1
     fi
 
+    # Disable SAP (SIM Access Profile), as it is unavailable on debian
+    # https://unix.stackexchange.com/questions/705326/debian-11-bluetooth-sap-driver-initialization-failed
+    sed -i -e "s;^ExecStart=/usr/libexec/bluetooth/bluetoothd$;ExecStart=/usr/libexec/bluetooth/bluetoothd --noplugin=sap;" /etc/systemd/system/bluetooth.target.wants/bluetooth.service
+
     uname2="$(stat --format '%U' $HOMEDIR'/JoustMania/setup.sh')"
     uname3="$(stat --format '%U' $HOMEDIR'/JoustMania/piparty.py')"
     if [ "${uname2}" = "root" ] || [ "${uname3}" = "root" ] ; then

@@ -21,6 +21,7 @@ Cool Stuffs!
 * 18+ Player support
 * Super easy setup
 * Runs in Headless mode, no screen required
+* Audio is output directly through the headphone jack, no audio device/usb plugin is necessary.
 * Optional web interface, view status and change game settings with your phone
 * Custom music support, play with your own music
 * Convention mode, no manual instructions needed, the game plays itself and switches between game modes

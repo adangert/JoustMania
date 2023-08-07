@@ -22,4 +22,11 @@
 [asonix](https://github.com/asonix)
 * changed pair to use DBus instead of poking at /var/lib/bluetooth and hci{config,tool} as root
 
+[DrDecagon](https://github.com/DrDecagon)
+* Helped out with some bug fixes, and is working on a version of joustmania on [le potato](https://libre.computer/products/aml-s905x-cc/)
+
+[NetSpida](https://github.com/NetSpida)
+* Helping out with some bug fixes!
+
+
 Thanks for all the help in making Joustmania an awesome game!!

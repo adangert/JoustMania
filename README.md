@@ -96,7 +96,7 @@ How to start a game
 * When a player presses the trigger button their controller will turn white
 * Once all controllers are white the game will begin!
 
-Admin Mode (Sensitivity and convention mode settings)
+Admin Mode: Joustmania settings
 ---------------------------------
 You can become an Admin by pressing all four front buttons on any controller, this will allow you to modify the games settings from the four front buttons on the controller, After a game is played the Admin mode will be reset
 
@@ -106,6 +106,8 @@ You can become an Admin by pressing all four front buttons on any controller, th
 * (Triangle) show battery level on all controllers (full charge is Green, 80% is Turquoise, 60% is Blue, 40% is Yellow, under 40% is Red)
 * The middle button can also be used to rotate through different options, then the start and select buttons can be used to increase and decrease that amount, currently this will allow you to change the amount of teams for random team mode, and whether force start works with every controller or only players who pushed the trigger button.
 * Holding down the trigger button for two seconds in admin mode will force start the game.
+
+For further settings such as turning off audio (play_audio) or changing the colors of controllers please edit the joustsettings.yaml file in the Joustmania folder.
 
 Web Interface
 ---------------------------------

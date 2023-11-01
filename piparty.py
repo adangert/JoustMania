@@ -30,6 +30,9 @@ class Opts(Enum):
     team = 3
     game_mode = 4
     random_start = 5
+    charging = 6
+
+
 
 class Alive(Enum):
     on = 0
@@ -74,7 +77,13 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
         if move.poll():
             game_mode = common.Games(move_opts[Opts.game_mode.value])
             move_button = common.Button(move.get_buttons())
+            battery_level = move.get_battery()
+            if battery_level == psmove.Batt_CHARGING or battery_level == psmove.Batt_CHARGING_DONE:
+                move_opts[Opts.charging.value] = True
+            else:
+                move_opts[Opts.charging.value] =  False
             if move_opts[Opts.alive.value] == Alive.off.value:
+                move.set_leds(*colors.Colors.Black.value)
                 if move_button == common.Button.SYNC:
                     move_opts[Opts.alive.value] = Alive.on.value
                     dead_count.value = dead_count.value - 1
@@ -88,6 +97,8 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
                     move_opts[Opts.selection.value] = Selections.update.value
                     move_opts[Opts.holding.value] = Holding.holding.value
 
+                    
+
                 #show battery level
                 if battery.value == 1:
                     battery_level = move.get_battery()
@@ -98,6 +109,7 @@ def track_move(serial, move_num, move, move_opts, force_color, battery, dead_cou
 
                     elif battery_level == psmove.Batt_CHARGING_DONE:
                         move.set_leds(*colors.Colors.White.value)
+                        
 
                     elif battery_level == psmove.Batt_MAX:
                         move.set_leds(*colors.Colors.Green.value)
@@ -377,13 +389,14 @@ class Menu():
                     move.set_leds(255,255,255)
                     move.update_leds()
                     self.paired_moves.append(move_serial)
-                    self.pair_one_move = False
+                    #self.pair_one_move = False
 
     def pair_move(self, move, move_num):
         move_serial = move.get_serial()
         if move_serial not in self.tracked_moves:
             color = Array('i', [0] * 3)
-            opts = Array('i', [0] * 6)
+            #TODO: this probably should be tracked above
+            opts = Array('i', [0] * len(Opts))
 
             if move_serial in self.teams:
                 opts[Opts.team.value] = self.teams[move_serial]
@@ -442,6 +455,9 @@ class Menu():
 
 
     def remove_controller(self, move_serial):
+            if (move_serial not in self.kill_controller_proc):
+                #already removed the controller (could have been plugged in)
+                return
             self.kill_controller_proc[move_serial].value = True
             self.tracked_moves[move_serial].join()
             self.tracked_moves[move_serial].terminate()
@@ -460,6 +476,7 @@ class Menu():
             del self.was_faked[move_serial]
             del self.rumble[move_serial]
             del self.kill_controller_proc[move_serial]
+            del self.out_moves[move_serial]
 
     def game_mode_announcement(self):
         if self.game_mode == common.Games.JoustFFA:
@@ -577,6 +594,20 @@ class Menu():
                 if self.big_update:
                     update.big_update(self.ns.settings['menu_voice'])
                     self.big_update = False
+    
+    #This checks if there is a charging controller
+    #if it is, then disconnect the controller
+    def check_charging_controller(self):
+        for serial, move_opt in self.move_opts.items():
+            if move_opt[Opts.charging.value] == True:
+                self.out_moves[serial] = Alive.off.value
+                move_opt[Opts.alive.value] = Alive.off.value
+            else:
+                self.out_moves[serial] = Alive.on.value
+                move_opt[Opts.alive.value] = Alive.on.value
+                
+                    
+
 
     def game_loop(self):
         self.play_menu_music = True
@@ -628,6 +659,7 @@ class Menu():
                     self.check_admin_controls()
                     self.check_start_game()
                     self.check_update()
+                    self.check_charging_controller()
                 self.check_command_queue()
                 self.update_status('menu')
 

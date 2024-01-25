@@ -7,6 +7,10 @@ from os import system
 import common, colors
 import json
 import yaml
+import logging
+
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
 
 class MultiCheckboxField(SelectMultipleField):
     """

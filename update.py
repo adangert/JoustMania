@@ -51,7 +51,8 @@ def check_for_update(voice):
     #print(os.getlogin())
     process = run_command("sudo runuser -l {} -c 'cd {};pwd'".format(homename,os.getcwd()))
     process = run_command("sudo runuser -l {} -c 'cd {};git fetch'".format(homename,os.getcwd()))
-    diff_files = run_command("sudo runuser -l {} -c 'cd {};git diff origin/master --name-only --cached'".format(homename,os.getcwd())).split()
+    diff_files = run_command("sudo runuser -l {} -c 'cd {};git diff origin/debugging-error --name-only --cached'".format(homename,os.getcwd())).split()
+    # TODO - Replace with this: diff_files = run_command("sudo runuser -l {} -c 'cd {};git diff origin/master --name-only --cached'".format(homename,os.getcwd())).split()
     print(diff_files)
 
 

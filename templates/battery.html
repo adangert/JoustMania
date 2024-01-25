@@ -24,7 +24,8 @@ Note: Does not update during games.<br/><br/>
 <table><tr><td>MAC Address</td><td>Battery</td><td>Active</td></tr>
 {% for move in ns.battery_status %}
 <tr><td>{{move}}</td><td class="batt{{ns.battery_status[move]}}">{{levels[ns.battery_status[move]]}}</td>
-<td class="act{{ns.out_moves[move]}}">{% if ns.out_moves[move] %}No{% else %}Yes{% endif %}</td></tr>
+<td class="act{{ns.out_moves[move]}}">{% if ns.out_moves[move] == 0%}Yes{% else %}No{% endif %}</td></tr>
+
 {% endfor %}
 </table>
 <br/>

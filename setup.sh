@@ -42,9 +42,10 @@ setup() {
     sudo apt-get install -y libasound2-dev libasound2 python3-scipy cmake || exit -1
 
     #install the python3 dev environment
+    echo "about to install python3-dev and virtualenv"
     sudo apt-get install -y python3-dev || exit -1
-    sudo python3 -m pip install --upgrade virtualenv || exit -1
-
+    sudo apt-get install -y python3-virtualenv || exit -1
+    
     espeak "installing virtual environment"
     # Rebuilding this is pretty cheap, so just do it every time.
     rm -rf $VENV
@@ -84,6 +85,12 @@ setup() {
     
     #installs custom supervisor script for running joustmania on startup
     sudo cp -r $HOMEDIR/JoustMania/conf/supervisor/ /etc/
+    
+    #adds asound.conf to /etc/ This is important for audio to play
+    #out of the headphone jack, sudo aplay <wav file> does weird things
+    #and setting it to device 2 (headphones) (hw:2,0) seems to allow multiple streams to
+    #play at the same time, more testing will be needed.
+    sudo cp $HOMEDIR/JoustMania/conf/asound.conf /etc/
     
     #Use amixer to set sound output to 100%
     amixer sset PCM,0 100%

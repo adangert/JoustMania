@@ -123,11 +123,11 @@ class Joust(Game):
                     if self.teams[arr[1]] != -1:
                         logger.debug("Switching {} to team {}".format(arr[0], self.teams[arr[1]]))
                         self.switch_teams(arr[0], self.teams[arr[1]])
+                        self.dead_moves[arr[0]].value = Status.ALIVE.value
                     else:
                         logger.debug("Switching {} to team {}".format(arr[1], self.teams[arr[0]]))
                         self.switch_teams(arr[1], self.teams[arr[0]])
-                    self.dead_moves[arr[0]].value = Status.ALIVE.value
-                    self.dead_moves[arr[1]].value = Status.ALIVE.value
+                        self.dead_moves[arr[1]].value = Status.ALIVE.value
                 elif type(arr[0]) is not list and type(arr[1]) is list:
                     logger.debug("Switching {} into waiting".format(arr[0]))
                     self.switch_teams(arr[0], -1)

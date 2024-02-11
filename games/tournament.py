@@ -167,7 +167,7 @@ class Joust(Game):
                         self.set_invincible(arr[0])
                         self.set_invincible(arr[1])
                     else:
-                        logger.debug("Switching {} to waiting {}".format(arr[0]))
+                        logger.debug("Switching {} to waiting".format(arr[0]))
                         self.switch_teams(arr[0], -1)
                         self.dead_moves[arr[0]].value = Status.ON.value
                 elif type(arr[1]) is list and move_up(arr[1]):
@@ -178,7 +178,7 @@ class Joust(Game):
                         self.set_invincible(arr[0])
                         self.set_invincible(arr[1])
                     else:
-                        logger.debug("Switching {} to waiting {}".format(arr[1]))
+                        logger.debug("Switching {} to waiting".format(arr[1]))
                         self.switch_teams(arr[1], -1)
                         self.dead_moves[arr[1]].value = Status.ON.value
         move_up(self.tourney_list)

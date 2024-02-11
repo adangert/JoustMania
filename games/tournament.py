@@ -162,20 +162,23 @@ class Joust(Game):
                 if type(arr[0]) is list and move_up(arr[0]):
                     arr[0] = move_up(arr[0])
                     if type(arr[1]) is not list:
+                        logger.debug("Switching {} to team {}".format(arr[1], self.teams[arr[0]]))
                         self.switch_teams(arr[1], self.teams[arr[0]])
                         self.set_invincible(arr[0])
                         self.set_invincible(arr[1])
                     else:
+                        logger.debug("Switching {} to waiting {}".format(arr[0]))
                         self.switch_teams(arr[0], -1)
                         self.dead_moves[arr[0]].value = Status.ON.value
                 elif type(arr[1]) is list and move_up(arr[1]):
                     arr[1] = move_up(arr[1])
-
                     if type(arr[0]) is not list:
+                        logger.debug("Switching {} to team {}".format(arr[0], self.teams[arr[1]]))
                         self.switch_teams(arr[0], self.teams[arr[1]])
                         self.set_invincible(arr[0])
                         self.set_invincible(arr[1])
                     else:
+                        logger.debug("Switching {} to waiting {}".format(arr[1]))
                         self.switch_teams(arr[1], -1)
                         self.dead_moves[arr[1]].value = Status.ON.value
         move_up(self.tourney_list)

@@ -58,7 +58,7 @@ class Joust(Game):
 
         for move_serial, end in self.invincible_end.items():
             if end is not None and time.time() > end:
-                logger.debug("Removing invincibility")
+                logger.debug("Removing invincibility from: {}".format(move_serial))
                 self.invincible_moves[move_serial].value = False
                 self.invincible_end[move_serial] = None
                 self.play_revive_sound()
@@ -119,7 +119,7 @@ class Joust(Game):
             # If there isn't a winner yet
             if len(arr) > 1:
                 # If the arr[0] and arr[1] are not lists
-                if (type(arr[0]) is not list and type(arr[1]) is not list):
+                if type(arr[0]) is not list and type(arr[1]) is not list:
                     if self.teams[arr[1]] != -1:
                         logger.debug("Switching {} to team {}".format(arr[0], self.teams[arr[1]]))
                         self.switch_teams(arr[0], self.teams[arr[1]])
@@ -128,17 +128,17 @@ class Joust(Game):
                         logger.debug("Switching {} to team {}".format(arr[1], self.teams[arr[0]]))
                         self.switch_teams(arr[1], self.teams[arr[0]])
                         self.dead_moves[arr[1]].value = Status.ALIVE.value
-                elif(type(arr[0]) is not list and type(arr[1]) is list):
+                elif type(arr[0]) is not list and type(arr[1]) is list:
                     logger.debug("Switching {} into waiting".format(arr[0]))
                     self.switch_teams(arr[0], -1)
                     self.dead_moves[arr[0]].value = Status.ON.value
                     check_moves(arr[1])
-                elif(type(arr[1]) is not list and type(arr[0]) is list):
+                elif type(arr[1]) is not list and type(arr[0]) is list:
                     logger.debug("Switching {} into waiting".format(arr[1]))
                     self.switch_teams(arr[1], -1)
                     self.dead_moves[arr[1]].value = Status.ON.value
                     check_moves(arr[0])
-                elif(type(arr[0]) is list and type(arr[1]) is list):
+                elif type(arr[0]) is list and type(arr[1]) is list:
                     logger.debug("Checking next level")
                     check_moves(arr[0])
                     check_moves(arr[1])

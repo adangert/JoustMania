@@ -7,6 +7,22 @@ setup() {
     HOMEDIR=/home/$HOMENAME
     cd $HOMEDIR
     sudo apt-get install -y espeak
+    
+    #This is needed to hear espeak with sudo (adjusting asound.conf)
+    #adds asound.conf to /etc/ This is important for audio to play
+    #out of the headphone jack, sudo aplay <wav file> does weird things
+    #and setting it to the correct device(headphones) (hw:<HEADPHONE NUMBER>,0) 
+    #Allows multiple streams to play at the same time
+    
+    #Get the sudo aplay -l line corresponding to the headphones
+    headphones_info=$(sudo aplay -l | grep -i 'Headphones') || exit -1
+    
+    #Get the card number from the headphones_info(tested 0 on bullseye, 2 on bookworm)
+    card_number=$(echo "$headphones_info" | sed -n 's/^card \([0-9]*\):.*$/\1/p' | head -n 1) || exit -1
+    
+    #update the asound.conf to have the correct card to play from, copy to /etc
+    sed -i "s/pcm \"hw:[0-9]*,/pcm \"hw:$card_number,/g" $HOMEDIR/JoustMania/conf/asound.conf || exit -1
+    sudo cp $HOMEDIR/JoustMania/conf/asound.conf /etc/ || exit -1
 
     espeak "starting software upgrade"
     sudo apt-get update -y || exit -1
@@ -22,7 +38,7 @@ setup() {
         libportmidi-dev portaudio19-dev \
         libsdl-image1.2-dev libsdl-ttf2.0-dev \
         libblas-dev liblapack-dev \
-        bluez bluez-tools iptables rfkill supervisor cmake ffmpeg \
+        iptables rfkill supervisor cmake ffmpeg \
         libudev-dev swig libbluetooth-dev \
         alsa-utils alsa-tools libasound2-dev libsdl2-mixer-2.0-0 \
         python-dbus-dev python3-dbus libdbus-glib-1-dev usbutils espeak libatlas-base-dev \
@@ -87,31 +103,29 @@ setup() {
     #installs custom supervisor script for running joustmania on startup
     sudo cp -r $HOMEDIR/JoustMania/conf/supervisor/ /etc/ || exit -1
     
-    #adds asound.conf to /etc/ This is important for audio to play
-    #out of the headphone jack, sudo aplay <wav file> does weird things
-    #and setting it to the correct device(headphones) (hw:<HEADPHONE NUMBER>,0) 
-    #Allows multiple streams to play at the same time
-    
-    #Get the sudo aplay -l line corresponding to the headphones
-    headphones_info=$(sudo aplay -l | grep -i 'Headphones') || exit -1
-    
-    #Get the card number from the headphones_info(tested 0 on bullseye, 2 on bookworm)
-    card_number=$(echo "$headphones_info" | sed -n 's/^card \([0-9]*\):.*$/\1/p' | head -n 1) || exit -1
-    
-    #update the asound.conf to have the correct card to play from, copy to /etc
-    sed -i "s/pcm \"hw:[0-9]*,/pcm \"hw:$card_number,/g" $HOMEDIR/JoustMania/conf/asound.conf || exit -1
-    sudo cp $HOMEDIR/JoustMania/conf/asound.conf /etc/ || exit -1
+
     
     #Use amixer to set sound output to 100% (This looks somewhat broken, potentially remove it)
     #unable to find simple control 'PCM',0
     amixer sset PCM,0 100%
     sudo alsactl store
     
+    DIST_REL=$(cut -f2 <<< $(lsb_release -r))
+    if [ "$DIST_REL" -ge 12 ]; then
+        echo "the distribution $DIST_REL is larger than 12" 
+        config_loc=/boot/firmware/config.txt || exit -1
+    else
+        echo "the distribution is smaller than 12"
+        config_loc=/boot/config.txt || exit -1
+    fi
+        
+    
+    
     #This will disable on-board bluetooth with the --disable_internal_bt command line option
     #This will allow only class one long range btdongles to connect to psmove controllers
     if [ "$1" = "--disable_internal_bt" ]; then
-	echo "disabling internal bt"
-        sudo grep -qxF 'dtoverlay=disable-bt' /boot/config.txt || { echo "dtoverlay=disable-bt" | sudo tee -a /boot/config.txt; sudo rm -rf /var/lib/bluetooth/*; } || exit -1
+        echo "disabling internal bt"
+        sudo grep -qxF 'dtoverlay=disable-bt' /boot/config.txt || { echo "dtoverlay=disable-bt" | sudo tee -a $config_loc; sudo rm -rf /var/lib/bluetooth/*; } || exit -1
         sudo systemctl disable hciuart || exit -1
     fi
 
@@ -122,6 +136,38 @@ setup() {
         espeak "permisions updated, please wait after reboot for Joustmania to start"
     else
         echo "no permissions to update"
+    fi
+    
+    #gets just the version of bluetooth
+    BT_VERSION=$(bluetoothctl -v | cut -d' ' -f2)
+    
+    if [ "$1" != "--ps4_only" ] && [ "$2" != "--ps4_only" ] && [ "${BT_VERSION}" != "5.65" ]  ; then
+        
+        #Installing Bluez v 5.65 (version 5.66 is broken, and will not pair PS3 controllers, issue #316)
+        #To uninstall this bluez version, go into this folder /joustmania/bluez-5.65 and run, sudo make uninstall
+        echo "installing bluez version 5.65"
+        espeak "Installing bluetooth version 5.65"
+        
+        sudo apt-get remove bluez -y || exit -1
+        
+        #Install Bluez dependencies for building:
+        sudo apt-get install libdbus-1-dev libglib2.0-dev libudev-dev libical-dev libreadline-dev -y || exit -1
+        
+        #download bluez version 5.65
+        wget www.kernel.org/pub/linux/bluetooth/bluez-5.65.tar.xz || exit -1
+        
+        #Uncompress the downloaded file.
+        tar xvf bluez-5.65.tar.xz && cd bluez-5.65 || exit -1
+        
+        #Configure, compile, and install bluez
+        ./configure --prefix=/usr --mandir=/usr/share/man --sysconfdir=/etc --localstatedir=/var --enable-experimental || exit -1
+        make -j4 || exit -1
+        sudo make install || exit -1
+        
+        #check new bluetooth version:
+        bluetoothctl -v || exit -1
+    else
+        echo "bluez version already at 5.65, nothing to do"
     fi
     
     echo "joustmania successfully updated, now rebooting"

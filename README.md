@@ -51,7 +51,7 @@ This will allow you to charge 9 controllers at once through the pi
 Installation
 ---------------------------
 
-0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card, this build was tested on the latest version of the raspberry pi OS, 32 or 64 bit. If you would like to try installing on [Debian](https://raspi.debian.net/) there are some extra [instructions here](https://github.com/adangert/JoustMania/wiki/Debian-Instructions) that could help.
+0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card, this build was tested on the pi 4 (5 coming soon!) with the latest version of the raspberry pi OS, 32 or 64 bit. If you would like to try installing on [Debian](https://raspi.debian.net/) there are some extra [instructions here](https://github.com/adangert/JoustMania/wiki/Debian-Instructions) that could help.
 0. Connect the bluetooth adapters and speaker
 0. Turn on the pi, open a Terminal and run these commands, the pi will reboot on a successful install
 0. If something goes wrong during instillation, try running setup.sh again.
@@ -62,6 +62,13 @@ cd JoustMania
 sudo ./setup.sh --disable_internal_bt
 ```
 If you would not like to turn off the internal bluetooth (this is not recommended) leave off --disable_internal_bt
+
+note: this will by default uninstall and re-install bluez version 5.65 (currently 5.66 does not work with the PS3 controllers),
+If you would like to keep the latest version of bluez (and only have PS4 controllers) please use the following command:
+
+```
+sudo ./setup.sh "--disable_internal_bt --ps4_only"
+```
 
 You can now disconnect the hdmi cable and run JoustMania in headless mode. JoustMania will automatically boot up on restart, menu music should start playing once the pi boots up. Note audio will only play out of HDMI when plugged into a monitor, and only out of the audio jack when unpluged from a monitor.
 

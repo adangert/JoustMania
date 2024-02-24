@@ -6,29 +6,33 @@ setup() {
     HOMENAME=`logname`
     HOMEDIR=/home/$HOMENAME
     cd $HOMEDIR
-    sudo apt-get install -y espeak
+    #removing espeak, most installs/updates are done manually, and there 
+    #is a ton of extra terminal output
+    #sudo apt-get install -y espeak
     
     #This is needed to hear espeak with sudo (adjusting asound.conf)
     #adds asound.conf to /etc/ This is important for audio to play
     #out of the headphone jack, sudo aplay <wav file> does weird things
     #and setting it to the correct device(headphones) (hw:<HEADPHONE NUMBER>,0) 
     #Allows multiple streams to play at the same time
-    
+    echo "Now trying to get the audio card"
     #Get the sudo aplay -l line corresponding to the headphones
-    headphones_info=$(sudo aplay -l | grep -i 'Headphones') || exit -1
-    
+    headphones_info=$(sudo aplay -l | grep -Ei 'Headphones|USB') || exit -1
+    echo "audio card is, $headphones_info"
     #Get the card number from the headphones_info(tested 0 on bullseye, 2 on bookworm)
     card_number=$(echo "$headphones_info" | sed -n 's/^card \([0-9]*\):.*$/\1/p' | head -n 1) || exit -1
     
     #update the asound.conf to have the correct card to play from, copy to /etc
     sed -i "s/pcm \"hw:[0-9]*,/pcm \"hw:$card_number,/g" $HOMEDIR/JoustMania/conf/asound.conf || exit -1
+    sed -i "s/card [0-9]*/card $card_number/g" $HOMEDIR/JoustMania/conf/asound.conf || exit -1
     sudo cp $HOMEDIR/JoustMania/conf/asound.conf /etc/ || exit -1
 
-    espeak "starting software upgrade"
+
+    echo "starting software upgrade"
     sudo apt-get update -y || exit -1
     sudo apt-get upgrade -y || exit -1
 
-    espeak "Installing required software dependencies"
+    echo "Installing required software dependencies"
     #TODO: remove pyaudio and dependencies
     #install components
     sudo apt-get install -y  \
@@ -41,10 +45,10 @@ setup() {
         iptables rfkill supervisor cmake ffmpeg \
         libudev-dev swig libbluetooth-dev \
         alsa-utils alsa-tools libasound2-dev libsdl2-mixer-2.0-0 \
-        python-dbus-dev python3-dbus libdbus-glib-1-dev usbutils espeak libatlas-base-dev \
+        python-dbus-dev python3-dbus libdbus-glib-1-dev usbutils libatlas-base-dev \
         python3-pyaudio python3-psutil || exit -1
 
-    espeak "Installing PS move A.P.I. software updates"
+    echo "Installing PS move A.P.I. software updates"
     #install components for psmoveapi
     sudo apt-get install -y \
         build-essential \
@@ -52,7 +56,7 @@ setup() {
         libudev-dev libbluetooth-dev \
         libusb-dev || exit -1
 
-    espeak "Installing software libraries"
+    echo "Installing software libraries"
     VENV=$HOMEDIR/JoustMania/venv
     # We install nearly all python deps in the virtualenv to avoid concflicts with system, except
     # numpy and scipy because they take forever to build.
@@ -63,25 +67,23 @@ setup() {
     sudo apt-get install -y python3-dev || exit -1
     sudo apt-get install -y python3-virtualenv || exit -1
     
-    espeak "installing virtual environment"
-    # Rebuilding this is pretty cheap, so just do it every time.
-    rm -rf $VENV
+    echo "installing virtual environment"
     /usr/bin/python3 -m virtualenv --system-site-packages $VENV || exit -1
     PYTHON=$VENV/bin/python3
-    espeak "installing virtual environment dependencies"
+    echo "installing virtual environment dependencies"
     $PYTHON -m pip install --ignore-installed flask Flask-WTF pyalsaaudio pydub pyyaml dbus-python || exit -1
     #Sometimes pygame tries to install without a whl, and fails (like 2.4.0) this
     #checks that only correct versions will install
     $PYTHON -m pip install --ignore-installed --only-binary ":all:" pygame || exit -1
 
-    espeak "downloading PS move API"
+    echo "downloading PS move API"
     #install psmoveapi (currently adangert's for opencv 3 support)
     rm -rf psmoveapi
     git clone --recursive https://github.com/thp/psmoveapi.git || exit -1
     cd psmoveapi || exit -1
     git checkout 8a1f8d035e9c82c5c134d848d9fbb4dd37a34b58 || exit -1
 
-    espeak "compiling PS move API components"
+    echo "compiling PS move API components"
     mkdir build
     cd build
     cmake .. \
@@ -133,7 +135,7 @@ setup() {
     uname3="$(stat --format '%U' $HOMEDIR'/JoustMania/piparty.py')"
     if [ "${uname2}" = "root" ] || [ "${uname3}" = "root" ] ; then
         sudo chown -R $HOMENAME:$HOMENAME $HOMEDIR/JoustMania/ || exit -1
-        espeak "permisions updated, please wait after reboot for Joustmania to start"
+        echo "permisions updated, please wait after reboot for Joustmania to start"
     else
         echo "no permissions to update"
     fi
@@ -146,7 +148,7 @@ setup() {
         #Installing Bluez v 5.65 (version 5.66 is broken, and will not pair PS3 controllers, issue #316)
         #To uninstall this bluez version, go into this folder /joustmania/bluez-5.65 and run, sudo make uninstall
         echo "installing bluez version 5.65"
-        espeak "Installing bluetooth version 5.65"
+        #espeak "Installing bluetooth version 5.65"
         
         sudo apt-get remove bluez -y || exit -1
         
@@ -171,7 +173,7 @@ setup() {
     fi
     
     echo "joustmania successfully updated, now rebooting"
-    espeak "Joustmania successfully updated, now rebooting"
+    #es[eak "Joustmania successfully updated, now rebooting"
     # Pause a second before rebooting so we can see all the output from this script.
     (sleep 2; sudo reboot) &
 }

@@ -44,7 +44,7 @@ The class 1 adapters allow bluetooth connections up to 300+ feet and allow for t
 
 Optional:
 
-* USB hub for charging controllers(https://www.amazon.com/gp/product/B00HL7Z46K) (http://a.co/7T3HDmJ)
+* USB hub for charging controllers: [SABRENT 13 Port](https://www.amazon.com/gp/product/B00HL7Z46K) [SIIG 10 Port](http://a.co/7T3HDmJ)
 
 This will allow you to charge 9 controllers at once through the pi
 
@@ -55,7 +55,7 @@ Installation
 0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card, this build was tested on the pi 4 and 5, with the latest version of the raspberry pi OS, 32 or 64 bit. If you would like to try installing on [Debian](https://raspi.debian.net/) there are some extra [instructions here](https://github.com/adangert/JoustMania/wiki/Debian-Instructions) that could help.
 0. Connect the bluetooth adapters, (usb audio connector for the pi 5), and speakers
 0. Turn on the pi, open a Terminal and run these commands, the pi will reboot on a successful install
-0. If something goes wrong during instillation, try running setup.sh again.
+0. If something goes wrong during installation, try running setup.sh again.
 
 ```
 git clone https://github.com/adangert/JoustMania.git

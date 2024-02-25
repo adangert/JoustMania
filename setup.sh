@@ -43,7 +43,7 @@ setup() {
     if [ ! -z "$USB_info" ]; then
         echo "USB audio jack found, likely a pi 5, updating asound.conf"
         #Get the card number from the headphones_info(tested 0 on bullseye, 2 on bookworm)
-        card_number=$(echo "$headphones_info" | sed -n 's/^card \([0-9]*\):.*$/\1/p' | head -n 1) || exit -1
+        card_number=$(echo "$USB_info" | sed -n 's/^card \([0-9]*\):.*$/\1/p' | head -n 1) || exit -1
         
         #update the asound.conf to have the correct card to play from, copy to /etc
         sed -i "s/pcm \"hw:[0-9]*,/pcm \"hw:$card_number,/g" $HOMEDIR/JoustMania/conf/asound.conf || exit -1
@@ -53,6 +53,7 @@ setup() {
         echo "No USB audio jack found, likely a pi 4"
     fi
 
+    sleep 30
     echo "starting software upgrade"
     sudo apt-get update -y || exit -1
     sudo apt-get upgrade -y || exit -1

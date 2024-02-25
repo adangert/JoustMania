@@ -53,7 +53,6 @@ setup() {
         echo "No USB audio jack found, likely a pi 4"
     fi
 
-    sleep 30
     echo "starting software upgrade"
     sudo apt-get update -y || exit -1
     sudo apt-get upgrade -y || exit -1

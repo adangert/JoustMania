@@ -32,7 +32,8 @@ I am currently selling fully set up Joustmania devices (pi 4gb model, case, blue
 
 If you would like to build your own device you will need the following:
 
-* A Raspberry Pi 4 B with sd card
+* A Raspberry Pi 4 with sd card
+* A Rasberry Pi 5 with sd card and a [USB audio adapter](https://www.amazon.com/Adapter-External-Converter-Compatible-Desktops/dp/B099FLWJD3/)
 
 Optional and recommended:
 
@@ -51,8 +52,8 @@ This will allow you to charge 9 controllers at once through the pi
 Installation
 ---------------------------
 
-0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card, this build was tested on the pi 4 (5 coming soon!) with the latest version of the raspberry pi OS, 32 or 64 bit. If you would like to try installing on [Debian](https://raspi.debian.net/) there are some extra [instructions here](https://github.com/adangert/JoustMania/wiki/Debian-Instructions) that could help.
-0. Connect the bluetooth adapters and speaker
+0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card, this build was tested on the pi 4 and 5, with the latest version of the raspberry pi OS, 32 or 64 bit. If you would like to try installing on [Debian](https://raspi.debian.net/) there are some extra [instructions here](https://github.com/adangert/JoustMania/wiki/Debian-Instructions) that could help.
+0. Connect the bluetooth adapters, (usb audio connector for the pi 5), and speakers
 0. Turn on the pi, open a Terminal and run these commands, the pi will reboot on a successful install
 0. If something goes wrong during instillation, try running setup.sh again.
 

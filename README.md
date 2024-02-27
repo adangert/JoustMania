@@ -32,7 +32,8 @@ I am currently selling fully set up Joustmania devices (pi 4gb model, case, blue
 
 If you would like to build your own device you will need the following:
 
-* A Raspberry Pi 4 B with sd card
+* A Raspberry Pi 4 with sd card
+* A Rasberry Pi 5 with sd card and a [USB audio adapter](https://www.amazon.com/Adapter-External-Converter-Compatible-Desktops/dp/B099FLWJD3/)
 
 Optional and recommended:
 
@@ -43,7 +44,7 @@ The class 1 adapters allow bluetooth connections up to 300+ feet and allow for t
 
 Optional:
 
-* USB hub for charging controllers(https://www.amazon.com/gp/product/B00HL7Z46K) (http://a.co/7T3HDmJ)
+* USB hub for charging controllers: [SABRENT 13 Port](https://www.amazon.com/gp/product/B00HL7Z46K) [SIIG 10 Port](http://a.co/7T3HDmJ)
 
 This will allow you to charge 9 controllers at once through the pi
 
@@ -51,10 +52,10 @@ This will allow you to charge 9 controllers at once through the pi
 Installation
 ---------------------------
 
-0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card, this build was tested on the latest version of the raspberry pi OS, 32 or 64 bit. If you would like to try installing on [Debian](https://raspi.debian.net/) there are some extra [instructions here](https://github.com/adangert/JoustMania/wiki/Debian-Instructions) that could help.
-0. Connect the bluetooth adapters and speaker
+0. [Download](https://www.raspberrypi.org/downloads/raspbian/) and [Install](https://www.raspberrypi.org/documentation/installation/installing-images/README.md) Raspbian on the micro SD card, this build was tested on the pi 4 and 5, with the latest version of the raspberry pi OS, 32 or 64 bit. If you would like to try installing on [Debian](https://raspi.debian.net/) there are some extra [instructions here](https://github.com/adangert/JoustMania/wiki/Debian-Instructions) that could help.
+0. Connect the bluetooth adapters, (usb audio connector for the pi 5), and speakers
 0. Turn on the pi, open a Terminal and run these commands, the pi will reboot on a successful install
-0. If something goes wrong during instillation, try running setup.sh again.
+0. If something goes wrong during installation, try running setup.sh again.
 
 ```
 git clone https://github.com/adangert/JoustMania.git
@@ -62,6 +63,13 @@ cd JoustMania
 sudo ./setup.sh --disable_internal_bt
 ```
 If you would not like to turn off the internal bluetooth (this is not recommended) leave off --disable_internal_bt
+
+note: this will by default uninstall and re-install bluez version 5.65 (currently 5.66 does not work with the PS3 controllers),
+If you would like to keep the latest version of bluez (and only have PS4 controllers) please use the following command:
+
+```
+sudo ./setup.sh "--disable_internal_bt --ps4_only"
+```
 
 You can now disconnect the hdmi cable and run JoustMania in headless mode. JoustMania will automatically boot up on restart, menu music should start playing once the pi boots up. Note audio will only play out of HDMI when plugged into a monitor, and only out of the audio jack when unpluged from a monitor.
 

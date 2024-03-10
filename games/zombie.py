@@ -101,7 +101,7 @@ class Joust(Game):
         super().before_game_loop()
 
         # Kill first humans
-        for random_human in random.sample(set(self.humans), 2):
+        for random_human in random.sample(list(set(self.humans)), 2):
             self.kill_human(random_human)
             self.dead_moves[random_human].value = Status.ALIVE.value
 

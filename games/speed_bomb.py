@@ -198,17 +198,20 @@ class Joust(Game):
         if self.play_audio:
             self.explosion_death.start_effect()
             self.explosion.start_effect()
+            
+        dead_color_array = self.force_move_colors[dead_move]
+
+
+        for move_serial in self.moves:
+            if move_serial == dead_move:
+                colors.change_color(dead_color_array, 10, 200, 10)
+                self.dead_moves[move_serial].value = Status.RUMBLE.value
+            else:
+                colors.change_color(self.force_move_colors[move_serial], 1, 1, 1)
+        
         while time.time() < end_time:
             time.sleep(0.01)
 
-            dead_color_array = self.force_move_colors[dead_move]
-
-            for move_serial in self.moves:
-                if move_serial == dead_move:
-                    colors.change_color(dead_color_array, 10, random.randrange(100, 200), 10)
-                    self.dead_moves[move_serial].value = Status.RUMBLE.value
-                else:
-                    colors.change_color(self.force_move_colors[move_serial], 1, 1, 1)
 
         self.dead_moves[dead_move].value = Status.ON.value
 
@@ -317,10 +320,12 @@ class Joust(Game):
                     percentage = 1
 
                 bomb_color = [0,0,0]
-                if percentage > 0.8:
-                    bomb_color[0] = random.randrange(int(100+55*percentage), int(200+55*percentage))
-                else:
-                    bomb_color[0] = int(common.lerp(50, 255, percentage))
+                #Currently flickering like this causes a build-up of buffering colors
+                #so it can stall the game. Keeping it solid seems to work better!
+                #if percentage > 0.8:
+                #    bomb_color[0] = random.randrange(int(100+55*percentage), int(200+55*percentage))
+                #else:
+                bomb_color[0] = int(common.lerp(50, 255, percentage))
                 bomb_color[1] = int(common.lerp(30, 0, percentage))
                 bomb_color[2] = int(common.lerp(30, 0, percentage))
                 return bomb_color
@@ -332,7 +337,7 @@ class Joust(Game):
             trigger = move.get_trigger()
             # If pressing a trigger or next button when being faked, kill the player
             if opts[Opts.FAKED.value] == Faked.ATTEMPT.value and not opts[Opts.HAS_BOMB.value] and \
-                    (trigger > 50 or (pressed & common.Button.TRIANGLE.value)):
+                    (trigger > 50 or (pressed & common.Button.MIDDLE.value)):
                 logger.debug("Faked out: {}".format(move.get_serial()))
                 opts[Opts.FAKED.value] = Faked.FAKED.value
             # If pressing a trigger with bomb, start faking
@@ -341,6 +346,7 @@ class Joust(Game):
                     opts[Opts.TRIGGER.value] = trigger
             # If pressing counter while being faked, counter
             elif not opts[Opts.HAS_BOMB.value] and (pressed & common.Button.SQUARE.value or \
+                    pressed & common.Button.TRIANGLE.value or \
                     pressed & common.Button.CIRCLE.value or \
                     pressed & common.Button.CROSS.value) and opts[Opts.FAKED.value] == Faked.ATTEMPT.value:
                 logger.debug("Pressed Counter Button: {}".format(move.get_serial()))
@@ -352,10 +358,10 @@ class Joust(Game):
                 logger.debug("Incorrectly pressed Counter Button: {}".format(move.get_serial()))
                 opts[Opts.FAKED.value] = Faked.FAKED.value
             # If pressing next with bomb, move bomb
-            elif pressed & common.Button.TRIANGLE.value and opts[Opts.HAS_BOMB.value]:
+            elif pressed & common.Button.MIDDLE.value and opts[Opts.HAS_BOMB.value]:
                 logger.debug("Pressed triangle button: {}".format(move.get_serial()))
                 opts[Opts.SELECTION.value] = Selection.NEXT_BUTTON.value
-            elif released & common.Button.TRIANGLE.value and trigger < 50:
+            elif released & common.Button.MIDDLE.value and trigger < 50:
                 logger.debug("Released button: {}".format(move.get_serial()))
                 opts[Opts.SELECTION.value] = Selection.NOTHING.value
                 opts[Opts.HOLDING.value] = False

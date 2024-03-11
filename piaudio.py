@@ -6,8 +6,6 @@ import numpy
 import psutil, os
 import time
 import scipy.signal as signal
-from multiprocessing import Value
-from threading import Thread
 import pygame
 import random
 import glob
@@ -16,11 +14,22 @@ if platform == "linux" or platform == "linux2":
     import alsaaudio
 else:
     import pyaudio
-import threading
 from pydub import AudioSegment
 from multiprocessing import Process, Value, Array, Queue, Manager
 
 import common
+
+# The min and max timeframe in seconds for
+# the speed change to trigger, randomly selected
+MIN_MUSIC_FAST_TIME = 4
+MAX_MUSIC_FAST_TIME = 8
+MIN_MUSIC_SLOW_TIME = 10
+MAX_MUSIC_SLOW_TIME = 23
+
+END_MIN_MUSIC_FAST_TIME = 6
+END_MAX_MUSIC_FAST_TIME = 10
+END_MIN_MUSIC_SLOW_TIME = 8
+END_MAX_MUSIC_SLOW_TIME = 12
 
 def win_audio_loop(fname,ratio,stop_proc):
     p = pyaudio.PyAudio()

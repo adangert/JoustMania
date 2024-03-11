@@ -41,7 +41,7 @@ while counter < 1000:
 	    time_since_last = time.time() - timer
 	    avger.append(time_since_last)
 	    timer = time.time()
-	    print(time_since_last)
+	    print("Time since last: {}".format(time_since_last))
 	    print(str(1/(sum(avger)/len(avger)))+" hz")
 	    counter += 1
 	    #print("got the poll")

@@ -10,6 +10,9 @@ __pycache__/
 # C extensions
 *.so
 
+# Intellij
+.idea/
+
 # Distribution / packaging
 .Python
 env/
@@ -70,7 +73,6 @@ audio/Menu/music
 !audio/Joust/music/classical.wav
 
 #other stuff
-*.ini
 *.yaml
 *.DS_Store
 apfiles/ap_active

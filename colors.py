@@ -1,11 +1,14 @@
-import psmove
 import colorsys
-import time
 from enum import Enum
 import random
 
-
 color_range = 255
+
+def darken_color(color_array, factor):
+    factor = max(0, min(factor, 1))
+
+    # Scale down each color channel
+    return tuple(int(channel * (1 - factor)) for channel in color_array)
 
 def hsv2rgb(h, s, v):
     return tuple(int(color * color_range) for color in colorsys.hsv_to_rgb(h, s, v))
@@ -26,7 +29,7 @@ def generate_team_colors(num_teams, color_lock=False, color_lock_choices=None):
     if num_teams == 2:
         team1 = random.choice(team_color_list)
         team2 = random.choice(dual_teams[team1])
-        return [team1,team2]
+        return [team1, team2]
     elif num_teams == 3:
         team1 = random.choice(team_color_list)
         team2 = random.choice(tri_teams[team1])
@@ -71,17 +74,19 @@ class Colors(Enum):
     White60 = (150,150,150)
     White40 = (100,100,100)
     White20 = (50,50,50)
+    White10 = (10,10,10)
     Red = (255,0,0)
     Red60 = (150,0,0)
     Red80 = (200,0,0)
     Green80 = (0,200,0)
+    Green20 = (0,50,0)
     Blue40 = (0,0,100)
     LimeGreen = (100,255,0)
     Zombie = (50,150,50)
     Black = (0,0,0)
     #stay fresh
-    SplatoonGreen = (255,50,120)
-    SplatoonPink = (30,220,0)
+    SplatoonGreen = (30,220,0)
+    SplatoonPink = (255,50,120)
 
 team_color_list = [x for x in Colors][0:8]
 ordered_color_list = [Colors.Blue,Colors.Yellow,Colors.Green,Colors.Orange,Colors.Purple,

@@ -1,41 +1,14 @@
 import asyncio
-import colorsys
-import enum
+from enum import Enum, Flag
 import functools
 import psmove
 import time
 import traceback
-import random
+import logging
+
+logger = logging.getLogger(__name__)
 
 SETTINGSFILE = 'joustsettings.yaml'
-
-#Human speeds[slow, mid, fast]
-#SLOW_WARNING = [0.1, 0.15, 0.28]
-#SLOW_MAX = [0.25, 0.8, 1]
-#FAST_WARNING = [0.5, 0.6, 0.8]
-#FAST_MAX = [1, 1.4, 1.8]
-
-SLOW_WARNING = [1.2, 1.3, 1.6, 2.0, 2.5]
-SLOW_MAX = [1.3, 1.5, 1.8, 2.5, 3.2]
-FAST_WARNING = [1.4, 1.6, 1.9, 2.7, 2.8]
-FAST_MAX = [1.6, 1.8, 2.8, 3.2, 3.5]
-
-#WERE_SLOW_WARNING = [0.2, 0.3, 0.4]
-#WERE_SLOW_MAX = [0.7, 0.9, 1.1]
-#WERE_FAST_WARNING = [0.6, 0.7, 0.9]
-#WERE_FAST_MAX = [1.1, 1.5, 2.0]
-
-WERE_SLOW_WARNING = [1.2, 1.4, 1.7, 2.1, 2.9]
-WERE_SLOW_MAX = [1.3, 1.6, 1.9, 2.6, 3.9]
-WERE_FAST_WARNING = [1.4, 1.7, 2.0, 2.8, 3.5]
-WERE_FAST_MAX = [1.6, 1.9, 2.9, 3.3, 4.9]
-
-#ZOMBIE_WARNING = [0.5, 0.6, 0.8]
-#ZOMBIE_MAX = [0.8, 1, 1.4]
-
-ZOMBIE_WARNING = [1.2, 1.5, 1.8, 2.6, 2.7]
-ZOMBIE_MAX = [1.4, 1.7, 2.7, 3.1, 3.4]
-
 
 def get_move(serial, move_num):
     time.sleep(0.02)
@@ -52,14 +25,14 @@ def get_move(serial, move_num):
         return move
 
 def lerp(a, b, p):
-    return a*(1 - p) + b*p
+    return a * (1 - p) + b * p
 
-class Games(enum.Enum):
+class Games(Enum):
     JoustFFA = (0, 'Joust Free-for-All', 2)
     JoustTeams = (1, 'Joust Teams', 3)
     JoustRandomTeams = (2, 'Joust Random Teams', 3)
-    Traitor = (3, 'Traitors', 6)
-    WereJoust = (4, 'Werewolves', 3)
+    Traitor = (3, 'Traitors', 4)
+    Werewolf = (4, 'Werewolf', 3)
     Zombies = (5, 'Zombies', 4)
     Commander = (6, 'Commander', 4)
     Swapper = (7, 'Swapper', 3)
@@ -68,7 +41,6 @@ class Games(enum.Enum):
     NonStop = (10, 'Non Stop Joust', 2)
     Ninja = (11, 'Ninja Bomb', 2)
     Random = (12, 'Random', 2)
-
 
     def __new__(cls, value, pretty_name, min_players):
         """This odd constructor lets us keep Foo.value as an integer, but also
@@ -86,10 +58,40 @@ class Games(enum.Enum):
     def previous(self):
         """Return the previous game mode after this one in the list. Wraps around after hitting bottom."""
         return Games((self.value - 1) % len(Games))
+class Status(Enum):
+    ALIVE =     0 # Tracking move and can be killed
+    DIED =      1 # Just died, will move to dead
+    DEAD =      2 # Dead, will revive if enabled
+    REVIVED =   3 # Just revived and will play sound
+    RUMBLE =    4 # Will rumble
+    ON =        5 # Team color and not polling
+    OFF =       6 # Black and not polling
+
+
+# All common opts will be 0-5, custom opts should be 6+
+class Opts(Enum):
+    BUTTON = 0 # Buttons that are currently pressed TODO - Not being used
+    HOLDING = 1 # Whether buttons are being held
+    SELECTION = 2 # What those buttons represent for this game
+    STATUS = 3 # Status of the move
+
+# Sensitivity levels
+class Sensitivity(Enum):
+    ULTRA_SLOW = 0
+    SLOW = 1
+    MID = 2
+    FAST = 3
+    ULTRA_FAST = 4
+
+def get_game_name(value):
+    for game in Games:
+        if game.value == value:
+            return game.pretty_name
+    return None
 
 #These buttons are based off of
 #The mapping of PS Move controllers
-class Button(enum.Flag):
+class Button(Flag):
     NONE     = 0
 
     TRIANGLE = psmove.Btn_TRIANGLE
@@ -122,7 +124,7 @@ battery_levels = {
 
 # Common colors lifted from https://xkcd.com/color/rgb/
 # TODO: Add more colors -- probably need to have 14 player colors at least.
-class Color(enum.Enum):
+class Color(Enum):
     BLACK =      0x000000
     WHITE =      0xffffff
     RED =        0xff0000
@@ -178,18 +180,18 @@ FAST_PACE = GamePace(tempo=1.5, warn_threshold=5, death_threshold=9)
 FREEZE_PACE = GamePace(tempo=0, warn_threshold=1.1, death_threshold=1.2)
 
 REQUIRED_SETTINGS = [
-'play_audio',
-'move_can_be_admin',
-'current_game',
-'enforce_minimum',
-'sensitivity',
-'play_instructions',
-'random_modes',
-'color_lock',
-'color_lock_choices',
-'red_on_kill',
-'random_teams',
-'menu_voice',
-'random_team_size',
-'force_all_start',
+    'play_audio',
+    'move_can_be_admin',
+    'current_game',
+    'enforce_minimum',
+    'sensitivity',
+    'play_instructions',
+    'random_modes',
+    'color_lock',
+    'color_lock_choices',
+    'red_on_kill',
+    'random_teams',
+    'menu_voice',
+    'random_team_size',
+    'force_all_start',
 ]

@@ -75,6 +75,8 @@ function updateStatus(){
                     $('#mainmenu').show();
                     $('#menubuttons').show();
                     $('#move_count').text(info.move_count);
+                    $('#game_count').text(info.game_count);
+                    $('#ready_count').text(info.ready_count);
                     $('#alive_count').text(info.alive_count);
                     $('#git_hash').text(info.git_hash);
                 }
@@ -122,8 +124,9 @@ Curent mode: <span id='game_mode'>Joust Null</span><br />
 
 <div class='info_box' id='mainmenu'>
 <br />
-Connected Moves: <span id='move_count'>-999</span><br />
-Alive Moves: <span id='alive_count'>-999</span><br /><br />
+Connected Moves (USB and BT): <span id='move_count'>-999</span><br />
+Active Moves: <span id='game_count'>-999</span><br />
+Ready Moves: <span id='ready_count'>-999</span><br /><br />
 </div>
 
 <div class='info_box' id='starting'>

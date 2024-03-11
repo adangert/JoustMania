@@ -288,8 +288,8 @@ class Joust(Game):
         #If the player is a Human (not team -1, i.e. zombie)
         if team != -1:
             if move.get_buttons() == 0 and move.get_trigger() < 10:
-                opts[Opts.HOLDING.value] = True
-            logger.debug(f"player type:{opts[Opts.PLAYER_TYPE.value]}, holding value{opts[Opts.HOLDING.value]}, buttons{move.get_buttons()}, trigger:{move.get_trigger()}")
+                opts[Opts.HOLDING.value] = False
+
             # Not holding button, selected pistol, has bullets, and presses trigger
             if (not opts[Opts.HOLDING.value] and
                     0 < opts[Opts.AMMO.value] < 5 and

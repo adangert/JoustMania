@@ -1009,9 +1009,9 @@ class Menu():
     # Moves that are available to start a game, use force_all_start = False if just wanting to see alive moves
     def get_ready_moves(self, force_all_start):
         if force_all_start:
-            return [move.get_serial() for move in self.moves if self.out_moves.get(move.get_serial(), Status.DEAD.value) == Status.ALIVE.value and (self.menu_opts[move.get_serial()])[Opts.RANDOM_START.value]  ]
+            return [move.get_serial() for move in self.moves if self.out_moves.get(move.get_serial(), Status.DEAD.value) == Status.ALIVE.value and move.get_serial() in self.menu_opts and (self.menu_opts[move.get_serial()])[Opts.RANDOM_START.value]  ]
         else:
-            return [move.get_serial() for move in self.moves if self.out_moves.get(move.get_serial(), Status.DEAD.value) == Status.ALIVE.value]
+            return [move.get_serial() for move in self.moves if self.out_moves.get(move.get_serial(), Status.DEAD.value) == Status.ALIVE.value and move.get_serial() in self.menu_opts]
 
     # Get moves that are currently Alive (not charging)
     def get_game_moves(self):

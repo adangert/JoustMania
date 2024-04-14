@@ -404,8 +404,18 @@ class Game():
                 self.update_time = time.time()
                 self.check_command_queue()
                 self.update_status('in_game')
+            
+            #Change the music speed for specific games
+            speed_change_games = [common.Games.JoustFFA, \
+                                  common.Games.JoustTeams, \
+                                  common.Games.JoustRandomTeams ]
+                                  
+            if self.game_mode in speed_change_games and self.play_audio:
+                self.check_music_speed()
+                
             self.handle_status()
             self.check_end_game()
+            
 
             if self.game_end:
                 self.end_game()

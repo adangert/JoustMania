@@ -64,13 +64,6 @@ sudo ./setup.sh --disable_internal_bt
 ```
 If you would not like to turn off the internal bluetooth (this is not recommended) leave off --disable_internal_bt
 
-note: this will by default uninstall and re-install bluez version 5.65 (currently 5.66 does not work with the PS3 controllers),
-If you would like to keep the latest version of bluez (and only have PS4 controllers) please use the following command:
-
-```
-sudo ./setup.sh "--disable_internal_bt --ps4_only"
-```
-
 You can now disconnect the hdmi cable and run JoustMania in headless mode. JoustMania will automatically boot up on restart, menu music should start playing once the pi boots up. Note audio will only play out of HDMI when plugged into a monitor, and only out of the audio jack when unpluged from a monitor.
 
 Update Joust Mania

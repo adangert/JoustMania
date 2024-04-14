@@ -67,7 +67,7 @@ setup() {
         libportmidi-dev portaudio19-dev \
         libsdl-image1.2-dev libsdl-ttf2.0-dev \
         libblas-dev liblapack-dev \
-        iptables rfkill supervisor cmake ffmpeg \
+        bluez bluez-tools iptables rfkill supervisor cmake ffmpeg \
         libudev-dev swig libbluetooth-dev \
         alsa-utils alsa-tools libasound2-dev libsdl2-mixer-2.0-0 \
         python-dbus-dev python3-dbus libdbus-glib-1-dev usbutils libatlas-base-dev \
@@ -167,37 +167,11 @@ setup() {
         echo "no permissions to update"
     fi
     
-    #gets just the version of bluetooth
-    BT_VERSION=$(bluetoothctl -v | cut -d' ' -f2)
     
-    if [ "$1" != "--ps4_only" ] && [ "$2" != "--ps4_only" ] && [ "${BT_VERSION}" != "5.65" ]  ; then
-        
-        #Installing Bluez v 5.65 (version 5.66 is broken, and will not pair PS3 controllers, issue #316)
-        #To uninstall this bluez version, go into this folder /joustmania/bluez-5.65 and run, sudo make uninstall
-        echo "installing bluez version 5.65"
-        #espeak "Installing bluetooth version 5.65"
-        
-        sudo apt-get remove bluez -y || exit -1
-        
-        #Install Bluez dependencies for building:
-        sudo apt-get install libdbus-1-dev libglib2.0-dev libudev-dev libical-dev libreadline-dev -y || exit -1
-        
-        #download bluez version 5.65
-        wget www.kernel.org/pub/linux/bluetooth/bluez-5.65.tar.xz || exit -1
-        
-        #Uncompress the downloaded file.
-        tar xvf bluez-5.65.tar.xz && cd bluez-5.65 || exit -1
-        
-        #Configure, compile, and install bluez
-        ./configure --prefix=/usr --mandir=/usr/share/man --sysconfdir=/etc --localstatedir=/var --enable-experimental || exit -1
-        make -j4 || exit -1
-        sudo make install || exit -1
-        
-        #check new bluetooth version:
-        bluetoothctl -v || exit -1
-    else
-        echo "bluez version already at 5.65, nothing to do"
-    fi
+    #This will change ClassiBondedOnly to false in /etc/bluetooth/input.conf
+    #needed for pairing the PS3 controllers: https://github.com/thp/psmoveapi/issues/489
+    sudo sed -i '/^#\?ClassicBondedOnly=\(true\|false\)$/s/.*/ClassicBondedOnly=false/' '/etc/bluetooth/input.conf'
+    
     
     echo "joustmania successfully updated, now rebooting"
     #es[eak "Joustmania successfully updated, now rebooting"

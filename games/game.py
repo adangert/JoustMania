@@ -344,7 +344,7 @@ class Game():
             logger.debug('no audio loaded to stop')
         self.update_status('killed')
         all_moves = [x for x in self.dead_moves.keys()]
-        end_time = time.time() + self.KILL_GAME_PAUSE
+        end_time = time.time() + KILL_GAME_PAUSE
 
         bright = 255
         while time.time() < end_time:

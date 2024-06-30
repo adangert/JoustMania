@@ -9,28 +9,38 @@ import random
 import logging
 import psmove
 from math import sqrt
-from audio.constants import *
 
 logger = logging.getLogger(__name__)
 
-class Game():
+# How fast/slow the music can go
+SLOW_MUSIC_SPEED = 1.0
+#this was 0.5
+FAST_MUSIC_SPEED = 1.3
 
+# The min and max timeframe in seconds for
+# the speed change to trigger, randomly selected
+MIN_MUSIC_FAST_TIME = 4
+MAX_MUSIC_FAST_TIME = 8
+MIN_MUSIC_SLOW_TIME = 10
+MAX_MUSIC_SLOW_TIME = 23
+
+END_MIN_MUSIC_FAST_TIME = 6
+END_MAX_MUSIC_FAST_TIME = 10
+END_MIN_MUSIC_SLOW_TIME = 8
+END_MAX_MUSIC_SLOW_TIME = 12
+
+#How long the speed change takes
+INTERVAL_CHANGE = 1.5
+
+#How long the winning moves shall sparkle
+END_GAME_PAUSE = 8
+KILL_GAME_PAUSE = 4
+
+class Game():
     SLOW_WARNING = [1.2, 1.3, 1.6, 2.0, 2.5]
     SLOW_MAX = [1.3, 1.5, 1.8, 2.5, 3.2]
     FAST_WARNING = [1.4, 1.6, 1.9, 2.7, 2.8]
     FAST_MAX = [1.6, 1.8, 2.8, 3.2, 3.5]
-
-    # The min and max timeframe in seconds for
-    # the speed change to trigger, randomly selected
-    MIN_MUSIC_FAST_TIME = 4
-    MAX_MUSIC_FAST_TIME = 8
-    MIN_MUSIC_SLOW_TIME = 10
-    MAX_MUSIC_SLOW_TIME = 23
-
-    END_MIN_MUSIC_FAST_TIME = 6
-    END_MAX_MUSIC_FAST_TIME = 10
-    END_MIN_MUSIC_SLOW_TIME = 8
-    END_MAX_MUSIC_SLOW_TIME = 12
 
     def __init__(self, moves, command_queue, ns, red_on_kill, music, teams, game_mode, controller_teams, controller_colors, dead_moves, invincible_moves, force_move_colors, music_speed, show_team_colors, restart, revive, opts=[]):
         logger.debug("Initializing {}".format(game_mode.pretty_name))

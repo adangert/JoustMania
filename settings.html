@@ -1,0 +1,184 @@
+{% extends "basic.html" %}
+{% block header %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            padding: 20px;
+        }
+        .card {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .card h3 {
+            margin-top: 0;
+        }
+        .card p {
+            line-height: 1.6;
+        }
+        .card span {
+            line-height: 1.6;
+        }
+        .toggle-button {
+            background-color: #4CAF50;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+            padding: 5px 10px;
+        }
+        .toggle-button:hover {
+            background-color: #45a049;
+        }
+        .toggle-content {
+            display: none;
+            margin-top: 10px;
+        }
+        .form-button {
+            background-color: #4CAF50;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 10px 20px;
+        }
+        .form-button:hover {
+            background-color: #45a049;
+        }
+        a .form-button {
+            text-decoration: none;
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        function randomize(){
+            let clicked = $(':focus')[0].id;
+            $.ajax({
+                url: clicked,
+                timeout: 2000,
+                success: function(rawdata){
+                    console.log(rawdata);
+                    let teams = JSON.parse(rawdata);
+                    $('.' + clicked).each(function(){
+                        $(this).val(teams.pop());
+                    });
+                },
+                error: function(){
+                    console.log('something broke!');
+                }
+            });
+        }
+
+        $(document).ready(function(){
+            $('.rand').click(function(){
+                randomize();
+            });
+
+            $('#random_mode_options').hide();
+            $('#random_toggle').click(function(){
+                $('#random_mode_options').toggle();
+            });
+
+            $('#color_lock_options').hide();
+            $('#color_lock_toggle').click(function(){
+                $('#color_lock_options').toggle();
+            });
+        });
+    </script>
+</head>
+<body>
+{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="card">
+        {% with message = get_flashed_messages() %}
+          {% if message %}
+            <p>{{message[0]}}</p>
+            <a href="/"><button type="button" class="form-button">Go Back</button></a>
+          {% endif %}
+        {% endwith %}
+    </div>
+
+    <div class="card">
+        <h3>Admin Settings</h3>
+        <p>Note: Does not update during games.</p>
+        <form action="/settings" method="POST">
+            <p>
+                {{ form.move_can_be_admin(checked=settings.move_can_be_admin) }} {{form.move_can_be_admin.label}}
+            </p>
+            <p>
+                {{ form.play_instructions(checked=settings.play_instructions) }} {{form.play_instructions.label}}
+            </p>
+            <p>
+                {{ form.play_audio(checked=settings.play_audio) }} {{form.play_audio.label}}
+            </p>
+            <p>
+                {{ form.random_teams(checked=settings.random_teams) }} {{form.random_teams.label}}
+            </p>
+            <p>
+                {{ form.color_lock(checked=settings.color_lock) }} {{form.color_lock.label}}
+            </p>
+            <p>
+                {{ form.red_on_kill }} {{form.red_on_kill.label}}
+            </p>
+            <p>
+                {{ form.sensitivity }} {{form.sensitivity.label}}
+            </p>
+            <p>
+                {{ form.force_all_start }} {{form.force_all_start.label}}
+            </p>
+            <p>
+                {{ form.random_team_size }} {{form.random_team_size.label}}
+            </p>
+            <p>
+                Random Mode Game Selection <button type="button" id="random_toggle" class="toggle-button">Show/Hide</button><br />
+                <span id="random_mode_options" class="toggle-content">
+                {% for item in form.random_modes %}
+                    {{ item(checked=item.data in settings.random_modes) }} {{ item.label }} <br />
+                {% endfor %}
+                </span>
+            </p>
+            <p>
+                Color Lock Selection <button type="button" id="color_lock_toggle" class="toggle-button">Show/Hide</button><br />
+                <span id="color_lock_options" class="toggle-content">
+                Dual Teams<br/>
+                {% for i in range(2) %}{{ form.color_lock_choices[i](class_="rand2") }} {% endfor %}<br/>
+                <button type="button" class="rand toggle-button" id="rand2">Randomize</button><br/>
+                Tri Teams<br/>
+                {% for i in range(2,5) %}{{ form.color_lock_choices[i](class_="rand3") }} {% endfor %}<br/>
+                <button type="button" class="rand toggle-button" id="rand3">Randomize</button><br/>
+                Quad Teams<br/>
+                {% for i in range(5,9) %}{{ form.color_lock_choices[i](class_="rand4") }} {% endfor %}<br/>
+                <button type="button" class="rand toggle-button" id="rand4">Randomize</button><br/>
+                </span>
+            </p>
+            <br/>
+            <input type="submit" value="Save Settings" class="form-button">
+        </form>
+        <a href="/"><button type="button" class="form-button">Go Back</button></a><br/><br/><br/>
+        <a href="/power"><button type="button" class="form-button">Power Options</button></a>
+    </div>
+</div>
+{% endblock %}
+</body>
+</html>

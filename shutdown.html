@@ -1,0 +1,41 @@
+{% extends "basic.html" %}
+{% block header %}
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f4;
+        color: #333;
+        margin: 0;
+        padding: 20px;
+    }
+    .container {
+        max-width: 800px;
+        margin: auto;
+        padding: 20px;
+    }
+    .card {
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin: 20px 0;
+        text-align: center;
+    }
+    h3 {
+        margin-top: 0;
+    }
+    p {
+        font-size: 18px;
+        line-height: 1.5;
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="card">
+        <h3>Shutting Down...</h3>
+        <p>Please wait 20 seconds before disconnecting the power.</p>
+    </div>
+</div>
+{% endblock %}

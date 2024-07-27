@@ -1,16 +1,12 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JoustMania</title>
-    <link rel="stylesheet" type="text/css" href='{{ url_for('static', filename='jouststyle.css') }}'>
-    <script type="text/javascript" src='{{ url_for('static', filename='jquery.js') }}'></script>
-    <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
-    <style>body{font-family: sans-serif;}</style>
-    <title>Joustmania!</title>
-    {% block header %}
-    {% endblock %}
+<html><head>
+<title>Joustmania!</title>
+<link rel="stylesheet" type="text/css" href='{{ url_for('static', filename='jouststyle.css') }}'>
+<script type=text/javascript src='{{ url_for('static', filename='jquery.js') }}'></script>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0'>
+<style>body{font-family: sans-serif;}</style>
+<title>Joustmania!</title>
+{% block header %}
+{% endblock %}
 </head>
 <body>
 <div id='title'><img src='{{ url_for('static', filename='PiPartyLogo2small.png') }}' /><br /><br /></div>

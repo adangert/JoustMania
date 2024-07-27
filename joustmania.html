@@ -1,34 +1,115 @@
 {% extends "basic.html" %}
 {% block header %}
+<style>
+/* Modernized styles */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f4;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+.main_status, .info_box, .error {
+    display: none;
+}
+
+.info_box {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 20px;
+    margin: 20px;
+}
+
+#mainmenu, #starting, #free4all, #teams, #zombies, #commander, #ninja, #tournament, #ending, #killed, #menubuttons, #gamebuttons {
+    display: none;
+}
+
+#game_mode, #player_count, #total_players, #remaining_players, #time_left, #humans, #dead_zombies, #alive_zombies, #alpha_team, #alpha_od_status, #bravo_team, #bravo_od_status, #git_hash {
+    font-weight: bold;
+}
+
+button {
+    background-color: #007bff;
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 16px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+.error {
+    color: #dc3545;
+    font-weight: bold;
+    text-align: center;
+    margin-top: 20px;
+}
+
+.main_status, .info_box {
+    text-align: center;
+}
+
+#menubuttons a, #gamebuttons a {
+    text-decoration: none;
+}
+
+#menubuttons button, #gamebuttons button {
+    margin: 0 10px;
+}
+
+#teams {
+    font-size: 16px;
+    text-align: left;
+    margin: 20px;
+}
+
+#starting, #ending {
+    font-size: 18px;
+}
+
+#zombies, #commander {
+    font-size: 16px;
+}
+</style>
 <script>
-function updateStatus(){
+function updateStatus() {
     $.ajax({
         url: 'updateStatus',
         timeout: 2000,
-        success: function(rawdata){
+        success: function(rawdata) {
             var info = JSON.parse(rawdata);
-            console.log('Data received:', info); // Debugging: Log data received
             $('.main_status').show();
             $('#game_mode').text(info.game_mode);
             $('.info_box').hide();
             $('.admin').hide();
             $('.error').hide();
 
-            if (info.game_status === 'in_game'){
+            if (info.game_status === 'in_game') {
                 $('#gamebuttons').show();
-                if (info.game_mode === 'Joust Free-for-All' || info.game_mode === 'Ninja'){
+                if (info.game_mode === 'Joust Free-for-All' || info.game_mode === 'Ninja') {
                     $('#free4all').show();
                     $('#total_players').text(info.total_players);
-                    $('#remaining_players').text(info.remaining_players); // Ensure correct value
-                } else if (info.game_mode === 'Tournament'){
+                    $('#remaining_players').text(info.remaining_players);
+                } else if (info.game_mode === 'Tournament') {
                     $('#tournament').show();
-                } else if (info.game_mode === 'Zombies'){
+                } else if (info.game_mode === 'Zombies') {
                     $('#zombies').show();
                     $('#humans').text(info.humans);
                     $('#dead_zombies').text(info.dead_zombies);
                     $('#alive_zombies').text(info.alive_zombies);
                     $('#time_left').text(info.time_left);
-                } else if (info.game_mode === 'Commander'){
+                } else if (info.game_mode === 'Commander') {
                     $('#commander').show();
                     $('#alpha_team').text(info.team_names[0] + ': ' + info.alpha_alive + '/' + info.alpha_players);
                     $('#alpha_od_status').text(info.team_names[0] + ' Overdrive: ' + info.alpha_od_status);
@@ -36,12 +117,12 @@ function updateStatus(){
                     $('#bravo_od_status').text(info.team_names[1] + ' Overdrive: ' + info.bravo_od_status);
                 } else {
                     var team_info = '<br />';
-                    if (info.game_mode === 'Werewolves'){
+                    if (info.game_mode === 'Werewolves') {
                         team_info += 'Time to Reveal: ' + info.time_to_reveal + '<br /><br />';
                     }
-                    for (var i = 0; i < info.team_comp.length; i++){
+                    for (var i = 0; i < info.team_comp.length; i++) {
                         var t = info.team_comp[i];
-                        if (t[0] !== 0){
+                        if (t[0] !== 0) {
                             team_info += info.team_names[i] + ': ' + t[1] + '/' + t[0] + '<br />';
                         }
                     }
@@ -49,21 +130,21 @@ function updateStatus(){
                     $('#teams').html(team_info);
                     $('#teams').show();
                 }
-            } else if (info.game_status === 'starting'){
+            } else if (info.game_status === 'starting') {
                 $('#starting').show();
                 $('#player_count').text(info.alive_count);
-            } else if (info.game_status === 'ending'){
+            } else if (info.game_status === 'ending') {
                 $('#ending').show();
                 $('#team_win').hide();
-                if (info.game_mode !== 'Joust Free-for-All' && info.winning_team !== -1){
+                if (info.game_mode !== 'Joust Free-for-All' && info.winning_team !== -1) {
                     $('#team_win').show();
                     var line = info.team_names[info.winning_team] + ' win!';
                     $('#team_win').text(line);
                 }
-            } else if (info.game_status === 'killed'){
+            } else if (info.game_status === 'killed') {
                 $('#killed').show();
             } else {
-                if (admin_menu === true){
+                if (admin_menu === true) {
                     $('.admin').show();
                 } else {
                     $('#mainmenu').show();
@@ -76,30 +157,30 @@ function updateStatus(){
                 }
             }
         },
-        error: function(){
+        error: function() {
             $('.main_status').hide();
             $('.info_box').hide();
             $('.admin').hide();
             $('.error').show();
-            console.log('Error in AJAX request!');
+            console.log('something broke!');
         }
     });
 }
 
-$(document).ready(function(){
+$(document).ready(function() {
     $('.main_status').hide();
     $('.info_box').hide();
     $('.error').hide();
     $('#menubuttons').show();
     admin_menu = false;
 
-    $('#changemode').click(function(){
+    $('#changemode').click(function() {
         $.get('changemode');
     });
-    $('#startgame').click(function(){
+    $('#startgame').click(function() {
         $.get('startgame');
     });
-    $('#killgame').click(function(){
+    $('#killgame').click(function() {
         $.get('killgame');
     });
     updateStatus();
@@ -174,7 +255,6 @@ $(document).ready(function(){
 <div class="info_box" id="menubuttons">
     <button id="changemode">Change Mode</button>
     <button id="startgame">Start Game</button>
-    <br><br>
     <a href="/battery"><button>Battery Status</button></a>
     <a href="/settings"><button>Admin Settings</button></a>
 </div>

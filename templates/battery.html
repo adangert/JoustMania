@@ -1,34 +1,112 @@
 {% extends "basic.html" %}
 {% block header %}
 <style>
-table,td {border:1pt solid black;  padding:3pt;}
-table{border-collapse: collapse;}
+/* Modernized styles */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f4;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
 
-.batt5{background-color:#80ff80;}
-.batt4{background-color:cyan;}
-.batt3{background-color:#0080ff;}
-.batt2{background-color:yellow;}
-.batt1{background-color:red;}
-.batt0{background-color:red;}
-.batt238{background-color:gray}
-.batt239{background-color:lightgray}
+h3 {
+    color: #007bff;
+    margin-top: 20px;
+}
 
-.act1{background-color:lightgray;}
-.act0{background-color:#80ff80;}
+p {
+    margin-bottom: 20px;
+    font-size: 16px;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: center;
+}
+
+th {
+    background-color: #007bff;
+    color: #fff;
+    font-weight: bold;
+}
+
+.batt5 { background-color: #80ff80; }
+.batt4 { background-color: cyan; }
+.batt3 { background-color: #0080ff; }
+.batt2 { background-color: yellow; }
+.batt1 { background-color: red; }
+.batt0 { background-color: red; }
+.batt238 { background-color: gray; }
+.batt239 { background-color: lightgray; }
+.act1 { background-color: lightgray; }
+.act0 { background-color: #80ff80; }
+
+.buttons {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.buttons a {
+    margin-right: 15px;
+}
+
+.buttons button {
+    background-color: #007bff;
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 16px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.buttons button:hover {
+    background-color: #0056b3;
+}
+
+.buttons button:active {
+    transform: scale(0.98);
+}
 </style>
 {% endblock %}
 
 {% block body %}
 <h3>Battery Status</h3>
-Note: Does not update during games.<br/><br/>
-<table><tr><td>MAC Address</td><td>Battery</td><td>Active</td></tr>
-{% for move in ns.battery_status %}
-<tr><td>{{move}}</td><td class="batt{{ns.battery_status[move]}}">{{levels[ns.battery_status[move]]}}</td>
-<td class="act{{ns.out_moves[move]}}">{% if ns.out_moves[move] == 0%}Yes{% else %}No{% endif %}</td></tr>
-
-{% endfor %}
+<p>Note: Does not update during games.</p>
+<table>
+    <thead>
+        <tr>
+            <th>MAC Address</th>
+            <th>Battery</th>
+            <th>Active</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for move in ns.battery_status %}
+        <tr>
+            <td>{{ move }}</td>
+            <td class="batt{{ ns.battery_status[move] }}">{{ levels[ns.battery_status[move]] }}</td>
+            <td class="act{{ ns.out_moves[move] }}">
+                {% if ns.out_moves[move] == 0 %}Yes{% else %}No{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
 </table>
-<br/>
-<a href="/battery"><button type="button">Refresh</button></a>
-<a href="/"><button type="button">Go Back</button></a>
+<div class="buttons">
+    <a href="/battery"><button type="button">Refresh</button></a>
+    <a href="/"><button type="button">Go Back</button></a>
+</div>
 {% endblock %}

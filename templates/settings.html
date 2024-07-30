@@ -1,27 +1,131 @@
 {% extends "basic.html" %}
 {% block header %}
+<style>
+/* Modernized styles */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f4;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+.settings-section {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    padding: 20px;
+}
+
+.settings-section h3 {
+    margin-bottom: 15px;
+    font-size: 22px;
+    color: #007bff;
+}
+
+.settings-section p {
+    margin: 0;
+    padding: 0;
+}
+
+.settings-section button {
+    background-color: #007bff;
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 16px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+    margin-top: 10px;
+}
+
+.settings-section button:hover {
+    background-color: #0056b3;
+}
+
+.settings-section button:active {
+    transform: scale(0.98);
+}
+
+#random_mode_options, #color_lock_options {
+    display: none;
+}
+
+.rand {
+    background-color: #28a745;
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 16px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.rand:hover {
+    background-color: #218838;
+}
+
+.rand:active {
+    transform: scale(0.98);
+}
+
+.lol {
+    text-align: center;
+    margin-top: 20px;
+}
+
+.lol button {
+    margin-top: 10px;
+}
+
+p, span {
+    line-height: 1.6;
+}
+
+input[type="submit"] {
+    background-color: #007bff;
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 16px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+input[type="submit"]:hover {
+    background-color: #0056b3;
+}
+
+input[type="submit"]:active {
+    transform: scale(0.98);
+}
+</style>
 <script>
 function randomize(){
-    clicked = $(':focus')[0].id;
+    var clicked = $(':focus')[0].id;
     $.ajax({
         url: clicked,
         timeout: 2000,
         success: function(rawdata){
-            console.log(rawdata)
-            teams = JSON.parse(rawdata);
-            $('.'+clicked).each(function(){
+            console.log(rawdata);
+            var teams = JSON.parse(rawdata);
+            $('.' + clicked).each(function(){
                 $(this).val(teams.pop());
-            })
+            });
         },
         error: function(){
-            console.log('something broke!')
+            console.log('something broke!');
         }
     });
-};
+}
 
 $(document).ready(function(){
     $('.rand').click(function(){
-        randomize()
+        randomize();
     });
 
     $('#random_mode_options').hide();
@@ -35,78 +139,92 @@ $(document).ready(function(){
     });
 });
 </script>
-<style>
-p{line-height: 200%}
-span {line-height: 200%}
-</style>
 {% endblock %}
 
 {% block body %}
-
 <div class="lol">
-{% with message = get_flashed_messages() %}
-  {% if message %}
-    <br>{{message[0]}}<br><a href="/"><button type="button">Go Back</button></a><br>
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <p>{{ messages[0] }}</p>
+    <a href="/"><button type="button">Go Back</button></a>
   {% endif %}
 {% endwith %}
 </div>
 
-<div class='admin' id='admin_settings'>
-<h3>Admin Settings</h3>
-Note: Does not update during games.<br/>
+<div class="admin" id="admin_settings">
+    <h3>Admin Settings</h3>
+    <p>Note: Does not update during games.</p>
 
-<form action="/settings" method="POST">
-<p>
-{{ form.move_can_be_admin(checked=settings.move_can_be_admin) }} {{form.move_can_be_admin.label}}
-</p>
-<p>
-{{ form.play_instructions(checked=settings.play_instructions) }} {{form.play_instructions.label}}
-</p>
-<p>
-{{ form.play_audio(checked=settings.play_audio) }} {{form.play_audio.label}}
-</p>
-<p>
-{{ form.random_teams(checked=settings.random_teams) }} {{form.random_teams.label}}
-</p>
-<p>
-{{ form.color_lock(checked=settings.color_lock) }} {{form.color_lock.label}}
-</p>
-<p>
-{{ form.red_on_kill }} {{form.red_on_kill.label}}
-</p>
-<p>
-{{ form.sensitivity }} {{form.sensitivity.label}}
-</p>
-<p>
-{{ form.force_all_start }} {{form.force_all_start.label}}
-</p>
-<p>
-{{ form.random_team_size }} {{form.random_team_size.label}}
-</p>
-<p>
-Random Mode Game Selection <button type="button" id="random_toggle">Show/Hide</button><br />
-<span id="random_mode_options">
-{% for item in form.random_modes %}
-    {{ item(checked=item.data in settings.random_modes) }} {{ item.label }} <br />
-{% endfor %}
-</span></p>
-<p>
-Color Lock Selection <button type="button" id="color_lock_toggle">Show/Hide</button><br />
-<span id="color_lock_options">
-Dual Teams<br/>
-{% for i in range(2) %}{{ form.color_lock_choices[i](class_="rand2") }} {% endfor %}<br/>
-<button type="button" class="rand" id="rand2">Randomize</button><br/>
-Tri Teams<br/>
-{% for i in range(2,5) %}{{ form.color_lock_choices[i](class_="rand3") }} {% endfor %}<br/>
-<button type="button" class="rand" id="rand3">Randomize</button><br/>
-Quad Teams<br/>
-{% for i in range(5,9) %}{{ form.color_lock_choices[i](class_="rand4") }} {% endfor %}<br/>
-<button type="button" class="rand" id="rand4">Randomize</button><br/>
-</span></p>
+    <form action="/settings" method="POST">
+        <div class="settings-section">
+            {{ form.move_can_be_admin(checked=settings.move_can_be_admin) }} {{ form.move_can_be_admin.label }}
+        </div>
+        <div class="settings-section">
+            {{ form.play_instructions(checked=settings.play_instructions) }} {{ form.play_instructions.label }}
+        </div>
+        <div class="settings-section">
+            {{ form.play_audio(checked=settings.play_audio) }} {{ form.play_audio.label }}
+        </div>
+        <div class="settings-section">
+            {{ form.random_teams(checked=settings.random_teams) }} {{ form.random_teams.label }}
+        </div>
+        <div class="settings-section">
+            {{ form.color_lock(checked=settings.color_lock) }} {{ form.color_lock.label }}
+        </div>
+        <div class="settings-section">
+            {{ form.red_on_kill }} {{ form.red_on_kill.label }}
+        </div>
+        <div class="settings-section">
+            {{ form.sensitivity }} {{ form.sensitivity.label }}
+        </div>
+        <div class="settings-section">
+            {{ form.force_all_start }} {{ form.force_all_start.label }}
+        </div>
+        <div class="settings-section">
+            {{ form.random_team_size }} {{ form.random_team_size.label }}
+        </div>
+        <div class="settings-section">
+            <p>
+                Random Mode Game Selection 
+                <button type="button" id="random_toggle">Show/Hide</button>
+            </p>
+            <span id="random_mode_options">
+                {% for item in form.random_modes %}
+                    {{ item(checked=item.data in settings.random_modes) }} {{ item.label }} <br />
+                {% endfor %}
+            </span>
+        </div>
+        <div class="settings-section">
+            <p>
+                Color Lock Selection 
+                <button type="button" id="color_lock_toggle">Show/Hide</button>
+            </p>
+            <span id="color_lock_options">
+                <p>Dual Teams</p>
+                {% for i in range(2) %}
+                    {{ form.color_lock_choices[i](class_="rand2") }} 
+                {% endfor %}
+                <button type="button" class="rand" id="rand2">Randomize</button>
+                <p>Tri Teams</p>
+                {% for i in range(2, 5) %}
+                    {{ form.color_lock_choices[i](class_="rand3") }} 
+                {% endfor %}
+                <button type="button" class="rand" id="rand3">Randomize</button>
+                <p>Quad Teams</p>
+                {% for i in range(5, 9) %}
+                    {{ form.color_lock_choices[i](class_="rand4") }} 
+                {% endfor %}
+                <button type="button" class="rand" id="rand4">Randomize</button>
+            </span>
+        </div>
 
-<br/><input type="submit" value="Save Settings">
-</form>
-<a href="/"><button type="button">Go Back</button></a><br/><br/><br/>
-<a href="/power"><button type="button">Power Options</button></a>
+        <input type="submit" value="Save Settings">
+    </form>
+    <div class="settings-section">
+        <a href="/"><button type="button">Go Back</button></a>
+    </div>
+    <div class="settings-section">
+        <a href="/power"><button type="button">Power Options</button></a>
+    </div>
 </div>
 {% endblock %}

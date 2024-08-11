@@ -1,8 +1,89 @@
-body{font-size: 15pt;}
-button{font-size:16pt;}
-img{text-align: center;}
-input[type=checkbox] {transform: scale(2); vertical-align:middle; margin: 5pt;}
-input {font-size: 16pt;}
-select {font-size: 16pt;}
-table {font-size: 14pt;}
-#title {text-align: center;}
+/* Existing styles */
+body {
+    font-size: 15pt;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+    color: #333;
+}
+
+button {
+    font-size: 16pt;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+a button {
+    background-color: #28a745;
+}
+
+a button:hover {
+    background-color: #218838;
+}
+
+img {
+    text-align: center;
+}
+
+input[type=checkbox] {
+    transform: scale(2);
+    vertical-align: middle;
+    margin: 5pt;
+}
+
+input, select {
+    font-size: 16pt;
+}
+
+table {
+    font-size: 14pt;
+}
+
+#title {
+    text-align: center;
+}
+
+/* New theme styles */
+.main_status, .info_box, .error {
+    margin: 20px;
+    padding: 20px;
+    border-radius: 5px;
+}
+
+.main_status {
+    background-color: #e0e0e0;
+    border: 1px solid #ccc;
+}
+
+.info_box {
+    background-color: #ffffff;
+    border: 1px solid #ddd;
+}
+
+.info_box h2 {
+    margin-top: 0;
+}
+
+.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+    display: none; /* Hide by default */
+}
+
+.hidden {
+    display: none;
+}
+
+.show {
+    display: block;
+}

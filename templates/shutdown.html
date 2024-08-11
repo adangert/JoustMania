@@ -1,5 +1,39 @@
 {% extends "basic.html" %}
-{% block body %}
-Shutting down... wait 20 seconds before disconnecting power!
+{% block header %}
+<style>
+/* Modernized styles */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f4;
+    color: #333;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+}
 
+.container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.message {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    font-size: 18px;
+    color: #333;
+}
+
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="message">
+        Shutting down... please wait 20 seconds before disconnecting power!
+    </div>
+</div>
 {% endblock %}

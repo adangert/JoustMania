@@ -124,15 +124,16 @@ setup() {
         -DPSMOVE_USE_PSEYE:BOOL=OFF || exit -1
     make -j4 || exit -1
     
-    #change the supervisord directory to our own homename
-    #this replaces pi default username in joust.conf,
-    sed -i -e "s/pi/$HOMENAME/g" $HOMEDIR/JoustMania/conf/supervisor/conf.d/joust.conf || exit -1
-    
+    CONFIG_DIR="/etc/supervisor/conf.d"
+    CONFIG_FILE="$CONFIG_DIR/joust.conf"
     
     #installs custom supervisor script for running joustmania on startup
     sudo cp -r $HOMEDIR/JoustMania/conf/supervisor/ /etc/ || exit -1
     
-
+    #change the supervisord directory to our own homename
+    #this replaces pi default username in the supervisor joust.conf
+    sudo sed -i -e "s|/home/[^/]*\/JoustMania|$HOMEDIR/JoustMania|g" $CONFIG_FILE || exit -1
+    
     
     #Use amixer to set sound output to 100% (This looks somewhat broken, potentially remove it)
     #unable to find simple control 'PCM',0

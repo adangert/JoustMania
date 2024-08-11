@@ -116,7 +116,7 @@ Joustmania can also be controlled via a web browser on your laptop or smartphone
 ```
 sudo ./enable_ap.sh
 ```
-Note that this disables normal Wi-Fi on the Pi, the ethernet connection should still work however. The default SSID is "JOUSTMANIA" and the default password is "joustmania"; both (and other) settings may be adjusted in the apfiles/hostapd.conf file before running enable_ap.sh.
+Note that this disables normal Wi-Fi on the Pi, the ethernet connection should still work however. The default SSID is "JoustMania" and the default password is "joustpass";
 
 To connect to the game, go to http://joust.mania in your web browser, you may have to disable LTE on mobile. To disable the access point and restore Wi-Fi, run the command
 ```

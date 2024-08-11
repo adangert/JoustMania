@@ -13,30 +13,13 @@ fi
 
 rm ./apfiles/ap_active
 
-update-rc.d hostapd disable
-update-rc.d dnsmasq disable
+echo "Deleting ad-hoc network, This pi should now reconnect back to the internet"
+nmcli con delete Hotspot
 
-mv /etc/dhcpcd.conf.bak /etc/dhcpcd.conf
-chown :pi /etc/dhcpcd.conf
+#removing dnsmasq (for http://joust.mania access)
+rm /etc/NetworkManager/dnsmasq-shared.d/joustmania.conf
 
-mv /etc/network/interfaces.bak /etc/network/interfaces
 
-mv /etc/hostapd/hostapd.conf.bak /etc/hostapd/hostapd.conf
+echo ">>> DONE <<<"
 
-mv /etc/default/hostapd.bak /etc/default/hostapd
 
-mv /etc/dnsmasq.conf.bak /etc/dnsmasq.conf
-
-mv /etc/sysctl.conf.bak /etc/sysctl.conf
-
-mv /etc/rc.local.bak /etc/rc.local
-
-rm /etc/network/interfaces.d/ap
-
-rm /etc/network/interfaces.d/station
-
-rm /etc/udev/rules.d/90-wireless.rules
-
-mv /lib/dhcpcd/dhcpcd-hooks/10-wpa_supplicant.bak /lib/dhcpcd/dhcpcd-hooks/10-wpa_supplicant 
-
-reboot

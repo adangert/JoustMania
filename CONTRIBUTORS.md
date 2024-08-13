@@ -31,6 +31,8 @@
 [Mchirlin](https://github.com/mchirlin)
 * Complete refactor of Joustmania!! Removed DRY code, simplifying all game modes
 
+[AcidicSFX](https://github.com/AcidicSFX)
+* Helped redesign the webui!
+
 
 Thanks for all the help in making Joustmania an awesome game!!
-If you would like to help out, please take a look at the issues, pull requests welcome.

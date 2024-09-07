@@ -28,7 +28,7 @@ Cool Stuffs!
 
 Hardware
 ---------------------------
-I am currently selling fully set up Joustmania devices (pi5 - 4gb model, case, bluetooth dongle, sd card, audio-connector) for $180 with included shipping domestically. If you would like to inquire about purchasing a fully setup Joustmania device, please reach out to joustmaniagame@gmail.com
+I am currently selling fully set up Joustmania devices (pi5 - 4gb model, case, bluetooth dongle, sd card, audio-connector) for $190 with included shipping domestically. If you would like to inquire about purchasing a fully setup Joustmania device, please reach out to joustmaniagame@gmail.com
 
 If you would like to build your own device you will need the following:
 

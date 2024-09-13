@@ -37,7 +37,8 @@ If you would like to build your own device you will need the following:
 
 Optional and recommended:
 
-* Class 1, Bluetooth 4.0 USB adapters (https://a.co/d/6GG35Um)
+* Class 1, Bluetooth 4.0 USB adapters
+* Note: we strongly recommend to use this linked TRENDnet brand as it has been tested, other dongles may or may not work/have other issues: https://a.co/d/6GG35Um
 
 Note on Hardware: The internal bluetooth is shorter range and has a slightly higher latency
 The class 1 adapters allow bluetooth connections up to 300+ feet and allow for the gameplay to be smooth, each adapter can connect to 6 to 7 controllers. I've tested this build with four adapters and 18 controllers successfully.

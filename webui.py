@@ -29,6 +29,7 @@ class SettingsForm(Form):
     play_audio = BooleanField('Play audio')
     red_on_kill = SelectField('Kill notification',choices=[(True,'Red'),('','Dark')],coerce=bool)
     sensitivity = SelectField('Move sensitivity',choices=[(0,'Ultra High'),(1,'High'),(2,'Medium'),(3,'Low'),(4,'Ultra Low')],coerce=int)
+    mode_selection = SelectField('Mode selection', choices=[game.pretty_name for game in common.Games],coerce=str)   
     mode_options = [ game for game in common.Games if game not in [common.Games.Random, common.Games.JoustTeams]]
     random_modes = MultiCheckboxField('Random Modes',choices=[(game.name, game.pretty_name) for game in mode_options])
     color_lock = BooleanField('Lock team colors')
@@ -63,7 +64,7 @@ class WebUI():
             self.ns = ns
 
         self.app.add_url_rule('/','index',self.index)
-        self.app.add_url_rule('/changemode','change_mode',self.change_mode)
+        self.app.add_url_rule('/changemodestr', 'change_mode_str', self.change_mode_str, methods=['POST'])
         self.app.add_url_rule('/startgame','start_game',self.start_game)
         self.app.add_url_rule('/killgame','kill_game',self.kill_game)
         self.app.add_url_rule('/updateStatus','update',self.update)
@@ -84,16 +85,24 @@ class WebUI():
 
     #@app.route('/')
     def index(self):
-        return render_template('joustmania.html')
+        form = SettingsForm()
+        return render_template('joustmania.html', form=form)
+        #return render_template('joustmania.html')
 
     #@app.route('/updateStatus')
     def update(self):
         return json.dumps(self.ns.status)
+        
+        
+    #@app.route('/changemodestr')
+    def change_mode_str(self):
+        mode_name = request.form.get('mode_selection')
+        if mode_name:
+            self.command_queue.put({'command': 'changemodestr_' + mode_name})
+            return "{'status': 'OK'}"
+        else:
+            return "{'status': 'Error', 'message': 'No mode selected'}"
 
-    #@app.route('/changemode')
-    def change_mode(self):
-        self.command_queue.put({'command': 'changemode'})
-        return "{'status':'OK'}"
 
     #@app.route('/startgame')
     def start_game(self):

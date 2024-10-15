@@ -83,6 +83,20 @@ button:active {
 }
 </style>
 <script>
+function changeMode(selectedMode) {
+    $.ajax({
+        url: '/changemodestr',
+        type: 'POST',
+        data: { mode_selection: selectedMode },
+        success: function(response) {
+            console.log('Mode changed to ' + selectedMode);
+        },
+        error: function() {
+            console.log('Error changing mode');
+        }
+    });
+}
+    
 function updateStatus() {
     $.ajax({
         url: 'updateStatus',
@@ -174,9 +188,6 @@ $(document).ready(function() {
     $('#menubuttons').show();
     admin_menu = false;
 
-    $('#changemode').click(function() {
-        $.get('changemode');
-    });
     $('#startgame').click(function() {
         $.get('startgame');
     });
@@ -253,7 +264,10 @@ $(document).ready(function() {
 </div>
 
 <div class="info_box" id="menubuttons">
-    <button id="changemode">Change Mode</button>
+    <div class="changemode">
+        {{ form.mode_selection(onchange="changeMode(this.value)") }} {{ form.mode_selection.label }}
+    </div>
+    <br />
     <button id="startgame">Start Game</button>
     <a href="/battery"><button>Battery Status</button></a>
     <a href="/settings"><button>Admin Settings</button></a>

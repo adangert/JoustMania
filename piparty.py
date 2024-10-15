@@ -546,6 +546,7 @@ class Menu():
     def check_change_mode(self):
         change_mode = False
         change_forward = True
+        change_str = ""
 
         #Determine if person who clicked to change mode was actually the admin, if so change it
         for move, move_opt in self.menu_opts.items():
@@ -568,10 +569,18 @@ class Menu():
         if self.command_from_web == 'changemode':
             self.command_from_web = ''
             change_mode = True
+            
+        if "changemodestr" in self.command_from_web:
+            change_str = self.command_from_web.split('_')[-1]
+            change_mode = True
+            self.command_from_web = ''
+
 
         #If change mode is true, update the game_mode
-        if change_mode:
-            if change_forward:
+        if change_mode or change_str:
+            if change_str:
+                self.game_mode = self.game_mode.find(change_str)
+            elif change_forward:
                 self.game_mode = self.game_mode.next()
             else:
                 self.game_mode = self.game_mode.previous()

@@ -58,6 +58,12 @@ class Games(Enum):
     def previous(self):
         """Return the previous game mode after this one in the list. Wraps around after hitting bottom."""
         return Games((self.value - 1) % len(Games))
+    
+    def find(self, str_name):
+        for game in Games:
+            if game.pretty_name == str_name:
+                return game
+        
 class Status(Enum):
     ALIVE =     0 # Tracking move and can be killed
     DIED =      1 # Just died, will move to dead

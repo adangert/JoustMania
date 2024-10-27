@@ -9,6 +9,8 @@ import scipy.signal as signal
 import pygame
 import random
 import glob
+import setproctitle
+
 from sys import platform
 if platform == "linux" or platform == "linux2":
     import alsaaudio
@@ -189,10 +191,13 @@ def audio_loop(fname, ratio, stop_proc):
                 wf.close()
                 device.close()
                 song_loaded = False
+        #Give up 500ms to prevent CPU thrashing
+        time.sleep(0.5)
 
 @functools.lru_cache(maxsize=128)
 class Audio:
     def __init__(self, fname):
+        setproctitle.setproctitle(f"JoustMania-Audio({fname})")
         #these are probably not necessary
         #segment = AudioSegment.from_file(fname)
         #buf = io.BytesIO()
@@ -224,6 +229,8 @@ class Audio:
 @functools.lru_cache(maxsize=16)
 class Music:
     def __init__(self, name):
+        setproctitle.setproctitle(f"JoustMania-Music({name})")
+    
         self.name = name
         self.transition_future_ = asyncio.Future()
 

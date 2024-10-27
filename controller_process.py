@@ -1,6 +1,7 @@
 from games import game, joust_non_stop, werewolf, zombie, commander, tournament, speed_bomb, fight_club
 import common, piparty
 import logging
+import setproctitle
 
 logger = logging.getLogger(__name__)
 
@@ -9,6 +10,9 @@ logger = logging.getLogger(__name__)
 def main_track_move(menu, restart, move_serial, move_num, menu_opts, game_opts, force_color, battery, dead_count, game_mode, \
                     team, team_color_enum, sensitivity, dead_move, invincible_move, music_speed, show_team_colors, red_on_kill,\
                     revive, kill_proc):
+
+    # Set the process title
+    setproctitle.setproctitle(f"JoustMania-main_track_move({move_serial})")
 
     move = common.get_move(move_serial, move_num)
 

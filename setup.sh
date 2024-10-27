@@ -55,7 +55,7 @@ setup() {
     PYTHON=$VENV/bin/python3
 
     echo "installing virtual environment dependencies"
-    $PYTHON -m pip install --ignore-installed flask Flask-WTF pyalsaaudio pydub pyyaml dbus-python python-dotenv || exit -1
+    $PYTHON -m pip install --ignore-installed flask Flask-WTF pyalsaaudio pydub pyyaml dbus-python python-dotenv setproctitle || exit -1
 
     # audioop is not available on python >= 3.13
     $PYTHON -m pip install --ignore-installed audioop-lts || exit -1

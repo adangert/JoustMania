@@ -63,6 +63,8 @@ class PaceManager:
 
     @common.async_print_exceptions
     async def run_(self):
+        import setproctitle
+        setproctitle.setproctitle(f"JoustMania-PaceManager")
         await asyncio.sleep(self.initial_pace_time_)
 
         pace = self.initial_pace_

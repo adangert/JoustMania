@@ -55,7 +55,7 @@ setup() {
     PYTHON=$VENV/bin/python3
 
     echo "installing virtual environment dependencies"
-    $PYTHON -m pip install --ignore-installed flask Flask-WTF pyalsaaudio pydub pyyaml dbus-python python-dotenv || exit -1
+    $PYTHON -m pip install --ignore-installed flask Flask-WTF pyalsaaudio pydub pyyaml dbus-python python-dotenv setproctitle || exit -1
 
     #Sometimes pygame tries to install without a whl, and fails (like 2.4.0) this
     #checks that only correct versions will install

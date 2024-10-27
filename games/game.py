@@ -425,10 +425,12 @@ class Game():
                 
             self.handle_status()
             self.check_end_game()
-            
 
             if self.game_end:
                 self.end_game()
+
+            #Give up 10ms to prevent CPU thrashing
+            time.sleep(0.01)            
 
         self.stop_tracking_moves()
 
@@ -587,3 +589,6 @@ class Game():
                 move.set_leds(*Colors.Black.value)
                 move.update_leds()
                 move.set_rumble(0)
+                
+            #Give up 10ms to prevent CPU thrashing
+            time.sleep(0.01)

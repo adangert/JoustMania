@@ -322,6 +322,12 @@ class Menu():
         if platform == "linux" or platform == "linux2":
             self.big_update = update.check_for_update(self.ns.settings['menu_voice'])
             self.git_hash = update.run_command("git rev-parse HEAD")[:7]
+            
+            #Killing and rebooting bluetooth (the November 2024 update seemed to have caused some issues)
+            update.run_command("rfkill block bluetooth")
+            update.run_command("rfkill unblock bluetooth")
+            time.sleep(3)
+            
         else:
             self.git_hash = "0000000"
 

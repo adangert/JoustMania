@@ -52,10 +52,16 @@ setup() {
     else
         echo "No USB audio jack found, likely a pi 4"
     fi
+    
+    #This was causing some errors updating below (stuck on looking for font directory)
+    sudo apt-get remove realvnc-vnc-server -y
+
 
     echo "starting software upgrade"
     sudo apt-get update -y || exit -1
     sudo apt-get upgrade -y || exit -1
+    
+
 
     echo "Installing required software dependencies"
     #TODO: remove pyaudio and dependencies

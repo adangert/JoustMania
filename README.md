@@ -28,12 +28,12 @@ Cool Stuffs!
 
 Hardware
 ---------------------------
-I am currently selling fully set up Joustmania devices (pi5 - 4gb model, case, two bluetooth dongles, sd card, power supply, audio-connector, HDMI cables) for $190 with included shipping domestically. If you would like to inquire about purchasing a fully setup Joustmania device, please reach out to joustmaniagame@gmail.com
+I am currently selling fully set up Joustmania devices (pi5 - 4gb model, case, two bluetooth dongles, sd card, power supply, audio-connector, HDMI cables) for $190 with included shipping domestically. If you would like to inquire about purchasing a fully setup Joustmania device, please reach out to joustmaniagame@gmail.com.
 
 If you would like to build your own device you will need the following:
 
-* A Raspberry Pi 4 with sd card
 * A Rasberry Pi 5 with sd card and a [USB audio adapter](https://www.amazon.com/Adapter-External-Converter-Compatible-Desktops/dp/B099FLWJD3/)
+* Note Rasperry pi 4 currently is [broken](https://github.com/adangert/JoustMania/issues/348), please use a pi 5 for official support at the moment.
 
 Optional and recommended:
 

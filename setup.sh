@@ -25,12 +25,12 @@ setup() {
     echo "Now trying to get the audio card"
     #Get the sudo aplay -l line corresponding to the headphones
     headphones_info=$(sudo aplay -l | grep -Ei 'Headphones')
-    
+    echo "headphones_info is $headphones_info"
     if [ ! -z "$headphones_info" ]; then
         echo "Headphones found, likely a pi 4, updating asound.conf"
         #Get the card number from the headphones_info(tested 0 on bullseye, 2 on bookworm)
         card_number=$(echo "$headphones_info" | sed -n 's/^card \([0-9]*\):.*$/\1/p' | head -n 1) || exit -1
-        
+        echo "headphones card_number is $card_number"
         #update the asound.conf to have the correct card to play from, copy to /etc
         sed -i "s/pcm \"hw:[0-9]*,/pcm \"hw:$card_number,/g" $HOMEDIR/JoustMania/conf/asound_pi_4.conf || exit -1
         sed -i "s/card [0-9]*/card $card_number/g" $HOMEDIR/JoustMania/conf/asound_pi_4.conf || exit -1
@@ -44,7 +44,7 @@ setup() {
         echo "USB audio jack found, likely a pi 5, updating asound.conf"
         #Get the card number from the headphones_info(tested 0 on bullseye, 2 on bookworm)
         card_number=$(echo "$USB_info" | sed -n 's/^card \([0-9]*\):.*$/\1/p' | head -n 1) || exit -1
-        
+        echo "USB card_number is $card_number"
         #update the asound.conf to have the correct card to play from, copy to /etc
         sed -i "s/pcm \"hw:[0-9]*,/pcm \"hw:$card_number,/g" $HOMEDIR/JoustMania/conf/asound.conf || exit -1
         sed -i "s/card [0-9]*/card $card_number/g" $HOMEDIR/JoustMania/conf/asound.conf || exit -1
@@ -52,7 +52,7 @@ setup() {
     else
         echo "No USB audio jack found, likely a pi 4"
     fi
-    
+
     #This was causing some errors updating below (stuck on looking for font directory)
     sudo apt-get remove realvnc-vnc-server -y
 

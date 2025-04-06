@@ -398,12 +398,23 @@ class Menu():
             bt_hcis = list(jm_dbus.get_hci_dict().keys())
 
             for hci in bt_hcis:
-                if jm_dbus.enable_adapter(hci):
-                    self.pair.update_adapters()
-                if on:
-                    jm_dbus.enable_pairable(hci)
-                else:
-                    jm_dbus.disable_pairable(hci)
+                for attempt in range(1):
+                    try:
+                        if jm_dbus.enable_adapter(hci):
+                            self.pair.update_adapters()
+                        if on:
+                            jm_dbus.enable_pairable(hci)
+                            jm_dbus.enable_pairable(hci)
+                        else:
+                            jm_dbus.disable_pairable(hci)
+                    except:
+                        print(f"could not enable bluetooth adapter, trying to reset {hci}")
+                        #bluetooth might be off, try to unblock it, and start up again
+                        update.run_command("sudo rfkill unblock bluetooth")
+                        update.run_command(f"sudo hciconfig {hci} reset")
+                        #try enable bt scanning again!
+                        continue
+                    break
 
     # Pair USB move
     def pair_usb_move(self, move):

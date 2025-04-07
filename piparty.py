@@ -1230,6 +1230,10 @@ if __name__ == "__main__":
     logger.info("Starting piparty")
     if "win" in platform:
         freeze_support()
+    print("updating asound")
+    os.popen("sudo ./update_asound.sh")
+    print("starting audio")
+    time.sleep(1)
     InitAudio()
     piparty = Menu()
     piparty.game_loop()

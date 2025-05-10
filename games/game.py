@@ -383,7 +383,7 @@ class Game():
                 'game_mode': self.game_mode.pretty_name,
                 'winning_team': winning_team,
                 'total_players': len(self.move_serials),
-                'remaining_players': len([x[0] for x in self.dead_moves.items() if x[1].value == 1])}
+                'remaining_players': len(self.dead_moves) -  len([move for move, status in self.dead_moves.items() if status.value == Status.DEAD.value])}
 
         self.ns.status = data
 

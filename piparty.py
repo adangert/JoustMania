@@ -342,7 +342,6 @@ class Menu():
         self.random_added = [] # Added to a random team yet TODO - confirm
         self.rand_game_list = [] # List of random games
         self.show_battery = Value('i', 0) # Shared variable across all move processes to control whether to display battery status
-        self.pair_one_move = True # Only allow one move to be paired via USB at a time TODO - does this do anything anymore??
         self.force_color = {} # Not sure
 
         self.menu_opts = {} # Menu options stored per move
@@ -427,7 +426,6 @@ class Menu():
                     move.set_leds(255,255,255)
                     move.update_leds()
                     self.paired_moves.append(move_serial)
-                    #self.pair_one_move = False
 
     # Pair Bluetooth move
     def pair_move(self, move, move_num):
@@ -664,61 +662,47 @@ class Menu():
                 self.menu_music.load_audio("audio/Menu/music/*")
                 self.menu_music.start_audio_loop()
             self.i = self.i + 1 # Track loop counter
-            if "linux" in platform:
-                # If pair_one_move is false and there are 0 lines in list usbs
-                if not self.pair_one_move and "0" in os.popen('lsusb | grep "PlayStation Move motion controller" | wc -l').read():
-                    # Allow move to be paired via USB
-                    self.pair_one_move = True
-                    self.paired_moves = []
-            else:
-                if not self.pair_one_move:
-                    self.pair_one_move = True
-                    self.paired_moves = []
+            if psmove.count_connected() > len(self.tracked_moves):
+                for move_num, move in enumerate(self.moves):
+                    # If move is connected via USB, pair it
+                    if move.connection_type == psmove.Conn_USB:
+                        self.pair_usb_move(move)
+                    # If move is connected via BT, pair it
+                    elif move.connection_type != psmove.Conn_USB:
+                        self.pair_move(move, move_num)
+            # If the number of tracked moves is greater than the connected ones
+            # kill the tracked moves no longer connected
+            elif(len(self.tracked_moves) > len(self.moves)):
+                connected_serials = [x.get_serial() for x in self.moves]
+                tracked_serials = self.tracked_moves.keys()
+                keys_to_kill = []
+                for serial in tracked_serials:
+                    if serial not in connected_serials:
+                        #self.kill_controller_proc[serial].value = True TODO - why is this commented
+                        #check to see if the controller has not been removed already TODO - what is this?
+                        if serial in self.menu_opts.keys():
+                            self.remove_controller(serial)
+                        #self.tracked_moves[serial].join() TODO - ?
+                        #self.tracked_moves[serial].terminate() TODO - ?
+                        keys_to_kill.append(serial) # Add new serials to kill
 
-            # If allowing moves to be paired
-            if self.pair_one_move:
-                # Check if the number of psmoves connected is more than those tracked
-                if psmove.count_connected() > len(self.tracked_moves):
-                    for move_num, move in enumerate(self.moves):
-                        # If move is connected via USB, pair it
-                        if move.connection_type == psmove.Conn_USB and self.pair_one_move:
-                            self.pair_usb_move(move)
-                        # If move is connected via BT, pair it
-                        elif move.connection_type != psmove.Conn_USB:
-                            self.pair_move(move, move_num)
-                # If the number of tracked moves is greater than the connected ones
-                # kill the tracked moves no longer connected
-                elif(len(self.tracked_moves) > len(self.moves)):
-                    connected_serials = [x.get_serial() for x in self.moves]
-                    tracked_serials = self.tracked_moves.keys()
-                    keys_to_kill = []
-                    for serial in tracked_serials:
-                        if serial not in connected_serials:
-                            #self.kill_controller_proc[serial].value = True TODO - why is this commented
-                            #check to see if the controller has not been removed already TODO - what is this?
-                            if serial in self.menu_opts.keys():
-                                self.remove_controller(serial)
-                            #self.tracked_moves[serial].join() TODO - ?
-                            #self.tracked_moves[serial].terminate() TODO - ?
-                            keys_to_kill.append(serial) # Add new serials to kill
+                # For all keys to kill, remove from tracked_moves
+                for key in keys_to_kill:
+                    del self.tracked_moves[key]
+                    if key == self.admin_move:
+                        self.admin_move = None
 
-                    # For all keys to kill, remove from tracked_moves
-                    for key in keys_to_kill:
-                        del self.tracked_moves[key]
-                        if key == self.admin_move:
-                            self.admin_move = None
-
-                self.check_for_new_moves()
-                if len(self.tracked_moves) > 0:
-                    self.check_new_admin()
-                    self.check_change_mode() # TODO - do we want to make this so only admins can change mode?
-                    self.check_game_trigger()
-                    self.check_admin_controls()
-                    self.check_start_game()
-                    self.check_update()
-                    self.check_charging_controller()
-                self.check_command_queue()
-                self.update_status('menu')
+            self.check_for_new_moves()
+            if len(self.tracked_moves) > 0:
+                self.check_new_admin()
+                self.check_change_mode() # TODO - do we want to make this so only admins can change mode?
+                self.check_game_trigger()
+                self.check_admin_controls()
+                self.check_start_game()
+                self.check_update()
+                self.check_charging_controller()
+            self.check_command_queue()
+            self.update_status('menu')
 
 
     def check_admin_controls(self):

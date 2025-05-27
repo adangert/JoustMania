@@ -2,7 +2,7 @@
 
 # Prevent apt from prompting us about restarting services.
 export DEBIAN_FRONTEND=noninteractive
-HOMENAME=`logname`
+HOMENAME=`who | head -n1 | cut -d " " -f1`
 HOMEDIR=/home/$HOMENAME
 cd $HOMEDIR
 

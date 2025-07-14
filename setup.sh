@@ -29,7 +29,7 @@ setup() {
         libudev-dev swig libbluetooth-dev \
         alsa-utils alsa-tools libasound2-dev libsdl2-mixer-2.0-0 \
         python-dbus-dev python3-dbus libdbus-glib-1-dev usbutils libopenblas-dev \
-        python3-pyaudio python3-psutil || exit -1
+        python3-pyaudio python3-psutil python3-setproctitle || exit -1
 
     echo "Installing PS move A.P.I. software updates"
     #install components for psmoveapi
@@ -55,7 +55,8 @@ setup() {
     PYTHON=$VENV/bin/python3
 
     echo "installing virtual environment dependencies"
-    $PYTHON -m pip install --ignore-installed flask Flask-WTF pyalsaaudio pydub pyyaml dbus-python python-dotenv setproctitle || exit -1
+
+    $PYTHON -m pip install --ignore-installed flask Flask-WTF pyalsaaudio pydub pyyaml dbus-python python-dotenv
 
     # audioop is not available on python >= 3.13
     $PYTHON -m pip install --ignore-installed audioop-lts || exit -1

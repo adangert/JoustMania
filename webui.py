@@ -207,6 +207,8 @@ class WebUI():
             return str(team_colors).replace("'",'"')#JSON is dumb and demands double quotes
 
 def start_web(command_queue, ns):
+    import setproctitle
+    setproctitle.setproctitle(f"JoustMania-WebUI")    
     webui = WebUI(command_queue,ns)
     webui.web_loop()
 

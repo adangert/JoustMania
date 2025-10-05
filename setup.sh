@@ -28,7 +28,7 @@ setup() {
         bluez bluez-tools iptables rfkill supervisor cmake ffmpeg \
         libudev-dev swig libbluetooth-dev \
         alsa-utils alsa-tools libasound2-dev libsdl2-mixer-2.0-0 \
-        python-dbus-dev python3-dbus libdbus-glib-1-dev usbutils libatlas-base-dev \
+        python-dbus-dev python3-dbus libdbus-glib-1-dev usbutils libopenblas-dev \
         python3-pyaudio python3-psutil || exit -1
 
     echo "Installing PS move A.P.I. software updates"
@@ -56,6 +56,9 @@ setup() {
 
     echo "installing virtual environment dependencies"
     $PYTHON -m pip install --ignore-installed flask Flask-WTF pyalsaaudio pydub pyyaml dbus-python python-dotenv || exit -1
+
+    # audioop is not available on python >= 3.13
+    $PYTHON -m pip install --ignore-installed audioop-lts || exit -1
 
     #Sometimes pygame tries to install without a whl, and fails (like 2.4.0) this
     #checks that only correct versions will install
@@ -114,7 +117,11 @@ setup() {
     if [ "$1" = "--disable_internal_bt" ]; then
         echo "disabling internal bt"
         sudo grep -qxF 'dtoverlay=disable-bt' $config_loc || { echo "dtoverlay=disable-bt" | sudo tee -a $config_loc; sudo rm -rf /var/lib/bluetooth/*; } || exit -1
-        sudo systemctl disable hciuart || exit -1
+        
+        # hciuart is not active on raspbian 13
+        if [ "$DIST_REL" -le 12 ]; then
+            sudo systemctl disable hciuart || exit -1
+        fi
     fi
 
     uname2="$(stat --format '%U' $HOMEDIR'/JoustMania/setup.sh')"

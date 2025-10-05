@@ -17,6 +17,12 @@ def get_hci_dict():
 
     for hci in hcis:
         proxy2 = get_adapter_proxy(hci)
+        interfaces = get_node_interfaces(proxy2)
+        if (
+            'org.freedesktop.DBus.Properties' not in interfaces
+            or 'org.bluez.Adapter1' not in interfaces
+        ):
+            continue
         addr = get_adapter_attrib(proxy2, 'Address')
         hci_dict[hci] = str(addr)
 
@@ -152,8 +158,19 @@ def get_device_attrib(proxy, attrib):
     """Abstract getting attributes from Bluez Device1 Interfaces"""
     return get_bluez_attrib(proxy, 'Device1', attrib)
 
+def _introspect_tree(proxy):
+    """Return parsed introspection tree for a DBus node"""
+    iface = dbus.Interface(proxy, 'org.freedesktop.DBus.Introspectable')
+    return ElementTree.fromstring(iface.Introspect())
+
+
 def get_node_child_names(proxy):
     """Abstract finding child nodes of a DBus Node"""
-    iface = dbus.Interface(proxy, 'org.freedesktop.DBus.Introspectable')
-    tree = ElementTree.fromstring(iface.Introspect())
+    tree = _introspect_tree(proxy)
     return [child.attrib['name'] for child in tree if child.tag == 'node']
+
+
+def get_node_interfaces(proxy):
+    """List interface names exposed by a DBus node"""
+    tree = _introspect_tree(proxy)
+    return [child.attrib['name'] for child in tree if child.tag == 'interface']

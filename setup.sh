@@ -18,7 +18,7 @@ setup() {
     echo "Installing required software dependencies"
     #TODO: remove pyaudio and dependencies
     #install components
-    sudo apt-get install -y  \
+    sudo apt-get install -y \
         python3 python3-dev python3-pip \
         python3-pkg-resources python3-setuptools libdpkg-perl \
         libsdl1.2-dev libsdl-mixer1.2-dev libsdl-sound1.2-dev \
@@ -48,21 +48,21 @@ setup() {
     #install the python3 dev environment
     echo "about to install python3-dev and virtualenv"
     sudo apt-get install -y python3-dev || exit -1
-    sudo apt-get install -y python3-virtualenv || exit -1
+    sudo python3 -m pip install -U uv || exit -1
     
     echo "installing virtual environment"
-    /usr/bin/python3 -m virtualenv --system-site-packages $VENV || exit -1
+    uv venv --system-site-packages $VENV || exit -1
     PYTHON=$VENV/bin/python3
 
     echo "installing virtual environment dependencies"
-    $PYTHON -m pip install --ignore-installed flask Flask-WTF pyalsaaudio pydub pyyaml dbus-python python-dotenv || exit -1
+    uv pip install -p $PYTHON flask Flask-WTF pyalsaaudio pydub pyyaml dbus-python python-dotenv || exit -1
 
     # audioop is not available on python >= 3.13
     $PYTHON -m pip install --ignore-installed audioop-lts || exit -1
 
     #Sometimes pygame tries to install without a whl, and fails (like 2.4.0) this
     #checks that only correct versions will install
-    $PYTHON -m pip install --ignore-installed --only-binary ":all:" pygame || exit -1
+    uv pip install -p $PYTHON --only-binary ":all:" pygame || exit -1
 
     echo "downloading PS move API"
     #install psmoveapi (currently adangert's for opencv 3 support)

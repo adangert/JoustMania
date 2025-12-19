@@ -6,9 +6,14 @@ from colors import Colors
 from piaudio import Audio
 import numpy
 import random
+from opentelemetry import trace
+from opentelemetry import metrics
 import logging
 import psmove
 from math import sqrt
+
+tracer = trace.get_tracer("joustmania.tracer")
+meter = metrics.get_meter("joustmania.meter")
 
 logger = logging.getLogger(__name__)
 
@@ -482,108 +487,114 @@ class Game():
     @classmethod
     def track_move(cls, move, team, team_color_enum, dead_move, invincible_move, force_color, \
                    music_speed, show_team_colors, red_on_kill, restart, menu, sensitivity, revive, opts=None):
+        with tracer.start_as_current_span("track_move") as player_span:
+            # github.com/thp/psmoveapi/blob/master/include/psmove.h
+            player_span.set_attribute("move_get_serial", move.get_serial())
 
-        no_rumble = time.time() + 2
-        vibrate = False
-        vibration_time = time.time() + 1
-        flash_lights = True
-        flash_lights_timer = 0
-        change = 0
-        reviving = 0
+            no_rumble = time.time() + 2
+            vibrate = False
+            vibration_time = time.time() + 1
+            flash_lights = True
+            flash_lights_timer = 0
+            change = 0
+            reviving = 0
 
-        cls.pre_game_loop(move, team.value, opts)
+            cls.pre_game_loop(move, team.value, opts)
 
-        while True:
-            if menu.value == 1:
-                return
+            while True:
+                if menu.value == 1:
+                    return
 
-            if dead_move.value == Status.RUMBLE.value:
-                move.set_rumble(80)
+                if dead_move.value == Status.RUMBLE.value:
+                    move.set_rumble(80)
 
-            # Have the controller flash and rumble while invincible
-            if invincible_move.value:
-                vibration_time = time.time() + .3
-                no_rumble = vibration_time
-                vibrate = True
+                # Have the controller flash and rumble while invincible
+                if invincible_move.value:
+                    vibration_time = time.time() + .3
+                    no_rumble = vibration_time
+                    vibrate = True
 
-            if restart.value == 1:
-                return
+                if restart.value == 1:
+                    return
 
-            opts = cls.handle_opts(move=move, team=team.value, opts=opts, dead_move=dead_move.value)
-            team_color = cls.handle_team_color(move, team.value, opts, team_color_enum)
+                opts = cls.handle_opts(move=move, team=team.value, opts=opts, dead_move=dead_move.value)
+                team_color = cls.handle_team_color(move, team.value, opts, team_color_enum)
+                if dead_move.value == Status.ALIVE.value:
+                    player_span.set_attribute("team_color", str(list(team_color)))
 
-            if show_team_colors.value == 1:
-                move.set_leds(*team_color)
-                move.update_leds()
-            elif sum(force_color) != 0:
-                time.sleep(0.01)
-                move.set_leds(*force_color)
-                move.update_leds()
-                no_rumble = time.time() + 0.5
-                move.set_rumble(0)
-            elif dead_move.value == Status.DIED.value:
-                if red_on_kill.value:
-                    move.set_leds(*Colors.Red.value)
-                else:
-                    move.set_leds(*Colors.Black.value)
-                move.set_rumble(90)
-                move.update_leds()
-                time.sleep(0.25) # Wait for death to process in main loop
-                dead_move.value = Status.DEAD.value
-                vibration_time = time.time() + 0.5
-            elif dead_move.value == Status.ALIVE.value:
-                if move.poll():
-                    ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
-                    total = sqrt(sum([ax**2, ay**2, az**2]))
-                    change = (change * 4 + total)/5
-                    speed_percent = (music_speed.value - SLOW_MUSIC_SPEED)/(FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED)
-                    warning = cls.get_warning(team.value, speed_percent, sensitivity.value, opts)
-                    threshold = cls.get_threshold(team.value, speed_percent, sensitivity.value, opts)
+                if show_team_colors.value == 1:
+                    move.set_leds(*team_color)
+                    move.update_leds()
+                elif sum(force_color) != 0:
+                    time.sleep(0.01)
+                    move.set_leds(*force_color)
+                    move.update_leds()
+                    no_rumble = time.time() + 0.5
+                    move.set_rumble(0)
+                elif dead_move.value == Status.DIED.value:
+                    if red_on_kill.value:
+                        move.set_leds(*Colors.Red.value)
+                    else:
+                        move.set_leds(*Colors.Black.value)
+                    move.set_rumble(90)
+                    move.update_leds()
+                    time.sleep(0.25) # Wait for death to process in main loop
+                    dead_move.value = Status.DEAD.value
+                    vibration_time = time.time() + 0.5
+                    player_span.end()
+                elif dead_move.value == Status.ALIVE.value:
+                    if move.poll():
+                        ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
+                        total = sqrt(sum([ax**2, ay**2, az**2]))
+                        change = (change * 4 + total)/5
+                        speed_percent = (music_speed.value - SLOW_MUSIC_SPEED)/(FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED)
+                        warning = cls.get_warning(team.value, speed_percent, sensitivity.value, opts)
+                        threshold = cls.get_threshold(team.value, speed_percent, sensitivity.value, opts)
 
-                    if vibrate:
-                        flash_lights_timer += 1
-                        if flash_lights_timer > 7:
-                            flash_lights_timer = 0
-                            flash_lights = not flash_lights
-                        if flash_lights:
-                            move.set_leds(*Colors.White40.value)
+                        if vibrate:
+                            flash_lights_timer += 1
+                            if flash_lights_timer > 7:
+                                flash_lights_timer = 0
+                                flash_lights = not flash_lights
+                            if flash_lights:
+                                move.set_leds(*Colors.White40.value)
+                            else:
+                                move.set_leds(*team_color)
+
+                            if time.time() < vibration_time-0.25:
+                                move.set_rumble(90)
+                            else:
+                                move.set_rumble(0)
+                            if time.time() > vibration_time:
+                                vibrate = False
                         else:
                             move.set_leds(*team_color)
 
-                        if time.time() < vibration_time-0.25:
-                            move.set_rumble(90)
-                        else:
-                            move.set_rumble(0)
-                        if time.time() > vibration_time:
-                            vibrate = False
-                    else:
-                        move.set_leds(*team_color)
+                        if reviving and not vibrate:
+                            logger.debug("Revived")
+                            reviving = 0
+                            dead_move.value = Status.REVIVED.value
 
-                    if reviving and not vibrate:
-                        logger.debug("Revived")
-                        reviving = 0
-                        dead_move.value = Status.REVIVED.value
+                        if not invincible_move.value:
+                            if change > threshold and time.time() > no_rumble:
+                                dead_move.value = Status.DIED.value
 
-                    if not invincible_move.value:
-                        if change > threshold and time.time() > no_rumble:
-                            dead_move.value = Status.DIED.value
-
-                        elif not vibrate and change > warning and time.time() > no_rumble:
-                            vibrate = True
-                            vibration_time = time.time() + 0.5
-                move.update_leds()
-            elif revive.value and dead_move.value == Status.DEAD.value:
-                logger.debug("Reviving soon")
-                reviving = 1
-                no_rumble = time.time() + cls.get_revive_time(move, team.value, opts)
-                vibration_time = time.time() + cls.get_revive_time(move, team.value, opts)
-                vibrate = True
-                dead_move.value = Status.ALIVE.value
-            elif dead_move.value == Status.ON.value:
-                move.set_leds(*team_color)
-                move.update_leds()
-                move.set_rumble(0)
-            elif dead_move.value == Status.OFF.value:
-                move.set_leds(*Colors.Black.value)
-                move.update_leds()
-                move.set_rumble(0)
+                            elif not vibrate and change > warning and time.time() > no_rumble:
+                                vibrate = True
+                                vibration_time = time.time() + 0.5
+                    move.update_leds()
+                elif revive.value and dead_move.value == Status.DEAD.value:
+                    logger.debug("Reviving soon")
+                    reviving = 1
+                    no_rumble = time.time() + cls.get_revive_time(move, team.value, opts)
+                    vibration_time = time.time() + cls.get_revive_time(move, team.value, opts)
+                    vibrate = True
+                    dead_move.value = Status.ALIVE.value
+                elif dead_move.value == Status.ON.value:
+                    move.set_leds(*team_color)
+                    move.update_leds()
+                    move.set_rumble(0)
+                elif dead_move.value == Status.OFF.value:
+                    move.set_leds(*Colors.Black.value)
+                    move.update_leds()
+                    move.set_rumble(0)

@@ -66,6 +66,7 @@ setup() {
 
     # Use OpenTelemetry zero-code instrumentation
     $PYTHON -m pip install --ignore-installed opentelemetry-distro || exit -1
+    $PYTHON -m pip install --ignore-installed opentelemetry-exporter-otlp || exit -1
 
     echo "downloading PS move API"
     #install psmoveapi (currently adangert's for opencv 3 support)

@@ -13,9 +13,7 @@ export HOME="/root"
 export PYTHONPATH="/home/$HOMENAME/psmoveapi/build/"
 
 exec /home/$HOMENAME/JoustMania/venv/bin/opentelemetry-instrument \
-    --traces_exporter console \
-    --metrics_exporter console \
-    --logs_exporter console \
+    --logs_exporter otlp \
     --service_name joustmania \
     /home/$HOMENAME/JoustMania/venv/bin/python3 \
     /home/$HOMENAME/JoustMania/piparty.py

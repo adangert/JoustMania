@@ -64,6 +64,9 @@ setup() {
     #checks that only correct versions will install
     $PYTHON -m pip install --ignore-installed --only-binary ":all:" pygame || exit -1
 
+    # Use OpenTelemetry zero-code instrumentation
+    $PYTHON -m pip install --ignore-installed opentelemetry-distro || exit -1
+
     echo "downloading PS move API"
     #install psmoveapi (currently adangert's for opencv 3 support)
     rm -rf psmoveapi
@@ -114,7 +117,9 @@ setup() {
     
     #This will disable on-board bluetooth with the --disable_internal_bt command line option
     #This will allow only class one long range btdongles to connect to psmove controllers
-    if [ "$1" = "--disable_internal_bt" ]; then
+
+    # Always disable internal bluetooth for OpenTelemetry demo, as it interferes with both Wi-Fi and USB 3.0
+    # if [ "$1" = "--disable_internal_bt" ]; then
         echo "disabling internal bt"
         sudo grep -qxF 'dtoverlay=disable-bt' $config_loc || { echo "dtoverlay=disable-bt" | sudo tee -a $config_loc; sudo rm -rf /var/lib/bluetooth/*; } || exit -1
         
@@ -122,7 +127,7 @@ setup() {
         if [ "$DIST_REL" -le 12 ]; then
             sudo systemctl disable hciuart || exit -1
         fi
-    fi
+    # fi
 
     uname2="$(stat --format '%U' $HOMEDIR'/JoustMania/setup.sh')"
     uname3="$(stat --format '%U' $HOMEDIR'/JoustMania/piparty.py')"

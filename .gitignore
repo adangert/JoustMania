@@ -73,7 +73,6 @@ audio/Menu/music
 !audio/Joust/music/classical.wav
 
 #other stuff
-*.yaml
 *.DS_Store
 apfiles/ap_active
 

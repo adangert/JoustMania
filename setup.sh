@@ -31,6 +31,14 @@ setup() {
         python-dbus-dev python3-dbus libdbus-glib-1-dev usbutils libopenblas-dev \
         python3-pyaudio python3-psutil || exit -1
 
+    echo "Installing Docker"
+    # Install Docker using the convenience script
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sudo sh get-docker.sh
+
+    # Add your user to the docker group (so you don't need sudo)
+    sudo usermod -aG docker $USER
+
     echo "Installing PS move A.P.I. software updates"
     #install components for psmoveapi
     sudo apt-get install -y \

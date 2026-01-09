@@ -82,3 +82,5 @@ venv
 
 #The joust.conf will change with a different username
 conf/supervisor/conf.d/joust.conf
+
+get-docker.sh

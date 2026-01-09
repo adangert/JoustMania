@@ -11,6 +11,30 @@ processors:
   batch:
 
 exporters:
+  otlp:
+    endpoint: "DT-GXT9Y74:4317"
+    tls:
+      insecure: true
+    sending_queue:
+      batch:
+  otlphttp/prometheus:
+    endpoint: "http://prometheus:9090/api/v1/otlp"
+    tls:
+      insecure: true
+    sending_queue:
+      batch:
+  opensearch:
+    logs_index: otel-logs
+    logs_index_time_format: "yyyy-MM-dd"
+    http:
+      endpoint: "http://opensearch:9200"
+      tls:
+        insecure: true
+    sending_queue:
+      # Explicitly set due to bug: https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/45016
+      num_consumers: 10
+      queue_size: 1000
+      batch:
   # 'debug' replaces the old 'logging' exporter
   debug:
     verbosity: basic # Changed from 'detailed' to avoid terminal spam
@@ -20,12 +44,12 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug]
+      exporters: [debug, otlp]
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug]
+      exporters: [debug, otlphttp/prometheus]
     logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug]
+      exporters: [debug, opensearch]

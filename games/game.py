@@ -8,9 +8,11 @@ import numpy
 import random
 from opentelemetry import trace
 from opentelemetry import metrics
+from opentelemetry.trace import SpanContext, TraceFlags, NonRecordingSpan
 import logging
 import psmove
 from math import sqrt
+from multiprocessing import Manager
 
 tracer = trace.get_tracer("joustmania.tracer")
 meter = metrics.get_meter("joustmania.meter")
@@ -40,6 +42,10 @@ INTERVAL_CHANGE = 1.5
 #How long the winning moves shall sparkle
 END_GAME_PAUSE = 8
 KILL_GAME_PAUSE = 4
+
+# OTEL: Thread safe span storage
+manager = Manager()
+shared = manager.Namespace()
 
 class Game():
     SLOW_WARNING = [1.2, 1.3, 1.6, 2.0, 2.5]
@@ -99,6 +105,7 @@ class Game():
         self.revive = revive
         self.revive.value = False
 
+        self._span = None
         self.init_audio()
 
     def init_audio(self):
@@ -393,6 +400,15 @@ class Game():
         self.ns.status = data
 
     def before_game_loop(self):
+        # OTEL: Game span
+        self._span = tracer.start_span(self.game_mode.pretty_name)
+        span_ctx = self._span.get_span_context()
+
+        # Store just the serializable context data
+        shared.trace_id = span_ctx.trace_id
+        shared.span_id = span_ctx.span_id
+        shared.trace_flags = span_ctx.trace_flags
+
         self.init_moves()
         self.restart.value = 0
         self.change_time = time.time() + 6
@@ -436,6 +452,7 @@ class Game():
                 self.end_game()
 
         self.stop_tracking_moves()
+        self._span.end()
 
     def switch_teams(self, serial, team):
         self.teams[serial] = team
@@ -487,20 +504,33 @@ class Game():
     @classmethod
     def track_move(cls, move, team, team_color_enum, dead_move, invincible_move, force_color, \
                    music_speed, show_team_colors, red_on_kill, restart, menu, sensitivity, revive, opts=None):
-        with tracer.start_as_current_span("track_move") as player_span:
+
+        no_rumble = time.time() + 2
+        vibrate = False
+        vibration_time = time.time() + 1
+        flash_lights = True
+        flash_lights_timer = 0
+        change = 0
+        reviving = 0
+
+        cls.pre_game_loop(move, team.value, opts)
+
+        # OTEL: Player span
+        # Set it as the parent context
+        parent_ctx =  trace.set_span_in_context(
+            NonRecordingSpan(
+                SpanContext(
+                    trace_id=shared.trace_id,
+                    span_id=shared.span_id,
+                    is_remote=True,
+                    trace_flags=TraceFlags(shared.trace_flags)
+                )
+            )
+        )
+        with tracer.start_as_current_span("track_move", context=parent_ctx) as player_span:
             # github.com/thp/psmoveapi/blob/master/include/psmove.h
             player_span.set_attribute("move_get_serial", move.get_serial())
-
-            no_rumble = time.time() + 2
-            vibrate = False
-            vibration_time = time.time() + 1
-            flash_lights = True
-            flash_lights_timer = 0
-            change = 0
-            reviving = 0
-
-            cls.pre_game_loop(move, team.value, opts)
-
+            player_span.set_attribute("service.color", str(list(team_color_enum)))
             while True:
                 if menu.value == 1:
                     return
@@ -519,8 +549,6 @@ class Game():
 
                 opts = cls.handle_opts(move=move, team=team.value, opts=opts, dead_move=dead_move.value)
                 team_color = cls.handle_team_color(move, team.value, opts, team_color_enum)
-                if dead_move.value == Status.ALIVE.value:
-                    player_span.set_attribute("team_color", str(list(team_color)))
 
                 if show_team_colors.value == 1:
                     move.set_leds(*team_color)
@@ -580,6 +608,12 @@ class Game():
                                 dead_move.value = Status.DIED.value
 
                             elif not vibrate and change > warning and time.time() > no_rumble:
+
+                                # OTEL: SPAN EVENT
+                                player_span.add_event("warning", {
+                                    "change": change,
+                                    "warning": warning
+                                })
                                 vibrate = True
                                 vibration_time = time.time() + 0.5
                     move.update_leds()

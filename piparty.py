@@ -11,8 +11,6 @@ from multiprocessing import Process, Value, Array, Queue, Manager, freeze_suppor
 from games import joust_ffa, joust_teams, joust_random_teams, joust_non_stop, traitor, werewolf, ffa, zombie, commander, swapper, tournament, speed_bomb, fight_club
 from sys import platform
 from dotenv import find_dotenv, load_dotenv
-from opentelemetry import trace
-from opentelemetry import metrics
 import logging.config
 
 if platform == "linux" or platform == "linux2":
@@ -23,9 +21,6 @@ elif "win" in platform:
     import win_pair as pair
 import controller_process
 import update
-
-tracer = trace.get_tracer("joustmania.tracer")
-meter = metrics.get_meter("joustmania.meter")
 
 # find .env file in parent directory
 env_file = find_dotenv()
@@ -47,7 +42,6 @@ logging.config.fileConfig(
 )
 
 logger = logging.getLogger(__name__)
-
 
 TEAM_NUM = len(colors.team_color_list)
 #TEAM_COLORS = colors.generate_colors(TEAM_NUM)
@@ -556,7 +550,6 @@ class Menu():
                     self.admin_move = None
                     move_opt[Opts.SELECTION.value] = Selections.NOTHING.value
 
-
     def check_change_mode(self):
         change_mode = False
         change_forward = True
@@ -583,7 +576,7 @@ class Menu():
         if self.command_from_web == 'changemode':
             self.command_from_web = ''
             change_mode = True
-            
+
         if "changemodestr" in self.command_from_web:
             change_str = self.command_from_web.split('_')[-1]
             change_mode = True
@@ -708,7 +701,6 @@ class Menu():
                 self.check_charging_controller()
             self.check_command_queue()
             self.update_status('menu')
-
 
     def check_admin_controls(self):
         show_bat = False
@@ -912,7 +904,6 @@ class Menu():
         self.ns.settings = temp_settings
         self.update_settings_file()
 
-
     def check_command_queue(self):
         if not(self.command_queue.empty()):
             package = self.command_queue.get()
@@ -959,7 +950,6 @@ class Menu():
                 self.random_added.append(serial)
                 if self.ns.settings['play_audio']:
                     Audio('audio/Joust/sounds/start.wav').start_effect()
-
 
         if start_game:
             logger.debug("Starting game")
@@ -1031,183 +1021,205 @@ class Menu():
         return {serial: self.menu_opts[serial][Opts.TEAM.value] for serial in self.tracked_moves.keys() if self.out_moves[serial] == Status.ALIVE.value}
 
     def start_game(self, random_mode=False):
-        with tracer.start_as_current_span(self.game_mode.name):
-            self.enable_bt_scanning(False)
-            time.sleep(1)
+        # FIX - Added helper functions for this
+        game_moves = self.get_ready_moves(self.ns.settings['force_all_start'])
+        self.teams = self.get_game_teams()
 
-            # FIX - Added helper functions for this
-            game_moves = self.get_ready_moves(self.ns.settings['force_all_start'])
-            self.teams = self.get_game_teams()
+        logger.debug("Number of game moves: {}".format(len(game_moves)))
+        if len(game_moves) < self.game_mode.minimum_players and self.ns.settings['enforce_minimum']:
+            Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/notenoughplayers.wav').start_effect()
+            self.reset_controller_game_state()
+            logger.debug("Not enough players")
+            return
 
-            logger.debug("Number of game moves: {}".format(len(game_moves)))
-            if len(game_moves) < self.game_mode.minimum_players and self.ns.settings['enforce_minimum']:
-                Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/notenoughplayers.wav').start_effect()
-                self.reset_controller_game_state()
-                logger.debug("Not enough players")
-                return
+        for move in [move.get_serial() for move in self.moves if move.get_serial() not in game_moves]:
+            logger.debug("We are removing controller from game: {}".format(move))
+            self.remove_controller(move)
+        try:
+            self.menu_music.stop_audio()
+        except:
+            pass
 
-            for move in [move.get_serial() for move in self.moves if move.get_serial() not in game_moves]:
-                logger.debug("We are removing controller from game: {}".format(move))
-                self.remove_controller(move)
-            try:
-                self.menu_music.stop_audio()
-            except:
-                pass
+        self.menu.value = 0
+        self.restart.value = 1
+        self.update_status('starting')
 
-            self.menu.value = 0
-            self.restart.value = 1
-            self.update_status('starting')
+        if random_mode:
+            good_random_modes = [Games[game] for game in self.ns.settings['random_modes']]
+            if self.ns.settings['enforce_minimum']:
+                good_random_modes = [game for game in good_random_modes if game.minimum_players <= len(game_moves)]
+            if len(good_random_modes) == 0:
+                selected_game = Games.JoustFFA  # force Joust FFA
+            elif len(good_random_modes) == 1:
+                selected_game = good_random_modes[0]
+            else:
+                if len(self.rand_game_list) >= len(good_random_modes):
+                    # empty rand game list, append old game, to not play it twice
+                    self.rand_game_list = [self.old_game_mode]
 
-            if random_mode:
-                good_random_modes = [Games[game] for game in self.ns.settings['random_modes']]
-                if self.ns.settings['enforce_minimum']:
-                    good_random_modes = [game for game in good_random_modes if game.minimum_players <= len(game_moves)]
-                if len(good_random_modes) == 0:
-                    selected_game = Games.JoustFFA  #force Joust FFA
-                elif len(good_random_modes) == 1:
-                    selected_game = good_random_modes[0]
-                else:
-                    if len(self.rand_game_list) >= len(good_random_modes):
-                        #empty rand game list, append old game, to not play it twice
-                        self.rand_game_list = [self.old_game_mode]
-
+                selected_game = random.choice(good_random_modes)
+                while selected_game in self.rand_game_list:
                     selected_game = random.choice(good_random_modes)
-                    while selected_game in self.rand_game_list:
-                        selected_game = random.choice(good_random_modes)
 
-                    self.old_game_mode = selected_game
-                    self.rand_game_list.append(selected_game)
+                self.old_game_mode = selected_game
+                self.rand_game_list.append(selected_game)
 
-                self.game_mode = selected_game
-            self.controller_game_mode.value = self.game_mode.value
+            self.game_mode = selected_game
+        self.controller_game_mode.value = self.game_mode.value
 
-            if self.ns.settings['play_instructions'] and self.ns.settings['play_audio']:
-                self.play_random_instructions()
+        if self.ns.settings['play_instructions'] and self.ns.settings['play_audio']:
+            self.play_random_instructions()
 
-            # Joust FFA
-            if self.game_mode == Games.JoustFFA:
-                if self.experimental:
-                    logger.debug("Playing EXPERIMENTAL FFA Mode.")
-                    moves = [ common.get_move(serial, num) for num, serial in enumerate(game_moves) ]
-                    game = ffa.FreeForAll(moves, self.joust_music)
-                    game.run_loop()
-                else:
-                    joust_ffa.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns, red_on_kill=self.red_on_kill, \
-                                    music=self.joust_music, teams=self.teams, game_mode=self.game_mode, \
-                                    controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
-                                    dead_moves=self.dead_moves, invincible_moves=self.invincible_moves, force_move_colors=self.force_color, \
-                                    music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
-                                    revive=self.revive)
-            # Joust Teams
-            elif self.game_mode == Games.JoustTeams:
-                joust_teams.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns, red_on_kill=self.red_on_kill, \
-                                  music=self.joust_music, teams=self.teams, game_mode=self.game_mode, \
-                                  controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
-                                  dead_moves=self.dead_moves, invincible_moves=self.invincible_moves, force_move_colors=self.force_color, \
-                                  music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
-                                  revive=self.revive)
-            # Joust Random Teams
-            elif self.game_mode == Games.JoustRandomTeams:
-                joust_random_teams.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns, red_on_kill=self.red_on_kill, \
-                                         music=self.joust_music, teams=self.teams, game_mode=self.game_mode, \
-                                         controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
-                                         dead_moves=self.dead_moves, invincible_moves=self.invincible_moves, force_move_colors=self.force_color, \
-                                         music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
-                                         revive=self.revive)
-            # Traitors
-            elif self.game_mode == Games.Traitor:
-                traitor.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns, red_on_kill=self.red_on_kill, \
-                              music=self.joust_music, teams=self.teams, game_mode=self.game_mode, \
-                              controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
-                              dead_moves=self.dead_moves, invincible_moves=self.invincible_moves, force_move_colors=self.force_color, \
-                              music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
-                              revive=self.revive)
-            # Werewolf
-            elif self.game_mode == Games.Werewolf:
-                werewolf.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns, red_on_kill=self.red_on_kill, \
-                               music=self.joust_music, teams=self.teams, game_mode=self.game_mode, \
-                               controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
-                               dead_moves=self.dead_moves, invincible_moves=self.invincible_moves, force_move_colors=self.force_color, \
-                               music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
-                               revive=self.revive)
-            # Zombies
-            elif self.game_mode == Games.Zombies:
-                zombie.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns, red_on_kill=self.red_on_kill, \
-                             music=self.zombie_music, teams=self.teams, game_mode=self.game_mode, \
-                             controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
-                             dead_moves=self.dead_moves, invincible_moves=self.invincible_moves, force_move_colors=self.force_color, \
-                             music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
-                             revive=self.revive, opts=self.game_opts)
-            # Commanders
-            elif self.game_mode == Games.Commander:
-                commander.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns, red_on_kill=self.red_on_kill, \
-                                music=self.commander_music, teams=self.teams, game_mode=self.game_mode, \
+        # Joust FFA
+        if self.game_mode == Games.JoustFFA:
+            if self.experimental:
+                logger.debug("Playing EXPERIMENTAL FFA Mode.")
+                moves = [common.get_move(serial, num) for num, serial in enumerate(game_moves)]
+                game = ffa.FreeForAll(moves, self.joust_music)
+                game.run_loop()
+            else:
+                joust_ffa.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns,
+                                red_on_kill=self.red_on_kill, \
+                                music=self.joust_music, teams=self.teams, game_mode=self.game_mode, \
                                 controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
-                                dead_moves=self.dead_moves, invincible_moves=self.invincible_moves, force_move_colors=self.force_color, \
-                                music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
-                                revive=self.revive, opts=self.game_opts)
-            # Swapper
-            if self.game_mode == Games.Swapper:
-                swapper.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns, red_on_kill=self.red_on_kill,\
+                                dead_moves=self.dead_moves, invincible_moves=self.invincible_moves,
+                                force_move_colors=self.force_color, \
+                                music_speed=self.music_speed, show_team_colors=self.show_team_colors,
+                                restart=self.restart, \
+                                revive=self.revive)
+        # Joust Teams
+        elif self.game_mode == Games.JoustTeams:
+            joust_teams.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns,
+                              red_on_kill=self.red_on_kill, \
                               music=self.joust_music, teams=self.teams, game_mode=self.game_mode, \
                               controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
-                              dead_moves=self.dead_moves, invincible_moves=self.invincible_moves, force_move_colors=self.force_color, \
-                              music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
+                              dead_moves=self.dead_moves, invincible_moves=self.invincible_moves,
+                              force_move_colors=self.force_color, \
+                              music_speed=self.music_speed, show_team_colors=self.show_team_colors,
+                              restart=self.restart, \
                               revive=self.revive)
-            # Fight Club
-            elif self.game_mode == Games.FightClub:
-                if random.random() > 0.2:
-                    fight_music = self.commander_music
-                else:
-                    fight_music = self.joust_music
-
-                fight_club.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns, red_on_kill=self.red_on_kill, \
-                                 music=fight_music, teams=self.teams, game_mode=self.game_mode, controller_teams=self.controller_teams, \
-                                 controller_colors=self.controller_colors, dead_moves=self.dead_moves, invincible_moves=self.invincible_moves, \
-                                 force_move_colors=self.force_color, music_speed=self.music_speed, show_team_colors=self.show_team_colors, \
-                                 restart=self.restart, revive=self.revive, opts=self.game_opts)
-            #Tournament
-            elif self.game_mode == Games.Tournament:
-                tournament.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns, red_on_kill=self.red_on_kill, \
-                                 music=self.joust_music, teams=self.teams, game_mode=self.game_mode, \
-                                 controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
-                                 dead_moves=self.dead_moves, invincible_moves=self.invincible_moves, force_move_colors=self.force_color, \
-                                 music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
-                                 revive=self.revive)
-            # Non-stop Joust
-            elif self.game_mode == Games.NonStop:
-                joust_non_stop.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns, red_on_kill=self.red_on_kill, \
+        # Joust Random Teams
+        elif self.game_mode == Games.JoustRandomTeams:
+            joust_random_teams.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns,
+                                     red_on_kill=self.red_on_kill, \
                                      music=self.joust_music, teams=self.teams, game_mode=self.game_mode, \
                                      controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
-                                     dead_moves=self.dead_moves, invincible_moves=self.invincible_moves, force_move_colors=self.force_color, \
-                                     music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
-                                     revive=self.revive, opts=self.game_opts)
-            # Ninja
-            elif self.game_mode == Games.Ninja:
-                speed_bomb.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns, red_on_kill=self.red_on_kill, \
-                                music=self.commander_music, teams=self.teams, game_mode=self.game_mode, \
-                                controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
-                                dead_moves=self.dead_moves, invincible_moves=self.invincible_moves, force_move_colors=self.force_color, \
-                                music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
-                                revive=self.revive, opts=self.game_opts)
-            # Random
-            if random_mode:
-                self.game_mode = Games.Random
-                if self.ns.settings['play_instructions']:
-                    if self.ns.settings['play_audio']:
-                        Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/tradeoff2.wav').start_effect_and_wait()
+                                     dead_moves=self.dead_moves, invincible_moves=self.invincible_moves,
+                                     force_move_colors=self.force_color, \
+                                     music_speed=self.music_speed, show_team_colors=self.show_team_colors,
+                                     restart=self.restart, \
+                                     revive=self.revive)
+        # Traitors
+        elif self.game_mode == Games.Traitor:
+            traitor.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns, red_on_kill=self.red_on_kill, \
+                          music=self.joust_music, teams=self.teams, game_mode=self.game_mode, \
+                          controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
+                          dead_moves=self.dead_moves, invincible_moves=self.invincible_moves,
+                          force_move_colors=self.force_color, \
+                          music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
+                          revive=self.revive)
+        # Werewolf
+        elif self.game_mode == Games.Werewolf:
+            werewolf.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns, red_on_kill=self.red_on_kill, \
+                           music=self.joust_music, teams=self.teams, game_mode=self.game_mode, \
+                           controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
+                           dead_moves=self.dead_moves, invincible_moves=self.invincible_moves,
+                           force_move_colors=self.force_color, \
+                           music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
+                           revive=self.revive)
+        # Zombies
+        elif self.game_mode == Games.Zombies:
+            zombie.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns, red_on_kill=self.red_on_kill, \
+                         music=self.zombie_music, teams=self.teams, game_mode=self.game_mode, \
+                         controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
+                         dead_moves=self.dead_moves, invincible_moves=self.invincible_moves,
+                         force_move_colors=self.force_color, \
+                         music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
+                         revive=self.revive, opts=self.game_opts)
+        # Commanders
+        elif self.game_mode == Games.Commander:
+            commander.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns,
+                            red_on_kill=self.red_on_kill, \
+                            music=self.commander_music, teams=self.teams, game_mode=self.game_mode, \
+                            controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
+                            dead_moves=self.dead_moves, invincible_moves=self.invincible_moves,
+                            force_move_colors=self.force_color, \
+                            music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
+                            revive=self.revive, opts=self.game_opts)
+        # Swapper
+        if self.game_mode == Games.Swapper:
+            swapper.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns, red_on_kill=self.red_on_kill, \
+                          music=self.joust_music, teams=self.teams, game_mode=self.game_mode, \
+                          controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
+                          dead_moves=self.dead_moves, invincible_moves=self.invincible_moves,
+                          force_move_colors=self.force_color, \
+                          music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
+                          revive=self.revive)
+        # Fight Club
+        elif self.game_mode == Games.FightClub:
+            if random.random() > 0.2:
+                fight_music = self.commander_music
+            else:
+                fight_music = self.joust_music
 
-            self.play_menu_music = True
-            #reset music
-            self.choose_new_music()
-            #turn off admin mode so someone can't accidentally press a button
-            self.admin_move = None
-            self.random_added = []
-            self.reset_controller_game_state()
-            self.menu.value = 1
-            self.restart.value = 0
-            self.reset_controller_game_state()
-            self.retrack_removed_controllers(game_moves)
+            fight_club.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns,
+                             red_on_kill=self.red_on_kill, \
+                             music=fight_music, teams=self.teams, game_mode=self.game_mode,
+                             controller_teams=self.controller_teams, \
+                             controller_colors=self.controller_colors, dead_moves=self.dead_moves,
+                             invincible_moves=self.invincible_moves, \
+                             force_move_colors=self.force_color, music_speed=self.music_speed,
+                             show_team_colors=self.show_team_colors, \
+                             restart=self.restart, revive=self.revive, opts=self.game_opts)
+        # Tournament
+        elif self.game_mode == Games.Tournament:
+            tournament.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns,
+                             red_on_kill=self.red_on_kill, \
+                             music=self.joust_music, teams=self.teams, game_mode=self.game_mode, \
+                             controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
+                             dead_moves=self.dead_moves, invincible_moves=self.invincible_moves,
+                             force_move_colors=self.force_color, \
+                             music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
+                             revive=self.revive)
+        # Non-stop Joust
+        elif self.game_mode == Games.NonStop:
+            joust_non_stop.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns,
+                                 red_on_kill=self.red_on_kill, \
+                                 music=self.joust_music, teams=self.teams, game_mode=self.game_mode, \
+                                 controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
+                                 dead_moves=self.dead_moves, invincible_moves=self.invincible_moves,
+                                 force_move_colors=self.force_color, \
+                                 music_speed=self.music_speed, show_team_colors=self.show_team_colors,
+                                 restart=self.restart, \
+                                 revive=self.revive, opts=self.game_opts)
+        # Ninja
+        elif self.game_mode == Games.Ninja:
+            speed_bomb.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns,
+                             red_on_kill=self.red_on_kill, \
+                             music=self.commander_music, teams=self.teams, game_mode=self.game_mode, \
+                             controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
+                             dead_moves=self.dead_moves, invincible_moves=self.invincible_moves,
+                             force_move_colors=self.force_color, \
+                             music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
+                             revive=self.revive, opts=self.game_opts)
+        # Random
+        if random_mode:
+            self.game_mode = Games.Random
+            if self.ns.settings['play_instructions']:
+                if self.ns.settings['play_audio']:
+                    Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/tradeoff2.wav').start_effect_and_wait()
+
+        self.play_menu_music = True
+        # reset music
+        self.choose_new_music()
+        # turn off admin mode so someone can't accidentally press a button
+        self.admin_move = None
+        self.random_added = []
+        self.reset_controller_game_state()
+        self.menu.value = 1
+        self.restart.value = 0
+        self.reset_controller_game_state()
+        self.retrack_removed_controllers(game_moves)
 
     def retrack_removed_controllers(self, game_moves):
         self.check_for_new_moves()
@@ -1215,6 +1227,7 @@ class Menu():
             #This allows joustmania to re-find the removed controller
             if move_serial in self.tracked_moves.keys():
                 del self.tracked_moves[move_serial]
+
 
 if __name__ == "__main__":
     logger.info("Starting piparty")

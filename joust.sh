@@ -20,7 +20,7 @@ docker run -d --name otel-collector \
     -p 4317:4317 \
     -p 4318:4318 \
     -v "$(pwd)/otel-collector-config.yaml":/etc/otel-collector-config.yaml \
-    otel/opentelemetry-collector:latest \
+    ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.142.0 \
     --config=/etc/otel-collector-config.yaml
 
 echo "Starting JoustMania..."

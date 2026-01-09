@@ -22,6 +22,7 @@ elif "win" in platform:
 import controller_process
 import controller_manager
 import game_coordinator
+import settings_process
 import update
 
 # find .env file in parent directory
@@ -595,6 +596,7 @@ class Menu():
         self.use_state_based_tracking = True # Use new state-based non-blocking architecture
         self.use_controller_manager_process = True # Use separate ControllerManager process
         self.use_game_coordinator_process = True # Use separate GameCoordinator process
+        self.use_settings_process = True # Use separate Settings process
         self.dead_count = Value('i', 0) # Number of dead moves used in webui
 
         # Shared flags/values that both Menu and ControllerManager need
@@ -606,6 +608,46 @@ class Menu():
         self.show_battery = Value('i', 0) # Shared variable across all move processes to control whether to display battery status
         self.show_team_colors = Value('i', 0) # Whether to display team colors TODO - might be able to remove
         self.revive = Value('b', False)
+
+        # Settings Process (microservices architecture)
+        if self.use_settings_process:
+            logger.info("Starting Settings process")
+            self.settings_cmd_queue = Queue()
+            self.settings_resp_queue = Queue()
+            self.settings_event_queue = Queue()
+
+            self.settings_proc = settings_process.SettingsProcess(
+                command_queue=self.settings_cmd_queue,
+                response_queue=self.settings_resp_queue,
+                settings_file=common.SETTINGSFILE
+            )
+            self.settings_proc.start()
+
+            # Subscribe to setting changes
+            response = settings_process.send_command(
+                self.settings_cmd_queue,
+                self.settings_resp_queue,
+                'subscribe',
+                {'pattern': '*', 'event_queue': self.settings_event_queue}
+            )
+            if response['status'] == 'success':
+                self.settings_subscription_id = response['data']['subscription_id']
+                logger.info(f"Subscribed to setting changes: {self.settings_subscription_id}")
+
+            # Get initial settings
+            response = settings_process.send_command(
+                self.settings_cmd_queue,
+                self.settings_resp_queue,
+                'get_settings'
+            )
+            if response['status'] == 'success':
+                self.ns.settings = response['data']['settings']
+                logger.info("Initial settings loaded from Settings process")
+            else:
+                logger.error("Failed to get initial settings, using defaults")
+                self.initialize_settings()  # Fallback to legacy
+
+            logger.info("Settings process started")
 
         # Controller Manager Process (microservices architecture)
         if self.use_controller_manager_process:
@@ -1086,6 +1128,72 @@ class Menu():
         except Exception as e:
             logger.error(f"Error checking game events: {e}", exc_info=True)
 
+    # Helper method to send IPC command to Settings
+    def send_settings_command(self, command, params=None, timeout=1.0):
+        """
+        Send command to Settings process via IPC.
+
+        Args:
+            command: Command name (e.g., 'get_settings', 'update_setting')
+            params: Command parameters dict
+            timeout: Response timeout in seconds
+
+        Returns:
+            Response dict with status and data
+        """
+        if not self.use_settings_process:
+            return {'status': 'error', 'error': 'Settings process not enabled'}
+
+        return settings_process.send_command(
+            self.settings_cmd_queue,
+            self.settings_resp_queue,
+            command,
+            params or {},
+            timeout
+        )
+
+    # Check for setting change events from Settings process
+    def check_setting_events(self):
+        """
+        Check for setting change events (non-blocking).
+
+        Events:
+        - setting_changed: A setting has been updated
+        """
+        if not self.use_settings_process:
+            return
+
+        try:
+            while not self.settings_event_queue.empty():
+                event = self.settings_event_queue.get_nowait()
+                event_type = event.get('event')
+
+                if event_type == 'setting_changed':
+                    key = event['data']['key']
+                    new_value = event['data']['new_value']
+                    old_value = event['data']['old_value']
+                    source = event['data'].get('source', 'unknown')
+
+                    # Update local settings
+                    temp_settings = self.ns.settings
+                    temp_settings[key] = new_value
+                    self.ns.settings = temp_settings
+
+                    logger.info(f"Setting changed: {key} = {new_value} (was: {old_value}, source: {source})")
+
+                    # React to specific settings
+                    if key == 'sensitivity':
+                        # Update controller sensitivity
+                        for serial, sens in self.controller_sensitivity.items():
+                            sens.value = new_value
+                    elif key == 'current_game':
+                        # Update current game mode
+                        self.game_mode = Games[new_value]
+                        logger.info(f"Game mode changed to {self.game_mode.name}")
+
+        except Exception as e:
+            logger.error(f"Error checking setting events: {e}", exc_info=True)
+
     # Get controller count from ControllerManager
     def get_controller_count_from_manager(self):
         """Get number of tracked controllers from ControllerManager."""
@@ -1182,6 +1290,7 @@ class Menu():
                 self.check_charging_controller()
             self.check_command_queue()
             self.check_game_events()  # Check for events from GameCoordinator
+            self.check_setting_events()  # Check for events from Settings process
             self.update_status('menu')
 
     def check_admin_controls(self):
@@ -1381,10 +1490,25 @@ class Menu():
 
     #Update the settings[key] with value
     def update_setting(self,key,val):
-        temp_settings = self.ns.settings
-        temp_settings[key] = val
-        self.ns.settings = temp_settings
-        self.update_settings_file()
+        if self.use_settings_process:
+            # Use Settings process
+            response = self.send_settings_command('update_setting', {
+                'key': key,
+                'value': val,
+                'source': 'menu'
+            })
+
+            if response['status'] == 'success':
+                logger.info(f"Setting {key} updated via Settings process")
+                # Update will come via event subscription
+            else:
+                logger.error(f"Failed to update setting: {response.get('error')}")
+        else:
+            # Legacy path
+            temp_settings = self.ns.settings
+            temp_settings[key] = val
+            self.ns.settings = temp_settings
+            self.update_settings_file()
 
     def check_command_queue(self):
         if not(self.command_queue.empty()):
@@ -1457,6 +1581,20 @@ class Menu():
 
         # Stop all controller tracking
         self.stop_tracking_moves()
+
+        # Stop Settings process if running
+        if self.use_settings_process and hasattr(self, 'settings_proc'):
+            logger.info("Shutting down Settings process")
+            response = self.send_settings_command('shutdown', timeout=5.0)
+            if response['status'] == 'success':
+                logger.info("Settings acknowledged shutdown")
+
+            self.settings_proc.join(timeout=5.0)
+            if self.settings_proc.is_alive():
+                logger.warning("Settings didn't stop gracefully, terminating")
+                self.settings_proc.terminate()
+                self.settings_proc.join()
+            logger.info("Settings process stopped")
 
         # Stop web server
         if hasattr(self, 'web_proc') and self.web_proc.is_alive():

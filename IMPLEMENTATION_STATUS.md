@@ -1,7 +1,7 @@
 # JoustMania Refactoring - Implementation Status
 
 **Date:** 2026-01-09
-**Status:** 🚀 Phase 1 Complete, Phase 2 In Progress
+**Status:** 🎉 Phase 1, 2, 3 Complete - Process Supervisor Next
 **Branch:** dev-refactor
 
 ---
@@ -10,7 +10,8 @@
 
 1. ✅ **State-Based Architecture** - Non-blocking controller tracking (menu + game modes)
 2. ✅ **ControllerManager Process** - First microservice extracted (Phase 1)
-3. 🚀 **GameCoordinator Process** - In Progress (Phase 2)
+3. ✅ **GameCoordinator Process** - Game lifecycle management (Phase 2)
+4. ✅ **Settings Process** - Centralized settings with pub/sub (Phase 3)
 
 ---
 
@@ -41,6 +42,58 @@
 - `CONTROLLER_MANAGER_IMPLEMENTATION.md` - Complete implementation guide
 - `PROCESS_ARCHITECTURE.md` - Microservices vision and roadmap
 - `CONTROLLER_MANAGER_DESIGN.md` - Original design proposal
+
+### Phase 2: GameCoordinator Process ✅ (NEW)
+
+**`game_coordinator.py`** (542 lines)
+- Separate process for game lifecycle management
+- IPC communication via multiprocessing Queues
+- All 13 game modes supported
+- Random mode with repeat avoidance
+- Music management per game
+- Event system: game_started, game_ended, game_error
+
+**`piparty.py` Integration:**
+- Feature flag: `use_game_coordinator_process = True`
+- IPC helper methods for game commands
+- Event handling in `game_loop()`
+- Removed 200+ lines of game logic from Menu
+- Clean separation of concerns
+
+**Documentation:**
+- `GAME_COORDINATOR_DESIGN.md` - Complete design document
+- Architecture diagrams and IPC protocol
+- Migration strategy and integration guide
+
+### Phase 3: Settings Process ✅ (NEW)
+
+**`settings_process.py`** (462 lines)
+- Separate process for settings management
+- Schema-based validation (SETTINGS_SCHEMA)
+- Atomic YAML file saves (temp file + rename)
+- Pub/sub pattern for change notifications
+- 5 IPC commands: get_settings, get_setting, update_setting, subscribe, unsubscribe
+- Pattern matching for selective subscriptions
+
+**`piparty.py` Integration:**
+- Feature flag: `use_settings_process = True`
+- Subscribes to all setting changes (pattern='*')
+- Maintains `ns.settings` as synchronized cache
+- Updated `update_setting()` method
+- Event handling in `game_loop()`
+- Graceful shutdown
+
+**Architecture Pattern:**
+- Settings process = source of truth
+- piparty = cache layer (subscribes to changes)
+- Other processes = cache consumers (read from ns.settings)
+- Fast local reads, no stale data, less IPC traffic
+
+**Documentation:**
+- `SETTINGS_PROCESS_DESIGN.md` - Complete design document
+- Schema specification and validation rules
+- Cache pattern explanation
+- Integration examples
 
 ### Core Infrastructure ✅
 
@@ -319,25 +372,35 @@ htop
 - `STATE_BASED_IMPLEMENTATION.md` (395 lines)
 - `IMPLEMENTATION_COMPLETE.md` (390 lines)
 
-### New Files Created (ControllerManager Process)
+### New Files Created (ControllerManager Process - Phase 1)
 - `controller_manager.py` (564 lines)
 - `testing/test_controller_manager_integration.py` (124 lines)
 - `CONTROLLER_MANAGER_IMPLEMENTATION.md` (542 lines)
 - `CONTROLLER_MANAGER_DESIGN.md` (491 lines)
 - `PROCESS_ARCHITECTURE.md` (691 lines)
-- `IMPLEMENTATION_STATUS.md` (this file - updated)
+
+### New Files Created (GameCoordinator Process - Phase 2)
+- `game_coordinator.py` (542 lines)
+- `GAME_COORDINATOR_DESIGN.md` (410 lines)
+
+### New Files Created (Settings Process - Phase 3)
+- `settings_process.py` (462 lines)
+- `SETTINGS_PROCESS_DESIGN.md` (465 lines)
 
 ### Files Modified
 - `piparty.py`:
   - Added state-based menu tracking
-  - Added ControllerManager process integration
-  - Added IPC helper methods
-  - Feature flags: `use_state_based_tracking`, `use_controller_manager_process`
-  - Graceful shutdown support
+  - Added ControllerManager process integration (Phase 1)
+  - Added GameCoordinator process integration (Phase 2)
+  - Added Settings process integration (Phase 3)
+  - Added IPC helper methods for all processes
+  - Feature flags: `use_state_based_tracking`, `use_controller_manager_process`, `use_game_coordinator_process`, `use_settings_process`
+  - Complete graceful shutdown for all processes
 - `controller_process.py` - Added state-based process + dispatching
 - `games/game.py` - Added state-based game tracking
 - `testing/fakes.py` - Enhanced mock controller
 - `testing/README.md` - Added ControllerManager test docs
+- `IMPLEMENTATION_STATUS.md` (this file - updated for all phases)
 
 ---
 
@@ -349,8 +412,10 @@ htop
 4. **`IMPLEMENTATION_STATUS.md`** - This file - current complete status
 5. **`testing/README.md`** - Comprehensive testing guide
 6. **`PROCESS_ARCHITECTURE.md`** - Microservices architecture vision
-7. **`CONTROLLER_MANAGER_DESIGN.md`** - ControllerManager design proposal
-8. **`CONTROLLER_MANAGER_IMPLEMENTATION.md`** - ControllerManager implementation guide
+7. **`CONTROLLER_MANAGER_DESIGN.md`** - ControllerManager design proposal (Phase 1)
+8. **`CONTROLLER_MANAGER_IMPLEMENTATION.md`** - ControllerManager implementation guide (Phase 1)
+9. **`GAME_COORDINATOR_DESIGN.md`** - GameCoordinator design document (Phase 2)
+10. **`SETTINGS_PROCESS_DESIGN.md`** - Settings process design with cache pattern (Phase 3)
 
 ---
 
@@ -364,20 +429,25 @@ htop
 - [x] Integration with Menu
 - [x] Testing and documentation
 
-### Phase 2: GameCoordinator Process 🚀 IN PROGRESS
-- [ ] Extract game initialization logic
-- [ ] Implement start_game/end_game IPC
-- [ ] Game state monitoring
-- [ ] End condition detection
-- [ ] Integration with Menu and ControllerManager
-- [ ] Testing and documentation
+### Phase 2: GameCoordinator Process ✅ COMPLETE
+- [x] Extract game initialization logic
+- [x] Implement start_game/end_game IPC
+- [x] Game state monitoring
+- [x] End condition detection
+- [x] Integration with Menu and ControllerManager
+- [x] Testing and documentation
+- [x] All 13 game modes supported
+- [x] Event system (game_started, game_ended, game_error)
+- [x] Random mode with repeat avoidance
 
-### Phase 3: Settings Process 📅 PLANNED
-- [ ] Extract settings management
-- [ ] Implement pub/sub for settings changes
-- [ ] Load/save settings
-- [ ] Update from WebUI
-- [ ] Integration with all processes
+### Phase 3: Settings Process ✅ COMPLETE
+- [x] Extract settings management
+- [x] Implement pub/sub for settings changes
+- [x] Load/save settings atomically
+- [x] Schema-based validation
+- [x] Cache pattern (piparty maintains ns.settings)
+- [x] Integration with all processes
+- [x] Pattern matching for subscriptions
 
 ### Phase 4: Process Supervisor 📅 PLANNED
 - [ ] Unified process management
@@ -402,12 +472,12 @@ htop
 
 ## Next Steps
 
-### Immediate (Phase 2 - GameCoordinator)
-1. 🚀 Design GameCoordinator process architecture
-2. 🚀 Implement game initialization IPC
-3. 🚀 Extract start_game/end_game logic
-4. 🚀 Integrate with Menu via IPC
-5. 🚀 Test game lifecycle
+### Immediate (Phase 4 - Process Supervisor)
+1. 📅 Design Process Supervisor architecture
+2. 📅 Implement unified process startup
+3. 📅 Add health monitoring for all processes
+4. 📅 Implement automatic restart on failure
+5. 📅 Coordinate graceful shutdown
 
 ### For Testing (Both State-Based and ControllerManager)
 1. ✅ Install test dependencies: `pip3 install -r testing/requirements.txt`
@@ -466,10 +536,17 @@ If death detection or other game logic isn't working:
 **Commit 2:** `ac99aa8` - Game mode state-based architecture
 - Added game tracking, updated controller process
 
-**Commit 3:** (pending) - ControllerManager process (Phase 1)
+**Commit 3:** `18a03f1` - ControllerManager (Phase 1) and GameCoordinator (Phase 2)
 - Added ControllerManagerProcess with IPC
+- Added GameCoordinatorProcess with IPC
 - Integration with piparty.py
-- Testing and documentation
+- Complete testing and documentation
+
+**Commit 4:** (pending) - Settings Process (Phase 3)
+- Added SettingsProcess with pub/sub
+- Schema-based validation and atomic saves
+- Cache pattern implementation
+- Integration with piparty.py
 
 ---
 
@@ -481,16 +558,26 @@ If death detection or other game logic isn't working:
 - [x] Game mode state-based tracking (8/13 modes)
 - [x] Test suite
 - [x] Documentation
+- [x] ControllerManager process (Phase 1)
+- [x] GameCoordinator process (Phase 2)
+- [x] Settings process (Phase 3)
+- [x] Full IPC communication
+- [x] Event-driven architecture
 
 ### Testing ⚠️
 - [ ] Real controller testing (menu mode)
 - [ ] Real controller testing (game mode)
+- [ ] Real controller testing (all 3 processes)
 - [ ] Performance measurement
 - [ ] Latency measurement
+- [ ] IPC stress testing
 
 ### Production 📅
-- [ ] All game modes migrated
+- [ ] Hardware testing complete
 - [ ] Performance validated
+- [ ] Process Supervisor (Phase 4)
+- [ ] Menu Process extraction (Phase 5)
+- [ ] Observability integration (Phase 6)
 - [ ] Monitoring in place
 - [ ] Documentation updated
 

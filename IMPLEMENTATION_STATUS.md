@@ -1,7 +1,7 @@
 # JoustMania Refactoring - Implementation Status
 
 **Date:** 2026-01-09
-**Status:** 🎉 Phase 1, 2, 3 Complete - Process Supervisor Next
+**Status:** 🎉 Phase 1-4 Complete - Menu Process Extraction Next
 **Branch:** dev-refactor
 
 ---
@@ -12,6 +12,7 @@
 2. ✅ **ControllerManager Process** - First microservice extracted (Phase 1)
 3. ✅ **GameCoordinator Process** - Game lifecycle management (Phase 2)
 4. ✅ **Settings Process** - Centralized settings with pub/sub (Phase 3)
+5. ✅ **Process Supervisor** - Unified process management and health monitoring (Phase 4)
 
 ---
 
@@ -94,6 +95,36 @@
 - Schema specification and validation rules
 - Cache pattern explanation
 - Integration examples
+
+### Phase 4: Process Supervisor ✅ (NEW)
+
+**`process_supervisor.py`** (430 lines)
+- ProcessSupervisor manager class (not a separate process)
+- Dependency-aware startup (Settings → ControllerManager → GameCoordinator)
+- Health monitoring thread (5s interval)
+- Automatic process restart on failure (max 3 restarts with exponential backoff)
+- Coordinated graceful shutdown (reverse dependency order)
+- Status queries for all processes
+
+**`piparty.py` Integration:**
+- Feature flag: `use_process_supervisor = True`
+- Factory functions for each process
+- Supervisor startup in `__init__()`
+- Supervisor shutdown in `shutdown()`
+- Backward compatible with manual startup
+
+**Benefits:**
+- Unified process management (single point of control)
+- Automatic failure recovery (processes restart on crash)
+- Health monitoring (periodic alive checks)
+- Dependency-aware ordering (no manual coordination needed)
+- Better observability (centralized status)
+
+**Documentation:**
+- `PROCESS_SUPERVISOR_DESIGN.md` - Complete design document
+- Process registry and configuration
+- Health monitoring strategy
+- Restart policies and failure handling
 
 ### Core Infrastructure ✅
 
@@ -387,14 +418,20 @@ htop
 - `settings_process.py` (462 lines)
 - `SETTINGS_PROCESS_DESIGN.md` (465 lines)
 
+### New Files Created (Process Supervisor - Phase 4)
+- `process_supervisor.py` (430 lines)
+- `PROCESS_SUPERVISOR_DESIGN.md` (650 lines)
+
 ### Files Modified
 - `piparty.py`:
   - Added state-based menu tracking
   - Added ControllerManager process integration (Phase 1)
   - Added GameCoordinator process integration (Phase 2)
   - Added Settings process integration (Phase 3)
+  - Added ProcessSupervisor integration (Phase 4)
   - Added IPC helper methods for all processes
-  - Feature flags: `use_state_based_tracking`, `use_controller_manager_process`, `use_game_coordinator_process`, `use_settings_process`
+  - Added factory functions for process creation
+  - Feature flags: `use_state_based_tracking`, `use_controller_manager_process`, `use_game_coordinator_process`, `use_settings_process`, `use_process_supervisor`
   - Complete graceful shutdown for all processes
 - `controller_process.py` - Added state-based process + dispatching
 - `games/game.py` - Added state-based game tracking
@@ -416,6 +453,7 @@ htop
 8. **`CONTROLLER_MANAGER_IMPLEMENTATION.md`** - ControllerManager implementation guide (Phase 1)
 9. **`GAME_COORDINATOR_DESIGN.md`** - GameCoordinator design document (Phase 2)
 10. **`SETTINGS_PROCESS_DESIGN.md`** - Settings process design with cache pattern (Phase 3)
+11. **`PROCESS_SUPERVISOR_DESIGN.md`** - Process Supervisor design and architecture (Phase 4)
 
 ---
 
@@ -449,11 +487,15 @@ htop
 - [x] Integration with all processes
 - [x] Pattern matching for subscriptions
 
-### Phase 4: Process Supervisor 📅 PLANNED
-- [ ] Unified process management
-- [ ] Health monitoring
-- [ ] Automatic restart on failure
-- [ ] Startup/shutdown coordination
+### Phase 4: Process Supervisor ✅ COMPLETE
+- [x] Unified process management
+- [x] Health monitoring thread
+- [x] Automatic restart on failure (max 3 attempts)
+- [x] Startup/shutdown coordination
+- [x] Dependency-aware ordering
+- [x] Process status queries
+- [x] Exponential backoff for restarts
+- [x] Integration with piparty.py
 
 ### Phase 5: Menu Process 📅 PLANNED
 - [ ] Extract menu loop
@@ -472,12 +514,12 @@ htop
 
 ## Next Steps
 
-### Immediate (Phase 4 - Process Supervisor)
-1. 📅 Design Process Supervisor architecture
-2. 📅 Implement unified process startup
-3. 📅 Add health monitoring for all processes
-4. 📅 Implement automatic restart on failure
-5. 📅 Coordinate graceful shutdown
+### Immediate (Phase 5 - Menu Process)
+1. 📅 Design Menu Process extraction
+2. 📅 Move menu loop to separate process
+3. 📅 Implement IPC for menu commands
+4. 📅 Extract menu UI logic
+5. 📅 Test menu process isolation
 
 ### For Testing (Both State-Based and ControllerManager)
 1. ✅ Install test dependencies: `pip3 install -r testing/requirements.txt`
@@ -542,10 +584,16 @@ If death detection or other game logic isn't working:
 - Integration with piparty.py
 - Complete testing and documentation
 
-**Commit 4:** (pending) - Settings Process (Phase 3)
+**Commit 4:** `3864851` - Settings Process (Phase 3)
 - Added SettingsProcess with pub/sub
 - Schema-based validation and atomic saves
 - Cache pattern implementation
+- Integration with piparty.py
+
+**Commit 5:** (pending) - Process Supervisor (Phase 4)
+- Added ProcessSupervisor for unified process management
+- Health monitoring with automatic restart
+- Dependency-aware startup/shutdown
 - Integration with piparty.py
 
 ---
@@ -561,8 +609,10 @@ If death detection or other game logic isn't working:
 - [x] ControllerManager process (Phase 1)
 - [x] GameCoordinator process (Phase 2)
 - [x] Settings process (Phase 3)
+- [x] Process Supervisor (Phase 4)
 - [x] Full IPC communication
 - [x] Event-driven architecture
+- [x] Health monitoring and auto-restart
 
 ### Testing ⚠️
 - [ ] Real controller testing (menu mode)
@@ -575,7 +625,7 @@ If death detection or other game logic isn't working:
 ### Production 📅
 - [ ] Hardware testing complete
 - [ ] Performance validated
-- [ ] Process Supervisor (Phase 4)
+- [x] Process Supervisor (Phase 4) ✅
 - [ ] Menu Process extraction (Phase 5)
 - [ ] Observability integration (Phase 6)
 - [ ] Monitoring in place

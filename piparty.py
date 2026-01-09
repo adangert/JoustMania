@@ -23,6 +23,7 @@ import controller_process
 import controller_manager
 import game_coordinator
 import settings_process
+import process_supervisor
 import update
 
 # find .env file in parent directory
@@ -597,6 +598,7 @@ class Menu():
         self.use_controller_manager_process = True # Use separate ControllerManager process
         self.use_game_coordinator_process = True # Use separate GameCoordinator process
         self.use_settings_process = True # Use separate Settings process
+        self.use_process_supervisor = True # Use ProcessSupervisor for unified process management
         self.dead_count = Value('i', 0) # Number of dead moves used in webui
 
         # Shared flags/values that both Menu and ControllerManager need
@@ -609,8 +611,71 @@ class Menu():
         self.show_team_colors = Value('i', 0) # Whether to display team colors TODO - might be able to remove
         self.revive = Value('b', False)
 
-        # Settings Process (microservices architecture)
-        if self.use_settings_process:
+        # Process Supervisor (unified process management)
+        if self.use_process_supervisor and self.use_settings_process and \
+           self.use_controller_manager_process and self.use_game_coordinator_process:
+            logger.info("Using ProcessSupervisor for unified process management")
+
+            # Create queues first
+            self.settings_cmd_queue = Queue()
+            self.settings_resp_queue = Queue()
+            self.settings_event_queue = Queue()
+
+            self.controller_cmd_queue = Queue()
+            self.controller_resp_queue = Queue()
+
+            self.game_cmd_queue = Queue()
+            self.game_resp_queue = Queue()
+            self.game_event_queue = Queue()
+
+            # Create supervisor
+            self.supervisor = process_supervisor.ProcessSupervisor()
+
+            # Register factory functions for each process
+            self.supervisor.register_process_factory('Settings', self._create_settings_process)
+            self.supervisor.register_process_factory('ControllerManager', self._create_controller_manager_process)
+            self.supervisor.register_process_factory('GameCoordinator', self._create_game_coordinator_process)
+
+            # Start all processes via supervisor
+            try:
+                self.supervisor.start_all_processes()
+
+                # Post-startup: Subscribe to settings and get initial values
+                response = settings_process.send_command(
+                    self.settings_cmd_queue,
+                    self.settings_resp_queue,
+                    'subscribe',
+                    {'pattern': '*', 'event_queue': self.settings_event_queue}
+                )
+                if response['status'] == 'success':
+                    self.settings_subscription_id = response['data']['subscription_id']
+                    logger.info(f"Subscribed to setting changes: {self.settings_subscription_id}")
+
+                response = settings_process.send_command(
+                    self.settings_cmd_queue,
+                    self.settings_resp_queue,
+                    'get_settings'
+                )
+                if response['status'] == 'success':
+                    self.ns.settings = response['data']['settings']
+                    logger.info("Initial settings loaded from Settings process")
+                else:
+                    logger.error("Failed to get initial settings, using defaults")
+                    self.initialize_settings()
+
+                # Keep references to processes for backward compatibility
+                self.settings_proc = self.supervisor.processes['Settings'].process
+                self.controller_manager_proc = self.supervisor.processes['ControllerManager'].process
+                self.game_coordinator_proc = self.supervisor.processes['GameCoordinator'].process
+
+                logger.info("All processes started via ProcessSupervisor")
+
+            except Exception as e:
+                logger.error(f"Failed to start processes via supervisor: {e}", exc_info=True)
+                raise
+
+        # Settings Process (microservices architecture - legacy manual startup)
+        elif self.use_settings_process:
             logger.info("Starting Settings process")
             self.settings_cmd_queue = Queue()
             self.settings_resp_queue = Queue()
@@ -746,6 +811,51 @@ class Menu():
         self.zombie_music = Music("zombie")
         self.commander_music = Music("commander")
         self.choose_new_music()
+
+    def _create_settings_process(self):
+        """Factory function to create Settings process."""
+        return settings_process.SettingsProcess(
+            command_queue=self.settings_cmd_queue,
+            response_queue=self.settings_resp_queue,
+            settings_file=common.SETTINGSFILE
+        )
+
+    def _create_controller_manager_process(self):
+        """Factory function to create ControllerManager process."""
+        return controller_manager.ControllerManagerProcess(
+            command_queue=self.controller_cmd_queue,
+            response_queue=self.controller_resp_queue,
+            menu_flag=self.menu,
+            restart_flag=self.restart,
+            dead_count=self.dead_count,
+            music_speed=self.music_speed,
+            show_battery=self.show_battery,
+            show_team_colors=self.show_team_colors,
+            red_on_kill=self.red_on_kill,
+            revive=self.revive,
+            controller_game_mode=self.controller_game_mode,
+            ns=self.ns,
+            use_state_based_tracking=self.use_state_based_tracking
+        )
+
+    def _create_game_coordinator_process(self):
+        """Factory function to create GameCoordinator process."""
+        return game_coordinator.GameCoordinatorProcess(
+            command_queue=self.game_cmd_queue,
+            response_queue=self.game_resp_queue,
+            event_queue=self.game_event_queue,
+            controller_cmd_queue=self.controller_cmd_queue,
+            controller_resp_queue=self.controller_resp_queue,
+            menu_flag=self.menu,
+            restart_flag=self.restart,
+            music_speed=self.music_speed,
+            red_on_kill=self.red_on_kill,
+            show_team_colors=self.show_team_colors,
+            revive=self.revive,
+            controller_game_mode=self.controller_game_mode,
+            ns=self.ns,
+            experimental=self.experimental
+        )
 
     def choose_new_music(self):
         self.joust_music.load_audio("audio/Joust/music/*")
@@ -1565,8 +1675,25 @@ class Menu():
         """Graceful shutdown of all processes."""
         logger.info("Shutting down Menu")
 
-        # Stop GameCoordinator if running
-        if self.use_game_coordinator_process and hasattr(self, 'game_coordinator_proc'):
+        # Use ProcessSupervisor if enabled
+        if self.use_process_supervisor and hasattr(self, 'supervisor'):
+            logger.info("Using ProcessSupervisor for shutdown")
+
+            # Send shutdown commands first
+            if hasattr(self, 'game_coordinator_proc'):
+                self.send_game_command('shutdown', timeout=5.0)
+            if hasattr(self, 'controller_manager_proc'):
+                self.send_controller_command('shutdown', timeout=5.0)
+            if hasattr(self, 'settings_proc'):
+                self.send_settings_command('shutdown', timeout=5.0)
+
+            # Stop all processes via supervisor
+            self.supervisor.stop_all_processes()
+
+            logger.info("All processes stopped via ProcessSupervisor")
+
+        # Stop GameCoordinator if running (legacy path)
+        elif self.use_game_coordinator_process and hasattr(self, 'game_coordinator_proc'):
             logger.info("Shutting down GameCoordinator process")
             response = self.send_game_command('shutdown', timeout=5.0)
             if response['status'] == 'success':

@@ -75,50 +75,71 @@ def state_based_track_move(controller_state, move_serial, move_num, menu, restar
                 battery, dead_count, restart, menu, kill_proc
             )
         else:
-            # Game mode - for now use legacy game tracking with move object
-            # TODO: Create state-based game tracking
+            # Game mode - use state-based game tracking
             logger.debug("Track Move ({}): {}".format(common.get_game_name(game_mode.value), move_serial))
+
+            # Most game modes use the base Game.track_move_state_based
+            # Some game modes have custom implementations that inherit from Game
             if game_mode.value == common.Games.Tournament.value:
-                tournament.Joust.track_move(
-                    move=move, team=team, team_color_enum=team_color_enum, dead_move=dead_move, invincible_move=invincible_move,
-                    force_color=force_color, music_speed=music_speed, show_team_colors=show_team_colors, red_on_kill=red_on_kill,
+                # Tournament inherits from base Game, so use base state-based tracking
+                game.Game.track_move_state_based(
+                    controller_state=controller_state, move=move, team=team, team_color_enum=team_color_enum,
+                    dead_move=dead_move, invincible_move=invincible_move, force_color=force_color,
+                    music_speed=music_speed, show_team_colors=show_team_colors, red_on_kill=red_on_kill,
                     restart=restart, menu=menu, sensitivity=sensitivity, revive=revive, opts=game_opts
                 )
             elif game_mode.value == common.Games.Commander.value:
+                # Commander has custom tracking, fallback to legacy for now
+                # TODO: Migrate commander.Joust to state-based
                 commander.Joust.track_move(
-                    move=move, team=team, team_color_enum=team_color_enum, dead_move=dead_move, invincible_move=invincible_move,
-                    force_color=force_color, music_speed=music_speed, show_team_colors=show_team_colors, red_on_kill=red_on_kill,
-                    restart=restart, menu=menu, sensitivity=sensitivity, revive=revive, opts=game_opts
+                    move=move, team=team, team_color_enum=team_color_enum, dead_move=dead_move,
+                    invincible_move=invincible_move, force_color=force_color, music_speed=music_speed,
+                    show_team_colors=show_team_colors, red_on_kill=red_on_kill, restart=restart,
+                    menu=menu, sensitivity=sensitivity, revive=revive, opts=game_opts
                 )
             elif game_mode.value == common.Games.Zombies.value:
+                # Zombie has custom tracking, fallback to legacy for now
+                # TODO: Migrate zombie.Joust to state-based
                 zombie.Joust.track_move(
-                    move=move, team=team, team_color_enum=team_color_enum, dead_move=dead_move, invincible_move=invincible_move,
-                    force_color=force_color, music_speed=music_speed, show_team_colors=show_team_colors, red_on_kill=red_on_kill,
-                    restart=restart, menu=menu, sensitivity=sensitivity, revive=revive, opts=game_opts
+                    move=move, team=team, team_color_enum=team_color_enum, dead_move=dead_move,
+                    invincible_move=invincible_move, force_color=force_color, music_speed=music_speed,
+                    show_team_colors=show_team_colors, red_on_kill=red_on_kill, restart=restart,
+                    menu=menu, sensitivity=sensitivity, revive=revive, opts=game_opts
                 )
             elif game_mode.value == common.Games.Werewolf.value:
+                # Werewolf has custom tracking, fallback to legacy for now
+                # TODO: Migrate werewolf.Joust to state-based
                 werewolf.Joust.track_move(
-                    move=move, team=team, team_color_enum=team_color_enum, dead_move=dead_move, invincible_move=invincible_move,
-                    force_color=force_color, music_speed=music_speed, show_team_colors=show_team_colors, red_on_kill=red_on_kill,
-                    restart=restart, menu=menu, sensitivity=sensitivity, revive=revive, opts=game_opts
+                    move=move, team=team, team_color_enum=team_color_enum, dead_move=dead_move,
+                    invincible_move=invincible_move, force_color=force_color, music_speed=music_speed,
+                    show_team_colors=show_team_colors, red_on_kill=red_on_kill, restart=restart,
+                    menu=menu, sensitivity=sensitivity, revive=revive, opts=game_opts
                 )
             elif game_mode.value == common.Games.NonStop.value:
+                # NonStop has custom tracking, fallback to legacy for now
+                # TODO: Migrate joust_non_stop.Joust to state-based
                 joust_non_stop.Joust.track_move(
-                    move=move, team=team, team_color_enum=team_color_enum, dead_move=dead_move, invincible_move=invincible_move,
-                    force_color=force_color, music_speed=music_speed, show_team_colors=show_team_colors, red_on_kill=red_on_kill,
-                    restart=restart, menu=menu, sensitivity=sensitivity, revive=revive, opts=game_opts
+                    move=move, team=team, team_color_enum=team_color_enum, dead_move=dead_move,
+                    invincible_move=invincible_move, force_color=force_color, music_speed=music_speed,
+                    show_team_colors=show_team_colors, red_on_kill=red_on_kill, restart=restart,
+                    menu=menu, sensitivity=sensitivity, revive=revive, opts=game_opts
                 )
             elif game_mode.value == common.Games.Ninja.value:
+                # Ninja (speed_bomb) has completely different tracking, use legacy
+                # TODO: Migrate speed_bomb.Joust to state-based
                 speed_bomb.Joust.track_move(
-                    move=move, team=team, team_color_enum=team_color_enum, dead_move=dead_move, invincible_move=invincible_move,
-                    force_color=force_color, music_speed=music_speed, show_team_colors=show_team_colors, red_on_kill=red_on_kill,
-                    restart=restart, menu=menu, sensitivity=sensitivity, revive=revive, opts=game_opts
+                    move=move, team=team, team_color_enum=team_color_enum, dead_move=dead_move,
+                    invincible_move=invincible_move, force_color=force_color, music_speed=music_speed,
+                    show_team_colors=show_team_colors, red_on_kill=red_on_kill, restart=restart,
+                    menu=menu, sensitivity=sensitivity, revive=revive, opts=game_opts
                 )
             else:
-                # Default: use base game tracking (for most game modes)
-                game.Game.track_move(
-                    move=move, team=team, team_color_enum=team_color_enum, dead_move=dead_move, invincible_move=invincible_move,
-                    force_color=force_color, music_speed=music_speed, show_team_colors=show_team_colors, red_on_kill=red_on_kill,
+                # Default: use base game state-based tracking (for most game modes)
+                # This covers: JoustFFA, JoustTeams, JoustRandomTeams, Traitor, Swapper, FightClub, Random
+                game.Game.track_move_state_based(
+                    controller_state=controller_state, move=move, team=team, team_color_enum=team_color_enum,
+                    dead_move=dead_move, invincible_move=invincible_move, force_color=force_color,
+                    music_speed=music_speed, show_team_colors=show_team_colors, red_on_kill=red_on_kill,
                     restart=restart, menu=menu, sensitivity=sensitivity, revive=revive, opts=game_opts
                 )
 

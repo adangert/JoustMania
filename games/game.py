@@ -502,6 +502,185 @@ class Game():
         return 2
 
     @classmethod
+    def track_move_state_based(cls, controller_state, move, team, team_color_enum, dead_move, invincible_move,
+                               force_color, music_speed, show_team_colors, red_on_kill, restart, menu,
+                               sensitivity, revive, opts=None):
+        """
+        State-based game tracking with integrated hardware polling.
+
+        This function:
+        1. Polls hardware at high frequency (1000Hz) and updates ControllerState
+        2. Runs game logic at 60 FPS reading from that state
+        3. Applies LED/rumble outputs to hardware
+
+        This provides non-blocking reads, fresh data, and better observability
+        while maintaining the same game logic as the legacy track_move.
+
+        Args:
+            controller_state: ControllerState instance for shared memory
+            move: PSMove controller object for hardware access
+            team: Team value
+            team_color_enum: Team color array
+            dead_move: Dead status value
+            invincible_move: Invincibility value
+            force_color: Forced color array
+            music_speed: Music speed value
+            show_team_colors: Show team colors flag
+            red_on_kill: Red on kill flag
+            restart: Restart flag
+            menu: Menu mode flag
+            sensitivity: Movement sensitivity
+            revive: Revive enabled flag
+            opts: Game-specific options
+        """
+        no_rumble = time.time() + 2
+        vibrate = False
+        vibration_time = time.time() + 1
+        flash_lights = True
+        flash_lights_timer = 0
+        change = 0
+        reviving = 0
+
+        cls.pre_game_loop(move, team.value, opts)
+
+        # OTEL: Player span
+        parent_ctx = trace.set_span_in_context(
+            NonRecordingSpan(
+                SpanContext(
+                    trace_id=shared.trace_id,
+                    span_id=shared.span_id,
+                    is_remote=True,
+                    trace_flags=TraceFlags(shared.trace_flags)
+                )
+            )
+        )
+
+        # Frame timing for game logic (60 FPS)
+        last_game_frame = time.time()
+        game_frame_interval = 1/60
+
+        with tracer.start_as_current_span("track_move", context=parent_ctx) as player_span:
+            player_span.set_attribute("move_get_serial", move.get_serial())
+            player_span.set_attribute("service.color", str(list(team_color_enum)))
+
+            while True:
+                if menu.value == 1 or restart.value == 1:
+                    return
+
+                # Always update hardware state (high frequency)
+                controller_state.update(move)
+
+                # Game logic (60 FPS)
+                now = time.time()
+                if now - last_game_frame < game_frame_interval:
+                    # Not time for game update yet
+                    controller_state.apply_outputs(move)
+                    time.sleep(0.001)  # 1ms for 1000Hz hardware polling
+                    continue
+
+                last_game_frame = now
+
+                # Read current state (non-blocking)
+                snapshot = controller_state.get_snapshot()
+
+                # Check if controller is still connected and data is fresh
+                if not snapshot['connected'] or not controller_state.is_fresh(100.0):
+                    time.sleep(0.01)
+                    continue
+
+                # Handle rumble state
+                if dead_move.value == Status.RUMBLE.value:
+                    controller_state.set_rumble(80)
+
+                # Have the controller flash and rumble while invincible
+                if invincible_move.value:
+                    vibration_time = time.time() + .3
+                    no_rumble = vibration_time
+                    vibrate = True
+
+                opts = cls.handle_opts(move=move, team=team.value, opts=opts, dead_move=dead_move.value)
+                team_color = cls.handle_team_color(move, team.value, opts, team_color_enum)
+
+                if show_team_colors.value == 1:
+                    controller_state.set_leds(*team_color)
+                elif sum(force_color) != 0:
+                    controller_state.set_leds(*force_color)
+                    no_rumble = time.time() + 0.5
+                    controller_state.set_rumble(0)
+                elif dead_move.value == Status.DIED.value:
+                    if red_on_kill.value:
+                        controller_state.set_leds(*Colors.Red.value)
+                    else:
+                        controller_state.set_leds(*Colors.Black.value)
+                    controller_state.set_rumble(90)
+                    time.sleep(0.25)  # Wait for death to process in main loop
+                    dead_move.value = Status.DEAD.value
+                    vibration_time = time.time() + 0.5
+                    player_span.end()
+                elif dead_move.value == Status.ALIVE.value:
+                    # Extract accelerometer from state (non-blocking)
+                    ax, ay, az = snapshot['accelerometer']
+                    total = sqrt(sum([ax**2, ay**2, az**2]))
+                    change = (change * 4 + total) / 5
+                    speed_percent = (music_speed.value - SLOW_MUSIC_SPEED) / (FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED)
+                    warning = cls.get_warning(team.value, speed_percent, sensitivity.value, opts)
+                    threshold = cls.get_threshold(team.value, speed_percent, sensitivity.value, opts)
+
+                    if vibrate:
+                        flash_lights_timer += 1
+                        if flash_lights_timer > 7:
+                            flash_lights_timer = 0
+                            flash_lights = not flash_lights
+                        if flash_lights:
+                            controller_state.set_leds(*Colors.White40.value)
+                        else:
+                            controller_state.set_leds(*team_color)
+
+                        if time.time() < vibration_time - 0.25:
+                            controller_state.set_rumble(90)
+                        else:
+                            controller_state.set_rumble(0)
+                        if time.time() > vibration_time:
+                            vibrate = False
+                    else:
+                        controller_state.set_leds(*team_color)
+
+                    if reviving and not vibrate:
+                        logger.debug("Revived")
+                        reviving = 0
+                        dead_move.value = Status.REVIVED.value
+
+                    if not invincible_move.value:
+                        if change > threshold and time.time() > no_rumble:
+                            dead_move.value = Status.DIED.value
+
+                        elif not vibrate and change > warning and time.time() > no_rumble:
+                            # OTEL: SPAN EVENT
+                            player_span.add_event("warning", {
+                                "change": change,
+                                "warning": warning
+                            })
+                            vibrate = True
+                            vibration_time = time.time() + 0.5
+
+                elif revive.value and dead_move.value == Status.DEAD.value:
+                    logger.debug("Reviving soon")
+                    reviving = 1
+                    no_rumble = time.time() + cls.get_revive_time(move, team.value, opts)
+                    vibration_time = time.time() + cls.get_revive_time(move, team.value, opts)
+                    vibrate = True
+                    dead_move.value = Status.ALIVE.value
+                elif dead_move.value == Status.ON.value:
+                    controller_state.set_leds(*team_color)
+                    controller_state.set_rumble(0)
+                elif dead_move.value == Status.OFF.value:
+                    controller_state.set_leds(*Colors.Black.value)
+                    controller_state.set_rumble(0)
+
+                # Apply LED/rumble outputs to hardware
+                controller_state.apply_outputs(move)
+
+    @classmethod
     def track_move(cls, move, team, team_color_enum, dead_move, invincible_move, force_color, \
                    music_speed, show_team_colors, red_on_kill, restart, menu, sensitivity, revive, opts=None):
 

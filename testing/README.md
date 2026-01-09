@@ -36,6 +36,25 @@ Performance benchmarks comparing old and new architectures.
 - Non-blocking state overhead (new approach)
 - Update frequency comparison (should show 5-10x improvement)
 
+### `test_controller_manager_integration.py`
+Integration tests for the ControllerManager process and IPC communication.
+
+**Tests:**
+- Starting ControllerManager process
+- IPC command/response protocol
+- Get controller count
+- Get ready controllers
+- Get game controllers
+- Reset controller state
+- Graceful shutdown
+
+**Expected Results:**
+- Process starts successfully
+- IPC commands receive responses
+- Shutdown is graceful
+
+**Note:** Requires `psmove` module (runs on hardware with Move controllers)
+
 ### `fakes.py`
 Mock implementations for testing without real hardware.
 

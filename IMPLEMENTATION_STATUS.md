@@ -1,18 +1,46 @@
-# State-Based Architecture - Implementation Status
+# JoustMania Refactoring - Implementation Status
 
 **Date:** 2026-01-09
-**Status:** ✅ Complete - Ready for Testing
+**Status:** 🚀 Phase 1 Complete, Phase 2 In Progress
 **Branch:** dev-refactor
 
 ---
 
-## 🎉 Implementation Complete
+## 🎉 Major Milestones
 
-Both **menu mode** and **game mode** have been successfully migrated to the state-based non-blocking architecture!
+1. ✅ **State-Based Architecture** - Non-blocking controller tracking (menu + game modes)
+2. ✅ **ControllerManager Process** - First microservice extracted (Phase 1)
+3. 🚀 **GameCoordinator Process** - In Progress (Phase 2)
 
 ---
 
 ## What's Been Implemented
+
+### Phase 1: ControllerManager Process ✅ (NEW)
+
+**`controller_manager.py`** (564 lines)
+- Separate process for controller lifecycle management
+- IPC communication via multiprocessing Queues
+- Automatic controller discovery (USB/Bluetooth)
+- Health monitoring and auto-removal
+- 8 IPC commands: get_controller_count, get_ready_controllers, etc.
+- Spawns controller processes (state-based or legacy)
+
+**`piparty.py` Integration:**
+- Feature flag: `use_controller_manager_process = True`
+- IPC helper methods for communication
+- Updated `game_loop()` for automatic controller management
+- Graceful shutdown with `shutdown()` method
+- Backward compatible with legacy mode
+
+**Testing:**
+- `testing/test_controller_manager_integration.py` - IPC integration tests
+- Verified process lifecycle and command/response protocol
+
+**Documentation:**
+- `CONTROLLER_MANAGER_IMPLEMENTATION.md` - Complete implementation guide
+- `PROCESS_ARCHITECTURE.md` - Microservices vision and roadmap
+- `CONTROLLER_MANAGER_DESIGN.md` - Original design proposal
 
 ### Core Infrastructure ✅
 
@@ -280,7 +308,7 @@ htop
 
 ## Files Modified
 
-### New Files Created
+### New Files Created (State-Based Architecture)
 - `controller_state.py` (358 lines)
 - `testing/test_controller_state.py` (293 lines)
 - `testing/test_performance_benchmark.py` (380 lines)
@@ -290,13 +318,26 @@ htop
 - `ARCHITECTURE_ANALYSIS.md` (1,211 lines)
 - `STATE_BASED_IMPLEMENTATION.md` (395 lines)
 - `IMPLEMENTATION_COMPLETE.md` (390 lines)
-- `IMPLEMENTATION_STATUS.md` (this file)
+
+### New Files Created (ControllerManager Process)
+- `controller_manager.py` (564 lines)
+- `testing/test_controller_manager_integration.py` (124 lines)
+- `CONTROLLER_MANAGER_IMPLEMENTATION.md` (542 lines)
+- `CONTROLLER_MANAGER_DESIGN.md` (491 lines)
+- `PROCESS_ARCHITECTURE.md` (691 lines)
+- `IMPLEMENTATION_STATUS.md` (this file - updated)
 
 ### Files Modified
-- `piparty.py` - Added state-based menu tracking + feature flag
+- `piparty.py`:
+  - Added state-based menu tracking
+  - Added ControllerManager process integration
+  - Added IPC helper methods
+  - Feature flags: `use_state_based_tracking`, `use_controller_manager_process`
+  - Graceful shutdown support
 - `controller_process.py` - Added state-based process + dispatching
 - `games/game.py` - Added state-based game tracking
 - `testing/fakes.py` - Enhanced mock controller
+- `testing/README.md` - Added ControllerManager test docs
 
 ---
 
@@ -307,24 +348,81 @@ htop
 3. **`IMPLEMENTATION_COMPLETE.md`** - Initial completion status (menu mode)
 4. **`IMPLEMENTATION_STATUS.md`** - This file - current complete status
 5. **`testing/README.md`** - Comprehensive testing guide
+6. **`PROCESS_ARCHITECTURE.md`** - Microservices architecture vision
+7. **`CONTROLLER_MANAGER_DESIGN.md`** - ControllerManager design proposal
+8. **`CONTROLLER_MANAGER_IMPLEMENTATION.md`** - ControllerManager implementation guide
+
+---
+
+## Microservices Roadmap
+
+### Phase 1: ControllerManager Process ✅ COMPLETE
+- [x] Extract controller lifecycle management
+- [x] Implement IPC communication
+- [x] Automatic discovery and pairing
+- [x] Health monitoring
+- [x] Integration with Menu
+- [x] Testing and documentation
+
+### Phase 2: GameCoordinator Process 🚀 IN PROGRESS
+- [ ] Extract game initialization logic
+- [ ] Implement start_game/end_game IPC
+- [ ] Game state monitoring
+- [ ] End condition detection
+- [ ] Integration with Menu and ControllerManager
+- [ ] Testing and documentation
+
+### Phase 3: Settings Process 📅 PLANNED
+- [ ] Extract settings management
+- [ ] Implement pub/sub for settings changes
+- [ ] Load/save settings
+- [ ] Update from WebUI
+- [ ] Integration with all processes
+
+### Phase 4: Process Supervisor 📅 PLANNED
+- [ ] Unified process management
+- [ ] Health monitoring
+- [ ] Automatic restart on failure
+- [ ] Startup/shutdown coordination
+
+### Phase 5: Menu Process 📅 PLANNED
+- [ ] Extract menu loop
+- [ ] Menu UI logic
+- [ ] Game selection
+- [ ] Admin controls
+- [ ] Pure IPC communication
+
+### Phase 6: Observability Integration 📅 PLANNED
+- [ ] OpenTelemetry per process
+- [ ] Process-level metrics
+- [ ] IPC tracing
+- [ ] Monitoring dashboard
 
 ---
 
 ## Next Steps
 
-### For Testing
+### Immediate (Phase 2 - GameCoordinator)
+1. 🚀 Design GameCoordinator process architecture
+2. 🚀 Implement game initialization IPC
+3. 🚀 Extract start_game/end_game logic
+4. 🚀 Integrate with Menu via IPC
+5. 🚀 Test game lifecycle
+
+### For Testing (Both State-Based and ControllerManager)
 1. ✅ Install test dependencies: `pip3 install -r testing/requirements.txt`
 2. ✅ Run unit tests: `./run_tests.sh`
-3. ⚠️ Test menu mode with real controllers
-4. ⚠️ Test game modes with real controllers
-5. ⚠️ Measure actual CPU improvements
-6. ⚠️ Validate latency improvements
+3. ⚠️ Test ControllerManager with real controllers
+4. ⚠️ Test menu mode with real controllers
+5. ⚠️ Test game modes with real controllers
+6. ⚠️ Measure actual CPU improvements
+7. ⚠️ Validate latency improvements
 
 ### For Production
 1. ⚠️ Complete real controller testing
 2. ⚠️ Document actual performance gains
-3. ⚠️ Migrate remaining 5 game modes (optional)
-4. ⚠️ Add OpenTelemetry metrics for state updates
+3. ⚠️ Complete microservices phases 2-6
+4. ⚠️ Add OpenTelemetry metrics across all processes
 5. ⚠️ Create performance monitoring dashboard
 
 ---
@@ -365,8 +463,13 @@ If death detection or other game logic isn't working:
 **Commit 1:** `9e364af` - Menu mode state-based architecture
 - Added ControllerState, menu tracking, tests
 
-**Commit 2:** (pending) - Game mode state-based architecture
+**Commit 2:** `ac99aa8` - Game mode state-based architecture
 - Added game tracking, updated controller process
+
+**Commit 3:** (pending) - ControllerManager process (Phase 1)
+- Added ControllerManagerProcess with IPC
+- Integration with piparty.py
+- Testing and documentation
 
 ---
 

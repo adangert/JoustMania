@@ -20,6 +20,8 @@ elif "win" in platform:
     import win_jm_dbus as jm_dbus
     import win_pair as pair
 import controller_process
+import controller_manager
+import game_coordinator
 import update
 
 # find .env file in parent directory
@@ -591,13 +593,83 @@ class Menu():
 
         self.experimental = False # Testing new version of FFA
         self.use_state_based_tracking = True # Use new state-based non-blocking architecture
+        self.use_controller_manager_process = True # Use separate ControllerManager process
+        self.use_game_coordinator_process = True # Use separate GameCoordinator process
         self.dead_count = Value('i', 0) # Number of dead moves used in webui
 
-        # All of the moves connected via BT or USB, moves connected via both will appear twice
+        # Shared flags/values that both Menu and ControllerManager need
+        self.menu = Value('i', 1) # Whether in the menu or not (1 - Menu, 0 - Game)
+        self.controller_game_mode = Value('i',1) # Game mode shared across all processes
+        self.restart = Value('i',0) # Restart value shared across all processes - stops tracking moves
+        self.music_speed= Value('d', 0) # Current music speed
+        self.red_on_kill = Value('i', 0) # Turn red on death - also in webui / admin
+        self.show_battery = Value('i', 0) # Shared variable across all move processes to control whether to display battery status
+        self.show_team_colors = Value('i', 0) # Whether to display team colors TODO - might be able to remove
+        self.revive = Value('b', False)
+
+        # Controller Manager Process (microservices architecture)
+        if self.use_controller_manager_process:
+            logger.info("Starting ControllerManager process")
+            self.controller_cmd_queue = Queue()
+            self.controller_resp_queue = Queue()
+
+            self.controller_manager_proc = controller_manager.ControllerManagerProcess(
+                command_queue=self.controller_cmd_queue,
+                response_queue=self.controller_resp_queue,
+                menu_flag=self.menu,
+                restart_flag=self.restart,
+                dead_count=self.dead_count,
+                music_speed=self.music_speed,
+                show_battery=self.show_battery,
+                show_team_colors=self.show_team_colors,
+                red_on_kill=self.red_on_kill,
+                revive=self.revive,
+                controller_game_mode=self.controller_game_mode,
+                ns=self.ns,
+                use_state_based_tracking=self.use_state_based_tracking
+            )
+            self.controller_manager_proc.start()
+            logger.info("ControllerManager process started")
+
+        # GameCoordinator Process (microservices architecture)
+        if self.use_game_coordinator_process:
+            logger.info("Starting GameCoordinator process")
+            self.game_cmd_queue = Queue()
+            self.game_resp_queue = Queue()
+            self.game_event_queue = Queue()
+
+            # Pass ControllerManager queues if using it
+            if self.use_controller_manager_process:
+                ctrl_cmd_q = self.controller_cmd_queue
+                ctrl_resp_q = self.controller_resp_queue
+            else:
+                ctrl_cmd_q = None
+                ctrl_resp_q = None
+
+            self.game_coordinator_proc = game_coordinator.GameCoordinatorProcess(
+                command_queue=self.game_cmd_queue,
+                response_queue=self.game_resp_queue,
+                event_queue=self.game_event_queue,
+                controller_cmd_queue=ctrl_cmd_q,
+                controller_resp_queue=ctrl_resp_q,
+                menu_flag=self.menu,
+                restart_flag=self.restart,
+                music_speed=self.music_speed,
+                red_on_kill=self.red_on_kill,
+                show_team_colors=self.show_team_colors,
+                revive=self.revive,
+                controller_game_mode=self.controller_game_mode,
+                ns=self.ns,
+                experimental=self.experimental
+            )
+            self.game_coordinator_proc.start()
+            logger.info("GameCoordinator process started")
+
+        # Legacy controller tracking (for backward compatibility and fallback)
+        # When controller manager process is enabled, these are kept for compatibility
+        # but the ControllerManager owns the canonical state
         self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
-
         self.move_count = self.get_move_count() # Number of connected moves used in webui
-
         self.admin_move = None # Move with admin privileges
         self.out_moves = {} # Array to store alive status per move, used to disable charging moves
         self.paired_moves = [] # Moves paired via USB
@@ -606,7 +678,6 @@ class Menu():
         logger.debug("Moves serial: {}".format([move.get_serial() for move in self.moves]))
         self.random_added = [] # Added to a random team yet TODO - confirm
         self.rand_game_list = [] # List of random games
-        self.show_battery = Value('i', 0) # Shared variable across all move processes to control whether to display battery status
         self.force_color = {} # Not sure
 
         self.menu_opts = {} # Menu options stored per move
@@ -615,21 +686,16 @@ class Menu():
         self.teams = {} # Serial to team list TODO - seems to be the same as controller_teams
         self.game_mode = Games[self.ns.settings['current_game']] # Get game mode from ns (which is shared with web admin)
         self.old_game_mode = self.game_mode #Previous game mode
-        self.pair = pair.Pair() # Start bluetooth pairing
 
-        self.menu = Value('i', 1) # Whether in the menu or not (1 - Menu, 0 - Game)
-        self.controller_game_mode = Value('i',1) # Game mode shared across all processes
-        self.restart = Value('i',0) # Restart value shared across all processes - stops tracking moves
+        if not self.use_controller_manager_process:
+            self.pair = pair.Pair() # Start bluetooth pairing (only if not using controller manager)
+
         self.controller_teams = {} # Track team per controller for multiple team games, e.g. JoustTeams
         self.controller_colors = {} # Track color per controller
         self.controller_sensitivity = {} # Track sensitivity per controller
         self.dead_moves = {} # Track moves that have died
         self.invincible_moves = {} # Moves that can't be killed
-        self.music_speed= Value('d', 0) # Current music speed
-        self.red_on_kill = Value('i', 0) # Turn red on death - also in webui / admin
-        self.show_team_colors = Value('i', 0) # Whether to display team colors TODO - might be able to remove
         self.kill_controller_proc = {} # ? TODO
-        self.revive = Value('b', False)
         self.i = 0 # Game tick count
 
         # Load audio now so it converts before the game begins
@@ -938,6 +1004,127 @@ class Menu():
                 self.out_moves[serial] = Status.ALIVE.value # If move is not charging, set it to alive
                 move_opt[Opts.STATUS.value] = Status.ALIVE.value #If move is not charging, set it to alive
 
+    # Helper method to send IPC command to ControllerManager
+    def send_controller_command(self, command, params=None, timeout=1.0):
+        """
+        Send command to ControllerManager process via IPC.
+
+        Args:
+            command: Command name (e.g., 'get_controller_count')
+            params: Command parameters dict
+            timeout: Response timeout in seconds
+
+        Returns:
+            Response dict with status and data
+        """
+        if not self.use_controller_manager_process:
+            return {'status': 'error', 'error': 'ControllerManager not enabled'}
+
+        return controller_manager.send_command(
+            self.controller_cmd_queue,
+            self.controller_resp_queue,
+            command,
+            params or {},
+            timeout
+        )
+
+    # Helper method to send IPC command to GameCoordinator
+    def send_game_command(self, command, params=None, timeout=30.0):
+        """
+        Send command to GameCoordinator process via IPC.
+
+        Args:
+            command: Command name (e.g., 'start_game')
+            params: Command parameters dict
+            timeout: Response timeout in seconds (longer for start_game which blocks)
+
+        Returns:
+            Response dict with status and data
+        """
+        if not self.use_game_coordinator_process:
+            return {'status': 'error', 'error': 'GameCoordinator not enabled'}
+
+        return game_coordinator.send_command(
+            self.game_cmd_queue,
+            self.game_resp_queue,
+            command,
+            params or {},
+            timeout
+        )
+
+    # Check for game events from GameCoordinator
+    def check_game_events(self):
+        """
+        Check for events from GameCoordinator (non-blocking).
+
+        Events:
+        - game_started: Game has started
+        - game_ended: Game has ended
+        - game_error: Game error occurred
+        """
+        if not self.use_game_coordinator_process:
+            return
+
+        try:
+            while not self.game_event_queue.empty():
+                event = self.game_event_queue.get_nowait()
+                event_type = event.get('event')
+
+                if event_type == 'game_started':
+                    logger.info(f"Game started: {event['data'].get('game_mode')}")
+                    # Could update UI here
+
+                elif event_type == 'game_ended':
+                    logger.info(f"Game ended: {event['data'].get('game_mode')}")
+                    self.play_menu_music = True
+                    # Reset state
+                    self.random_added = []
+
+                elif event_type == 'game_error':
+                    logger.error(f"Game error: {event.get('error')}")
+
+        except Exception as e:
+            logger.error(f"Error checking game events: {e}", exc_info=True)
+
+    # Get controller count from ControllerManager
+    def get_controller_count_from_manager(self):
+        """Get number of tracked controllers from ControllerManager."""
+        response = self.send_controller_command('get_controller_count')
+        if response['status'] == 'success':
+            return response['data']['count']
+        else:
+            logger.error(f"Failed to get controller count: {response.get('error')}")
+            return 0
+
+    # Sync local state with ControllerManager
+    def sync_with_controller_manager(self):
+        """
+        Sync local controller tracking state with ControllerManager.
+
+        This keeps backward compatibility with code that accesses
+        self.tracked_moves, self.menu_opts, etc. directly.
+        """
+        if not self.use_controller_manager_process:
+            return
+
+        # Get list of tracked controllers from ControllerManager
+        response = self.send_controller_command('get_game_controllers')
+        if response['status'] == 'success':
+            manager_serials = set(response['data']['controllers'])
+            local_serials = set(self.tracked_moves.keys())
+
+            # Remove local controllers that are no longer in ControllerManager
+            for serial in (local_serials - manager_serials):
+                if serial in self.tracked_moves:
+                    del self.tracked_moves[serial]
+                if serial == self.admin_move:
+                    self.admin_move = None
+                # Note: We don't delete menu_opts/game_opts here as they're
+                # managed by ControllerManager's shared memory
+
+            # Note: We don't need to add controllers here because
+            # ControllerManager automatically spawns processes for new controllers
+
     def game_loop(self):
         self.play_menu_music = True
         while True:
@@ -947,35 +1134,42 @@ class Menu():
                 self.menu_music.load_audio("audio/Menu/music/*")
                 self.menu_music.start_audio_loop()
             self.i = self.i + 1 # Track loop counter
-            if psmove.count_connected() > len(self.tracked_moves):
-                for move_num, move in enumerate(self.moves):
-                    # If move is connected via USB, pair it
-                    if move.connection_type == psmove.Conn_USB:
-                        self.pair_usb_move(move)
-                    # If move is connected via BT, pair it
-                    elif move.connection_type != psmove.Conn_USB:
-                        self.pair_move(move, move_num)
-            # If the number of tracked moves is greater than the connected ones
-            # kill the tracked moves no longer connected
-            elif(len(self.tracked_moves) > len(self.moves)):
-                connected_serials = [x.get_serial() for x in self.moves]
-                tracked_serials = self.tracked_moves.keys()
-                keys_to_kill = []
-                for serial in tracked_serials:
-                    if serial not in connected_serials:
-                        #self.kill_controller_proc[serial].value = True TODO - why is this commented
-                        #check to see if the controller has not been removed already TODO - what is this?
-                        if serial in self.menu_opts.keys():
-                            self.remove_controller(serial)
-                        #self.tracked_moves[serial].join() TODO - ?
-                        #self.tracked_moves[serial].terminate() TODO - ?
-                        keys_to_kill.append(serial) # Add new serials to kill
 
-                # For all keys to kill, remove from tracked_moves
-                for key in keys_to_kill:
-                    del self.tracked_moves[key]
-                    if key == self.admin_move:
-                        self.admin_move = None
+            if self.use_controller_manager_process:
+                # ControllerManager process handles discovery and pairing automatically
+                # We just need to sync our local state for backward compatibility
+                self.sync_with_controller_manager()
+            else:
+                # Legacy path: manually check for and pair controllers
+                if psmove.count_connected() > len(self.tracked_moves):
+                    for move_num, move in enumerate(self.moves):
+                        # If move is connected via USB, pair it
+                        if move.connection_type == psmove.Conn_USB:
+                            self.pair_usb_move(move)
+                        # If move is connected via BT, pair it
+                        elif move.connection_type != psmove.Conn_USB:
+                            self.pair_move(move, move_num)
+                # If the number of tracked moves is greater than the connected ones
+                # kill the tracked moves no longer connected
+                elif(len(self.tracked_moves) > len(self.moves)):
+                    connected_serials = [x.get_serial() for x in self.moves]
+                    tracked_serials = self.tracked_moves.keys()
+                    keys_to_kill = []
+                    for serial in tracked_serials:
+                        if serial not in connected_serials:
+                            #self.kill_controller_proc[serial].value = True TODO - why is this commented
+                            #check to see if the controller has not been removed already TODO - what is this?
+                            if serial in self.menu_opts.keys():
+                                self.remove_controller(serial)
+                            #self.tracked_moves[serial].join() TODO - ?
+                            #self.tracked_moves[serial].terminate() TODO - ?
+                            keys_to_kill.append(serial) # Add new serials to kill
+
+                    # For all keys to kill, remove from tracked_moves
+                    for key in keys_to_kill:
+                        del self.tracked_moves[key]
+                        if key == self.admin_move:
+                            self.admin_move = None
 
             self.check_for_new_moves()
             if len(self.tracked_moves) > 0:
@@ -987,6 +1181,7 @@ class Menu():
                 self.check_update()
                 self.check_charging_controller()
             self.check_command_queue()
+            self.check_game_events()  # Check for events from GameCoordinator
             self.update_status('menu')
 
     def check_admin_controls(self):
@@ -1221,9 +1416,59 @@ class Menu():
         self.ns.out_moves = self.out_moves
 
     def stop_tracking_moves(self):
-        for proc in self.tracked_moves.values():
-            proc.terminate()
-            proc.join()
+        """Stop all controller processes and cleanup."""
+        if self.use_controller_manager_process:
+            # Send shutdown command to ControllerManager
+            logger.info("Shutting down ControllerManager process")
+            response = self.send_controller_command('shutdown', timeout=5.0)
+            if response['status'] == 'success':
+                logger.info("ControllerManager acknowledged shutdown")
+
+            # Wait for ControllerManager process to finish
+            self.controller_manager_proc.join(timeout=5.0)
+            if self.controller_manager_proc.is_alive():
+                logger.warning("ControllerManager didn't stop gracefully, terminating")
+                self.controller_manager_proc.terminate()
+                self.controller_manager_proc.join()
+            logger.info("ControllerManager process stopped")
+        else:
+            # Legacy path: stop controller processes directly
+            for proc in self.tracked_moves.values():
+                proc.terminate()
+                proc.join()
+
+    def shutdown(self):
+        """Graceful shutdown of all processes."""
+        logger.info("Shutting down Menu")
+
+        # Stop GameCoordinator if running
+        if self.use_game_coordinator_process and hasattr(self, 'game_coordinator_proc'):
+            logger.info("Shutting down GameCoordinator process")
+            response = self.send_game_command('shutdown', timeout=5.0)
+            if response['status'] == 'success':
+                logger.info("GameCoordinator acknowledged shutdown")
+
+            self.game_coordinator_proc.join(timeout=5.0)
+            if self.game_coordinator_proc.is_alive():
+                logger.warning("GameCoordinator didn't stop gracefully, terminating")
+                self.game_coordinator_proc.terminate()
+                self.game_coordinator_proc.join()
+            logger.info("GameCoordinator process stopped")
+
+        # Stop all controller tracking
+        self.stop_tracking_moves()
+
+        # Stop web server
+        if hasattr(self, 'web_proc') and self.web_proc.is_alive():
+            logger.info("Stopping web server")
+            self.web_proc.terminate()
+            self.web_proc.join()
+
+        # Stop music
+        if hasattr(self, 'menu_music'):
+            self.menu_music.stop_audio()
+
+        logger.info("Menu shutdown complete")
 
     def check_start_game(self):
         #if self.game_mode == Games.Random: TODO - what's this for?
@@ -1240,10 +1485,24 @@ class Menu():
 
         if start_game:
             logger.debug("Starting game")
-            if self.game_mode == Games.Random:
-                self.start_game(random_mode=True)
+            if self.use_game_coordinator_process:
+                # Use GameCoordinator process
+                response = self.send_game_command('start_game', {
+                    'game_mode': self.game_mode.name if self.game_mode != Games.Random else None,
+                    'random_mode': self.game_mode == Games.Random,
+                    'force_all': self.ns.settings.get('force_all_start', False)
+                }, timeout=300.0)  # Long timeout for game execution
+
+                if response['status'] != 'success':
+                    logger.error(f"Failed to start game: {response.get('error')}")
+                    # Reset state
+                    self.reset_controller_game_state()
             else:
-                self.start_game()
+                # Legacy path
+                if self.game_mode == Games.Random:
+                    self.start_game(random_mode=True)
+                else:
+                    self.start_game()
 
 
         #else:
@@ -1253,7 +1512,19 @@ class Menu():
         #                self.start_game()
         if self.command_from_web == 'startgame':
             self.command_from_web = ''
-            self.start_game()
+            if self.use_game_coordinator_process:
+                # Use GameCoordinator process
+                response = self.send_game_command('start_game', {
+                    'game_mode': self.game_mode.name,
+                    'random_mode': False,
+                    'force_all': self.ns.settings.get('force_all_start', False)
+                }, timeout=300.0)
+
+                if response['status'] != 'success':
+                    logger.error(f"Failed to start game from web: {response.get('error')}")
+            else:
+                # Legacy path
+                self.start_game()
 
     def play_random_instructions(self):
         if self.game_mode == Games.JoustFFA:

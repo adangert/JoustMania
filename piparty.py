@@ -75,6 +75,271 @@ class Selections(Enum):
     FORCE_START_GAME = 11       # force start (from admin move)
 
 # Process running for each move to track that move while in the menu
+def track_move_state_based(serial, move_num, controller_state, move, menu_opts, force_color, battery, dead_count, restart, menu, kill_proc):
+    """
+    State-based menu tracking with integrated hardware polling.
+
+    This function runs in the controller process and:
+    1. Polls hardware at high frequency (1000Hz) and updates ControllerState
+    2. Runs menu logic at game frequency (60 FPS) reading from that state
+    3. Applies LED colors back to hardware
+
+    This provides the benefits of state-based architecture (non-blocking reads,
+    fresh data, observability) while maintaining the one-process-per-controller model.
+
+    Args:
+        serial: Controller serial number
+        move_num: Controller index
+        controller_state: ControllerState instance for shared memory
+        move: PSMove controller object for hardware access
+        menu_opts: Menu options array
+        force_color: Forced color array
+        battery: Battery display flag
+        dead_count: Dead controller count
+        restart: Restart flag
+        menu: Menu mode flag
+        kill_proc: Kill process flag
+    """
+    logger.info(f"Starting state-based menu tracking for {serial}")
+
+    # Set initial LED color to black
+    controller_state.set_leds(0, 0, 0)
+
+    random_color = random.random()
+    force_start_timer = 0
+
+    # Frame timing for menu logic (60 FPS)
+    last_menu_frame = time.time()
+    menu_frame_interval = 1/60
+
+    while True:
+        if restart.value == 1 or menu.value == 0 or kill_proc.value:
+            return  # Stop tracking move if restarting, exiting menu, or kill_procedures
+
+        # Always update hardware state (high frequency)
+        controller_state.update(move)
+
+        # Menu logic (60 FPS)
+        now = time.time()
+        if now - last_menu_frame < menu_frame_interval:
+            # Not time for menu update yet, just sleep and continue
+            time.sleep(0.001)  # 1ms for 1000Hz hardware polling
+            continue
+
+        last_menu_frame = now
+
+        # Read current state (non-blocking)
+        snapshot = controller_state.get_snapshot()
+
+        # Check if controller is still connected and data is fresh
+        if not snapshot['connected'] or not controller_state.is_fresh(100.0):
+            time.sleep(0.01)
+            continue
+
+        # Extract data from snapshot
+        buttons = snapshot['buttons']
+        battery_level = snapshot['battery']
+        trigger = snapshot['trigger']
+
+        game_mode = Games(menu_opts[Opts.GAME_MODE.value])
+        move_button = Button(buttons)
+        move_color = Colors.White.value
+
+        # Set charging parameter
+        if battery_level == psmove.Batt_CHARGING or battery_level == psmove.Batt_CHARGING_DONE:
+            menu_opts[Opts.CHARGING.value] = True
+        else:
+            menu_opts[Opts.CHARGING.value] = False
+
+        if menu_opts[Opts.STATUS.value] == Status.DEAD.value:
+            # If this move has been plugged in turn off LEDs
+            move_color = Colors.Black.value
+            # If the sync button is being pressed then remove move from dead value and set to alive
+            if move_button == Button.SYNC:
+                menu_opts[Opts.STATUS.value] = Status.ALIVE.value
+                dead_count.value = dead_count.value - 1
+            time.sleep(0.1)
+        else:
+            # If the move is holding all buttons set move as admin
+            if move_button == Button.SHAPES:
+                menu_opts[Opts.SELECTION.value] = Selections.ADMIN.value
+                menu_opts[Opts.HOLDING.value] = True
+
+            # If the move is holding start and select, confirm big update
+            if move_button == Button.UPDATE:
+                menu_opts[Opts.SELECTION.value] = Selections.update.value
+                menu_opts[Opts.HOLDING.value] = True
+
+            # Show battery level
+            if battery.value == 1:  # If batteries have been toggled
+                # Granted a charging move should be dead, so it won't light up anyway
+                if battery_level == psmove.Batt_CHARGING:
+                    move_color = Colors.White20.value
+                elif battery_level == psmove.Batt_CHARGING_DONE:
+                    move_color = Colors.White.value
+                elif battery_level == psmove.Batt_MAX:
+                    move_color = Colors.Green.value
+                elif battery_level == psmove.Batt_80Percent:
+                    move_color = Colors.Turquoise.value
+                elif battery_level == psmove.Batt_60Percent:
+                    move_color = Colors.Blue.value
+                elif battery_level == psmove.Batt_40Percent:
+                    move_color = Colors.Yellow.value
+                else:  # under 40% - you should charge it!
+                    move_color = Colors.Red.value
+
+            # Custom team mode is the only game mode that can't be added to con mode
+            elif game_mode == Games.JoustTeams:
+                # If the team number is too high, set it to 3
+                if menu_opts[Opts.TEAM.value] >= TEAM_NUM:
+                    menu_opts[Opts.TEAM.value] = 3
+                # Set move color to team
+                move_color = colors.team_color_list[menu_opts[Opts.TEAM.value]].value
+
+            # Set leds to forced color
+            elif sum(force_color) != 0:  # If forcing a color, set it
+                move_color = force_color
+
+            # Everyone tracked is orange for FFA
+            elif game_mode == Games.JoustFFA:
+                move_color = Colors.Orange.value
+
+            # Everyone is a random color
+            elif game_mode == Games.JoustRandomTeams:
+                color = time.time() / 10 % 1
+                color = colors.hsv2rgb(color, 1, 1)
+                move_color = color
+
+            # TODO - some complicated color scheme here
+            elif game_mode == Games.Traitor:
+                if move_num % 4 == 2 and time.time() / 3 % 1 < .15:
+                    move_color = Colors.Red80.value
+                else:
+                    color = 1 - time.time() / 10 % 1
+                    color = colors.hsv2rgb(color, 1, 1)
+                    move_color = color
+
+            # Set everyone to only move zero to Blue
+            elif game_mode == Games.Werewolf:
+                if move_num <= 0:
+                    move_color = Colors.Blue40.value
+                else:
+                    move_color = Colors.Yellow.value
+
+            # Set everyone to Zombie color (probably green)
+            elif game_mode == Games.Zombies:
+                move_color = Colors.Zombie.value
+
+            # Set even moves to red and odds to blue
+            elif game_mode == Games.Commander:
+                if move_num % 2 == 0:
+                    move_color = Colors.Red.value
+                else:
+                    move_color = Colors.Blue.value
+
+            # Set colors to bounce between Magenta and Green
+            elif game_mode == Games.Swapper:
+                if (time.time() / 5 + random_color) % 1 > 0.5:
+                    move_color = Colors.Magenta.value
+                else:
+                    move_color = Colors.Green.value
+
+            # Set all moves to green
+            elif game_mode == Games.FightClub:
+                move_color = Colors.Green80.value
+
+            # Set all moves to turquoise
+            elif game_mode == Games.NonStop:
+                move_color = Colors.Turquoise.value
+
+            # Set moves to random colors
+            elif game_mode == Games.Tournament:
+                if move_num <= 0:
+                    color = time.time() / 10 % 1
+                    color = colors.hsv2rgb(color, 1, 1)
+                    move_color = color
+                else:
+                    move_color = Colors.Blue40.value
+
+            # Set moves to random colors
+            elif game_mode == Games.Ninja:
+                if move_num <= 0:
+                    move_color = tuple([random.randrange(100, 200), 0, 0])
+                else:
+                    move_color = Colors.Red60.value
+
+            # Set moves to blue
+            elif game_mode == Games.Random:
+                move_color = Colors.Blue.value
+
+            # If not holding buttons
+            if not menu_opts[Opts.HOLDING.value]:
+                # If trigger fully pressed
+                if trigger > 100:
+                    # Mark trying to start the game and marking button is being held
+                    menu_opts[Opts.SELECTION.value] = Selections.START_GAME.value
+                    menu_opts[Opts.HOLDING.value] = True
+                    force_start_timer = time.time()
+
+                # Select moves game mode backwards
+                if move_button == Button.SELECT:
+                    menu_opts[Opts.SELECTION.value] = Selections.CHANGE_MODE_BACKWARD.value
+                    menu_opts[Opts.HOLDING.value] = True
+
+                # Start moves game mode forwards
+                if move_button == Button.START:
+                    menu_opts[Opts.SELECTION.value] = Selections.CHANGE_MODE_FORWARD.value
+                    menu_opts[Opts.HOLDING.value] = True
+
+                # As an admin controller add or remove game from convention mode
+                if move_button == Button.CROSS:
+                    menu_opts[Opts.SELECTION.value] = Selections.ADD_GAME.value
+                    menu_opts[Opts.HOLDING.value] = True
+
+                # As an admin controller change sensitivity of controllers
+                if move_button == Button.CIRCLE:
+                    menu_opts[Opts.SELECTION.value] = Selections.CHANGE_SENSITIVITY.value
+                    menu_opts[Opts.HOLDING.value] = True
+
+                # As an admin controller change if instructions play
+                if move_button == Button.SQUARE:
+                    menu_opts[Opts.SELECTION.value] = Selections.CHANGE_INSTRUCTIONS.value
+                    menu_opts[Opts.HOLDING.value] = True
+
+                # As an admin show battery level of controllers
+                if move_button == Button.TRIANGLE:
+                    menu_opts[Opts.SELECTION.value] = Selections.SHOW_BATTERY.value
+                    menu_opts[Opts.HOLDING.value] = True
+
+                # Allow players to increase their own team
+                if move_button == Button.MIDDLE:
+                    menu_opts[Opts.SELECTION.value] = Selections.CHANGE_SETTING_CONTROL.value
+                    # If playing JoustTeams, move player to next team
+                    if game_mode == Games.JoustTeams:
+                        menu_opts[Opts.TEAM.value] = (menu_opts[Opts.TEAM.value] + 1) % TEAM_NUM
+                    menu_opts[Opts.HOLDING.value] = True
+
+            # If the admin has been holding the trigger for 2 seconds, force the game start
+            if (menu_opts[Opts.SELECTION.value] == Selections.START_GAME.value and
+                menu_opts[Opts.HOLDING.value] == True and
+                time.time() - force_start_timer > 2):
+                menu_opts[Opts.SELECTION.value] = Selections.FORCE_START_GAME.value
+
+            # Show team color if user has pressed trigger
+            if not (menu_opts[Opts.RANDOM_START.value] and sum(force_color) == 0):
+                move_color = colors.darken_color(move_color, .95)
+
+            # If trigger is no longer being held, reset the start
+            if menu_opts[Opts.HOLDING.value] == True and move_button == Button.NONE and trigger <= 100:
+                menu_opts[Opts.HOLDING.value] = False
+
+        # Set LED color (non-blocking - will be applied at end of loop)
+        controller_state.set_leds(*move_color)
+
+        # Apply LED outputs to hardware
+        controller_state.apply_outputs(move)
+
+
 def track_move(serial, move_num, move, menu_opts, force_color, battery, dead_count, restart, menu, kill_proc):
     # Set up move color
     move.set_leds(0,0,0) # Turn move to black
@@ -325,6 +590,7 @@ class Menu():
             self.git_hash = "0000000"
 
         self.experimental = False # Testing new version of FFA
+        self.use_state_based_tracking = True # Use new state-based non-blocking architecture
         self.dead_count = Value('i', 0) # Number of dead moves used in webui
 
         # All of the moves connected via BT or USB, moves connected via both will appear twice
@@ -345,6 +611,7 @@ class Menu():
 
         self.menu_opts = {} # Menu options stored per move
         self.game_opts = {} # Game options stored per move
+        self.controller_states = {} # State-based tracking: shared memory for controller state
         self.teams = {} # Serial to team list TODO - seems to be the same as controller_teams
         self.game_mode = Games[self.ns.settings['current_game']] # Get game mode from ns (which is shared with web admin)
         self.old_game_mode = self.game_mode #Previous game mode
@@ -462,10 +729,26 @@ class Menu():
             sensitivity.value = self.ns.settings['sensitivity']
 
             # Kick off new process to track move
-            proc = Process(target= controller_process.main_track_move, args=(self.menu, self.restart, move_serial, move_num, menu_opts, game_opts, color, self.show_battery, \
-                                                                             self.dead_count, self.controller_game_mode, team, team_color_enum, sensitivity, dead_move, \
-                                                                             invincible_move, self.music_speed, self.show_team_colors, self.red_on_kill, \
-                                                                             self.revive, kill_proc))
+            if self.use_state_based_tracking:
+                # State-based non-blocking architecture
+                from controller_state import ControllerState
+                controller_state = ControllerState()
+                self.controller_states[move_serial] = controller_state
+
+                proc = Process(target=controller_process.state_based_track_move,
+                              args=(controller_state, move_serial, move_num, self.menu, self.restart, menu_opts, game_opts,
+                                   color, self.show_battery, self.dead_count, self.controller_game_mode, team, team_color_enum,
+                                   sensitivity, dead_move, invincible_move, self.music_speed, self.show_team_colors,
+                                   self.red_on_kill, self.revive, kill_proc))
+                logger.info(f"Starting state-based tracking for {move_serial}")
+            else:
+                # Legacy blocking polling architecture
+                proc = Process(target=controller_process.main_track_move,
+                              args=(self.menu, self.restart, move_serial, move_num, menu_opts, game_opts, color, self.show_battery,
+                                   self.dead_count, self.controller_game_mode, team, team_color_enum, sensitivity, dead_move,
+                                   invincible_move, self.music_speed, self.show_team_colors, self.red_on_kill,
+                                   self.revive, kill_proc))
+                logger.info(f"Starting legacy tracking for {move_serial}")
 
             proc.start()
 
@@ -501,6 +784,10 @@ class Menu():
         del self.game_opts[move_serial]
         del self.kill_controller_proc[move_serial]
         del self.out_moves[move_serial] # Remove from out_moves array
+
+        # Clean up controller state if using state-based tracking
+        if self.use_state_based_tracking and move_serial in self.controller_states:
+            del self.controller_states[move_serial]
 
     def game_mode_announcement(self):
         if self.game_mode == Games.JoustFFA:

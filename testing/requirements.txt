@@ -1,0 +1,5 @@
+# Testing dependencies for JoustMania
+# Install with: pip3 install -r testing/requirements.txt
+
+pytest>=7.0.0
+psutil>=5.9.0

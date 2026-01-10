@@ -1817,3 +1817,573 @@ After Phase 12 completion, update:
 - Dependency updates: Low risk (incremental)
 
 This completes the dependency modernization plan for the JoustMania cloud-native microservices platform.
+
+---
+
+# Game Modes Refactoring Plan (Phase 13)
+
+**Date:** 2026-01-10
+**Context:** Game modes in the `games/` directory use legacy monolithic architecture with direct psmove hardware access, multiprocessing Queues, and shared namespace patterns. They need complete refactoring to work with the new gRPC-based microservices architecture.
+
+---
+
+## Problem Analysis
+
+### Legacy Architecture Issues
+
+**Current Implementation (`games/` directory):**
+```python
+# Legacy game initialization - BAD
+class Joust(Game):
+    def __init__(self, moves, command_queue, ns, red_on_kill, music, ...):
+        # Direct psmove hardware access
+        self.moves = moves  # Direct PSMove objects
+
+        # Queue-based IPC
+        self.command_queue = command_queue  # multiprocessing.Queue
+
+        # Shared namespace for settings
+        self.ns = ns  # multiprocessing.Manager.Namespace
+        self.play_audio = self.ns.settings['play_audio']
+
+        # Shared memory variables
+        self.teams = teams  # multiprocessing dict
+        self.dead_moves = dead_moves  # multiprocessing list
+
+        # Tight coupling
+        self.game_loop()  # Blocks in monolithic process
+```
+
+**Problems:**
+1. ❌ **Direct hardware access** - Can't run without PS Move controllers
+2. ❌ **Queue-based IPC** - Not compatible with microservices
+3. ❌ **Shared namespace** - Multiprocessing pattern, not cloud-native
+4. ❌ **Blocking execution** - Can't scale independently
+5. ❌ **No state machine** - Hard to track game state
+6. ❌ **Poor observability** - Limited OpenTelemetry integration
+7. ❌ **Tight coupling** - Can't test without full system
+
+### Target Architecture
+
+**New Implementation (services/game_coordinator/games/):**
+```python
+# Modern gRPC-based game - GOOD
+class Joust(Game):
+    def __init__(
+        self,
+        game_mode: Games,
+        controller_client: ControllerManagerStub,  # gRPC client
+        settings_client: SettingsStub,              # gRPC client
+        event_publisher: Callable,                  # Callback for events
+    ):
+        # gRPC client for controller states
+        self.controller_client = controller_client
+
+        # gRPC client for settings
+        self.settings_client = settings_client
+        self.settings = await settings_client.GetSettings()
+
+        # Event publishing
+        self.event_publisher = event_publisher
+
+        # State machine
+        self.state = GameState.IDLE
+
+        # OpenTelemetry
+        self.tracer = trace.get_tracer(__name__)
+
+    async def start(self):
+        # Non-blocking async execution
+        with self.tracer.start_as_current_span("game_start"):
+            await self.game_loop()
+
+    async def game_loop(self):
+        # Stream controller states from ControllerManager
+        async for state in self.controller_client.StreamControllerStates():
+            # Process game logic
+            # Publish events via callback
+            self.event_publisher(GameEvent(...))
+```
+
+**Benefits:**
+1. ✅ **gRPC communication** - Cloud-native, language-agnostic
+2. ✅ **No hardware coupling** - Can run with mock controllers
+3. ✅ **Async execution** - Non-blocking, scalable
+4. ✅ **State machine** - Clear game lifecycle
+5. ✅ **Event-driven** - Real-time updates to clients
+6. ✅ **Full observability** - OpenTelemetry traces
+7. ✅ **Testable** - Can mock gRPC clients
+
+---
+
+## Game Modes Inventory
+
+### Status Overview
+
+| Game Mode | File | Lines | Complexity | Status | Priority |
+|-----------|------|-------|------------|--------|----------|
+| **Joust FFA** | joust_ffa.py | ~930 | Low | ⚠️ Partial | P0 (reference) |
+| **Joust Teams** | (implicit) | N/A | Low | ⚠️ Partial | P0 |
+| **Joust Random Teams** | (implicit) | N/A | Low | ⚠️ Partial | P0 |
+| **Traitor** | traitor.py | ~4,800 | Medium | ❌ Legacy | P1 |
+| **Swapper** | swapper.py | ~2,400 | Medium | ❌ Legacy | P1 |
+| **Fight Club** | fight_club.py | ~10,800 | Low | ❌ Legacy | P2 |
+| **Tournament** | tournament.py | ~7,400 | Medium | ❌ Legacy | P2 |
+| **Werewolf** | werewolf.py | ~6,600 | Medium | ❌ Legacy | P2 |
+| **Non-Stop Joust** | joust_non_stop.py | ~3,400 | Medium | ❌ Legacy | P2 |
+| **Zombies** | zombie.py | ~13,300 | High | ❌ Legacy | P3 (complex) |
+| **Commander** | commander.py | ~15,400 | High | ❌ Legacy | P3 (complex) |
+| **Ninja/Speed Bomb** | speed_bomb.py | ~16,800 | High | ❌ Legacy | P3 (different) |
+
+**Total:** 12 game modes, ~81,000+ lines of legacy code to refactor
+
+---
+
+## Refactoring Strategy
+
+### Phase 13.1: Foundation - Base Game Class
+
+**Goal:** Create modern base class that all games inherit from
+
+**File:** `services/game_coordinator/games/base.py`
+
+**Key Changes:**
+1. Remove all multiprocessing imports (Queue, Manager, Namespace)
+2. Add gRPC client interfaces
+3. Implement GameState state machine
+4. Add event publishing mechanism
+5. Add comprehensive OpenTelemetry spans
+6. Make game loop async
+7. Add graceful shutdown
+
+**State Machine:**
+```
+IDLE → STARTING → RUNNING → ENDING → ENDED
+         ↑         ↓ (force_end)
+         └─────────┘
+```
+
+**Timeline:** 2-3 days
+
+### Phase 13.2: Reference Implementation - Joust FFA
+
+**Goal:** Fully refactor simplest game mode as template
+
+**File:** `services/game_coordinator/games/ffa.py`
+
+**Changes:**
+- Remove direct psmove access
+- Use gRPC StreamControllerStates
+- Use gRPC GetSettings
+- Implement async game loop
+- Add OpenTelemetry spans:
+  - `ffa_game_start`
+  - `ffa_controller_update`
+  - `ffa_death_detection`
+  - `ffa_win_condition`
+- Add event publishing:
+  - `PLAYER_DIED`
+  - `PLAYER_WON`
+  - `GAME_ENDED`
+
+**Testing:**
+- Unit tests with mocked gRPC clients
+- Integration tests with real ControllerManager
+- Hardware tests with PS Move controllers
+
+**Timeline:** 3-4 days
+
+### Phase 13.3-13.6: Incremental Game Porting
+
+**Strategy:** Port one game at a time, test before moving to next
+
+**Priority Order:**
+1. **P0** - Core games (FFA, Teams, Random Teams) - 1 week
+2. **P1** - Popular games (Traitor, Swapper) - 1 week
+3. **P2** - Standard games (Fight Club, Tournament, Werewolf, Non-Stop) - 2 weeks
+4. **P3** - Complex games (Zombies, Commander, Ninja) - 2-3 weeks
+
+**Per-Game Process:**
+1. Analyze legacy implementation (1 day)
+2. Design gRPC integration (0.5 days)
+3. Implement new version (2-3 days)
+4. Write tests (1-2 days)
+5. Test with hardware (1 day)
+6. Document (0.5 days)
+
+**Timeline:** 6-8 weeks total for all games
+
+### Phase 13.7: Integration
+
+**Goal:** Wire games into GameCoordinator service
+
+**File:** `services/game_coordinator/server.py`
+
+**Changes:**
+```python
+class GameCoordinatorService:
+    def __init__(self):
+        # Initialize gRPC clients
+        self.controller_client = ControllerManagerStub(...)
+        self.settings_client = SettingsStub(...)
+
+        # Game registry
+        self.games = {
+            Games.JoustFFA: FFA,
+            Games.JoustTeams: Teams,
+            # ... etc
+        }
+
+        self.current_game = None
+        self.game_events = asyncio.Queue()
+
+    async def StartGame(self, request, context):
+        # Instantiate game
+        GameClass = self.games[request.mode]
+        self.current_game = GameClass(
+            game_mode=request.mode,
+            controller_client=self.controller_client,
+            settings_client=self.settings_client,
+            event_publisher=self.publish_event
+        )
+
+        # Start game task
+        asyncio.create_task(self.current_game.start())
+
+        return StartGameResponse(success=True)
+
+    async def StreamGameEvents(self, request, context):
+        # Stream events from game to clients
+        while True:
+            event = await self.game_events.get()
+            yield event
+
+    def publish_event(self, event):
+        # Callback for games to publish events
+        self.game_events.put_nowait(event)
+```
+
+**Timeline:** 2-3 days
+
+### Phase 13.8: Testing & Validation
+
+**Unit Tests:**
+- Base Game class (state machine, event publishing)
+- Each game mode (win conditions, team logic, etc.)
+- GameCoordinator integration
+
+**Integration Tests:**
+- Full stack: ControllerManager → GameCoordinator → Game
+- Settings changes during gameplay
+- Multiple sequential games
+- Game interruption and cleanup
+
+**Hardware Tests:**
+- All 12 games with real controllers
+- Multi-player scenarios
+- Edge cases (controller disconnect, etc.)
+
+**Timeline:** 2-3 weeks
+
+---
+
+## Code Migration Example
+
+### Before (Legacy)
+
+```python
+# games/traitor.py - Legacy implementation
+from games.game import Game
+
+class Traitor(Game):
+    def __init__(self, moves, command_queue, ns, red_on_kill, music, teams, ...):
+        super().__init__(moves, command_queue, ns, red_on_kill, ...)
+
+        # Direct hardware access
+        self.num_teams = self.ns.settings['traitor_teams']
+
+        # Generate traitors
+        num_traitors = len(self.moves) // self.num_teams
+        traitors = random.sample(self.moves, num_traitors)
+
+        # Vibrate traitor controllers
+        for serial in traitors:
+            move = psmove.PSMove(self.moves.index(serial))
+            move.set_rumble(255)
+
+        # Blocking game loop
+        self.game_loop()
+```
+
+### After (Modern)
+
+```python
+# services/game_coordinator/games/traitor.py - gRPC implementation
+from .base import Game
+from core.common import Games, GameState
+
+class Traitor(Game):
+    def __init__(
+        self,
+        game_mode: Games,
+        controller_client: ControllerManagerStub,
+        settings_client: SettingsStub,
+        event_publisher: Callable,
+    ):
+        super().__init__(game_mode, controller_client, settings_client, event_publisher)
+
+        # Get settings via gRPC
+        settings = await self.settings_client.GetSettings()
+        self.num_teams = settings.traitor_teams
+
+        self.traitors = []
+        self.state = GameState.IDLE
+
+    async def start(self):
+        with self.tracer.start_as_current_span("traitor_game_start"):
+            # Transition to STARTING
+            self.state = GameState.STARTING
+
+            # Get controllers via gRPC
+            response = await self.controller_client.GetControllers()
+            controllers = response.controllers
+
+            # Select traitors
+            num_traitors = len(controllers) // self.num_teams
+            self.traitors = random.sample(controllers, num_traitors)
+
+            # Vibrate traitor controllers via gRPC
+            for controller in self.traitors:
+                await self.controller_client.SetRumble(
+                    controller_id=controller.id,
+                    intensity=255
+                )
+
+            # Publish event
+            self.event_publisher(GameEvent(
+                type=EventType.TRAITORS_SELECTED,
+                data={'traitor_ids': [t.id for t in self.traitors]}
+            ))
+
+            # Start game loop
+            self.state = GameState.RUNNING
+            await self.game_loop()
+
+    async def game_loop(self):
+        # Stream controller states
+        async for state in self.controller_client.StreamControllerStates():
+            if self.state != GameState.RUNNING:
+                break
+
+            # Process game logic
+            await self.process_controller_state(state)
+
+            # Check win conditions
+            if self.check_win_condition():
+                await self.end()
+                break
+```
+
+---
+
+## Dependency Changes
+
+### Remove
+```python
+from multiprocessing import Queue, Manager, Namespace
+import psmove  # Direct in games
+```
+
+### Add
+```python
+from grpc import aio
+from services.controller_manager import controller_manager_pb2_grpc
+from services.settings import settings_pb2_grpc
+from opentelemetry import trace
+import asyncio
+```
+
+---
+
+## Testing Strategy
+
+### Test Pyramid
+
+**Unit Tests (70%):**
+- Game logic isolated from services
+- Mock gRPC clients
+- Test win conditions, team assignment, state transitions
+- Fast execution (<1s per test)
+
+**Integration Tests (20%):**
+- Game + ControllerManager + Settings
+- Mock controllers in ControllerManager
+- Test full game lifecycle
+- Medium execution (5-10s per test)
+
+**Hardware Tests (10%):**
+- Real PS Move controllers
+- Full stack integration
+- Manual testing scenarios
+- Slow execution (minutes)
+
+### Test Coverage Goals
+- Base Game class: 95%
+- Each game mode: 90%
+- GameCoordinator integration: 85%
+- Overall: 90%+
+
+---
+
+## Migration Checklist
+
+**Pre-Migration:**
+- [ ] ✅ Analyze all 12 game modes
+- [ ] ✅ Document current behavior
+- [ ] ✅ Create test scenarios
+- [ ] ✅ Back up legacy implementations
+- [ ] Design gRPC event schema
+- [ ] Design state machine
+
+**Migration Phase:**
+- [ ] Refactor base Game class
+- [ ] Port Joust FFA (reference)
+- [ ] Port Joust Teams
+- [ ] Port Joust Random Teams
+- [ ] Port Traitor
+- [ ] Port Swapper
+- [ ] Port Fight Club
+- [ ] Port Tournament
+- [ ] Port Werewolf
+- [ ] Port Non-Stop Joust
+- [ ] Port Zombies
+- [ ] Port Commander
+- [ ] Port Ninja/Speed Bomb
+
+**Post-Migration:**
+- [ ] Archive legacy games/ to legacy/games/
+- [ ] Update GameCoordinator to only use new games
+- [ ] Update documentation
+- [ ] Create architecture diagrams
+- [ ] Performance testing
+- [ ] User acceptance testing
+
+---
+
+## Timeline & Effort
+
+| Phase | Duration | Effort |
+|-------|----------|--------|
+| **13.1** Base class refactoring | 2-3 days | 1 developer |
+| **13.2** FFA reference impl | 3-4 days | 1 developer |
+| **13.3** Teams games (2 modes) | 3-5 days | 1 developer |
+| **13.4** Traitor + Swapper | 1 week | 1 developer |
+| **13.5** Standard games (4 modes) | 2 weeks | 1 developer |
+| **13.6** Complex games (3 modes) | 2-3 weeks | 1-2 developers |
+| **13.7** GameCoordinator integration | 2-3 days | 1 developer |
+| **13.8** Testing & validation | 2-3 weeks | 1-2 developers |
+| **Total** | **8-10 weeks** | **1-2 developers** |
+
+**Critical Path:** Base class → FFA → Teams → Rest in parallel if multiple devs
+
+---
+
+## Risk Assessment
+
+### High Risk
+- ❌ **Complex games** (Zombies, Commander, Ninja) - May need significant redesign
+- ❌ **Hardware testing** - Requires physical controllers, harder to automate
+- ❌ **Behavior changes** - Users might notice differences from legacy
+
+### Medium Risk
+- ⚠️ **Performance** - gRPC overhead vs direct multiprocessing
+- ⚠️ **State synchronization** - Controller states via streaming
+- ⚠️ **Event timing** - Need precise timing for death detection
+
+### Low Risk
+- ✅ **Simple games** - FFA, Teams straightforward to port
+- ✅ **Testing** - Can mock most components
+- ✅ **Rollback** - Legacy games still available
+
+### Mitigation
+1. **Incremental migration** - One game at a time
+2. **Parallel running** - Keep legacy alongside new during transition
+3. **Extensive testing** - Unit + integration + hardware
+4. **Performance benchmarking** - Compare with legacy
+5. **User feedback** - Beta testing with real players
+
+---
+
+## Success Criteria
+
+**Technical:**
+- [ ] All 12 game modes ported to gRPC architecture
+- [ ] No direct psmove imports in game code
+- [ ] No multiprocessing Queue/Manager/Namespace
+- [ ] All games use gRPC for controller states
+- [ ] All games use gRPC for settings
+- [ ] Proper state machines implemented
+- [ ] Comprehensive OpenTelemetry spans
+- [ ] 90%+ test coverage
+
+**Functional:**
+- [ ] All games play identically to legacy
+- [ ] Controller responsiveness maintained
+- [ ] Death detection accuracy maintained
+- [ ] LED/rumble outputs work correctly
+- [ ] Multi-player works for all supported counts
+- [ ] Settings changes apply during gameplay
+
+**Performance:**
+- [ ] Latency ≤ legacy (target: < 10ms p95)
+- [ ] CPU usage ≤ legacy
+- [ ] No dropped controller states
+- [ ] 60 FPS game loop maintained
+
+**Observability:**
+- [ ] Full distributed traces for each game
+- [ ] Game events visible in Jaeger
+- [ ] Performance metrics in Prometheus
+- [ ] Easy debugging of game issues
+
+---
+
+## Documentation Deliverables
+
+1. **Game Architecture Guide**
+   - How games interact with services
+   - State machine documentation
+   - Event schema reference
+
+2. **Game Developer Guide**
+   - How to create new game modes
+   - Base class API reference
+   - Testing guidelines
+
+3. **Migration Guide**
+   - Legacy vs modern comparison
+   - Breaking changes (if any)
+   - Troubleshooting
+
+4. **User Documentation**
+   - Updated game rules (if changed)
+   - New features from modernization
+
+---
+
+## Summary
+
+**Scope:** Refactor 12 game modes (~81,000 lines)
+**Approach:** Incremental, one game at a time
+**Duration:** 8-10 weeks
+**Risk:** Medium (mitigated by incremental approach)
+**Impact:** High (enables cloud-native scaling)
+
+**Key Benefit:** Games become true microservices that can:
+- Run without hardware (mock mode)
+- Scale independently
+- Be tested in isolation
+- Provide full observability
+- Deploy to cloud infrastructure
+
+This completes the game modes refactoring plan for the JoustMania cloud-native microservices platform.

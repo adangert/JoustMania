@@ -215,7 +215,7 @@ services:
     devices:
       - /dev/snd:/dev/snd  # Audio hardware
     volumes:
-      - ./audio:/app/audio:ro  # Audio files (read-only)
+      - ./services/audio/assets:/app/services/audio/assets:ro  # Audio files (read-only)
     ports:
       - "50056:50056"
     environment:

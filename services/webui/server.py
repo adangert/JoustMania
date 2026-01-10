@@ -195,7 +195,7 @@ class GrpcClients:
 
 class WebUI:
     def __init__(self):
-        self.app = Flask(__name__, template_folder="/app/templates", static_folder="/app/static")
+        self.app = Flask(__name__, template_folder="/app/services/webui/templates", static_folder="/app/services/webui/static")
         self.app.secret_key = "MAGFest is a donut"
 
         # Initialize gRPC clients

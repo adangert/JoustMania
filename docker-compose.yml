@@ -205,6 +205,29 @@ services:
       - joustmania
     restart: unless-stopped
 
+  # Audio Service
+  audio:
+    build:
+      context: .
+      dockerfile: services/audio/Dockerfile
+    container_name: joustmania-audio
+    privileged: true  # Required for audio device access
+    devices:
+      - /dev/snd:/dev/snd  # Audio hardware
+    volumes:
+      - ./audio:/app/audio:ro  # Audio files (read-only)
+    ports:
+      - "50056:50056"
+    environment:
+      - OTEL_SERVICE_NAME=audio-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on:
+      otel-collector:
+        condition: service_healthy
+    networks:
+      - joustmania
+    restart: unless-stopped
+
 networks:
   joustmania:
     driver: bridge

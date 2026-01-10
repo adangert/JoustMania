@@ -1,0 +1,22 @@
+[project]
+name = "joustmania-audio"
+version = "1.0.0"
+description = "Audio microservice for JoustMania"
+requires-python = ">=3.9,<3.13"
+dependencies = [
+    # Audio libraries
+    "pygame>=2.5.0",
+
+    # gRPC
+    "grpcio>=1.60.0",
+    "grpcio-tools>=1.60.0",
+
+    # OpenTelemetry
+    "opentelemetry-distro>=0.43b0",
+    "opentelemetry-exporter-otlp>=1.22.0",
+    "opentelemetry-instrumentation-grpc>=0.43b0",
+]
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"

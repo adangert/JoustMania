@@ -576,17 +576,26 @@ version = "1.0.0"
 source = { editable = "services/controller_manager" }
 dependencies = [
     { name = "dbus-python" },
+    { name = "grpcio" },
+    { name = "grpcio-tools" },
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-exporter-otlp" },
+    { name = "opentelemetry-instrumentation-grpc" },
     { name = "pyyaml" },
+    { name = "redis", version = "7.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "redis", version = "7.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "dbus-python", specifier = ">=1.2.0" },
+    { name = "grpcio", specifier = ">=1.60.0" },
+    { name = "grpcio-tools", specifier = ">=1.60.0" },
     { name = "opentelemetry-distro", specifier = ">=0.43b0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.22.0" },
+    { name = "opentelemetry-instrumentation-grpc", specifier = ">=0.43b0" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "redis", specifier = ">=5.0.0" },
 ]
 
 [[package]]
@@ -594,23 +603,32 @@ name = "joustmania-game-coordinator"
 version = "1.0.0"
 source = { editable = "services/game_coordinator" }
 dependencies = [
+    { name = "grpcio" },
+    { name = "grpcio-tools" },
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-exporter-otlp" },
+    { name = "opentelemetry-instrumentation-grpc" },
     { name = "pyalsaaudio" },
     { name = "pydub" },
     { name = "pygame" },
     { name = "pyyaml" },
+    { name = "redis", version = "7.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "redis", version = "7.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "audioop-lts", marker = "python_full_version >= '3.13'", specifier = ">=0.2.0" },
+    { name = "grpcio", specifier = ">=1.60.0" },
+    { name = "grpcio-tools", specifier = ">=1.60.0" },
     { name = "opentelemetry-distro", specifier = ">=0.43b0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.22.0" },
+    { name = "opentelemetry-instrumentation-grpc", specifier = ">=0.43b0" },
     { name = "pyalsaaudio", specifier = ">=0.9.0" },
     { name = "pydub", specifier = ">=0.25.0" },
     { name = "pygame", specifier = ">=2.0.0" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "redis", specifier = ">=5.0.0" },
 ]
 
 [[package]]
@@ -618,23 +636,32 @@ name = "joustmania-menu"
 version = "1.0.0"
 source = { editable = "services/menu" }
 dependencies = [
+    { name = "grpcio" },
+    { name = "grpcio-tools" },
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-exporter-otlp" },
+    { name = "opentelemetry-instrumentation-grpc" },
     { name = "pyalsaaudio" },
     { name = "pydub" },
     { name = "pygame" },
     { name = "pyyaml" },
+    { name = "redis", version = "7.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "redis", version = "7.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "audioop-lts", marker = "python_full_version >= '3.13'", specifier = ">=0.2.0" },
+    { name = "grpcio", specifier = ">=1.60.0" },
+    { name = "grpcio-tools", specifier = ">=1.60.0" },
     { name = "opentelemetry-distro", specifier = ">=0.43b0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.22.0" },
+    { name = "opentelemetry-instrumentation-grpc", specifier = ">=0.43b0" },
     { name = "pyalsaaudio", specifier = ">=0.9.0" },
     { name = "pydub", specifier = ">=0.25.0" },
     { name = "pygame", specifier = ">=2.0.0" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "redis", specifier = ">=5.0.0" },
 ]
 
 [[package]]
@@ -646,6 +673,7 @@ dependencies = [
     { name = "grpcio-tools" },
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-exporter-otlp" },
+    { name = "opentelemetry-instrumentation-grpc" },
     { name = "pyyaml" },
     { name = "redis", version = "7.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "redis", version = "7.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
@@ -666,6 +694,7 @@ requires-dist = [
     { name = "grpcio-tools", specifier = ">=1.60.0" },
     { name = "opentelemetry-distro", specifier = ">=0.43b0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.22.0" },
+    { name = "opentelemetry-instrumentation-grpc", specifier = ">=0.43b0" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=7.4.0" },
     { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=0.21.0" },
     { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=4.1.0" },
@@ -678,6 +707,22 @@ provides-extras = ["test"]
 name = "joustmania-supervisor"
 version = "1.0.0"
 source = { editable = "services/supervisor" }
+dependencies = [
+    { name = "grpcio" },
+    { name = "grpcio-tools" },
+    { name = "opentelemetry-distro" },
+    { name = "opentelemetry-exporter-otlp" },
+    { name = "opentelemetry-instrumentation-grpc" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "grpcio", specifier = ">=1.60.0" },
+    { name = "grpcio-tools", specifier = ">=1.60.0" },
+    { name = "opentelemetry-distro", specifier = ">=0.43b0" },
+    { name = "opentelemetry-exporter-otlp", specifier = ">=1.22.0" },
+    { name = "opentelemetry-instrumentation-grpc", specifier = ">=0.43b0" },
+]
 
 [[package]]
 name = "markupsafe"
@@ -832,6 +877,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/41/0f/7e6b713ac117c1f5e4e3300748af699b9902a2e5e34c9cf443dde25a01fa/opentelemetry_instrumentation-0.60b1.tar.gz", hash = "sha256:57ddc7974c6eb35865af0426d1a17132b88b2ed8586897fee187fd5b8944bd6a", size = 31706, upload-time = "2025-12-11T13:36:42.515Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/77/d2/6788e83c5c86a2690101681aeef27eeb2a6bf22df52d3f263a22cee20915/opentelemetry_instrumentation-0.60b1-py3-none-any.whl", hash = "sha256:04480db952b48fb1ed0073f822f0ee26012b7be7c3eac1a3793122737c78632d", size = 33096, upload-time = "2025-12-11T13:35:33.067Z" },
+]
+
+[[package]]
+name = "opentelemetry-instrumentation-grpc"
+version = "0.60b1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-instrumentation" },
+    { name = "opentelemetry-semantic-conventions" },
+    { name = "wrapt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e6/00/f59a3a99709f340a5564c200b79ce48d3bb9d1ac9596208d3c4cdb00f82f/opentelemetry_instrumentation_grpc-0.60b1.tar.gz", hash = "sha256:049573ddfe4c32af151348d2dbeddaaca788a57c320e70770ec216b7e35ccfd4", size = 31426, upload-time = "2025-12-11T13:37:00.64Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4c/e7/75ed12f331f4fdca3a81c4dfd32c21255d981d1fcc883b476b4c14360efd/opentelemetry_instrumentation_grpc-0.60b1-py3-none-any.whl", hash = "sha256:f7a81a87b2a26842fc62cba0743a475f151e77eb21d5b93902fbfd0518a7cca7", size = 27234, upload-time = "2025-12-11T13:36:03.267Z" },
 ]
 
 [[package]]

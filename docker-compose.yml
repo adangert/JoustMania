@@ -84,21 +84,21 @@ services:
       context: .
       dockerfile: services/controller_manager/Dockerfile
     container_name: joustmania-controller-manager
-    ports:
-      - "50052:50052"
-    environment:
-      - OTEL_SERVICE_NAME=controller-manager-service
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-    privileged: true  # Required for Bluetooth access
+    privileged: true  # Required for Bluetooth + USB access
+    network_mode: host  # Required for Bluetooth
+    volumes:
+      - /var/run/dbus:/var/run/dbus  # DBus for Bluetooth pairing
     devices:
       - /dev/bus/usb:/dev/bus/usb  # USB devices for PS Move
+    environment:
+      - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
+      - OTEL_SERVICE_NAME=controller-manager-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
       otel-collector:
         condition: service_healthy
       redis:
         condition: service_healthy
-    networks:
-      - joustmania
     restart: unless-stopped
 
   # Game Coordinator Service (not implemented yet - Phase 8b)

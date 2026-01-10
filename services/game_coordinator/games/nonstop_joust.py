@@ -113,6 +113,7 @@ class NonstopJoustGame:
         """Run the Nonstop Joust game."""
         with tracer.start_as_current_span("nonstop_run") as span:
             span.set_attribute("game.id", self.game_id)
+            span.set_attribute("game.mode", "NonstopJoust")
 
             logger.info(f"Starting Nonstop Joust game: {self.game_id}")
             self.state = GameState.STARTING
@@ -120,6 +121,11 @@ class NonstopJoustGame:
 
             # Load settings
             await self._load_settings()
+
+            # Add settings to span attributes
+            span.set_attribute("game.time_limit", self.time_limit)
+            span.set_attribute("game.sensitivity", self.sensitivity.name)
+            span.set_attribute("game.play_audio", self.play_audio)
 
             # Initialize players
             await self._initialize_players()
@@ -294,10 +300,16 @@ class NonstopJoustGame:
 
                 span.set_attribute("initial_player_count", len(self.players))
 
+                # Track game progress for periodic telemetry
+                last_progress_event = time.time()
+                game_tick = 0
+
                 # Stream controller states and process game logic
                 async for state_update in self.controller_client.StreamControllerStates(stream_request):
                     if not self.running:
                         break
+
+                    game_tick += 1
 
                     # Process each controller's state
                     for controller_state in state_update.controllers:
@@ -305,6 +317,22 @@ class NonstopJoustGame:
 
                     # Update respawn timers
                     await self._update_respawn_timers()
+
+                    # Periodic progress events (every 30 seconds)
+                    current_time = time.time()
+                    if current_time - last_progress_event >= 30.0:
+                        total_deaths = sum(p.deaths for p in self.players.values())
+                        total_respawns = sum(1 for p in self.players.values() if p.respawn_timer > 0)
+                        alive_count = sum(1 for p in self.players.values() if p.alive)
+
+                        span.add_event("game_progress", {
+                            "elapsed_seconds": int(current_time - self.start_time),
+                            "total_deaths": total_deaths,
+                            "players_alive": alive_count,
+                            "players_respawning": total_respawns,
+                            "game_tick": game_tick
+                        })
+                        last_progress_event = current_time
 
                     # Check time limit
                     if self._check_time_limit():
@@ -597,6 +625,16 @@ class NonstopJoustGame:
             # Score = 100 - (deaths * 10), minimum 0
             for player in self.players.values():
                 player.score = max(0, 100 - (player.deaths * 10))
+
+            # Add final game statistics to span
+            total_deaths = sum(p.deaths for p in self.players.values())
+            avg_deaths = total_deaths / len(self.players) if self.players else 0
+            game_duration = time.time() - self.start_time if self.start_time else 0
+
+            span.set_attribute("game.duration_seconds", int(game_duration))
+            span.set_attribute("game.total_deaths", total_deaths)
+            span.set_attribute("game.avg_deaths_per_player", round(avg_deaths, 2))
+            span.set_attribute("game.player_count", len(self.players))
 
             # Determine winner (highest score, tie-break by fewest deaths)
             winner = max(

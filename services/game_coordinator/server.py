@@ -33,8 +33,13 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from services.game_coordinator import game_coordinator_pb2, game_coordinator_pb2_grpc
+from services.controller_manager import controller_manager_pb2, controller_manager_pb2_grpc
+from services.settings import settings_pb2, settings_pb2_grpc
 
-# Game imports (optional for testing)
+# Modern game imports (gRPC-based)
+from services.game_coordinator.games import ffa, teams, random_teams
+
+# Legacy game imports (optional for testing)
 try:
     from common import Games
     from piaudio import Music, Audio
@@ -45,7 +50,7 @@ try:
     GAMES_AVAILABLE = True
 except ImportError:
     GAMES_AVAILABLE = False
-    logging.warning("Game modules not available - coordinator will run in mock mode")
+    logging.warning("Legacy game modules not available - will use modern gRPC games")
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +111,40 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         self.game_thread: Optional[threading.Thread] = None
         self.game_running = False
 
+        # Initialize gRPC clients for other services
+        self.controller_manager_host = os.getenv('CONTROLLER_MANAGER_HOST', 'controller-manager')
+        self.controller_manager_port = os.getenv('CONTROLLER_MANAGER_PORT', '50052')
+        self.settings_host = os.getenv('SETTINGS_HOST', 'settings')
+        self.settings_port = os.getenv('SETTINGS_PORT', '50051')
+
+        self._init_grpc_clients()
+
         logger.info("GameCoordinator initialized")
+
+    def _init_grpc_clients(self):
+        """Initialize gRPC clients for ControllerManager and Settings."""
+        try:
+            # ControllerManager client
+            controller_manager_address = f"{self.controller_manager_host}:{self.controller_manager_port}"
+            self.controller_manager_channel = grpc.insecure_channel(controller_manager_address)
+            self.controller_manager_client = controller_manager_pb2_grpc.ControllerManagerServiceStub(
+                self.controller_manager_channel
+            )
+            logger.info(f"Connected to ControllerManager at {controller_manager_address}")
+
+            # Settings client
+            settings_address = f"{self.settings_host}:{self.settings_port}"
+            self.settings_channel = grpc.insecure_channel(settings_address)
+            self.settings_client = settings_pb2_grpc.SettingsServiceStub(
+                self.settings_channel
+            )
+            logger.info(f"Connected to Settings at {settings_address}")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize gRPC clients: {e}")
+            # Create None clients for graceful degradation
+            self.controller_manager_client = None
+            self.settings_client = None
 
     def StartGame(self, request, context):
         """Start a new game."""
@@ -149,10 +187,10 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     "player_count": str(len(self.players))
                 })
 
-                # Start game in background thread
+                # Start game in background thread (with async support)
                 self.game_running = True
                 self.game_thread = threading.Thread(
-                    target=self._run_game_loop,
+                    target=self._run_game_loop_threaded,
                     daemon=True
                 )
                 self.game_thread.start()
@@ -178,59 +216,113 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     game_id=""
                 )
 
-    def _run_game_loop(self):
-        """Run the game loop in background thread."""
+    def _run_game_loop_threaded(self):
+        """Run the game loop in background thread (creates async event loop)."""
+        import asyncio
+        # Create new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(self._run_game_loop_async())
+        finally:
+            loop.close()
+
+    async def _run_game_loop_async(self):
+        """Run the async game loop."""
         with tracer.start_as_current_span("game_loop") as span:
             span.set_attribute("game.name", self.game_name)
             span.set_attribute("game.id", self.game_id)
 
             try:
-                # Transition to RUNNING
-                self.game_state = game_coordinator_pb2.GameState.RUNNING
+                # Check if gRPC clients are available
+                if not self.controller_manager_client or not self.settings_client:
+                    error_msg = "gRPC clients not initialized - ControllerManager and Settings services must be running"
+                    logger.error(error_msg)
+                    self.game_state = game_coordinator_pb2.GameState.ENDED
+                    self._publish_event("game_error", {"error": error_msg})
+                    return
 
-                # Mock game duration (30 seconds)
-                game_duration = 30
-                elapsed = 0
+                # Determine game mode and instantiate appropriate game
+                if self.game_name.lower() in ["ffa", "free-for-all", "joust free-for-all"]:
+                    logger.info("Starting FFA game")
 
-                while self.game_running and elapsed < game_duration:
-                    time.sleep(1)
-                    elapsed += 1
+                    # Create FFA game instance
+                    game = ffa.FFAGame(
+                        controller_manager_client=self.controller_manager_client,
+                        settings_client=self.settings_client,
+                        event_publisher=self._publish_event,
+                        game_id=self.game_id
+                    )
 
-                    # Mock random player deaths
-                    if elapsed % 10 == 0 and elapsed < game_duration:
-                        # Kill a random alive player
-                        alive_players = [p for p in self.players if p.alive]
-                        if alive_players:
-                            player = random.choice(alive_players)
-                            player.alive = False
-                            self._publish_event("player_death", {
-                                "serial": player.serial,
-                                "team": str(player.team)
-                            })
+                    # Store reference
+                    self.current_game = game
 
-                # Game ended
-                self.game_state = game_coordinator_pb2.GameState.ENDING
+                    # Run the game (async)
+                    await game.run()
 
-                # Determine winner (highest score)
-                if self.players:
-                    winner = max(self.players, key=lambda p: p.score)
-                    self._publish_event("game_end", {
-                        "winner_serial": winner.serial,
-                        "winner_team": str(winner.team),
-                        "duration": str(elapsed)
-                    })
+                    logger.info("FFA game completed")
 
-                self.game_state = game_coordinator_pb2.GameState.ENDED
+                elif self.game_name.lower() in ["teams", "joust teams"]:
+                    logger.info("Starting Teams game")
 
-                logger.info(f"Game {self.game_id} ended after {elapsed}s")
+                    # Get number of teams from settings (default 2)
+                    num_teams = int(self.settings.get("num_teams", "2"))
+
+                    # Create Teams game instance
+                    game = teams.TeamsGame(
+                        controller_manager_client=self.controller_manager_client,
+                        settings_client=self.settings_client,
+                        event_publisher=self._publish_event,
+                        game_id=self.game_id,
+                        num_teams=num_teams
+                    )
+
+                    # Store reference
+                    self.current_game = game
+
+                    # Run the game (async)
+                    await game.run()
+
+                    logger.info("Teams game completed")
+
+                elif self.game_name.lower() in ["random teams", "joust random teams", "random_teams"]:
+                    logger.info("Starting Random Teams game")
+
+                    # Get number of teams from settings (default 2)
+                    num_teams = int(self.settings.get("random_team_size", "2"))
+
+                    # Create Random Teams game instance
+                    game = random_teams.RandomTeamsGame(
+                        controller_manager_client=self.controller_manager_client,
+                        settings_client=self.settings_client,
+                        event_publisher=self._publish_event,
+                        game_id=self.game_id,
+                        num_teams=num_teams
+                    )
+
+                    # Store reference
+                    self.current_game = game
+
+                    # Run the game (async)
+                    await game.run()
+
+                    logger.info("Random Teams game completed")
+
+                else:
+                    error_msg = f"Game mode '{self.game_name}' not implemented yet"
+                    logger.error(error_msg)
+                    self.game_state = game_coordinator_pb2.GameState.ENDED
+                    self._publish_event("game_error", {"error": error_msg})
 
             except Exception as e:
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 logger.error(f"Game loop error: {e}", exc_info=True)
                 self.game_state = game_coordinator_pb2.GameState.ENDED
+                self._publish_event("game_error", {"error": str(e)})
             finally:
                 self.game_running = False
+                self.current_game = None
 
     def GetGameStatus(self, request, context):
         """Get current game status."""
@@ -280,6 +372,10 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
                 # Stop game loop
                 self.game_running = False
+
+                # Call force_end on current game if it exists
+                if self.current_game and hasattr(self.current_game, 'force_end'):
+                    self.current_game.force_end()
 
                 # Wait for thread to finish
                 if self.game_thread and self.game_thread.is_alive():

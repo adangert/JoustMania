@@ -1,10 +1,10 @@
 """
-FFA (Free-For-All) Game Mode - gRPC-based implementation
+Teams Game Mode - gRPC-based implementation
 
-Modern implementation using gRPC for controller states and settings,
-async/await patterns, proper state machine, and event publishing.
+Players are divided into teams and compete against other teams.
+Last team standing wins.
 
-This is Phase 13.2 - the reference implementation for game mode refactoring.
+This is Phase 13.2 - modern implementation using gRPC for all service communication.
 """
 
 import asyncio
@@ -12,7 +12,7 @@ import logging
 import time
 import math
 from enum import Enum
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Set
 from dataclasses import dataclass
 
 from opentelemetry import trace
@@ -30,11 +30,23 @@ class Sensitivity(Enum):
     MEDIUM = (1.6, 1.8)
     FAST = (1.9, 2.8)
 
+# Team colors (from utils/colors.py - first 8 colors)
+TEAM_COLORS = [
+    {"name": "Pink", "rgb": (255, 108, 108)},
+    {"name": "Magenta", "rgb": (255, 0, 192)},
+    {"name": "Orange", "rgb": (255, 64, 0)},
+    {"name": "Yellow", "rgb": (255, 255, 0)},
+    {"name": "Green", "rgb": (0, 255, 0)},
+    {"name": "Turquoise", "rgb": (0, 255, 255)},
+    {"name": "Blue", "rgb": (0, 0, 255)},
+    {"name": "Purple", "rgb": (96, 0, 255)},
+]
+
 @dataclass
 class Player:
     """Represents a player in the game."""
     serial: str
-    team: int = 0
+    team: int
     alive: bool = True
     color: tuple = (255, 255, 255)
     last_accel_mag: float = 0.0
@@ -47,12 +59,12 @@ class GameState(Enum):
     ENDING = "ending"
     ENDED = "ended"
 
-class FFAGame:
+class TeamsGame:
     """
-    Free-For-All game mode using gRPC communication.
+    Teams game mode using gRPC communication.
 
-    Players try to keep their controllers still while jostling others.
-    Last player standing wins.
+    Players are divided into teams. Players try to keep their controllers still
+    while jostling opponents on other teams. Last team standing wins.
     """
 
     def __init__(
@@ -60,21 +72,24 @@ class FFAGame:
         controller_manager_client,
         settings_client,
         event_publisher: Callable,
-        game_id: str = ""
+        game_id: str = "",
+        num_teams: int = 2
     ):
         """
-        Initialize FFA game.
+        Initialize Teams game.
 
         Args:
             controller_manager_client: gRPC stub for ControllerManager service
             settings_client: gRPC stub for Settings service
             event_publisher: Callback function to publish game events
             game_id: Unique identifier for this game instance
+            num_teams: Number of teams (default 2)
         """
         self.controller_client = controller_manager_client
         self.settings_client = settings_client
         self.event_publisher = event_publisher
-        self.game_id = game_id or f"ffa_{int(time.time())}"
+        self.game_id = game_id or f"teams_{int(time.time())}"
+        self.num_teams = num_teams
 
         # Game state
         self.state = GameState.IDLE
@@ -82,15 +97,18 @@ class FFAGame:
         self.start_time = None
         self.running = False
 
+        # Team tracking
+        self.team_colors = TEAM_COLORS[:num_teams]
+
         # Settings (will be fetched from Settings service)
         self.sensitivity = Sensitivity.MEDIUM
         self.play_audio = True
 
-        logger.info(f"FFA game initialized: {self.game_id}")
+        logger.info(f"Teams game initialized: {self.game_id} with {num_teams} teams")
 
     async def _load_settings(self):
         """Fetch game settings from Settings service."""
-        with tracer.start_as_current_span("ffa_load_settings"):
+        with tracer.start_as_current_span("teams_load_settings"):
             try:
                 from services.settings import settings_pb2
                 response = self.settings_client.GetSettings(settings_pb2.GetSettingsRequest())
@@ -115,8 +133,8 @@ class FFAGame:
                 # Use defaults
 
     async def _initialize_players(self):
-        """Get initial controller states and create player objects."""
-        with tracer.start_as_current_span("ffa_initialize_players") as span:
+        """Get initial controller states and assign players to teams."""
+        with tracer.start_as_current_span("teams_initialize_players") as span:
             try:
                 from services.controller_manager import controller_manager_pb2
 
@@ -125,22 +143,36 @@ class FFAGame:
                 )
 
                 if response.success:
-                    for controller in response.controllers:
+                    controllers = list(response.controllers)
+
+                    # Assign players to teams (round-robin)
+                    for idx, controller in enumerate(controllers):
+                        team_num = idx % self.num_teams
+                        team_color = self.team_colors[team_num]["rgb"]
+
                         player = Player(
                             serial=controller.serial,
-                            team=0,  # FFA - everyone on their own team
+                            team=team_num,
                             alive=True,
-                            color=(255, 255, 255)
+                            color=team_color
                         )
                         self.players[controller.serial] = player
-                        logger.debug(f"Added player: {controller.serial}")
+                        logger.debug(f"Added player: {controller.serial} to team {team_num}")
 
                     span.set_attribute("player_count", len(self.players))
-                    logger.info(f"Initialized {len(self.players)} players")
+                    span.set_attribute("num_teams", self.num_teams)
+                    logger.info(f"Initialized {len(self.players)} players across {self.num_teams} teams")
 
-                    # Publish event
+                    # Publish event with team assignments
+                    team_assignments = {
+                        serial: player.team
+                        for serial, player in self.players.items()
+                    }
+
                     self.event_publisher("players_initialized", {
                         "player_count": len(self.players),
+                        "num_teams": self.num_teams,
+                        "team_assignments": str(team_assignments),
                         "serials": list(self.players.keys())
                     })
 
@@ -154,12 +186,11 @@ class FFAGame:
 
     async def _countdown(self):
         """Run countdown before game starts."""
-        with tracer.start_as_current_span("ffa_countdown"):
+        with tracer.start_as_current_span("teams_countdown"):
             logger.info("Starting countdown...")
             self.event_publisher("countdown_start", {"duration": COUNTDOWN_DURATION})
 
-            # TODO: Set controller colors for countdown
-            # Red -> Yellow -> Green
+            # TODO: Set controller colors to team colors during countdown
 
             # Use shorter sleeps to allow force_end to interrupt
             for _ in range(COUNTDOWN_DURATION * 10):
@@ -173,7 +204,7 @@ class FFAGame:
 
     async def _game_loop(self):
         """Main game loop - processes controller states and checks for deaths."""
-        with tracer.start_as_current_span("ffa_game_loop") as span:
+        with tracer.start_as_current_span("teams_game_loop") as span:
             logger.info("Starting game loop...")
 
             try:
@@ -250,50 +281,74 @@ class FFAGame:
             serial: Controller serial number
             accel_mag: Acceleration magnitude that caused death
         """
-        with tracer.start_as_current_span("ffa_kill_player") as span:
+        with tracer.start_as_current_span("teams_kill_player") as span:
             player = self.players.get(serial)
             if not player or not player.alive:
                 return
 
             player.alive = False
             span.set_attribute("player.serial", serial)
+            span.set_attribute("player.team", player.team)
             span.set_attribute("accel_magnitude", accel_mag)
 
             alive_count = len([p for p in self.players.values() if p.alive])
-            logger.info(f"Player died: {serial}, {alive_count} players remaining")
+            alive_teams = self._get_alive_teams()
+
+            logger.info(f"Player died: {serial} (Team {player.team}), {alive_count} players remaining on {len(alive_teams)} teams")
 
             # Publish death event
             self.event_publisher("player_death", {
                 "serial": serial,
+                "team": player.team,
                 "accel_magnitude": accel_mag,
-                "alive_count": alive_count
+                "alive_count": alive_count,
+                "alive_teams_count": len(alive_teams)
             })
 
             # TODO: Set controller color to black/red
             # TODO: Play explosion sound
 
+    def _get_alive_teams(self) -> Set[int]:
+        """Get set of teams that still have alive players."""
+        alive_teams = set()
+        for player in self.players.values():
+            if player.alive:
+                alive_teams.add(player.team)
+        return alive_teams
+
     def _check_win_condition(self) -> bool:
         """
-        Check if the game has a winner.
+        Check if a team has won.
 
         Returns:
             True if game should end, False otherwise
         """
-        alive_players = [p for p in self.players.values() if p.alive]
+        alive_teams = self._get_alive_teams()
 
-        if len(alive_players) <= 1:
-            # Game over - we have a winner (or tie if 0)
-            if len(alive_players) == 1:
-                winner = alive_players[0]
-                logger.info(f"Winner: {winner.serial}")
+        if len(alive_teams) <= 1:
+            # Game over - we have a winning team (or tie if 0)
+            if len(alive_teams) == 1:
+                winning_team = list(alive_teams)[0]
+                team_name = self.team_colors[winning_team]["name"]
 
-                self.event_publisher("game_winner", {
-                    "serial": winner.serial
+                # Get winning players
+                winners = [
+                    p.serial for p in self.players.values()
+                    if p.alive and p.team == winning_team
+                ]
+
+                logger.info(f"Team {winning_team} ({team_name}) wins with {len(winners)} players!")
+
+                self.event_publisher("team_winner", {
+                    "team": winning_team,
+                    "team_name": team_name,
+                    "team_color": str(self.team_colors[winning_team]["rgb"]),
+                    "winning_players": winners,
+                    "winner_count": len(winners)
                 })
 
-            elif len(alive_players) == 0:
+            elif len(alive_teams) == 0:
                 logger.info("No winner - all players died simultaneously")
-
                 self.event_publisher("game_tie", {})
 
             return True
@@ -302,12 +357,12 @@ class FFAGame:
 
     async def _end_game(self):
         """Handle game ending - show winner, cleanup."""
-        with tracer.start_as_current_span("ffa_end_game"):
+        with tracer.start_as_current_span("teams_end_game"):
             logger.info("Ending game...")
             self.state = GameState.ENDING
 
-            # TODO: Show rainbow on winner's controller
-            # TODO: Play victory sound
+            # TODO: Show rainbow on winning team's controllers
+            # TODO: Play victory sound for winning team
 
             # Show winner for a bit (interruptible by force_end)
             for _ in range(20):  # 2 seconds in 0.1s increments
@@ -326,19 +381,23 @@ class FFAGame:
 
     async def run(self):
         """
-        Main entry point to run the FFA game.
+        Main entry point to run the Teams game.
 
         This is the async method called by GameCoordinator.
         """
-        with tracer.start_as_current_span("ffa_run") as span:
+        with tracer.start_as_current_span("teams_run") as span:
             span.set_attribute("game.id", self.game_id)
-            span.set_attribute("game.mode", "FFA")
+            span.set_attribute("game.mode", "Teams")
+            span.set_attribute("game.num_teams", self.num_teams)
 
             try:
                 # IDLE -> STARTING
                 self.state = GameState.STARTING
                 self.running = True  # Set early to allow force_end during countdown
-                self.event_publisher("game_starting", {"game_id": self.game_id})
+                self.event_publisher("game_starting", {
+                    "game_id": self.game_id,
+                    "num_teams": self.num_teams
+                })
 
                 # Load settings
                 await self._load_settings()
@@ -350,6 +409,13 @@ class FFAGame:
                 if len(self.players) < 2:
                     raise ValueError(f"Need at least 2 players, got {len(self.players)}")
 
+                if len(self.players) < self.num_teams:
+                    logger.warning(f"Not enough players ({len(self.players)}) for {self.num_teams} teams")
+                    # Adjust team count if needed
+                    actual_teams = self._get_alive_teams()
+                    if len(actual_teams) < 2:
+                        raise ValueError(f"Need at least 2 teams, only have {len(actual_teams)}")
+
                 # Countdown
                 await self._countdown()
 
@@ -358,7 +424,8 @@ class FFAGame:
                 self.start_time = time.time()
                 self.event_publisher("game_started", {
                     "game_id": self.game_id,
-                    "player_count": len(self.players)
+                    "player_count": len(self.players),
+                    "num_teams": self.num_teams
                 })
 
                 # Run main game loop
@@ -370,7 +437,7 @@ class FFAGame:
                 span.set_attribute("game.completed", True)
 
             except Exception as e:
-                logger.error(f"FFA game error: {e}", exc_info=True)
+                logger.error(f"Teams game error: {e}", exc_info=True)
                 span.record_exception(e)
                 span.set_attribute("game.error", str(e))
 
@@ -384,7 +451,7 @@ class FFAGame:
 
             finally:
                 self.running = False
-                logger.info(f"FFA game finished: {self.game_id}")
+                logger.info(f"Teams game finished: {self.game_id}")
 
     def force_end(self):
         """Force the game to end (called externally)."""

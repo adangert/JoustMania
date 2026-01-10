@@ -1,7 +1,7 @@
 # JoustMania Refactoring - Implementation Status
 
 **Date:** 2026-01-10
-**Status:** 🎉 Phases 1-12 Complete - Cloud-Native Microservices Architecture
+**Status:** 🎉 Phases 1-13 Complete, Phase 14 In Progress - Cloud-Native Microservices Architecture
 **Branch:** dev-refactor
 
 ---
@@ -20,6 +20,7 @@
 10. ✅ **Scripts Organization** - Bash scripts organized into logical directories (Phase 10)
 11. ✅ **Comprehensive Documentation** - Architecture docs, developer guides, service READMEs (Phase 11)
 12. ✅ **Dependency Modernization** - All dependencies pinned to latest stable versions (Phase 12)
+13. 🔄 **Shared Protocol Buffer Package** - Centralized proto contracts, cleaner dependency management (Phase 14)
 
 ---
 
@@ -1285,6 +1286,58 @@ legacy/games/           # Archive old implementations
 - Python packages: gRPC 1.70, OpenTelemetry 0.49/1.28, pytest 8.0, Flask 3.0
 - Reproducible builds: 17% → 100% pinned dependencies
 - See: `PHASE_12_COMPLETED.md`
+
+### 🔄 Phase 14: Shared Protocol Buffer Contracts Package (IN PROGRESS)
+
+**Goal:** Centralize all protocol buffer schemas in a shared package that all services depend on
+
+**Motivation:**
+- Eliminates copying individual pb2 files between Dockerfiles
+- Single source of truth for all protocol buffer contracts
+- Cleaner dependency management
+- Easier to version and maintain protobuf schemas
+- Aligns with microservices best practices
+
+**Completed:**
+- [x] Created proto/ workspace package with pyproject.toml
+- [x] Moved all .proto files to proto/ directory (7 schemas)
+- [x] Created generate_proto.sh script for code generation
+- [x] Generated Python code for all protobuf schemas
+- [x] Added joustmania-proto dependency to all 7 services
+- [x] Updated tests/integration to use joustmania-proto
+- [x] Updated Settings service Dockerfile to use proto package
+
+**In Progress:**
+- [ ] Update remaining Dockerfiles (controller_manager, game_coordinator, menu, supervisor, audio, webui)
+- [ ] Remove individual protobuf file copies from Dockerfiles
+- [ ] Update docker-compose port mappings (expose without 1:1 host mapping)
+- [ ] Add service_healthy checks back to docker-compose
+- [ ] Test integration tests with new proto package
+- [ ] Verify all services build and run correctly
+
+**Proto Package Structure:**
+```
+proto/
+├── __init__.py                          # Package initialization
+├── pyproject.toml                       # joustmania-proto package definition
+├── generate_proto.sh                    # Script to generate Python code
+├── settings.proto                       # Settings service schema
+├── controller_manager.proto             # Controller manager schema
+├── controller_manager_mock.proto        # Mock controller control API
+├── game_coordinator.proto               # Game coordinator schema
+├── menu.proto                           # Menu service schema
+├── supervisor.proto                     # Supervisor service schema
+├── audio.proto                          # Audio service schema
+└── *_pb2.py, *_pb2_grpc.py             # Generated Python code
+```
+
+**Benefits:**
+- ✅ **Single source of truth** - All protobuf schemas in one place
+- ✅ **Cleaner Dockerfiles** - Just `COPY proto/` instead of individual files
+- ✅ **Better dependency management** - Services depend on joustmania-proto package
+- ✅ **Easier versioning** - Proto package can be versioned independently
+- ✅ **Reduced duplication** - No more copying pb2 files across services
+- ✅ **Consistent code generation** - Single script generates all Python code
 
 ---
 

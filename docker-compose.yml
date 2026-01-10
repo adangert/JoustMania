@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # Redis for pub/sub messaging
   redis:
-    image: redis:7-alpine
+    image: redis:7.4-alpine
     container_name: joustmania-redis
     ports:
       - "6379:6379"
@@ -17,7 +17,7 @@ services:
 
   # Jaeger for distributed tracing UI
   jaeger:
-    image: jaegertracing/all-in-one:latest
+    image: jaegertracing/all-in-one:2.0.0
     container_name: joustmania-jaeger
     ports:
       - "16686:16686"  # Jaeger UI
@@ -35,7 +35,7 @@ services:
 
   # OpenTelemetry Collector
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
+    image: otel/opentelemetry-collector-contrib:0.110.0
     container_name: joustmania-otel-collector
     command: [ "--config=/etc/otel-collector-config.yaml" ]
     volumes:

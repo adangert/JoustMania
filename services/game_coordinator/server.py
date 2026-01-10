@@ -40,7 +40,7 @@ from proto import controller_manager_pb2, controller_manager_pb2_grpc
 from proto import settings_pb2, settings_pb2_grpc
 
 # Modern game imports (gRPC-based)
-from services.game_coordinator.games import ffa, teams, random_teams
+from services.game_coordinator.games import ffa, teams, random_teams, nonstop_joust
 
 # Legacy game imports (optional for testing)
 try:
@@ -335,6 +335,28 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     await game.run()
 
                     logger.info("Random Teams game completed")
+
+                elif self.game_name.lower() in ["nonstop", "nonstop joust", "nonstopjoust"]:
+                    logger.info("Starting Nonstop Joust game")
+
+                    # Get time limit from settings (0 = unlimited)
+                    time_limit = int(self.settings.get("nonstop_time_limit", "0"))
+
+                    # Create Nonstop Joust game instance
+                    game = nonstop_joust.NonstopJoustGame(
+                        controller_manager_client=self.controller_manager_client,
+                        settings_client=self.settings_client,
+                        event_publisher=self._publish_event,
+                        game_id=self.game_id
+                    )
+
+                    # Store reference
+                    self.current_game = game
+
+                    # Run the game (async)
+                    await game.run()
+
+                    logger.info("Nonstop Joust game completed")
 
                 else:
                     error_msg = f"Game mode '{self.game_name}' not implemented yet"

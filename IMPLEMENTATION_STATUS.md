@@ -680,7 +680,7 @@ htop
 
 **Result:** Web UI is now a fully containerized microservice that communicates with backend services via gRPC instead of multiprocessing queues. This completes the 6-service architecture (Settings, ControllerManager, GameCoordinator, Menu, Supervisor, WebUI).
 
-### Phase 9: Code Cleanup & Organization 📅 NEXT
+### Phase 9: Python Files Cleanup & Organization 📅 IN PROGRESS
 - [ ] Remove duplicate files from root (10 files confirmed duplicates)
 - [ ] Archive legacy piparty.py orchestrator
 - [ ] Archive legacy webui.py (replaced by services/webui)
@@ -690,6 +690,18 @@ htop
 - [ ] Update joust.py entry point
 - [ ] Verify system after cleanup
 - [ ] Update documentation
+
+### Phase 10: Bash Scripts Cleanup & Organization 📅 NEXT
+- [ ] Archive access point scripts (enable_ap.sh, disable_ap.sh) - Not needed for microservices
+- [ ] Archive legacy launchers (joust.sh, webui.sh, kill_processes.sh) - Replaced by docker-compose
+- [ ] Archive duplicate Bluetooth script (disable_internal_bluetooth.sh) - Duplicate of setup.sh functionality
+- [ ] Organize hardware scripts (reset_bluetooth_connections.sh, update_asound.sh, update_permissions.sh) - Move to scripts/hardware/
+- [ ] Fix update_permissions.sh (change hardcoded "pi" to $USER)
+- [ ] Organize testing scripts (run_tests.sh, controller_util_test.sh, color_tests/) - Move to scripts/testing/
+- [ ] Refactor setup.sh - Split into setup_host.sh and build_psmoveapi.sh in scripts/setup/
+- [ ] Create Docker helper scripts (optional: build.sh, start.sh, stop.sh in scripts/docker/)
+- [ ] Verify all scripts still work after reorganization
+- [ ] Update any references to moved scripts
 
 ---
 

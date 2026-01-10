@@ -18,7 +18,7 @@ COPY pyproject.toml /app/
 COPY services/audio/pyproject.toml /app/services/audio/
 
 # Install uv package manager
-RUN pip install --no-cache-dir uv
+RUN pip install --no-cache-dir uv==0.5.11
 
 # Install dependencies using uv
 WORKDIR /app/services/audio

@@ -22,7 +22,7 @@ COPY pyproject.toml /app/
 COPY services/controller_manager/pyproject.toml /app/services/controller_manager/
 
 # Install uv package manager
-RUN pip install --no-cache-dir uv
+RUN pip install --no-cache-dir uv==0.5.11
 
 # Install dependencies using uv
 WORKDIR /app/services/controller_manager

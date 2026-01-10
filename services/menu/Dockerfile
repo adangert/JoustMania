@@ -19,7 +19,7 @@ COPY pyproject.toml /app/
 COPY services/menu/pyproject.toml /app/services/menu/
 
 # Install uv package manager
-RUN pip install --no-cache-dir uv
+RUN pip install --no-cache-dir uv==0.5.11
 
 # Install dependencies using uv
 WORKDIR /app/services/menu

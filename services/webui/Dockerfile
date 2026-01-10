@@ -17,7 +17,7 @@ COPY pyproject.toml /app/
 COPY services/webui/pyproject.toml /app/services/webui/
 
 # Install uv package manager
-RUN pip install --no-cache-dir uv
+RUN pip install --no-cache-dir uv==0.5.11
 
 # Install dependencies using uv
 WORKDIR /app/services/webui

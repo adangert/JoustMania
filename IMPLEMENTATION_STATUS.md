@@ -1,7 +1,7 @@
 # JoustMania Refactoring - Implementation Status
 
 **Date:** 2026-01-10
-**Status:** 🎉 Phase 1-5, 7, 8a Complete - Cloud-Native Microservices Architecture
+**Status:** 🎉 Phases 1-12 Complete - Cloud-Native Microservices Architecture
 **Branch:** dev-refactor
 
 ---
@@ -15,7 +15,11 @@
 5. ✅ **Process Supervisor** - Unified process management and health monitoring (Phase 4)
 6. ✅ **Menu Process** - Menu UI as separate microservice (Phase 5)
 7. ✅ **Code Restructuring** - Microservices in services/, uv workspace, clean dependency management (Phase 7)
-8. ✅ **gRPC + Docker + OpenTelemetry** - Cloud-native architecture with observability (Phase 8a)
+8. ✅ **gRPC + Docker + OpenTelemetry** - Cloud-native architecture with observability (Phase 8a-c)
+9. ✅ **Architecture Cleanup** - Root directory cleaned, all code organized (Phase 9)
+10. ✅ **Scripts Organization** - Bash scripts organized into logical directories (Phase 10)
+11. ✅ **Comprehensive Documentation** - Architecture docs, developer guides, service READMEs (Phase 11)
+12. ✅ **Dependency Modernization** - All dependencies pinned to latest stable versions (Phase 12)
 
 ---
 
@@ -577,7 +581,7 @@ htop
 9. **`GAME_COORDINATOR_DESIGN.md`** - GameCoordinator design document (Phase 2)
 10. **`SETTINGS_PROCESS_DESIGN.md`** - Settings process design with cache pattern (Phase 3)
 11. **`PROCESS_SUPERVISOR_DESIGN.md`** - Process Supervisor design and architecture (Phase 4)
-12. **`CLEANUP_PLAN.md`** - Comprehensive cleanup plan (Python files + Bash scripts) (Phase 9-10)
+12. **`CLEANUP_PLAN.md`** - Comprehensive cleanup plan (Python files + Bash scripts + Documentation + Dependencies + Game Modes) (Phase 9-13)
 
 ---
 
@@ -855,6 +859,9 @@ htop
 ### Phase 12: Dependency Updates 📅 PLANNING
 **Context:** Docker and Python dependencies are outdated. Need to upgrade to latest stable versions for security, performance, and new features (e.g., Jaeger v2).
 
+### Phase 13: Game Modes Refactoring 📅 PLANNING
+**Context:** Game modes in `games/` directory use legacy monolithic architecture with direct hardware access, Queue-based IPC, and shared namespace. Need refactoring to microservices architecture with gRPC communication to ControllerManager, Settings, and GameCoordinator services.
+
 #### Infrastructure Dependencies (docker-compose.yml)
 - [ ] **Jaeger** - Upgrade from `jaegertracing/all-in-one:latest` to `jaegertracing/all-in-one:2.0` or latest v2.x
   - Jaeger v2 has improved performance and new features
@@ -908,49 +915,464 @@ htop
 - [ ] Create rollback plan (git tag before upgrade)
 - [ ] Test on development environment before production
 
+### Phase 13: Game Modes Refactoring (Detailed Tasks)
+
+#### Current State Analysis
+- **Legacy games/** directory (11 game modes):
+  - Uses direct psmove hardware access
+  - Queue-based IPC with command_queue
+  - Shared namespace (ns) for settings
+  - Multiprocessing Manager for shared state
+  - No gRPC communication
+  - Tightly coupled to monolithic architecture
+
+- **New services/game_coordinator/games/** (3 game modes ported):
+  - ffa.py, joust_teams.py, joust_random_teams.py
+  - Still uses legacy patterns (needs update too)
+  - Base class in base.py has some OpenTelemetry
+  - Not fully gRPC-based
+
+#### Game Modes to Refactor
+
+| Game Mode | File | Status | Complexity | Priority |
+|-----------|------|--------|------------|----------|
+| **Joust FFA** | games/joust_ffa.py | ⚠️ Partially ported | Low | High (reference impl) |
+| **Joust Teams** | games/ (implicit) | ⚠️ Partially ported | Low | High |
+| **Joust Random Teams** | games/ (implicit) | ⚠️ Partially ported | Low | High |
+| **Traitor** | games/traitor.py | ❌ Legacy | Medium | High |
+| **Swapper** | games/swapper.py | ❌ Legacy | Medium | High |
+| **Fight Club** | games/fight_club.py | ❌ Legacy | Low | Medium |
+| **Tournament** | games/tournament.py | ❌ Legacy | Medium | Medium |
+| **Werewolf** | games/werewolf.py | ❌ Legacy | Medium | Medium |
+| **Zombies** | games/zombie.py | ❌ Legacy | High | Low (complex mechanics) |
+| **Commander** | games/commander.py | ❌ Legacy | High | Low (custom tracking) |
+| **Non-Stop Joust** | games/joust_non_stop.py | ❌ Legacy | Medium | Medium |
+| **Ninja/Speed Bomb** | games/speed_bomb.py | ❌ Legacy | High | Low (completely different) |
+
+#### Refactoring Strategy
+
+**Core Changes Needed:**
+1. **Remove direct hardware access** - Use gRPC StreamControllerStates from ControllerManager
+2. **Remove Queue-based IPC** - Use gRPC for all inter-service communication
+3. **Remove shared namespace** - Use gRPC GetSettings from Settings service
+4. **Add proper state machines** - IDLE → STARTING → RUNNING → ENDING → ENDED
+5. **Add gRPC event publishing** - StreamGameEvents to clients
+6. **Improve OpenTelemetry** - Comprehensive spans for all game operations
+7. **Clean up code** - Remove legacy patterns, improve readability
+
+#### Phase 13.1: Update Base Game Class
+
+**File:** `services/game_coordinator/games/base.py`
+
+- [ ] Remove multiprocessing dependencies (Queue, Manager, Namespace)
+- [ ] Add gRPC client for ControllerManager (StreamControllerStates)
+- [ ] Add gRPC client for Settings (GetSettings, SubscribeToChanges)
+- [ ] Implement state machine (GameState enum)
+- [ ] Add event publishing mechanism (for GameCoordinator to stream)
+- [ ] Replace direct psmove access with gRPC controller state
+- [ ] Update init to accept gRPC clients instead of queues/namespace
+- [ ] Add comprehensive OpenTelemetry spans:
+  - game_initialization
+  - game_loop
+  - controller_state_update
+  - game_event (death, kill, win, etc.)
+  - team_generation
+  - music_speed_change
+- [ ] Implement graceful shutdown handling
+- [ ] Add configuration via Settings service
+
+**New Base Class Interface:**
+```python
+class Game:
+    def __init__(
+        self,
+        game_mode: Games,
+        controller_manager_client: ControllerManagerStub,
+        settings_client: SettingsStub,
+        event_publisher: Callable,  # Callback to publish events
+        # ... other params
+    ):
+        # Initialize with gRPC clients
+        # Set up state machine
+        # Subscribe to settings changes
+        # Start controller state stream
+
+    async def start(self):
+        # Transition IDLE → STARTING
+        # Play countdown audio
+        # Transition STARTING → RUNNING
+        # Start game loop
+
+    async def game_loop(self):
+        # Main game logic loop at 60 FPS
+        # Stream controller states
+        # Process game logic
+        # Publish events
+        # Check win conditions
+
+    async def end(self):
+        # Transition RUNNING → ENDING
+        # Calculate winners
+        # Publish final events
+        # Transition ENDING → ENDED
+
+    def publish_event(self, event_type, data):
+        # Publish via callback for GameCoordinator
+```
+
+#### Phase 13.2: Refactor High Priority Games
+
+**Target: Simple game modes first (reference implementations)**
+
+**1. Joust FFA (Free-for-All)**
+- [ ] Update services/game_coordinator/games/ffa.py to use new base class
+- [ ] Remove direct hardware access
+- [ ] Use gRPC for controller states
+- [ ] Use gRPC for settings
+- [ ] Implement state machine
+- [ ] Add comprehensive OpenTelemetry
+- [ ] Test with real controllers
+- [ ] Document API and behavior
+
+**2. Joust Teams**
+- [ ] Update services/game_coordinator/games/joust_teams.py
+- [ ] Add team selection via controller input events
+- [ ] Implement team-based win conditions
+- [ ] Use gRPC for all communication
+- [ ] Add team-specific events
+- [ ] Test team mechanics
+
+**3. Joust Random Teams**
+- [ ] Update services/game_coordinator/games/joust_random_teams.py
+- [ ] Random team assignment algorithm
+- [ ] Team announcement events
+- [ ] Use gRPC for all communication
+
+**4. Traitor**
+- [ ] Port games/traitor.py → services/game_coordinator/games/traitor.py
+- [ ] Implement secret traitor selection
+- [ ] Vibration notification for traitors
+- [ ] Multi-team with traitor team logic
+- [ ] Event publishing for traitor reveal
+
+**5. Swapper**
+- [ ] Port games/swapper.py → services/game_coordinator/games/swapper.py
+- [ ] Team switching mechanic
+- [ ] Last player doesn't switch rule
+- [ ] Dynamic team updates via events
+
+#### Phase 13.3: Refactor Medium Priority Games
+
+**6. Fight Club**
+- [ ] Port games/fight_club.py → services/game_coordinator/games/fight_club.py
+- [ ] 1v1 bracket system
+- [ ] Score tracking
+- [ ] Queue management for players
+- [ ] Winner stays, loser rotates
+
+**7. Tournament**
+- [ ] Port games/tournament.py → services/game_coordinator/games/tournament.py
+- [ ] Bracket pairing system
+- [ ] Color-based pairing indicators
+- [ ] Elimination logic
+
+**8. Werewolf**
+- [ ] Port games/werewolf.py → services/game_coordinator/games/werewolf.py
+- [ ] Hidden werewolf selection
+- [ ] Reveal timer
+- [ ] Werewolf win condition logic
+
+**9. Non-Stop Joust**
+- [ ] Port games/joust_non_stop.py → services/game_coordinator/games/nonstop.py
+- [ ] Respawn mechanic
+- [ ] Death counter per player
+- [ ] Timed round (2.5 minutes)
+- [ ] Least deaths wins
+
+#### Phase 13.4: Refactor Low Priority Games (Complex)
+
+**10. Zombies**
+- [ ] Port games/zombie.py → services/game_coordinator/games/zombie.py
+- [ ] Infection mechanic
+- [ ] Bullet/loot system
+- [ ] Survival timer
+- [ ] Complex state tracking
+- [ ] May need custom controller tracking
+
+**11. Commander**
+- [ ] Port games/commander.py → services/game_coordinator/games/commander.py
+- [ ] Commander role selection
+- [ ] Special abilities system
+- [ ] Team-based with commander focus
+- [ ] May need custom controller tracking
+
+**12. Ninja/Speed Bomb**
+- [ ] Port games/speed_bomb.py → services/game_coordinator/games/ninja.py
+- [ ] Completely different mechanic (bomb passing)
+- [ ] Button press detection
+- [ ] Trap system
+- [ ] Lives system
+- [ ] Requires significant redesign
+
+#### Phase 13.5: Integration with GameCoordinator Service
+
+**File:** `services/game_coordinator/server.py`
+
+- [ ] Update StartGame RPC to instantiate new Game classes
+- [ ] Pass gRPC clients to game instances
+- [ ] Implement event collection from games
+- [ ] Stream events via StreamGameEvents RPC
+- [ ] Handle game state transitions
+- [ ] Proper cleanup on game end
+- [ ] Error handling and recovery
+
+**Changes Needed:**
+```python
+async def StartGame(self, request, context):
+    # Create appropriate Game instance based on mode
+    game = create_game(
+        mode=request.mode,
+        controller_client=self.controller_client,
+        settings_client=self.settings_client,
+        event_publisher=self.publish_event
+    )
+
+    # Start game in background task
+    self.current_game = game
+    asyncio.create_task(game.start())
+
+    # Return response
+```
+
+#### Phase 13.6: Testing Strategy
+
+**Unit Tests:**
+- [ ] Test base Game class with mocked gRPC clients
+- [ ] Test each game mode's win condition logic
+- [ ] Test state machine transitions
+- [ ] Test event publishing
+- [ ] Test settings integration
+
+**Integration Tests:**
+- [ ] Test with ControllerManager service (mock controllers)
+- [ ] Test with Settings service
+- [ ] Test GameCoordinator orchestration
+- [ ] Test event streaming to clients
+- [ ] Test multi-game sessions
+
+**Hardware Tests:**
+- [ ] Test each game with real PS Move controllers
+- [ ] Verify controller state accuracy
+- [ ] Verify death detection
+- [ ] Verify LED/rumble outputs
+- [ ] Performance testing (latency, throughput)
+
+#### Phase 13.7: Code Organization
+
+**Move games to proper location:**
+```
+services/game_coordinator/games/
+├── __init__.py
+├── base.py              # Base Game class (refactored)
+├── ffa.py              # Joust FFA
+├── teams.py            # Joust Teams
+├── random_teams.py     # Joust Random Teams
+├── traitor.py          # Traitor (new)
+├── swapper.py          # Swapper (new)
+├── fight_club.py       # Fight Club (new)
+├── tournament.py       # Tournament (new)
+├── werewolf.py         # Werewolf (new)
+├── nonstop.py          # Non-Stop Joust (new)
+├── zombie.py           # Zombies (new)
+├── commander.py        # Commander (new)
+├── ninja.py            # Ninja/Speed Bomb (new)
+├── pacemanager.py      # Shared pace management
+└── player.py           # Shared player classes
+```
+
+**Archive legacy:**
+```
+legacy/games/           # Archive old implementations
+├── joust_ffa.py
+├── traitor.py
+├── swapper.py
+├── ... etc
+```
+
+#### Phase 13.8: Documentation
+
+- [ ] Update game mode documentation with new architecture
+- [ ] Document gRPC event schema for each game
+- [ ] Create architecture diagram for game → services interaction
+- [ ] Add examples of subscribing to game events
+- [ ] Document settings used by each game mode
+- [ ] Create troubleshooting guide for game modes
+
+#### Migration Checklist
+
+**Pre-Refactoring:**
+- [ ] Analyze current game logic and dependencies
+- [ ] Document current behavior (reference for testing)
+- [ ] Create test cases for each game mode
+- [ ] Back up current implementations
+
+**During Refactoring:**
+- [ ] Refactor base class first
+- [ ] Port games one at a time (FFA first)
+- [ ] Test each game before moving to next
+- [ ] Keep legacy games working alongside new ones
+
+**Post-Refactoring:**
+- [ ] Verify all games work with new architecture
+- [ ] Archive legacy games/ directory
+- [ ] Update GameCoordinator to only use new games
+- [ ] Update documentation
+- [ ] Mark Phase 13 complete
+
+#### Expected Benefits
+
+**Performance:**
+- ✅ Better separation of concerns
+- ✅ Easier to scale game logic independently
+- ✅ Improved testability with mocked services
+
+**Architecture:**
+- ✅ Clean gRPC-based communication
+- ✅ Proper state machines
+- ✅ Event-driven design
+- ✅ No shared memory/multiprocessing complexity
+
+**Observability:**
+- ✅ Comprehensive OpenTelemetry spans per game
+- ✅ Game events as distributed traces
+- ✅ Better debugging capabilities
+
+**Maintainability:**
+- ✅ Cleaner code with removed legacy patterns
+- ✅ Easier to add new game modes
+- ✅ Better separation of game logic from infrastructure
+
+---
+
+## Completed Phases Summary
+
+### ✅ Phase 9: Architecture Cleanup (COMPLETE)
+- Root Python files: 31 → 3 (90% reduction)
+- All services properly organized in core/, utils/, services/
+- Legacy code archived to legacy/
+- All imports fixed
+- See: `PHASE_9_COMPLETED.md`
+
+### ✅ Phase 10: Bash Scripts Organization (COMPLETE)
+- Root bash scripts: 12 → 1 (92% reduction)
+- Scripts organized into scripts/hardware/, scripts/testing/, scripts/setup/, scripts/docker/
+- Legacy scripts archived to legacy/scripts/
+- setup.sh refactored into modular scripts
+- See: `PHASE_10_COMPLETED.md`
+
+### ✅ Phase 11: Documentation Overhaul (COMPLETE)
+- README.md completely rewritten for cloud-native architecture
+- docs/ARCHITECTURE.md: 776 lines comprehensive architecture reference
+- docs/DEVELOPMENT.md: 887 lines developer guide
+- Service READMEs for all 7 microservices
+- 6 Mermaid diagrams for architecture visualization
+- Total: 2,546+ lines of documentation (12x increase)
+- See: `PHASE_11_COMPLETED.md`
+
+### ✅ Phase 12: Dependency Updates (COMPLETE)
+- Infrastructure: Jaeger v2.0.0, OTel Collector 0.110.0, Redis 7.4
+- Build tools: uv pinned to 0.5.11 in all Dockerfiles
+- Python packages: gRPC 1.70, OpenTelemetry 0.49/1.28, pytest 8.0, Flask 3.0
+- Reproducible builds: 17% → 100% pinned dependencies
+- See: `PHASE_12_COMPLETED.md`
+
 ---
 
 ## Next Steps
 
-### Immediate (Phases 9-12 - Cleanup, Documentation & Modernization)
-1. ✅ All 6 gRPC services implemented with OpenTelemetry (including WebUI)
-2. ✅ Complete docker-compose stack with observability
-3. ✅ CLEANUP_PLAN.md created with detailed Python files analysis
-4. ✅ CLEANUP_PLAN.md updated with bash scripts analysis (Phase 10)
-5. ✅ CLEANUP_PLAN.md updated with documentation overhaul plan (Phase 11)
-6. ✅ Phase 12 added to IMPLEMENTATION_STATUS.md for dependency updates
-7. 📅 Execute Phase 9: Python files cleanup (remove duplicates, archive legacy, reorganize)
-8. 📅 Execute Phase 10: Bash scripts cleanup (archive legacy, reorganize scripts)
-9. 📅 Execute Phase 11: Documentation overhaul (README, service docs, architecture diagrams)
-10. 📅 Execute Phase 12: Dependency updates (Jaeger v2, OTel Collector, Python 3.12, etc.)
-11. 📅 Update imports and references
-12. 📅 Test complete system after cleanup and upgrades
-13. 📅 Verify all documentation is accurate and complete
+### Phase 13: Game Modes Refactoring (PLANNED)
+**Goal:** Migrate game modes from legacy Queue-based to gRPC-based architecture
 
-### Testing Cloud-Native Stack
-1. Build and start stack: `docker-compose up --build`
-2. Verify services start: `docker-compose ps`
-3. Check Jaeger UI: http://localhost:16686
-4. Test Settings gRPC: `grpcurl -plaintext localhost:50051 list`
-5. View traces in Jaeger for Settings RPCs
-6. Check Prometheus metrics: http://localhost:8888/metrics
-7. Monitor logs: `docker-compose logs -f settings`
+**Current state:**
+- 12 game modes in services/game_coordinator/games/
+- Still use legacy patterns (direct hardware access, Queue IPC, shared namespace)
+- Need refactoring to use gRPC for ControllerManager, Settings, Audio
 
-### For Testing (Both State-Based and ControllerManager)
-1. ✅ Install test dependencies: `pip3 install -r testing/requirements.txt`
-2. ✅ Run unit tests: `./run_tests.sh`
-3. ⚠️ Test ControllerManager with real controllers
-4. ⚠️ Test menu mode with real controllers
-5. ⚠️ Test game modes with real controllers
-6. ⚠️ Measure actual CPU improvements
-7. ⚠️ Validate latency improvements
+**Scope:**
+1. Refactor base Game class to use gRPC clients
+2. Migrate high-priority games (FFA, Teams, Random Teams, Traitor, Swapper)
+3. Migrate medium-priority games (Fight Club, Tournament, Werewolf, Non-Stop)
+4. Migrate low-priority games (Zombies, Commander, Ninja/Speed Bomb)
+5. Add comprehensive OpenTelemetry instrumentation
+6. Integration testing with all services
 
-### For Production
-1. ⚠️ Complete real controller testing
-2. ⚠️ Document actual performance gains
-3. ⚠️ Complete microservices phases 2-6
-4. ⚠️ Add OpenTelemetry metrics across all processes
-5. ⚠️ Create performance monitoring dashboard
+**See:** Phase 13 tasks in IMPLEMENTATION_STATUS.md (lines 913-1227)
+
+### Optional Future Phases
+
+**Phase 11b: Extended Documentation (Optional)**
+- Comprehensive service-level API documentation
+- docs/DEPLOYMENT.md (Kubernetes deployment guide)
+- docs/API.md (exhaustive gRPC API reference)
+- docs/OBSERVABILITY.md (OpenTelemetry deep dive)
+- docs/MIGRATION.md (legacy migration guide)
+- CHANGELOG.md
+
+**Phase 12b: Python 3.12 Upgrade (Optional)**
+- Upgrade from Python 3.11 → 3.12
+- Test all dependencies for compatibility
+- Rebuild all Docker images
+- Performance testing and validation
+
+**Kubernetes Deployment (Future)**
+- Helm charts for all services
+- StatefulSets and DaemonSets
+- Service mesh integration (Istio/Linkerd)
+- Horizontal Pod Autoscaling
+- Production monitoring and logging
+
+### Testing & Verification
+
+**Quick Start:**
+```bash
+# Build and start full stack
+scripts/docker/build.sh
+scripts/docker/start.sh
+
+# Verify services
+docker-compose ps
+
+# Test gRPC APIs
+grpcurl -plaintext localhost:50051 list  # Settings
+grpcurl -plaintext localhost:50052 list  # ControllerManager
+grpcurl -plaintext localhost:50053 list  # GameCoordinator
+grpcurl -plaintext localhost:50054 list  # Menu
+grpcurl -plaintext localhost:50055 list  # Supervisor
+grpcurl -plaintext localhost:50056 list  # Audio
+
+# View Jaeger traces
+open http://localhost:16686
+
+# View logs
+scripts/docker/logs.sh
+```
+
+**Testing Checklist:**
+- ✅ Docker Compose configuration validated
+- ✅ All 7 services build successfully
+- ⚠️ Services start and health checks pass
+- ⚠️ gRPC APIs respond correctly
+- ⚠️ Traces appear in Jaeger v2
+- ⚠️ Prometheus metrics exported
+- ⚠️ Unit tests pass (scripts/testing/run_tests.sh)
+- ⚠️ Integration tests with real controllers
+
+**Hardware Testing (Optional):**
+- PS Move controllers paired successfully
+- Controller state streaming works
+- Game modes function correctly
+- Audio playback works
+- Performance improvements validated
 
 ---
 

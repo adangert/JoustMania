@@ -16,6 +16,7 @@ from typing import Callable, Dict, List, Optional
 from dataclasses import dataclass
 
 from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
 tracer = trace.get_tracer(__name__)
 logger = logging.getLogger(__name__)
@@ -38,6 +39,7 @@ class Player:
     alive: bool = True
     color: tuple = (255, 255, 255)
     last_accel_mag: float = 0.0
+    span: Optional[trace.Span] = None  # OpenTelemetry span for this player's lifecycle
 
 class GameState(Enum):
     """Game lifecycle states."""
@@ -179,6 +181,20 @@ class FFAGame:
             try:
                 from services.controller_manager import controller_manager_pb2
 
+                # Start per-player lifecycle spans (as children of game_loop span)
+                for serial, player in self.players.items():
+                    player_span = tracer.start_span(
+                        f"player_{serial}_lifecycle",
+                        attributes={
+                            "player.serial": serial,
+                            "player.team": player.team,
+                            "player.color": str(player.color),
+                            "game.mode": "FFA"
+                        }
+                    )
+                    player.span = player_span
+                    logger.debug(f"Started lifecycle span for player {serial}")
+
                 # Start streaming controller states
                 stream_request = controller_manager_pb2.StreamRequest(
                     update_frequency_hz=UPDATE_FREQUENCY
@@ -238,9 +254,35 @@ class FFAGame:
         if accel_mag > death_threshold:
             await self._kill_player(serial, accel_mag)
 
-        # TODO: Check for warning (flash controller)
-        # elif accel_mag > warn_threshold:
-        #     await self._warn_player(serial)
+        # Check for warning (flash controller)
+        elif accel_mag > warn_threshold:
+            await self._warn_player(serial, accel_mag)
+
+    async def _warn_player(self, serial: str, accel_mag: float):
+        """
+        Warn a player that they're moving too much.
+
+        Args:
+            serial: Controller serial number
+            accel_mag: Acceleration magnitude that triggered warning
+        """
+        player = self.players.get(serial)
+        if not player or not player.alive:
+            return
+
+        # Add warning event to player's lifecycle span
+        if player.span:
+            player.span.add_event(
+                "player_warning",
+                attributes={
+                    "accel_magnitude": accel_mag,
+                    "threshold": self.sensitivity.value[0]
+                }
+            )
+            logger.debug(f"Player {serial} triggered warning (accel: {accel_mag:.2f})")
+
+        # TODO: Flash controller LED
+        # TODO: Vibrate controller
 
     async def _kill_player(self, serial: str, accel_mag: float):
         """
@@ -261,6 +303,20 @@ class FFAGame:
 
             alive_count = len([p for p in self.players.values() if p.alive])
             logger.info(f"Player died: {serial}, {alive_count} players remaining")
+
+            # Add death event to player's lifecycle span and end it
+            if player.span:
+                player.span.add_event(
+                    "player_death",
+                    attributes={
+                        "accel_magnitude": accel_mag,
+                        "threshold": self.sensitivity.value[1],
+                        "alive_count": alive_count
+                    }
+                )
+                player.span.set_status(Status(StatusCode.OK))
+                player.span.end()
+                logger.debug(f"Ended lifecycle span for player {serial}")
 
             # Publish death event
             self.event_publisher("player_death", {
@@ -305,6 +361,20 @@ class FFAGame:
         with tracer.start_as_current_span("ffa_end_game"):
             logger.info("Ending game...")
             self.state = GameState.ENDING
+
+            # End spans for any surviving players
+            for serial, player in self.players.items():
+                if player.span and player.alive:
+                    player.span.add_event(
+                        "player_survived",
+                        attributes={
+                            "game_duration": time.time() - self.start_time if self.start_time else 0,
+                            "winner": len([p for p in self.players.values() if p.alive]) == 1
+                        }
+                    )
+                    player.span.set_status(Status(StatusCode.OK))
+                    player.span.end()
+                    logger.debug(f"Ended lifecycle span for surviving player {serial}")
 
             # TODO: Show rainbow on winner's controller
             # TODO: Play victory sound

@@ -16,6 +16,7 @@ from typing import Callable, Dict, List, Optional, Set
 from dataclasses import dataclass
 
 from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
 tracer = trace.get_tracer(__name__)
 logger = logging.getLogger(__name__)
@@ -43,6 +44,14 @@ TEAM_COLORS = [
 ]
 
 @dataclass
+class Team:
+    """Represents a team in the game."""
+    team_num: int
+    name: str
+    color: tuple
+    span: Optional[trace.Span] = None  # OpenTelemetry span for team lifecycle
+
+@dataclass
 class Player:
     """Represents a player in the game."""
     serial: str
@@ -50,6 +59,7 @@ class Player:
     alive: bool = True
     color: tuple = (255, 255, 255)
     last_accel_mag: float = 0.0
+    span: Optional[trace.Span] = None  # OpenTelemetry span for player lifecycle
 
 class GameState(Enum):
     """Game lifecycle states."""
@@ -94,11 +104,20 @@ class TeamsGame:
         # Game state
         self.state = GameState.IDLE
         self.players: Dict[str, Player] = {}
+        self.teams: Dict[int, Team] = {}  # team_num -> Team object
         self.start_time = None
         self.running = False
 
         # Team tracking
         self.team_colors = TEAM_COLORS[:num_teams]
+
+        # Initialize team objects
+        for i in range(num_teams):
+            self.teams[i] = Team(
+                team_num=i,
+                name=self.team_colors[i]["name"],
+                color=self.team_colors[i]["rgb"]
+            )
 
         # Settings (will be fetched from Settings service)
         self.sensitivity = Sensitivity.MEDIUM
@@ -210,6 +229,42 @@ class TeamsGame:
             try:
                 from services.controller_manager import controller_manager_pb2
 
+                # Start per-team lifecycle spans (as children of game_loop span)
+                for team_num, team in self.teams.items():
+                    team_span = tracer.start_span(
+                        f"team_{team_num}_{team.name}_lifecycle",
+                        attributes={
+                            "team.number": team_num,
+                            "team.name": team.name,
+                            "team.color": str(team.color),
+                            "game.mode": "Teams"
+                        }
+                    )
+                    team.span = team_span
+                    logger.debug(f"Started lifecycle span for team {team_num} ({team.name})")
+
+                # Start per-player lifecycle spans (as children of their team span)
+                for serial, player in self.players.items():
+                    team = self.teams[player.team]
+
+                    # Create player span as child of team span using context
+                    from opentelemetry import context
+                    ctx = trace.set_span_in_context(team.span)
+
+                    player_span = tracer.start_span(
+                        f"player_{serial}_lifecycle",
+                        context=ctx,
+                        attributes={
+                            "player.serial": serial,
+                            "player.team": player.team,
+                            "player.team_name": team.name,
+                            "player.color": str(player.color),
+                            "game.mode": "Teams"
+                        }
+                    )
+                    player.span = player_span
+                    logger.debug(f"Started lifecycle span for player {serial} (Team {team.name})")
+
                 # Start streaming controller states
                 stream_request = controller_manager_pb2.StreamRequest(
                     update_frequency_hz=UPDATE_FREQUENCY
@@ -269,9 +324,36 @@ class TeamsGame:
         if accel_mag > death_threshold:
             await self._kill_player(serial, accel_mag)
 
-        # TODO: Check for warning (flash controller)
-        # elif accel_mag > warn_threshold:
-        #     await self._warn_player(serial)
+        # Check for warning (flash controller)
+        elif accel_mag > warn_threshold:
+            await self._warn_player(serial, accel_mag)
+
+    async def _warn_player(self, serial: str, accel_mag: float):
+        """
+        Warn a player that they're moving too much.
+
+        Args:
+            serial: Controller serial number
+            accel_mag: Acceleration magnitude that triggered warning
+        """
+        player = self.players.get(serial)
+        if not player or not player.alive:
+            return
+
+        # Add warning event to player's lifecycle span
+        if player.span:
+            player.span.add_event(
+                "player_warning",
+                attributes={
+                    "accel_magnitude": accel_mag,
+                    "threshold": self.sensitivity.value[0],
+                    "team": player.team
+                }
+            )
+            logger.debug(f"Player {serial} (Team {player.team}) triggered warning (accel: {accel_mag:.2f})")
+
+        # TODO: Flash controller LED
+        # TODO: Vibrate controller
 
     async def _kill_player(self, serial: str, accel_mag: float):
         """
@@ -287,19 +369,54 @@ class TeamsGame:
                 return
 
             player.alive = False
+            team = self.teams[player.team]
+
             span.set_attribute("player.serial", serial)
             span.set_attribute("player.team", player.team)
+            span.set_attribute("player.team_name", team.name)
             span.set_attribute("accel_magnitude", accel_mag)
 
             alive_count = len([p for p in self.players.values() if p.alive])
             alive_teams = self._get_alive_teams()
 
+            # Check if this death eliminated the team
+            team_eliminated = player.team not in alive_teams
+
             logger.info(f"Player died: {serial} (Team {player.team}), {alive_count} players remaining on {len(alive_teams)} teams")
+
+            # Add death event to player's lifecycle span and end it
+            if player.span:
+                player.span.add_event(
+                    "player_death",
+                    attributes={
+                        "accel_magnitude": accel_mag,
+                        "threshold": self.sensitivity.value[1],
+                        "alive_count": alive_count,
+                        "team_eliminated": team_eliminated
+                    }
+                )
+                player.span.set_status(Status(StatusCode.OK))
+                player.span.end()
+                logger.debug(f"Ended lifecycle span for player {serial}")
+
+            # If team eliminated, end team span
+            if team_eliminated and team.span:
+                team.span.add_event(
+                    "team_eliminated",
+                    attributes={
+                        "last_player": serial,
+                        "alive_teams_count": len(alive_teams)
+                    }
+                )
+                team.span.set_status(Status(StatusCode.OK))
+                team.span.end()
+                logger.info(f"Team {team.name} eliminated! Ended team lifecycle span")
 
             # Publish death event
             self.event_publisher("player_death", {
                 "serial": serial,
                 "team": player.team,
+                "team_name": team.name,
                 "accel_magnitude": accel_mag,
                 "alive_count": alive_count,
                 "alive_teams_count": len(alive_teams)
@@ -360,6 +477,41 @@ class TeamsGame:
         with tracer.start_as_current_span("teams_end_game"):
             logger.info("Ending game...")
             self.state = GameState.ENDING
+
+            # Determine winning team
+            alive_teams = self._get_alive_teams()
+            winning_team_num = list(alive_teams)[0] if len(alive_teams) == 1 else None
+
+            # End spans for any surviving players
+            for serial, player in self.players.items():
+                if player.span and player.alive:
+                    is_winner = winning_team_num is not None and player.team == winning_team_num
+                    player.span.add_event(
+                        "player_survived",
+                        attributes={
+                            "game_duration": time.time() - self.start_time if self.start_time else 0,
+                            "winner": is_winner,
+                            "team": player.team
+                        }
+                    )
+                    player.span.set_status(Status(StatusCode.OK))
+                    player.span.end()
+                    logger.debug(f"Ended lifecycle span for surviving player {serial}")
+
+            # End spans for any surviving teams (winning team)
+            for team_num, team in self.teams.items():
+                if team.span and team_num in alive_teams:
+                    is_winning_team = winning_team_num is not None and team_num == winning_team_num
+                    team.span.add_event(
+                        "team_victory" if is_winning_team else "team_survived",
+                        attributes={
+                            "game_duration": time.time() - self.start_time if self.start_time else 0,
+                            "winner": is_winning_team
+                        }
+                    )
+                    team.span.set_status(Status(StatusCode.OK))
+                    team.span.end()
+                    logger.info(f"Ended lifecycle span for team {team.name} ({'WINNER' if is_winning_team else 'survived'})")
 
             # TODO: Show rainbow on winning team's controllers
             # TODO: Play victory sound for winning team

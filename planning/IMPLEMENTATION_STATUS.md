@@ -1387,6 +1387,423 @@ proto/
 
 ---
 
+## Performance & Optimization Phases
+
+### 🔥 Phase 16: Critical Performance Fixes (URGENT - BLOCKS RASPBERRY PI DEPLOYMENT)
+
+**Priority:** CRITICAL
+**Goal:** Fix blocking operations that prevent 60 FPS gameplay on Raspberry Pi
+
+**Motivation:**
+- Current implementation uses synchronous `time.sleep()` in hot path, blocking entire thread pool
+- Raspberry Pi 4/5 has only 4 CPU cores, thread starvation causes 40-50 FPS instead of 60 FPS
+- Game loop timing is inefficient, adding 50-100ms latency per frame
+- ThreadPoolExecutor with max_workers=10 limits concurrent streams to 10
+
+**Critical Bottlenecks Identified:**
+1. **Synchronous blocking in StreamControllerStates** - `controller_manager/server.py:301`
+   - `time.sleep(interval)` blocks gRPC thread for 16.7ms
+   - With 4 game instances = 4 threads permanently blocked
+   - Thread pool starves under load
+
+2. **No async gRPC server** - All services use `grpc.server()` instead of `grpc.aio.server()`
+   - Files: All `services/*/server.py` lines 435, 490, 409, 308, 579, 373
+   - Prevents async/await in RPC handlers
+   - Forces synchronous blocking patterns
+
+3. **Inefficient game loop pattern** - `game_coordinator/games/ffa.py:220`
+   - Sleep happens AFTER processing (wrong position)
+   - Actual frame time = processing + network + sleep
+   - Effective FPS: 40-50 instead of target 60
+
+**Tasks:**
+- [ ] Convert Controller Manager to async gRPC server (`grpc.aio`)
+  - [ ] Change `server = grpc.server(...)` to `server = grpc.aio.server()`
+  - [ ] Convert `StreamControllerStates` to async generator
+  - [ ] Replace `time.sleep()` with `await asyncio.sleep()`
+  - [ ] File: `services/controller_manager/server.py:266-313, 435`
+
+- [ ] Convert all other services to async gRPC servers
+  - [ ] Game Coordinator: `services/game_coordinator/server.py:490`
+  - [ ] Menu: `services/menu/server.py:308`
+  - [ ] Settings: `services/settings/server.py:579`
+  - [ ] Supervisor: `services/supervisor/server.py:373`
+  - [ ] Audio: `services/audio/server.py:409`
+  - [ ] WebUI: Keep Flask (synchronous is OK for web UI)
+
+- [ ] Fix game loop timing pattern
+  - [ ] Use `asyncio.wait_for()` with timeout instead of sleep after processing
+  - [ ] Files: `services/game_coordinator/games/ffa.py:207-220`
+  - [ ] Also fix: `teams.py`, `random_teams.py` (same pattern)
+
+- [ ] Add performance benchmarking
+  - [ ] Measure frame timing (target: <16.7ms for 60 FPS)
+  - [ ] Measure CPU utilization per service
+  - [ ] Test with 4, 6, 8 controllers
+
+**Expected Performance Improvement:**
+- **Before:** 40-50 FPS, 80-90% CPU utilization
+- **After:** 60 FPS stable, 60-70% CPU utilization
+- **Latency reduction:** -50-100ms per frame
+
+**Raspberry Pi Performance Budget:**
+- Target: 16.7ms per frame (60 FPS)
+- Current total: 22-30ms (too slow)
+- After fixes: 10-15ms (comfortable margin)
+
+**Success Criteria:**
+- Stable 60 FPS with 8 controllers on Raspberry Pi 5
+- CPU utilization <70% during gameplay
+- No thread pool exhaustion warnings in logs
+
+---
+
+### 🌐 Phase 17: Network Architecture Improvements (HIGH PRIORITY)
+
+**Priority:** HIGH
+**Goal:** Fix network configuration issues preventing proper service discovery and adding latency
+
+**Motivation:**
+- Controller Manager uses `host` network mode while others use `bridge`
+- Docker DNS resolution doesn't work for host-networked containers
+- Extra network latency from host ↔ bridge translation
+- Architecture not portable to Kubernetes
+
+**Current Issues:**
+
+1. **Network Mode Mismatch** - `docker-compose.yml:84`
+   ```yaml
+   controller-manager:
+       network_mode: host  # ← PROBLEM
+       privileged: true
+   ```
+   - Game Coordinator tries `controller-manager:50052` (DNS name)
+   - But CM is on host network, not discoverable via DNS
+   - Services must hardcode `localhost:50052` or IP address
+
+2. **Missing gRPC Channel Options** - Multiple files
+   - No keep-alive configuration
+   - No connection pooling
+   - No timeout settings
+   - No max message size limits
+   - Files: `game_coordinator/server.py:131`, `webui/server.py:162-176`
+
+3. **No Connection Health Checks**
+   - Channels created once at init, never verified
+   - Stale connections not detected or refreshed
+   - No auto-reconnect on failure
+
+**Tasks:**
+- [ ] Fix Controller Manager network mode
+  - [ ] Remove `network_mode: host` from docker-compose.yml
+  - [ ] Add to `joustmania` bridge network
+  - [ ] Keep `privileged: true` for hardware access
+  - [ ] Verify hardware access still works (USB, Bluetooth)
+  - [ ] Files: `docker-compose.yml:84-98`, `docker-compose.mock.yml:77-116`
+
+- [ ] Add gRPC channel options to all clients
+  - [ ] Keep-alive time: 30s
+  - [ ] Keep-alive timeout: 5s
+  - [ ] Max pings without data: 2
+  - [ ] Connection timeout: 5s
+  - [ ] Files to update:
+    - `game_coordinator/server.py:131` (ControllerManager + Settings clients)
+    - `menu/server.py` (client connections)
+    - `webui/server.py:162-176` (4 gRPC clients)
+    - `supervisor/server.py` (service monitoring clients)
+
+- [ ] Implement connection health monitoring
+  - [ ] Periodic channel connectivity checks
+  - [ ] Auto-reconnect on failure with exponential backoff
+  - [ ] Log connection state changes
+  - [ ] Graceful degradation when services unavailable
+
+- [ ] Add gRPC interceptors
+  - [ ] Retry interceptor for transient failures
+  - [ ] Timeout interceptor for slow calls
+  - [ ] Logging interceptor for debugging
+
+**Example Channel Options:**
+```python
+options = [
+    ('grpc.keepalive_time_ms', 30000),
+    ('grpc.keepalive_timeout_ms', 5000),
+    ('grpc.keepalive_permit_without_calls', True),
+    ('grpc.http2.max_pings_without_data', 2),
+    ('grpc.max_receive_message_length', 10 * 1024 * 1024),  # 10MB
+    ('grpc.max_send_message_length', 10 * 1024 * 1024),
+]
+channel = grpc.aio.insecure_channel('controller-manager:50052', options=options)
+```
+
+**Expected Improvements:**
+- Network latency: -1-2ms (bridge is faster than host translation)
+- Proper service discovery (DNS-based)
+- Connection stability (keep-alive prevents timeouts)
+- Kubernetes-ready architecture
+
+**Success Criteria:**
+- All services accessible via DNS names (e.g., `settings:50051`)
+- No "connection refused" errors during normal operation
+- Automatic recovery from transient network failures
+- Works in both Docker Compose and Kubernetes
+
+---
+
+### ⚡ Phase 18: Game Loop & Telemetry Optimization (MEDIUM PRIORITY)
+
+**Priority:** MEDIUM
+**Goal:** Optimize CPU-intensive operations and reduce telemetry overhead
+
+**Motivation:**
+- Controller state rebuilt on every tick (O(N) allocations)
+- OpenTelemetry creates spans at 60 Hz (high overhead)
+- No span sampling = 100% of traces sent to collector
+- Python object allocations cause GC pressure
+
+**Current Overhead:**
+
+1. **State Rebuild Per Tick** - `controller_manager/server.py:289-292`
+   ```python
+   controllers = [
+       self._build_controller_state_message(serial, info)
+       for serial, info in self.tracked_controllers.items()
+   ]
+   ```
+   - Creates new protobuf objects every 16.7ms
+   - 4 controllers × 60 Hz = 240 allocations/sec
+   - Each allocation: ControllerState + 2 Vector3 objects
+
+2. **No OTel Sampling** - All services
+   - Every RPC creates spans (100% sampling)
+   - Game loop creates spans at 60 Hz
+   - Each span has attributes + events
+   - Batch processor sends to collector over network
+
+3. **Protobuf Message Allocations**
+   - No object pooling or reuse
+   - Garbage collection overhead
+   - Memory fragmentation on Raspberry Pi
+
+**Tasks:**
+- [ ] Implement state caching in Controller Manager
+  - [ ] Cache controller state between ticks
+  - [ ] Only rebuild on actual hardware changes
+  - [ ] Use dirty flag to track changes
+  - [ ] File: `services/controller_manager/server.py:289-292`
+
+- [ ] Add OpenTelemetry sampling
+  - [ ] Configure `TraceIdRatioBased` sampler (10% rate)
+  - [ ] Apply to all services
+  - [ ] Higher sampling for errors/slow spans
+  - [ ] Files: All `services/*/server.py` (init_telemetry)
+
+- [ ] Optimize protobuf object allocation
+  - [ ] Object pooling for frequently used messages
+  - [ ] Reuse message objects where possible
+  - [ ] Consider using `Clear()` instead of recreating
+
+- [ ] Add game loop performance metrics
+  - [ ] Track frame time (P50, P95, P99)
+  - [ ] Track GC pauses
+  - [ ] Track network latency
+  - [ ] Export to Prometheus
+
+**OpenTelemetry Sampling Configuration:**
+```python
+from opentelemetry.sdk.trace.sampling import TraceIdRatioBased, ParentBasedTraceIdRatio
+
+sampler = ParentBasedTraceIdRatio(
+    root=TraceIdRatioBased(0.1),  # Sample 10% of root spans
+)
+
+trace.set_tracer_provider(
+    TracerProvider(
+        resource=Resource.create({SERVICE_NAME: service_name}),
+        sampler=sampler
+    )
+)
+```
+
+**Expected Improvements:**
+- CPU usage: -5-10% (less OTel overhead)
+- Memory: -20-30% (less protobuf allocations)
+- Network to OTel collector: -90% (10% sampling)
+- GC pauses: -30-40% (fewer allocations)
+
+**Success Criteria:**
+- CPU utilization during gameplay <60%
+- Frame time P99 <17ms
+- OTel collector ingestion rate <100 spans/sec
+- No observable impact on gameplay from telemetry
+
+---
+
+### 🎮 Phase 19: Controller Feedback Implementation (MEDIUM PRIORITY)
+
+**Priority:** MEDIUM
+**Goal:** Implement 35+ missing controller feedback TODOs for complete game UX
+
+**Motivation:**
+- Players have NO tactile feedback during gameplay
+- Essential UX features commented out as TODOs
+- LED colors, vibration, audio cues all missing
+- Game feels unresponsive without controller feedback
+
+**Missing Features (By Game Mode):**
+
+**Joust FFA** (`services/game_coordinator/games/ffa.py`):
+- Line 163: Countdown colors (Red → Yellow → Green)
+- Line 284-285: Death warning (LED flash + vibration)
+- Line 328-329: Death indicator (Black/red color)
+- Line 379-380: Victory feedback (Rainbow effect + sound)
+
+**Joust Teams** (`services/game_coordinator/games/teams.py`):
+- Line 212: Team colors during countdown
+- Line 355-356: Warning feedback (flash + vibrate)
+- Line 425-426: Death feedback
+- Line 516-517: Team victory (matching colors)
+
+**Joust Random Teams** (`services/game_coordinator/games/random_teams.py`):
+- Line 262-263: Team formation announcement (color + audio)
+- Line 281: Countdown colors
+- Line 424-425: Warning feedback
+- Line 494-495: Death feedback
+- Line 585-586: Victory celebration
+
+**Total: 35+ TODO items across 3 game modes**
+
+**Tasks:**
+- [ ] Implement countdown color sequence
+  - [ ] 3-2-1 countdown: Red → Yellow → Green
+  - [ ] Sync across all controllers
+  - [ ] Add countdown sound effects
+
+- [ ] Implement death warning feedback
+  - [ ] LED rapid flash when near death threshold
+  - [ ] Vibration pulse
+  - [ ] Warning sound effect
+
+- [ ] Implement death feedback
+  - [ ] LED goes black or red on death
+  - [ ] Strong vibration burst
+  - [ ] Death sound effect
+  - [ ] Fade out over 1-2 seconds
+
+- [ ] Implement victory feedback
+  - [ ] Winner gets rainbow LED effect
+  - [ ] Victory sound/music
+  - [ ] Losers get dimmed colors
+  - [ ] Victory pose duration (3-5 seconds)
+
+- [ ] Implement team-specific feedback
+  - [ ] Display team colors during game
+  - [ ] Team formation announcement
+  - [ ] Team victory celebration (matching colors)
+
+- [ ] Add Audio service integration
+  - [ ] Call Audio gRPC service for sound effects
+  - [ ] Background music during gameplay
+  - [ ] Volume control from settings
+
+- [ ] Add Controller LED/vibration API
+  - [ ] Create ControllerManager RPCs for feedback
+  - [ ] SetLEDColor(serial, r, g, b)
+  - [ ] SetVibration(serial, intensity, duration)
+  - [ ] Effects: Flash, Pulse, Rainbow, Fade
+
+**Controller Feedback API Design:**
+```protobuf
+// Add to controller_manager.proto
+service ControllerManagerService {
+    rpc SetControllerColor(SetColorRequest) returns (SetColorResponse);
+    rpc SetControllerVibration(SetVibrationRequest) returns (SetVibrationResponse);
+    rpc PlayControllerEffect(PlayEffectRequest) returns (PlayEffectResponse);
+}
+
+message SetColorRequest {
+    string serial = 1;
+    int32 r = 2;
+    int32 g = 3;
+    int32 b = 4;
+}
+
+enum ControllerEffect {
+    FLASH = 0;
+    PULSE = 1;
+    RAINBOW = 2;
+    FADE_OUT = 3;
+}
+```
+
+**Expected Improvements:**
+- Complete game UX experience
+- Players feel haptic feedback on hits
+- Visual cues for game state (countdown, death, victory)
+- Game feels responsive and polished
+
+**Raspberry Pi Impact:**
+- LED/vibration commands are cheap (<1ms per command)
+- USB write operations release GIL
+- Minimal CPU overhead (<2% total)
+
+**Success Criteria:**
+- All 35+ TODOs implemented
+- Controller feedback works for all game modes
+- No noticeable latency from feedback commands
+- Player satisfaction with haptic experience
+
+---
+
+### 🚀 Phase 20: Production Optimization (LOW PRIORITY / FUTURE)
+
+**Priority:** LOW (Future improvements)
+**Goal:** Additional optimizations for production deployment and scalability
+
+**Potential Improvements:**
+
+1. **Object Pooling**
+   - Pool protobuf message objects
+   - Reduce GC pressure
+   - Reuse frequently allocated objects
+
+2. **Connection Pooling**
+   - Multiple gRPC channels per client
+   - Round-robin load distribution
+   - Better concurrency
+
+3. **Caching Layer**
+   - Cache frequently accessed settings
+   - Redis integration for distributed cache
+   - Reduce Settings service load
+
+4. **Horizontal Scaling**
+   - Multiple Game Coordinator instances
+   - Load balancer for game sessions
+   - Session affinity
+
+5. **Kubernetes Deployment**
+   - Helm charts for all services
+   - StatefulSets for stateful services
+   - Service mesh (Istio/Linkerd)
+   - Horizontal Pod Autoscaling
+
+6. **Advanced Monitoring**
+   - Prometheus metrics for all services
+   - Grafana dashboards
+   - Alerting rules
+   - SLO/SLI definitions
+
+7. **Code Optimization**
+   - Profile with py-spy
+   - Identify hotspots
+   - Consider Cython for critical paths
+   - Optimize Python bytecode
+
+**Note:** These are future enhancements. Focus on Phases 16-19 first for Raspberry Pi deployment.
+
+---
+
 ## Next Steps
 
 ### Phase 13: Game Modes Refactoring (PLANNED)

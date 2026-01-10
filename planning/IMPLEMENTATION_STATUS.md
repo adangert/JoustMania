@@ -28,6 +28,7 @@
 18. ✅ **Menu Controller Integration** - Physical button navigation restored (MOVE/TRIGGER) (Phase 21)
 19. ✅ **Nonstop Joust Game Mode** - Endless respawn with scoring and spawn protection (Phase 22)
 20. ✅ **Proper Service Health Checks** - gRPC Health protocol, HTTP health endpoints, PSMove refactoring (Phase 24)
+21. 🔍 **Type Safety & Type Annotations** - Comprehensive type hints, mypy integration, improved code quality (Phase 25)
 
 ---
 
@@ -2511,6 +2512,182 @@ class MenuServicer:
 ✅ redis - Up (healthy)
 ✅ jaeger - Up (healthy)
 ```
+
+### 🔍 Phase 25: Type Safety & Type Annotations (PLANNED)
+
+**Goal:** Add comprehensive type hints throughout the codebase and integrate static type checking
+
+**Motivation:**
+- Type hints improve code readability and IDE support (autocomplete, inline docs)
+- Catch bugs at development time before runtime
+- Better refactoring safety with type-aware tools
+- Documentation through type signatures
+- Industry best practice for Python 3.9+
+
+**Proposed Implementation:**
+
+**1. Type Checker Selection & Configuration:**
+- Add `mypy` as development dependency (or `pyright` as alternative)
+- Create `pyproject.toml` configuration for type checking
+- Configure strict mode incrementally (per-module basis)
+- Set up type checking in development workflow
+
+**2. Core Types & Proto Files:**
+- ✅ `core/types.py` - Already has clean data structures, add type hints
+- ✅ `core/common.py` - Add type hints to all functions
+- ✅ Protocol buffer stubs - Automatically generated with types
+- Add generic types for complex data structures (Dict, List, Optional, etc.)
+
+**3. Service-by-Service Type Annotation:**
+
+**Priority 1 - Core Services (High Impact):**
+- `services/settings/server.py` - Settings gRPC service
+- `services/controller_manager/server.py` - Controller management
+- `services/game_coordinator/server.py` - Game lifecycle
+- `services/menu/server.py` - Menu UI service
+- `services/supervisor/server.py` - Process supervision
+- `services/audio/server.py` - Audio playback
+- `services/webui/server.py` - Web UI Flask app
+
+**Priority 2 - Game Modes:**
+- `services/game_coordinator/games/*.py` - All game mode implementations
+- Add return types for game state functions
+- Type hint game configuration objects
+
+**Priority 3 - Utilities & Shared Code:**
+- `utils/colors.py` - Color utility functions
+- `core/controller_state.py` - Controller state management (if we keep it)
+- Legacy game mode files (if still in use)
+
+**4. Configuration:**
+
+**pyproject.toml (mypy configuration):**
+```toml
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Start permissive, tighten later
+disallow_untyped_calls = false
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_optional = true
+show_error_codes = true
+
+# Per-module options (gradually enable strict mode)
+[[tool.mypy.overrides]]
+module = "core.types"
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[[tool.mypy.overrides]]
+module = "services.settings.*"
+disallow_untyped_defs = true
+
+# Ignore third-party libraries without stubs
+[[tool.mypy.overrides]]
+module = [
+    "psmove.*",
+    "pygame.*",
+    "pydub.*",
+    "pyalsaaudio.*",
+]
+ignore_missing_imports = true
+```
+
+**5. Development Workflow:**
+- Add `scripts/lint/typecheck.sh` - Run mypy on all code
+- Add type checking to pre-commit hooks (optional)
+- VS Code/PyCharm integration for real-time type checking
+- Document type checking process in CONTRIBUTING.md
+
+**6. Common Type Patterns:**
+
+```python
+from typing import Optional, Dict, List, Tuple, Any, Callable
+from typing import Protocol  # For structural typing
+from enum import Enum
+
+# Function signatures
+def get_controller(serial: str) -> Optional[ControllerState]:
+    """Get controller by serial number."""
+    pass
+
+# Method signatures with self
+class GameCoordinator:
+    def start_game(self, mode: Games, players: List[str]) -> bool:
+        """Start game with specified mode and players."""
+        pass
+
+# Async functions
+async def stream_events(
+    self,
+    request: menu_pb2.StreamEventsRequest,
+    context: grpc.ServicerContext
+) -> AsyncIterator[menu_pb2.MenuEvent]:
+    """Stream menu events to client."""
+    pass
+
+# Complex types
+ControllerMap = Dict[str, ControllerState]
+ColorTuple = Tuple[int, int, int]  # RGB
+GameResult = Dict[str, Any]
+
+# Protocol for duck typing
+class Moveable(Protocol):
+    def set_leds(self, r: int, g: int, b: int) -> None: ...
+    def update_leds(self) -> None: ...
+```
+
+**Benefits:**
+- ✅ **Catch bugs early** - Type errors found before runtime
+- ✅ **Better IDE support** - Autocomplete, inline documentation, refactoring tools
+- ✅ **Code documentation** - Type signatures are self-documenting
+- ✅ **Refactoring safety** - Type checker verifies changes don't break contracts
+- ✅ **Onboarding** - New developers understand code structure faster
+- ✅ **Professional quality** - Aligns with modern Python best practices
+
+**Tasks:**
+- [ ] Install mypy as dev dependency (add to root pyproject.toml)
+- [ ] Configure mypy in pyproject.toml with incremental strictness
+- [ ] Add type hints to `core/types.py` (all classes and functions)
+- [ ] Add type hints to `core/common.py` (PSMove utility functions)
+- [ ] Add type hints to `services/settings/server.py`
+- [ ] Add type hints to `services/controller_manager/server.py`
+- [ ] Add type hints to `services/game_coordinator/server.py`
+- [ ] Add type hints to `services/menu/server.py`
+- [ ] Add type hints to `services/supervisor/server.py`
+- [ ] Add type hints to `services/audio/server.py`
+- [ ] Add type hints to `services/webui/server.py`
+- [ ] Add type hints to all game mode files (`games/*.py`)
+- [ ] Add type hints to utility modules (`utils/colors.py`, etc.)
+- [ ] Create `scripts/lint/typecheck.sh` script
+- [ ] Run mypy and fix all critical type errors
+- [ ] Document type checking workflow in CONTRIBUTING.md
+- [ ] Add type checking to CI/CD pipeline (optional)
+- [ ] Enable strict mode for core modules incrementally
+
+**Migration Strategy:**
+1. Start with `core/types.py` - Pure data structures, easiest to type
+2. Move to service entry points (`server.py` files) - High visibility
+3. Add types to game modes - Well-defined interfaces
+4. Fill in utility functions - Lower priority but good coverage
+5. Incrementally enable strict mode per module as types improve
+
+**Tools & Resources:**
+- **mypy**: https://mypy.readthedocs.io/
+- **pyright**: https://github.com/microsoft/pyright (alternative, faster)
+- **typing module**: https://docs.python.org/3/library/typing.html
+- **Type hints cheat sheet**: https://mypy.readthedocs.io/en/stable/cheat_sheet_py3.html
+
+**Expected Outcome:**
+- 80%+ type hint coverage across all Python files
+- Zero critical type errors in mypy strict mode for core modules
+- Type checking integrated into development workflow
+- Improved code quality and maintainability
 
 ### Optional Future Phases
 

@@ -5,8 +5,9 @@ services:
   redis:
     image: redis:7.4-alpine
     container_name: joustmania-redis
-    ports:
-      - "6379:6379"
+    # Port 6379 exposed only within Docker network (no host binding)
+    expose:
+      - "6379"
     networks:
       - joustmania
     healthcheck:
@@ -20,9 +21,11 @@ services:
     image: jaegertracing/jaeger:2.14.1
     container_name: joustmania-jaeger
     ports:
-      - "16686:16686"  # Jaeger UI
-      - "14268:14268"  # Jaeger collector HTTP
-      - "14250:14250"  # Jaeger collector gRPC
+      - "16686:16686"  # Jaeger UI (exposed to host for browser access)
+    # Collector ports (14268, 14250) exposed only within Docker network
+    expose:
+      - "14268"  # Jaeger collector HTTP
+      - "14250"  # Jaeger collector gRPC
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     networks:
@@ -58,8 +61,9 @@ services:
       context: .
       dockerfile: services/settings/Dockerfile
     container_name: joustmania-settings
-    ports:
-      - "50051:50051"
+    # Port 50051 exposed only within Docker network (no host binding)
+    expose:
+      - "50051"
     environment:
       - OTEL_SERVICE_NAME=settings-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
@@ -73,6 +77,12 @@ services:
     networks:
       - joustmania
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 50051 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # Controller Manager Service
   controller-manager:
@@ -97,14 +107,15 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # Game Coordinator Service (not implemented yet - Phase 8b)
+  # Game Coordinator Service
   game-coordinator:
     build:
       context: .
       dockerfile: services/game_coordinator/Dockerfile
     container_name: joustmania-game-coordinator
-    ports:
-      - "50053:50053"
+    # Port 50053 exposed only within Docker network (no host binding)
+    expose:
+      - "50053"
     environment:
       - OTEL_SERVICE_NAME=game-coordinator-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
@@ -114,12 +125,18 @@ services:
       redis:
         condition: service_healthy
       settings:
-        condition: service_started
+        condition: service_healthy
       controller-manager:
         condition: service_started
     networks:
       - joustmania
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 50053 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # Menu Service
   menu:
@@ -127,8 +144,9 @@ services:
       context: .
       dockerfile: services/menu/Dockerfile
     container_name: joustmania-menu
-    ports:
-      - "50054:50054"
+    # Port 50054 exposed only within Docker network (no host binding)
+    expose:
+      - "50054"
     environment:
       - OTEL_SERVICE_NAME=menu-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
@@ -138,12 +156,18 @@ services:
       redis:
         condition: service_healthy
       settings:
-        condition: service_started
+        condition: service_healthy
       controller-manager:
         condition: service_started
     networks:
       - joustmania
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 50054 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # Supervisor Service
   supervisor:
@@ -151,8 +175,9 @@ services:
       context: .
       dockerfile: services/supervisor/Dockerfile
     container_name: joustmania-supervisor
-    ports:
-      - "50055:50055"
+    # Port 50055 exposed only within Docker network (no host binding)
+    expose:
+      - "50055"
     environment:
       - OTEL_SERVICE_NAME=supervisor-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
@@ -160,16 +185,22 @@ services:
       otel-collector:
         condition: service_started
       settings:
-        condition: service_started
+        condition: service_healthy
       controller-manager:
         condition: service_started
       game-coordinator:
-        condition: service_started
+        condition: service_healthy
       menu:
-        condition: service_started
+        condition: service_healthy
     networks:
       - joustmania
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 50055 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # Web UI Service
   webui:
@@ -178,7 +209,7 @@ services:
       dockerfile: services/webui/Dockerfile
     container_name: joustmania-webui
     ports:
-      - "80:80"
+      - "80:80"  # WebUI exposed to host for browser access
     environment:
       - OTEL_SERVICE_NAME=webui-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
@@ -190,16 +221,22 @@ services:
       otel-collector:
         condition: service_started
       settings:
-        condition: service_started
+        condition: service_healthy
       controller-manager:
         condition: service_started
       menu:
-        condition: service_started
+        condition: service_healthy
       supervisor:
-        condition: service_started
+        condition: service_healthy
     networks:
       - joustmania
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:80 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # Audio Service
   audio:
@@ -212,8 +249,9 @@ services:
       - /dev/snd:/dev/snd  # Audio hardware
     volumes:
       - ./services/audio/assets:/app/services/audio/assets:ro  # Audio files (read-only)
-    ports:
-      - "50056:50056"
+    # Port 50056 exposed only within Docker network (no host binding)
+    expose:
+      - "50056"
     environment:
       - OTEL_SERVICE_NAME=audio-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
@@ -223,6 +261,12 @@ services:
     networks:
       - joustmania
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 50056 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 networks:
   joustmania:

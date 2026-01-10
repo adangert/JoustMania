@@ -14,6 +14,10 @@ WORKDIR /app
 # Copy root pyproject.toml for workspace configuration
 COPY pyproject.toml /app/
 
+# Copy proto package (shared protocol buffer contracts)
+COPY proto/pyproject.toml /app/proto/
+COPY proto/*.py /app/proto/
+
 # Copy service dependencies
 COPY services/audio/pyproject.toml /app/services/audio/
 
@@ -36,6 +40,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY --from=builder /app/pyproject.toml /app/
+COPY proto/ /app/proto/
 COPY services/audio/ /app/services/audio/
 # Note: Audio assets are mounted as volume in docker-compose.yml
 

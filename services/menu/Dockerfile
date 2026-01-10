@@ -15,6 +15,10 @@ WORKDIR /app
 # Copy root pyproject.toml for workspace configuration
 COPY pyproject.toml /app/
 
+# Copy proto package (shared protocol buffer contracts)
+COPY proto/pyproject.toml /app/proto/
+COPY proto/*.py /app/proto/
+
 # Copy service dependencies
 COPY services/menu/pyproject.toml /app/services/menu/
 
@@ -44,11 +48,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY --from=builder /app/pyproject.toml /app/
 COPY core/ /app/core/
 COPY utils/ /app/utils/
-# Copy only protobuf files from other services (not entire service directories)
-RUN mkdir -p /app/services/controller_manager /app/services/settings
-COPY services/controller_manager/*_pb2*.py /app/services/controller_manager/
-COPY services/settings/*_pb2*.py /app/services/settings/
-RUN touch /app/services/controller_manager/__init__.py /app/services/settings/__init__.py
+COPY proto/ /app/proto/
 COPY services/menu/ /app/services/menu/
 
 # Set Python path

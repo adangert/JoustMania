@@ -41,7 +41,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY --from=builder /app/pyproject.toml /app/
 COPY core/ /app/core/
 COPY utils/ /app/utils/
-COPY menu/ /app/menu/
+COPY games/ /app/games/
 COPY services/menu/ /app/services/menu/
 
 # Set Python path

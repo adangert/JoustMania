@@ -2,27 +2,21 @@
 # Build stage
 FROM python:3.11-slim as builder
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    pkg-config \
-    && rm -rf /var/lib/apt/lists/*
-
 # Set working directory
 WORKDIR /app
-
-# Copy root pyproject.toml for workspace configuration
-COPY pyproject.toml /app/
-
-# Copy service dependencies
-COPY services/controller_manager/pyproject.toml /app/services/controller_manager/
 
 # Install uv package manager
 RUN pip install --no-cache-dir uv==0.5.11
 
-# Install dependencies using uv
-WORKDIR /app/services/controller_manager
-RUN uv pip install --system -e .
+# Install only the dependencies needed for mock server (no dbus-python or hardware deps)
+RUN uv pip install --system \
+    grpcio>=1.50.0 \
+    grpcio-tools>=1.50.0 \
+    protobuf>=4.21.0 \
+    opentelemetry-api>=1.20.0 \
+    opentelemetry-sdk>=1.20.0 \
+    opentelemetry-exporter-otlp>=1.20.0 \
+    opentelemetry-instrumentation-grpc>=0.41b0
 
 # Runtime stage
 FROM python:3.11-slim
@@ -34,10 +28,7 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy application code
-COPY --from=builder /app/pyproject.toml /app/
-COPY core/ /app/core/
-COPY utils/ /app/utils/
+# Copy application code (mock server only needs controller_manager directory)
 COPY services/controller_manager/ /app/services/controller_manager/
 
 # Set Python path

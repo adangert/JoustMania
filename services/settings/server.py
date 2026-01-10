@@ -21,6 +21,7 @@ from concurrent import futures
 import grpc
 import grpc.aio
 import asyncio
+from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
 # OpenTelemetry imports
 from opentelemetry import trace
@@ -564,7 +565,7 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
                     logger.info(f"Subscriber disconnected: {subscriber_id}")
 
 
-def serve(port: int = 50051):
+async def serve(port: int = 50051):
     """
     Start the Settings gRPC server.
 
@@ -583,6 +584,14 @@ def serve(port: int = 50051):
     # Add servicer
     settings_servicer = SettingsServicer()
     settings_pb2_grpc.add_SettingsServiceServicer_to_server(settings_servicer, server)
+
+    # Add health checking service
+    health_servicer = health.aio.HealthServicer()
+    health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
+
+    # Mark the Settings service as SERVING
+    await health_servicer.set("settings.SettingsService", health_pb2.HealthCheckResponse.SERVING)
+    await health_servicer.set("", health_pb2.HealthCheckResponse.SERVING)  # Overall health
 
     # Bind to port
     server.add_insecure_port(f'[::]:{port}')

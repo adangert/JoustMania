@@ -21,6 +21,7 @@ import grpc
 import grpc.aio
 import asyncio
 import pygame
+from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
 # OpenTelemetry instrumentation
 from opentelemetry import trace
@@ -403,13 +404,21 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
             )
 
 
-def serve():
+async def serve():
     """Start the Audio gRPC server."""
     logger.info("Starting JoustMania Audio service...")
 
     # Create gRPC server
     server = grpc.aio.server()
     audio_pb2_grpc.add_AudioServiceServicer_to_server(AudioServiceServicer(), server)
+
+    # Add health checking service
+    health_servicer = health.aio.HealthServicer()
+    health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
+
+    # Mark the Audio service as SERVING
+    await health_servicer.set("audio.AudioService", health_pb2.HealthCheckResponse.SERVING)
+    await health_servicer.set("", health_pb2.HealthCheckResponse.SERVING)  # Overall health
 
     # Bind to port
     port = "50056"
@@ -430,4 +439,4 @@ def serve():
 
 
 if __name__ == "__main__":
-    serve()
+    asyncio.run(serve())

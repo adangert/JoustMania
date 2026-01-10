@@ -78,7 +78,7 @@ services:
       - joustmania
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 50051 || exit 1"]
+      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50051'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -113,7 +113,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 50052 || exit 1"]
+      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50052'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -144,7 +144,7 @@ services:
       - joustmania
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 50053 || exit 1"]
+      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50053'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -175,7 +175,7 @@ services:
       - joustmania
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 50054 || exit 1"]
+      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50054'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -208,7 +208,7 @@ services:
       - joustmania
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 50055 || exit 1"]
+      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50055'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -244,7 +244,7 @@ services:
       - joustmania
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:80 || exit 1"]
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:80/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -274,7 +274,7 @@ services:
       - joustmania
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 50056 || exit 1"]
+      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50056'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
       interval: 10s
       timeout: 5s
       retries: 5

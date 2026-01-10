@@ -21,6 +21,16 @@ service ControllerManagerService {
 
   // Remove a controller
   rpc RemoveController(RemoveControllerRequest) returns (RemoveControllerResponse);
+
+  // Controller feedback RPCs (Phase 19)
+  // Set LED color
+  rpc SetControllerColor(SetControllerColorRequest) returns (SetControllerColorResponse);
+
+  // Set vibration intensity
+  rpc SetControllerVibration(SetControllerVibrationRequest) returns (SetControllerVibrationResponse);
+
+  // Play predefined effect (flash, pulse, rainbow, etc.)
+  rpc PlayControllerEffect(PlayControllerEffectRequest) returns (PlayControllerEffectResponse);
 }
 
 // Controller state data
@@ -98,6 +108,52 @@ message RemoveControllerRequest {
 }
 
 message RemoveControllerResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+// Controller feedback messages (Phase 19)
+message SetControllerColorRequest {
+  string serial = 1;  // Controller serial (empty = all controllers)
+  RGB color = 2;      // RGB color to set
+  int32 duration_ms = 3;  // Duration in milliseconds (0 = permanent)
+}
+
+message SetControllerColorResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message SetControllerVibrationRequest {
+  string serial = 1;  // Controller serial (empty = all controllers)
+  int32 intensity = 2;  // Vibration intensity (0-255)
+  int32 duration_ms = 3;  // Duration in milliseconds
+}
+
+message SetControllerVibrationResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+// Controller effects
+enum ControllerEffect {
+  EFFECT_NONE = 0;
+  EFFECT_FLASH = 1;      // Rapid on/off flashing
+  EFFECT_PULSE = 2;      // Smooth breathing effect
+  EFFECT_RAINBOW = 3;    // Cycle through rainbow colors
+  EFFECT_FADE_OUT = 4;   // Fade to black over duration
+  EFFECT_FADE_IN = 5;    // Fade from black to color
+}
+
+message PlayControllerEffectRequest {
+  string serial = 1;  // Controller serial (empty = all controllers)
+  ControllerEffect effect = 2;  // Effect to play
+  RGB color = 3;      // Base color for effect (if applicable)
+  int32 duration_ms = 4;  // Effect duration in milliseconds
+  int32 speed = 5;    // Effect speed (1-10, default 5)
+}
+
+message PlayControllerEffectResponse {
   bool success = 1;
   string error = 2;
 }

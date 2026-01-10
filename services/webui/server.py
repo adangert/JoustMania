@@ -233,6 +233,7 @@ class WebUI:
         self.app.add_url_rule("/reboot8675309", "reboot", self.reboot)
         self.app.add_url_rule("/shutdown8675309", "shutdown", self.shutdown)
         self.app.add_url_rule("/shutdown", "shutdown_lastscreen", self.shutdown_lastscreen)
+        self.app.add_url_rule("/health", "health", self.health)
 
         # Instrument Flask app
         FlaskInstrumentor().instrument_app(self.app)
@@ -388,6 +389,10 @@ class WebUI:
     def shutdown_lastscreen(self):
         """Shutdown confirmation page."""
         return render_template("shutdown.html")
+
+    def health(self):
+        """Health check endpoint."""
+        return {"status": "healthy", "service": "webui"}, 200
 
     def reboot(self):
         """Reboot system."""

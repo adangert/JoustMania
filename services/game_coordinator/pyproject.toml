@@ -16,6 +16,7 @@ dependencies = [
 
     # gRPC
     "grpcio>=1.70.0",
+    "grpcio-health-checking>=1.70.0",
     "grpcio-tools>=1.70.0",
 
     # Redis for pub/sub events

@@ -19,6 +19,7 @@ from typing import Dict, List, Optional
 from concurrent import futures
 import grpc
 import grpc.aio
+from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
 # OpenTelemetry imports
 from opentelemetry import trace
@@ -179,8 +180,20 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 'battery': battery,
                 'ready': False,
                 'team': 0,
-                'connected_at': time.time()
+                'connected_at': time.time(),
+                'move': move  # Store move object for feedback operations
             }
+
+            # Add attributes to current span (this is called within "spawn_controller_process" span)
+            current_span = trace.get_current_span()
+            current_span.set_attribute("controller.serial", serial)
+            current_span.set_attribute("controller.move_num", move_num)
+            current_span.set_attribute("controller.battery", battery)
+            current_span.add_event("controller_added_to_tracking", {
+                "serial": serial,
+                "move_num": move_num,
+                "battery": battery
+            })
 
             logger.info(f"Spawned tracking for controller {serial}")
 
@@ -323,10 +336,15 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             try:
                 # In production, this would trigger USB pairing
                 # For now, return mock response
+                serial = "mock_serial_12345"
+                span.add_event("controller_paired", {
+                    "serial": serial,
+                    "color_index": request.color_index
+                })
                 return controller_manager_pb2.PairControllerResponse(
                     success=True,
                     error="",
-                    serial="mock_serial_12345"
+                    serial=serial
                 )
             except Exception as e:
                 span.record_exception(e)
@@ -361,6 +379,9 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     if serial in self.controller_states:
                         del self.controller_states[serial]
 
+                    span.add_event("controller_removed", {
+                        "serial": serial
+                    })
                     logger.info(f"Removed controller {serial}")
 
                     return controller_manager_pb2.RemoveControllerResponse(
@@ -378,6 +399,146 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 logger.error(f"RemoveController error: {e}", exc_info=True)
                 return controller_manager_pb2.RemoveControllerResponse(
+                    success=False,
+                    error=str(e)
+                )
+
+    def SetControllerColor(self, request, context):
+        """Set LED color on controller(s) - Phase 19 feedback feature."""
+        with tracer.start_as_current_span("SetControllerColor") as span:
+            span.set_attribute("serial", request.serial or "all")
+            span.set_attribute("color.r", request.color.r)
+            span.set_attribute("color.g", request.color.g)
+            span.set_attribute("color.b", request.color.b)
+
+            try:
+                if not PSMOVE_AVAILABLE:
+                    logger.info(f"SetControllerColor (mock): {request.serial or 'all'} -> RGB({request.color.r},{request.color.g},{request.color.b})")
+                    return controller_manager_pb2.SetControllerColorResponse(
+                        success=True,
+                        error=""
+                    )
+
+                # Determine which controllers to update
+                serials = [request.serial] if request.serial else list(self.tracked_controllers.keys())
+
+                controllers_updated = 0
+                for serial in serials:
+                    if serial in self.tracked_controllers:
+                        info = self.tracked_controllers[serial]
+                        move = info.get('move')
+                        if move:
+                            move.set_leds(request.color.r, request.color.g, request.color.b)
+                            move.update_leds()
+                            controllers_updated += 1
+                            logger.debug(f"Set color on {serial}: RGB({request.color.r},{request.color.g},{request.color.b})")
+
+                span.set_attribute("controllers_updated", controllers_updated)
+                return controller_manager_pb2.SetControllerColorResponse(
+                    success=True,
+                    error=""
+                )
+
+            except Exception as e:
+                span.record_exception(e)
+                logger.error(f"SetControllerColor error: {e}", exc_info=True)
+                return controller_manager_pb2.SetControllerColorResponse(
+                    success=False,
+                    error=str(e)
+                )
+
+    def SetControllerVibration(self, request, context):
+        """Set vibration on controller(s) - Phase 19 feedback feature."""
+        with tracer.start_as_current_span("SetControllerVibration") as span:
+            span.set_attribute("serial", request.serial or "all")
+            span.set_attribute("intensity", request.intensity)
+            span.set_attribute("duration_ms", request.duration_ms)
+
+            try:
+                if not PSMOVE_AVAILABLE:
+                    logger.info(f"SetControllerVibration (mock): {request.serial or 'all'} intensity={request.intensity} duration={request.duration_ms}ms")
+                    return controller_manager_pb2.SetControllerVibrationResponse(
+                        success=True,
+                        error=""
+                    )
+
+                # Determine which controllers to update
+                serials = [request.serial] if request.serial else list(self.tracked_controllers.keys())
+
+                controllers_updated = 0
+                for serial in serials:
+                    if serial in self.tracked_controllers:
+                        info = self.tracked_controllers[serial]
+                        move = info.get('move')
+                        if move:
+                            move.set_rumble(request.intensity)
+                            controllers_updated += 1
+                            logger.debug(f"Set vibration on {serial}: intensity={request.intensity}")
+
+                # TODO: Handle duration_ms by resetting rumble after timeout
+                # For now, vibration stays at intensity until explicitly changed
+
+                span.set_attribute("controllers_updated", controllers_updated)
+                return controller_manager_pb2.SetControllerVibrationResponse(
+                    success=True,
+                    error=""
+                )
+
+            except Exception as e:
+                span.record_exception(e)
+                logger.error(f"SetControllerVibration error: {e}", exc_info=True)
+                return controller_manager_pb2.SetControllerVibrationResponse(
+                    success=False,
+                    error=str(e)
+                )
+
+    def PlayControllerEffect(self, request, context):
+        """Play visual effect on controller(s) - Phase 19 feedback feature."""
+        with tracer.start_as_current_span("PlayControllerEffect") as span:
+            span.set_attribute("serial", request.serial or "all")
+            span.set_attribute("effect", request.effect)
+
+            try:
+                if not PSMOVE_AVAILABLE:
+                    effect_name = controller_manager_pb2.ControllerEffect.Name(request.effect)
+                    logger.info(f"PlayControllerEffect (mock): {request.serial or 'all'} effect={effect_name}")
+                    return controller_manager_pb2.PlayControllerEffectResponse(
+                        success=True,
+                        error=""
+                    )
+
+                # TODO: Implement effects (FLASH, PULSE, RAINBOW, FADE_OUT, FADE_IN)
+                # For Phase 19, we'll implement basic color setting
+                # Effects will need background threads or async tasks to animate
+
+                # For now, just set the color (if provided)
+                controllers_updated = 0
+                if request.effect == controller_manager_pb2.EFFECT_NONE:
+                    # Set solid color
+                    serials = [request.serial] if request.serial else list(self.tracked_controllers.keys())
+                    for serial in serials:
+                        if serial in self.tracked_controllers:
+                            info = self.tracked_controllers[serial]
+                            move = info.get('move')
+                            if move and request.color:
+                                move.set_leds(request.color.r, request.color.g, request.color.b)
+                                move.update_leds()
+                                controllers_updated += 1
+
+                effect_name = controller_manager_pb2.ControllerEffect.Name(request.effect)
+                span.set_attribute("controllers_updated", controllers_updated)
+                span.set_attribute("effect", effect_name)
+                logger.info(f"PlayControllerEffect: {effect_name} (basic implementation)")
+
+                return controller_manager_pb2.PlayControllerEffectResponse(
+                    success=True,
+                    error=""
+                )
+
+            except Exception as e:
+                span.record_exception(e)
+                logger.error(f"PlayControllerEffect error: {e}", exc_info=True)
+                return controller_manager_pb2.PlayControllerEffectResponse(
                     success=False,
                     error=str(e)
                 )
@@ -442,6 +603,14 @@ async def serve(port=50052):
     controller_manager_pb2_grpc.add_ControllerManagerServiceServicer_to_server(
         controller_servicer, server
     )
+
+    # Add health checking service
+    health_servicer = health.aio.HealthServicer()
+    health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
+
+    # Mark the ControllerManager service as SERVING
+    await health_servicer.set("controller_manager.ControllerManagerService", health_pb2.HealthCheckResponse.SERVING)
+    await health_servicer.set("", health_pb2.HealthCheckResponse.SERVING)  # Overall health
 
     # Bind to port
     server.add_insecure_port(f'[::]:{port}')

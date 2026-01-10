@@ -65,6 +65,21 @@ class ControllerManagerServiceStub(object):
                 request_serializer=controller__manager__pb2.RemoveControllerRequest.SerializeToString,
                 response_deserializer=controller__manager__pb2.RemoveControllerResponse.FromString,
                 _registered_method=True)
+        self.SetControllerColor = channel.unary_unary(
+                '/joustmania.controller_manager.ControllerManagerService/SetControllerColor',
+                request_serializer=controller__manager__pb2.SetControllerColorRequest.SerializeToString,
+                response_deserializer=controller__manager__pb2.SetControllerColorResponse.FromString,
+                _registered_method=True)
+        self.SetControllerVibration = channel.unary_unary(
+                '/joustmania.controller_manager.ControllerManagerService/SetControllerVibration',
+                request_serializer=controller__manager__pb2.SetControllerVibrationRequest.SerializeToString,
+                response_deserializer=controller__manager__pb2.SetControllerVibrationResponse.FromString,
+                _registered_method=True)
+        self.PlayControllerEffect = channel.unary_unary(
+                '/joustmania.controller_manager.ControllerManagerService/PlayControllerEffect',
+                request_serializer=controller__manager__pb2.PlayControllerEffectRequest.SerializeToString,
+                response_deserializer=controller__manager__pb2.PlayControllerEffectResponse.FromString,
+                _registered_method=True)
 
 
 class ControllerManagerServiceServicer(object):
@@ -113,6 +128,28 @@ class ControllerManagerServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SetControllerColor(self, request, context):
+        """Controller feedback RPCs (Phase 19)
+        Set LED color
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetControllerVibration(self, request, context):
+        """Set vibration intensity
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def PlayControllerEffect(self, request, context):
+        """Play predefined effect (flash, pulse, rainbow, etc.)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ControllerManagerServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -145,6 +182,21 @@ def add_ControllerManagerServiceServicer_to_server(servicer, server):
                     servicer.RemoveController,
                     request_deserializer=controller__manager__pb2.RemoveControllerRequest.FromString,
                     response_serializer=controller__manager__pb2.RemoveControllerResponse.SerializeToString,
+            ),
+            'SetControllerColor': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetControllerColor,
+                    request_deserializer=controller__manager__pb2.SetControllerColorRequest.FromString,
+                    response_serializer=controller__manager__pb2.SetControllerColorResponse.SerializeToString,
+            ),
+            'SetControllerVibration': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetControllerVibration,
+                    request_deserializer=controller__manager__pb2.SetControllerVibrationRequest.FromString,
+                    response_serializer=controller__manager__pb2.SetControllerVibrationResponse.SerializeToString,
+            ),
+            'PlayControllerEffect': grpc.unary_unary_rpc_method_handler(
+                    servicer.PlayControllerEffect,
+                    request_deserializer=controller__manager__pb2.PlayControllerEffectRequest.FromString,
+                    response_serializer=controller__manager__pb2.PlayControllerEffectResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -310,6 +362,87 @@ class ControllerManagerService(object):
             '/joustmania.controller_manager.ControllerManagerService/RemoveController',
             controller__manager__pb2.RemoveControllerRequest.SerializeToString,
             controller__manager__pb2.RemoveControllerResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetControllerColor(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/joustmania.controller_manager.ControllerManagerService/SetControllerColor',
+            controller__manager__pb2.SetControllerColorRequest.SerializeToString,
+            controller__manager__pb2.SetControllerColorResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SetControllerVibration(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/joustmania.controller_manager.ControllerManagerService/SetControllerVibration',
+            controller__manager__pb2.SetControllerVibrationRequest.SerializeToString,
+            controller__manager__pb2.SetControllerVibrationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def PlayControllerEffect(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/joustmania.controller_manager.ControllerManagerService/PlayControllerEffect',
+            controller__manager__pb2.PlayControllerEffectRequest.SerializeToString,
+            controller__manager__pb2.PlayControllerEffectResponse.FromString,
             options,
             channel_credentials,
             insecure,

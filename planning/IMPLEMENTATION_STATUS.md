@@ -1312,6 +1312,10 @@ legacy/games/           # Archive old implementations
 **Commits:**
 - `f4979e4`: Created proto package and updated dependencies
 - `fb8c8cc`: Updated all service Dockerfiles to use proto package
+- `5d41b4a`: Added workspace source configuration for proto package
+- `3324404`: Fixed webui and audio workspace members
+
+**Result:** All 7 microservices now use the centralized proto package. Dockerfiles are cleaner (removed 40+ lines of redundant COPY commands), dependencies are properly managed through uv workspace, and the system builds successfully.
 
 **Proto Package Structure:**
 ```
@@ -1823,6 +1827,48 @@ enum ControllerEffect {
 6. Integration testing with all services
 
 **See:** Phase 13 tasks in IMPLEMENTATION_STATUS.md (lines 913-1227)
+
+### Phase 17: Proper Service Health Checks (PLANNED)
+
+**Goal:** Implement proper gRPC and HTTP health check endpoints instead of simple socket checks
+
+**Motivation:**
+- Current health checks only verify that a port is open (TCP socket check)
+- Doesn't verify that the service is actually healthy and able to handle requests
+- gRPC has a standardized health checking protocol
+- Proper health checks improve observability and reliability
+
+**Proposed Implementation:**
+
+**gRPC Health Check Protocol:**
+- Implement `grpc.health.v1.Health` service in all gRPC microservices
+- Services: settings, controller_manager, game_coordinator, menu, supervisor, audio
+- Provides `Check()` RPC that returns SERVING/NOT_SERVING/UNKNOWN status
+- Can be checked per-service or globally
+- Reference: https://github.com/grpc/grpc/blob/master/doc/health-checking.md
+
+**HTTP Health Endpoints:**
+- WebUI service: Add `/health` endpoint that returns 200 OK when healthy
+- Can include dependency checks (e.g., check if gRPC services are reachable)
+
+**Docker Compose Integration:**
+- Update health checks to use `grpc_health_probe` tool
+- For HTTP services: Use `wget` or `curl` to check `/health` endpoint
+- More accurate than socket checks, catches scenarios where port is open but service is crashed
+
+**Benefits:**
+- ✅ **Accurate health status** - Verifies service is actually working, not just port open
+- ✅ **Standard protocol** - Uses gRPC/HTTP standard health check patterns
+- ✅ **Better debugging** - Health status provides more information about failures
+- ✅ **Production-ready** - Aligns with Kubernetes liveness/readiness probes
+
+**Tasks:**
+- [ ] Add grpc-health-checking dependency to all gRPC services
+- [ ] Implement Health service in each microservice
+- [ ] Add `/health` endpoint to WebUI service
+- [ ] Update docker-compose health checks to use proper protocol
+- [ ] Test health checks reflect actual service status
+- [ ] Document health check implementation
 
 ### Optional Future Phases
 

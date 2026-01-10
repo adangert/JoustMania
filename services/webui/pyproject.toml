@@ -12,14 +12,14 @@ dependencies = [
     "pyyaml>=6.0",
 
     # gRPC (client only)
-    "grpcio>=1.60.0",
-    "grpcio-tools>=1.60.0",
+    "grpcio>=1.70.0",
+    "grpcio-tools>=1.70.0",
 
     # OpenTelemetry
-    "opentelemetry-distro>=0.43b0",
-    "opentelemetry-exporter-otlp>=1.22.0",
-    "opentelemetry-instrumentation-flask>=0.43b0",
-    "opentelemetry-instrumentation-grpc>=0.43b0",
+    "opentelemetry-distro>=0.49b0",
+    "opentelemetry-exporter-otlp>=1.28.0",
+    "opentelemetry-instrumentation-flask>=0.49b0",
+    "opentelemetry-instrumentation-grpc>=0.49b0",
 ]
 
 [build-system]

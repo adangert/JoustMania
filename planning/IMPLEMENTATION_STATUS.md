@@ -1821,6 +1821,355 @@ trace.set_tracer_provider(
 
 ---
 
+### 🎮 Phase 21: Menu Controller Integration (HIGH PRIORITY)
+
+**Priority:** HIGH
+**Goal:** Restore physical controller button navigation in menu
+
+**Motivation:**
+- Menu service has `ProcessInput` RPC but no controller button monitoring
+- Physical controller buttons don't work for menu navigation
+- Players can only use WebUI to select games - defeats purpose of controller-based game
+- Essential UX feature missing from refactored architecture
+
+**Current Gap:**
+- Controller Manager streams button states (`trigger_pressed`, `move_pressed`)
+- Menu service accepts button events via `ProcessInput` RPC
+- **Missing:** Service to monitor button states and call `ProcessInput`
+- WebUI can trigger games, but physical controllers cannot
+
+**Implementation Approach:**
+Add background task to Menu service to monitor controller buttons:
+
+**Tasks:**
+- [ ] Add background async task to Menu service
+  - [ ] Create `_button_monitor_loop()` method
+  - [ ] Stream controller states from Controller Manager
+  - [ ] Track previous button states per controller
+  - [ ] Detect button press transitions (False → True)
+  - [ ] Call internal menu logic (don't call ProcessInput RPC)
+
+- [ ] Implement button detection logic
+  - [ ] SELECT button: Cycle through games
+  - [ ] TRIGGER button: Start selected game
+  - [ ] MOVE button: Additional menu actions (future)
+  - [ ] Debouncing: 200ms minimum between same button presses
+
+- [ ] Add game mode to list
+  - [ ] Add "NonstopJoust" to game list (prep for Phase 22)
+  - [ ] Update hardcoded games array
+
+- [ ] Testing
+  - [ ] Verify button presses cycle through games
+  - [ ] Verify trigger starts game
+  - [ ] Test with multiple controllers
+  - [ ] Verify debouncing works
+
+**Implementation Details:**
+```python
+# In services/menu/server.py MenuServicer.__init__()
+self.button_monitor_task = None
+self.controller_button_states = {}  # {serial: {trigger: bool, move: bool}}
+self.last_button_press_time = {}    # {serial: {button: timestamp}}
+
+async def _button_monitor_loop(self):
+    """Monitor controller buttons and trigger menu actions."""
+    try:
+        # Connect to Controller Manager
+        channel = grpc.aio.insecure_channel('controller-manager:50052')
+        stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
+
+        # Stream controller states
+        stream_request = controller_manager_pb2.StreamRequest(update_frequency_hz=30)
+        async for update in stub.StreamControllerStates(stream_request):
+            for controller in update.controllers:
+                await self._process_button_state(controller)
+    except Exception as e:
+        logger.error(f"Button monitor error: {e}")
+
+async def _process_button_state(self, controller):
+    """Detect button press transitions and trigger menu actions."""
+    serial = controller.serial
+    current_time = time.time()
+
+    # Initialize state tracking
+    if serial not in self.controller_button_states:
+        self.controller_button_states[serial] = {
+            'trigger': False, 'move': False
+        }
+        self.last_button_press_time[serial] = {}
+
+    prev_state = self.controller_button_states[serial]
+
+    # Detect trigger press (False → True)
+    if controller.trigger_pressed and not prev_state['trigger']:
+        if self._should_process_button(serial, 'trigger', current_time):
+            await self._handle_trigger_press(serial)
+
+    # Detect move press (False → True) - used as SELECT
+    if controller.move_pressed and not prev_state['move']:
+        if self._should_process_button(serial, 'move', current_time):
+            await self._handle_select_press(serial)
+
+    # Update state
+    prev_state['trigger'] = controller.trigger_pressed
+    prev_state['move'] = controller.move_pressed
+
+def _should_process_button(self, serial, button, current_time):
+    """Check if button press should be processed (debouncing)."""
+    last_press = self.last_button_press_time[serial].get(button, 0)
+    if current_time - last_press < 0.2:  # 200ms debounce
+        return False
+    self.last_button_press_time[serial][button] = current_time
+    return True
+
+async def _handle_trigger_press(self, serial):
+    """Handle trigger button press - start game."""
+    self.state = menu_pb2.MenuState.GAME_STARTING
+    self._publish_event("game_requested", {
+        "game_name": self.current_selection,
+        "source": "controller",
+        "serial": serial
+    })
+    logger.info(f"Game requested via controller {serial}: {self.current_selection}")
+
+async def _handle_select_press(self, serial):
+    """Handle select button press - cycle games."""
+    games = ["JoustFFA", "JoustTeams", "Tournament", "Werewolf", "NonstopJoust"]
+    current_index = games.index(self.current_selection) if self.current_selection in games else 0
+    self.current_selection = games[(current_index + 1) % len(games)]
+    self._publish_event("selection_changed", {
+        "game_name": self.current_selection,
+        "source": "controller",
+        "serial": serial
+    })
+    logger.info(f"Selection changed via controller {serial}: {self.current_selection}")
+```
+
+**Expected Improvements:**
+- Physical controller buttons work for menu navigation
+- Players can select and start games without WebUI
+- Complete standalone controller-based UX
+- Foundation for Phase 22 (NonstopJoust in game list)
+
+**Raspberry Pi Impact:**
+- Minimal CPU overhead (~1-2% for 30Hz button monitoring)
+- No latency impact on gameplay
+- Button monitoring runs independently from game loop
+
+**Success Criteria:**
+- Physical SELECT button cycles through games
+- Physical TRIGGER button starts selected game
+- Debouncing prevents duplicate inputs
+- Works with multiple controllers
+- WebUI game selection still works
+
+---
+
+### 🎮 Phase 22: Nonstop Joust Game Mode (MEDIUM PRIORITY)
+
+**Priority:** MEDIUM
+**Goal:** Add endless respawn game mode for continuous action gameplay
+
+**Motivation:**
+- Current game modes end when players die
+- Players want an action-packed mode without downtime
+- Great for parties - no waiting between rounds
+- Enables kill-based scoring and leaderboards
+
+**Game Design:**
+
+**Core Mechanics:**
+- Players respawn 3 seconds after death
+- Game never ends naturally (time-based or manual stop)
+- Score tracking: kills, deaths, kill streaks
+- Optional time limit (5min, 10min, 15min, unlimited)
+- Winner: highest score when time expires OR admin stops game
+
+**Respawn System:**
+- Death: Same feedback as FFA (red LED + vibration)
+- Respawn countdown (3s): Gray → Yellow → Green LED colors
+- Spawn protection: 2 seconds invulnerability after respawn
+  - White pulsing glow during protection
+  - Cannot die during protection
+  - Can kill others (but discouraged by game design)
+- Respawn location: Random (prevent spawn camping)
+
+**Scoring:**
+- +1 point per kill
+- Track deaths (for K/D ratio)
+- Track longest kill streak
+- Bonus points for kill streaks (3+ kills without dying)
+- Leaderboard updated in real-time
+
+**Victory Conditions:**
+- Time limit expires → highest score wins
+- Admin manually stops game → highest score wins
+- Tie-breaker: fewest deaths, then longest kill streak
+
+**Tasks:**
+- [ ] Create game file structure
+  - [ ] Create `services/game_coordinator/games/nonstop_joust.py`
+  - [ ] Base class: similar to FFA game structure
+  - [ ] Game state: COUNTDOWN → RUNNING → ENDING → ENDED
+
+- [ ] Implement respawn system
+  - [ ] Track dead players with respawn timers
+  - [ ] Respawn countdown with LED colors (Gray → Yellow → Green)
+  - [ ] Spawn protection (2s invulnerability, white pulse effect)
+  - [ ] Random respawn position logic (prevent camping)
+
+- [ ] Implement scoring system
+  - [ ] Player stats: kills, deaths, current_streak, best_streak
+  - [ ] Award kill points (+1 per kill)
+  - [ ] Streak bonuses (+1 per kill in streak of 3+)
+  - [ ] Real-time score updates via event stream
+
+- [ ] Implement victory conditions
+  - [ ] Optional time limit (from settings)
+  - [ ] Manual stop support (force_end)
+  - [ ] Determine winner by score
+  - [ ] Tie-breaking logic
+
+- [ ] Controller feedback
+  - [ ] Respawn countdown colors with span events
+  - [ ] Spawn protection white pulse effect
+  - [ ] Kill notification (brief green flash + vibration)
+  - [ ] Death notification (existing red + vibration)
+  - [ ] Leaderboard update notification
+
+- [ ] Integration
+  - [ ] Add "NonstopJoust" to Game Coordinator game registry
+  - [ ] Add to Menu service game list (already in Phase 21)
+  - [ ] Settings: time_limit, spawn_protection_duration
+  - [ ] Test with multiple players
+
+- [ ] Optional enhancements
+  - [ ] Power-ups (speed boost, shield, double damage)
+  - [ ] Zone control (king of the hill variant)
+  - [ ] Team mode (Team Nonstop Joust)
+
+**Implementation Details:**
+
+```python
+# services/game_coordinator/games/nonstop_joust.py
+
+@dataclass
+class NonstopPlayer(Player):
+    """Extended player with respawn and scoring."""
+    kills: int = 0
+    deaths: int = 0
+    current_streak: int = 0
+    best_streak: int = 0
+    score: int = 0
+
+    # Respawn state
+    respawn_timer: float = 0.0  # Time until respawn
+    spawn_protected: bool = False
+    spawn_protection_end: float = 0.0
+
+class NonstopJoustGame:
+    """Endless respawn game mode."""
+
+    async def _game_loop(self):
+        """Main game loop with respawn handling."""
+        while self.running:
+            # Process controller states
+            async for state_update in controller_stream:
+                for controller_state in state_update.controllers:
+                    await self._process_controller_state(controller_state)
+
+                # Update respawn timers
+                await self._update_respawn_timers()
+
+                # Check time limit
+                if self._check_time_limit():
+                    break
+
+    async def _kill_player(self, serial: str, accel_mag: float):
+        """Kill player and start respawn timer."""
+        player = self.players[serial]
+        player.alive = False
+        player.deaths += 1
+        player.current_streak = 0
+        player.respawn_timer = 3.0  # 3 second respawn
+
+        # Award kill to nearest player? Or track separately
+        # (Implementation detail - may need kill attribution)
+
+        # Standard death feedback
+        await self._send_death_feedback(serial)
+
+        # Publish death event
+        self.event_publisher("player_death", {
+            "serial": serial,
+            "kills": player.kills,
+            "deaths": player.deaths
+        })
+
+    async def _update_respawn_timers(self):
+        """Update respawn timers and respawn players."""
+        current_time = time.time()
+
+        for serial, player in self.players.items():
+            if not player.alive and player.respawn_timer > 0:
+                player.respawn_timer -= (1.0 / UPDATE_FREQUENCY)
+
+                # Show respawn countdown colors
+                await self._show_respawn_countdown(serial, player.respawn_timer)
+
+                # Respawn when timer reaches 0
+                if player.respawn_timer <= 0:
+                    await self._respawn_player(serial)
+
+            # Check spawn protection expiration
+            if player.spawn_protected and current_time >= player.spawn_protection_end:
+                player.spawn_protected = False
+                # Return to normal color
+                await self._set_normal_color(serial)
+
+    async def _respawn_player(self, serial: str):
+        """Respawn a dead player."""
+        player = self.players[serial]
+        player.alive = True
+        player.spawn_protected = True
+        player.spawn_protection_end = time.time() + 2.0  # 2s protection
+
+        # White pulse effect during protection
+        await self._show_spawn_protection(serial)
+
+        span.add_event("player_respawned", {
+            "serial": serial,
+            "kills": player.kills,
+            "deaths": player.deaths
+        })
+
+        self.event_publisher("player_respawned", {
+            "serial": serial
+        })
+```
+
+**Expected Improvements:**
+- Continuous action gameplay without downtime
+- Kill-based competition with leaderboards
+- Great for parties and quick play sessions
+- Foundation for future competitive modes
+
+**Raspberry Pi Impact:**
+- Same performance as FFA mode (~60 FPS)
+- Respawn timers add minimal overhead (<1ms per player)
+- Score tracking negligible CPU cost
+
+**Success Criteria:**
+- Players respawn after 3 seconds
+- Spawn protection works (2s invulnerability)
+- Scoring system accurate (kills, deaths, streaks)
+- Time limit victory condition works
+- Manual stop works correctly
+- Real-time leaderboard updates
+
+---
+
 ### 🚀 Phase 20: Production Optimization (LOW PRIORITY / FUTURE)
 
 **Priority:** LOW (Future improvements)

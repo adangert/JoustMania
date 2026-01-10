@@ -35,13 +35,13 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 # Import protobuf definitions
-from services.controller_manager import (
+from proto import (
     controller_manager_pb2,
     controller_manager_pb2_grpc,
 )
-from services.menu import menu_pb2, menu_pb2_grpc
-from services.settings import settings_pb2, settings_pb2_grpc
-from services.supervisor import supervisor_pb2, supervisor_pb2_grpc
+from proto import menu_pb2, menu_pb2_grpc
+from proto import settings_pb2, settings_pb2_grpc
+from proto import supervisor_pb2, supervisor_pb2_grpc
 
 # Import core modules
 from core import common

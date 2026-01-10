@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir uv==0.5.11
 RUN uv pip install --system \
     grpcio>=1.50.0 \
     grpcio-tools>=1.50.0 \
+    grpcio-health-checking>=1.50.0 \
     protobuf>=4.21.0 \
     opentelemetry-api>=1.20.0 \
     opentelemetry-sdk>=1.20.0 \

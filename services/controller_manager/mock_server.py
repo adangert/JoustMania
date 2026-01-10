@@ -16,6 +16,7 @@ from concurrent import futures
 from typing import Dict
 
 import grpc
+from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -256,6 +257,11 @@ async def serve():
     controller_manager_pb2_grpc.add_ControllerManagerServiceServicer_to_server(
         controller_manager, main_server
     )
+
+    # Add health checking service
+    health_servicer = health.aio.HealthServicer()
+    health_pb2_grpc.add_HealthServicer_to_server(health_servicer, main_server)
+
     main_server.add_insecure_port(f'[::]:{main_port}')
 
     # Control server (mock control interface)
@@ -272,6 +278,10 @@ async def serve():
 
     await main_server.start()
     await control_server.start()
+
+    # Mark the ControllerManager service as SERVING
+    await health_servicer.set("controller_manager.ControllerManagerService", health_pb2.HealthCheckResponse.SERVING)
+    await health_servicer.set("", health_pb2.HealthCheckResponse.SERVING)  # Overall health
 
     logger.info("Mock ControllerManager servers started")
 

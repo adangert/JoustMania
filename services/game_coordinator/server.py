@@ -35,9 +35,9 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from services.game_coordinator import game_coordinator_pb2, game_coordinator_pb2_grpc
-from services.controller_manager import controller_manager_pb2, controller_manager_pb2_grpc
-from services.settings import settings_pb2, settings_pb2_grpc
+from proto import game_coordinator_pb2, game_coordinator_pb2_grpc
+from proto import controller_manager_pb2, controller_manager_pb2_grpc
+from proto import settings_pb2, settings_pb2_grpc
 
 # Modern game imports (gRPC-based)
 from services.game_coordinator.games import ffa, teams, random_teams

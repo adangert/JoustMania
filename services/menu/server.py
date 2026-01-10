@@ -100,6 +100,13 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.event_subscribers: Dict[str, queue.Queue] = {}
         self.event_lock = threading.Lock()
 
+        # Controller button monitoring (Phase 21)
+        self.button_monitor_task = None
+        self.button_monitor_running = False
+        self.controller_button_states: Dict[str, Dict[str, bool]] = {}  # {serial: {trigger: bool, move: bool}}
+        self.last_button_press_time: Dict[str, Dict[str, float]] = {}  # {serial: {button: timestamp}}
+        self.channel_options = channel_options
+
         logger.info("Menu service initialized")
 
     def StartMenu(self, request, context):
@@ -221,8 +228,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         logger.info(f"Game requested: {self.current_selection}")
 
                     elif button == "select":
-                        # Move to next game
-                        games = ["JoustFFA", "JoustTeams", "Tournament", "Werewolf"]
+                        # Move to next game (includes NonstopJoust - Phase 22 prep)
+                        games = ["JoustFFA", "JoustTeams", "Tournament", "Werewolf", "NonstopJoust"]
                         current_index = games.index(self.current_selection) if self.current_selection in games else 0
                         self.current_selection = games[(current_index + 1) % len(games)]
                         self._publish_event("selection_changed", {
@@ -317,6 +324,155 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     except Exception as e:
                         logger.error(f"Error publishing to subscriber {sub_id}: {e}")
 
+    async def start_button_monitor(self):
+        """Start the controller button monitoring task (Phase 21)."""
+        if not self.button_monitor_running:
+            self.button_monitor_running = True
+            self.button_monitor_task = asyncio.create_task(self._button_monitor_loop())
+            logger.info("Controller button monitor started")
+
+    async def stop_button_monitor(self):
+        """Stop the controller button monitoring task."""
+        self.button_monitor_running = False
+        if self.button_monitor_task:
+            self.button_monitor_task.cancel()
+            try:
+                await self.button_monitor_task
+            except asyncio.CancelledError:
+                pass
+            logger.info("Controller button monitor stopped")
+
+    async def _button_monitor_loop(self):
+        """Monitor controller buttons and trigger menu actions (Phase 21)."""
+        with tracer.start_as_current_span("button_monitor_loop"):
+            try:
+                # Import controller_manager protobuf
+                from services.controller_manager import controller_manager_pb2, controller_manager_pb2_grpc
+
+                # Connect to Controller Manager
+                channel = grpc.aio.insecure_channel(
+                    'controller-manager:50052',
+                    options=self.channel_options
+                )
+                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
+
+                logger.info("Button monitor connected to Controller Manager")
+
+                # Stream controller states at 30Hz (enough for button detection)
+                stream_request = controller_manager_pb2.StreamRequest(update_frequency_hz=30)
+
+                async for update in stub.StreamControllerStates(stream_request):
+                    if not self.button_monitor_running:
+                        break
+
+                    # Only process buttons when menu is running
+                    if self.state == menu_pb2.MenuState.RUNNING:
+                        for controller in update.controllers:
+                            await self._process_button_state(controller)
+
+                await channel.close()
+
+            except asyncio.CancelledError:
+                logger.info("Button monitor task cancelled")
+                raise
+            except Exception as e:
+                logger.error(f"Button monitor error: {e}", exc_info=True)
+
+    async def _process_button_state(self, controller):
+        """
+        Detect button press transitions and trigger menu actions (Phase 21).
+
+        Args:
+            controller: ControllerState protobuf message
+        """
+        serial = controller.serial
+        current_time = time.time()
+
+        # Initialize state tracking for this controller
+        if serial not in self.controller_button_states:
+            self.controller_button_states[serial] = {
+                'trigger': False,
+                'move': False
+            }
+            self.last_button_press_time[serial] = {}
+
+        prev_state = self.controller_button_states[serial]
+
+        # Detect trigger press (False → True) - starts game
+        if controller.trigger_pressed and not prev_state['trigger']:
+            if self._should_process_button(serial, 'trigger', current_time):
+                await self._handle_trigger_press(serial)
+
+        # Detect move press (False → True) - cycles through games (SELECT)
+        if controller.move_pressed and not prev_state['move']:
+            if self._should_process_button(serial, 'move', current_time):
+                await self._handle_select_press(serial)
+
+        # Update state
+        prev_state['trigger'] = controller.trigger_pressed
+        prev_state['move'] = controller.move_pressed
+
+    def _should_process_button(self, serial: str, button: str, current_time: float) -> bool:
+        """
+        Check if button press should be processed (debouncing).
+
+        Args:
+            serial: Controller serial number
+            button: Button name ('trigger' or 'move')
+            current_time: Current timestamp
+
+        Returns:
+            True if button press should be processed, False if debouncing
+        """
+        last_press = self.last_button_press_time[serial].get(button, 0)
+        if current_time - last_press < 0.2:  # 200ms debounce
+            return False
+        self.last_button_press_time[serial][button] = current_time
+        return True
+
+    async def _handle_trigger_press(self, serial: str):
+        """
+        Handle trigger button press - start game (Phase 21).
+
+        Args:
+            serial: Controller serial number
+        """
+        with tracer.start_as_current_span("handle_trigger_press") as span:
+            span.set_attribute("controller.serial", serial)
+            span.set_attribute("game.name", self.current_selection)
+
+            self.state = menu_pb2.MenuState.GAME_STARTING
+            self._publish_event("game_requested", {
+                "game_name": self.current_selection,
+                "source": "controller",
+                "serial": serial
+            })
+            logger.info(f"Game requested via controller {serial}: {self.current_selection}")
+
+    async def _handle_select_press(self, serial: str):
+        """
+        Handle select button press - cycle games (Phase 21).
+
+        Args:
+            serial: Controller serial number
+        """
+        with tracer.start_as_current_span("handle_select_press") as span:
+            span.set_attribute("controller.serial", serial)
+
+            # Game list includes NonstopJoust (Phase 22 prep)
+            games = ["JoustFFA", "JoustTeams", "Tournament", "Werewolf", "NonstopJoust"]
+            current_index = games.index(self.current_selection) if self.current_selection in games else 0
+            self.current_selection = games[(current_index + 1) % len(games)]
+
+            span.set_attribute("game.name", self.current_selection)
+
+            self._publish_event("selection_changed", {
+                "game_name": self.current_selection,
+                "source": "controller",
+                "serial": serial
+            })
+            logger.info(f"Selection changed via controller {serial}: {self.current_selection}")
+
 
 async def serve(port=50054):
     """Start the Menu gRPC server."""
@@ -348,10 +504,14 @@ async def serve(port=50054):
     logger.info(f"Starting Menu gRPC server on port {port}")
     await server.start()
 
+    # Start controller button monitoring (Phase 21)
+    await menu_servicer.start_button_monitor()
+
     try:
         await server.wait_for_termination()
     except KeyboardInterrupt:
         logger.info("Shutting down Menu server...")
+        await menu_servicer.stop_button_monitor()
         await server.stop(grace=5)
 
 

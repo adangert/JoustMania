@@ -6,13 +6,9 @@ and run end-to-end game simulations without requiring physical hardware.
 
 Usage:
     # Run tests normally (auto-teardown)
-    uv run test-mock
+    uv run pytest tests/integration/test_mock_environment.py -v
 
     # Pause before teardown to inspect Jaeger
-    uv run test-mock-with-pause
-
-    # Or manually
-    uv run pytest tests/integration/test_mock_environment.py -v
     PAUSE_BEFORE_TEARDOWN=1 uv run pytest tests/integration/test_mock_environment.py -v -s
 
     When paused, you can:

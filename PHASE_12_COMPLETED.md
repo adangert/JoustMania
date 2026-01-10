@@ -41,7 +41,7 @@ Successfully completed Phase 12 dependency updates:
 
 | Service | Before | After | Change |
 |---------|--------|-------|--------|
-| **Jaeger** | `jaegertracing/all-in-one:latest` | `jaegertracing/all-in-one:2.0.0` | Major version upgrade to v2 |
+| **Jaeger** | `jaegertracing/all-in-one:latest` | `jaegertracing/jaeger:2.14.1` | Major version upgrade to v2 (corrected image name) |
 | **OTel Collector** | `otel/opentelemetry-collector-contrib:latest` | `otel/opentelemetry-collector-contrib:0.110.0` | Pinned to stable release |
 | **Redis** | `redis:7-alpine` | `redis:7.4-alpine` | Latest 7.x patch version |
 
@@ -144,7 +144,7 @@ RUN pip install --no-cache-dir uv==0.5.11
 
 | Component | Before | After | Notes |
 |-----------|--------|-------|-------|
-| **Jaeger** | `:latest` | `2.0.0` | Jaeger v2 stable |
+| **Jaeger** | `:latest` (v1) | `2.14.1` (v2) | Jaeger v2 stable (new image: jaegertracing/jaeger) |
 | **OTel Collector** | `:latest` | `0.110.0` | Latest stable |
 | **Redis** | `7-alpine` | `7.4-alpine` | Patch update |
 

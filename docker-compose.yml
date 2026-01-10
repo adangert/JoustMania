@@ -17,7 +17,7 @@ services:
 
   # Jaeger for distributed tracing UI
   jaeger:
-    image: jaegertracing/all-in-one:2.0.0
+    image: jaegertracing/jaeger:2.14.1
     container_name: joustmania-jaeger
     ports:
       - "16686:16686"  # Jaeger UI

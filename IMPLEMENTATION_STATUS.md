@@ -577,6 +577,7 @@ htop
 9. **`GAME_COORDINATOR_DESIGN.md`** - GameCoordinator design document (Phase 2)
 10. **`SETTINGS_PROCESS_DESIGN.md`** - Settings process design with cache pattern (Phase 3)
 11. **`PROCESS_SUPERVISOR_DESIGN.md`** - Process Supervisor design and architecture (Phase 4)
+12. **`CLEANUP_PLAN.md`** - Comprehensive cleanup plan (Python files + Bash scripts) (Phase 9-10)
 
 ---
 
@@ -707,14 +708,14 @@ htop
 
 ## Next Steps
 
-### Immediate (Phase 9 - Code Cleanup)
+### Immediate (Phase 9 & 10 - Code Cleanup)
 1. ✅ All 5 gRPC services implemented with OpenTelemetry
 2. ✅ Complete docker-compose stack with observability
-3. ✅ CLEANUP_PLAN.md created with detailed analysis
-4. 📅 Execute Phase 1: Remove confirmed duplicates (10 files)
-5. 📅 Execute Phase 2: Archive legacy piparty.py
-6. 📅 Execute Phase 3-4: Reorganize utils and tests
-7. 📅 Update imports and entry points
+3. ✅ CLEANUP_PLAN.md created with detailed Python files analysis
+4. ✅ CLEANUP_PLAN.md updated with bash scripts analysis
+5. 📅 Execute Phase 1-5: Python files cleanup (remove duplicates, archive legacy, reorganize)
+6. 📅 Execute Phase 6-10: Bash scripts cleanup (archive legacy, reorganize scripts)
+7. 📅 Update imports and references
 8. 📅 Test complete system after cleanup
 
 ### Testing Cloud-Native Stack

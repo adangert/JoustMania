@@ -28,10 +28,11 @@ services:
     networks:
       - joustmania
     healthcheck:
-      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:14269" ]
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:16686" ]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
   # OpenTelemetry Collector
   otel-collector:

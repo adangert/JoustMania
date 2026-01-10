@@ -19,6 +19,8 @@ import queue
 from typing import Dict, Any, Tuple
 from concurrent import futures
 import grpc
+import grpc.aio
+import asyncio
 
 # OpenTelemetry imports
 from opentelemetry import trace
@@ -576,7 +578,7 @@ def serve(port: int = 50051):
     )
 
     # Create server
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    server = grpc.aio.server()
 
     # Add servicer
     settings_servicer = SettingsServicer()
@@ -587,15 +589,15 @@ def serve(port: int = 50051):
 
     # Start server
     logger.info(f"Starting Settings gRPC server on port {port}")
-    server.start()
+    await server.start()
 
     try:
         # Keep server running
-        server.wait_for_termination()
+        await server.wait_for_termination()
     except KeyboardInterrupt:
         logger.info("Shutting down Settings server...")
-        server.stop(grace=5)
+        await server.stop(grace=5)
 
 
 if __name__ == '__main__':
-    serve()
+    asyncio.run(serve())

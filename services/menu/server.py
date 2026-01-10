@@ -17,6 +17,8 @@ import queue
 from typing import Dict
 from concurrent import futures
 import grpc
+import grpc.aio
+import asyncio
 
 # OpenTelemetry imports
 from opentelemetry import trace
@@ -235,8 +237,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     error=str(e)
                 )
 
-    def StreamMenuEvents(self, request, context):
-        """Stream menu events in real-time."""
+    async def StreamMenuEvents(self, request, context):
+        """Stream menu events in real-time (async)."""
         subscriber_id = f"menu_events_{time.time()}"
 
         with tracer.start_as_current_span("StreamMenuEvents") as span:
@@ -251,13 +253,15 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             logger.info(f"New menu event subscriber: {subscriber_id}")
 
             try:
-                while context.is_active():
+                while not context.cancelled():
                     try:
-                        # Block for up to 1 second waiting for event
-                        event = event_queue.get(timeout=1.0)
+                        # Non-blocking get with short timeout
+                        event = event_queue.get(timeout=0.1)
                         yield event
 
                     except queue.Empty:
+                        # Yield control to event loop
+                        await asyncio.sleep(0.1)
                         continue
                     except Exception as e:
                         logger.error(f"Stream error for {subscriber_id}: {e}")
@@ -296,7 +300,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         logger.error(f"Error publishing to subscriber {sub_id}: {e}")
 
 
-def serve(port=50054):
+async def serve(port=50054):
     """Start the Menu gRPC server."""
     # Configure logging
     logging.basicConfig(
@@ -305,7 +309,7 @@ def serve(port=50054):
     )
 
     # Create server
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    server = grpc.aio.server()
 
     # Add servicer
     menu_servicer = MenuServicer()
@@ -316,14 +320,14 @@ def serve(port=50054):
 
     # Start server
     logger.info(f"Starting Menu gRPC server on port {port}")
-    server.start()
+    await server.start()
 
     try:
-        server.wait_for_termination()
+        await server.wait_for_termination()
     except KeyboardInterrupt:
         logger.info("Shutting down Menu server...")
-        server.stop(grace=5)
+        await server.stop(grace=5)
 
 
 if __name__ == '__main__':
-    serve()
+    asyncio.run(serve())

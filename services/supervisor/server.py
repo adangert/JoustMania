@@ -17,6 +17,8 @@ import queue
 from typing import Dict, List
 from concurrent import futures
 import grpc
+import grpc.aio
+import asyncio
 
 # OpenTelemetry imports
 from opentelemetry import trace
@@ -307,8 +309,8 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
                     error=str(e)
                 )
 
-    def StreamProcessUpdates(self, request, context):
-        """Stream process status updates."""
+    async def StreamProcessUpdates(self, request, context):
+        """Stream process status updates (async)."""
         subscriber_id = f"supervisor_{time.time()}"
 
         with tracer.start_as_current_span("StreamProcessUpdates") as span:
@@ -320,7 +322,7 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
             try:
                 interval = request.interval_seconds or 5
 
-                while context.is_active():
+                while not context.cancelled():
                     # Build current status
                     processes = [
                         self._build_process_info(info)
@@ -334,7 +336,8 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
 
                     yield update
 
-                    time.sleep(interval)
+                    # Use async sleep
+                    await asyncio.sleep(interval)
 
             except Exception as e:
                 logger.error(f"Stream error for {subscriber_id}: {e}")
@@ -361,7 +364,7 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
         self.health_thread.join(timeout=5.0)
 
 
-def serve(port=50055):
+async def serve(port=50055):
     """Start the Supervisor gRPC server."""
     # Configure logging
     logging.basicConfig(
@@ -370,7 +373,7 @@ def serve(port=50055):
     )
 
     # Create server
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    server = grpc.aio.server()
 
     # Add servicer
     supervisor_servicer = SupervisorServicer()
@@ -383,15 +386,15 @@ def serve(port=50055):
 
     # Start server
     logger.info(f"Starting Supervisor gRPC server on port {port}")
-    server.start()
+    await server.start()
 
     try:
-        server.wait_for_termination()
+        await server.wait_for_termination()
     except KeyboardInterrupt:
         logger.info("Shutting down Supervisor server...")
         supervisor_servicer.shutdown()
-        server.stop(grace=5)
+        await server.stop(grace=5)
 
 
 if __name__ == '__main__':
-    serve()
+    asyncio.run(serve())

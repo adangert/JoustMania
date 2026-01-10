@@ -18,6 +18,8 @@ from concurrent import futures
 from typing import Dict, Optional
 
 import grpc
+import grpc.aio
+import asyncio
 import pygame
 
 # OpenTelemetry instrumentation
@@ -406,7 +408,7 @@ def serve():
     logger.info("Starting JoustMania Audio service...")
 
     # Create gRPC server
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    server = grpc.aio.server()
     audio_pb2_grpc.add_AudioServiceServicer_to_server(AudioServiceServicer(), server)
 
     # Bind to port
@@ -416,15 +418,15 @@ def serve():
     logger.info(f"Audio service listening on port {port}")
 
     # Start server
-    server.start()
+    await server.start()
 
     logger.info("Audio service ready")
 
     try:
-        server.wait_for_termination()
+        await server.wait_for_termination()
     except KeyboardInterrupt:
         logger.info("Shutting down Audio service...")
-        server.stop(grace=5)
+        await server.stop(grace=5)
 
 
 if __name__ == "__main__":

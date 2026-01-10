@@ -12,9 +12,17 @@ dependencies = [
     # audioop is in stdlib for Python <3.13, audioop-lts for >=3.13
     "audioop-lts>=0.2.0; python_version >= '3.13'",
 
+    # gRPC
+    "grpcio>=1.60.0",
+    "grpcio-tools>=1.60.0",
+
+    # Redis for pub/sub events
+    "redis>=5.0.0",
+
     # OpenTelemetry
     "opentelemetry-distro>=0.43b0",
     "opentelemetry-exporter-otlp>=1.22.0",
+    "opentelemetry-instrumentation-grpc>=0.43b0",
 ]
 
 [build-system]

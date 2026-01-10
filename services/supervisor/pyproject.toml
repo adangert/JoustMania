@@ -4,7 +4,14 @@ version = "1.0.0"
 description = "Process Supervisor for JoustMania microservices"
 requires-python = ">=3.9,<3.13"
 dependencies = [
-    # No external dependencies - uses only standard library
+    # gRPC
+    "grpcio>=1.60.0",
+    "grpcio-tools>=1.60.0",
+
+    # OpenTelemetry
+    "opentelemetry-distro>=0.43b0",
+    "opentelemetry-exporter-otlp>=1.22.0",
+    "opentelemetry-instrumentation-grpc>=0.43b0",
 ]
 
 [build-system]

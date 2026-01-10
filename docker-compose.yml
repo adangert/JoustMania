@@ -10,7 +10,7 @@ services:
     networks:
       - joustmania
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -28,7 +28,7 @@ services:
     networks:
       - joustmania
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:14269"]
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:14269" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -37,7 +37,7 @@ services:
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
     container_name: joustmania-otel-collector
-    command: ["--config=/etc/otel-collector-config.yaml"]
+    command: [ "--config=/etc/otel-collector-config.yaml" ]
     volumes:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
     ports:
@@ -51,7 +51,7 @@ services:
     networks:
       - joustmania
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:13133"]
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:13133" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -102,28 +102,28 @@ services:
     restart: unless-stopped
 
   # Game Coordinator Service (not implemented yet - Phase 8b)
-  # game-coordinator:
-  #   build:
-  #     context: .
-  #     dockerfile: services/game_coordinator/Dockerfile
-  #   container_name: joustmania-game-coordinator
-  #   ports:
-  #     - "50053:50053"
-  #   environment:
-  #     - OTEL_SERVICE_NAME=game-coordinator-service
-  #     - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-  #   depends_on:
-  #     otel-collector:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #     settings:
-  #       condition: service_started
-  #     controller-manager:
-  #       condition: service_started
-  #   networks:
-  #     - joustmania
-  #   restart: unless-stopped
+  game-coordinator:
+    build:
+      context: .
+      dockerfile: services/game_coordinator/Dockerfile
+    container_name: joustmania-game-coordinator
+    ports:
+      - "50053:50053"
+    environment:
+      - OTEL_SERVICE_NAME=game-coordinator-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on:
+      otel-collector:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      settings:
+        condition: service_started
+      controller-manager:
+        condition: service_started
+    networks:
+      - joustmania
+    restart: unless-stopped
 
   # Menu Service (not implemented yet - Phase 8b)
   # menu:

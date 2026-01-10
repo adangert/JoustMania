@@ -136,6 +136,23 @@ class GrpcClients:
     """Manager for gRPC client connections."""
 
     def __init__(self):
+        # gRPC channel options for better performance and reliability
+        channel_options = [
+            # Keep-alive settings to detect dead connections
+            ('grpc.keepalive_time_ms', 30000),  # Send keepalive ping every 30s
+            ('grpc.keepalive_timeout_ms', 5000),  # Wait 5s for keepalive ack
+            ('grpc.keepalive_permit_without_calls', True),  # Allow keepalive pings when no calls
+            ('grpc.http2.max_pings_without_data', 2),  # Allow 2 pings without data
+
+            # Connection and timeout settings
+            ('grpc.initial_reconnect_backoff_ms', 1000),  # 1s initial backoff
+            ('grpc.max_reconnect_backoff_ms', 5000),  # 5s max backoff
+
+            # Message size limits (10MB for large messages)
+            ('grpc.max_receive_message_length', 10 * 1024 * 1024),
+            ('grpc.max_send_message_length', 10 * 1024 * 1024),
+        ]
+
         # Service addresses from environment or defaults
         self.settings_addr = os.getenv("SETTINGS_SERVICE", "settings:50051")
         self.controller_mgr_addr = os.getenv("CONTROLLER_MANAGER_SERVICE", "controller-manager:50052")
@@ -159,21 +176,21 @@ class GrpcClients:
         logger.info("Connecting to gRPC services...")
 
         # Settings service
-        self.settings_channel = grpc.insecure_channel(self.settings_addr)
+        self.settings_channel = grpc.insecure_channel(self.settings_addr, options=channel_options)
         self.settings_stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
 
         # ControllerManager service
-        self.controller_channel = grpc.insecure_channel(self.controller_mgr_addr)
+        self.controller_channel = grpc.insecure_channel(self.controller_mgr_addr, options=channel_options)
         self.controller_stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
             self.controller_channel
         )
 
         # Menu service
-        self.menu_channel = grpc.insecure_channel(self.menu_addr)
+        self.menu_channel = grpc.insecure_channel(self.menu_addr, options=channel_options)
         self.menu_stub = menu_pb2_grpc.MenuServiceStub(self.menu_channel)
 
         # Supervisor service
-        self.supervisor_channel = grpc.insecure_channel(self.supervisor_addr)
+        self.supervisor_channel = grpc.insecure_channel(self.supervisor_addr, options=channel_options)
         self.supervisor_stub = supervisor_pb2_grpc.SupervisorServiceStub(
             self.supervisor_channel
         )

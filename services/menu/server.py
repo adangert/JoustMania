@@ -19,6 +19,7 @@ from concurrent import futures
 import grpc
 import grpc.aio
 import asyncio
+from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
 # OpenTelemetry imports
 from opentelemetry import trace
@@ -74,6 +75,23 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
     def __init__(self):
         """Initialize menu service."""
+        # gRPC channel options for better performance and reliability
+        channel_options = [
+            # Keep-alive settings to detect dead connections
+            ('grpc.keepalive_time_ms', 30000),  # Send keepalive ping every 30s
+            ('grpc.keepalive_timeout_ms', 5000),  # Wait 5s for keepalive ack
+            ('grpc.keepalive_permit_without_calls', True),  # Allow keepalive pings when no calls
+            ('grpc.http2.max_pings_without_data', 2),  # Allow 2 pings without data
+
+            # Connection and timeout settings
+            ('grpc.initial_reconnect_backoff_ms', 1000),  # 1s initial backoff
+            ('grpc.max_reconnect_backoff_ms', 5000),  # 5s max backoff
+
+            # Message size limits (10MB for large messages)
+            ('grpc.max_receive_message_length', 10 * 1024 * 1024),
+            ('grpc.max_send_message_length', 10 * 1024 * 1024),
+        ]
+
         self.state = menu_pb2.MenuState.STOPPED
         self.current_selection = "JoustFFA"
         self.ready_controller_count = 0
@@ -314,6 +332,14 @@ async def serve(port=50054):
     # Add servicer
     menu_servicer = MenuServicer()
     menu_pb2_grpc.add_MenuServiceServicer_to_server(menu_servicer, server)
+
+    # Add health checking service
+    health_servicer = health.aio.HealthServicer()
+    health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
+
+    # Mark the Menu service as SERVING
+    await health_servicer.set("menu.MenuService", health_pb2.HealthCheckResponse.SERVING)
+    await health_servicer.set("", health_pb2.HealthCheckResponse.SERVING)  # Overall health
 
     # Bind to port
     server.add_insecure_port(f'[::]:{port}')

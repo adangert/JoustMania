@@ -20,6 +20,7 @@ from typing import Dict, List, Optional
 from concurrent import futures
 import grpc
 import grpc.aio
+from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
 # OpenTelemetry imports
 from opentelemetry import trace
@@ -126,23 +127,46 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         logger.info("GameCoordinator initialized")
 
     def _init_grpc_clients(self):
-        """Initialize gRPC clients for ControllerManager and Settings."""
+        """Initialize gRPC clients for ControllerManager and Settings with optimized channel options."""
+        # gRPC channel options for better performance and reliability
+        channel_options = [
+            # Keep-alive settings to detect dead connections
+            ('grpc.keepalive_time_ms', 30000),  # Send keepalive ping every 30s
+            ('grpc.keepalive_timeout_ms', 5000),  # Wait 5s for keepalive ack
+            ('grpc.keepalive_permit_without_calls', True),  # Allow keepalive pings when no calls
+            ('grpc.http2.max_pings_without_data', 2),  # Allow 2 pings without data
+
+            # Connection and timeout settings
+            ('grpc.initial_reconnect_backoff_ms', 1000),  # 1s initial backoff
+            ('grpc.max_reconnect_backoff_ms', 5000),  # 5s max backoff
+
+            # Message size limits (10MB for large controller state messages)
+            ('grpc.max_receive_message_length', 10 * 1024 * 1024),
+            ('grpc.max_send_message_length', 10 * 1024 * 1024),
+        ]
+
         try:
             # ControllerManager client
             controller_manager_address = f"{self.controller_manager_host}:{self.controller_manager_port}"
-            self.controller_manager_channel = grpc.insecure_channel(controller_manager_address)
+            self.controller_manager_channel = grpc.insecure_channel(
+                controller_manager_address,
+                options=channel_options
+            )
             self.controller_manager_client = controller_manager_pb2_grpc.ControllerManagerServiceStub(
                 self.controller_manager_channel
             )
-            logger.info(f"Connected to ControllerManager at {controller_manager_address}")
+            logger.info(f"Connected to ControllerManager at {controller_manager_address} (with channel options)")
 
             # Settings client
             settings_address = f"{self.settings_host}:{self.settings_port}"
-            self.settings_channel = grpc.insecure_channel(settings_address)
+            self.settings_channel = grpc.insecure_channel(
+                settings_address,
+                options=channel_options
+            )
             self.settings_client = settings_pb2_grpc.SettingsServiceStub(
                 self.settings_channel
             )
-            logger.info(f"Connected to Settings at {settings_address}")
+            logger.info(f"Connected to Settings at {settings_address} (with channel options)")
 
         except Exception as e:
             logger.error(f"Failed to initialize gRPC clients: {e}")
@@ -497,6 +521,14 @@ async def serve(port=50053):
     game_coordinator_pb2_grpc.add_GameCoordinatorServiceServicer_to_server(
         game_servicer, server
     )
+
+    # Add health checking service
+    health_servicer = health.aio.HealthServicer()
+    health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
+
+    # Mark the GameCoordinator service as SERVING
+    await health_servicer.set("game_coordinator.GameCoordinatorService", health_pb2.HealthCheckResponse.SERVING)
+    await health_servicer.set("", health_pb2.HealthCheckResponse.SERVING)  # Overall health
 
     # Bind to port
     server.add_insecure_port(f'[::]:{port}')

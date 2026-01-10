@@ -2885,6 +2885,905 @@ If death detection or other game logic isn't working:
 - Dependency-aware startup/shutdown
 - Integration with piparty.py
 
+
+---
+
+### 🔥 Phase 26: Critical Performance Fixes (HIGH PRIORITY)
+
+**Priority:** HIGH - CRITICAL for Raspberry Pi deployment
+**Goal:** Fix performance bottlenecks that will cause issues on resource-constrained hardware
+
+**Motivation:**
+- gRPC channel creation on every button press causes connection pool exhaustion
+- No resource limits means services can crash entire system
+- Missing compression wastes bandwidth on controller state streams
+- These issues are invisible on development machines but critical on RPi
+
+**Tasks:**
+
+**1. gRPC Channel Pooling (CRITICAL)**
+- [ ] Menu service: Create persistent channels in `__init__()`
+  - [ ] `self.controller_channel` - reuse for all controller operations
+  - [ ] `self.settings_channel` - reuse for all settings operations
+  - [ ] Update all admin mode methods to use instance channels
+  - [ ] Add channel cleanup in `shutdown()` method
+  - **Files:** `services/menu/server.py:557, 666, 707, 765, 810, 971`
+
+- [ ] Game Coordinator: Audit channel creation patterns
+  - [ ] Ensure channels created once per game instance
+  - [ ] Reuse stubs across game lifecycle
+  - **Files:** `services/game_coordinator/games/ffa.py`, `teams.py`, `random_teams.py`
+
+- [ ] WebUI: Add channel cleanup on shutdown
+  - [ ] Close `self.settings_channel` in destructor
+  - [ ] Close other service channels
+  - **Files:** `services/webui/server.py:179-196`
+
+**2. Docker Resource Limits**
+- [ ] Add resource limits to `docker-compose.yml`
+  - [ ] game-coordinator: 512M memory, 0.5 CPU
+  - [ ] controller-manager: 256M memory, 0.3 CPU
+  - [ ] audio: 256M memory, 0.3 CPU
+  - [ ] menu: 128M memory, 0.2 CPU
+  - [ ] settings: 64M memory, 0.1 CPU
+  - [ ] supervisor: 64M memory, 0.1 CPU
+  - [ ] webui: 128M memory, 0.2 CPU
+  - [ ] otel-collector: 256M memory, 0.3 CPU
+  - **Files:** `docker-compose.yml`, `docker-compose.mock.yml`
+
+- [ ] Add health check timeouts and retries
+  - [ ] Adjust health check intervals for slower RPi
+  - [ ] Add memory/CPU monitoring to Supervisor
+
+**3. gRPC Compression**
+- [ ] Enable gRPC compression in channel options
+  - [ ] Add `('grpc.default_compression_algorithm', grpc.Compression.Gzip)`
+  - [ ] Test bandwidth reduction with controller streams
+  - **Files:** All services with `channel_options` definitions
+
+**4. Stream Optimization**
+- [ ] Controller state streaming: Send delta updates
+  - [ ] Track previous state per controller
+  - [ ] Only send changed fields
+  - [ ] Reduce message size by 60-80%
+  - **Files:** `services/controller_manager/server.py:304-314`
+
+**Expected Improvements:**
+- 90% reduction in channel creation overhead
+- Prevents OOM crashes on RPi (resource limits)
+- 50% reduction in network bandwidth (compression + deltas)
+- Predictable memory usage per service
+
+**Success Criteria:**
+- No new gRPC channels created during gameplay
+- Services respect memory limits (no OOM kills)
+- Controller stream bandwidth < 10KB/sec
+- System stable for 8+ hour gaming sessions
+
+---
+
+### 📊 Phase 27: Telemetry Optimization (HIGH PRIORITY)
+
+**Priority:** HIGH - Telemetry overhead significant on RPi
+**Goal:** Reduce OpenTelemetry CPU/memory/network overhead for production deployment
+
+**Motivation:**
+- Current implementation creates 480 spans/second during 8-player games
+- BatchSpanProcessor buffers 512 spans in memory (64KB+)
+- Network I/O every 5 seconds even to remote OTLP collector
+- RPi CPU can't handle full instrumentation at 60Hz game loop
+
+**Tasks:**
+
+**1. Span Sampling**
+- [ ] Implement trace sampling in all services
+  - [ ] Use `TraceIdRatioBased(0.1)` - sample 10% of traces
+  - [ ] Environment variable to control sample rate
+  - [ ] Document how to enable full tracing for debugging
+  - **Files:** All service telemetry initialization functions
+
+```python
+from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
+
+sample_rate = float(os.getenv('OTEL_TRACE_SAMPLE_RATE', '0.1'))
+sampler = TraceIdRatioBased(sample_rate)
+provider = TracerProvider(resource=resource, sampler=sampler)
+```
+
+**2. Reduce Span Creation in Game Loops**
+- [ ] Remove spans from hot path (60Hz controller state processing)
+  - [ ] Keep spans only for significant events (deaths, victories)
+  - [ ] Remove per-update span creation
+  - **Files:** `services/game_coordinator/games/ffa.py:201-244`, `teams.py:224-290`, `random_teams.py:293-357`
+
+- [ ] Batch multiple events into single span
+  - [ ] Create one span per game tick, add events for player states
+  - [ ] Use `span.add_event()` instead of child spans for minor events
+
+**3. BatchSpanProcessor Tuning**
+- [ ] Reduce buffer size for memory-constrained environments
+  - [ ] `max_queue_size=64` (down from 512)
+  - [ ] `max_export_batch_size=32` (down from 512)
+  - [ ] `schedule_delay_millis=10000` (export every 10s instead of 5s)
+  - **Files:** All service telemetry init
+
+**4. Disable Telemetry in Production Mode**
+- [ ] Add environment variable to disable telemetry entirely
+  - [ ] `OTEL_SDK_DISABLED=true` for maximum performance
+  - [ ] Document performance impact: ~15% CPU reduction
+  - [ ] Keep logging enabled even when telemetry disabled
+
+**5. Logger Level Optimization**
+- [ ] Change frequent logs to DEBUG level
+  - [ ] Controller state updates: INFO → DEBUG
+  - [ ] Button press events: INFO → DEBUG
+  - [ ] Keep game start/stop/deaths at INFO
+  - **Files:** All services with high-frequency logging
+
+**Expected Improvements:**
+- 90% reduction in span creation (480/sec → 48/sec)
+- 75% reduction in memory usage (BatchSpanProcessor buffer)
+- 50% reduction in network traffic to OTLP collector
+- 15% overall CPU reduction with sampling
+
+**Raspberry Pi Impact:**
+- Game coordinator CPU: 40% → 25%
+- Controller manager CPU: 30% → 20%
+- Memory footprint: 200MB → 120MB total
+
+**Success Criteria:**
+- Span creation rate < 50/sec during gameplay
+- BatchSpanProcessor memory < 8KB
+- OTLP export every 10+ seconds
+- No dropped spans due to buffer overflow
+- CPU usage sustainable for 24+ hour operation
+
+---
+
+### ✅ Phase 28: Admin Mode Completion (MEDIUM PRIORITY)
+
+**Priority:** MEDIUM - Makes Phase 23 fully functional
+**Goal:** Complete admin mode implementation with actual settings persistence
+
+**Motivation:**
+- Phase 23 implemented visual feedback but not actual functionality
+- Sensitivity cycling shows blue pulse but doesn't change game sensitivity
+- Instruction toggle shows purple pulse but doesn't affect audio playback
+- Users have no way to adjust settings without WebUI
+
+**Tasks:**
+
+**1. Sensitivity Persistence**
+- [ ] Connect sensitivity admin handler to Settings service
+  - [ ] Track current sensitivity state (0=slow, 1=medium, 2=fast)
+  - [ ] Call Settings.UpdateSetting("sensitivity", value)
+  - [ ] Provide visual feedback with color codes:
+    - Slow: Blue (0, 0, 255)
+    - Medium: Green (0, 255, 0)
+    - Fast: Red (255, 0, 0)
+  - **Files:** `services/menu/server.py:648-659`
+
+```python
+async def _handle_admin_sensitivity(self, serial: str):
+    # Get current sensitivity
+    get_req = settings_pb2.GetSettingRequest(key="sensitivity")
+    response = await self.settings_stub.GetSetting(get_req)
+    current = int(response.value) if response.value else 1
+    
+    # Cycle: 0 (slow) → 1 (medium) → 2 (fast) → 0
+    new_value = str((current + 1) % 3)
+    
+    # Update setting
+    update_req = settings_pb2.UpdateSettingRequest(
+        key="sensitivity",
+        value=new_value,
+        source="admin_mode"
+    )
+    await self.settings_stub.UpdateSetting(update_req)
+    
+    # Visual feedback (color by sensitivity level)
+    colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0)]
+    # ... show color
+```
+
+**2. Instruction Toggle Persistence**
+- [ ] Connect instruction handler to Settings service
+  - [ ] Track instruction state (true/false)
+  - [ ] Call Settings.UpdateSetting("instructions", value)
+  - [ ] Provide visual feedback:
+    - Enabled: Green (0, 255, 0)
+    - Disabled: Red (255, 0, 0)
+  - **Files:** `services/menu/server.py:719-757`
+
+**3. Admin Mode State Indicator**
+- [ ] Show admin mode status on controller
+  - [ ] Periodic pulse in admin mode (every 5 seconds)
+  - [ ] Shows current option color
+  - [ ] Exit shows white fade-out effect
+  - **Files:** `services/menu/server.py:530-570`
+
+**4. Settings Validation**
+- [ ] Validate settings before updating
+  - [ ] Ensure num_teams in range [2, 6]
+  - [ ] Ensure sensitivity in range [0, 2]
+  - [ ] Ensure force_all_start is "true" or "false"
+  - [ ] Return error on invalid values
+
+**5. Documentation**
+- [ ] Update README with actual functionality
+  - [ ] Document that settings persist across games
+  - [ ] Document sensitivity levels (slow/medium/fast)
+  - [ ] Document visual feedback colors
+
+**Expected Improvements:**
+- Admin mode actually functional
+- Settings changes visible in WebUI
+- Sensitivity affects ongoing games
+- Instructions can be toggled during events
+
+**Success Criteria:**
+- Sensitivity cycling updates Settings service
+- New sensitivity applies to next game
+- Instruction toggle affects audio playback
+- Settings persist to joustsettings.yaml
+- Visual feedback matches actual state
+
+---
+
+### 🔊 Phase 29: Audio Integration (MEDIUM PRIORITY)
+
+**Priority:** MEDIUM - Enhances game experience
+**Goal:** Add sound effects to all game modes for complete feedback loop
+
+**Motivation:**
+- All game modes have TODOs for audio integration
+- Death/victory events lack audio feedback
+- Countdown has no audio cues
+- Audio service exists but isn't fully utilized
+
+**Tasks:**
+
+**1. FFA Game Audio**
+- [ ] Add death explosion sound
+  - [ ] Call Audio service when player dies
+  - [ ] Sound: "explosion.wav"
+  - [ ] Priority: HIGH (interrupts other sounds)
+  - **Files:** `services/game_coordinator/games/ffa.py:384`
+
+- [ ] Add victory sound
+  - [ ] Call Audio service when player wins
+  - [ ] Sound: "victory.wav"
+  - [ ] Play for all players
+  - **Files:** `services/game_coordinator/games/ffa.py:428`
+
+- [ ] Add countdown audio
+  - [ ] Tick sound at 3, 2, 1
+  - [ ] Start sound at 0
+  - **Files:** `services/game_coordinator/games/ffa.py:166-170`
+
+**2. Teams Game Audio**
+- [ ] Add death explosion sound
+  - **Files:** `services/game_coordinator/games/teams.py:426`
+
+- [ ] Add victory sound
+  - **Files:** `services/game_coordinator/games/teams.py:496`
+
+- [ ] Add countdown audio
+  - **Files:** `services/game_coordinator/games/teams.py:212`
+
+**3. Random Teams Game Audio**
+- [ ] Add death explosion sound
+  - **Files:** `services/game_coordinator/games/random_teams.py:495`
+
+- [ ] Add victory sound
+  - **Files:** `services/game_coordinator/games/random_teams.py:565`
+
+- [ ] Add countdown audio
+  - **Files:** `services/game_coordinator/games/random_teams.py:281`
+
+**4. Nonstop Joust Audio**
+- [ ] Add respawn countdown ticks
+  - [ ] 3-second countdown with beeps
+  - [ ] Different pitch for each second
+  - **Files:** `services/game_coordinator/games/nonstop_joust.py:400-420`
+
+- [ ] Add spawn protection sound
+  - [ ] Hum/shield sound during invulnerability
+  - [ ] Stops when protection expires
+
+**5. Audio Assets**
+- [ ] Verify required sounds exist in `audio/` directory
+  - [ ] explosion.wav
+  - [ ] victory.wav
+  - [ ] countdown_3.wav, countdown_2.wav, countdown_1.wav, countdown_go.wav
+  - [ ] respawn.wav
+  - [ ] shield.wav
+
+**Implementation Pattern:**
+```python
+async def _play_sound(self, sound_name: str, priority: int = 5):
+    """Play sound via Audio service."""
+    from services.audio import audio_pb2
+    
+    request = audio_pb2.PlaySoundRequest(
+        sound_name=sound_name,
+        priority=priority
+    )
+    await self.audio_client.PlaySound(request)
+```
+
+**Expected Improvements:**
+- Complete sensory feedback (visual + audio + haptic)
+- Better game atmosphere
+- Clear audio cues for game state changes
+- Matches original JoustMania experience
+
+**Success Criteria:**
+- All death events play explosion sound
+- Victory plays celebration sound
+- Countdown has audio cues (3, 2, 1, GO)
+- Respawn countdown has audio
+- Audio doesn't lag or stutter on RPi
+
+---
+
+### 🎮 Phase 30: Controller Feedback Completion (MEDIUM PRIORITY)
+
+**Priority:** MEDIUM - Parity with FFA game
+**Goal:** Add missing controller vibration and LED effects to Teams and Random Teams
+
+**Motivation:**
+- FFA game has complete controller feedback (warnings, deaths)
+- Teams and Random Teams lack vibration and LED flashing
+- Inconsistent user experience across game modes
+- Visual/haptic feedback is critical for gameplay
+
+**Tasks:**
+
+**1. Teams Game - Warning Feedback**
+- [ ] Add warning vibration at threshold
+  - [ ] Medium vibration (128 intensity)
+  - [ ] 200ms duration
+  - [ ] Orange LED color
+  - **Files:** `services/game_coordinator/games/teams.py:355-356`
+
+```python
+# At warning threshold
+vibration_request = controller_manager_pb2.SetControllerVibrationRequest(
+    serial=serial,
+    intensity=128,
+    duration_ms=200
+)
+await self.controller_client.SetControllerVibration(vibration_request)
+
+color_request = controller_manager_pb2.SetControllerColorRequest(
+    serial=serial,
+    color=controller_manager_pb2.RGB(r=255, g=128, b=0),  # Orange
+    duration_ms=300
+)
+await self.controller_client.SetControllerColor(color_request)
+```
+
+**2. Teams Game - Death Feedback**
+- [ ] Add death vibration
+  - [ ] Strong vibration (255 intensity)
+  - [ ] 500ms duration
+  - [ ] Red flash effect
+  - **Files:** `services/game_coordinator/games/teams.py:400-420`
+
+**3. Random Teams Game - Warning Feedback**
+- [ ] Copy warning implementation from FFA
+  - **Files:** `services/game_coordinator/games/random_teams.py:424-425`
+
+**4. Random Teams Game - Death Feedback**
+- [ ] Copy death implementation from FFA
+  - **Files:** `services/game_coordinator/games/random_teams.py:469-489`
+
+**5. Countdown Colors**
+- [ ] Teams: Set team colors during countdown
+  - [ ] 3 seconds: Team color
+  - [ ] 2 seconds: White flash
+  - [ ] 1 second: Green
+  - **Files:** `services/game_coordinator/games/teams.py:212`
+
+- [ ] Random Teams: RGB countdown sequence
+  - [ ] 3: Red (255, 0, 0)
+  - [ ] 2: Yellow (255, 255, 0)
+  - [ ] 1: Green (0, 255, 0)
+  - **Files:** `services/game_coordinator/games/random_teams.py:281`
+
+**6. Testing**
+- [ ] Test feedback doesn't cause lag on RPi
+- [ ] Verify vibration intensity feels appropriate
+- [ ] Check LED colors match team assignments
+- [ ] Ensure multiple simultaneous vibrations work
+
+**Expected Improvements:**
+- Consistent feedback across all game modes
+- Players can feel when in danger (warning vibration)
+- Clear death indication (haptic + visual)
+- Better game immersion
+
+**Success Criteria:**
+- Warning threshold triggers vibration + orange LED
+- Death triggers strong vibration + red flash
+- Countdown shows appropriate colors per game mode
+- No performance degradation from feedback
+
+---
+
+### 🌈 Phase 31: Controller Effects Implementation (LOW PRIORITY)
+
+**Priority:** LOW - Nice to have, not critical
+**Goal:** Implement animated controller effects (FLASH, PULSE, RAINBOW, FADE)
+
+**Motivation:**
+- Controller effects are stubbed but not implemented
+- Games use PlayControllerEffect() but only solid colors work
+- Admin mode uses FLASH/PULSE for feedback (currently doesn't work)
+- Would enhance visual feedback significantly
+
+**Tasks:**
+
+**1. Effect Animation Framework**
+- [ ] Create background task for effect animations
+  - [ ] One task per controller with active effect
+  - [ ] Cancellable (new effect stops old effect)
+  - [ ] Async/await pattern
+  - **Files:** `services/controller_manager/server.py:510-530`
+
+```python
+self.active_effects: Dict[str, asyncio.Task] = {}
+
+async def _run_effect(self, serial: str, effect: ControllerEffect, ...):
+    """Run effect animation loop."""
+    if serial in self.active_effects:
+        self.active_effects[serial].cancel()
+    
+    task = asyncio.create_task(self._effect_loop(serial, effect, ...))
+    self.active_effects[serial] = task
+```
+
+**2. FLASH Effect**
+- [ ] Implement rapid on/off flashing
+  - [ ] Toggle between color and black
+  - [ ] Speed parameter controls flash rate (1-10 = 1-10 Hz)
+  - [ ] Duration_ms controls total effect time
+  - **Files:** `services/controller_manager/server.py:540-560`
+
+```python
+async def _effect_flash(self, serial, color, duration_ms, speed):
+    interval = 1.0 / speed  # seconds per flash
+    end_time = time.time() + (duration_ms / 1000.0)
+    
+    while time.time() < end_time:
+        self._set_led_color(serial, color)
+        await asyncio.sleep(interval / 2)
+        self._set_led_color(serial, (0, 0, 0))
+        await asyncio.sleep(interval / 2)
+```
+
+**3. PULSE Effect**
+- [ ] Implement smooth breathing effect
+  - [ ] Fade from black to color to black
+  - [ ] Speed controls pulse rate
+  - [ ] Use sine wave for smooth brightness
+  - **Files:** `services/controller_manager/server.py:562-582`
+
+```python
+import math
+
+async def _effect_pulse(self, serial, color, duration_ms, speed):
+    interval = 0.05  # 20 Hz update rate
+    cycle_duration = 1.0 / speed
+    end_time = time.time() + (duration_ms / 1000.0)
+    
+    start = time.time()
+    while time.time() < end_time:
+        elapsed = time.time() - start
+        # Sine wave: 0 → 1 → 0
+        brightness = (math.sin(2 * math.pi * elapsed / cycle_duration) + 1) / 2
+        
+        scaled_color = tuple(int(c * brightness) for c in color)
+        self._set_led_color(serial, scaled_color)
+        await asyncio.sleep(interval)
+```
+
+**4. RAINBOW Effect**
+- [ ] Implement color cycling through spectrum
+  - [ ] HSV color space rotation
+  - [ ] Speed controls rotation rate
+  - **Files:** `services/controller_manager/server.py:584-604`
+
+```python
+import colorsys
+
+async def _effect_rainbow(self, serial, duration_ms, speed):
+    interval = 0.05
+    cycle_duration = 1.0 / speed
+    end_time = time.time() + (duration_ms / 1000.0)
+    
+    start = time.time()
+    while time.time() < end_time:
+        elapsed = time.time() - start
+        hue = (elapsed / cycle_duration) % 1.0
+        
+        rgb = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+        color = tuple(int(c * 255) for c in rgb)
+        self._set_led_color(serial, color)
+        await asyncio.sleep(interval)
+```
+
+**5. FADE_OUT / FADE_IN Effects**
+- [ ] Implement linear fade effects
+  - [ ] FADE_OUT: Current color → black
+  - [ ] FADE_IN: Black → target color
+  - **Files:** `services/controller_manager/server.py:606-626`
+
+**6. Effect Cleanup**
+- [ ] Cancel effects on controller disconnect
+- [ ] Cancel effects when new effect starts
+- [ ] Restore original color after effect completes
+- [ ] Handle rapid effect changes gracefully
+
+**Expected Improvements:**
+- Admin mode feedback looks polished
+- Victory celebrations more impressive
+- Warning states more noticeable
+- Better visual communication to players
+
+**Success Criteria:**
+- All 6 effects work smoothly
+- Effects can be cancelled/replaced mid-animation
+- No performance impact on RPi (< 5% CPU per effect)
+- Effects synchronize across multiple controllers
+
+---
+
+### 🧹 Phase 32: Settings Cleanup (LOW PRIORITY)
+
+**Priority:** LOW - Reduces confusion
+**Goal:** Remove unused settings and validate used ones
+
+**Motivation:**
+- Settings service defines many unused settings
+- WebUI allows changing settings that games ignore
+- Confusing for users when settings have no effect
+- Increases code maintenance burden
+
+**Tasks:**
+
+**1. Audit Settings Usage**
+- [ ] Scan all game modes for settings.get() calls
+- [ ] Identify which settings are actually used
+- [ ] Document which game modes use which settings
+- **Files:** All game mode files
+
+**Currently Used Settings:**
+```
+sensitivity: Used by all games (FFA, Teams, RandomTeams, Nonstop)
+num_teams: Used by Teams, RandomTeams
+force_all_start: Used by GameCoordinator
+instructions: Referenced but not fully implemented
+```
+
+**Unused Settings (Found in Analysis):**
+```
+random_modes: Loaded but never checked
+color_lock: Defined but not implemented
+random_teams: Boolean flag, not used
+menu_voice: Not implemented
+enforce_minimum: Immutable, never checked
+red_on_kill: Not referenced in any game mode
+```
+
+**2. Remove Unused Settings**
+- [ ] Remove from settings schema
+  - **Files:** `services/settings/server.py:119-193`
+  
+- [ ] Remove from WebUI forms
+  - **Files:** `services/webui/server.py:115-145`
+  
+- [ ] Remove from default settings
+  - **Files:** `joustsettings.yaml`
+
+**3. Add Settings Validation**
+- [ ] Validate num_teams range [2-6]
+- [ ] Validate sensitivity range [0-2]
+- [ ] Validate force_all_start is boolean
+- [ ] Return error on invalid values
+- **Files:** `services/settings/server.py:350-390`
+
+**4. Document Settings**
+- [ ] Create settings reference in docs/
+- [ ] Document each setting's purpose
+- [ ] Document which game modes use which settings
+- [ ] Document valid value ranges
+
+**5. Settings Migration**
+- [ ] Add migration script for old joustsettings.yaml
+- [ ] Remove deprecated keys
+- [ ] Set defaults for new required keys
+- **Files:** `scripts/settings/migrate_settings.py` (new)
+
+**Expected Improvements:**
+- Cleaner settings UI
+- Less confusion about what settings do
+- Reduced code complexity
+- Better validation and error messages
+
+**Success Criteria:**
+- Only used settings in schema
+- All settings have validation
+- WebUI shows only functional settings
+- Migration script handles old configs
+
+---
+
+### 💎 Phase 33: Code Quality Improvements (LOW PRIORITY)
+
+**Priority:** LOW - Technical debt
+**Goal:** Improve code maintainability and reduce duplication
+
+**Motivation:**
+- gRPC channel options duplicated 5+ times
+- Type hints missing in many places
+- Error handling inconsistent
+- Logger info spam creates noise
+
+**Tasks:**
+
+**1. Shared Utilities Module**
+- [ ] Create `common/grpc_utils.py`
+  - [ ] Extract shared channel options
+  - [ ] Create channel factory function
+  - [ ] Add connection pooling helper
+  - **Files:** `common/grpc_utils.py` (new)
+
+```python
+# common/grpc_utils.py
+def get_optimized_channel_options():
+    """Get standard gRPC channel options for JoustMania services."""
+    return [
+        ('grpc.keepalive_time_ms', 30000),
+        ('grpc.keepalive_timeout_ms', 5000),
+        ('grpc.keepalive_permit_without_calls', True),
+        ('grpc.http2.max_pings_without_data', 2),
+        ('grpc.initial_reconnect_backoff_ms', 1000),
+        ('grpc.max_reconnect_backoff_ms', 5000),
+        ('grpc.max_receive_message_length', 10 * 1024 * 1024),
+        ('grpc.max_send_message_length', 10 * 1024 * 1024),
+        ('grpc.default_compression_algorithm', grpc.Compression.Gzip),
+    ]
+
+def create_channel(address: str, **kwargs):
+    """Create gRPC channel with standard options."""
+    options = get_optimized_channel_options()
+    return grpc.aio.insecure_channel(address, options=options, **kwargs)
+```
+
+- [ ] Update all services to use shared utilities
+  - **Files:** All services with channel creation
+
+**2. Type Hints**
+- [ ] Add type hints to all game mode constructors
+  - **Files:** `services/game_coordinator/games/*.py`
+
+```python
+from typing import Callable, Dict
+
+def __init__(
+    self,
+    controller_manager_client: controller_manager_pb2_grpc.ControllerManagerServiceStub,
+    settings_client: settings_pb2_grpc.SettingsServiceStub,
+    event_publisher: Callable[[str, Dict[str, str]], None],
+    game_id: str = ""
+):
+```
+
+- [ ] Add type hints to service methods
+- [ ] Enable mypy type checking in CI
+
+**3. Error Message Standardization**
+- [ ] Create error constants
+  - **Files:** `common/errors.py` (new)
+
+```python
+class ServiceErrors(Enum):
+    ALREADY_RUNNING = "Service is already running"
+    ALREADY_STOPPED = "Service is already stopped"
+    NOT_FOUND = "Resource not found"
+    INVALID_INPUT = "Invalid input provided"
+    SERVICE_UNAVAILABLE = "Service temporarily unavailable"
+```
+
+- [ ] Use constants in all error responses
+- [ ] Consistent error format across services
+
+**4. Logger Level Cleanup**
+- [ ] Change high-frequency logs to DEBUG
+  - [ ] Controller state updates: INFO → DEBUG
+  - [ ] Button press events: INFO → DEBUG
+  - [ ] gRPC channel creation: INFO → DEBUG
+  - **Files:** All services
+
+- [ ] Reserve INFO for significant events
+  - [ ] Game start/stop
+  - [ ] Player deaths/victories
+  - [ ] Service startup/shutdown
+  - [ ] Admin mode entry/exit
+
+**5. Input Validation**
+- [ ] Add validation to all gRPC endpoints
+  - [ ] Button names in valid set
+  - [ ] Game names in supported list
+  - [ ] Serial numbers non-empty
+  - [ ] Numeric ranges validated
+  - **Files:** All service server.py files
+
+```python
+VALID_BUTTONS = {"trigger", "move", "cross", "circle", "square", "triangle", "ps"}
+
+if button not in VALID_BUTTONS:
+    return ProcessInputResponse(
+        success=False,
+        error=f"Invalid button: {button}"
+    )
+```
+
+**6. Remove Code Duplication**
+- [ ] Extract common game mode patterns
+  - [ ] Countdown logic (identical in FFA, Teams, RandomTeams)
+  - [ ] Death detection (similar across games)
+  - [ ] Settings loading (duplicated)
+  - **Files:** `services/game_coordinator/games/base_game.py` (new)
+
+**Expected Improvements:**
+- 30% reduction in code duplication
+- Better IDE auto-completion (type hints)
+- Consistent error messages
+- Cleaner logs (less noise)
+- Easier to add new game modes
+
+**Success Criteria:**
+- Zero code duplication for channel options
+- All public methods have type hints
+- mypy passes with no errors
+- Logger output readable and useful
+- All inputs validated before use
+
+---
+
+### ⚡ Phase 34: Async/Await Consistency (LOW PRIORITY)
+
+**Priority:** LOW - Technical correctness
+**Goal:** Fix sync/async mixing and use proper async patterns throughout
+
+**Motivation:**
+- Some services mix sync and async gRPC calls
+- Settings loads use synchronous calls in async functions
+- Event queues use threading.Queue instead of asyncio.Queue
+- Blocking operations in async contexts cause performance issues
+
+**Tasks:**
+
+**1. Settings Service - Async Streams**
+- [ ] Convert SubscribeToChanges to async stream
+  - [ ] Use `asyncio.Queue` instead of `queue.Queue`
+  - [ ] Use `async def` and `await`
+  - **Files:** `services/settings/server.py:533-565`
+
+```python
+async def SubscribeToChanges(self, request, context):
+    """Stream setting change events (async)."""
+    subscriber_id = f"settings_sub_{time.time()}"
+    event_queue = asyncio.Queue(maxsize=100)
+    
+    async with self.event_lock:
+        self.event_subscribers[subscriber_id] = event_queue
+    
+    try:
+        while not context.cancelled():
+            try:
+                event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
+                yield event
+            except asyncio.TimeoutError:
+                continue
+    finally:
+        async with self.event_lock:
+            del self.event_subscribers[subscriber_id]
+```
+
+**2. Game Modes - Async Settings Loads**
+- [ ] Use async gRPC stubs for Settings service
+  - [ ] Create async channel: `grpc.aio.insecure_channel`
+  - [ ] Await Settings calls: `await self.settings_client.GetSettings(...)`
+  - [ ] Add timeout: `asyncio.wait_for(..., timeout=2.0)`
+  - **Files:** `services/game_coordinator/games/ffa.py:93-117`, `teams.py:128-152`, `random_teams.py:158-182`
+
+```python
+async def _load_settings(self):
+    """Fetch game settings from Settings service (async)."""
+    try:
+        response = await asyncio.wait_for(
+            self.settings_client.GetSettings(settings_pb2.GetSettingsRequest()),
+            timeout=2.0
+        )
+        # ... process settings
+    except asyncio.TimeoutError:
+        logger.error("Settings service timeout")
+        # Use defaults
+```
+
+**3. Event Publishing - Async Queues**
+- [ ] Replace `queue.Queue` with `asyncio.Queue`
+  - [ ] GameCoordinator event subscribers
+  - [ ] Menu event subscribers
+  - [ ] Settings event subscribers
+  - **Files:** `services/game_coordinator/server.py:508-519`, `services/menu/server.py:328-339`, `services/settings/server.py:378-395`
+
+```python
+async def _publish_event(self, event_type: str, data: Dict[str, str]):
+    """Publish event to all subscribers (async)."""
+    event = game_coordinator_pb2.GameEvent(
+        event_type=event_type,
+        data=data,
+        timestamp=int(time.time() * 1000)
+    )
+    
+    async with self.event_lock:
+        for sub_id, event_queue in self.event_subscribers.items():
+            try:
+                await event_queue.put(event)
+            except asyncio.QueueFull:
+                logger.warning(f"Subscriber {sub_id} queue full")
+```
+
+**4. Remove Unnecessary Sleeps**
+- [ ] Remove sleep from game loop (stream is already rate-limited)
+  - **Files:** `services/game_coordinator/games/ffa.py:244`
+
+```python
+# REMOVE this line (stream already at 60Hz)
+await asyncio.sleep(1.0 / UPDATE_FREQUENCY)
+```
+
+**5. Async Context Managers**
+- [ ] Use `async with` for gRPC channels
+  - [ ] Ensures proper cleanup
+  - [ ] Better exception handling
+  - **Files:** Admin mode methods in menu service
+
+```python
+async with grpc.aio.insecure_channel(...) as channel:
+    stub = ControllerManagerServiceStub(channel)
+    await stub.SetControllerColor(...)
+# Channel auto-closed
+```
+
+**6. Discovery Loop - Async Pattern**
+- [ ] Convert discovery thread to async task
+  - [ ] Use `asyncio.create_task()`
+  - [ ] Properly handle cancellation
+  - [ ] Add timeout to blocking PSMove calls
+  - **Files:** `services/controller_manager/server.py:108-122`
+
+**Expected Improvements:**
+- Proper async/await throughout
+- No blocking calls in async functions
+- Better backpressure handling
+- Cleaner shutdown semantics
+- 10% performance improvement from removing unnecessary sleeps
+
+**Success Criteria:**
+- No synchronous gRPC calls in async services
+- All event queues are asyncio.Queue
+- No blocking I/O in async contexts
+- Proper async context managers used
+- Discovery loop is async
+
+---
+
 ---
 
 ## Success Criteria

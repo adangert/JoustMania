@@ -2,7 +2,7 @@
 import asyncio
 import sys
 
-import piaudio
+from services.audio import piaudio
 
 
 def Main():

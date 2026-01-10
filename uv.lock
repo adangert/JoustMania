@@ -561,6 +561,9 @@ dev = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "grpcio" },
+    { name = "grpcio-tools" },
+    { name = "protobuf" },
     { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pytest", version = "9.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pytest-asyncio", version = "1.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
@@ -589,6 +592,9 @@ provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "grpcio", specifier = ">=1.50.0" },
+    { name = "grpcio-tools", specifier = ">=1.50.0" },
+    { name = "protobuf", specifier = ">=4.21.0" },
     { name = "pytest", specifier = ">=7.0.0" },
     { name = "pytest-asyncio", specifier = ">=0.23.0" },
     { name = "pytest-cov", specifier = ">=4.0.0" },

@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-import controller_manager_mock_pb2 as controller__manager__mock__pb2
+from services.controller_manager import controller_manager_mock_pb2 as controller__manager__mock__pb2
 
 GRPC_GENERATED_VERSION = '1.76.0'
 GRPC_VERSION = grpc.__version__

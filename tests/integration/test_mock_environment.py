@@ -43,7 +43,7 @@ from services.game_coordinator import game_coordinator_pb2, game_coordinator_pb2
 def docker_compose():
     """Fixture to start docker-compose mock environment."""
     compose = DockerCompose(
-        filepath=".",
+        context=".",
         compose_file_name="docker-compose.mock.yml",
         pull=False,
         build=True

@@ -1,7 +1,7 @@
 # JoustMania Refactoring - Implementation Status
 
 **Date:** 2026-01-10
-**Status:** 🎉 Phases 1-17, 19, 21 Complete - Production-Ready Cloud-Native Architecture with Physical Controller Support
+**Status:** 🎉 Phases 1-17, 19, 21-22 Complete - Production-Ready with Controller Support & Nonstop Mode
 **Branch:** dev-refactor
 
 ---
@@ -26,6 +26,7 @@
 16. ✅ **Network Architecture Improvements** - Fixed Docker networking, added gRPC channel options (Phase 17)
 17. ✅ **Controller Feedback System** - LED colors, vibration, effects for complete game UX (Phase 19)
 18. ✅ **Menu Controller Integration** - Physical button navigation restored (MOVE/TRIGGER) (Phase 21)
+19. ✅ **Nonstop Joust Game Mode** - Endless respawn with scoring and spawn protection (Phase 22)
 
 ---
 
@@ -1969,9 +1970,10 @@ async def _handle_select_press(self, serial):
 
 ---
 
-### 🎮 Phase 22: Nonstop Joust Game Mode (MEDIUM PRIORITY)
+### 🎮 Phase 22: Nonstop Joust Game Mode ✅ COMPLETE
 
 **Priority:** MEDIUM
+**Status:** ✅ COMPLETE (Commit: 180f4ad)
 **Goal:** Add endless respawn game mode for continuous action gameplay
 
 **Motivation:**
@@ -2011,43 +2013,50 @@ async def _handle_select_press(self, serial):
 - Tie-breaker: fewest deaths, then longest kill streak
 
 **Tasks:**
-- [ ] Create game file structure
-  - [ ] Create `services/game_coordinator/games/nonstop_joust.py`
-  - [ ] Base class: similar to FFA game structure
-  - [ ] Game state: COUNTDOWN → RUNNING → ENDING → ENDED
+- [x] Create game file structure
+  - [x] Create `services/game_coordinator/games/nonstop_joust.py` (689 lines)
+  - [x] NonstopJoustGame class based on FFA structure
+  - [x] Game state: IDLE → STARTING → RUNNING → ENDING → ENDED
 
-- [ ] Implement respawn system
-  - [ ] Track dead players with respawn timers
-  - [ ] Respawn countdown with LED colors (Gray → Yellow → Green)
-  - [ ] Spawn protection (2s invulnerability, white pulse effect)
-  - [ ] Random respawn position logic (prevent camping)
+- [x] Implement respawn system
+  - [x] Track dead players with respawn timers (3.0 seconds)
+  - [x] Respawn countdown with LED colors (Gray → Yellow → Green)
+  - [x] Spawn protection (2s invulnerability, white LED)
+  - [ ] Random respawn position logic (not needed - accelerometer based)
 
-- [ ] Implement scoring system
-  - [ ] Player stats: kills, deaths, current_streak, best_streak
-  - [ ] Award kill points (+1 per kill)
-  - [ ] Streak bonuses (+1 per kill in streak of 3+)
-  - [ ] Real-time score updates via event stream
+- [x] Implement scoring system
+  - [x] Player stats: deaths, score (simplified from original plan)
+  - [x] Score formula: 100 - (deaths × 10), minimum 0
+  - [ ] Kill tracking (not applicable - no direct kill attribution in accelerometer game)
+  - [ ] Streak bonuses (future enhancement)
+  - [x] Score calculated at game end
 
-- [ ] Implement victory conditions
-  - [ ] Optional time limit (from settings)
-  - [ ] Manual stop support (force_end)
-  - [ ] Determine winner by score
-  - [ ] Tie-breaking logic
+- [x] Implement victory conditions
+  - [x] Optional time limit (nonstop_time_limit setting, 0 = unlimited)
+  - [x] Manual stop support (force_end/game stop)
+  - [x] Determine winner by highest score
+  - [x] Tie-breaking: fewest deaths
 
-- [ ] Controller feedback
-  - [ ] Respawn countdown colors with span events
-  - [ ] Spawn protection white pulse effect
-  - [ ] Kill notification (brief green flash + vibration)
-  - [ ] Death notification (existing red + vibration)
-  - [ ] Leaderboard update notification
+- [x] Controller feedback
+  - [x] Respawn countdown colors with span events
+  - [x] Spawn protection white LED (pulse effect future enhancement)
+  - [x] Death warning (orange flash + 100 intensity vibration)
+  - [x] Death notification (red LED + 255 intensity vibration)
+  - [x] Victory (rainbow effect on winner, 3s)
 
-- [ ] Integration
-  - [ ] Add "NonstopJoust" to Game Coordinator game registry
-  - [ ] Add to Menu service game list (already in Phase 21)
-  - [ ] Settings: time_limit, spawn_protection_duration
-  - [ ] Test with multiple players
+- [x] Integration
+  - [x] Add "NonstopJoust" to Game Coordinator game registry
+  - [x] Add to Menu service game list (completed in Phase 21)
+  - [x] Settings support: nonstop_time_limit
+  - [ ] Test with multiple players (requires hardware)
 
-- [ ] Optional enhancements
+- [x] OpenTelemetry Instrumentation
+  - [x] Comprehensive span attributes (game settings, duration, stats)
+  - [x] Periodic progress events (every 30s)
+  - [x] Player lifecycle spans
+  - [x] Game events (death, respawn, warning, victory)
+
+- [ ] Optional enhancements (future phases)
   - [ ] Power-ups (speed boost, shield, double damage)
   - [ ] Zone control (king of the hill variant)
   - [ ] Team mode (Team Nonstop Joust)

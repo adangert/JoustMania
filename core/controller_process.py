@@ -1,4 +1,4 @@
-from games import game, joust_non_stop, werewolf, zombie, commander, tournament, speed_bomb, fight_club
+from legacy.games_old import game, joust_non_stop, werewolf, zombie, commander, tournament, speed_bomb, fight_club
 import common, piparty
 import logging
 import time

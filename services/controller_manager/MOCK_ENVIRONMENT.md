@@ -201,8 +201,8 @@ grpcurl -plaintext -d '{
 Run full integration tests that spin up the entire stack:
 
 ```bash
-# Install test dependencies (if not already installed)
-uv sync
+# Install all workspace members including integration tests
+uv sync --all-packages
 
 # Run integration tests (auto-teardown) - using uv script
 ./scripts/testing/test-mock.py
@@ -211,9 +211,12 @@ uv sync
 ./scripts/testing/test-mock-with-pause.py
 
 # Or run manually with pytest
-uv run pytest tests/integration/test_mock_environment.py -v
-PAUSE_BEFORE_TEARDOWN=1 uv run pytest tests/integration/test_mock_environment.py -v -s
+uv run --package joustmania-integration-tests pytest tests/integration/ -v
+PAUSE_BEFORE_TEARDOWN=1 uv run --package joustmania-integration-tests pytest tests/integration/ -v -s
 ```
+
+**Note:** Integration tests are maintained as a separate workspace member (`tests/integration`)
+with their own dependencies. See [tests/integration/README.md](../../tests/integration/README.md).
 
 When using `PAUSE_BEFORE_TEARDOWN=1`:
 - Tests run normally

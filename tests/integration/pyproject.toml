@@ -1,0 +1,28 @@
+[project]
+name = "joustmania-integration-tests"
+version = "1.0.0"
+description = "Integration tests for JoustMania using testcontainers and mock environment"
+requires-python = ">=3.11"
+dependencies = [
+    # Testing framework
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.0.0",
+
+    # Testcontainers for spinning up docker-compose
+    "testcontainers>=4.0.0",
+
+    # gRPC client libraries for testing
+    "grpcio>=1.50.0",
+    "grpcio-tools>=1.50.0",
+    "protobuf>=4.21.0",
+]
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

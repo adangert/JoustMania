@@ -239,8 +239,8 @@ grpcurl -plaintext -d '{"serial":"mock_controller_0"}' \
 Run full end-to-end tests using testcontainers:
 
 ```bash
-# Install test dependencies
-uv sync
+# Install all workspace members including integration tests
+uv sync --all-packages
 
 # Run integration tests (auto-teardown) - using uv script
 ./scripts/testing/test-mock.py
@@ -249,9 +249,12 @@ uv sync
 ./scripts/testing/test-mock-with-pause.py
 
 # Or run manually with pytest
-uv run pytest tests/integration/test_mock_environment.py -v
-PAUSE_BEFORE_TEARDOWN=1 uv run pytest tests/integration/test_mock_environment.py -v -s
+uv run --package joustmania-integration-tests pytest tests/integration/ -v
+PAUSE_BEFORE_TEARDOWN=1 uv run --package joustmania-integration-tests pytest tests/integration/ -v -s
 ```
+
+Integration tests are maintained as a separate workspace member with their own dependencies.
+See [tests/integration/README.md](tests/integration/README.md) for details.
 
 ### Documentation
 

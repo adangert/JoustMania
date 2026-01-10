@@ -10,6 +10,8 @@ if __name__ == "__main__":
     project_root = Path(__file__).parent.parent.parent
 
     sys.exit(subprocess.call([
+        "uv", "run",
+        "--package", "joustmania-integration-tests",
         "pytest",
         "tests/integration/test_mock_environment.py",
         "-v"

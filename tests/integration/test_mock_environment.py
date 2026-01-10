@@ -12,8 +12,8 @@ Usage:
     ./scripts/testing/test-mock-with-pause.py
 
     # Or run manually with pytest
-    uv run pytest tests/integration/test_mock_environment.py -v
-    PAUSE_BEFORE_TEARDOWN=1 uv run pytest tests/integration/test_mock_environment.py -v -s
+    uv run --package joustmania-integration-tests pytest tests/integration/ -v
+    PAUSE_BEFORE_TEARDOWN=1 uv run --package joustmania-integration-tests pytest tests/integration/ -v -s
 
     When paused, you can:
     - Browse Jaeger UI at http://localhost:16686

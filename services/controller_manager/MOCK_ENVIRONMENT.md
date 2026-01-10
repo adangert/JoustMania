@@ -205,10 +205,10 @@ Run full integration tests that spin up the entire stack:
 uv sync
 
 # Run integration tests (auto-teardown)
-pytest tests/integration/test_mock_environment.py -v
+uv run pytest tests/integration/test_mock_environment.py -v
 
 # Run with pause to inspect Jaeger before teardown
-PAUSE_BEFORE_TEARDOWN=1 pytest tests/integration/test_mock_environment.py -v -s
+PAUSE_BEFORE_TEARDOWN=1 uv run pytest tests/integration/test_mock_environment.py -v -s
 ```
 
 When using `PAUSE_BEFORE_TEARDOWN=1`:

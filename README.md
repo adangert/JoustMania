@@ -243,7 +243,10 @@ Run full end-to-end tests using testcontainers:
 uv sync
 
 # Run integration tests
-pytest tests/integration/test_mock_environment.py -v
+uv run pytest tests/integration/test_mock_environment.py -v
+
+# Or with pause to inspect Jaeger
+PAUSE_BEFORE_TEARDOWN=1 uv run pytest tests/integration/test_mock_environment.py -v -s
 ```
 
 ### Documentation

@@ -78,7 +78,7 @@ services:
       - joustmania
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 50051 || exit 1"]
+      test: ["CMD-SHELL", "python3 -c 'import socket; s = socket.socket(); s.connect((\"localhost\", 50051)); s.close()' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -108,7 +108,7 @@ services:
       - joustmania
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 50052 || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import socket; s = socket.socket(); s.connect(('localhost', )); s.close()" || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -141,7 +141,7 @@ services:
       - joustmania
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 50053 || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import socket; s = socket.socket(); s.connect(('localhost', )); s.close()" || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -173,7 +173,7 @@ services:
       - joustmania
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 50054 || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import socket; s = socket.socket(); s.connect(('localhost', )); s.close()" || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -206,7 +206,7 @@ services:
       - joustmania
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 50055 || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import socket; s = socket.socket(); s.connect(('localhost', )); s.close()" || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -271,7 +271,7 @@ services:
       - joustmania
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 50056 || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import socket; s = socket.socket(); s.connect(('localhost', )); s.close()" || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5

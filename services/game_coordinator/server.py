@@ -15,9 +15,11 @@ import time
 import threading
 import queue
 import random
+import asyncio
 from typing import Dict, List, Optional
 from concurrent import futures
 import grpc
+import grpc.aio
 
 # OpenTelemetry imports
 from opentelemetry import trace
@@ -408,8 +410,8 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     error=str(e)
                 )
 
-    def StreamGameEvents(self, request, context):
-        """Stream game events in real-time."""
+    async def StreamGameEvents(self, request, context):
+        """Stream game events in real-time (async)."""
         subscriber_id = f"events_{time.time()}"
 
         with tracer.start_as_current_span("StreamGameEvents") as span:
@@ -424,14 +426,15 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
             logger.info(f"New event subscriber: {subscriber_id}")
 
             try:
-                while context.is_active():
+                while not context.cancelled():
                     try:
-                        # Block for up to 1 second waiting for event
-                        event = event_queue.get(timeout=1.0)
+                        # Non-blocking get with timeout
+                        event = event_queue.get(timeout=0.1)
                         yield event
 
                     except queue.Empty:
-                        # No event, continue
+                        # No event, yield control to event loop
+                        await asyncio.sleep(0.1)
                         continue
                     except Exception as e:
                         logger.error(f"Stream error for {subscriber_id}: {e}")
@@ -486,8 +489,8 @@ def serve(port=50053):
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
-    # Create server
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    # Create async server
+    server = grpc.aio.server()
 
     # Add servicer
     game_servicer = GameCoordinatorServicer()
@@ -499,16 +502,18 @@ def serve(port=50053):
     server.add_insecure_port(f'[::]:{port}')
 
     # Start server
-    logger.info(f"Starting GameCoordinator gRPC server on port {port}")
-    server.start()
+    logger.info(f"Starting GameCoordinator async gRPC server on port {port}")
+    await server.start()
+
+    logger.info(f"GameCoordinator server listening on port {port}")
 
     try:
-        server.wait_for_termination()
+        await server.wait_for_termination()
     except KeyboardInterrupt:
         logger.info("Shutting down GameCoordinator server...")
         game_servicer.shutdown()
-        server.stop(grace=5)
+        await server.stop(grace=5)
 
 
 if __name__ == '__main__':
-    serve()
+    asyncio.run(serve())

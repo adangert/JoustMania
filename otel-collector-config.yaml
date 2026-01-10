@@ -28,15 +28,16 @@ processors:
         action: insert
 
 exporters:
-  # Jaeger exporter for trace visualization in Docker Compose
-  jaeger:
-    endpoint: jaeger:14250
+  # OTLP exporter to send traces to Jaeger
+  # Jaeger has OTLP support enabled and accepts OTLP on port 4317
+  otlp/jaeger:
+    endpoint: jaeger:4317
     tls:
       insecure: true
 
-  # Prometheus exporter for metrics (exposed on :8888)
+  # Prometheus exporter for metrics (exposed on :8889 to avoid conflict with Jaeger's :8888)
   prometheus:
-    endpoint: "0.0.0.0:8888"
+    endpoint: "0.0.0.0:8889"
 
   # Debug exporter for local troubleshooting
   debug:
@@ -48,7 +49,7 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch, resource]
-      exporters: [jaeger, debug]
+      exporters: [otlp/jaeger, debug]
 
     # Metrics pipeline
     metrics:

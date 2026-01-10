@@ -62,8 +62,13 @@ class AudioManager:
 
     def __init__(self):
         """Initialize pygame mixer and audio state."""
-        pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
-        pygame.mixer.set_num_channels(8)  # Allow up to 8 simultaneous sounds
+        self.mock_mode = os.getenv("MOCK_MODE", "false").lower() == "true"
+
+        if not self.mock_mode:
+            pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
+            pygame.mixer.set_num_channels(8)  # Allow up to 8 simultaneous sounds
+        else:
+            logger.info("AudioManager running in MOCK_MODE - no actual audio playback")
 
         self.current_music_track: Optional[str] = None
         self.current_music_file: Optional[str] = None
@@ -93,6 +98,10 @@ class AudioManager:
             span.set_attribute("audio.file", file_path)
             span.set_attribute("audio.volume", volume)
             span.set_attribute("audio.priority", priority)
+
+            if self.mock_mode:
+                logger.debug(f"MOCK: Would play sound: {file_path}")
+                return True
 
             try:
                 if not os.path.exists(file_path):
@@ -137,6 +146,13 @@ class AudioManager:
             span.set_attribute("audio.pattern", file_pattern)
             span.set_attribute("audio.loop", loop)
             span.set_attribute("audio.tempo", tempo)
+
+            if self.mock_mode:
+                track_id = str(uuid.uuid4())
+                logger.debug(f"MOCK: Would play music pattern: {file_pattern}")
+                self.current_music_track = track_id
+                self.is_playing = True
+                return track_id
 
             try:
                 # Find matching audio files
@@ -187,6 +203,14 @@ class AudioManager:
         """
         with tracer.start_as_current_span("stop_music") as span:
             span.set_attribute("audio.track_id", track_id)
+
+            if self.mock_mode:
+                logger.debug(f"MOCK: Would stop music track: {track_id}")
+                if self.current_music_track == track_id:
+                    self.is_playing = False
+                    self.current_music_track = None
+                    return True
+                return False
 
             try:
                 with self.music_lock:
@@ -249,7 +273,8 @@ class AudioManager:
 
             try:
                 self.master_volume = max(0.0, min(1.0, volume))
-                pygame.mixer.music.set_volume(self.master_volume)
+                if not self.mock_mode:
+                    pygame.mixer.music.set_volume(self.master_volume)
                 logger.info(f"Master volume set to {self.master_volume:.2f}")
                 return True
             except Exception as e:
@@ -265,10 +290,11 @@ class AudioManager:
             Dictionary with current status
         """
         with self.music_lock:
+            is_busy = self.is_playing if self.mock_mode else (self.is_playing and pygame.mixer.music.get_busy())
             return {
                 "current_track_id": self.current_music_track or "",
                 "current_track_file": self.current_music_file or "",
-                "is_playing": self.is_playing and pygame.mixer.music.get_busy(),
+                "is_playing": is_busy,
                 "volume": self.master_volume,
                 "tempo": self.current_tempo,
                 "queued_sounds_count": 0,  # pygame doesn't expose queue

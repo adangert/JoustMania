@@ -42,20 +42,15 @@ services:
     volumes:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
     ports:
-      - "4317:4317"   # OTLP gRPC receiver
-      - "4318:4318"   # OTLP HTTP receiver
-      - "8888:8888"   # Prometheus metrics
-      - "13133:13133" # Health check
+      # Only expose Prometheus metrics for external monitoring
+      - "8889:8889"   # Prometheus metrics (Jaeger uses 8888)
+      # OTLP ports (4317, 4318) and health check (13133) are only used internally
     depends_on:
       jaeger:
         condition: service_healthy
     networks:
       - joustmania
-    healthcheck:
-      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:13133" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    # No healthcheck: distroless image has no shell/wget/curl
 
   # Settings Service
   settings:
@@ -72,7 +67,7 @@ services:
       - ./joustsettings.yaml:/app/joustsettings.yaml
     depends_on:
       otel-collector:
-        condition: service_healthy
+        condition: service_started
       redis:
         condition: service_healthy
     networks:
@@ -95,7 +90,7 @@ services:
       - MOCK_MODE=true
     depends_on:
       otel-collector:
-        condition: service_healthy
+        condition: service_started
       redis:
         condition: service_healthy
     networks:
@@ -117,7 +112,7 @@ services:
       - CONTROLLER_MANAGER_SERVICE=mock-controller-manager:50052  # Point to mock
     depends_on:
       otel-collector:
-        condition: service_healthy
+        condition: service_started
       redis:
         condition: service_healthy
       settings:
@@ -142,7 +137,7 @@ services:
       - CONTROLLER_MANAGER_SERVICE=mock-controller-manager:50052  # Point to mock
     depends_on:
       otel-collector:
-        condition: service_healthy
+        condition: service_started
       redis:
         condition: service_healthy
       settings:
@@ -166,7 +161,7 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
       otel-collector:
-        condition: service_healthy
+        condition: service_started
       settings:
         condition: service_started
       mock-controller-manager:
@@ -197,7 +192,7 @@ services:
       - GAME_COORDINATOR_SERVICE=game-coordinator:50053
     depends_on:
       otel-collector:
-        condition: service_healthy
+        condition: service_started
       settings:
         condition: service_started
       mock-controller-manager:
@@ -226,7 +221,7 @@ services:
       - MOCK_MODE=true  # No actual audio output in mock mode
     depends_on:
       otel-collector:
-        condition: service_healthy
+        condition: service_started
     networks:
       - joustmania
     restart: unless-stopped

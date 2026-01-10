@@ -187,6 +187,73 @@ scripts/setup/build_psmoveapi.sh  # Build PS Move API
 
 ---
 
+## Mock Hardware Environment (No Hardware Required!)
+
+Test and develop JoustMania **without PS Move controllers or Bluetooth hardware** using the mock environment.
+
+### Quick Start with Mock
+
+```bash
+# Start all services with mock hardware
+docker-compose -f docker-compose.mock.yml up
+
+# Simulate a game with 4 mock controllers
+python scripts/testing/simulate_game.py --mode FFA --controllers 4 --duration 30
+
+# View traces in Jaeger
+open http://localhost:16686
+```
+
+### Features
+
+- ✅ **Zero Hardware Dependencies** - No Bluetooth adapter or PS Move controllers needed
+- ✅ **Controllable via gRPC** - Programmatically simulate movements and deaths
+- ✅ **Full Distributed Tracing** - Same observability as real hardware
+- ✅ **Integration Testing** - Testcontainers support for CI/CD
+- ✅ **Configurable Controllers** - Set mock controller count via environment variable
+
+### Mock Controller Control API
+
+Control mock controllers via gRPC on port 50062:
+
+```bash
+# List mock controllers
+grpcurl -plaintext localhost:50062 \
+  controller_manager_mock.MockControllerService/ListMockControllers
+
+# Simulate death
+grpcurl -plaintext -d '{"serial":"mock_controller_0"}' \
+  localhost:50062 controller_manager_mock.MockControllerService/SimulateDeath
+
+# Simulate movement (warning)
+grpcurl -plaintext -d '{"serial":"mock_controller_0","accel_x":2.0,"accel_y":1.5,"accel_z":1.2}' \
+  localhost:50062 controller_manager_mock.MockControllerService/SimulateMovement
+
+# Reset controller
+grpcurl -plaintext -d '{"serial":"mock_controller_0"}' \
+  localhost:50062 controller_manager_mock.MockControllerService/ResetController
+```
+
+### Integration Tests
+
+Run full end-to-end tests using testcontainers:
+
+```bash
+# Install test dependencies
+uv sync
+
+# Run integration tests
+pytest tests/integration/test_mock_environment.py -v
+```
+
+### Documentation
+
+For complete mock environment documentation, see:
+- **[MOCK_ENVIRONMENT.md](services/controller_manager/MOCK_ENVIRONMENT.md)** - Full mock environment guide
+- **[Phase 14 Plan](planning/PHASE_14_MOCK_HARDWARE.md)** - Implementation details
+
+---
+
 ## Development
 
 ### Building Services
@@ -282,7 +349,7 @@ This project is a fork of the [original JoustMania](https://github.com/adangert/
 
 ## Roadmap
 
-### Completed (Phases 1-11)
+### Completed (Phases 1-14)
 
 - ✅ State-based controller architecture
 - ✅ 7 microservices with gRPC
@@ -290,11 +357,12 @@ This project is a fork of the [original JoustMania](https://github.com/adangert/
 - ✅ Docker Compose deployment
 - ✅ Architecture cleanup (Phases 9-10)
 - ✅ Comprehensive documentation (Phase 11)
+- ✅ Game modes refactoring (Phase 13)
+- ✅ Mock hardware environment (Phase 14)
 
 ### In Progress
 
 - 🔄 **Phase 12:** Dependency updates (Jaeger v2, Python 3.12)
-- 🔄 **Phase 13:** Game modes refactoring (gRPC-based)
 
 ### Future
 

@@ -1,0 +1,66 @@
+# Multi-stage build for JoustMania Mock Controller Manager Service
+# Build stage
+FROM python:3.11-slim as builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy root pyproject.toml for workspace configuration
+COPY pyproject.toml /app/
+
+# Copy service dependencies
+COPY services/controller_manager/pyproject.toml /app/services/controller_manager/
+
+# Install uv package manager
+RUN pip install --no-cache-dir uv==0.5.11
+
+# Install dependencies using uv
+WORKDIR /app/services/controller_manager
+RUN uv pip install --system -e .
+
+# Runtime stage
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Copy installed packages from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy application code
+COPY --from=builder /app/pyproject.toml /app/
+COPY core/ /app/core/
+COPY utils/ /app/utils/
+COPY services/controller_manager/ /app/services/controller_manager/
+
+# Set Python path
+ENV PYTHONPATH=/app
+
+# Configure OpenTelemetry
+ENV OTEL_SERVICE_NAME=controller-manager-service
+ENV OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+ENV OTEL_TRACES_EXPORTER=otlp
+ENV OTEL_METRICS_EXPORTER=none
+ENV OTEL_LOGS_EXPORTER=none
+
+# Mock controller configuration
+ENV MOCK_CONTROLLER_COUNT=4
+ENV MOCK_MODE=true
+
+# Expose gRPC ports
+EXPOSE 50052
+EXPOSE 50062
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import grpc; channel = grpc.insecure_channel('localhost:50052'); channel.channel_ready()" || exit 1
+
+# Run the mock server
+CMD ["python", "services/controller_manager/mock_server.py"]

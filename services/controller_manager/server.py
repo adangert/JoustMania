@@ -14,9 +14,11 @@ import logging
 import time
 import threading
 import queue
+import asyncio
 from typing import Dict, List, Optional
 from concurrent import futures
 import grpc
+import grpc.aio
 
 # OpenTelemetry imports
 from opentelemetry import trace
@@ -263,8 +265,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     error=str(e)
                 )
 
-    def StreamControllerStates(self, request, context):
-        """Stream controller states in real-time."""
+    async def StreamControllerStates(self, request, context):
+        """Stream controller states in real-time (async)."""
         subscriber_id = f"stream_{time.time()}"
 
         with tracer.start_as_current_span("StreamControllerStates") as span:
@@ -283,7 +285,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 frequency = request.update_frequency_hz or 60
                 interval = 1.0 / frequency
 
-                while context.is_active():
+                while not context.cancelled():
                     try:
                         # Build current state
                         controllers = [
@@ -298,7 +300,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                         yield update
 
-                        time.sleep(interval)
+                        # CRITICAL FIX: Use async sleep instead of blocking time.sleep()
+                        await asyncio.sleep(interval)
 
                     except Exception as e:
                         logger.error(f"Stream error for {subscriber_id}: {e}")
@@ -423,16 +426,16 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         self.discovery_thread.join(timeout=5.0)
 
 
-def serve(port=50052):
-    """Start the ControllerManager gRPC server."""
+async def serve(port=50052):
+    """Start the ControllerManager async gRPC server."""
     # Configure logging
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
-    # Create server
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    # Create async server (CRITICAL FIX: grpc.aio instead of grpc.server)
+    server = grpc.aio.server()
 
     # Add servicer
     controller_servicer = ControllerManagerServicer()
@@ -444,16 +447,18 @@ def serve(port=50052):
     server.add_insecure_port(f'[::]:{port}')
 
     # Start server
-    logger.info(f"Starting ControllerManager gRPC server on port {port}")
-    server.start()
+    logger.info(f"Starting ControllerManager async gRPC server on port {port}")
+    await server.start()
+
+    logger.info(f"ControllerManager server listening on port {port}")
 
     try:
-        server.wait_for_termination()
+        await server.wait_for_termination()
     except KeyboardInterrupt:
         logger.info("Shutting down ControllerManager server...")
         controller_servicer.shutdown()
-        server.stop(grace=5)
+        await server.stop(grace=5)
 
 
 if __name__ == '__main__':
-    serve()
+    asyncio.run(serve())

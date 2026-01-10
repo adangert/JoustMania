@@ -50,8 +50,26 @@ echo "=========================================="
 echo "JoustMania setup complete!"
 echo "=========================================="
 echo ""
+echo "Would you like to enable autostart on boot?"
+echo "(JoustMania will start automatically when the system boots)"
+echo ""
+read -p "Enable autostart? (y/n) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo ""
+    echo "Installing autostart service..."
+    sudo "$SCRIPT_DIR/scripts/setup/install_autostart.sh"
+    echo ""
+fi
+
+echo ""
 echo "System will reboot in 5 seconds..."
-echo "After reboot, you can start JoustMania with: docker-compose up"
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "After reboot, JoustMania will start automatically."
+else
+    echo "After reboot, you can start JoustMania with: docker compose up -d"
+    echo "To enable autostart later, run: sudo scripts/setup/install_autostart.sh"
+fi
 echo ""
 
 # Pause before rebooting

@@ -162,6 +162,53 @@ scripts/setup/build_psmoveapi.sh
 
 ---
 
+### install_autostart.sh
+
+Installs a systemd service to automatically start JoustMania on boot.
+
+**What it does:**
+- Creates systemd service file in /etc/systemd/system/
+- Configures Docker Compose to start automatically
+- Enables the service to run on boot
+- Adapts paths for current user and home directory
+
+**Usage:**
+```bash
+sudo scripts/setup/install_autostart.sh
+```
+
+**Requirements:**
+- Docker and Docker Compose installed
+- systemd-based Linux distribution
+- sudo privileges
+
+**Service management commands:**
+```bash
+sudo systemctl start joustmania     # Start now
+sudo systemctl stop joustmania      # Stop
+sudo systemctl restart joustmania   # Restart
+sudo systemctl status joustmania    # Check status
+sudo journalctl -u joustmania -f    # View logs
+```
+
+---
+
+### uninstall_autostart.sh
+
+Removes the JoustMania systemd autostart service.
+
+**Usage:**
+```bash
+sudo scripts/setup/uninstall_autostart.sh
+```
+
+**What it does:**
+- Stops the service if running
+- Disables autostart on boot
+- Removes systemd service file
+
+---
+
 ## Docker Scripts
 
 Located in `scripts/docker/`
@@ -267,6 +314,9 @@ These are preserved for reference but are no longer used in the cloud-native arc
 # Or run individual steps:
 scripts/setup/setup_host.sh
 scripts/setup/build_psmoveapi.sh
+
+# Optional: Enable autostart on boot
+sudo scripts/setup/install_autostart.sh
 ```
 
 ### Daily Development

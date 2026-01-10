@@ -13,7 +13,8 @@ dependencies = [
     "dbus-python>=1.2.0",
     "python-dotenv>=0.19.0",
     "pygame>=2.0.0",
-    "audioop-lts>=0.2.0",
+    # audioop is in stdlib for Python <3.13, audioop-lts for >=3.13
+    "audioop-lts>=0.2.0; python_version >= '3.13'",
 ]
 
 [project.optional-dependencies]

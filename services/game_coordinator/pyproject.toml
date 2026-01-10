@@ -9,7 +9,8 @@ dependencies = [
     "pyalsaaudio>=0.9.0",
     "pydub>=0.25.0",
     "pygame>=2.0.0",
-    "audioop-lts>=0.2.0",
+    # audioop is in stdlib for Python <3.13, audioop-lts for >=3.13
+    "audioop-lts>=0.2.0; python_version >= '3.13'",
 
     # OpenTelemetry
     "opentelemetry-distro>=0.43b0",

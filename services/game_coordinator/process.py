@@ -16,7 +16,7 @@ import time
 import random
 from multiprocessing import Process, Queue
 from typing import Optional, List, Dict
-from common import Games, Status
+from core.common import Games, Status
 from piaudio import Music, Audio
 from games import (
     joust_ffa, joust_teams, joust_random_teams, joust_non_stop,

@@ -3,7 +3,7 @@ import collections
 import random
 import typing
 
-import common
+from core import common
 
 PaceSettings_ = collections.namedtuple('PaceSettings_', ['weight', 'min_duration', 'max_duration'])
 

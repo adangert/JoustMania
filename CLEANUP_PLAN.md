@@ -798,3 +798,1022 @@ JoustMania/
 - ✅ Easier to understand what's relevant for cloud-native deployment
 - ✅ Preserved hardware utilities for Pi deployments
 - ✅ Archived legacy for reference without clutter
+
+---
+
+# Documentation Overhaul Plan (Phase 11)
+
+**Date:** 2026-01-10
+**Context:** After refactoring to cloud-native microservices architecture, the documentation is completely outdated. The README.md still describes the legacy monolithic Pi setup with no mention of Docker, gRPC, OpenTelemetry, or the 6-service architecture.
+
+---
+
+## Current State Analysis
+
+### README.md Issues
+
+The current README.md describes:
+- ❌ **Monolithic architecture** - No mention of microservices
+- ❌ **Pi-only deployment** - Via setup.sh and supervisor
+- ❌ **Access point mode** - WiFi hotspot (now legacy)
+- ❌ **Direct controller pairing** - No mention of ControllerManager service
+- ❌ **No Docker** - Manual installation only
+- ❌ **No observability** - No OpenTelemetry, Jaeger, or monitoring mentioned
+- ✅ **Game rules** - Still accurate and can be preserved
+
+### What's Missing
+
+No documentation for:
+- Cloud-native microservices architecture (6 services)
+- gRPC communication between services
+- Docker Compose deployment
+- OpenTelemetry distributed tracing
+- Service-level documentation (each microservice needs README)
+- Architecture diagrams
+- Development workflows
+- API references
+- Migration guide from legacy
+
+---
+
+## Documentation Restructure Plan
+
+### Proposed Structure
+
+```
+JoustMania/
+├── README.md                    # Main README (REWRITE)
+├── CONTRIBUTORS.md              # Update to credit refactor work
+├── CHANGELOG.md                 # NEW: Document architectural changes
+├── LICENSE                      # Verify exists
+│
+├── docs/                        # NEW: Architecture documentation
+│   ├── ARCHITECTURE.md          # Complete architecture overview + Mermaid diagrams
+│   ├── DEVELOPMENT.md           # Development guide
+│   ├── DEPLOYMENT.md            # Deployment guide (Docker + K8s)
+│   ├── API.md                   # Complete gRPC API reference
+│   ├── OBSERVABILITY.md         # OpenTelemetry + Jaeger + Prometheus
+│   ├── MIGRATION.md             # Legacy → Microservices migration
+│   └── diagrams/                # Mermaid diagram sources
+│       ├── architecture.mmd
+│       ├── service-communication.mmd
+│       ├── controller-flow.mmd
+│       └── deployment.mmd
+│
+├── services/                    # Each service needs README
+│   ├── settings/
+│   │   ├── README.md            # NEW: Service documentation
+│   │   └── settings.proto       # UPDATE: Add comprehensive comments
+│   ├── controller_manager/
+│   │   ├── README.md            # NEW: Service documentation
+│   │   └── controller_manager.proto  # UPDATE: Add comments
+│   ├── game_coordinator/
+│   │   ├── README.md            # NEW: Service documentation
+│   │   └── game_coordinator.proto    # UPDATE: Add comments
+│   ├── menu/
+│   │   ├── README.md            # NEW: Service documentation
+│   │   └── menu.proto           # UPDATE: Add comments
+│   ├── supervisor/
+│   │   ├── README.md            # NEW: Service documentation
+│   │   └── supervisor.proto     # UPDATE: Add comments
+│   └── webui/
+│       └── README.md            # NEW: Service documentation
+│
+└── examples/                    # NEW: API usage examples
+    ├── grpcurl/                 # Sample grpcurl commands
+    │   ├── settings.sh
+    │   ├── controller_manager.sh
+    │   ├── game_coordinator.sh
+    │   ├── menu.sh
+    │   └── supervisor.sh
+    └── python/                  # Python client examples
+        ├── settings_client.py
+        ├── controller_client.py
+        └── game_client.py
+```
+
+---
+
+## Phase 11 Tasks
+
+### Phase 11.1: Main README.md Rewrite
+
+**File:** `/README.md`
+
+**Sections to add/update:**
+
+1. **Project Description** (Update)
+   - Describe as cloud-native microservices fork of JoustMania
+   - Emphasize observability and scalability
+   - Link to original JoustMania project
+
+2. **Architecture Overview** (NEW)
+   - High-level description of 6 microservices
+   - Mermaid diagram showing service relationships
+   - Technology stack (gRPC, Docker, OpenTelemetry, Redis, Jaeger)
+
+3. **Quick Start** (NEW - Replace Installation)
+   ```bash
+   # Clone repository
+   git clone https://github.com/yourusername/JoustMania.git
+   cd JoustMania
+
+   # Start the stack
+   docker-compose up --build
+
+   # Access services
+   # Web UI: http://localhost:80
+   # Jaeger UI: http://localhost:16686
+   # Prometheus: http://localhost:8888/metrics
+   ```
+
+4. **Installation** (Rewrite)
+   - Docker Compose deployment (primary)
+   - Development setup
+   - Hardware requirements for ControllerManager service
+   - Optional: Legacy Pi setup (link to docs/DEPLOYMENT.md)
+
+5. **Services Architecture** (NEW)
+   - Brief description of each service:
+     - Settings: Configuration management
+     - ControllerManager: Hardware interface (PS Move controllers)
+     - GameCoordinator: Game lifecycle management
+     - Menu: UI and game selection
+     - Supervisor: Health monitoring
+     - WebUI: Web interface
+   - Links to individual service READMEs
+
+6. **Development** (NEW)
+   - Local development with Docker
+   - Running individual services
+   - Testing with grpcurl
+   - Viewing traces in Jaeger
+   - Contributing guidelines
+   - Link to docs/DEVELOPMENT.md
+
+7. **Observability** (NEW)
+   - OpenTelemetry integration
+   - Distributed tracing with Jaeger
+   - Metrics with Prometheus
+   - Service health monitoring
+   - Link to docs/OBSERVABILITY.md
+
+8. **Hardware** (Update)
+   - PS Move controllers
+   - Bluetooth adapters (for ControllerManager service)
+   - Raspberry Pi (optional for ControllerManager)
+   - Note: Most services can run without hardware (mock mode)
+
+9. **Web Interface** (Update)
+   - Describe containerized WebUI service
+   - Access at http://localhost:80
+   - Features: game selection, settings, battery status, monitoring
+
+10. **Game Rules** (Keep)
+    - Preserve existing game descriptions
+    - Still accurate
+
+11. **Project History** (NEW)
+    - Credit original JoustMania by adangert
+    - Explain purpose of refactor (observability, scalability, cloud-native)
+    - Link to original repository
+
+12. **Migration** (NEW)
+    - Brief note about differences from legacy
+    - Link to docs/MIGRATION.md for details
+
+13. **Support** (Update)
+    - Link to original project's Patreon
+    - Credits and contributors
+
+---
+
+### Phase 11.2: Service Documentation
+
+**Create README.md for each service with consistent structure:**
+
+#### Template Structure:
+```markdown
+# [Service Name]
+
+## Overview
+Brief description of service purpose and responsibilities.
+
+## Architecture
+- Position in microservices architecture
+- Dependencies on other services
+- Technology stack
+
+## gRPC API
+
+### Endpoints
+List of RPC methods with descriptions
+
+### Request/Response Examples
+```bash
+# Example grpcurl commands
+```
+
+## Configuration
+Environment variables and settings
+
+## Running the Service
+
+### Docker
+```bash
+docker-compose up [service-name]
+```
+
+### Local Development
+```bash
+cd services/[service-name]
+python server.py
+```
+
+## Testing
+How to test the service
+
+## Observability
+- OpenTelemetry spans
+- Key metrics
+- Health checks
+
+## Troubleshooting
+Common issues and solutions
+```
+
+**Services to document:**
+1. services/settings/README.md
+2. services/controller_manager/README.md
+3. services/game_coordinator/README.md
+4. services/menu/README.md
+5. services/supervisor/README.md
+6. services/webui/README.md
+
+---
+
+### Phase 11.3: Architecture Documentation
+
+**Create comprehensive architecture docs in `docs/` directory:**
+
+#### docs/ARCHITECTURE.md
+- Complete architecture overview
+- Microservices communication patterns (gRPC, streaming)
+- Data flow diagrams
+- State management patterns
+- Technology stack details
+- Deployment architectures (Docker Compose vs Kubernetes)
+- **10+ Mermaid diagrams:**
+  1. High-level microservices architecture
+  2. Service dependency graph
+  3. gRPC communication flow
+  4. Controller state producer-consumer
+  5. Game lifecycle state machine
+  6. Menu state machine
+  7. Health monitoring flow
+  8. Docker Compose stack topology
+  9. Development workflow
+  10. Deployment architecture (cloud-ready)
+
+#### docs/DEVELOPMENT.md
+- Setting up development environment
+- Building and running services locally
+- Code organization and conventions
+- Testing strategies
+- Using grpcurl for API testing
+- Viewing traces in Jaeger
+- Adding new features/services
+- Debugging distributed systems
+
+#### docs/DEPLOYMENT.md
+- Docker Compose deployment (detailed)
+- Kubernetes deployment guide (future)
+- Hardware setup for ControllerManager
+- Network configuration
+- Environment variables reference
+- Monitoring and logging setup
+- Production considerations
+- Troubleshooting guide
+
+#### docs/API.md
+- Complete gRPC API reference for all 6 services
+- Request/response message definitions
+- Error codes and handling
+- Streaming RPC patterns
+- Authentication (future)
+- Example client code (Python)
+
+#### docs/OBSERVABILITY.md
+- OpenTelemetry architecture
+- Automatic vs manual instrumentation
+- Jaeger trace analysis guide
+- Prometheus metrics reference
+- Service health monitoring
+- Performance monitoring and optimization
+- Debugging with distributed tracing
+- Alerting strategies (future)
+
+#### docs/MIGRATION.md
+- Migrating from legacy monolithic JoustMania
+- Key architectural differences
+- Breaking changes
+- Feature parity comparison
+- Migration checklist
+- Rollback procedures
+- Legacy compatibility mode (if any)
+
+---
+
+### Phase 11.4: Mermaid Diagrams
+
+**Create detailed Mermaid diagrams for documentation:**
+
+#### 1. High-Level Microservices Architecture
+```mermaid
+graph TB
+    WebUI[WebUI Service<br/>Flask + gRPC Client]
+    Settings[Settings Service<br/>Configuration]
+    ControllerMgr[ControllerManager<br/>Hardware Interface]
+    GameCoord[GameCoordinator<br/>Game Lifecycle]
+    Menu[Menu Service<br/>UI Logic]
+    Supervisor[Supervisor<br/>Health Monitoring]
+
+    Redis[(Redis<br/>Pub/Sub)]
+    Jaeger[Jaeger<br/>Tracing]
+    OTel[OTel Collector]
+
+    WebUI -->|gRPC| Settings
+    WebUI -->|gRPC| ControllerMgr
+    WebUI -->|gRPC| GameCoord
+    WebUI -->|gRPC| Menu
+    WebUI -->|gRPC| Supervisor
+
+    Menu -->|gRPC| Settings
+    Menu -->|gRPC| ControllerMgr
+    Menu -->|gRPC| GameCoord
+
+    GameCoord -->|gRPC| Settings
+    GameCoord -->|gRPC| ControllerMgr
+
+    Supervisor -->|gRPC| Settings
+    Supervisor -->|gRPC| ControllerMgr
+    Supervisor -->|gRPC| GameCoord
+    Supervisor -->|gRPC| Menu
+
+    Settings -.->|Pub/Sub| Redis
+
+    WebUI -.->|Traces| OTel
+    Settings -.->|Traces| OTel
+    ControllerMgr -.->|Traces| OTel
+    GameCoord -.->|Traces| OTel
+    Menu -.->|Traces| OTel
+    Supervisor -.->|Traces| OTel
+
+    OTel -->|Export| Jaeger
+```
+
+#### 2. Service Dependency Graph
+```mermaid
+graph TD
+    Settings[Settings<br/>Port: 50051]
+    ControllerMgr[ControllerManager<br/>Port: 50052]
+    GameCoord[GameCoordinator<br/>Port: 50053]
+    Menu[Menu<br/>Port: 50054]
+    Supervisor[Supervisor<br/>Port: 50055]
+    WebUI[WebUI<br/>Port: 80]
+
+    Menu --> Settings
+    Menu --> ControllerMgr
+    Menu --> GameCoord
+
+    GameCoord --> Settings
+    GameCoord --> ControllerMgr
+
+    Supervisor --> Settings
+    Supervisor --> ControllerMgr
+    Supervisor --> GameCoord
+    Supervisor --> Menu
+
+    WebUI --> Settings
+    WebUI --> ControllerMgr
+    WebUI --> GameCoord
+    WebUI --> Menu
+    WebUI --> Supervisor
+```
+
+#### 3. Controller State Flow
+```mermaid
+sequenceDiagram
+    participant HW as PS Move Controller
+    participant CM as ControllerManager
+    participant GC as GameCoordinator
+    participant M as Menu
+
+    HW->>CM: Bluetooth/USB Connection
+    CM->>CM: Discovery Loop (1Hz)
+    CM->>CM: Pair Controller
+
+    loop Hardware Polling (1000Hz)
+        CM->>HW: Read State
+        HW-->>CM: Accel, Buttons, Trigger
+        CM->>CM: Update Shared Memory
+    end
+
+    loop Game Logic (60 FPS)
+        M->>CM: StreamControllerStates()
+        CM-->>M: Controller States
+        M->>M: Process Input
+        M->>CM: Update LED/Rumble
+    end
+
+    M->>GC: StartGame(mode)
+    GC->>CM: StreamControllerStates()
+
+    loop Game Loop
+        CM-->>GC: Controller States
+        GC->>GC: Game Logic
+        GC->>CM: Update LED/Rumble
+    end
+```
+
+#### 4. Game Lifecycle State Machine
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE
+    IDLE --> STARTING: StartGame RPC
+    STARTING --> RUNNING: Countdown Complete
+    RUNNING --> ENDING: Win Condition Met
+    ENDING --> ENDED: Cleanup Complete
+    ENDED --> IDLE: Ready for Next Game
+
+    RUNNING --> ENDED: ForceEndGame RPC
+```
+
+#### 5. Docker Compose Stack
+```mermaid
+graph TB
+    subgraph "Observability Stack"
+        Redis[Redis<br/>Pub/Sub]
+        Jaeger[Jaeger<br/>:16686]
+        OTel[OTel Collector<br/>:4317, :4318]
+    end
+
+    subgraph "Application Services"
+        Settings[Settings<br/>:50051]
+        ControllerMgr[ControllerManager<br/>:50052]
+        GameCoord[GameCoordinator<br/>:50053]
+        Menu[Menu<br/>:50054]
+        Supervisor[Supervisor<br/>:50055]
+        WebUI[WebUI<br/>:80]
+    end
+
+    Settings --> OTel
+    ControllerMgr --> OTel
+    GameCoord --> OTel
+    Menu --> OTel
+    Supervisor --> OTel
+    WebUI --> OTel
+
+    Settings --> Redis
+
+    OTel --> Jaeger
+```
+
+#### Additional diagrams:
+6. Menu state machine
+7. Health monitoring flow
+8. Development workflow
+9. Deployment architecture
+10. Authentication flow (future)
+
+---
+
+### Phase 11.5: Additional Documentation Tasks
+
+#### Protobuf Comments
+- Update all .proto files with comprehensive comments
+- Document each RPC method
+- Document message fields
+- Add examples in comments
+
+#### API Examples Directory
+- Create `examples/` directory
+- grpcurl examples for each service
+- Python client examples
+- Common workflows
+
+#### Project Metadata
+- Update CONTRIBUTORS.md (credit original + refactor)
+- Create CHANGELOG.md (document architectural changes)
+- Verify LICENSE file exists
+- Create CODE_OF_CONDUCT.md (if accepting contributions)
+- Update .gitignore for new structure
+
+---
+
+## Documentation Priority
+
+### High Priority (Core Documentation)
+1. ✅ Main README.md rewrite
+2. ✅ docs/ARCHITECTURE.md with Mermaid diagrams
+3. ✅ Service READMEs (all 6 services)
+4. ✅ Docker Compose deployment guide
+
+### Medium Priority (Developer Experience)
+5. ✅ docs/DEVELOPMENT.md
+6. ✅ docs/API.md
+7. ✅ API examples directory
+8. ✅ Protobuf comments
+
+### Lower Priority (Future/Advanced)
+9. ⚠️ docs/DEPLOYMENT.md (Kubernetes section)
+10. ⚠️ docs/OBSERVABILITY.md (advanced features)
+11. ⚠️ docs/MIGRATION.md (if users migrate from legacy)
+12. ⚠️ CODE_OF_CONDUCT.md
+
+---
+
+## Documentation Standards
+
+### Consistency
+- Use same structure for all service READMEs
+- Consistent terminology across docs
+- Standardized code examples
+- Unified diagram styles
+
+### Completeness
+- Every service has README
+- Every RPC method documented
+- Every configuration option explained
+- Troubleshooting sections
+
+### Accessibility
+- Clear navigation (table of contents)
+- Links between related docs
+- Examples for common tasks
+- Beginner-friendly explanations
+
+### Maintenance
+- Version documentation with releases
+- Update diagrams when architecture changes
+- Keep examples working
+- Regular reviews
+
+---
+
+## Verification Checklist
+
+After completing Phase 11:
+
+- [ ] README.md accurately describes microservices architecture
+- [ ] All 6 services have comprehensive READMEs
+- [ ] Architecture diagrams are clear and accurate
+- [ ] Docker Compose deployment documented
+- [ ] gRPC API fully documented
+- [ ] Development setup works by following docs
+- [ ] All examples run successfully
+- [ ] Links between docs work
+- [ ] No references to legacy/outdated architecture
+- [ ] Credits given to original JoustMania project
+- [ ] Observability features documented
+
+---
+
+## Summary
+
+**Documentation to Create/Update:** 20+ files
+- 1 README.md (rewrite)
+- 6 service READMEs (new)
+- 6 docs/*.md files (new)
+- 10+ Mermaid diagrams (new)
+- 6 protobuf files (update comments)
+- examples/ directory (new)
+
+**Expected Impact:**
+- ✅ Clear understanding of cloud-native architecture
+- ✅ Easy onboarding for new developers
+- ✅ Comprehensive API reference
+- ✅ Observable and debuggable system
+- ✅ Production-ready deployment guides
+- ✅ Proper credit to original project
+
+**Timeline Estimate:**
+- High priority docs: 1-2 days
+- Medium priority: 1 day
+- Lower priority: Ongoing
+
+This comprehensive documentation will transform the project from a legacy Pi-only game into a well-documented, cloud-native microservices platform ready for presentations, contributions, and production deployments.
+
+---
+
+# Dependency Updates Plan (Phase 12)
+
+**Date:** 2026-01-10
+**Context:** Docker and Python dependencies need updating. Using `:latest` tags is problematic for reproducibility, and we should upgrade to newer versions (especially Jaeger v2) for better features and performance.
+
+---
+
+## Current Dependency Analysis
+
+### docker-compose.yml Infrastructure
+
+| Dependency | Current Version | Issue | Target Version |
+|------------|----------------|-------|----------------|
+| **Jaeger** | `jaegertracing/all-in-one:latest` | ❌ Unpinned, missing v2 features | `jaegertracing/all-in-one:2.0` or `2.1` |
+| **OTel Collector** | `otel/opentelemetry-collector-contrib:latest` | ❌ Unpinned, not reproducible | `otel/opentelemetry-collector-contrib:0.110.0` |
+| **Redis** | `redis:7-alpine` | ⚠️ Not latest 7.x | `redis:7.4-alpine` |
+
+### Dockerfiles (Application Services)
+
+| Dependency | Current Version | Issue | Target Version |
+|------------|----------------|-------|----------------|
+| **Python base image** | `python:3.11-slim` | ⚠️ Could use newer Python | `python:3.12-slim` or `3.13-slim` |
+| **uv package manager** | Unpinned via `pip install uv` | ❌ Not reproducible | `pip install uv==0.5.0` (or latest) |
+
+### Python Dependencies (pyproject.toml)
+
+Dependencies to review in each service's pyproject.toml:
+- grpcio & grpcio-tools
+- opentelemetry-api, opentelemetry-sdk
+- opentelemetry-instrumentation-grpc
+- opentelemetry-exporter-otlp
+- Flask (WebUI)
+- PyYAML
+- pytest
+
+---
+
+## Upgrade Strategy
+
+### Phase 12.1: Infrastructure (Docker Compose)
+
+#### 1. Jaeger v2 Upgrade
+
+**Current:**
+```yaml
+jaeger:
+  image: jaegertracing/all-in-one:latest
+```
+
+**Target:**
+```yaml
+jaeger:
+  image: jaegertracing/all-in-one:2.0.0  # Or latest 2.x
+  # Jaeger v2 improvements:
+  # - Better performance
+  # - Improved storage backends
+  # - Enhanced UI
+```
+
+**Migration Tasks:**
+- [ ] Check Jaeger v2 release notes for breaking changes
+- [ ] Update environment variables if needed
+- [ ] Test UI compatibility
+- [ ] Verify OTLP receiver still works
+- [ ] Update documentation screenshots if UI changed
+
+**Verification:**
+```bash
+# Start new Jaeger
+docker-compose up -d jaeger
+
+# Check version
+docker logs joustmania-jaeger | grep -i version
+
+# Access UI
+open http://localhost:16686
+
+# Send test trace and verify it appears
+```
+
+#### 2. OpenTelemetry Collector Version Pinning
+
+**Current:**
+```yaml
+otel-collector:
+  image: otel/opentelemetry-collector-contrib:latest
+```
+
+**Target:**
+```yaml
+otel-collector:
+  image: otel/opentelemetry-collector-contrib:0.110.0  # Pin specific version
+  # Benefits:
+  # - Reproducible builds
+  # - Known compatibility
+  # - Easier rollback
+```
+
+**Migration Tasks:**
+- [ ] Check latest stable version of OTel Collector
+- [ ] Review changelog for breaking changes
+- [ ] Verify otel-collector-config.yaml compatibility
+- [ ] Test with all services
+
+**Verification:**
+```bash
+# Check OTel Collector version
+docker exec joustmania-otel-collector /otelcontribcol --version
+
+# Test metrics endpoint
+curl http://localhost:8888/metrics
+
+# Check health
+curl http://localhost:13133/
+```
+
+#### 3. Redis Update
+
+**Current:**
+```yaml
+redis:
+  image: redis:7-alpine
+```
+
+**Target:**
+```yaml
+redis:
+  image: redis:7.4-alpine  # Latest 7.x
+```
+
+**Migration Tasks:**
+- [ ] Check Redis 7.4 release notes
+- [ ] Verify pub/sub compatibility
+- [ ] Test with Settings service
+
+**Verification:**
+```bash
+# Check Redis version
+docker exec joustmania-redis redis-cli INFO server | grep redis_version
+
+# Test pub/sub
+docker exec joustmania-redis redis-cli PING
+```
+
+---
+
+### Phase 12.2: Python Base Images
+
+#### Python 3.11 → 3.12 or 3.13
+
+**Decision Matrix:**
+
+| Option | Benefits | Risks |
+|--------|----------|-------|
+| **Stay on 3.11** | ✅ Stable, tested<br/>✅ No migration effort | ❌ Missing performance improvements<br/>❌ No new features |
+| **Upgrade to 3.12** | ✅ ~5-10% faster<br/>✅ Better error messages<br/>✅ Still widely supported | ⚠️ Need to test dependencies<br/>⚠️ Some minor compatibility changes |
+| **Upgrade to 3.13** | ✅ Latest features<br/>✅ Best performance | ⚠️ Very new<br/>❌ May have dependency issues |
+
+**Recommendation:** Upgrade to Python 3.12 (good balance of stability and features)
+
+**Migration Tasks:**
+- [ ] Update all Dockerfiles from `python:3.11-slim` to `python:3.12-slim`
+- [ ] Test all services build successfully
+- [ ] Run full test suite
+- [ ] Check for deprecation warnings
+- [ ] Verify grpcio compatibility with 3.12
+- [ ] Verify all OTel packages work with 3.12
+
+**Files to Update:**
+- services/settings/Dockerfile
+- services/controller_manager/Dockerfile
+- services/game_coordinator/Dockerfile
+- services/menu/Dockerfile
+- services/supervisor/Dockerfile
+- services/webui/Dockerfile
+- services/audio/Dockerfile (if exists)
+
+**Verification:**
+```bash
+# Rebuild all images
+docker-compose build
+
+# Check Python version in containers
+docker exec joustmania-settings python --version
+
+# Run tests
+docker exec joustmania-settings pytest
+```
+
+---
+
+### Phase 12.3: Python Dependencies
+
+#### uv Package Manager
+
+**Current (in Dockerfiles):**
+```dockerfile
+RUN pip install --no-cache-dir uv
+```
+
+**Target:**
+```dockerfile
+RUN pip install --no-cache-dir uv==0.5.0  # Pin specific version
+```
+
+**Migration Tasks:**
+- [ ] Check latest stable uv version
+- [ ] Pin version in all Dockerfiles
+- [ ] Test build process still works
+
+#### Application Dependencies
+
+**Process for each service:**
+
+1. **Review current versions:**
+   ```bash
+   cd services/settings
+   uv pip list
+   ```
+
+2. **Check for updates:**
+   ```bash
+   uv pip list --outdated
+   ```
+
+3. **Update pyproject.toml:**
+   ```toml
+   [project]
+   dependencies = [
+       "grpcio>=1.60.0",  # Update to latest
+       "grpcio-tools>=1.60.0",
+       "opentelemetry-api>=1.23.0",  # Match latest OTel versions
+       "opentelemetry-sdk>=1.23.0",
+       "opentelemetry-instrumentation-grpc>=0.44b0",
+       "opentelemetry-exporter-otlp>=1.23.0",
+       "pyyaml>=6.0.1",
+       # ... etc
+   ]
+   ```
+
+4. **Test the service:**
+   ```bash
+   docker-compose build settings
+   docker-compose up settings
+   # Verify service starts and traces appear
+   ```
+
+**Critical Dependencies to Update:**
+
+| Package | Why Update |
+|---------|------------|
+| **grpcio** | Bug fixes, performance improvements |
+| **opentelemetry-*** | Keep all OTel packages in sync |
+| **Flask** (WebUI) | Security patches |
+| **PyYAML** | Security patches |
+| **pytest** | Better testing features |
+
+**Migration Tasks:**
+- [ ] Update services/settings/pyproject.toml
+- [ ] Update services/controller_manager/pyproject.toml
+- [ ] Update services/game_coordinator/pyproject.toml
+- [ ] Update services/menu/pyproject.toml
+- [ ] Update services/supervisor/pyproject.toml
+- [ ] Update services/webui/pyproject.toml
+- [ ] Update testing/requirements.txt
+
+---
+
+## Upgrade Checklist
+
+### Pre-Upgrade
+- [ ] Create git tag for rollback: `git tag pre-dependency-upgrade`
+- [ ] Document current versions for reference
+- [ ] Backup docker-compose.yml
+- [ ] Review all service logs for existing issues
+
+### Upgrade Execution
+- [ ] Update docker-compose.yml (Jaeger, OTel, Redis)
+- [ ] Update all Dockerfiles (Python 3.12, uv pinning)
+- [ ] Update all pyproject.toml files (dependencies)
+- [ ] Update testing/requirements.txt
+- [ ] Rebuild all images: `docker-compose build --no-cache`
+
+### Testing
+- [ ] Start infrastructure: `docker-compose up redis jaeger otel-collector`
+- [ ] Verify Jaeger UI loads (http://localhost:16686)
+- [ ] Verify OTel Collector health (http://localhost:13133)
+- [ ] Start all services: `docker-compose up`
+- [ ] Check all services are healthy: `docker-compose ps`
+- [ ] Verify gRPC communication (grpcurl tests)
+- [ ] Check traces appear in Jaeger v2
+- [ ] Verify Prometheus metrics (http://localhost:8888/metrics)
+- [ ] Run unit test suite: `./scripts/testing/run_tests.sh`
+- [ ] Test WebUI functionality (http://localhost:80)
+- [ ] Check all service logs for errors
+
+### Post-Upgrade
+- [ ] Update CHANGELOG.md with version changes
+- [ ] Update documentation if breaking changes
+- [ ] Update docker-compose.yml comments
+- [ ] Commit changes with descriptive message
+- [ ] Tag new version: `git tag v2.0.0-deps-updated`
+- [ ] Update IMPLEMENTATION_STATUS.md to mark Phase 12 complete
+
+---
+
+## Rollback Plan
+
+If issues occur after upgrade:
+
+1. **Immediate rollback:**
+   ```bash
+   # Stop all services
+   docker-compose down
+
+   # Checkout pre-upgrade state
+   git checkout pre-dependency-upgrade
+
+   # Rebuild and start
+   docker-compose build
+   docker-compose up
+   ```
+
+2. **Partial rollback (if only one component has issues):**
+   ```bash
+   # Rollback just Jaeger to v1
+   # Edit docker-compose.yml and change:
+   # image: jaegertracing/all-in-one:1.51
+
+   docker-compose up -d jaeger
+   ```
+
+3. **Investigate issues:**
+   - Check service logs: `docker-compose logs [service-name]`
+   - Check compatibility matrices for dependencies
+   - Review release notes for breaking changes
+
+---
+
+## Version Compatibility Matrix
+
+After upgrade, we expect:
+
+| Component | Version | Compatible With |
+|-----------|---------|-----------------|
+| Jaeger | 2.0+ | OTel Collector 0.110+ |
+| OTel Collector | 0.110.0 | Jaeger 2.0+, OTel Python SDK 1.23+ |
+| Python | 3.12 | grpcio 1.60+, OTel SDK 1.23+ |
+| grpcio | 1.60+ | Python 3.12 |
+| OTel Python SDK | 1.23+ | OTel Collector 0.110+ |
+| Redis | 7.4 | All Python clients |
+
+---
+
+## Expected Benefits
+
+### Performance
+- ✅ Python 3.12: 5-10% faster execution
+- ✅ Jaeger v2: Improved trace query performance
+- ✅ Latest grpcio: Better gRPC performance
+
+### Features
+- ✅ Jaeger v2: Enhanced UI and features
+- ✅ Python 3.12: Better error messages, new syntax features
+- ✅ Latest OTel: New instrumentation capabilities
+
+### Security
+- ✅ Latest dependencies: Security patches
+- ✅ Pinned versions: Reproducible, auditable builds
+- ✅ No `:latest` tags: Controlled upgrades
+
+### Maintainability
+- ✅ Pinned versions: Reproducible builds across environments
+- ✅ Version documentation: Clear upgrade path
+- ✅ Rollback capability: Safe experimentation
+
+---
+
+## Documentation Updates
+
+After Phase 12 completion, update:
+
+1. **README.md** - Update version requirements
+2. **docs/DEPLOYMENT.md** - Update deployment instructions with new versions
+3. **docker-compose.yml** - Add comments explaining version choices
+4. **CHANGELOG.md** - Document all version changes
+5. **IMPLEMENTATION_STATUS.md** - Mark Phase 12 as complete
+
+---
+
+## Summary
+
+**Total dependencies to update:** ~15+
+- 3 infrastructure images (Jaeger, OTel Collector, Redis)
+- 7 Python base images (all Dockerfiles)
+- 6+ service pyproject.toml files
+- 1 testing requirements file
+
+**Expected timeline:**
+- Infrastructure updates: 1-2 hours
+- Python version upgrade: 2-4 hours (including testing)
+- Dependency updates: 2-3 hours
+- Testing and verification: 2-3 hours
+- **Total: 1-2 days**
+
+**Risk level:** Medium
+- Infrastructure changes: Low risk (well-tested)
+- Python 3.12 upgrade: Medium risk (need thorough testing)
+- Dependency updates: Low risk (incremental)
+
+This completes the dependency modernization plan for the JoustMania cloud-native microservices platform.

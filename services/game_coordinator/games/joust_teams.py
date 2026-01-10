@@ -1,6 +1,7 @@
-from games.game import Game
-import colors
 import logging
+
+from .base import Game
+from utils import colors
 
 logger = logging.getLogger(__name__)
 

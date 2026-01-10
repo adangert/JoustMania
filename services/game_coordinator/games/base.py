@@ -1,11 +1,13 @@
 import time
 import os
-import common, colors
-from common import Status
-from colors import Colors
-from piaudio import Audio
 import numpy
 import random
+
+from core import common
+from core.common import Status
+from utils import colors
+from utils.colors import Colors
+# TODO: Replace with AudioClient when implementing real audio integration
 from opentelemetry import trace
 from opentelemetry import metrics
 from opentelemetry.trace import SpanContext, TraceFlags, NonRecordingSpan

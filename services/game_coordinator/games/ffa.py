@@ -2,9 +2,9 @@ import enum
 import asyncio
 import time
 
-import common
-import pacemanager
-from player import Player, PlayerCollection, EventType
+from core import common
+from . import pacemanager
+from .player import Player, PlayerCollection, EventType
 
 # Hertz
 UPDATE_FREQUENCY=30

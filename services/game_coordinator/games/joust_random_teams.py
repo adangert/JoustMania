@@ -1,7 +1,8 @@
-from games.game import Game
-from piaudio import Audio
-import colors
 import logging
+
+from .base import Game
+from utils import colors
+# TODO: Replace Audio with AudioClient when implementing real audio integration
 
 logger = logging.getLogger(__name__)
 

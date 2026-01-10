@@ -704,19 +704,228 @@ htop
 - [ ] Verify all scripts still work after reorganization
 - [ ] Update any references to moved scripts
 
+### Phase 11: Documentation & Architecture Overview 📅 PLANNING
+**Context:** Current README.md describes legacy monolithic Pi setup. Need comprehensive documentation for cloud-native microservices architecture.
+
+#### Main README.md Rewrite
+- [ ] Update project description - Emphasize cloud-native microservices architecture fork of JoustMania
+- [ ] Add "Architecture Overview" section with Mermaid diagrams:
+  - [ ] High-level microservices architecture diagram
+  - [ ] Service communication flow (gRPC)
+  - [ ] Docker Compose stack diagram
+  - [ ] Controller state flow (hardware → ControllerManager → Game logic)
+- [ ] Rewrite "Installation" section for Docker-based deployment:
+  - [ ] Docker Compose quickstart
+  - [ ] Development setup
+  - [ ] Production deployment (Kubernetes considerations)
+- [ ] Update "Hardware" section - Clarify what's needed for ControllerManager service
+- [ ] Add "Development" section:
+  - [ ] Local development with Docker
+  - [ ] Running individual services
+  - [ ] Testing services with grpcurl
+  - [ ] Viewing traces in Jaeger
+- [ ] Add "Observability" section:
+  - [ ] OpenTelemetry integration
+  - [ ] Jaeger UI access
+  - [ ] Prometheus metrics
+  - [ ] Service health monitoring
+- [ ] Update "Web Interface" section - Describe containerized WebUI service
+- [ ] Add "Migration from Legacy" section - Document differences from original JoustMania
+- [ ] Keep game rules section (still accurate)
+- [ ] Add "Project History" section - Credit original JoustMania, explain fork/refactor purpose
+
+#### Service-Level Documentation (READMEs for each microservice)
+- [ ] **services/settings/README.md**:
+  - [ ] Service purpose and responsibilities
+  - [ ] gRPC API documentation (GetSettings, UpdateSetting, SubscribeToChanges)
+  - [ ] Schema validation rules
+  - [ ] Atomic file save mechanism
+  - [ ] Example gRPC calls with grpcurl
+  - [ ] Environment variables and configuration
+  - [ ] Testing the service
+- [ ] **services/controller_manager/README.md**:
+  - [ ] Service purpose and responsibilities
+  - [ ] Hardware dependencies (PS Move API, Bluetooth, USB)
+  - [ ] gRPC API documentation (GetControllers, StreamControllerStates, PairController, RemoveController)
+  - [ ] Mock mode vs hardware mode
+  - [ ] Discovery loop mechanism
+  - [ ] Example gRPC calls with grpcurl
+  - [ ] Environment variables and configuration
+  - [ ] Testing the service
+- [ ] **services/game_coordinator/README.md**:
+  - [ ] Service purpose and responsibilities
+  - [ ] Game lifecycle state machine (IDLE → STARTING → RUNNING → ENDING → ENDED)
+  - [ ] gRPC API documentation (StartGame, GetGameStatus, ForceEndGame, StreamGameEvents)
+  - [ ] Supported game modes (13 modes)
+  - [ ] Mock game loop vs real game implementation
+  - [ ] Example gRPC calls with grpcurl
+  - [ ] Environment variables and configuration
+  - [ ] Testing the service
+- [ ] **services/menu/README.md**:
+  - [ ] Service purpose and responsibilities
+  - [ ] Menu state machine (STOPPED, RUNNING, GAME_STARTING)
+  - [ ] gRPC API documentation (StartMenu, StopMenu, ProcessInput, StreamMenuEvents)
+  - [ ] Input types (button presses, web commands)
+  - [ ] Game selection navigation
+  - [ ] Example gRPC calls with grpcurl
+  - [ ] Environment variables and configuration
+  - [ ] Testing the service
+- [ ] **services/supervisor/README.md**:
+  - [ ] Service purpose and responsibilities
+  - [ ] Health monitoring mechanism (5s interval checks)
+  - [ ] gRPC API documentation (GetProcessStatus, GetAllProcessStatus, RestartProcess, StreamProcessUpdates)
+  - [ ] Monitored services (Settings, ControllerManager, GameCoordinator, Menu)
+  - [ ] Health check criteria
+  - [ ] Example gRPC calls with grpcurl
+  - [ ] Environment variables and configuration
+  - [ ] Testing the service
+- [ ] **services/webui/README.md**:
+  - [ ] Service purpose and responsibilities
+  - [ ] Flask routes and endpoints
+  - [ ] gRPC client connections to backend services
+  - [ ] Web UI features (game selection, settings, battery status, monitoring)
+  - [ ] Environment variables and configuration
+  - [ ] Testing the service
+  - [ ] Accessing the UI (http://localhost:80)
+
+#### Architecture Documentation
+- [ ] Create **docs/ARCHITECTURE.md**:
+  - [ ] Complete architecture overview with Mermaid diagrams
+  - [ ] Microservices communication patterns
+  - [ ] Data flow diagrams
+  - [ ] Deployment architecture (Docker Compose vs Kubernetes)
+  - [ ] Technology stack (gRPC, OpenTelemetry, Redis, Jaeger, etc.)
+- [ ] Create **docs/DEVELOPMENT.md**:
+  - [ ] Setting up development environment
+  - [ ] Building and running services locally
+  - [ ] Testing individual services
+  - [ ] Using grpcurl for API testing
+  - [ ] Viewing traces in Jaeger
+  - [ ] Adding new features/services
+  - [ ] Code organization and conventions
+- [ ] Create **docs/DEPLOYMENT.md**:
+  - [ ] Docker Compose deployment
+  - [ ] Kubernetes deployment (future)
+  - [ ] Hardware requirements for ControllerManager
+  - [ ] Network configuration
+  - [ ] Monitoring and logging
+  - [ ] Troubleshooting common issues
+- [ ] Create **docs/API.md**:
+  - [ ] Complete gRPC API reference for all services
+  - [ ] Request/response examples
+  - [ ] Error codes and handling
+  - [ ] Streaming RPC patterns
+  - [ ] Authentication (if added in future)
+- [ ] Create **docs/OBSERVABILITY.md**:
+  - [ ] OpenTelemetry setup and configuration
+  - [ ] Jaeger trace analysis
+  - [ ] Prometheus metrics reference
+  - [ ] Service health monitoring
+  - [ ] Performance monitoring and optimization
+  - [ ] Debugging with distributed tracing
+- [ ] Create **docs/MIGRATION.md**:
+  - [ ] Migrating from legacy JoustMania
+  - [ ] Key differences in architecture
+  - [ ] Breaking changes
+  - [ ] Migration checklist
+  - [ ] Legacy compatibility mode (if any)
+
+#### Mermaid Diagrams to Create
+- [ ] High-level microservices architecture
+- [ ] Service dependency graph
+- [ ] gRPC communication flow
+- [ ] Controller state producer-consumer pattern
+- [ ] Game lifecycle state machine
+- [ ] Menu state machine
+- [ ] Health monitoring flow
+- [ ] Docker Compose stack topology
+- [ ] Development workflow diagram
+- [ ] Deployment architecture
+
+#### Additional Documentation Tasks
+- [ ] Update all protobuf files with comprehensive comments
+- [ ] Add inline documentation to critical service methods
+- [ ] Create API examples directory with sample gRPC calls
+- [ ] Update CONTRIBUTORS.md to credit both original project and refactor work
+- [ ] Create CHANGELOG.md documenting major architectural changes
+- [ ] Add LICENSE file (if not already present)
+- [ ] Create CODE_OF_CONDUCT.md (if needed for contributions)
+- [ ] Update .gitignore for new structure
+
+### Phase 12: Dependency Updates 📅 PLANNING
+**Context:** Docker and Python dependencies are outdated. Need to upgrade to latest stable versions for security, performance, and new features (e.g., Jaeger v2).
+
+#### Infrastructure Dependencies (docker-compose.yml)
+- [ ] **Jaeger** - Upgrade from `jaegertracing/all-in-one:latest` to `jaegertracing/all-in-one:2.0` or latest v2.x
+  - Jaeger v2 has improved performance and new features
+  - Pin specific version instead of `:latest` for reproducibility
+  - Update environment variables if needed for v2
+- [ ] **OpenTelemetry Collector** - Pin version from `:latest` to specific stable release
+  - Current: `otel/opentelemetry-collector-contrib:latest`
+  - Target: `otel/opentelemetry-collector-contrib:0.110.0` (or latest stable)
+  - Benefits: Reproducible builds, known compatibility
+- [ ] **Redis** - Update from `redis:7-alpine` to latest 7.x
+  - Current: `redis:7-alpine`
+  - Target: `redis:7.4-alpine` (or latest 7.x)
+  - Check for breaking changes in Redis release notes
+- [ ] **Python base images** - Consider upgrade from Python 3.11 to 3.12 or 3.13
+  - Current: `python:3.11-slim` in all Dockerfiles
+  - Target: `python:3.12-slim` or `python:3.13-slim`
+  - Benefits: Performance improvements, new language features
+  - Risk: Need to test compatibility with all dependencies
+  - Decision: Evaluate based on uv and grpcio compatibility
+
+#### Application Dependencies (pyproject.toml files)
+- [ ] Update all service pyproject.toml files to latest compatible versions:
+  - [ ] **grpcio** and **grpcio-tools** - Check for latest stable versions
+  - [ ] **opentelemetry-api** and **opentelemetry-sdk** - Update to latest
+  - [ ] **opentelemetry-instrumentation-grpc** - Update to match SDK version
+  - [ ] **opentelemetry-exporter-otlp** - Update to match SDK version
+  - [ ] **Flask** (for WebUI) - Update to latest 3.x if available
+  - [ ] **PyYAML** - Update to latest stable
+  - [ ] **pytest** - Update to latest for testing
+- [ ] **uv package manager** - Pin version in Dockerfiles
+  - Current: Installed via `pip install uv` (unpinned)
+  - Target: `pip install uv==X.Y.Z` with specific version
+  - Benefits: Reproducible builds
+
+#### Python Dependencies in Requirements
+- [ ] Review and update testing/requirements.txt
+- [ ] Review and update any other requirements files
+
+#### Verification Tasks
+- [ ] Test all services start successfully with new dependencies
+- [ ] Verify gRPC communication still works
+- [ ] Check OpenTelemetry traces appear correctly in Jaeger v2
+- [ ] Run full test suite to catch any breaking changes
+- [ ] Update documentation if any breaking changes
+- [ ] Check Jaeger v2 UI differences (if any)
+- [ ] Verify Prometheus metrics still export correctly
+
+#### Migration Notes
+- [ ] Document any breaking changes in CHANGELOG.md
+- [ ] Update docker-compose.yml comments with version rationale
+- [ ] Create rollback plan (git tag before upgrade)
+- [ ] Test on development environment before production
+
 ---
 
 ## Next Steps
 
-### Immediate (Phase 9 & 10 - Code Cleanup)
-1. ✅ All 5 gRPC services implemented with OpenTelemetry
+### Immediate (Phases 9-12 - Cleanup, Documentation & Modernization)
+1. ✅ All 6 gRPC services implemented with OpenTelemetry (including WebUI)
 2. ✅ Complete docker-compose stack with observability
 3. ✅ CLEANUP_PLAN.md created with detailed Python files analysis
-4. ✅ CLEANUP_PLAN.md updated with bash scripts analysis
-5. 📅 Execute Phase 1-5: Python files cleanup (remove duplicates, archive legacy, reorganize)
-6. 📅 Execute Phase 6-10: Bash scripts cleanup (archive legacy, reorganize scripts)
-7. 📅 Update imports and references
-8. 📅 Test complete system after cleanup
+4. ✅ CLEANUP_PLAN.md updated with bash scripts analysis (Phase 10)
+5. ✅ CLEANUP_PLAN.md updated with documentation overhaul plan (Phase 11)
+6. ✅ Phase 12 added to IMPLEMENTATION_STATUS.md for dependency updates
+7. 📅 Execute Phase 9: Python files cleanup (remove duplicates, archive legacy, reorganize)
+8. 📅 Execute Phase 10: Bash scripts cleanup (archive legacy, reorganize scripts)
+9. 📅 Execute Phase 11: Documentation overhaul (README, service docs, architecture diagrams)
+10. 📅 Execute Phase 12: Dependency updates (Jaeger v2, OTel Collector, Python 3.12, etc.)
+11. 📅 Update imports and references
+12. 📅 Test complete system after cleanup and upgrades
+13. 📅 Verify all documentation is accurate and complete
 
 ### Testing Cloud-Native Stack
 1. Build and start stack: `docker-compose up --build`

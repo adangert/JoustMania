@@ -18,7 +18,7 @@ import uuid
 import fnmatch
 from multiprocessing import Process, Queue
 from typing import Optional, Dict, Any, Tuple
-from common import Games, Sensitivity
+from core.common import Games, Sensitivity
 from sys import platform
 
 logger = logging.getLogger(__name__)

@@ -9,8 +9,9 @@ import time
 import typing
 
 import psmove
-import common
 from numpy import linalg
+
+from core import common
 
 NUM_WARNING_FLASHES=5
 WARNING_FLASH_DURATION=0.1

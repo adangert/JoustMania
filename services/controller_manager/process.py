@@ -15,11 +15,12 @@ import time
 import psmove
 from multiprocessing import Process, Queue, Value, Array, Manager
 from typing import Dict, List, Optional
-import controller_process
-from controller_state import ControllerState
-import common
-from common import Status, Opts, Games
-import pair
+
+from core import controller_process
+from core.controller_state import ControllerState
+from core import common
+from core.common import Status, Opts, Games
+from . import pairing as pair
 
 logger = logging.getLogger(__name__)
 

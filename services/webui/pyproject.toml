@@ -1,0 +1,27 @@
+[project]
+name = "joustmania-webui"
+version = "1.0.0"
+description = "Web UI microservice for JoustMania"
+requires-python = ">=3.9,<3.13"
+dependencies = [
+    # Web framework
+    "flask>=3.0.0",
+    "wtforms>=3.1.0",
+
+    # Core dependencies
+    "pyyaml>=6.0",
+
+    # gRPC (client only)
+    "grpcio>=1.60.0",
+    "grpcio-tools>=1.60.0",
+
+    # OpenTelemetry
+    "opentelemetry-distro>=0.43b0",
+    "opentelemetry-exporter-otlp>=1.22.0",
+    "opentelemetry-instrumentation-flask>=0.43b0",
+    "opentelemetry-instrumentation-grpc>=0.43b0",
+]
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"

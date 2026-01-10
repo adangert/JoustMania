@@ -175,6 +175,36 @@ services:
       - joustmania
     restart: unless-stopped
 
+  # Web UI Service
+  webui:
+    build:
+      context: .
+      dockerfile: services/webui/Dockerfile
+    container_name: joustmania-webui
+    ports:
+      - "80:80"
+    environment:
+      - OTEL_SERVICE_NAME=webui-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - SETTINGS_SERVICE=settings:50051
+      - CONTROLLER_MANAGER_SERVICE=controller-manager:50052
+      - MENU_SERVICE=menu:50054
+      - SUPERVISOR_SERVICE=supervisor:50055
+    depends_on:
+      otel-collector:
+        condition: service_healthy
+      settings:
+        condition: service_started
+      controller-manager:
+        condition: service_started
+      menu:
+        condition: service_started
+      supervisor:
+        condition: service_started
+    networks:
+      - joustmania
+    restart: unless-stopped
+
 networks:
   joustmania:
     driver: bridge

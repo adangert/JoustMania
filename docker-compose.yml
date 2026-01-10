@@ -91,11 +91,17 @@ services:
       dockerfile: services/controller_manager/Dockerfile
     container_name: joustmania-controller-manager
     privileged: true  # Required for Bluetooth + USB access
-    network_mode: host  # Required for Bluetooth
+    # FIXED: Use bridge network instead of host mode for proper DNS resolution
+    # Bluetooth/USB still work via privileged mode + device mounts
+    networks:
+      - joustmania
     volumes:
       - /var/run/dbus:/var/run/dbus  # DBus for Bluetooth pairing
     devices:
       - /dev/bus/usb:/dev/bus/usb  # USB devices for PS Move
+    # Port exposed only within Docker network (no host binding)
+    expose:
+      - "50052"
     environment:
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
       - OTEL_SERVICE_NAME=controller-manager-service
@@ -106,6 +112,12 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 50052 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # Game Coordinator Service
   game-coordinator:
@@ -127,7 +139,7 @@ services:
       settings:
         condition: service_healthy
       controller-manager:
-        condition: service_started
+        condition: service_healthy
     networks:
       - joustmania
     restart: unless-stopped
@@ -158,7 +170,7 @@ services:
       settings:
         condition: service_healthy
       controller-manager:
-        condition: service_started
+        condition: service_healthy
     networks:
       - joustmania
     restart: unless-stopped
@@ -187,7 +199,7 @@ services:
       settings:
         condition: service_healthy
       controller-manager:
-        condition: service_started
+        condition: service_healthy
       game-coordinator:
         condition: service_healthy
       menu:
@@ -223,7 +235,7 @@ services:
       settings:
         condition: service_healthy
       controller-manager:
-        condition: service_started
+        condition: service_healthy
       menu:
         condition: service_healthy
       supervisor:

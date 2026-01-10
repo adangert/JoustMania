@@ -38,6 +38,12 @@ dev-dependencies = [
     "pytest-asyncio>=0.23.0",
 ]
 
+[tool.uv.scripts]
+# Integration test with pause for Jaeger inspection
+test-mock-with-pause = { cmd = "pytest tests/integration/test_mock_environment.py -v -s", env = { PAUSE_BEFORE_TEARDOWN = "1" } }
+# Integration test without pause (normal run)
+test-mock = "pytest tests/integration/test_mock_environment.py -v"
+
 [tool.uv.workspace]
 members = [
     "services/controller_manager",

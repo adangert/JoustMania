@@ -242,11 +242,11 @@ Run full end-to-end tests using testcontainers:
 # Install test dependencies
 uv sync
 
-# Run integration tests
-uv run pytest tests/integration/test_mock_environment.py -v
+# Run integration tests (auto-teardown)
+uv run test-mock
 
-# Or with pause to inspect Jaeger
-PAUSE_BEFORE_TEARDOWN=1 uv run pytest tests/integration/test_mock_environment.py -v -s
+# Run with pause to inspect Jaeger before teardown
+uv run test-mock-with-pause
 ```
 
 ### Documentation

@@ -481,8 +481,8 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
             self.game_thread.join(timeout=5.0)
 
 
-def serve(port=50053):
-    """Start the GameCoordinator gRPC server."""
+async def serve(port=50053):
+    """Start the GameCoordinator async gRPC server."""
     # Configure logging
     logging.basicConfig(
         level=logging.INFO,

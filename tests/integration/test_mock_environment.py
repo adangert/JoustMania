@@ -5,10 +5,14 @@ These tests spin up the entire JoustMania stack using docker-compose.mock.yml
 and run end-to-end game simulations without requiring physical hardware.
 
 Usage:
-    # Run tests normally (auto-teardown)
-    uv run pytest tests/integration/test_mock_environment.py -v
+    # Run tests normally (auto-teardown) - using uv script
+    ./scripts/testing/test-mock.py
 
     # Pause before teardown to inspect Jaeger
+    ./scripts/testing/test-mock-with-pause.py
+
+    # Or run manually with pytest
+    uv run pytest tests/integration/test_mock_environment.py -v
     PAUSE_BEFORE_TEARDOWN=1 uv run pytest tests/integration/test_mock_environment.py -v -s
 
     When paused, you can:

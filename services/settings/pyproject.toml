@@ -8,21 +8,21 @@ dependencies = [
     "pyyaml>=6.0",
 
     # gRPC
-    "grpcio>=1.60.0",
-    "grpcio-tools>=1.60.0",
+    "grpcio>=1.70.0",
+    "grpcio-tools>=1.70.0",
 
     # Redis for pub/sub events
     "redis>=5.0.0",
 
     # OpenTelemetry
-    "opentelemetry-distro>=0.43b0",
-    "opentelemetry-exporter-otlp>=1.22.0",
-    "opentelemetry-instrumentation-grpc>=0.43b0",
+    "opentelemetry-distro>=0.49b0",
+    "opentelemetry-exporter-otlp>=1.28.0",
+    "opentelemetry-instrumentation-grpc>=0.49b0",
 ]
 
 [project.optional-dependencies]
 test = [
-    "pytest>=7.4.0",
+    "pytest>=8.0.0",
     "pytest-cov>=4.1.0",
     "pytest-asyncio>=0.21.0",
 ]

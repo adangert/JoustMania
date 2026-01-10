@@ -12,19 +12,19 @@ This is part of the microservices refactoring (Phase 4).
 """
 
 import logging
-import time
 import threading
-from enum import Enum
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from enum import Enum
 from multiprocessing import Process
-from typing import Dict, List, Optional, Callable
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 
 class ProcessStatus(Enum):
     """Process status states."""
+
     STARTING = "starting"
     RUNNING = "running"
     STOPPING = "stopping"
@@ -35,13 +35,14 @@ class ProcessStatus(Enum):
 @dataclass
 class ProcessInfo:
     """Information about a managed process."""
+
     name: str
     process: Process
     status: ProcessStatus = ProcessStatus.STARTING
     start_time: float = field(default_factory=time.time)
     last_health_check: float = field(default_factory=time.time)
     restart_count: int = 0
-    last_error: Optional[str] = None
+    last_error: str | None = None
     critical: bool = True
 
     def uptime(self) -> float:
@@ -55,14 +56,14 @@ class ProcessInfo:
     def to_dict(self) -> dict:
         """Convert to dict for status queries."""
         return {
-            'name': self.name,
-            'pid': self.process.pid if self.process else None,
-            'status': self.status.value,
-            'uptime_seconds': self.uptime(),
-            'restart_count': self.restart_count,
-            'last_health_check_ago': self.time_since_health_check(),
-            'last_error': self.last_error,
-            'critical': self.critical
+            "name": self.name,
+            "pid": self.process.pid if self.process else None,
+            "status": self.status.value,
+            "uptime_seconds": self.uptime(),
+            "restart_count": self.restart_count,
+            "last_health_check_ago": self.time_since_health_check(),
+            "last_error": self.last_error,
+            "critical": self.critical,
         }
 
 
@@ -83,48 +84,48 @@ class ProcessSupervisor:
 
     def __init__(self):
         """Initialize Process Supervisor."""
-        self.processes: Dict[str, ProcessInfo] = {}
+        self.processes: dict[str, ProcessInfo] = {}
         self.running = False
-        self.monitor_thread: Optional[threading.Thread] = None
+        self.monitor_thread: threading.Thread | None = None
 
         # Process configuration
         self.process_configs = {
-            'Settings': {
-                'dependencies': [],
-                'restart_on_failure': True,
-                'max_restarts': 3,
-                'health_check_interval': 5.0,
-                'critical': True,
-                'startup_timeout': 5.0
+            "Settings": {
+                "dependencies": [],
+                "restart_on_failure": True,
+                "max_restarts": 3,
+                "health_check_interval": 5.0,
+                "critical": True,
+                "startup_timeout": 5.0,
             },
-            'ControllerManager': {
-                'dependencies': ['Settings'],
-                'restart_on_failure': True,
-                'max_restarts': 3,
-                'health_check_interval': 5.0,
-                'critical': True,
-                'startup_timeout': 5.0
+            "ControllerManager": {
+                "dependencies": ["Settings"],
+                "restart_on_failure": True,
+                "max_restarts": 3,
+                "health_check_interval": 5.0,
+                "critical": True,
+                "startup_timeout": 5.0,
             },
-            'GameCoordinator': {
-                'dependencies': ['Settings', 'ControllerManager'],
-                'restart_on_failure': True,
-                'max_restarts': 3,
-                'health_check_interval': 5.0,
-                'critical': False,  # Can operate without games
-                'startup_timeout': 5.0
+            "GameCoordinator": {
+                "dependencies": ["Settings", "ControllerManager"],
+                "restart_on_failure": True,
+                "max_restarts": 3,
+                "health_check_interval": 5.0,
+                "critical": False,  # Can operate without games
+                "startup_timeout": 5.0,
             },
-            'Menu': {
-                'dependencies': ['Settings', 'ControllerManager'],
-                'restart_on_failure': True,
-                'max_restarts': 3,
-                'health_check_interval': 5.0,
-                'critical': True,  # System needs menu to function
-                'startup_timeout': 5.0
-            }
+            "Menu": {
+                "dependencies": ["Settings", "ControllerManager"],
+                "restart_on_failure": True,
+                "max_restarts": 3,
+                "health_check_interval": 5.0,
+                "critical": True,  # System needs menu to function
+                "startup_timeout": 5.0,
+            },
         }
 
         # Factory functions (set by piparty.py)
-        self.process_factories: Dict[str, Callable] = {}
+        self.process_factories: dict[str, Callable] = {}
 
         logger.info("ProcessSupervisor initialized")
 
@@ -152,14 +153,14 @@ class ProcessSupervisor:
 
         try:
             # Start in dependency order
-            self.start_process('Settings')
-            self.wait_for_process_ready('Settings')
+            self.start_process("Settings")
+            self.wait_for_process_ready("Settings")
 
-            self.start_process('ControllerManager')
-            self.wait_for_process_ready('ControllerManager')
+            self.start_process("ControllerManager")
+            self.wait_for_process_ready("ControllerManager")
 
-            self.start_process('GameCoordinator')
-            self.wait_for_process_ready('GameCoordinator')
+            self.start_process("GameCoordinator")
+            self.wait_for_process_ready("GameCoordinator")
 
             logger.info("All processes started successfully")
 
@@ -192,7 +193,7 @@ class ProcessSupervisor:
 
         # Check dependencies
         config = self.process_configs[name]
-        for dep in config['dependencies']:
+        for dep in config["dependencies"]:
             if dep not in self.processes:
                 raise ValueError(f"Dependency {dep} not started for {name}")
             if self.processes[dep].status != ProcessStatus.RUNNING:
@@ -210,7 +211,7 @@ class ProcessSupervisor:
                 name=name,
                 process=process,
                 status=ProcessStatus.STARTING,
-                critical=config['critical']
+                critical=config["critical"],
             )
             self.processes[name] = proc_info
 
@@ -232,7 +233,7 @@ class ProcessSupervisor:
         """
         proc_info = self.processes[name]
         config = self.process_configs[name]
-        timeout = config['startup_timeout']
+        timeout = config["startup_timeout"]
 
         logger.debug(f"Waiting for {name} to be ready (timeout: {timeout}s)...")
 
@@ -268,7 +269,7 @@ class ProcessSupervisor:
         self.stop_monitoring()
 
         # Stop in reverse dependency order
-        for name in ['GameCoordinator', 'ControllerManager', 'Settings']:
+        for name in ["GameCoordinator", "ControllerManager", "Settings"]:
             if name in self.processes:
                 self.stop_process(name)
 
@@ -330,9 +331,7 @@ class ProcessSupervisor:
 
         self.running = True
         self.monitor_thread = threading.Thread(
-            target=self.monitor_loop,
-            name="ProcessMonitor",
-            daemon=True
+            target=self.monitor_loop, name="ProcessMonitor", daemon=True
         )
         self.monitor_thread.start()
         logger.info("Health monitoring started")
@@ -376,7 +375,9 @@ class ProcessSupervisor:
 
                     # Log status periodically (every 60 seconds)
                     if proc_info.uptime() % 60 < 5:  # Within 5s of minute mark
-                        logger.debug(f"{name} healthy (uptime: {proc_info.uptime():.0f}s, restarts: {proc_info.restart_count})")
+                        logger.debug(
+                            f"{name} healthy (uptime: {proc_info.uptime():.0f}s, restarts: {proc_info.restart_count})"
+                        )
 
             except Exception as e:
                 logger.error(f"Error in health monitoring: {e}", exc_info=True)
@@ -428,13 +429,13 @@ class ProcessSupervisor:
         logger.error(f"{name} process failed (restart count: {proc_info.restart_count})")
 
         # Check if we should restart
-        if not config['restart_on_failure']:
+        if not config["restart_on_failure"]:
             logger.info(f"{name} restart disabled, not restarting")
             return
 
-        if proc_info.restart_count > config['max_restarts']:
+        if proc_info.restart_count > config["max_restarts"]:
             logger.error(f"{name} exceeded max restarts ({config['max_restarts']}), giving up")
-            if config['critical']:
+            if config["critical"]:
                 logger.critical(f"Critical process {name} failed permanently!")
             return
 
@@ -476,19 +477,16 @@ class ProcessSupervisor:
         except Exception as e:
             raise RuntimeError(f"Failed to restart {name}") from e
 
-    def get_status(self) -> Dict[str, dict]:
+    def get_status(self) -> dict[str, dict]:
         """
         Get status of all managed processes.
 
         Returns:
             Dict mapping process name to status dict
         """
-        return {
-            name: proc_info.to_dict()
-            for name, proc_info in self.processes.items()
-        }
+        return {name: proc_info.to_dict() for name, proc_info in self.processes.items()}
 
-    def get_process_status(self, name: str) -> Optional[dict]:
+    def get_process_status(self, name: str) -> dict | None:
         """
         Get status of specific process.
 
@@ -533,11 +531,13 @@ class ProcessSupervisor:
                 ProcessStatus.STARTING: "🔄",
                 ProcessStatus.STOPPING: "⏹️ ",
                 ProcessStatus.STOPPED: "⏸️ ",
-                ProcessStatus.FAILED: "❌"
+                ProcessStatus.FAILED: "❌",
             }.get(proc_info.status, "❓")
 
-            lines.append(f"  {status_symbol} {name}: {proc_info.status.value} "
-                        f"(uptime: {proc_info.uptime():.0f}s, restarts: {proc_info.restart_count})")
+            lines.append(
+                f"  {status_symbol} {name}: {proc_info.status.value} "
+                f"(uptime: {proc_info.uptime():.0f}s, restarts: {proc_info.restart_count})"
+            )
 
             if proc_info.last_error:
                 lines.append(f"    Last error: {proc_info.last_error}")

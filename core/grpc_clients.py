@@ -8,10 +8,10 @@ Part of Phase 8a (gRPC conversion).
 """
 
 import logging
-import grpc
-import time
-from typing import Dict, Any, Optional
 from contextlib import contextmanager
+from typing import Any
+
+import grpc
 
 from services.settings import settings_pb2, settings_pb2_grpc
 
@@ -25,7 +25,7 @@ class SettingsClient:
     Provides simple methods to interact with Settings service over gRPC.
     """
 
-    def __init__(self, host: str = 'localhost', port: int = 50051):
+    def __init__(self, host: str = "localhost", port: int = 50051):
         """
         Initialize Settings gRPC client.
 
@@ -33,9 +33,9 @@ class SettingsClient:
             host: gRPC server host
             port: gRPC server port
         """
-        self.address = f'{host}:{port}'
-        self.channel: Optional[grpc.Channel] = None
-        self.stub: Optional[settings_pb2_grpc.SettingsServiceStub] = None
+        self.address = f"{host}:{port}"
+        self.channel: grpc.Channel | None = None
+        self.stub: settings_pb2_grpc.SettingsServiceStub | None = None
 
     def connect(self):
         """Establish connection to Settings service."""
@@ -67,7 +67,7 @@ class SettingsClient:
             self.connect()
         yield
 
-    def get_settings(self, timeout: float = 5.0) -> Dict[str, Any]:
+    def get_settings(self, timeout: float = 5.0) -> dict[str, Any]:
         """
         Get all settings.
 
@@ -94,15 +94,16 @@ class SettingsClient:
                 settings = {}
                 for key, value_str in response.settings.items():
                     # Try to parse as bool/int, fallback to string
-                    if value_str.lower() in ('true', 'false'):
-                        settings[key] = value_str.lower() == 'true'
+                    if value_str.lower() in ("true", "false"):
+                        settings[key] = value_str.lower() == "true"
                     else:
                         try:
                             settings[key] = int(value_str)
                         except ValueError:
                             # Check if it's a list
-                            if value_str.startswith('[') and value_str.endswith(']'):
+                            if value_str.startswith("[") and value_str.endswith("]"):
                                 import ast
+
                                 settings[key] = ast.literal_eval(value_str)
                             else:
                                 settings[key] = value_str
@@ -139,23 +140,24 @@ class SettingsClient:
 
                 # Parse value
                 value_str = response.value
-                if value_str.lower() in ('true', 'false'):
-                    return value_str.lower() == 'true'
-                else:
-                    try:
-                        return int(value_str)
-                    except ValueError:
-                        if value_str.startswith('[') and value_str.endswith(']'):
-                            import ast
-                            return ast.literal_eval(value_str)
-                        else:
-                            return value_str
+                if value_str.lower() in ("true", "false"):
+                    return value_str.lower() == "true"
+                try:
+                    return int(value_str)
+                except ValueError:
+                    if value_str.startswith("[") and value_str.endswith("]"):
+                        import ast
+
+                        return ast.literal_eval(value_str)
+                    return value_str
 
             except grpc.RpcError as e:
                 logger.error(f"GetSetting RPC failed: {e}")
                 raise
 
-    def update_setting(self, key: str, value: Any, source: str = 'piparty', timeout: float = 5.0) -> bool:
+    def update_setting(
+        self, key: str, value: Any, source: str = "piparty", timeout: float = 5.0
+    ) -> bool:
         """
         Update a setting.
 
@@ -175,17 +177,13 @@ class SettingsClient:
         with self.ensure_connected():
             # Convert value to string
             if isinstance(value, bool):
-                value_str = 'true' if value else 'false'
+                value_str = "true" if value else "false"
             elif isinstance(value, list):
                 value_str = str(value)
             else:
                 value_str = str(value)
 
-            request = settings_pb2.UpdateSettingRequest(
-                key=key,
-                value=value_str,
-                source=source
-            )
+            request = settings_pb2.UpdateSettingRequest(key=key, value=value_str, source=source)
 
             try:
                 response = self.stub.UpdateSetting(request, timeout=timeout)
@@ -193,14 +191,16 @@ class SettingsClient:
                 if not response.success:
                     raise ValueError(f"Update failed: {response.error}")
 
-                logger.info(f"Updated setting '{key}': {response.old_value} -> {response.new_value}")
+                logger.info(
+                    f"Updated setting '{key}': {response.old_value} -> {response.new_value}"
+                )
                 return True
 
             except grpc.RpcError as e:
                 logger.error(f"UpdateSetting RPC failed: {e}")
                 raise
 
-    def subscribe_to_changes(self, callback, keys: Optional[list] = None):
+    def subscribe_to_changes(self, callback, keys: list | None = None):
         """
         Subscribe to setting change events.
 
@@ -230,7 +230,7 @@ class ServiceManager:
     Provides centralized access to all microservice clients.
     """
 
-    def __init__(self, host: str = 'localhost'):
+    def __init__(self, host: str = "localhost"):
         """
         Initialize service manager.
 

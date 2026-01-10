@@ -9,11 +9,11 @@ This is Phase 13.2 - the reference implementation for game mode refactoring.
 
 import asyncio
 import logging
-import time
 import math
-from enum import Enum
-from typing import Callable, Dict, List, Optional
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
+from enum import Enum
 
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
@@ -25,29 +25,35 @@ logger = logging.getLogger(__name__)
 UPDATE_FREQUENCY = 60  # Hz - game tick frequency
 COUNTDOWN_DURATION = 3  # seconds
 
+
 # Sensitivity thresholds (will eventually come from settings)
 class Sensitivity(Enum):
-    SLOW = (1.3, 1.5)      # (warning_threshold, death_threshold)
+    SLOW = (1.3, 1.5)  # (warning_threshold, death_threshold)
     MEDIUM = (1.6, 1.8)
     FAST = (1.9, 2.8)
+
 
 @dataclass
 class Player:
     """Represents a player in the game."""
+
     serial: str
     team: int = 0
     alive: bool = True
     color: tuple = (255, 255, 255)
     last_accel_mag: float = 0.0
-    span: Optional[trace.Span] = None  # OpenTelemetry span for this player's lifecycle
+    span: trace.Span | None = None  # OpenTelemetry span for this player's lifecycle
+
 
 class GameState(Enum):
     """Game lifecycle states."""
+
     IDLE = "idle"
     STARTING = "starting"
     RUNNING = "running"
     ENDING = "ending"
     ENDED = "ended"
+
 
 class FFAGame:
     """
@@ -62,7 +68,7 @@ class FFAGame:
         controller_manager_client,
         settings_client,
         event_publisher: Callable,
-        game_id: str = ""
+        game_id: str = "",
     ):
         """
         Initialize FFA game.
@@ -80,7 +86,7 @@ class FFAGame:
 
         # Game state
         self.state = GameState.IDLE
-        self.players: Dict[str, Player] = {}
+        self.players: dict[str, Player] = {}
         self.start_time = None
         self.running = False
 
@@ -95,6 +101,7 @@ class FFAGame:
         with tracer.start_as_current_span("ffa_load_settings"):
             try:
                 from services.settings import settings_pb2
+
                 response = self.settings_client.GetSettings(settings_pb2.GetSettingsRequest())
 
                 if response.success:
@@ -102,12 +109,12 @@ class FFAGame:
                     logger.info(f"Loaded settings: {len(settings)} keys")
 
                     # Parse sensitivity
-                    sens_str = settings.get('sensitivity', 'MEDIUM').upper()
+                    sens_str = settings.get("sensitivity", "MEDIUM").upper()
                     if sens_str in Sensitivity.__members__:
                         self.sensitivity = Sensitivity[sens_str]
 
                     # Parse audio setting
-                    self.play_audio = settings.get('play_audio', 'true').lower() == 'true'
+                    self.play_audio = settings.get("play_audio", "true").lower() == "true"
 
                 else:
                     logger.warning(f"Failed to load settings: {response.error}")
@@ -132,7 +139,7 @@ class FFAGame:
                             serial=controller.serial,
                             team=0,  # FFA - everyone on their own team
                             alive=True,
-                            color=(255, 255, 255)
+                            color=(255, 255, 255),
                         )
                         self.players[controller.serial] = player
                         logger.debug(f"Added player: {controller.serial}")
@@ -141,10 +148,10 @@ class FFAGame:
                     logger.info(f"Initialized {len(self.players)} players")
 
                     # Publish event
-                    self.event_publisher("players_initialized", {
-                        "player_count": len(self.players),
-                        "serials": list(self.players.keys())
-                    })
+                    self.event_publisher(
+                        "players_initialized",
+                        {"player_count": len(self.players), "serials": list(self.players.keys())},
+                    )
 
                 else:
                     logger.error(f"Failed to get controllers: {response.error}")
@@ -164,9 +171,9 @@ class FFAGame:
 
             # Countdown colors: Red -> Yellow -> Green
             countdown_colors = [
-                (255, 0, 0),     # Red (3 seconds)
-                (255, 255, 0),   # Yellow (2 seconds)
-                (0, 255, 0),     # Green (1 second)
+                (255, 0, 0),  # Red (3 seconds)
+                (255, 255, 0),  # Yellow (2 seconds)
+                (0, 255, 0),  # Green (1 second)
             ]
 
             for i, (r, g, b) in enumerate(countdown_colors):
@@ -178,14 +185,14 @@ class FFAGame:
                 color_request = controller_manager_pb2.SetControllerColorRequest(
                     serial="",  # Empty = all controllers
                     color=controller_manager_pb2.RGB(r=r, g=g, b=b),
-                    duration_ms=0  # Permanent until next color
+                    duration_ms=0,  # Permanent until next color
                 )
                 await self.controller_client.SetControllerColor(color_request)
 
-                span.add_event("countdown_tick", {
-                    "remaining": COUNTDOWN_DURATION - i,
-                    "color": f"RGB({r},{g},{b})"
-                })
+                span.add_event(
+                    "countdown_tick",
+                    {"remaining": COUNTDOWN_DURATION - i, "color": f"RGB({r},{g},{b})"},
+                )
 
                 # Wait 1 second (in 0.1s increments to allow interruption)
                 for _ in range(10):
@@ -213,8 +220,8 @@ class FFAGame:
                             "player.serial": serial,
                             "player.team": player.team,
                             "player.color": str(player.color),
-                            "game.mode": "FFA"
-                        }
+                            "game.mode": "FFA",
+                        },
                     )
                     player.span = player_span
                     logger.debug(f"Started lifecycle span for player {serial}")
@@ -228,7 +235,9 @@ class FFAGame:
                 span.set_attribute("initial_player_count", alive_count)
 
                 # Stream controller states and process game logic
-                async for state_update in self.controller_client.StreamControllerStates(stream_request):
+                async for state_update in self.controller_client.StreamControllerStates(
+                    stream_request
+                ):
                     if not self.running:
                         break
 
@@ -300,10 +309,7 @@ class FFAGame:
         if player.span:
             player.span.add_event(
                 "death_warning",
-                attributes={
-                    "accel_magnitude": accel_mag,
-                    "threshold": self.sensitivity.value[0]
-                }
+                attributes={"accel_magnitude": accel_mag, "threshold": self.sensitivity.value[0]},
             )
             logger.debug(f"Player {serial} triggered warning (accel: {accel_mag:.2f})")
 
@@ -311,7 +317,7 @@ class FFAGame:
         flash_request = controller_manager_pb2.SetControllerColorRequest(
             serial=serial,
             color=controller_manager_pb2.RGB(r=255, g=128, b=0),  # Orange
-            duration_ms=200  # Brief flash
+            duration_ms=200,  # Brief flash
         )
         await self.controller_client.SetControllerColor(flash_request)
 
@@ -319,7 +325,7 @@ class FFAGame:
         vibrate_request = controller_manager_pb2.SetControllerVibrationRequest(
             serial=serial,
             intensity=100,  # Moderate vibration
-            duration_ms=200  # Brief pulse
+            duration_ms=200,  # Brief pulse
         )
         await self.controller_client.SetControllerVibration(vibrate_request)
 
@@ -350,26 +356,26 @@ class FFAGame:
                     attributes={
                         "accel_magnitude": accel_mag,
                         "threshold": self.sensitivity.value[1],
-                        "alive_count": alive_count
-                    }
+                        "alive_count": alive_count,
+                    },
                 )
                 player.span.set_status(Status(StatusCode.OK))
                 player.span.end()
                 logger.debug(f"Ended lifecycle span for player {serial}")
 
             # Publish death event
-            self.event_publisher("player_death", {
-                "serial": serial,
-                "accel_magnitude": accel_mag,
-                "alive_count": alive_count
-            })
+            self.event_publisher(
+                "player_death",
+                {"serial": serial, "accel_magnitude": accel_mag, "alive_count": alive_count},
+            )
 
             # Set controller color to red (death indication)
             from services.controller_manager import controller_manager_pb2
+
             death_color_request = controller_manager_pb2.SetControllerColorRequest(
                 serial=serial,
                 color=controller_manager_pb2.RGB(r=255, g=0, b=0),  # Red
-                duration_ms=0  # Permanent
+                duration_ms=0,  # Permanent
             )
             await self.controller_client.SetControllerColor(death_color_request)
 
@@ -377,7 +383,7 @@ class FFAGame:
             death_vibrate_request = controller_manager_pb2.SetControllerVibrationRequest(
                 serial=serial,
                 intensity=255,  # Maximum vibration
-                duration_ms=500  # Half second
+                duration_ms=500,  # Half second
             )
             await self.controller_client.SetControllerVibration(death_vibrate_request)
 
@@ -398,9 +404,7 @@ class FFAGame:
                 winner = alive_players[0]
                 logger.info(f"Winner: {winner.serial}")
 
-                self.event_publisher("game_winner", {
-                    "serial": winner.serial
-                })
+                self.event_publisher("game_winner", {"serial": winner.serial})
 
             elif len(alive_players) == 0:
                 logger.info("No winner - all players died simultaneously")
@@ -429,9 +433,11 @@ class FFAGame:
                     player.span.add_event(
                         "victory",
                         attributes={
-                            "game_duration": time.time() - self.start_time if self.start_time else 0,
-                            "winner": serial == winner_serial
-                        }
+                            "game_duration": time.time() - self.start_time
+                            if self.start_time
+                            else 0,
+                            "winner": serial == winner_serial,
+                        },
                     )
                     player.span.set_status(Status(StatusCode.OK))
                     player.span.end()
@@ -439,15 +445,13 @@ class FFAGame:
 
             # Show rainbow effect on winner's controller
             if winner_serial:
-                span.add_event("victory_celebration", {
-                    "winner_serial": winner_serial
-                })
+                span.add_event("victory_celebration", {"winner_serial": winner_serial})
                 rainbow_request = controller_manager_pb2.PlayControllerEffectRequest(
                     serial=winner_serial,
                     effect=controller_manager_pb2.EFFECT_RAINBOW,
                     color=controller_manager_pb2.RGB(r=255, g=255, b=255),  # Not used for rainbow
                     duration_ms=2000,  # 2 seconds
-                    speed=5  # Medium speed
+                    speed=5,  # Medium speed
                 )
                 await self.controller_client.PlayControllerEffect(rainbow_request)
 
@@ -461,10 +465,13 @@ class FFAGame:
                 await asyncio.sleep(0.1)
 
             self.state = GameState.ENDED
-            self.event_publisher("game_ended", {
-                "game_id": self.game_id,
-                "duration": time.time() - self.start_time if self.start_time else 0
-            })
+            self.event_publisher(
+                "game_ended",
+                {
+                    "game_id": self.game_id,
+                    "duration": time.time() - self.start_time if self.start_time else 0,
+                },
+            )
 
             logger.info("Game ended")
 
@@ -500,10 +507,9 @@ class FFAGame:
                 # STARTING -> RUNNING
                 self.state = GameState.RUNNING
                 self.start_time = time.time()
-                self.event_publisher("game_started", {
-                    "game_id": self.game_id,
-                    "player_count": len(self.players)
-                })
+                self.event_publisher(
+                    "game_started", {"game_id": self.game_id, "player_count": len(self.players)}
+                )
 
                 # Run main game loop
                 await self._game_loop()
@@ -519,10 +525,7 @@ class FFAGame:
                 span.set_attribute("game.error", str(e))
 
                 self.state = GameState.ENDED
-                self.event_publisher("game_error", {
-                    "game_id": self.game_id,
-                    "error": str(e)
-                })
+                self.event_publisher("game_error", {"game_id": self.game_id, "error": str(e)})
 
                 raise
 

@@ -1,18 +1,20 @@
-import psmove
-import os
 import subprocess
-
 from sys import platform
+
+import psmove
+
 print(platform)
 if platform == "linux" or platform == "linux2":
     import jm_dbus
 elif platform == "windows" or platform == "win32":
     import win_jm_dbus as jm_dbus
 
-class Pair():
+
+class Pair:
     """
     Manage paring move controllers to the server
     """
+
     def __init__(self):
         """Use DBus to find bluetooth controllers"""
         self.hci_dict = jm_dbus.get_hci_dict()
@@ -65,7 +67,7 @@ class Pair():
         for dev in self.bt_devices.keys():
             if len(self.bt_devices[dev]) == num:
                 return dev
-        return ''
+        return ""
 
     def pair_move(self, move):
         if move and move.get_serial():
@@ -73,6 +75,6 @@ class Pair():
                 self.pre_existing_devices()
                 if self.check_if_not_paired(move.get_serial().upper()):
                     move.pair_custom(self.get_lowest_bt_device())
-                #in order to add the new controller to the bluetooth service, restart
-                #Otherwise it will not be recognized
+                # in order to add the new controller to the bluetooth service, restart
+                # Otherwise it will not be recognized
                 subprocess.run(["sudo", "systemctl", "restart", "bluetooth"], check=False)

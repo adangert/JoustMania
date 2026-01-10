@@ -10,12 +10,12 @@ This is Phase 13.2 - modern implementation using gRPC for all service communicat
 
 import asyncio
 import logging
-import time
 import math
 import random
-from enum import Enum
-from typing import Callable, Dict, List, Optional, Set
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
+from enum import Enum
 
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
@@ -28,11 +28,13 @@ UPDATE_FREQUENCY = 60  # Hz - game tick frequency
 COUNTDOWN_DURATION = 3  # seconds
 TEAM_FORMATION_DURATION = 5  # seconds - time to show team colors
 
+
 # Sensitivity thresholds (will eventually come from settings)
 class Sensitivity(Enum):
-    SLOW = (1.3, 1.5)      # (warning_threshold, death_threshold)
+    SLOW = (1.3, 1.5)  # (warning_threshold, death_threshold)
     MEDIUM = (1.6, 1.8)
     FAST = (1.9, 2.8)
+
 
 # Team colors (from utils/colors.py - first 8 colors)
 TEAM_COLORS = [
@@ -46,32 +48,39 @@ TEAM_COLORS = [
     {"name": "Purple", "rgb": (96, 0, 255)},
 ]
 
+
 @dataclass
 class Team:
     """Represents a team in the game."""
+
     team_num: int
     name: str
     color: tuple
-    span: Optional[trace.Span] = None  # OpenTelemetry span for team lifecycle
+    span: trace.Span | None = None  # OpenTelemetry span for team lifecycle
+
 
 @dataclass
 class Player:
     """Represents a player in the game."""
+
     serial: str
     team: int
     alive: bool = True
     color: tuple = (255, 255, 255)
     last_accel_mag: float = 0.0
-    span: Optional[trace.Span] = None  # OpenTelemetry span for player lifecycle
+    span: trace.Span | None = None  # OpenTelemetry span for player lifecycle
+
 
 class GameState(Enum):
     """Game lifecycle states."""
+
     IDLE = "idle"
     STARTING = "starting"
     TEAM_FORMATION = "team_formation"  # New state for showing teams
     RUNNING = "running"
     ENDING = "ending"
     ENDED = "ended"
+
 
 class RandomTeamsGame:
     """
@@ -87,7 +96,7 @@ class RandomTeamsGame:
         settings_client,
         event_publisher: Callable,
         game_id: str = "",
-        num_teams: int = 2
+        num_teams: int = 2,
     ):
         """
         Initialize Random Teams game.
@@ -107,8 +116,10 @@ class RandomTeamsGame:
 
         # Game state
         self.state = GameState.IDLE
-        self.players: Dict[str, Player] = {}
-        self.teams: Dict[int, Team] = {}  # team_num -> Team object (initialized after random generation)
+        self.players: dict[str, Player] = {}
+        self.teams: dict[
+            int, Team
+        ] = {}  # team_num -> Team object (initialized after random generation)
         self.start_time = None
         self.running = False
 
@@ -125,19 +136,17 @@ class RandomTeamsGame:
         """Generate random team colors (shuffled from available colors)."""
         available_colors = TEAM_COLORS.copy()
         random.shuffle(available_colors)
-        self.team_colors = available_colors[:self.num_teams]
+        self.team_colors = available_colors[: self.num_teams]
 
         # Initialize team objects with random colors
         for i in range(self.num_teams):
             self.teams[i] = Team(
-                team_num=i,
-                name=self.team_colors[i]["name"],
-                color=self.team_colors[i]["rgb"]
+                team_num=i, name=self.team_colors[i]["name"], color=self.team_colors[i]["rgb"]
             )
 
         logger.info(f"Generated team colors: {[c['name'] for c in self.team_colors]}")
 
-    def _assign_random_teams(self, player_serials: List[str]) -> Dict[str, int]:
+    def _assign_random_teams(self, player_serials: list[str]) -> dict[str, int]:
         """
         Randomly assign players to teams.
 
@@ -168,6 +177,7 @@ class RandomTeamsGame:
         with tracer.start_as_current_span("random_teams_load_settings"):
             try:
                 from services.settings import settings_pb2
+
                 response = self.settings_client.GetSettings(settings_pb2.GetSettingsRequest())
 
                 if response.success:
@@ -175,12 +185,12 @@ class RandomTeamsGame:
                     logger.info(f"Loaded settings: {len(settings)} keys")
 
                     # Parse sensitivity
-                    sens_str = settings.get('sensitivity', 'MEDIUM').upper()
+                    sens_str = settings.get("sensitivity", "MEDIUM").upper()
                     if sens_str in Sensitivity.__members__:
                         self.sensitivity = Sensitivity[sens_str]
 
                     # Parse audio setting
-                    self.play_audio = settings.get('play_audio', 'true').lower() == 'true'
+                    self.play_audio = settings.get("play_audio", "true").lower() == "true"
 
                 else:
                     logger.warning(f"Failed to load settings: {response.error}")
@@ -215,26 +225,30 @@ class RandomTeamsGame:
                         team_color = self.team_colors[team_num]["rgb"]
 
                         player = Player(
-                            serial=controller.serial,
-                            team=team_num,
-                            alive=True,
-                            color=team_color
+                            serial=controller.serial, team=team_num, alive=True, color=team_color
                         )
                         self.players[controller.serial] = player
-                        logger.debug(f"Added player: {controller.serial} to team {team_num} ({self.team_colors[team_num]['name']})")
+                        logger.debug(
+                            f"Added player: {controller.serial} to team {team_num} ({self.team_colors[team_num]['name']})"
+                        )
 
                     span.set_attribute("player_count", len(self.players))
                     span.set_attribute("num_teams", self.num_teams)
-                    logger.info(f"Initialized {len(self.players)} players across {self.num_teams} teams (random assignment)")
+                    logger.info(
+                        f"Initialized {len(self.players)} players across {self.num_teams} teams (random assignment)"
+                    )
 
                     # Publish event with team assignments
-                    self.event_publisher("players_initialized", {
-                        "player_count": len(self.players),
-                        "num_teams": self.num_teams,
-                        "team_assignments": str(team_assignments),
-                        "team_colors": str([c['name'] for c in self.team_colors]),
-                        "serials": list(self.players.keys())
-                    })
+                    self.event_publisher(
+                        "players_initialized",
+                        {
+                            "player_count": len(self.players),
+                            "num_teams": self.num_teams,
+                            "team_assignments": str(team_assignments),
+                            "team_colors": str([c["name"] for c in self.team_colors]),
+                            "serials": list(self.players.keys()),
+                        },
+                    )
 
                 else:
                     logger.error(f"Failed to get controllers: {response.error}")
@@ -254,10 +268,13 @@ class RandomTeamsGame:
             logger.info("Starting team formation phase...")
             self.state = GameState.TEAM_FORMATION
 
-            self.event_publisher("team_formation_start", {
-                "duration": TEAM_FORMATION_DURATION,
-                "team_colors": str([c['name'] for c in self.team_colors])
-            })
+            self.event_publisher(
+                "team_formation_start",
+                {
+                    "duration": TEAM_FORMATION_DURATION,
+                    "team_colors": str([c["name"] for c in self.team_colors]),
+                },
+            )
 
             # TODO: Set controller colors to team colors
             # TODO: Play "teams form" audio
@@ -306,8 +323,8 @@ class RandomTeamsGame:
                             "team.number": team_num,
                             "team.name": team.name,
                             "team.color": str(team.color),
-                            "game.mode": "RandomTeams"
-                        }
+                            "game.mode": "RandomTeams",
+                        },
                     )
                     team.span = team_span
                     logger.debug(f"Started lifecycle span for team {team_num} ({team.name})")
@@ -317,7 +334,7 @@ class RandomTeamsGame:
                     team = self.teams[player.team]
 
                     # Create player span as child of team span using context
-                    from opentelemetry import context
+
                     ctx = trace.set_span_in_context(team.span)
 
                     player_span = tracer.start_span(
@@ -328,8 +345,8 @@ class RandomTeamsGame:
                             "player.team": player.team,
                             "player.team_name": team.name,
                             "player.color": str(player.color),
-                            "game.mode": "RandomTeams"
-                        }
+                            "game.mode": "RandomTeams",
+                        },
                     )
                     player.span = player_span
                     logger.debug(f"Started lifecycle span for player {serial} (Team {team.name})")
@@ -343,7 +360,9 @@ class RandomTeamsGame:
                 span.set_attribute("initial_player_count", alive_count)
 
                 # Stream controller states and process game logic
-                async for state_update in self.controller_client.StreamControllerStates(stream_request):
+                async for state_update in self.controller_client.StreamControllerStates(
+                    stream_request
+                ):
                     if not self.running:
                         break
 
@@ -416,10 +435,12 @@ class RandomTeamsGame:
                 attributes={
                     "accel_magnitude": accel_mag,
                     "threshold": self.sensitivity.value[0],
-                    "team": player.team
-                }
+                    "team": player.team,
+                },
             )
-            logger.debug(f"Player {serial} (Team {player.team}) triggered warning (accel: {accel_mag:.2f})")
+            logger.debug(
+                f"Player {serial} (Team {player.team}) triggered warning (accel: {accel_mag:.2f})"
+            )
 
         # TODO: Flash controller LED
         # TODO: Vibrate controller
@@ -451,7 +472,9 @@ class RandomTeamsGame:
             # Check if this death eliminated the team
             team_eliminated = player.team not in alive_teams
 
-            logger.info(f"Player died: {serial} (Team {player.team}), {alive_count} players remaining on {len(alive_teams)} teams")
+            logger.info(
+                f"Player died: {serial} (Team {player.team}), {alive_count} players remaining on {len(alive_teams)} teams"
+            )
 
             # Add death event to player's lifecycle span and end it
             if player.span:
@@ -461,8 +484,8 @@ class RandomTeamsGame:
                         "accel_magnitude": accel_mag,
                         "threshold": self.sensitivity.value[1],
                         "alive_count": alive_count,
-                        "team_eliminated": team_eliminated
-                    }
+                        "team_eliminated": team_eliminated,
+                    },
                 )
                 player.span.set_status(Status(StatusCode.OK))
                 player.span.end()
@@ -472,29 +495,29 @@ class RandomTeamsGame:
             if team_eliminated and team.span:
                 team.span.add_event(
                     "team_eliminated",
-                    attributes={
-                        "last_player": serial,
-                        "alive_teams_count": len(alive_teams)
-                    }
+                    attributes={"last_player": serial, "alive_teams_count": len(alive_teams)},
                 )
                 team.span.set_status(Status(StatusCode.OK))
                 team.span.end()
                 logger.info(f"Team {team.name} eliminated! Ended team lifecycle span")
 
             # Publish death event
-            self.event_publisher("player_death", {
-                "serial": serial,
-                "team": player.team,
-                "team_name": self.team_colors[player.team]["name"],
-                "accel_magnitude": accel_mag,
-                "alive_count": alive_count,
-                "alive_teams_count": len(alive_teams)
-            })
+            self.event_publisher(
+                "player_death",
+                {
+                    "serial": serial,
+                    "team": player.team,
+                    "team_name": self.team_colors[player.team]["name"],
+                    "accel_magnitude": accel_mag,
+                    "alive_count": alive_count,
+                    "alive_teams_count": len(alive_teams),
+                },
+            )
 
             # TODO: Set controller color to black/red
             # TODO: Play explosion sound
 
-    def _get_alive_teams(self) -> Set[int]:
+    def _get_alive_teams(self) -> set[int]:
         """Get set of teams that still have alive players."""
         alive_teams = set()
         for player in self.players.values():
@@ -519,19 +542,21 @@ class RandomTeamsGame:
 
                 # Get winning players
                 winners = [
-                    p.serial for p in self.players.values()
-                    if p.alive and p.team == winning_team
+                    p.serial for p in self.players.values() if p.alive and p.team == winning_team
                 ]
 
                 logger.info(f"Team {winning_team} ({team_name}) wins with {len(winners)} players!")
 
-                self.event_publisher("team_winner", {
-                    "team": winning_team,
-                    "team_name": team_name,
-                    "team_color": str(self.team_colors[winning_team]["rgb"]),
-                    "winning_players": winners,
-                    "winner_count": len(winners)
-                })
+                self.event_publisher(
+                    "team_winner",
+                    {
+                        "team": winning_team,
+                        "team_name": team_name,
+                        "team_color": str(self.team_colors[winning_team]["rgb"]),
+                        "winning_players": winners,
+                        "winner_count": len(winners),
+                    },
+                )
 
             elif len(alive_teams) == 0:
                 logger.info("No winner - all players died simultaneously")
@@ -558,10 +583,12 @@ class RandomTeamsGame:
                     player.span.add_event(
                         "player_survived",
                         attributes={
-                            "game_duration": time.time() - self.start_time if self.start_time else 0,
+                            "game_duration": time.time() - self.start_time
+                            if self.start_time
+                            else 0,
                             "winner": is_winner,
-                            "team": player.team
-                        }
+                            "team": player.team,
+                        },
                     )
                     player.span.set_status(Status(StatusCode.OK))
                     player.span.end()
@@ -574,13 +601,17 @@ class RandomTeamsGame:
                     team.span.add_event(
                         "team_victory" if is_winning_team else "team_survived",
                         attributes={
-                            "game_duration": time.time() - self.start_time if self.start_time else 0,
-                            "winner": is_winning_team
-                        }
+                            "game_duration": time.time() - self.start_time
+                            if self.start_time
+                            else 0,
+                            "winner": is_winning_team,
+                        },
                     )
                     team.span.set_status(Status(StatusCode.OK))
                     team.span.end()
-                    logger.info(f"Ended lifecycle span for team {team.name} ({'WINNER' if is_winning_team else 'survived'})")
+                    logger.info(
+                        f"Ended lifecycle span for team {team.name} ({'WINNER' if is_winning_team else 'survived'})"
+                    )
 
             # TODO: Show rainbow on winning team's controllers
             # TODO: Play victory sound for winning team
@@ -593,10 +624,13 @@ class RandomTeamsGame:
                 await asyncio.sleep(0.1)
 
             self.state = GameState.ENDED
-            self.event_publisher("game_ended", {
-                "game_id": self.game_id,
-                "duration": time.time() - self.start_time if self.start_time else 0
-            })
+            self.event_publisher(
+                "game_ended",
+                {
+                    "game_id": self.game_id,
+                    "duration": time.time() - self.start_time if self.start_time else 0,
+                },
+            )
 
             logger.info("Game ended")
 
@@ -615,10 +649,9 @@ class RandomTeamsGame:
                 # IDLE -> STARTING
                 self.state = GameState.STARTING
                 self.running = True  # Set early to allow force_end during any phase
-                self.event_publisher("game_starting", {
-                    "game_id": self.game_id,
-                    "num_teams": self.num_teams
-                })
+                self.event_publisher(
+                    "game_starting", {"game_id": self.game_id, "num_teams": self.num_teams}
+                )
 
                 # Load settings
                 await self._load_settings()
@@ -631,7 +664,9 @@ class RandomTeamsGame:
                     raise ValueError(f"Need at least 2 players, got {len(self.players)}")
 
                 if len(self.players) < self.num_teams:
-                    logger.warning(f"Not enough players ({len(self.players)}) for {self.num_teams} teams")
+                    logger.warning(
+                        f"Not enough players ({len(self.players)}) for {self.num_teams} teams"
+                    )
                     # Adjust team count if needed
                     actual_teams = self._get_alive_teams()
                     if len(actual_teams) < 2:
@@ -646,11 +681,14 @@ class RandomTeamsGame:
                 # STARTING -> RUNNING
                 self.state = GameState.RUNNING
                 self.start_time = time.time()
-                self.event_publisher("game_started", {
-                    "game_id": self.game_id,
-                    "player_count": len(self.players),
-                    "num_teams": self.num_teams
-                })
+                self.event_publisher(
+                    "game_started",
+                    {
+                        "game_id": self.game_id,
+                        "player_count": len(self.players),
+                        "num_teams": self.num_teams,
+                    },
+                )
 
                 # Run main game loop
                 await self._game_loop()
@@ -666,10 +704,7 @@ class RandomTeamsGame:
                 span.set_attribute("game.error", str(e))
 
                 self.state = GameState.ENDED
-                self.event_publisher("game_error", {
-                    "game_id": self.game_id,
-                    "error": str(e)
-                })
+                self.event_publisher("game_error", {"game_id": self.game_id, "error": str(e)})
 
                 raise
 

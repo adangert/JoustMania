@@ -13,11 +13,11 @@ This is Phase 22 - endless action gameplay mode.
 
 import asyncio
 import logging
-import time
 import math
+import time
+from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Dict, List, Optional
-from dataclasses import dataclass, field
 
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
@@ -31,21 +31,24 @@ COUNTDOWN_DURATION = 3  # seconds
 RESPAWN_DURATION = 3.0  # seconds to respawn
 SPAWN_PROTECTION_DURATION = 2.0  # seconds of invulnerability after spawn
 
+
 # Sensitivity thresholds
 class Sensitivity(Enum):
-    SLOW = (1.3, 1.5)      # (warning_threshold, death_threshold)
+    SLOW = (1.3, 1.5)  # (warning_threshold, death_threshold)
     MEDIUM = (1.6, 1.8)
     FAST = (1.9, 2.8)
+
 
 @dataclass
 class NonstopPlayer:
     """Represents a player in Nonstop Joust."""
+
     serial: str
     team: int = 0
     alive: bool = True
     color: tuple = (255, 255, 255)
     last_accel_mag: float = 0.0
-    span: Optional[trace.Span] = None
+    span: trace.Span | None = None
 
     # Scoring (Phase 22)
     kills: int = 0
@@ -59,13 +62,16 @@ class NonstopPlayer:
     spawn_protected: bool = False
     spawn_protection_end: float = 0.0
 
+
 class GameState(Enum):
     """Game lifecycle states."""
+
     IDLE = "idle"
     STARTING = "starting"
     RUNNING = "running"
     ENDING = "ending"
     ENDED = "ended"
+
 
 class NonstopJoustGame:
     """
@@ -80,7 +86,7 @@ class NonstopJoustGame:
         controller_manager_client,
         settings_client,
         event_publisher: Callable,
-        game_id: str = ""
+        game_id: str = "",
     ):
         """
         Initialize Nonstop Joust game.
@@ -98,7 +104,7 @@ class NonstopJoustGame:
 
         # Game state
         self.state = GameState.IDLE
-        self.players: Dict[str, NonstopPlayer] = {}
+        self.players: dict[str, NonstopPlayer] = {}
         self.start_time = None
         self.running = False
 
@@ -142,11 +148,14 @@ class NonstopJoustGame:
             self.state = GameState.RUNNING
             self.start_time = time.time()
 
-            self.event_publisher("game_started", {
-                "game_id": self.game_id,
-                "game_mode": "NonstopJoust",
-                "player_count": len(self.players)
-            })
+            self.event_publisher(
+                "game_started",
+                {
+                    "game_id": self.game_id,
+                    "game_mode": "NonstopJoust",
+                    "player_count": len(self.players),
+                },
+            )
 
             logger.info("Nonstop Joust game loop starting...")
 
@@ -170,6 +179,7 @@ class NonstopJoustGame:
         with tracer.start_as_current_span("nonstop_load_settings"):
             try:
                 from services.settings import settings_pb2
+
                 response = self.settings_client.GetSettings(settings_pb2.GetSettingsRequest())
 
                 if response.success:
@@ -177,15 +187,15 @@ class NonstopJoustGame:
                     logger.info(f"Loaded settings: {len(settings)} keys")
 
                     # Parse sensitivity
-                    sens_str = settings.get('sensitivity', 'MEDIUM').upper()
+                    sens_str = settings.get("sensitivity", "MEDIUM").upper()
                     if sens_str in Sensitivity.__members__:
                         self.sensitivity = Sensitivity[sens_str]
 
                     # Parse audio setting
-                    self.play_audio = settings.get('play_audio', 'true').lower() == 'true'
+                    self.play_audio = settings.get("play_audio", "true").lower() == "true"
 
                     # Parse time limit (0 = unlimited)
-                    self.time_limit = int(settings.get('nonstop_time_limit', '0'))
+                    self.time_limit = int(settings.get("nonstop_time_limit", "0"))
 
                 else:
                     logger.warning(f"Failed to load settings: {response.error}")
@@ -206,10 +216,7 @@ class NonstopJoustGame:
                 if response.success:
                     for controller in response.controllers:
                         player = NonstopPlayer(
-                            serial=controller.serial,
-                            team=0,
-                            alive=True,
-                            color=(255, 255, 255)
+                            serial=controller.serial, team=0, alive=True, color=(255, 255, 255)
                         )
                         self.players[controller.serial] = player
                         logger.debug(f"Added player: {controller.serial}")
@@ -217,10 +224,10 @@ class NonstopJoustGame:
                     span.set_attribute("player_count", len(self.players))
                     logger.info(f"Initialized {len(self.players)} players")
 
-                    self.event_publisher("players_initialized", {
-                        "player_count": len(self.players),
-                        "serials": list(self.players.keys())
-                    })
+                    self.event_publisher(
+                        "players_initialized",
+                        {"player_count": len(self.players), "serials": list(self.players.keys())},
+                    )
 
                 else:
                     logger.error(f"Failed to get controllers: {response.error}")
@@ -240,9 +247,9 @@ class NonstopJoustGame:
 
             # Countdown colors: Red -> Yellow -> Green
             countdown_colors = [
-                (255, 0, 0),     # Red (3 seconds)
-                (255, 255, 0),   # Yellow (2 seconds)
-                (0, 255, 0),     # Green (1 second)
+                (255, 0, 0),  # Red (3 seconds)
+                (255, 255, 0),  # Yellow (2 seconds)
+                (0, 255, 0),  # Green (1 second)
             ]
 
             for i, (r, g, b) in enumerate(countdown_colors):
@@ -254,14 +261,14 @@ class NonstopJoustGame:
                 color_request = controller_manager_pb2.SetControllerColorRequest(
                     serial="",  # Empty = all controllers
                     color=controller_manager_pb2.RGB(r=r, g=g, b=b),
-                    duration_ms=0
+                    duration_ms=0,
                 )
                 await self.controller_client.SetControllerColor(color_request)
 
-                span.add_event("countdown_tick", {
-                    "remaining": COUNTDOWN_DURATION - i,
-                    "color": f"RGB({r},{g},{b})"
-                })
+                span.add_event(
+                    "countdown_tick",
+                    {"remaining": COUNTDOWN_DURATION - i, "color": f"RGB({r},{g},{b})"},
+                )
 
                 # Wait 1 second
                 for _ in range(10):
@@ -285,10 +292,7 @@ class NonstopJoustGame:
                 for serial, player in self.players.items():
                     player_span = tracer.start_span(
                         f"player_{serial}_lifecycle",
-                        attributes={
-                            "player.serial": serial,
-                            "game.mode": "NonstopJoust"
-                        }
+                        attributes={"player.serial": serial, "game.mode": "NonstopJoust"},
                     )
                     player.span = player_span
                     logger.debug(f"Started lifecycle span for player {serial}")
@@ -305,7 +309,9 @@ class NonstopJoustGame:
                 game_tick = 0
 
                 # Stream controller states and process game logic
-                async for state_update in self.controller_client.StreamControllerStates(stream_request):
+                async for state_update in self.controller_client.StreamControllerStates(
+                    stream_request
+                ):
                     if not self.running:
                         break
 
@@ -322,16 +328,21 @@ class NonstopJoustGame:
                     current_time = time.time()
                     if current_time - last_progress_event >= 30.0:
                         total_deaths = sum(p.deaths for p in self.players.values())
-                        total_respawns = sum(1 for p in self.players.values() if p.respawn_timer > 0)
+                        total_respawns = sum(
+                            1 for p in self.players.values() if p.respawn_timer > 0
+                        )
                         alive_count = sum(1 for p in self.players.values() if p.alive)
 
-                        span.add_event("game_progress", {
-                            "elapsed_seconds": int(current_time - self.start_time),
-                            "total_deaths": total_deaths,
-                            "players_alive": alive_count,
-                            "players_respawning": total_respawns,
-                            "game_tick": game_tick
-                        })
+                        span.add_event(
+                            "game_progress",
+                            {
+                                "elapsed_seconds": int(current_time - self.start_time),
+                                "total_deaths": total_deaths,
+                                "players_alive": alive_count,
+                                "players_respawning": total_respawns,
+                                "game_tick": game_tick,
+                            },
+                        )
                         last_progress_event = current_time
 
                     # Check time limit
@@ -402,10 +413,7 @@ class NonstopJoustGame:
         if player.span:
             player.span.add_event(
                 "death_warning",
-                attributes={
-                    "accel_magnitude": accel_mag,
-                    "threshold": self.sensitivity.value[0]
-                }
+                attributes={"accel_magnitude": accel_mag, "threshold": self.sensitivity.value[0]},
             )
             logger.debug(f"Player {serial} triggered warning (accel: {accel_mag:.2f})")
 
@@ -413,15 +421,13 @@ class NonstopJoustGame:
         flash_request = controller_manager_pb2.SetControllerColorRequest(
             serial=serial,
             color=controller_manager_pb2.RGB(r=255, g=128, b=0),  # Orange
-            duration_ms=200
+            duration_ms=200,
         )
         await self.controller_client.SetControllerColor(flash_request)
 
         # Vibrate controller briefly
         vibrate_request = controller_manager_pb2.SetControllerVibrationRequest(
-            serial=serial,
-            intensity=100,
-            duration_ms=200
+            serial=serial, intensity=100, duration_ms=200
         )
         await self.controller_client.SetControllerVibration(vibrate_request)
 
@@ -450,7 +456,9 @@ class NonstopJoustGame:
             span.set_attribute("player.kills", player.kills)
             span.set_attribute("player.deaths", player.deaths)
 
-            logger.info(f"Player died: {serial} (kills: {player.kills}, deaths: {player.deaths}, score: {player.score})")
+            logger.info(
+                f"Player died: {serial} (kills: {player.kills}, deaths: {player.deaths}, score: {player.score})"
+            )
 
             # Add death event to player's lifecycle span
             if player.span:
@@ -461,44 +469,46 @@ class NonstopJoustGame:
                         "threshold": self.sensitivity.value[1],
                         "kills": player.kills,
                         "deaths": player.deaths,
-                        "score": player.score
-                    }
+                        "score": player.score,
+                    },
                 )
 
             # Publish death event
-            self.event_publisher("player_death", {
-                "serial": serial,
-                "accel_magnitude": accel_mag,
-                "kills": player.kills,
-                "deaths": player.deaths,
-                "score": player.score
-            })
+            self.event_publisher(
+                "player_death",
+                {
+                    "serial": serial,
+                    "accel_magnitude": accel_mag,
+                    "kills": player.kills,
+                    "deaths": player.deaths,
+                    "score": player.score,
+                },
+            )
 
             # Set controller color to red (death indication)
             death_color_request = controller_manager_pb2.SetControllerColorRequest(
                 serial=serial,
                 color=controller_manager_pb2.RGB(r=255, g=0, b=0),  # Red
-                duration_ms=0
+                duration_ms=0,
             )
             await self.controller_client.SetControllerColor(death_color_request)
 
             # Strong vibration on death
             death_vibrate_request = controller_manager_pb2.SetControllerVibrationRequest(
-                serial=serial,
-                intensity=255,
-                duration_ms=500
+                serial=serial, intensity=255, duration_ms=500
             )
             await self.controller_client.SetControllerVibration(death_vibrate_request)
 
     async def _update_respawn_timers(self):
         """Update respawn timers and respawn players."""
         from services.controller_manager import controller_manager_pb2
+
         current_time = time.time()
 
         for serial, player in self.players.items():
             # Handle respawn countdown
             if not player.alive and player.respawn_timer > 0:
-                player.respawn_timer -= (1.0 / UPDATE_FREQUENCY)
+                player.respawn_timer -= 1.0 / UPDATE_FREQUENCY
 
                 # Show respawn countdown colors
                 await self._show_respawn_countdown(serial, player.respawn_timer)
@@ -514,7 +524,7 @@ class NonstopJoustGame:
                 color_request = controller_manager_pb2.SetControllerColorRequest(
                     serial=serial,
                     color=controller_manager_pb2.RGB(r=255, g=255, b=255),  # White
-                    duration_ms=0
+                    duration_ms=0,
                 )
                 await self.controller_client.SetControllerColor(color_request)
 
@@ -532,18 +542,18 @@ class NonstopJoustGame:
         if time_remaining > 2.0:
             color = (128, 128, 128)  # Gray (3s)
         elif time_remaining > 1.0:
-            color = (255, 255, 0)    # Yellow (2s)
+            color = (255, 255, 0)  # Yellow (2s)
         else:
-            color = (0, 255, 0)      # Green (1s)
+            color = (0, 255, 0)  # Green (1s)
 
         # Only update if color changed (avoid spamming)
         player = self.players[serial]
-        if not hasattr(player, '_last_respawn_color') or player._last_respawn_color != color:
+        if not hasattr(player, "_last_respawn_color") or player._last_respawn_color != color:
             player._last_respawn_color = color
             color_request = controller_manager_pb2.SetControllerColorRequest(
                 serial=serial,
                 color=controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]),
-                duration_ms=0
+                duration_ms=0,
             )
             await self.controller_client.SetControllerColor(color_request)
 
@@ -568,11 +578,10 @@ class NonstopJoustGame:
 
             # Add respawn event to player's lifecycle span
             if player.span:
-                player.span.add_event("player_respawned", {
-                    "kills": player.kills,
-                    "deaths": player.deaths,
-                    "score": player.score
-                })
+                player.span.add_event(
+                    "player_respawned",
+                    {"kills": player.kills, "deaths": player.deaths, "score": player.score},
+                )
 
             logger.info(f"Player respawned: {serial} (spawn protection active)")
 
@@ -581,17 +590,20 @@ class NonstopJoustGame:
             protection_color_request = controller_manager_pb2.SetControllerColorRequest(
                 serial=serial,
                 color=controller_manager_pb2.RGB(r=255, g=255, b=255),  # White
-                duration_ms=0
+                duration_ms=0,
             )
             await self.controller_client.SetControllerColor(protection_color_request)
 
             # Publish respawn event
-            self.event_publisher("player_respawned", {
-                "serial": serial,
-                "kills": player.kills,
-                "deaths": player.deaths,
-                "score": player.score
-            })
+            self.event_publisher(
+                "player_respawned",
+                {
+                    "serial": serial,
+                    "kills": player.kills,
+                    "deaths": player.deaths,
+                    "score": player.score,
+                },
+            )
 
     def _check_time_limit(self) -> bool:
         """
@@ -637,22 +649,23 @@ class NonstopJoustGame:
             span.set_attribute("game.player_count", len(self.players))
 
             # Determine winner (highest score, tie-break by fewest deaths)
-            winner = max(
-                self.players.values(),
-                key=lambda p: (p.score, -p.deaths),
-                default=None
-            )
+            winner = max(self.players.values(), key=lambda p: (p.score, -p.deaths), default=None)
 
             if winner:
-                span.add_event("victory_celebration", {
-                    "winner_serial": winner.serial,
-                    "score": winner.score,
-                    "kills": winner.kills,
-                    "deaths": winner.deaths,
-                    "best_streak": winner.best_streak
-                })
+                span.add_event(
+                    "victory_celebration",
+                    {
+                        "winner_serial": winner.serial,
+                        "score": winner.score,
+                        "kills": winner.kills,
+                        "deaths": winner.deaths,
+                        "best_streak": winner.best_streak,
+                    },
+                )
 
-                logger.info(f"Winner: {winner.serial} with score {winner.score} (K:{winner.kills} D:{winner.deaths})")
+                logger.info(
+                    f"Winner: {winner.serial} with score {winner.score} (K:{winner.kills} D:{winner.deaths})"
+                )
 
                 # Show rainbow effect on winner's controller
                 rainbow_request = controller_manager_pb2.PlayControllerEffectRequest(
@@ -660,17 +673,20 @@ class NonstopJoustGame:
                     effect=controller_manager_pb2.EFFECT_RAINBOW,
                     color=controller_manager_pb2.RGB(r=255, g=255, b=255),
                     duration_ms=3000,  # 3 seconds
-                    speed=5
+                    speed=5,
                 )
                 await self.controller_client.PlayControllerEffect(rainbow_request)
 
-                self.event_publisher("game_winner", {
-                    "serial": winner.serial,
-                    "score": winner.score,
-                    "kills": winner.kills,
-                    "deaths": winner.deaths,
-                    "best_streak": winner.best_streak
-                })
+                self.event_publisher(
+                    "game_winner",
+                    {
+                        "serial": winner.serial,
+                        "score": winner.score,
+                        "kills": winner.kills,
+                        "deaths": winner.deaths,
+                        "best_streak": winner.best_streak,
+                    },
+                )
 
             # End spans for all players
             for serial, player in self.players.items():
@@ -678,13 +694,15 @@ class NonstopJoustGame:
                     player.span.add_event(
                         "game_ended",
                         attributes={
-                            "game_duration": time.time() - self.start_time if self.start_time else 0,
+                            "game_duration": time.time() - self.start_time
+                            if self.start_time
+                            else 0,
                             "score": player.score,
                             "kills": player.kills,
                             "deaths": player.deaths,
                             "best_streak": player.best_streak,
-                            "winner": player == winner
-                        }
+                            "winner": player == winner,
+                        },
                     )
                     player.span.set_status(Status(StatusCode.OK))
                     player.span.end()
@@ -698,7 +716,10 @@ class NonstopJoustGame:
                 await asyncio.sleep(0.1)
 
             self.state = GameState.ENDED
-            self.event_publisher("game_ended", {
-                "game_id": self.game_id,
-                "duration": time.time() - self.start_time if self.start_time else 0
-            })
+            self.event_publisher(
+                "game_ended",
+                {
+                    "game_id": self.game_id,
+                    "duration": time.time() - self.start_time if self.start_time else 0,
+                },
+            )

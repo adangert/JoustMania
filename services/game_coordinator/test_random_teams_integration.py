@@ -7,24 +7,25 @@ and win conditions without real hardware.
 """
 
 import asyncio
-import pytest
-import time
-from unittest.mock import AsyncMock, MagicMock, patch
-from typing import List, Dict
 import importlib.util
-import sys
 import os
+import sys
+import time
+
+import pytest
 
 # Setup paths
 test_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(test_dir))
-games_dir = os.path.join(test_dir, 'games')
+games_dir = os.path.join(test_dir, "games")
 
 # Add project root for any needed imports
 sys.path.insert(0, project_root)
 
 # Import random_teams directly without triggering package initialization
-spec = importlib.util.spec_from_file_location("random_teams", os.path.join(games_dir, "random_teams.py"))
+spec = importlib.util.spec_from_file_location(
+    "random_teams", os.path.join(games_dir, "random_teams.py")
+)
 random_teams = importlib.util.module_from_spec(spec)
 sys.modules["random_teams"] = random_teams
 spec.loader.exec_module(random_teams)
@@ -68,16 +69,14 @@ class MockControllerManagerService:
                 team=0,
                 color=controller_manager_pb2.RGB(r=255, g=255, b=255),
                 accel=controller_manager_pb2.Vector3(x=0.0, y=0.0, z=1.0),
-                gyro=controller_manager_pb2.Vector3(x=0.0, y=0.0, z=0.0)
+                gyro=controller_manager_pb2.Vector3(x=0.0, y=0.0, z=0.0),
             )
             self.controllers.append(controller)
 
     def GetReadyControllers(self, request):
         """Mock GetReadyControllers RPC."""
         return controller_manager_pb2.GetReadyControllersResponse(
-            controllers=self.controllers,
-            success=True,
-            error=""
+            controllers=self.controllers, success=True, error=""
         )
 
     async def StreamControllerStates(self, request):
@@ -118,8 +117,7 @@ class MockControllerManagerService:
 
             # Yield state update
             yield controller_manager_pb2.ControllerStateUpdate(
-                controllers=self.controllers,
-                timestamp=int(time.time() * 1000)
+                controllers=self.controllers, timestamp=int(time.time() * 1000)
             )
 
             # 60 FPS = ~16.67ms per frame
@@ -132,34 +130,30 @@ class MockSettingsService:
     def __init__(self):
         """Initialize mock settings."""
         self.settings = {
-            'sensitivity': 'MEDIUM',
-            'play_audio': 'false',  # Disable audio in tests
-            'color_lock': 'false',
-            'random_teams': 'true',
-            'random_team_size': '2',
+            "sensitivity": "MEDIUM",
+            "play_audio": "false",  # Disable audio in tests
+            "color_lock": "false",
+            "random_teams": "true",
+            "random_team_size": "2",
         }
 
     def GetSettings(self, request):
         """Mock GetSettings RPC."""
-        return settings_pb2.GetSettingsResponse(
-            settings=self.settings,
-            success=True,
-            error=""
-        )
+        return settings_pb2.GetSettingsResponse(settings=self.settings, success=True, error="")
 
 
 class EventCollector:
     """Collects events published by the game."""
 
     def __init__(self):
-        self.events: List[tuple] = []  # List of (event_type, data)
+        self.events: list[tuple] = []  # List of (event_type, data)
 
-    def publish(self, event_type: str, data: Dict):
+    def publish(self, event_type: str, data: dict):
         """Collect published event."""
         self.events.append((event_type, data))
         print(f"Event published: {event_type} - {data}")
 
-    def get_events_of_type(self, event_type: str) -> List[Dict]:
+    def get_events_of_type(self, event_type: str) -> list[dict]:
         """Get all events of a specific type."""
         return [data for et, data in self.events if et == event_type]
 
@@ -187,7 +181,9 @@ def event_collector():
 
 
 @pytest.mark.asyncio
-async def test_random_teams_game_full_lifecycle(mock_controller_manager, mock_settings, event_collector):
+async def test_random_teams_game_full_lifecycle(
+    mock_controller_manager, mock_settings, event_collector
+):
     """
     Test full Random Teams game lifecycle:
     - Game starts with 4 players
@@ -205,7 +201,7 @@ async def test_random_teams_game_full_lifecycle(mock_controller_manager, mock_se
         settings_client=mock_settings,
         event_publisher=event_collector.publish,
         game_id="test_random_teams_1",
-        num_teams=2
+        num_teams=2,
     )
 
     # Run the game
@@ -241,7 +237,16 @@ async def test_random_teams_game_full_lifecycle(mock_controller_manager, mock_se
     # Verify each death event has team name
     for death_event in death_events:
         assert "team_name" in death_event
-        assert death_event["team_name"] in ["Pink", "Magenta", "Orange", "Yellow", "Green", "Turquoise", "Blue", "Purple"]
+        assert death_event["team_name"] in [
+            "Pink",
+            "Magenta",
+            "Orange",
+            "Yellow",
+            "Green",
+            "Turquoise",
+            "Blue",
+            "Purple",
+        ]
 
     # Verify team winner was determined
     winner_events = event_collector.get_events_of_type("team_winner")
@@ -257,13 +262,15 @@ async def test_random_teams_game_full_lifecycle(mock_controller_manager, mock_se
     assert event_collector.count_events_of_type("game_ended") == 1
 
     print(f"\n✅ Random Teams test passed! Total events: {len(event_collector.events)}")
-    print(f"Events timeline:")
+    print("Events timeline:")
     for event_type, data in event_collector.events:
         print(f"  - {event_type}: {data}")
 
 
 @pytest.mark.asyncio
-async def test_random_teams_assignment_is_random(mock_controller_manager, mock_settings, event_collector):
+async def test_random_teams_assignment_is_random(
+    mock_controller_manager, mock_settings, event_collector
+):
     """
     Test that team assignments are actually random.
 
@@ -278,7 +285,7 @@ async def test_random_teams_assignment_is_random(mock_controller_manager, mock_s
             settings_client=mock_settings,
             event_publisher=event_collector.publish,
             game_id=f"test_random_{i}",
-            num_teams=2
+            num_teams=2,
         )
 
         # Only initialize players, don't run full game
@@ -286,26 +293,31 @@ async def test_random_teams_assignment_is_random(mock_controller_manager, mock_s
         await game._initialize_players()
 
         # Get team assignment as a tuple (hashable)
-        assignment = tuple(sorted([
-            (serial, player.team)
-            for serial, player in game.players.items()
-        ]))
+        assignment = tuple(
+            sorted([(serial, player.team) for serial, player in game.players.items()])
+        )
 
         assignments_seen.add(assignment)
 
     # We should see at least 2 different assignments out of 5 runs
     # (With 4 players and 2 teams, there are multiple possible assignments)
-    assert len(assignments_seen) >= 2, f"Expected different random assignments, got same assignment {len(assignments_seen)} times"
+    assert len(assignments_seen) >= 2, (
+        f"Expected different random assignments, got same assignment {len(assignments_seen)} times"
+    )
 
-    print(f"✅ Random assignment test passed! Saw {len(assignments_seen)} different team configurations")
+    print(
+        f"✅ Random assignment test passed! Saw {len(assignments_seen)} different team configurations"
+    )
 
 
 @pytest.mark.asyncio
-async def test_random_teams_game_settings_loaded(mock_controller_manager, mock_settings, event_collector):
+async def test_random_teams_game_settings_loaded(
+    mock_controller_manager, mock_settings, event_collector
+):
     """Test that game loads settings from Settings service."""
     # Customize settings
-    mock_settings.settings['sensitivity'] = 'FAST'
-    mock_settings.settings['play_audio'] = 'true'
+    mock_settings.settings["sensitivity"] = "FAST"
+    mock_settings.settings["play_audio"] = "true"
 
     # Create game
     game = random_teams.RandomTeamsGame(
@@ -313,7 +325,7 @@ async def test_random_teams_game_settings_loaded(mock_controller_manager, mock_s
         settings_client=mock_settings,
         event_publisher=event_collector.publish,
         game_id="test_random_teams_3",
-        num_teams=2
+        num_teams=2,
     )
 
     # Load settings (called internally by run(), but we can test separately)
@@ -323,7 +335,7 @@ async def test_random_teams_game_settings_loaded(mock_controller_manager, mock_s
     assert game.sensitivity == random_teams.Sensitivity.FAST
     assert game.play_audio == True
 
-    print(f"✅ Random Teams settings loading test passed!")
+    print("✅ Random Teams settings loading test passed!")
 
 
 @pytest.mark.asyncio
@@ -336,8 +348,7 @@ async def test_random_teams_game_force_end(mock_settings, event_collector):
         """Stream indefinitely (until force_end)."""
         while True:
             yield controller_manager_pb2.ControllerStateUpdate(
-                controllers=mock_cm.controllers,
-                timestamp=int(time.time() * 1000)
+                controllers=mock_cm.controllers, timestamp=int(time.time() * 1000)
             )
             await asyncio.sleep(1.0 / 60.0)
 
@@ -349,7 +360,7 @@ async def test_random_teams_game_force_end(mock_settings, event_collector):
         settings_client=mock_settings,
         event_publisher=event_collector.publish,
         game_id="test_random_teams_4",
-        num_teams=2
+        num_teams=2,
     )
 
     # Start game in background task
@@ -362,13 +373,13 @@ async def test_random_teams_game_force_end(mock_settings, event_collector):
     # Wait for game to finish
     try:
         await asyncio.wait_for(game_task, timeout=2.0)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         pytest.fail("Game did not end after force_end() was called")
 
     # Verify game stopped
     assert game.running == False
 
-    print(f"✅ Random Teams force end test passed!")
+    print("✅ Random Teams force end test passed!")
 
 
 @pytest.mark.asyncio
@@ -402,8 +413,7 @@ async def test_random_teams_with_three_teams(mock_settings, event_collector):
                     controller.accel.z = 1.0
 
             yield controller_manager_pb2.ControllerStateUpdate(
-                controllers=mock_cm.controllers,
-                timestamp=int(time.time() * 1000)
+                controllers=mock_cm.controllers, timestamp=int(time.time() * 1000)
             )
             await asyncio.sleep(1.0 / 60.0)
 
@@ -416,7 +426,7 @@ async def test_random_teams_with_three_teams(mock_settings, event_collector):
         settings_client=mock_settings,
         event_publisher=event_collector.publish,
         game_id="test_random_teams_5",
-        num_teams=3
+        num_teams=3,
     )
 
     await game.run()
@@ -431,7 +441,7 @@ async def test_random_teams_with_three_teams(mock_settings, event_collector):
     # Verify team formation phase occurred
     assert event_collector.count_events_of_type("team_formation_start") == 1
 
-    print(f"✅ Three-team random assignment test passed!")
+    print("✅ Three-team random assignment test passed!")
 
 
 if __name__ == "__main__":
@@ -439,12 +449,14 @@ if __name__ == "__main__":
     import subprocess
 
     print("Running Random Teams integration tests...")
-    result = subprocess.run([
-        "pytest",
-        __file__,
-        "-v",
-        "-s",  # Show print statements
-        "--tb=short"  # Short traceback
-    ])
+    result = subprocess.run(
+        [
+            "pytest",
+            __file__,
+            "-v",
+            "-s",  # Show print statements
+            "--tb=short",  # Short traceback
+        ]
+    )
 
     sys.exit(result.returncode)

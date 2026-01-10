@@ -7,19 +7,16 @@ Manages system audio device (/dev/snd/) to prevent conflicts between services.
 Part of Phase 9 (Architecture Cleanup).
 """
 
+import asyncio
+import glob
 import logging
 import os
-import glob
 import random
-import time
 import threading
 import uuid
-from concurrent import futures
-from typing import Dict, Optional
 
 import grpc
 import grpc.aio
-import asyncio
 import pygame
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
@@ -73,15 +70,15 @@ class AudioManager:
         else:
             logger.info("AudioManager running in MOCK_MODE - no actual audio playback")
 
-        self.current_music_track: Optional[str] = None
-        self.current_music_file: Optional[str] = None
+        self.current_music_track: str | None = None
+        self.current_music_file: str | None = None
         self.current_tempo: float = 1.0
         self.master_volume: float = 0.7
         self.is_playing: bool = False
         self.music_lock = threading.Lock()
 
         # Track currently playing sounds for status
-        self.active_sounds: Dict[str, Dict] = {}
+        self.active_sounds: dict[str, dict] = {}
 
         logger.info("AudioManager initialized")
 
@@ -120,19 +117,22 @@ class AudioManager:
                 channel = pygame.mixer.find_channel(priority == 3)
                 if channel:
                     channel.play(sound)
-                    logger.info(f"Playing sound: {file_path} (volume={adjusted_volume:.2f}, priority={priority})")
+                    logger.info(
+                        f"Playing sound: {file_path} (volume={adjusted_volume:.2f}, priority={priority})"
+                    )
                     span.add_event("sound_played")
                     return True
-                else:
-                    logger.warning(f"No available channel for sound: {file_path}")
-                    return False
+                logger.warning(f"No available channel for sound: {file_path}")
+                return False
 
             except Exception as e:
                 logger.error(f"Error playing sound {file_path}: {e}", exc_info=True)
                 span.record_exception(e)
                 return False
 
-    def play_music(self, file_pattern: str, loop: bool = True, tempo: float = 1.0, priority: int = 1) -> Optional[str]:
+    def play_music(
+        self, file_pattern: str, loop: bool = True, tempo: float = 1.0, priority: int = 1
+    ) -> str | None:
         """
         Play background music (looping).
 
@@ -184,7 +184,9 @@ class AudioManager:
                     self.current_tempo = tempo
                     self.is_playing = True
 
-                    logger.info(f"Playing music: {selected_file} (track_id={track_id}, tempo={tempo}, loop={loop})")
+                    logger.info(
+                        f"Playing music: {selected_file} (track_id={track_id}, tempo={tempo}, loop={loop})"
+                    )
                     span.add_event("music_started", {"track_id": track_id})
 
                     return track_id
@@ -225,16 +227,19 @@ class AudioManager:
                         logger.info(f"Stopped music track: {track_id}")
                         span.add_event("music_stopped")
                         return True
-                    else:
-                        logger.warning(f"Track ID mismatch: {track_id} != {self.current_music_track}")
-                        return False
+                    logger.warning(
+                        f"Track ID mismatch: {track_id} != {self.current_music_track}"
+                    )
+                    return False
 
             except Exception as e:
                 logger.error(f"Error stopping music {track_id}: {e}", exc_info=True)
                 span.record_exception(e)
                 return False
 
-    def change_tempo(self, track_id: str, new_tempo: float, transition_duration: float = 1.0) -> bool:
+    def change_tempo(
+        self, track_id: str, new_tempo: float, transition_duration: float = 1.0
+    ) -> bool:
         """
         Change music tempo (real-time speed adjustment).
 
@@ -285,7 +290,7 @@ class AudioManager:
                 span.record_exception(e)
                 return False
 
-    def get_status(self) -> Dict:
+    def get_status(self) -> dict:
         """
         Get current playback status.
 
@@ -293,7 +298,11 @@ class AudioManager:
             Dictionary with current status
         """
         with self.music_lock:
-            is_busy = self.is_playing if self.mock_mode else (self.is_playing and pygame.mixer.music.get_busy())
+            is_busy = (
+                self.is_playing
+                if self.mock_mode
+                else (self.is_playing and pygame.mixer.music.get_busy())
+            )
             return {
                 "current_track_id": self.current_music_track or "",
                 "current_track_file": self.current_music_file or "",
@@ -318,14 +327,11 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
             span.set_attribute("audio.file", request.file_path)
 
             success = self.audio_manager.play_sound(
-                file_path=request.file_path,
-                volume=request.volume or 1.0,
-                priority=request.priority
+                file_path=request.file_path, volume=request.volume or 1.0, priority=request.priority
             )
 
             return audio_pb2.PlaySoundResponse(
-                success=success,
-                error="" if success else "Failed to play sound"
+                success=success, error="" if success else "Failed to play sound"
             )
 
     def PlayMusic(self, request, context):
@@ -337,21 +343,14 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
                 file_pattern=request.file_pattern,
                 loop=request.loop,
                 tempo=request.tempo or 1.0,
-                priority=request.priority
+                priority=request.priority,
             )
 
             if track_id:
-                return audio_pb2.PlayMusicResponse(
-                    track_id=track_id,
-                    success=True,
-                    error=""
-                )
-            else:
-                return audio_pb2.PlayMusicResponse(
-                    track_id="",
-                    success=False,
-                    error="Failed to play music"
-                )
+                return audio_pb2.PlayMusicResponse(track_id=track_id, success=True, error="")
+            return audio_pb2.PlayMusicResponse(
+                track_id="", success=False, error="Failed to play music"
+            )
 
     def StopMusic(self, request, context):
         """Stop music track."""
@@ -359,8 +358,7 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
             success = self.audio_manager.stop_music(request.track_id)
 
             return audio_pb2.StopMusicResponse(
-                success=success,
-                error="" if success else "Failed to stop music"
+                success=success, error="" if success else "Failed to stop music"
             )
 
     def ChangeTempo(self, request, context):
@@ -369,12 +367,11 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
             success = self.audio_manager.change_tempo(
                 track_id=request.track_id,
                 new_tempo=request.new_tempo,
-                transition_duration=request.transition_duration or 1.0
+                transition_duration=request.transition_duration or 1.0,
             )
 
             return audio_pb2.ChangeTempoResponse(
-                success=success,
-                error="" if success else "Failed to change tempo"
+                success=success, error="" if success else "Failed to change tempo"
             )
 
     def SetVolume(self, request, context):
@@ -383,8 +380,7 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
             success = self.audio_manager.set_volume(request.volume)
 
             return audio_pb2.SetVolumeResponse(
-                success=success,
-                error="" if success else "Failed to set volume"
+                success=success, error="" if success else "Failed to set volume"
             )
 
     def GetStatus(self, request, context):
@@ -400,7 +396,7 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
                 tempo=status["tempo"],
                 queued_sounds_count=status["queued_sounds_count"],
                 success=True,
-                error=""
+                error="",
             )
 
 

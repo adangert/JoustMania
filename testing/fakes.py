@@ -1,4 +1,3 @@
-
 class FakeMove:
     """Mock Move controller for testing."""
 

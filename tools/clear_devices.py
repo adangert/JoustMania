@@ -1,6 +1,6 @@
 import jm_dbus
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     hcis = jm_dbus.get_hci_dict().keys()
     for hci in hcis:
         hci_proxy = jm_dbus.get_adapter_proxy(hci)

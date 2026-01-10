@@ -5,12 +5,13 @@ These tests measure CPU usage, latency, and throughput to verify
 the expected 60-70% CPU reduction and 3x latency improvement.
 """
 
-import unittest
 import time
-import psutil
-import os
+import unittest
 from multiprocessing import Process, Value
+
+import psutil
 from controller_state import ControllerState
+
 from testing.fakes import FakeMove
 
 
@@ -78,8 +79,8 @@ class PerformanceBenchmark(unittest.TestCase):
                 time.sleep(0.001)  # 1000Hz
 
         state = ControllerState()
-        kill_flag = Value('b', False)
-        timestamp_count = Value('i', 0)
+        kill_flag = Value("b", False)
+        timestamp_count = Value("i", 0)
 
         # Start producer
         proc = Process(target=producer_process, args=(state, kill_flag, timestamp_count))
@@ -93,8 +94,8 @@ class PerformanceBenchmark(unittest.TestCase):
         start = time.time()
         while time.time() - start < 0.1:
             snapshot = state.get_snapshot()
-            if snapshot['connected']:
-                write_time = snapshot['accelerometer'][0]
+            if snapshot["connected"]:
+                write_time = snapshot["accelerometer"][0]
                 read_time = time.time()
                 latency_ms = (read_time - write_time) * 1000
                 if latency_ms > 0:  # Valid latency
@@ -113,7 +114,7 @@ class PerformanceBenchmark(unittest.TestCase):
             max_latency = max(latencies)
             min_latency = min(latencies)
 
-            print(f"\nEnd-to-end latency:")
+            print("\nEnd-to-end latency:")
             print(f"  Average: {avg_latency:.2f}ms")
             print(f"  Min: {min_latency:.2f}ms")
             print(f"  Max: {max_latency:.2f}ms")
@@ -142,7 +143,7 @@ class PerformanceBenchmark(unittest.TestCase):
                 time.sleep(0.001)  # 1000Hz
 
         state = ControllerState()
-        kill_flag = Value('b', False)
+        kill_flag = Value("b", False)
 
         # Start tracking process
         proc = Process(target=tracking_process, args=(state, kill_flag))
@@ -169,7 +170,7 @@ class PerformanceBenchmark(unittest.TestCase):
         avg_cpu = sum(cpu_samples) / len(cpu_samples)
         max_cpu = max(cpu_samples)
 
-        print(f"\nCPU usage (single controller):")
+        print("\nCPU usage (single controller):")
         print(f"  Average: {avg_cpu:.1f}%")
         print(f"  Max: {max_cpu:.1f}%")
 
@@ -197,12 +198,11 @@ class PerformanceBenchmark(unittest.TestCase):
         # Create 4 controller states
         num_controllers = 4
         states = [ControllerState() for _ in range(num_controllers)]
-        kill_flag = Value('b', False)
-        update_count = Value('i', 0)
+        kill_flag = Value("b", False)
+        update_count = Value("i", 0)
 
         # Start tracking
-        proc = Process(target=multi_controller_process,
-                      args=(states, kill_flag, update_count))
+        proc = Process(target=multi_controller_process, args=(states, kill_flag, update_count))
         proc.start()
 
         # Measure for 1 second
@@ -224,8 +224,9 @@ class PerformanceBenchmark(unittest.TestCase):
 
         # Should be close to 500 updates/sec per controller
         # (FakeMove.poll() alternates, so 50% success rate at 1000Hz)
-        self.assertGreater(updates_per_controller, 400,
-                          "Should achieve 400+ updates/sec per controller")
+        self.assertGreater(
+            updates_per_controller, 400, "Should achieve 400+ updates/sec per controller"
+        )
 
     def test_memory_footprint(self):
         """
@@ -240,22 +241,22 @@ class PerformanceBenchmark(unittest.TestCase):
         # Approximate memory usage
         # Each Value/Array has some overhead, but should be minimal
         memory_bytes = (
-            sys.getsizeof(state.accel_x) +
-            sys.getsizeof(state.accel_y) +
-            sys.getsizeof(state.accel_z) +
-            sys.getsizeof(state.gyro_x) +
-            sys.getsizeof(state.gyro_y) +
-            sys.getsizeof(state.gyro_z) +
-            sys.getsizeof(state.buttons) +
-            sys.getsizeof(state.trigger) +
-            sys.getsizeof(state.battery) +
-            sys.getsizeof(state.connected) +
-            sys.getsizeof(state.timestamp) +
-            sys.getsizeof(state.update_count) +
-            sys.getsizeof(state.led_r) +
-            sys.getsizeof(state.led_g) +
-            sys.getsizeof(state.led_b) +
-            sys.getsizeof(state.rumble)
+            sys.getsizeof(state.accel_x)
+            + sys.getsizeof(state.accel_y)
+            + sys.getsizeof(state.accel_z)
+            + sys.getsizeof(state.gyro_x)
+            + sys.getsizeof(state.gyro_y)
+            + sys.getsizeof(state.gyro_z)
+            + sys.getsizeof(state.buttons)
+            + sys.getsizeof(state.trigger)
+            + sys.getsizeof(state.battery)
+            + sys.getsizeof(state.connected)
+            + sys.getsizeof(state.timestamp)
+            + sys.getsizeof(state.update_count)
+            + sys.getsizeof(state.led_r)
+            + sys.getsizeof(state.led_g)
+            + sys.getsizeof(state.led_b)
+            + sys.getsizeof(state.rumble)
         )
 
         memory_kb = memory_bytes / 1024
@@ -294,9 +295,9 @@ class ComparisonBenchmark(unittest.TestCase):
 
         elapsed = time.time() - start
 
-        print(f"\nOLD blocking poll pattern:")
+        print("\nOLD blocking poll pattern:")
         print(f"  Time for {iterations} iterations: {elapsed:.2f}s")
-        print(f"  Average per iteration: {(elapsed/iterations)*1000:.2f}ms")
+        print(f"  Average per iteration: {(elapsed / iterations) * 1000:.2f}ms")
 
         # Should take ~1 second (100 * 10ms)
         self.assertGreater(elapsed, 0.9, "Should take at least 0.9s")
@@ -320,17 +321,17 @@ class ComparisonBenchmark(unittest.TestCase):
         for _ in range(iterations):
             # New non-blocking pattern
             snapshot = state.get_snapshot()
-            ax, ay, az = snapshot['accelerometer']
-            buttons = snapshot['buttons']
-            trigger = snapshot['trigger']
-            battery = snapshot['battery']
+            ax, ay, az = snapshot["accelerometer"]
+            buttons = snapshot["buttons"]
+            trigger = snapshot["trigger"]
+            battery = snapshot["battery"]
             time.sleep(0.01)  # Same 100Hz rate
 
         elapsed = time.time() - start
 
-        print(f"\nNEW non-blocking state pattern:")
+        print("\nNEW non-blocking state pattern:")
         print(f"  Time for {iterations} iterations: {elapsed:.2f}s")
-        print(f"  Average per iteration: {(elapsed/iterations)*1000:.2f}ms")
+        print(f"  Average per iteration: {(elapsed / iterations) * 1000:.2f}ms")
 
         # Should also take ~1 second, but with much less CPU
         self.assertGreater(elapsed, 0.9, "Should take at least 0.9s")
@@ -362,17 +363,16 @@ class ComparisonBenchmark(unittest.TestCase):
                 updates_old += 1
             time.sleep(0.01)  # 100Hz
 
-        print(f"\nUpdate frequency comparison (100ms window):")
+        print("\nUpdate frequency comparison (100ms window):")
         print(f"  NEW (1000Hz): {updates_new} updates")
         print(f"  OLD (100Hz): {updates_old} updates")
-        print(f"  Improvement: {updates_new/updates_old:.1f}x")
+        print(f"  Improvement: {updates_new / updates_old:.1f}x")
 
         # New approach should get ~10x more updates
-        self.assertGreater(updates_new / updates_old, 5.0,
-                          "New approach should be 5x+ faster")
+        self.assertGreater(updates_new / updates_old, 5.0, "New approach should be 5x+ faster")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Run benchmarks
     print("=" * 60)
     print("CONTROLLER STATE PERFORMANCE BENCHMARKS")

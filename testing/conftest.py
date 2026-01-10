@@ -9,4 +9,4 @@ from unittest.mock import MagicMock
 
 # Mock psmove module globally before any imports
 # This is needed because psmove is a compiled C library that may not be available during testing
-sys.modules['psmove'] = MagicMock()
+sys.modules["psmove"] = MagicMock()

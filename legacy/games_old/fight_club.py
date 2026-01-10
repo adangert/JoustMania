@@ -1,17 +1,21 @@
-from games.game import Game
-from common import Status
-from colors import Colors
-from piaudio import Audio
-import colors
-from enum import Enum
-import time, random
 import logging
+import random
+import time
+from enum import Enum
+
+import colors
+from colors import Colors
+from common import Status
+from games.game import Game
+from piaudio import Audio
 
 logger = logging.getLogger(__name__)
+
 
 # Zombie Opts
 class Opts(Enum):
     SCORE = 0
+
 
 class Team(Enum):
     IN_LINE = 0
@@ -19,13 +23,47 @@ class Team(Enum):
     FIGHTER = 2
     FACE_OFF = 3
 
+
 class Joust(Game):
-    def __init__(self, moves, command_queue, ns, red_on_kill, music, teams, game_mode, controller_teams, controller_colors, dead_moves, invincible_moves, force_move_colors, music_speed, show_team_colors, restart, revive, opts):
+    def __init__(
+        self,
+        moves,
+        command_queue,
+        ns,
+        red_on_kill,
+        music,
+        teams,
+        game_mode,
+        controller_teams,
+        controller_colors,
+        dead_moves,
+        invincible_moves,
+        force_move_colors,
+        music_speed,
+        show_team_colors,
+        restart,
+        revive,
+        opts,
+    ):
         super().__init__(
-            moves=moves, command_queue=command_queue, ns=ns, red_on_kill=red_on_kill, music=music, teams=teams, game_mode=game_mode, \
-            controller_teams=controller_teams, controller_colors=controller_colors, dead_moves=dead_moves, invincible_moves=invincible_moves, \
-            force_move_colors=force_move_colors, music_speed=music_speed, show_team_colors=show_team_colors, \
-            restart=restart, revive=revive, opts=opts)
+            moves=moves,
+            command_queue=command_queue,
+            ns=ns,
+            red_on_kill=red_on_kill,
+            music=music,
+            teams=teams,
+            game_mode=game_mode,
+            controller_teams=controller_teams,
+            controller_colors=controller_colors,
+            dead_moves=dead_moves,
+            invincible_moves=invincible_moves,
+            force_move_colors=force_move_colors,
+            music_speed=music_speed,
+            show_team_colors=show_team_colors,
+            restart=restart,
+            revive=revive,
+            opts=opts,
+        )
 
         self.audio_cue = 0
         self.num_dead = 0
@@ -53,13 +91,14 @@ class Joust(Game):
 
         self.game_loop()
 
-    '''
+    """
     Override joust functions
-    '''
+    """
+
     # @Override
     def init_audio(self):
         super().init_audio()
-        self.loud_beep = Audio('audio/Joust/sounds/beep_loud.wav')
+        self.loud_beep = Audio("audio/Joust/sounds/beep_loud.wav")
 
     # @Override
     # Set up initial moves
@@ -84,7 +123,9 @@ class Joust(Game):
         # Fighter should be set to new defender, made invincible and have score increased
         # Choose a new defender
         if self.dead_moves[self.chosen_defender].value == Status.DEAD.value:
-            logger.debug("Defender died {}: {}".format(self.chosen_defender, self.dead_moves[self.chosen_defender].value))
+            logger.debug(
+                f"Defender died {self.chosen_defender}: {self.dead_moves[self.chosen_defender].value}"
+            )
             self.invincible_moves[self.chosen_fighter].value = True
             self.invincible_moves[self.chosen_defender].value = True
             self.play_death_sound(self.chosen_defender)
@@ -100,7 +141,9 @@ class Joust(Game):
         # Defender should be made invincible and have score increased
         # Choose a new fighter
         elif self.dead_moves[self.chosen_fighter].value == Status.DEAD.value:
-            logger.debug("Fighter died {}: {}".format(self.chosen_fighter, self.dead_moves[self.chosen_fighter].value))
+            logger.debug(
+                f"Fighter died {self.chosen_fighter}: {self.dead_moves[self.chosen_fighter].value}"
+            )
             self.invincible_moves[self.chosen_fighter].value = True
             self.invincible_moves[self.chosen_defender].value = True
             self.play_death_sound(self.chosen_defender)
@@ -127,7 +170,7 @@ class Joust(Game):
     def check_end_round(self):
         if self.play_audio:
             # If round is almost over, play X warning beeps
-            if time.time() > self.round_time - (3 * (self.timer_beep/4)):
+            if time.time() > self.round_time - (3 * (self.timer_beep / 4)):
                 self.loud_beep.start_effect()
                 self.timer_beep -= 1
 
@@ -154,10 +197,12 @@ class Joust(Game):
             time.sleep(2)
             self.all_moves_off()
             self.winning_score = 0
-            logger.debug("Scores: {}".format([opt[Opts.SCORE.value] for serial, opt in self.opts.items()]))
+            logger.debug(
+                f"Scores: {[opt[Opts.SCORE.value] for serial, opt in self.opts.items()]}"
+            )
             for move_serial in self.moves:
                 score = self.opts[move_serial][Opts.SCORE.value]
-                if score ==  self.winning_score:
+                if score == self.winning_score:
                     self.winning_moves.append(move_serial)
                 if score > self.winning_score:
                     self.winning_moves = []
@@ -166,18 +211,18 @@ class Joust(Game):
             if len(self.winning_moves) > 1:
                 self.face_off()
                 return True
-            else:
-                return True
+            return True
         return False
 
     # Override
     # Play game specific 'game_over'
     def winning_team_sound(self):
-        Audio('audio/Fight_Club/vox/' + self.voice + '/game_over.wav').start_effect()
+        Audio("audio/Fight_Club/vox/" + self.voice + "/game_over.wav").start_effect()
 
-    '''
+    """
     Game-specific functions
-    '''
+    """
+
     def generate_fighter_list(self):
         self.fighter_list = self.move_serials[:]
         random.shuffle(self.fighter_list)
@@ -197,22 +242,28 @@ class Joust(Game):
 
         self.set_highest_score_color()
 
-        if self.get_highest_score() > self.high_score :
+        if self.get_highest_score() > self.high_score:
             self.high_score = self.get_highest_score()
             if self.current_winner != self.chosen_defender:
                 self.current_winner = self.chosen_defender
                 saying = random.randint(0, 2)
                 if saying == 0:
-                    Audio('audio/Fight_Club/vox/' + self.voice + '/defender_lead.wav').start_effect()
+                    Audio(
+                        "audio/Fight_Club/vox/" + self.voice + "/defender_lead.wav"
+                    ).start_effect()
                 elif saying == 1:
-                    Audio('audio/Fight_Club/vox/' + self.voice + '/defender_winning.wav').start_effect()
+                    Audio(
+                        "audio/Fight_Club/vox/" + self.voice + "/defender_winning.wav"
+                    ).start_effect()
                 elif saying == 2:
-                    Audio('audio/Fight_Club/vox/' + self.voice + '/Defender_high_score.wav').start_effect()
+                    Audio(
+                        "audio/Fight_Club/vox/" + self.voice + "/Defender_high_score.wav"
+                    ).start_effect()
 
         if self.round_counter == self.round_num - 5:
-            Audio('audio/Fight_Club/vox/' + self.voice + '/5_rounds.wav').start_effect()
+            Audio("audio/Fight_Club/vox/" + self.voice + "/5_rounds.wav").start_effect()
         elif self.round_counter == self.round_num - 1:
-            Audio('audio/Fight_Club/vox/' + self.voice + '/last_round.wav').start_effect()
+            Audio("audio/Fight_Club/vox/" + self.voice + "/last_round.wav").start_effect()
 
     def kill_player(self, serial):
         self.switch_teams(serial, Team.IN_LINE.value)
@@ -222,7 +273,7 @@ class Joust(Game):
 
     # If two players are tied, have them face off to decide victor
     def face_off(self):
-        Audio('audio/Fight_Club/vox/' + self.voice + '/tie_game.wav').start_effect()
+        Audio("audio/Fight_Club/vox/" + self.voice + "/tie_game.wav").start_effect()
         logging.debug("Face off!")
         for move in self.move_serials:
             self.dead_moves[move].value = Status.OFF.value

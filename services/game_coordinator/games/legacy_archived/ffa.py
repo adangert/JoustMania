@@ -1,13 +1,12 @@
-import enum
 import asyncio
-import time
 
 from core import common
+
 from . import pacemanager
-from .player import Player, PlayerCollection, EventType
+from .player import EventType, Player, PlayerCollection
 
 # Hertz
-UPDATE_FREQUENCY=30
+UPDATE_FREQUENCY = 30
 
 # Values are (weight, min_duration, max_duration)
 PACE_TIMING = {
@@ -15,12 +14,13 @@ PACE_TIMING = {
     common.FAST_PACE: (1.0, 5, 15),
 }
 
-INITIAL_PACE_DURATION=18
+INITIAL_PACE_DURATION = 18
+
 
 class FreeForAll:
     ## Note, the "Player" objects should probably get created (and assigned colors) by the core game code, not here.
     def __init__(self, controllers, music):
-        players = [ Player(move) for move in controllers ]
+        players = [Player(move) for move in controllers]
         for player, color in zip(players, common.PLAYER_COLORS):
             player.set_player_color(color)
         self.players = PlayerCollection(players)
@@ -50,11 +50,12 @@ class FreeForAll:
                 await asyncio.sleep(0.5)
             self.pace_ = new_pace
             print(".... Done.")
+
         asyncio.ensure_future(change_pace())
 
     def game_tick_(self):
         """Implements a game tick.
-           Polls controllers for input, and issues warnings/deaths to players."""
+        Polls controllers for input, and issues warnings/deaths to players."""
         # Make a copy of the active players, as we may modify it during iteration.
         pace = self.pace_
         for event in self.players.active_player_events(EventType.SENSOR):
@@ -97,4 +98,3 @@ class FreeForAll:
 
     def set_rainbow_duration_for_testing(self, secs):
         self.rainbow_duration_ = secs
-

@@ -4,10 +4,12 @@ Unit tests for ControllerState and ControllerStateManager.
 Tests the state-based non-blocking architecture for Move controller tracking.
 """
 
-import unittest
 import time
+import unittest
 from multiprocessing import Process, Value
+
 from controller_state import ControllerState, ControllerStateManager
+
 from testing.fakes import FakeMove
 
 
@@ -23,11 +25,11 @@ class TestControllerState(unittest.TestCase):
         """Test initial state values."""
         snapshot = self.state.get_snapshot()
 
-        self.assertFalse(snapshot['connected'])
-        self.assertEqual(snapshot['timestamp'], 0.0)
-        self.assertEqual(snapshot['age_ms'], float('inf'))
-        self.assertEqual(snapshot['buttons'], 0)
-        self.assertEqual(snapshot['trigger'], 0)
+        self.assertFalse(snapshot["connected"])
+        self.assertEqual(snapshot["timestamp"], 0.0)
+        self.assertEqual(snapshot["age_ms"], float("inf"))
+        self.assertEqual(snapshot["buttons"], 0)
+        self.assertEqual(snapshot["trigger"], 0)
 
     def test_update_from_controller(self):
         """Test updating state from FakeMove."""
@@ -44,13 +46,13 @@ class TestControllerState(unittest.TestCase):
 
         # Verify state
         snapshot = self.state.get_snapshot()
-        self.assertTrue(snapshot['connected'])
-        self.assertEqual(snapshot['accelerometer'], (1.0, 2.0, 3.0))
-        self.assertEqual(snapshot['gyroscope'], (4.0, 5.0, 6.0))
-        self.assertEqual(snapshot['buttons'], 128)
-        self.assertEqual(snapshot['trigger'], 200)
-        self.assertEqual(snapshot['battery'], 5)
-        self.assertLess(snapshot['age_ms'], 10.0, "Data should be fresh")
+        self.assertTrue(snapshot["connected"])
+        self.assertEqual(snapshot["accelerometer"], (1.0, 2.0, 3.0))
+        self.assertEqual(snapshot["gyroscope"], (4.0, 5.0, 6.0))
+        self.assertEqual(snapshot["buttons"], 128)
+        self.assertEqual(snapshot["trigger"], 200)
+        self.assertEqual(snapshot["battery"], 5)
+        self.assertLess(snapshot["age_ms"], 10.0, "Data should be fresh")
 
     def test_update_no_data(self):
         """Test update when controller has no new data."""
@@ -63,11 +65,11 @@ class TestControllerState(unittest.TestCase):
     def test_update_counter(self):
         """Test that update counter increments."""
         snapshot1 = self.state.get_snapshot()
-        count1 = snapshot1['update_count']
+        count1 = snapshot1["update_count"]
 
         self.state.update(self.fake_move)
         snapshot2 = self.state.get_snapshot()
-        count2 = snapshot2['update_count']
+        count2 = snapshot2["update_count"]
 
         self.assertEqual(count2, count1 + 1, "Update counter should increment")
 
@@ -117,10 +119,10 @@ class TestControllerState(unittest.TestCase):
     def test_mark_disconnected(self):
         """Test marking controller as disconnected."""
         self.state.update(self.fake_move)
-        self.assertTrue(self.state.get_snapshot()['connected'])
+        self.assertTrue(self.state.get_snapshot()["connected"])
 
         self.state.mark_disconnected()
-        self.assertFalse(self.state.get_snapshot()['connected'])
+        self.assertFalse(self.state.get_snapshot()["connected"])
 
     def test_multiprocess_shared_memory(self):
         """Test that state is shared across processes."""
@@ -134,7 +136,7 @@ class TestControllerState(unittest.TestCase):
                 time.sleep(0.001)
 
         # Start writer process
-        kill_flag = Value('b', False)
+        kill_flag = Value("b", False)
         proc = Process(target=writer_process, args=(self.state, kill_flag))
         proc.start()
 
@@ -145,8 +147,8 @@ class TestControllerState(unittest.TestCase):
         snapshot = self.state.get_snapshot()
 
         # Verify we can read data written by other process
-        self.assertTrue(snapshot['connected'])
-        self.assertEqual(snapshot['accelerometer'][0], 9.8)
+        self.assertTrue(snapshot["connected"])
+        self.assertEqual(snapshot["accelerometer"][0], 9.8)
 
         # Clean up
         kill_flag.value = True
@@ -286,8 +288,8 @@ class TestStateFreshnessUnderLoad(unittest.TestCase):
 
         # Final state should be very fresh
         snapshot = state.get_snapshot()
-        self.assertLess(snapshot['age_ms'], 5.0, "Should be very fresh")
+        self.assertLess(snapshot["age_ms"], 5.0, "Should be very fresh")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

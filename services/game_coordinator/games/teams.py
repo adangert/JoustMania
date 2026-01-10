@@ -9,11 +9,11 @@ This is Phase 13.2 - modern implementation using gRPC for all service communicat
 
 import asyncio
 import logging
-import time
 import math
-from enum import Enum
-from typing import Callable, Dict, List, Optional, Set
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
+from enum import Enum
 
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
@@ -25,11 +25,13 @@ logger = logging.getLogger(__name__)
 UPDATE_FREQUENCY = 60  # Hz - game tick frequency
 COUNTDOWN_DURATION = 3  # seconds
 
+
 # Sensitivity thresholds (will eventually come from settings)
 class Sensitivity(Enum):
-    SLOW = (1.3, 1.5)      # (warning_threshold, death_threshold)
+    SLOW = (1.3, 1.5)  # (warning_threshold, death_threshold)
     MEDIUM = (1.6, 1.8)
     FAST = (1.9, 2.8)
+
 
 # Team colors (from utils/colors.py - first 8 colors)
 TEAM_COLORS = [
@@ -43,31 +45,38 @@ TEAM_COLORS = [
     {"name": "Purple", "rgb": (96, 0, 255)},
 ]
 
+
 @dataclass
 class Team:
     """Represents a team in the game."""
+
     team_num: int
     name: str
     color: tuple
-    span: Optional[trace.Span] = None  # OpenTelemetry span for team lifecycle
+    span: trace.Span | None = None  # OpenTelemetry span for team lifecycle
+
 
 @dataclass
 class Player:
     """Represents a player in the game."""
+
     serial: str
     team: int
     alive: bool = True
     color: tuple = (255, 255, 255)
     last_accel_mag: float = 0.0
-    span: Optional[trace.Span] = None  # OpenTelemetry span for player lifecycle
+    span: trace.Span | None = None  # OpenTelemetry span for player lifecycle
+
 
 class GameState(Enum):
     """Game lifecycle states."""
+
     IDLE = "idle"
     STARTING = "starting"
     RUNNING = "running"
     ENDING = "ending"
     ENDED = "ended"
+
 
 class TeamsGame:
     """
@@ -83,7 +92,7 @@ class TeamsGame:
         settings_client,
         event_publisher: Callable,
         game_id: str = "",
-        num_teams: int = 2
+        num_teams: int = 2,
     ):
         """
         Initialize Teams game.
@@ -103,8 +112,8 @@ class TeamsGame:
 
         # Game state
         self.state = GameState.IDLE
-        self.players: Dict[str, Player] = {}
-        self.teams: Dict[int, Team] = {}  # team_num -> Team object
+        self.players: dict[str, Player] = {}
+        self.teams: dict[int, Team] = {}  # team_num -> Team object
         self.start_time = None
         self.running = False
 
@@ -114,9 +123,7 @@ class TeamsGame:
         # Initialize team objects
         for i in range(num_teams):
             self.teams[i] = Team(
-                team_num=i,
-                name=self.team_colors[i]["name"],
-                color=self.team_colors[i]["rgb"]
+                team_num=i, name=self.team_colors[i]["name"], color=self.team_colors[i]["rgb"]
             )
 
         # Settings (will be fetched from Settings service)
@@ -130,6 +137,7 @@ class TeamsGame:
         with tracer.start_as_current_span("teams_load_settings"):
             try:
                 from services.settings import settings_pb2
+
                 response = self.settings_client.GetSettings(settings_pb2.GetSettingsRequest())
 
                 if response.success:
@@ -137,12 +145,12 @@ class TeamsGame:
                     logger.info(f"Loaded settings: {len(settings)} keys")
 
                     # Parse sensitivity
-                    sens_str = settings.get('sensitivity', 'MEDIUM').upper()
+                    sens_str = settings.get("sensitivity", "MEDIUM").upper()
                     if sens_str in Sensitivity.__members__:
                         self.sensitivity = Sensitivity[sens_str]
 
                     # Parse audio setting
-                    self.play_audio = settings.get('play_audio', 'true').lower() == 'true'
+                    self.play_audio = settings.get("play_audio", "true").lower() == "true"
 
                 else:
                     logger.warning(f"Failed to load settings: {response.error}")
@@ -170,30 +178,31 @@ class TeamsGame:
                         team_color = self.team_colors[team_num]["rgb"]
 
                         player = Player(
-                            serial=controller.serial,
-                            team=team_num,
-                            alive=True,
-                            color=team_color
+                            serial=controller.serial, team=team_num, alive=True, color=team_color
                         )
                         self.players[controller.serial] = player
                         logger.debug(f"Added player: {controller.serial} to team {team_num}")
 
                     span.set_attribute("player_count", len(self.players))
                     span.set_attribute("num_teams", self.num_teams)
-                    logger.info(f"Initialized {len(self.players)} players across {self.num_teams} teams")
+                    logger.info(
+                        f"Initialized {len(self.players)} players across {self.num_teams} teams"
+                    )
 
                     # Publish event with team assignments
                     team_assignments = {
-                        serial: player.team
-                        for serial, player in self.players.items()
+                        serial: player.team for serial, player in self.players.items()
                     }
 
-                    self.event_publisher("players_initialized", {
-                        "player_count": len(self.players),
-                        "num_teams": self.num_teams,
-                        "team_assignments": str(team_assignments),
-                        "serials": list(self.players.keys())
-                    })
+                    self.event_publisher(
+                        "players_initialized",
+                        {
+                            "player_count": len(self.players),
+                            "num_teams": self.num_teams,
+                            "team_assignments": str(team_assignments),
+                            "serials": list(self.players.keys()),
+                        },
+                    )
 
                 else:
                     logger.error(f"Failed to get controllers: {response.error}")
@@ -237,8 +246,8 @@ class TeamsGame:
                             "team.number": team_num,
                             "team.name": team.name,
                             "team.color": str(team.color),
-                            "game.mode": "Teams"
-                        }
+                            "game.mode": "Teams",
+                        },
                     )
                     team.span = team_span
                     logger.debug(f"Started lifecycle span for team {team_num} ({team.name})")
@@ -248,7 +257,7 @@ class TeamsGame:
                     team = self.teams[player.team]
 
                     # Create player span as child of team span using context
-                    from opentelemetry import context
+
                     ctx = trace.set_span_in_context(team.span)
 
                     player_span = tracer.start_span(
@@ -259,8 +268,8 @@ class TeamsGame:
                             "player.team": player.team,
                             "player.team_name": team.name,
                             "player.color": str(player.color),
-                            "game.mode": "Teams"
-                        }
+                            "game.mode": "Teams",
+                        },
                     )
                     player.span = player_span
                     logger.debug(f"Started lifecycle span for player {serial} (Team {team.name})")
@@ -274,7 +283,9 @@ class TeamsGame:
                 span.set_attribute("initial_player_count", alive_count)
 
                 # Stream controller states and process game logic
-                async for state_update in self.controller_client.StreamControllerStates(stream_request):
+                async for state_update in self.controller_client.StreamControllerStates(
+                    stream_request
+                ):
                     if not self.running:
                         break
 
@@ -347,10 +358,12 @@ class TeamsGame:
                 attributes={
                     "accel_magnitude": accel_mag,
                     "threshold": self.sensitivity.value[0],
-                    "team": player.team
-                }
+                    "team": player.team,
+                },
             )
-            logger.debug(f"Player {serial} (Team {player.team}) triggered warning (accel: {accel_mag:.2f})")
+            logger.debug(
+                f"Player {serial} (Team {player.team}) triggered warning (accel: {accel_mag:.2f})"
+            )
 
         # TODO: Flash controller LED
         # TODO: Vibrate controller
@@ -382,7 +395,9 @@ class TeamsGame:
             # Check if this death eliminated the team
             team_eliminated = player.team not in alive_teams
 
-            logger.info(f"Player died: {serial} (Team {player.team}), {alive_count} players remaining on {len(alive_teams)} teams")
+            logger.info(
+                f"Player died: {serial} (Team {player.team}), {alive_count} players remaining on {len(alive_teams)} teams"
+            )
 
             # Add death event to player's lifecycle span and end it
             if player.span:
@@ -392,8 +407,8 @@ class TeamsGame:
                         "accel_magnitude": accel_mag,
                         "threshold": self.sensitivity.value[1],
                         "alive_count": alive_count,
-                        "team_eliminated": team_eliminated
-                    }
+                        "team_eliminated": team_eliminated,
+                    },
                 )
                 player.span.set_status(Status(StatusCode.OK))
                 player.span.end()
@@ -403,29 +418,29 @@ class TeamsGame:
             if team_eliminated and team.span:
                 team.span.add_event(
                     "team_eliminated",
-                    attributes={
-                        "last_player": serial,
-                        "alive_teams_count": len(alive_teams)
-                    }
+                    attributes={"last_player": serial, "alive_teams_count": len(alive_teams)},
                 )
                 team.span.set_status(Status(StatusCode.OK))
                 team.span.end()
                 logger.info(f"Team {team.name} eliminated! Ended team lifecycle span")
 
             # Publish death event
-            self.event_publisher("player_death", {
-                "serial": serial,
-                "team": player.team,
-                "team_name": team.name,
-                "accel_magnitude": accel_mag,
-                "alive_count": alive_count,
-                "alive_teams_count": len(alive_teams)
-            })
+            self.event_publisher(
+                "player_death",
+                {
+                    "serial": serial,
+                    "team": player.team,
+                    "team_name": team.name,
+                    "accel_magnitude": accel_mag,
+                    "alive_count": alive_count,
+                    "alive_teams_count": len(alive_teams),
+                },
+            )
 
             # TODO: Set controller color to black/red
             # TODO: Play explosion sound
 
-    def _get_alive_teams(self) -> Set[int]:
+    def _get_alive_teams(self) -> set[int]:
         """Get set of teams that still have alive players."""
         alive_teams = set()
         for player in self.players.values():
@@ -450,19 +465,21 @@ class TeamsGame:
 
                 # Get winning players
                 winners = [
-                    p.serial for p in self.players.values()
-                    if p.alive and p.team == winning_team
+                    p.serial for p in self.players.values() if p.alive and p.team == winning_team
                 ]
 
                 logger.info(f"Team {winning_team} ({team_name}) wins with {len(winners)} players!")
 
-                self.event_publisher("team_winner", {
-                    "team": winning_team,
-                    "team_name": team_name,
-                    "team_color": str(self.team_colors[winning_team]["rgb"]),
-                    "winning_players": winners,
-                    "winner_count": len(winners)
-                })
+                self.event_publisher(
+                    "team_winner",
+                    {
+                        "team": winning_team,
+                        "team_name": team_name,
+                        "team_color": str(self.team_colors[winning_team]["rgb"]),
+                        "winning_players": winners,
+                        "winner_count": len(winners),
+                    },
+                )
 
             elif len(alive_teams) == 0:
                 logger.info("No winner - all players died simultaneously")
@@ -489,10 +506,12 @@ class TeamsGame:
                     player.span.add_event(
                         "player_survived",
                         attributes={
-                            "game_duration": time.time() - self.start_time if self.start_time else 0,
+                            "game_duration": time.time() - self.start_time
+                            if self.start_time
+                            else 0,
                             "winner": is_winner,
-                            "team": player.team
-                        }
+                            "team": player.team,
+                        },
                     )
                     player.span.set_status(Status(StatusCode.OK))
                     player.span.end()
@@ -505,13 +524,17 @@ class TeamsGame:
                     team.span.add_event(
                         "team_victory" if is_winning_team else "team_survived",
                         attributes={
-                            "game_duration": time.time() - self.start_time if self.start_time else 0,
-                            "winner": is_winning_team
-                        }
+                            "game_duration": time.time() - self.start_time
+                            if self.start_time
+                            else 0,
+                            "winner": is_winning_team,
+                        },
                     )
                     team.span.set_status(Status(StatusCode.OK))
                     team.span.end()
-                    logger.info(f"Ended lifecycle span for team {team.name} ({'WINNER' if is_winning_team else 'survived'})")
+                    logger.info(
+                        f"Ended lifecycle span for team {team.name} ({'WINNER' if is_winning_team else 'survived'})"
+                    )
 
             # TODO: Show rainbow on winning team's controllers
             # TODO: Play victory sound for winning team
@@ -524,10 +547,13 @@ class TeamsGame:
                 await asyncio.sleep(0.1)
 
             self.state = GameState.ENDED
-            self.event_publisher("game_ended", {
-                "game_id": self.game_id,
-                "duration": time.time() - self.start_time if self.start_time else 0
-            })
+            self.event_publisher(
+                "game_ended",
+                {
+                    "game_id": self.game_id,
+                    "duration": time.time() - self.start_time if self.start_time else 0,
+                },
+            )
 
             logger.info("Game ended")
 
@@ -546,10 +572,9 @@ class TeamsGame:
                 # IDLE -> STARTING
                 self.state = GameState.STARTING
                 self.running = True  # Set early to allow force_end during countdown
-                self.event_publisher("game_starting", {
-                    "game_id": self.game_id,
-                    "num_teams": self.num_teams
-                })
+                self.event_publisher(
+                    "game_starting", {"game_id": self.game_id, "num_teams": self.num_teams}
+                )
 
                 # Load settings
                 await self._load_settings()
@@ -562,7 +587,9 @@ class TeamsGame:
                     raise ValueError(f"Need at least 2 players, got {len(self.players)}")
 
                 if len(self.players) < self.num_teams:
-                    logger.warning(f"Not enough players ({len(self.players)}) for {self.num_teams} teams")
+                    logger.warning(
+                        f"Not enough players ({len(self.players)}) for {self.num_teams} teams"
+                    )
                     # Adjust team count if needed
                     actual_teams = self._get_alive_teams()
                     if len(actual_teams) < 2:
@@ -574,11 +601,14 @@ class TeamsGame:
                 # STARTING -> RUNNING
                 self.state = GameState.RUNNING
                 self.start_time = time.time()
-                self.event_publisher("game_started", {
-                    "game_id": self.game_id,
-                    "player_count": len(self.players),
-                    "num_teams": self.num_teams
-                })
+                self.event_publisher(
+                    "game_started",
+                    {
+                        "game_id": self.game_id,
+                        "player_count": len(self.players),
+                        "num_teams": self.num_teams,
+                    },
+                )
 
                 # Run main game loop
                 await self._game_loop()
@@ -594,10 +624,7 @@ class TeamsGame:
                 span.set_attribute("game.error", str(e))
 
                 self.state = GameState.ENDED
-                self.event_publisher("game_error", {
-                    "game_id": self.game_id,
-                    "error": str(e)
-                })
+                self.event_publisher("game_error", {"game_id": self.game_id, "error": str(e)})
 
                 raise
 

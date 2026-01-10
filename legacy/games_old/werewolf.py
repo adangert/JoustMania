@@ -1,27 +1,63 @@
+import logging
+import random
+import time
+
+import colors
+import common
 from games.game import Game
 from piaudio import Audio
-import common, colors
-import random, time
-import logging
 
 logger = logging.getLogger(__name__)
 
-class Joust(Game):
 
+class Joust(Game):
     WERE_SLOW_WARNING = [1.2, 1.4, 1.7, 2.1, 2.9]
     WERE_SLOW_MAX = [1.3, 1.6, 1.9, 2.6, 3.9]
     WERE_FAST_WARNING = [1.4, 1.7, 2.0, 2.8, 3.5]
     WERE_FAST_MAX = [1.6, 1.9, 2.9, 3.3, 4.9]
 
-    def __init__(self, moves, command_queue, ns, red_on_kill, music, teams, game_mode, controller_teams, controller_colors, dead_moves, invincible_moves, force_move_colors, music_speed, show_team_colors, restart, revive):
+    def __init__(
+        self,
+        moves,
+        command_queue,
+        ns,
+        red_on_kill,
+        music,
+        teams,
+        game_mode,
+        controller_teams,
+        controller_colors,
+        dead_moves,
+        invincible_moves,
+        force_move_colors,
+        music_speed,
+        show_team_colors,
+        restart,
+        revive,
+    ):
         super().__init__(
-            moves=moves, command_queue=command_queue, ns=ns, red_on_kill=red_on_kill, music=music, teams=teams, game_mode=game_mode, \
-            controller_teams=controller_teams, controller_colors=controller_colors, dead_moves=dead_moves, invincible_moves=invincible_moves, \
-            force_move_colors=force_move_colors, music_speed=music_speed, show_team_colors=show_team_colors, \
-            restart=restart, revive=revive)
+            moves=moves,
+            command_queue=command_queue,
+            ns=ns,
+            red_on_kill=red_on_kill,
+            music=music,
+            teams=teams,
+            game_mode=game_mode,
+            controller_teams=controller_teams,
+            controller_colors=controller_colors,
+            dead_moves=dead_moves,
+            invincible_moves=invincible_moves,
+            force_move_colors=force_move_colors,
+            music_speed=music_speed,
+            show_team_colors=show_team_colors,
+            restart=restart,
+            revive=revive,
+        )
 
         self.num_teams = 1
-        self.generate_teams(num_teams=self.num_teams, num_moves=len(self.moves), team_colors=[colors.Colors.Yellow])
+        self.generate_teams(
+            num_teams=self.num_teams, num_moves=len(self.moves), team_colors=[colors.Colors.Yellow]
+        )
         self.werewolf_timer = 35
 
         self.werewolf_moves = []
@@ -29,19 +65,20 @@ class Joust(Game):
 
         self.game_loop()
 
-    '''
+    """
     Override joust functions
-    '''
+    """
+
     # @Override
     # Add additional werewolf sounds
     def init_audio(self):
         super().init_audio()
 
         if self.play_audio:
-            self.wolfdown = Audio('audio/Joust/sounds/wolfdown.wav')
-            self.thirty_seconds = Audio('audio/Joust/vox/' + self.voice + '/30 werewolf.wav')
-            self.ten_seconds = Audio('audio/Joust/vox/' + self.voice + '/10 werewolf.wav')
-            self.reveal_sound = Audio('audio/Joust/vox/' + self.voice + '/werewolf reveal 2.wav')
+            self.wolfdown = Audio("audio/Joust/sounds/wolfdown.wav")
+            self.thirty_seconds = Audio("audio/Joust/vox/" + self.voice + "/30 werewolf.wav")
+            self.ten_seconds = Audio("audio/Joust/vox/" + self.voice + "/10 werewolf.wav")
+            self.reveal_sound = Audio("audio/Joust/vox/" + self.voice + "/werewolf reveal 2.wav")
 
     # @Override
     # Generate random teams with X werewolves
@@ -54,7 +91,7 @@ class Joust(Game):
         while were_num > 0:
             serial = random.choice(copy_serials)
             copy_serials.remove(serial)
-            logger.debug("Werewolf selected: {}".format(serial))
+            logger.debug(f"Werewolf selected: {serial}")
             self.teams[serial] = -1
             were_num -= 1
 
@@ -73,13 +110,13 @@ class Joust(Game):
         # If there is only one werewolf, play a shortened version of the intro
         if self.play_audio:
             if self.werewolf_count == 1:
-                Audio('audio/Joust/vox/' + self.voice + '/werewolf intro_1.wav').start_effect()
+                Audio("audio/Joust/vox/" + self.voice + "/werewolf intro_1.wav").start_effect()
             else:
-                Audio('audio/Joust/vox/' + self.voice + '/werewolf intro.wav').start_effect()
+                Audio("audio/Joust/vox/" + self.voice + "/werewolf intro.wav").start_effect()
         time.sleep(3)
 
         for move_serial in self.werewolf_moves:
-            logger.debug("Setting to rumble: {}".format(move_serial))
+            logger.debug(f"Setting to rumble: {move_serial}")
             self.dead_moves[move_serial].value = common.Status.RUMBLE.value
 
         time.sleep(2)
@@ -91,9 +128,11 @@ class Joust(Game):
             time.sleep(3)
         else:
             for move_serial in self.werewolf_moves:
-                logger.debug("Setting to blue: {}".format(move_serial))
+                logger.debug(f"Setting to blue: {move_serial}")
                 self.dead_moves[move_serial].value = common.Status.ALIVE.value
-                colors.change_color(self.force_move_colors[move_serial], *colors.Colors.Blue40.value)
+                colors.change_color(
+                    self.force_move_colors[move_serial], *colors.Colors.Blue40.value
+                )
             time.sleep(14)
             self.change_all_move_colors(1, 1, 1)
 
@@ -114,8 +153,10 @@ class Joust(Game):
 
             # Set werewolf team to blue
             for move_serial in self.werewolf_moves:
-                logger.debug("Revealing werewolf: {}".format(move_serial))
-                colors.change_color(self.controller_colors[move_serial], *colors.Colors.Blue40.value)
+                logger.debug(f"Revealing werewolf: {move_serial}")
+                colors.change_color(
+                    self.controller_colors[move_serial], *colors.Colors.Blue40.value
+                )
 
             self.audio_cue = 3
             self.change_time = time.time() - 0.001
@@ -143,39 +184,36 @@ class Joust(Game):
     # Play werewolves win if they won
     def winning_team_sound(self):
         if self.winning_team == -1:
-            Audio('audio/Joust/vox/' + self.voice + '/werewolf win.wav').start_effect()
+            Audio("audio/Joust/vox/" + self.voice + "/werewolf win.wav").start_effect()
         else:
-            Audio('audio/Joust/vox/' + self.voice + '/human win.wav').start_effect()
+            Audio("audio/Joust/vox/" + self.voice + "/human win.wav").start_effect()
 
-    '''
+    """
     Override track_move functions
-    '''
+    """
+
     # @Override
     # Return werewolf timing for werewolf
     @classmethod
     def get_slow_warning(cls, team, opts):
         if team < 0:
             return cls.WERE_SLOW_WARNING
-        else:
-            return cls.SLOW_WARNING
+        return cls.SLOW_WARNING
 
     @classmethod
     def get_fast_warning(cls, team, opts):
         if team < 0:
             return cls.WERE_FAST_WARNING
-        else:
-            return cls.FAST_WARNING
+        return cls.FAST_WARNING
 
     @classmethod
     def get_slow_max(cls, team, opts):
         if team < 0:
             return cls.WERE_SLOW_MAX
-        else:
-            return cls.SLOW_MAX
+        return cls.SLOW_MAX
 
     @classmethod
     def get_fast_max(cls, team, opts):
         if team < 0:
             return cls.WERE_FAST_MAX
-        else:
-            return cls.FAST_MAX
+        return cls.FAST_MAX

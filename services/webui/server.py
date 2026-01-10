@@ -9,21 +9,12 @@ Part of Phase 9 (Architecture Cleanup).
 
 import logging
 import os
-import time
 from multiprocessing import Process
 from time import sleep
 
 import grpc
 import yaml
 from flask import Flask, flash, redirect, render_template, request, url_for
-from wtforms import (
-    BooleanField,
-    FieldList,
-    Form,
-    SelectField,
-    SelectMultipleField,
-    widgets,
-)
 
 # OpenTelemetry instrumentation
 from opentelemetry import trace
@@ -33,18 +24,28 @@ from opentelemetry.instrumentation.grpc import GrpcInstrumentorClient
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from wtforms import (
+    BooleanField,
+    FieldList,
+    Form,
+    SelectField,
+    SelectMultipleField,
+    widgets,
+)
+
+# Import core modules (use types to avoid psmove dependency)
+from core.types import Games, Opts
 
 # Import protobuf definitions
 from proto import (
     controller_manager_pb2,
     controller_manager_pb2_grpc,
+    menu_pb2,
+    menu_pb2_grpc,
+    settings_pb2,
+    settings_pb2_grpc,
+    supervisor_pb2_grpc,
 )
-from proto import menu_pb2, menu_pb2_grpc
-from proto import settings_pb2, settings_pb2_grpc
-from proto import supervisor_pb2, supervisor_pb2_grpc
-
-# Import core modules (use types to avoid psmove dependency)
-from core.types import Games, Opts, Sensitivity
 from utils import colors
 
 # Configure logging
@@ -108,11 +109,7 @@ class SettingsForm(Form):
         choices=[game.pretty_name for game in Games],
         coerce=str,
     )
-    mode_options = [
-        game
-        for game in Games
-        if game not in [Games.Random, Games.JoustTeams]
-    ]
+    mode_options = [game for game in Games if game not in [Games.Random, Games.JoustTeams]]
     random_modes = MultiCheckboxField(
         "Random Modes", choices=[(game.name, game.pretty_name) for game in mode_options]
     )
@@ -139,23 +136,23 @@ class GrpcClients:
         # gRPC channel options for better performance and reliability
         channel_options = [
             # Keep-alive settings to detect dead connections
-            ('grpc.keepalive_time_ms', 30000),  # Send keepalive ping every 30s
-            ('grpc.keepalive_timeout_ms', 5000),  # Wait 5s for keepalive ack
-            ('grpc.keepalive_permit_without_calls', True),  # Allow keepalive pings when no calls
-            ('grpc.http2.max_pings_without_data', 2),  # Allow 2 pings without data
-
+            ("grpc.keepalive_time_ms", 30000),  # Send keepalive ping every 30s
+            ("grpc.keepalive_timeout_ms", 5000),  # Wait 5s for keepalive ack
+            ("grpc.keepalive_permit_without_calls", True),  # Allow keepalive pings when no calls
+            ("grpc.http2.max_pings_without_data", 2),  # Allow 2 pings without data
             # Connection and timeout settings
-            ('grpc.initial_reconnect_backoff_ms', 1000),  # 1s initial backoff
-            ('grpc.max_reconnect_backoff_ms', 5000),  # 5s max backoff
-
+            ("grpc.initial_reconnect_backoff_ms", 1000),  # 1s initial backoff
+            ("grpc.max_reconnect_backoff_ms", 5000),  # 5s max backoff
             # Message size limits (10MB for large messages)
-            ('grpc.max_receive_message_length', 10 * 1024 * 1024),
-            ('grpc.max_send_message_length', 10 * 1024 * 1024),
+            ("grpc.max_receive_message_length", 10 * 1024 * 1024),
+            ("grpc.max_send_message_length", 10 * 1024 * 1024),
         ]
 
         # Service addresses from environment or defaults
         self.settings_addr = os.getenv("SETTINGS_SERVICE", "settings:50051")
-        self.controller_mgr_addr = os.getenv("CONTROLLER_MANAGER_SERVICE", "controller-manager:50052")
+        self.controller_mgr_addr = os.getenv(
+            "CONTROLLER_MANAGER_SERVICE", "controller-manager:50052"
+        )
         self.menu_addr = os.getenv("MENU_SERVICE", "menu:50054")
         self.supervisor_addr = os.getenv("SUPERVISOR_SERVICE", "supervisor:50055")
 
@@ -191,9 +188,7 @@ class GrpcClients:
 
         # Supervisor service
         self.supervisor_channel = grpc.insecure_channel(self.supervisor_addr)
-        self.supervisor_stub = supervisor_pb2_grpc.SupervisorServiceStub(
-            self.supervisor_channel
-        )
+        self.supervisor_stub = supervisor_pb2_grpc.SupervisorServiceStub(self.supervisor_channel)
 
         logger.info("Connected to all gRPC services")
 
@@ -212,7 +207,11 @@ class GrpcClients:
 
 class WebUI:
     def __init__(self):
-        self.app = Flask(__name__, template_folder="/app/services/webui/templates", static_folder="/app/services/webui/static")
+        self.app = Flask(
+            __name__,
+            template_folder="/app/services/webui/templates",
+            static_folder="/app/services/webui/static",
+        )
         self.app.secret_key = "MAGFest is a donut"
 
         # Initialize gRPC clients
@@ -265,9 +264,8 @@ class WebUI:
                     }
                     span.set_attribute("status.state", status["state"])
                     return status
-                else:
-                    logger.error(f"GetMenuStatus failed: {response.error}")
-                    return {"error": response.error}
+                logger.error(f"GetMenuStatus failed: {response.error}")
+                return {"error": response.error}
 
             except grpc.RpcError as e:
                 logger.error(f"gRPC error in update: {e}")
@@ -292,8 +290,7 @@ class WebUI:
 
                 if response.success:
                     return "{'status': 'OK'}"
-                else:
-                    return f"{{'status': 'Error', 'message': '{response.error}'}}"
+                return f"{{'status': 'Error', 'message': '{response.error}'}}"
 
             except grpc.RpcError as e:
                 logger.error(f"gRPC error in change_mode_str: {e}")
@@ -310,8 +307,7 @@ class WebUI:
 
                 if response.success:
                     return "{'status':'OK'}"
-                else:
-                    return f"{{'status':'Error','message':'{response.error}'}}"
+                return f"{{'status':'Error','message':'{response.error}'}}"
 
             except grpc.RpcError as e:
                 logger.error(f"gRPC error in start_game: {e}")
@@ -328,8 +324,7 @@ class WebUI:
 
                 if response.success:
                     return "{'status':'OK'}"
-                else:
-                    return f"{{'status':'Error','message':'{response.error}'}}"
+                return f"{{'status':'Error','message':'{response.error}'}}"
 
             except grpc.RpcError as e:
                 logger.error(f"gRPC error in kill_game: {e}")
@@ -356,11 +351,10 @@ class WebUI:
                         battery_status=battery_status,
                         levels=Opts.battery_levels_dict(),
                     )
-                else:
-                    logger.error(f"GetControllers failed: {response.error}")
-                    return render_template(
-                        "battery.html", battery_status={}, levels=Opts.battery_levels_dict()
-                    )
+                logger.error(f"GetControllers failed: {response.error}")
+                return render_template(
+                    "battery.html", battery_status={}, levels=Opts.battery_levels_dict()
+                )
 
             except grpc.RpcError as e:
                 logger.error(f"gRPC error in battery_status: {e}")
@@ -415,53 +409,50 @@ class WebUI:
                 new_settings = SettingsForm(request.form).data
                 self.web_settings_update(new_settings)
                 return redirect(url_for("settings"))
-            else:
-                # Get current settings from Settings service
-                try:
-                    req = settings_pb2.GetSettingsRequest()
-                    response = self.grpc.settings_stub.GetSettings(req, timeout=2.0)
+            # Get current settings from Settings service
+            try:
+                req = settings_pb2.GetSettingsRequest()
+                response = self.grpc.settings_stub.GetSettings(req, timeout=2.0)
 
-                    if response.success:
-                        # Convert settings map to dict
-                        current_settings = dict(response.settings)
+                if response.success:
+                    # Convert settings map to dict
+                    current_settings = dict(response.settings)
 
-                        # Parse color_lock_choices from settings
-                        # (assuming it's stored as a complex structure)
-                        temp_colors = current_settings.get("color_lock_choices", {2: [], 3: [], 4: []})
-                        if isinstance(temp_colors, str):
-                            # Parse from YAML string if stored that way
-                            import yaml
-                            temp_colors = yaml.safe_load(temp_colors)
+                    # Parse color_lock_choices from settings
+                    # (assuming it's stored as a complex structure)
+                    temp_colors = current_settings.get(
+                        "color_lock_choices", {2: [], 3: [], 4: []}
+                    )
+                    if isinstance(temp_colors, str):
+                        # Parse from YAML string if stored that way
+                        import yaml
 
-                        temp_colors_flat = (
-                            temp_colors.get(2, [])
-                            + temp_colors.get(3, [])
-                            + temp_colors.get(4, [])
-                        )
+                        temp_colors = yaml.safe_load(temp_colors)
 
-                        settingsForm = SettingsForm(
-                            sensitivity=int(current_settings.get("sensitivity", 1)),
-                            red_on_kill=current_settings.get("red_on_kill", "false") == "true",
-                            random_team_size=int(current_settings.get("random_team_size", 3)),
-                            force_all_start=current_settings.get("force_all_start", "false")
-                            == "true",
-                            color_lock_choices=temp_colors_flat,
-                        )
+                    temp_colors_flat = (
+                        temp_colors.get(2, []) + temp_colors.get(3, []) + temp_colors.get(4, [])
+                    )
 
-                        span.set_attribute("settings.loaded", True)
-                        return render_template(
-                            "settings.html", form=settingsForm, settings=current_settings
-                        )
-                    else:
-                        logger.error(f"GetSettings failed: {response.error}")
-                        # Return default form
-                        return render_template(
-                            "settings.html", form=SettingsForm(), settings={}
-                        )
+                    settingsForm = SettingsForm(
+                        sensitivity=int(current_settings.get("sensitivity", 1)),
+                        red_on_kill=current_settings.get("red_on_kill", "false") == "true",
+                        random_team_size=int(current_settings.get("random_team_size", 3)),
+                        force_all_start=current_settings.get("force_all_start", "false")
+                        == "true",
+                        color_lock_choices=temp_colors_flat,
+                    )
 
-                except grpc.RpcError as e:
-                    logger.error(f"gRPC error in settings: {e}")
-                    return render_template("settings.html", form=SettingsForm(), settings={})
+                    span.set_attribute("settings.loaded", True)
+                    return render_template(
+                        "settings.html", form=settingsForm, settings=current_settings
+                    )
+                logger.error(f"GetSettings failed: {response.error}")
+                # Return default form
+                return render_template("settings.html", form=SettingsForm(), settings={})
+
+            except grpc.RpcError as e:
+                logger.error(f"gRPC error in settings: {e}")
+                return render_template("settings.html", form=SettingsForm(), settings={})
 
     def web_settings_update(self, web_settings):
         """Update settings via gRPC."""
@@ -476,7 +467,7 @@ class WebUI:
             }
 
             # Validate no duplicate colors
-            for key in temp_colors.keys():
+            for key in temp_colors:
                 colorset = temp_colors[key]
                 if len(colorset) != len(set(colorset)):
                     colors_are_good = False
@@ -522,12 +513,11 @@ class WebUI:
         with tracer.start_as_current_span("randomize_teams") as span:
             if num_teams not in "234":
                 return "what are you doing here?"
-            else:
-                num_teams = int(num_teams)
-                team_colors = colors.generate_team_colors(num_teams)
-                team_colors = [color.name for color in team_colors]
-                span.set_attribute("teams.count", num_teams)
-                return str(team_colors).replace("'", '"')  # JSON is dumb and demands double quotes
+            num_teams = int(num_teams)
+            team_colors = colors.generate_team_colors(num_teams)
+            team_colors = [color.name for color in team_colors]
+            span.set_attribute("teams.count", num_teams)
+            return str(team_colors).replace("'", '"')  # JSON is dumb and demands double quotes
 
 
 def serve():

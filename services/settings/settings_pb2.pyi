@@ -1,8 +1,10 @@
-from google.protobuf.internal import containers as _containers
+from collections.abc import Iterable as _Iterable
+from collections.abc import Mapping as _Mapping
+from typing import ClassVar as _ClassVar
+
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from collections.abc import Iterable as _Iterable, Mapping as _Mapping
-from typing import ClassVar as _ClassVar, Optional as _Optional
+from google.protobuf.internal import containers as _containers
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -18,20 +20,26 @@ class GetSettingsResponse(_message.Message):
         VALUE_FIELD_NUMBER: _ClassVar[int]
         key: str
         value: str
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+        def __init__(self, key: str | None = ..., value: str | None = ...) -> None: ...
+
     SETTINGS_FIELD_NUMBER: _ClassVar[int]
     SUCCESS_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     settings: _containers.ScalarMap[str, str]
     success: bool
     error: str
-    def __init__(self, settings: _Optional[_Mapping[str, str]] = ..., success: bool = ..., error: _Optional[str] = ...) -> None: ...
+    def __init__(
+        self,
+        settings: _Mapping[str, str] | None = ...,
+        success: bool = ...,
+        error: str | None = ...,
+    ) -> None: ...
 
 class GetSettingRequest(_message.Message):
     __slots__ = ("key",)
     KEY_FIELD_NUMBER: _ClassVar[int]
     key: str
-    def __init__(self, key: _Optional[str] = ...) -> None: ...
+    def __init__(self, key: str | None = ...) -> None: ...
 
 class GetSettingResponse(_message.Message):
     __slots__ = ("key", "value", "success", "error")
@@ -43,7 +51,13 @@ class GetSettingResponse(_message.Message):
     value: str
     success: bool
     error: str
-    def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ..., success: bool = ..., error: _Optional[str] = ...) -> None: ...
+    def __init__(
+        self,
+        key: str | None = ...,
+        value: str | None = ...,
+        success: bool = ...,
+        error: str | None = ...,
+    ) -> None: ...
 
 class UpdateSettingRequest(_message.Message):
     __slots__ = ("key", "value", "source")
@@ -53,7 +67,9 @@ class UpdateSettingRequest(_message.Message):
     key: str
     value: str
     source: str
-    def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ..., source: _Optional[str] = ...) -> None: ...
+    def __init__(
+        self, key: str | None = ..., value: str | None = ..., source: str | None = ...
+    ) -> None: ...
 
 class UpdateSettingResponse(_message.Message):
     __slots__ = ("success", "error", "old_value", "new_value")
@@ -65,13 +81,19 @@ class UpdateSettingResponse(_message.Message):
     error: str
     old_value: str
     new_value: str
-    def __init__(self, success: bool = ..., error: _Optional[str] = ..., old_value: _Optional[str] = ..., new_value: _Optional[str] = ...) -> None: ...
+    def __init__(
+        self,
+        success: bool = ...,
+        error: str | None = ...,
+        old_value: str | None = ...,
+        new_value: str | None = ...,
+    ) -> None: ...
 
 class SubscribeRequest(_message.Message):
     __slots__ = ("keys",)
     KEYS_FIELD_NUMBER: _ClassVar[int]
     keys: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, keys: _Optional[_Iterable[str]] = ...) -> None: ...
+    def __init__(self, keys: _Iterable[str] | None = ...) -> None: ...
 
 class SettingChangeEvent(_message.Message):
     __slots__ = ("key", "old_value", "new_value", "source", "timestamp")
@@ -85,4 +107,11 @@ class SettingChangeEvent(_message.Message):
     new_value: str
     source: str
     timestamp: int
-    def __init__(self, key: _Optional[str] = ..., old_value: _Optional[str] = ..., new_value: _Optional[str] = ..., source: _Optional[str] = ..., timestamp: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self,
+        key: str | None = ...,
+        old_value: str | None = ...,
+        new_value: str | None = ...,
+        source: str | None = ...,
+        timestamp: int | None = ...,
+    ) -> None: ...

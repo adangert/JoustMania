@@ -13,13 +13,14 @@ This is a refactored version of piparty.py using:
 Part of Phase 8a (gRPC Conversion) - Cloud-Native PoC
 """
 
-import time
 import logging
 import threading
+import time
 from multiprocessing import Manager, Value
-from typing import Dict, Any
+from typing import Any
 
 from grpc_clients import ServiceManager
+
 from services.settings import settings_pb2
 
 logger = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ class JoustManiaOrchestrator:
     - Supervisor service (port 50055) - TODO
     """
 
-    def __init__(self, services_host: str = 'localhost'):
+    def __init__(self, services_host: str = "localhost"):
         """
         Initialize JoustMania orchestrator.
 
@@ -56,10 +57,10 @@ class JoustManiaOrchestrator:
         self.ns.battery_status = {}
 
         # Shared values (multiprocessing)
-        self.menu = Value('i', 1)  # 1 = Menu, 0 = Game
-        self.controller_game_mode = Value('i', 1)
-        self.restart = Value('i', 0)
-        self.dead_count = Value('i', 0)
+        self.menu = Value("i", 1)  # 1 = Menu, 0 = Game
+        self.controller_game_mode = Value("i", 1)
+        self.restart = Value("i", 0)
+        self.dead_count = Value("i", 0)
 
         # gRPC service clients
         self.services = ServiceManager(host=services_host)
@@ -121,22 +122,22 @@ class JoustManiaOrchestrator:
             self.ns.settings = self._get_default_settings()
             logger.warning("Using default settings due to load failure")
 
-    def _get_default_settings(self) -> Dict[str, Any]:
+    def _get_default_settings(self) -> dict[str, Any]:
         """Get default settings (fallback)."""
         return {
-            'sensitivity': 2,
-            'play_instructions': True,
-            'current_game': 'JoustFFA',
-            'random_modes': ['JoustFFA', 'JoustRandomTeams', 'Werewolf', 'Swapper'],
-            'play_audio': True,
-            'menu_voice': 'ivy',
-            'move_can_be_admin': True,
-            'enforce_minimum': True,
-            'red_on_kill': True,
-            'random_teams': True,
-            'color_lock': False,
-            'random_team_size': 4,
-            'force_all_start': False
+            "sensitivity": 2,
+            "play_instructions": True,
+            "current_game": "JoustFFA",
+            "random_modes": ["JoustFFA", "JoustRandomTeams", "Werewolf", "Swapper"],
+            "play_audio": True,
+            "menu_voice": "ivy",
+            "move_can_be_admin": True,
+            "enforce_minimum": True,
+            "red_on_kill": True,
+            "random_teams": True,
+            "color_lock": False,
+            "random_team_size": 4,
+            "force_all_start": False,
         }
 
     def _subscribe_to_settings(self):
@@ -147,21 +148,24 @@ class JoustManiaOrchestrator:
 
         def subscription_handler(event: settings_pb2.SettingChangeEvent):
             """Handle setting change events."""
-            logger.info(f"Setting changed: {event.key} = {event.new_value} (source: {event.source})")
+            logger.info(
+                f"Setting changed: {event.key} = {event.new_value} (source: {event.source})"
+            )
 
             # Update local cache
             key = event.key
             new_value = event.new_value
 
             # Parse value type
-            if new_value.lower() in ('true', 'false'):
-                parsed_value = new_value.lower() == 'true'
+            if new_value.lower() in ("true", "false"):
+                parsed_value = new_value.lower() == "true"
             else:
                 try:
                     parsed_value = int(new_value)
                 except ValueError:
-                    if new_value.startswith('[') and new_value.endswith(']'):
+                    if new_value.startswith("[") and new_value.endswith("]"):
                         import ast
+
                         parsed_value = ast.literal_eval(new_value)
                     else:
                         parsed_value = new_value
@@ -180,14 +184,12 @@ class JoustManiaOrchestrator:
 
         # Start subscription in background thread
         self.settings_subscription_thread = threading.Thread(
-            target=subscribe_loop,
-            name="SettingsSubscription",
-            daemon=True
+            target=subscribe_loop, name="SettingsSubscription", daemon=True
         )
         self.settings_subscription_thread.start()
         logger.info("Settings subscription started in background thread")
 
-    def update_setting(self, key: str, value: Any, source: str = 'orchestrator'):
+    def update_setting(self, key: str, value: Any, source: str = "orchestrator"):
         """
         Update a setting via Settings service.
 
@@ -248,12 +250,11 @@ def main():
     """Main entry point for JoustMania orchestrator."""
     # Configure logging
     logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 
     # Create and start orchestrator
-    orchestrator = JoustManiaOrchestrator(services_host='localhost')
+    orchestrator = JoustManiaOrchestrator(services_host="localhost")
 
     try:
         orchestrator.start()
@@ -265,6 +266,7 @@ def main():
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
+
     sys.exit(main())

@@ -14,9 +14,7 @@ This is part of the microservices refactoring (Phase 5).
 import logging
 import time
 import uuid
-from multiprocessing import Process, Queue
-from typing import Optional, Dict, Any
-from enum import Enum
+from multiprocessing import Process
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +36,18 @@ class MenuProcess(Process):
     - Event Queue: Sends events to orchestrator
     """
 
-    def __init__(self, command_queue, response_queue, event_queue,
-                 controller_cmd_queue, controller_resp_queue,
-                 settings_cmd_queue, settings_resp_queue,
-                 menu_flag, ns):
+    def __init__(
+        self,
+        command_queue,
+        response_queue,
+        event_queue,
+        controller_cmd_queue,
+        controller_resp_queue,
+        settings_cmd_queue,
+        settings_resp_queue,
+        menu_flag,
+        ns,
+    ):
         """
         Initialize Menu process.
 
@@ -124,31 +130,28 @@ class MenuProcess(Process):
         try:
             while not self.command_queue.empty():
                 message = self.command_queue.get_nowait()
-                command = message.get('command')
-                params = message.get('params', {})
-                request_id = message.get('request_id')
+                command = message.get("command")
+                params = message.get("params", {})
+                request_id = message.get("request_id")
 
                 logger.debug(f"Processing command: {command}")
 
                 # Dispatch command
-                if command == 'start_menu':
+                if command == "start_menu":
                     response = self.handle_start_menu(params)
-                elif command == 'stop_menu':
+                elif command == "stop_menu":
                     response = self.handle_stop_menu(params)
-                elif command == 'get_menu_status':
+                elif command == "get_menu_status":
                     response = self.handle_get_menu_status()
-                elif command == 'shutdown':
+                elif command == "shutdown":
                     self.running = False
-                    response = {'status': 'success', 'data': {}}
+                    response = {"status": "success", "data": {}}
                 else:
-                    response = {
-                        'status': 'error',
-                        'error': f'Unknown command: {command}'
-                    }
+                    response = {"status": "error", "error": f"Unknown command: {command}"}
 
                 # Send response
-                response['request_id'] = request_id
-                response['timestamp'] = time.time()
+                response["request_id"] = request_id
+                response["timestamp"] = time.time()
                 self.response_queue.put(response)
 
         except Exception as e:
@@ -157,10 +160,7 @@ class MenuProcess(Process):
     def handle_start_menu(self, params: dict) -> dict:
         """Handle start_menu command."""
         if self.menu_running:
-            return {
-                'status': 'error',
-                'error': 'Menu already running'
-            }
+            return {"status": "error", "error": "Menu already running"}
 
         logger.info("Starting menu")
 
@@ -174,54 +174,42 @@ class MenuProcess(Process):
         self.menu_running = True
 
         # Send menu_started event
-        self.send_event('menu_started', {})
+        self.send_event("menu_started", {})
 
-        return {
-            'status': 'success',
-            'data': {
-                'menu_running': True
-            }
-        }
+        return {"status": "success", "data": {"menu_running": True}}
 
     def handle_stop_menu(self, params: dict) -> dict:
         """Handle stop_menu command."""
         if not self.menu_running:
-            return {
-                'status': 'error',
-                'error': 'Menu not running'
-            }
+            return {"status": "error", "error": "Menu not running"}
 
         logger.info("Stopping menu")
 
         self.menu_running = False
 
         # Send menu_stopped event
-        self.send_event('menu_stopped', {})
+        self.send_event("menu_stopped", {})
 
-        return {
-            'status': 'success',
-            'data': {
-                'menu_running': False
-            }
-        }
+        return {"status": "success", "data": {"menu_running": False}}
 
     def handle_get_menu_status(self) -> dict:
         """Handle get_menu_status command."""
         return {
-            'status': 'success',
-            'data': {
-                'menu_running': self.menu_running,
-                'game_mode': self.game_mode.name if self.game_mode else None
-            }
+            "status": "success",
+            "data": {
+                "menu_running": self.menu_running,
+                "game_mode": self.game_mode.name if self.game_mode else None,
+            },
         }
 
     def load_initial_state(self):
         """Load initial state from settings."""
         # Get current game mode from settings
-        current_game = self.ns.settings.get('current_game', 'JoustFFA')
+        current_game = self.ns.settings.get("current_game", "JoustFFA")
 
         # Import Games enum (avoid circular import)
         from common import Games
+
         self.game_mode = Games[current_game]
 
         logger.info(f"Loaded game mode: {self.game_mode.name}")
@@ -268,11 +256,14 @@ class MenuProcess(Process):
         self.menu_running = False
 
         # Send game_requested event
-        self.send_event('game_requested', {
-            'game_mode': self.game_mode.name if self.game_mode else 'JoustFFA',
-            'random_mode': False,  # TODO: Detect random mode
-            'force_all': False  # TODO: Get from settings
-        })
+        self.send_event(
+            "game_requested",
+            {
+                "game_mode": self.game_mode.name if self.game_mode else "JoustFFA",
+                "random_mode": False,  # TODO: Detect random mode
+                "force_all": False,  # TODO: Get from settings
+            },
+        )
 
     def send_event(self, event_type: str, data: dict):
         """
@@ -282,11 +273,7 @@ class MenuProcess(Process):
             event_type: Event type (menu_started, game_requested, etc.)
             data: Event data
         """
-        event = {
-            'event': event_type,
-            'data': data,
-            'timestamp': time.time()
-        }
+        event = {"event": event_type, "data": data, "timestamp": time.time()}
 
         try:
             self.event_queue.put_nowait(event)
@@ -305,7 +292,9 @@ class MenuProcess(Process):
         logger.info("Menu process shutdown complete")
 
 
-def send_command(command_queue, response_queue, command: str, params: dict = None, timeout: float = 1.0) -> dict:
+def send_command(
+    command_queue, response_queue, command: str, params: dict = None, timeout: float = 1.0
+) -> dict:
     """
     Helper function to send command to Menu process and wait for response.
 
@@ -321,10 +310,10 @@ def send_command(command_queue, response_queue, command: str, params: dict = Non
     """
     request_id = str(uuid.uuid4())
     message = {
-        'command': command,
-        'params': params or {},
-        'request_id': request_id,
-        'timestamp': time.time()
+        "command": command,
+        "params": params or {},
+        "request_id": request_id,
+        "timestamp": time.time(),
     }
 
     # Send command
@@ -335,13 +324,10 @@ def send_command(command_queue, response_queue, command: str, params: dict = Non
     while time.time() - start_time < timeout:
         try:
             response = response_queue.get(timeout=0.1)
-            if response.get('request_id') == request_id:
+            if response.get("request_id") == request_id:
                 return response
         except:
             continue
 
     # Timeout
-    return {
-        'status': 'error',
-        'error': 'Request timeout'
-    }
+    return {"status": "error", "error": "Request timeout"}

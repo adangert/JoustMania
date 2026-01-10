@@ -30,6 +30,12 @@ packages = ["core", "utils"]
 requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[dependency-groups]
+dev = [
+    "ruff>=0.14.11",
+    "ty>=0.0.11",
+]
+
 [tool.uv.workspace]
 members = [
     "proto",
@@ -42,3 +48,52 @@ members = [
     "services/webui",
     "tests/integration",
 ]
+
+# ty - Type checking configuration
+[tool.ty]
+# Start permissive, tighten gradually
+# ty is designed for gradual adoption
+
+[tool.ty.rules]
+# Enable strict checking incrementally as needed
+# Example rules (commented out for gradual adoption):
+# index-out-of-bounds = "error"
+# division-by-zero = "error"
+
+# ruff - Linting and formatting configuration
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+# Enable specific rule sets
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "N",      # pep8-naming
+    "UP",     # pyupgrade
+    "ANN",    # flake8-annotations (type hints)
+    "ASYNC",  # flake8-async
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "RET",    # flake8-return
+    "SIM",    # flake8-simplify
+    "ARG",    # flake8-unused-arguments
+]
+
+ignore = [
+    "ANN401",  # Allow Any types initially
+]
+
+# Per-file ignore rules
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Unused imports OK in __init__
+"tests/**/*.py" = ["ANN"]  # No type hints required in tests initially
+"legacy/**/*.py" = ["ANN", "N", "ARG"]  # Relax rules for legacy code
+"Archive/**/*.py" = ["ANN", "N", "ARG"]  # Relax rules for archived code
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

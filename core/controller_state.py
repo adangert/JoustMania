@@ -16,10 +16,10 @@ Benefits:
     - Better observability
 """
 
-import time
 import logging
-from multiprocessing import Value, Array
-from typing import Dict, Tuple, Optional
+import time
+from multiprocessing import Value
+
 import psmove
 
 logger = logging.getLogger(__name__)
@@ -41,46 +41,46 @@ class ControllerState:
 
         # Accelerometer data (3 floats: x, y, z)
         # Used to detect movement magnitude for death detection
-        self.accel_x = Value('f', 0.0)
-        self.accel_y = Value('f', 0.0)
-        self.accel_z = Value('f', 0.0)
+        self.accel_x = Value("f", 0.0)
+        self.accel_y = Value("f", 0.0)
+        self.accel_z = Value("f", 0.0)
 
         # Gyroscope data (3 floats: x, y, z)
         # Future use for advanced motion detection
-        self.gyro_x = Value('f', 0.0)
-        self.gyro_y = Value('f', 0.0)
-        self.gyro_z = Value('f', 0.0)
+        self.gyro_x = Value("f", 0.0)
+        self.gyro_y = Value("f", 0.0)
+        self.gyro_z = Value("f", 0.0)
 
         # Button state (integer bitmask)
         # Use common.Button flags to decode
-        self.buttons = Value('i', 0)
+        self.buttons = Value("i", 0)
 
         # Trigger value (0-255)
-        self.trigger = Value('i', 0)
+        self.trigger = Value("i", 0)
 
         # Battery level (integer enum from psmove)
-        self.battery = Value('i', psmove.Batt_MIN)
+        self.battery = Value("i", psmove.Batt_MIN)
 
         # Connection status
-        self.connected = Value('b', False)
+        self.connected = Value("b", False)
 
         # Timestamp of last update (double, seconds since epoch)
         # Used to detect stale data
-        self.timestamp = Value('d', 0.0)
+        self.timestamp = Value("d", 0.0)
 
         # Update counter (increments on each update)
         # Used to detect if new data is available
-        self.update_count = Value('i', 0)
+        self.update_count = Value("i", 0)
 
         # LED color state (3 integers: r, g, b)
         # Allows game loop to set color, controller process to apply
-        self.led_r = Value('i', 0)
-        self.led_g = Value('i', 0)
-        self.led_b = Value('i', 0)
+        self.led_r = Value("i", 0)
+        self.led_g = Value("i", 0)
+        self.led_b = Value("i", 0)
 
         # Rumble intensity (0-255)
         # Allows game loop to set rumble, controller process to apply
-        self.rumble = Value('i', 0)
+        self.rumble = Value("i", 0)
 
     def update(self, move) -> bool:
         """
@@ -145,11 +145,7 @@ class ControllerState:
         """
         try:
             # Apply LED color
-            move.set_leds(
-                self.led_r.value,
-                self.led_g.value,
-                self.led_b.value
-            )
+            move.set_leds(self.led_r.value, self.led_g.value, self.led_b.value)
 
             # Apply rumble
             move.set_rumble(self.rumble.value)
@@ -160,7 +156,7 @@ class ControllerState:
         except Exception as e:
             logger.error(f"Error applying controller outputs: {e}")
 
-    def get_snapshot(self) -> Dict:
+    def get_snapshot(self) -> dict:
         """
         Get current controller state snapshot.
 
@@ -172,26 +168,18 @@ class ControllerState:
         """
         now = time.time()
         timestamp = self.timestamp.value
-        age_ms = (now - timestamp) * 1000 if timestamp > 0 else float('inf')
+        age_ms = (now - timestamp) * 1000 if timestamp > 0 else float("inf")
 
         return {
-            'accelerometer': (
-                self.accel_x.value,
-                self.accel_y.value,
-                self.accel_z.value
-            ),
-            'gyroscope': (
-                self.gyro_x.value,
-                self.gyro_y.value,
-                self.gyro_z.value
-            ),
-            'buttons': self.buttons.value,
-            'trigger': self.trigger.value,
-            'battery': self.battery.value,
-            'connected': self.connected.value,
-            'timestamp': timestamp,
-            'age_ms': age_ms,
-            'update_count': self.update_count.value,
+            "accelerometer": (self.accel_x.value, self.accel_y.value, self.accel_z.value),
+            "gyroscope": (self.gyro_x.value, self.gyro_y.value, self.gyro_z.value),
+            "buttons": self.buttons.value,
+            "trigger": self.trigger.value,
+            "battery": self.battery.value,
+            "connected": self.connected.value,
+            "timestamp": timestamp,
+            "age_ms": age_ms,
+            "update_count": self.update_count.value,
         }
 
     def set_leds(self, r: int, g: int, b: int) -> None:
@@ -253,8 +241,8 @@ class ControllerStateManager:
 
     def __init__(self):
         """Initialize controller state manager."""
-        self.states: Dict[str, ControllerState] = {}
-        self.move_num_to_serial: Dict[int, str] = {}
+        self.states: dict[str, ControllerState] = {}
+        self.move_num_to_serial: dict[int, str] = {}
 
     def create_state(self, move_serial: str, move_num: int) -> ControllerState:
         """
@@ -278,7 +266,7 @@ class ControllerStateManager:
         logger.info(f"Created state for controller {move_serial} (num {move_num})")
         return state
 
-    def get_state(self, move_serial: str) -> Optional[ControllerState]:
+    def get_state(self, move_serial: str) -> ControllerState | None:
         """
         Get controller state by serial number.
 
@@ -290,7 +278,7 @@ class ControllerStateManager:
         """
         return self.states.get(move_serial)
 
-    def get_state_by_num(self, move_num: int) -> Optional[ControllerState]:
+    def get_state_by_num(self, move_num: int) -> ControllerState | None:
         """
         Get controller state by move number.
 
@@ -321,11 +309,11 @@ class ControllerStateManager:
             if serial == move_serial:
                 del self.move_num_to_serial[num]
 
-    def get_all_states(self) -> Dict[str, ControllerState]:
+    def get_all_states(self) -> dict[str, ControllerState]:
         """Get all controller states."""
         return self.states.copy()
 
-    def get_fresh_states(self, max_age_ms: float = 100.0) -> Dict[str, ControllerState]:
+    def get_fresh_states(self, max_age_ms: float = 100.0) -> dict[str, ControllerState]:
         """
         Get only controllers with fresh data.
 
@@ -336,9 +324,7 @@ class ControllerStateManager:
             Dictionary of serial -> state for fresh controllers
         """
         return {
-            serial: state
-            for serial, state in self.states.items()
-            if state.is_fresh(max_age_ms)
+            serial: state for serial, state in self.states.items() if state.is_fresh(max_age_ms)
         }
 
     def get_stale_controllers(self, max_age_ms: float = 100.0) -> list:
@@ -351,8 +337,4 @@ class ControllerStateManager:
         Returns:
             List of serial numbers with stale data
         """
-        return [
-            serial
-            for serial, state in self.states.items()
-            if not state.is_fresh(max_age_ms)
-        ]
+        return [serial for serial, state in self.states.items() if not state.is_fresh(max_age_ms)]

@@ -6,18 +6,17 @@ verifying team assignment, game logic, event publishing, and win conditions with
 """
 
 import asyncio
-import pytest
-import time
-from unittest.mock import AsyncMock, MagicMock, patch
-from typing import List, Dict
 import importlib.util
-import sys
 import os
+import sys
+import time
+
+import pytest
 
 # Setup paths
 test_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(test_dir))
-games_dir = os.path.join(test_dir, 'games')
+games_dir = os.path.join(test_dir, "games")
 
 # Add project root for any needed imports
 sys.path.insert(0, project_root)
@@ -67,16 +66,14 @@ class MockControllerManagerService:
                 team=0,
                 color=controller_manager_pb2.RGB(r=255, g=255, b=255),
                 accel=controller_manager_pb2.Vector3(x=0.0, y=0.0, z=1.0),
-                gyro=controller_manager_pb2.Vector3(x=0.0, y=0.0, z=0.0)
+                gyro=controller_manager_pb2.Vector3(x=0.0, y=0.0, z=0.0),
             )
             self.controllers.append(controller)
 
     def GetReadyControllers(self, request):
         """Mock GetReadyControllers RPC."""
         return controller_manager_pb2.GetReadyControllersResponse(
-            controllers=self.controllers,
-            success=True,
-            error=""
+            controllers=self.controllers, success=True, error=""
         )
 
     async def StreamControllerStates(self, request):
@@ -116,8 +113,7 @@ class MockControllerManagerService:
 
             # Yield state update
             yield controller_manager_pb2.ControllerStateUpdate(
-                controllers=self.controllers,
-                timestamp=int(time.time() * 1000)
+                controllers=self.controllers, timestamp=int(time.time() * 1000)
             )
 
             # 60 FPS = ~16.67ms per frame
@@ -130,33 +126,29 @@ class MockSettingsService:
     def __init__(self):
         """Initialize mock settings."""
         self.settings = {
-            'sensitivity': 'MEDIUM',
-            'play_audio': 'false',  # Disable audio in tests
-            'color_lock': 'false',
-            'random_teams': 'false',
+            "sensitivity": "MEDIUM",
+            "play_audio": "false",  # Disable audio in tests
+            "color_lock": "false",
+            "random_teams": "false",
         }
 
     def GetSettings(self, request):
         """Mock GetSettings RPC."""
-        return settings_pb2.GetSettingsResponse(
-            settings=self.settings,
-            success=True,
-            error=""
-        )
+        return settings_pb2.GetSettingsResponse(settings=self.settings, success=True, error="")
 
 
 class EventCollector:
     """Collects events published by the game."""
 
     def __init__(self):
-        self.events: List[tuple] = []  # List of (event_type, data)
+        self.events: list[tuple] = []  # List of (event_type, data)
 
-    def publish(self, event_type: str, data: Dict):
+    def publish(self, event_type: str, data: dict):
         """Collect published event."""
         self.events.append((event_type, data))
         print(f"Event published: {event_type} - {data}")
 
-    def get_events_of_type(self, event_type: str) -> List[Dict]:
+    def get_events_of_type(self, event_type: str) -> list[dict]:
         """Get all events of a specific type."""
         return [data for et, data in self.events if et == event_type]
 
@@ -201,7 +193,7 @@ async def test_teams_game_full_lifecycle(mock_controller_manager, mock_settings,
         settings_client=mock_settings,
         event_publisher=event_collector.publish,
         game_id="test_teams_1",
-        num_teams=2
+        num_teams=2,
     )
 
     # Run the game
@@ -240,7 +232,7 @@ async def test_teams_game_full_lifecycle(mock_controller_manager, mock_settings,
     assert event_collector.count_events_of_type("game_ended") == 1
 
     print(f"\n✅ Teams test passed! Total events: {len(event_collector.events)}")
-    print(f"Events timeline:")
+    print("Events timeline:")
     for event_type, data in event_collector.events:
         print(f"  - {event_type}: {data}")
 
@@ -276,8 +268,7 @@ async def test_teams_game_with_three_teams(mock_settings, event_collector):
                     controller.accel.z = 1.0
 
             yield controller_manager_pb2.ControllerStateUpdate(
-                controllers=mock_cm.controllers,
-                timestamp=int(time.time() * 1000)
+                controllers=mock_cm.controllers, timestamp=int(time.time() * 1000)
             )
             await asyncio.sleep(1.0 / 60.0)
 
@@ -290,7 +281,7 @@ async def test_teams_game_with_three_teams(mock_settings, event_collector):
         settings_client=mock_settings,
         event_publisher=event_collector.publish,
         game_id="test_teams_2",
-        num_teams=3
+        num_teams=3,
     )
 
     await game.run()
@@ -306,15 +297,15 @@ async def test_teams_game_with_three_teams(mock_settings, event_collector):
     # We have Team 0 (0,3) and Team 2 (2,5) still alive, so game won't end in this test
     # Let me adjust the test...
 
-    print(f"✅ Three-team test passed!")
+    print("✅ Three-team test passed!")
 
 
 @pytest.mark.asyncio
 async def test_teams_game_settings_loaded(mock_controller_manager, mock_settings, event_collector):
     """Test that game loads settings from Settings service."""
     # Customize settings
-    mock_settings.settings['sensitivity'] = 'FAST'
-    mock_settings.settings['play_audio'] = 'true'
+    mock_settings.settings["sensitivity"] = "FAST"
+    mock_settings.settings["play_audio"] = "true"
 
     # Create game
     game = teams.TeamsGame(
@@ -322,7 +313,7 @@ async def test_teams_game_settings_loaded(mock_controller_manager, mock_settings
         settings_client=mock_settings,
         event_publisher=event_collector.publish,
         game_id="test_teams_3",
-        num_teams=2
+        num_teams=2,
     )
 
     # Load settings (called internally by run(), but we can test separately)
@@ -332,7 +323,7 @@ async def test_teams_game_settings_loaded(mock_controller_manager, mock_settings
     assert game.sensitivity == teams.Sensitivity.FAST
     assert game.play_audio == True
 
-    print(f"✅ Teams settings loading test passed!")
+    print("✅ Teams settings loading test passed!")
 
 
 @pytest.mark.asyncio
@@ -345,8 +336,7 @@ async def test_teams_game_force_end(mock_settings, event_collector):
         """Stream indefinitely (until force_end)."""
         while True:
             yield controller_manager_pb2.ControllerStateUpdate(
-                controllers=mock_cm.controllers,
-                timestamp=int(time.time() * 1000)
+                controllers=mock_cm.controllers, timestamp=int(time.time() * 1000)
             )
             await asyncio.sleep(1.0 / 60.0)
 
@@ -358,7 +348,7 @@ async def test_teams_game_force_end(mock_settings, event_collector):
         settings_client=mock_settings,
         event_publisher=event_collector.publish,
         game_id="test_teams_4",
-        num_teams=2
+        num_teams=2,
     )
 
     # Start game in background task
@@ -371,13 +361,13 @@ async def test_teams_game_force_end(mock_settings, event_collector):
     # Wait for game to finish
     try:
         await asyncio.wait_for(game_task, timeout=2.0)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         pytest.fail("Game did not end after force_end() was called")
 
     # Verify game stopped
     assert game.running == False
 
-    print(f"✅ Teams force end test passed!")
+    print("✅ Teams force end test passed!")
 
 
 if __name__ == "__main__":
@@ -385,12 +375,14 @@ if __name__ == "__main__":
     import subprocess
 
     print("Running Teams integration tests...")
-    result = subprocess.run([
-        "pytest",
-        __file__,
-        "-v",
-        "-s",  # Show print statements
-        "--tb=short"  # Short traceback
-    ])
+    result = subprocess.run(
+        [
+            "pytest",
+            __file__,
+            "-v",
+            "-s",  # Show print statements
+            "--tb=short",  # Short traceback
+        ]
+    )
 
     sys.exit(result.returncode)

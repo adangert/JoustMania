@@ -1,20 +1,21 @@
-import time
+import logging
 import os
-import numpy
 import random
+import time
+from math import sqrt
+from multiprocessing import Manager
+
+import numpy
+import psmove
+
+# TODO: Replace with AudioClient when implementing real audio integration
+from opentelemetry import metrics, trace
+from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 
 from core import common
 from core.common import Status
 from utils import colors
 from utils.colors import Colors
-# TODO: Replace with AudioClient when implementing real audio integration
-from opentelemetry import trace
-from opentelemetry import metrics
-from opentelemetry.trace import SpanContext, TraceFlags, NonRecordingSpan
-import logging
-import psmove
-from math import sqrt
-from multiprocessing import Manager
 
 tracer = trace.get_tracer("joustmania.tracer")
 meter = metrics.get_meter("joustmania.meter")
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # How fast/slow the music can go
 SLOW_MUSIC_SPEED = 1.0
-#this was 0.5
+# this was 0.5
 FAST_MUSIC_SPEED = 1.3
 
 # The min and max timeframe in seconds for
@@ -38,10 +39,10 @@ END_MAX_MUSIC_FAST_TIME = 10
 END_MIN_MUSIC_SLOW_TIME = 8
 END_MAX_MUSIC_SLOW_TIME = 12
 
-#How long the speed change takes
+# How long the speed change takes
 INTERVAL_CHANGE = 1.5
 
-#How long the winning moves shall sparkle
+# How long the winning moves shall sparkle
 END_GAME_PAUSE = 8
 KILL_GAME_PAUSE = 4
 
@@ -49,32 +50,52 @@ KILL_GAME_PAUSE = 4
 manager = Manager()
 shared = manager.Namespace()
 
-class Game():
+
+class Game:
     SLOW_WARNING = [1.2, 1.3, 1.6, 2.0, 2.5]
     SLOW_MAX = [1.3, 1.5, 1.8, 2.5, 3.2]
     FAST_WARNING = [1.4, 1.6, 1.9, 2.7, 2.8]
     FAST_MAX = [1.6, 1.8, 2.8, 3.2, 3.5]
 
-    def __init__(self, moves, command_queue, ns, red_on_kill, music, teams, game_mode, controller_teams, controller_colors, dead_moves, invincible_moves, force_move_colors, music_speed, show_team_colors, restart, revive, opts=[]):
-        logger.debug("Initializing {}".format(game_mode.pretty_name))
+    def __init__(
+        self,
+        moves,
+        command_queue,
+        ns,
+        red_on_kill,
+        music,
+        teams,
+        game_mode,
+        controller_teams,
+        controller_colors,
+        dead_moves,
+        invincible_moves,
+        force_move_colors,
+        music_speed,
+        show_team_colors,
+        restart,
+        revive,
+        opts=[],
+    ):
+        logger.debug(f"Initializing {game_mode.pretty_name}")
 
         # TODO - Document these variables
         # Admin settings
         self.ns = ns
-        self.play_audio = self.ns.settings['play_audio']
-        self.color_lock = self.ns.settings['color_lock']
-        self.color_lock_choices = self.ns.settings['color_lock_choices']
-        self.random_teams = self.ns.settings['random_teams']
-        self.voice = self.ns.settings['menu_voice']
+        self.play_audio = self.ns.settings["play_audio"]
+        self.color_lock = self.ns.settings["color_lock"]
+        self.color_lock_choices = self.ns.settings["color_lock_choices"]
+        self.random_teams = self.ns.settings["random_teams"]
+        self.voice = self.ns.settings["menu_voice"]
 
         # Admin settings shared with tracking
         self.red_on_kill = red_on_kill
-        self.red_on_kill.value = self.ns.settings['red_on_kill']
+        self.red_on_kill.value = self.ns.settings["red_on_kill"]
 
         # Shared Variables
         self.game_mode = game_mode
         self.command_queue = command_queue
-        self.move_serials = moves # TODO - get rid of the duplicate variables here
+        self.move_serials = moves  # TODO - get rid of the duplicate variables here
         self.moves = moves
         self.dead_moves = dead_moves
         self.invincible_moves = invincible_moves
@@ -82,7 +103,7 @@ class Game():
         self.music_speed = music_speed
         self.music_speed.value = SLOW_MUSIC_SPEED
         self.teams = teams
-        self.controller_teams = controller_teams # TODO - get rid of the duplicate variables
+        self.controller_teams = controller_teams  # TODO - get rid of the duplicate variables
         self.controller_colors = controller_colors
         self.force_move_colors = force_move_colors
         self.show_team_colors = show_team_colors
@@ -112,17 +133,16 @@ class Game():
 
     def init_audio(self):
         if self.play_audio:
-            self.start_beep = Audio('audio/Joust/sounds/start.wav')
-            self.start_game = Audio('audio/Joust/sounds/start3.wav')
-            self.explosion = Audio('audio/Joust/sounds/Explosion34.wav')
-            self.revive_sound = Audio('audio/Commander/sounds/revive.wav')
+            self.start_beep = Audio("audio/Joust/sounds/start.wav")
+            self.start_game = Audio("audio/Joust/sounds/start3.wav")
+            self.explosion = Audio("audio/Joust/sounds/Explosion34.wav")
+            self.revive_sound = Audio("audio/Commander/sounds/revive.wav")
             self.audio = self.music
 
     def get_real_team(self, team):
         if team < 0:
             return -1
-        else:
-            return team
+        return team
 
     def generate_teams(self, num_teams, num_moves=None, team_colors=None):
         if team_colors is None:
@@ -132,20 +152,22 @@ class Game():
         self.generate_random_teams(num_teams, num_moves)
 
     def generate_team_colors(self, num_teams):
-        self.team_colors = colors.generate_team_colors(num_teams, self.color_lock, self.color_lock_choices)
+        self.team_colors = colors.generate_team_colors(
+            num_teams, self.color_lock, self.color_lock_choices
+        )
 
     def generate_random_teams(self, num_teams, num_moves=None):
         if not self.random_teams:
-            players_per_team = (len(self.move_serials)//num_teams)+1
-            team_num = [x for x in range(num_teams)]*players_per_team
-            for num,move in zip(team_num,self.move_serials):
+            players_per_team = (len(self.move_serials) // num_teams) + 1
+            team_num = [x for x in range(num_teams)] * players_per_team
+            for num, move in zip(team_num, self.move_serials):
                 self.teams[move] = num
         else:
             team_pick = list(range(num_teams))
             copy_serials = self.move_serials[:]
 
             while len(copy_serials) >= 1:
-                #for serial in self.move_serials:
+                # for serial in self.move_serials:
                 serial = random.choice(copy_serials)
                 copy_serials.remove(serial)
                 random_choice = random.choice(team_pick)
@@ -154,7 +176,7 @@ class Game():
                 if not team_pick:
                     team_pick = list(range(num_teams))
 
-    #need to do the count_down here
+    # need to do the count_down here
     def count_down(self):
         self.change_all_move_colors(80, 0, 0)
         if self.play_audio:
@@ -194,7 +216,7 @@ class Game():
         if min_moves <= 0:
             min_moves = 1
 
-        game_percent = (self.num_dead/min_moves)
+        game_percent = self.num_dead / min_moves
         if game_percent > 1.0:
             game_percent = 1.0
         min_music_fast = common.lerp(MIN_MUSIC_FAST_TIME, END_MIN_MUSIC_FAST_TIME, game_percent)
@@ -209,7 +231,7 @@ class Game():
         return time.time() + added_time
 
     def change_music_speed(self, fast):
-        change_percent = numpy.clip((time.time() - self.change_time)/INTERVAL_CHANGE, 0, 1)
+        change_percent = numpy.clip((time.time() - self.change_time) / INTERVAL_CHANGE, 0, 1)
         if fast:
             self.music_speed.value = common.lerp(FAST_MUSIC_SPEED, SLOW_MUSIC_SPEED, change_percent)
         elif not fast:
@@ -222,8 +244,8 @@ class Game():
             self.currently_changing = True
         elif time.time() >= self.change_time + INTERVAL_CHANGE and self.currently_changing:
             self.music_speed.value = SLOW_MUSIC_SPEED if self.speed_up else FAST_MUSIC_SPEED
-            self.speed_up =  not self.speed_up
-            self.change_time = self.get_change_time(speed_up = self.speed_up)
+            self.speed_up = not self.speed_up
+            self.change_time = self.get_change_time(speed_up=self.speed_up)
             self.audio.change_ratio(self.music_speed.value)
             self.currently_changing = False
 
@@ -235,12 +257,12 @@ class Game():
         for move_serial, dead in self.dead_moves.items():
             # If we just died (dead.value = 0), play the dead explosion sound
             if dead.value == Status.DIED.value:
-                logger.debug("Move has died: {}".format(move_serial))
+                logger.debug(f"Move has died: {move_serial}")
                 self.num_dead += 1
                 dead.value = Status.DEAD.value
                 self.play_death_sound(move_serial)
             elif dead.value == Status.REVIVED.value:
-                logger.debug("Move has revived: {}".format(move_serial))
+                logger.debug(f"Move has revived: {move_serial}")
                 dead.value = Status.ALIVE.value
                 if self.play_audio:
                     self.revive_sound.start_effect()
@@ -270,8 +292,8 @@ class Game():
         team_win = self.check_winner()
 
         if team_win:
-            logger.debug("Game ended, winning team: {}".format(self.winning_team))
-            self.update_status('ending',self.winning_team)
+            logger.debug(f"Game ended, winning team: {self.winning_team}")
+            self.update_status("ending", self.winning_team)
             self.end_game_sound()
             for move_serial in self.teams.keys():
                 if self.get_real_team(self.teams[move_serial]) == self.winning_team:
@@ -279,54 +301,58 @@ class Game():
             self.game_end = True
 
     def end_game_sound(self):
-        time.sleep(2) # Wait for last death crash to complete
+        time.sleep(2)  # Wait for last death crash to complete
         if self.play_audio:
             try:
                 self.audio.stop_audio()
             except:
-                logger.error('No audio loaded to stop')
+                logger.error("No audio loaded to stop")
 
             # Play game over
-            Audio('audio/Joust/vox/' + self.voice + '/game_over.wav').start_effect_and_wait()
+            Audio("audio/Joust/vox/" + self.voice + "/game_over.wav").start_effect_and_wait()
 
             self.winning_team_sound()
 
     def winning_team_sound(self):
         if self.winning_team is not None:
-            logger.debug("Winning team: {}".format(self.winning_team))
-            logger.debug("Winning team color: {}".format(self.team_colors[self.winning_team].name))
+            logger.debug(f"Winning team: {self.winning_team}")
+            logger.debug(f"Winning team color: {self.team_colors[self.winning_team].name}")
             win_team_name = self.team_colors[self.winning_team].name
-            if win_team_name == 'Pink':
-                if self.voice == 'aaron':
+            if win_team_name == "Pink":
+                if self.voice == "aaron":
                     os.popen('espeak -ven -p 70 -a 200 "And the winner is ...Pink Team')
                 else:
-                    team_win = Audio('audio/Joust/vox/' + self.voice + '/pink team win.wav')
-            elif win_team_name == 'Magenta':
-                team_win = Audio('audio/Joust/vox/' + self.voice + '/magenta team win.wav')
-            elif win_team_name == 'Orange':
-                if self.voice == 'aaron':
+                    team_win = Audio("audio/Joust/vox/" + self.voice + "/pink team win.wav")
+            elif win_team_name == "Magenta":
+                team_win = Audio("audio/Joust/vox/" + self.voice + "/magenta team win.wav")
+            elif win_team_name == "Orange":
+                if self.voice == "aaron":
                     os.popen('espeak -ven -p 70 -a 200 "And the winner is ...Orange Team')
                 else:
-                    team_win = Audio('audio/Joust/vox/' + self.voice + '/orange team win.wav')
-            elif win_team_name == 'Yellow':
-                team_win = Audio('audio/Joust/vox/' + self.voice + '/yellow team win.wav')
-            elif win_team_name == 'Green':
-                team_win = Audio('audio/Joust/vox/' + self.voice + '/green team win.wav')
-            elif win_team_name == 'Turquoise':
-                team_win = Audio('audio/Joust/vox/' + self.voice + '/cyan team win.wav')
-            elif win_team_name == 'Blue':
-                team_win = Audio('audio/Joust/vox/' + self.voice + '/blue team win.wav')
-            elif win_team_name == 'Red':
-                team_win = Audio('audio/Joust/vox/' + self.voice + '/red team win.wav')
-            elif win_team_name == 'Purple':
-                if self.voice == 'aaron':
+                    team_win = Audio("audio/Joust/vox/" + self.voice + "/orange team win.wav")
+            elif win_team_name == "Yellow":
+                team_win = Audio("audio/Joust/vox/" + self.voice + "/yellow team win.wav")
+            elif win_team_name == "Green":
+                team_win = Audio("audio/Joust/vox/" + self.voice + "/green team win.wav")
+            elif win_team_name == "Turquoise":
+                team_win = Audio("audio/Joust/vox/" + self.voice + "/cyan team win.wav")
+            elif win_team_name == "Blue":
+                team_win = Audio("audio/Joust/vox/" + self.voice + "/blue team win.wav")
+            elif win_team_name == "Red":
+                team_win = Audio("audio/Joust/vox/" + self.voice + "/red team win.wav")
+            elif win_team_name == "Purple":
+                if self.voice == "aaron":
                     os.popen('espeak -ven -p 70 -a 200 "And the winner is ...Purple Team')
                 else:
-                    team_win = Audio('audio/Joust/vox/' + self.voice + '/purple team win.wav')
+                    team_win = Audio("audio/Joust/vox/" + self.voice + "/purple team win.wav")
             else:
-                team_win = Audio('audio/Joust/vox/' + self.voice + '/congratulations.wav').start_effect();
+                team_win = Audio(
+                    "audio/Joust/vox/" + self.voice + "/congratulations.wav"
+                ).start_effect()
         else:
-            team_win = Audio('audio/Joust/vox/' + self.voice + '/congratulations.wav').start_effect()
+            team_win = Audio(
+                "audio/Joust/vox/" + self.voice + "/congratulations.wav"
+            ).start_effect()
         try:
             team_win.start_effect()
         except:
@@ -343,13 +369,13 @@ class Game():
 
         self.all_moves_off()
 
-        while (time.time() < end_time):
+        while time.time() < end_time:
             time.sleep(0.01)
             win_color = colors.hsv2rgb(h_value, 1, 1)
             for win_move in self.winning_moves:
                 win_color_array = self.force_move_colors[win_move]
                 colors.change_color(win_color_array, *win_color)
-            h_value = (h_value + 0.01)
+            h_value = h_value + 0.01
             if h_value >= 1:
                 h_value = 0
         self.running = False
@@ -365,15 +391,15 @@ class Game():
         try:
             self.audio.stop_audio()
         except:
-            logger.debug('no audio loaded to stop')
-        self.update_status('killed')
+            logger.debug("no audio loaded to stop")
+        self.update_status("killed")
         all_moves = [x for x in self.dead_moves.keys()]
         end_time = time.time() + KILL_GAME_PAUSE
 
         bright = 255
         while time.time() < end_time:
             time.sleep(0.01)
-            color = (bright,0,0)
+            color = (bright, 0, 0)
             for move in all_moves:
                 color_array = self.force_move_colors[move]
                 colors.change_color(color_array, *color)
@@ -385,19 +411,28 @@ class Game():
 
     def check_command_queue(self):
         package = None
-        while not(self.command_queue.empty()):
+        while not (self.command_queue.empty()):
             package = self.command_queue.get()
-            command = package['command']
-        if not(package == None):
-            if command == 'killgame':
+            command = package["command"]
+        if not (package == None):
+            if command == "killgame":
                 self.kill_game()
 
     def update_status(self, game_status, winning_team=-1):
-        data = {'game_status': game_status,
-                'game_mode': self.game_mode.pretty_name,
-                'winning_team': winning_team,
-                'total_players': len(self.move_serials),
-                'remaining_players': len(self.dead_moves) -  len([move for move, status in self.dead_moves.items() if status.value == Status.DEAD.value])}
+        data = {
+            "game_status": game_status,
+            "game_mode": self.game_mode.pretty_name,
+            "winning_team": winning_team,
+            "total_players": len(self.move_serials),
+            "remaining_players": len(self.dead_moves)
+            - len(
+                [
+                    move
+                    for move, status in self.dead_moves.items()
+                    if status.value == Status.DEAD.value
+                ]
+            ),
+        }
 
         self.ns.status = data
 
@@ -426,29 +461,30 @@ class Game():
             self.audio.start_audio_loop()
             self.audio.change_ratio(self.music_speed.value)
         else:
-            #when no audio is playing set the music speed to middle speed
+            # when no audio is playing set the music speed to middle speed
             self.music_speed.value = (FAST_MUSIC_SPEED + SLOW_MUSIC_SPEED) / 2
         time.sleep(0.8)
 
         while self.running:
-            #I think the loop is so fast that this causes
-            #a crash if done every loop
+            # I think the loop is so fast that this causes
+            # a crash if done every loop
             if time.time() - 0.1 > self.update_time:
                 self.update_time = time.time()
                 self.check_command_queue()
-                self.update_status('in_game')
-            
-            #Change the music speed for specific games
-            speed_change_games = [common.Games.JoustFFA, \
-                                  common.Games.JoustTeams, \
-                                  common.Games.JoustRandomTeams ]
-                                  
+                self.update_status("in_game")
+
+            # Change the music speed for specific games
+            speed_change_games = [
+                common.Games.JoustFFA,
+                common.Games.JoustTeams,
+                common.Games.JoustRandomTeams,
+            ]
+
             if self.game_mode in speed_change_games and self.play_audio:
                 self.check_music_speed()
-                
+
             self.handle_status()
             self.check_end_game()
-            
 
             if self.game_end:
                 self.end_game()
@@ -473,7 +509,7 @@ class Game():
 
     @classmethod
     def get_fast_warning(cls, team, opts):
-         return cls.FAST_WARNING
+        return cls.FAST_WARNING
 
     @classmethod
     def get_slow_max(cls, team, opts):
@@ -485,11 +521,19 @@ class Game():
 
     @classmethod
     def get_warning(cls, team, speed_percent, sensitivity, opts):
-        return common.lerp(cls.get_slow_warning(team, opts)[sensitivity], cls.get_fast_warning(team, opts)[sensitivity], speed_percent)
+        return common.lerp(
+            cls.get_slow_warning(team, opts)[sensitivity],
+            cls.get_fast_warning(team, opts)[sensitivity],
+            speed_percent,
+        )
 
     @classmethod
     def get_threshold(cls, team, speed_percent, sensitivity, opts):
-        return common.lerp(cls.get_slow_max(team, opts)[sensitivity], cls.get_fast_max(team, opts)[sensitivity], speed_percent)
+        return common.lerp(
+            cls.get_slow_max(team, opts)[sensitivity],
+            cls.get_fast_max(team, opts)[sensitivity],
+            speed_percent,
+        )
 
     @classmethod
     def handle_opts(cls, move, team, opts, dead_move=None):
@@ -504,9 +548,24 @@ class Game():
         return 2
 
     @classmethod
-    def track_move_state_based(cls, controller_state, move, team, team_color_enum, dead_move, invincible_move,
-                               force_color, music_speed, show_team_colors, red_on_kill, restart, menu,
-                               sensitivity, revive, opts=None):
+    def track_move_state_based(
+        cls,
+        controller_state,
+        move,
+        team,
+        team_color_enum,
+        dead_move,
+        invincible_move,
+        force_color,
+        music_speed,
+        show_team_colors,
+        red_on_kill,
+        restart,
+        menu,
+        sensitivity,
+        revive,
+        opts=None,
+    ):
         """
         State-based game tracking with integrated hardware polling.
 
@@ -552,14 +611,14 @@ class Game():
                     trace_id=shared.trace_id,
                     span_id=shared.span_id,
                     is_remote=True,
-                    trace_flags=TraceFlags(shared.trace_flags)
+                    trace_flags=TraceFlags(shared.trace_flags),
                 )
             )
         )
 
         # Frame timing for game logic (60 FPS)
         last_game_frame = time.time()
-        game_frame_interval = 1/60
+        game_frame_interval = 1 / 60
 
         with tracer.start_as_current_span("track_move", context=parent_ctx) as player_span:
             player_span.set_attribute("move_get_serial", move.get_serial())
@@ -586,7 +645,7 @@ class Game():
                 snapshot = controller_state.get_snapshot()
 
                 # Check if controller is still connected and data is fresh
-                if not snapshot['connected'] or not controller_state.is_fresh(100.0):
+                if not snapshot["connected"] or not controller_state.is_fresh(100.0):
                     time.sleep(0.01)
                     continue
 
@@ -596,11 +655,13 @@ class Game():
 
                 # Have the controller flash and rumble while invincible
                 if invincible_move.value:
-                    vibration_time = time.time() + .3
+                    vibration_time = time.time() + 0.3
                     no_rumble = vibration_time
                     vibrate = True
 
-                opts = cls.handle_opts(move=move, team=team.value, opts=opts, dead_move=dead_move.value)
+                opts = cls.handle_opts(
+                    move=move, team=team.value, opts=opts, dead_move=dead_move.value
+                )
                 team_color = cls.handle_team_color(move, team.value, opts, team_color_enum)
 
                 if show_team_colors.value == 1:
@@ -621,12 +682,16 @@ class Game():
                     player_span.end()
                 elif dead_move.value == Status.ALIVE.value:
                     # Extract accelerometer from state (non-blocking)
-                    ax, ay, az = snapshot['accelerometer']
+                    ax, ay, az = snapshot["accelerometer"]
                     total = sqrt(sum([ax**2, ay**2, az**2]))
                     change = (change * 4 + total) / 5
-                    speed_percent = (music_speed.value - SLOW_MUSIC_SPEED) / (FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED)
+                    speed_percent = (music_speed.value - SLOW_MUSIC_SPEED) / (
+                        FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED
+                    )
                     warning = cls.get_warning(team.value, speed_percent, sensitivity.value, opts)
-                    threshold = cls.get_threshold(team.value, speed_percent, sensitivity.value, opts)
+                    threshold = cls.get_threshold(
+                        team.value, speed_percent, sensitivity.value, opts
+                    )
 
                     if vibrate:
                         flash_lights_timer += 1
@@ -658,10 +723,7 @@ class Game():
 
                         elif not vibrate and change > warning and time.time() > no_rumble:
                             # OTEL: SPAN EVENT
-                            player_span.add_event("warning", {
-                                "change": change,
-                                "warning": warning
-                            })
+                            player_span.add_event("warning", {"change": change, "warning": warning})
                             vibrate = True
                             vibration_time = time.time() + 0.5
 
@@ -683,9 +745,23 @@ class Game():
                 controller_state.apply_outputs(move)
 
     @classmethod
-    def track_move(cls, move, team, team_color_enum, dead_move, invincible_move, force_color, \
-                   music_speed, show_team_colors, red_on_kill, restart, menu, sensitivity, revive, opts=None):
-
+    def track_move(
+        cls,
+        move,
+        team,
+        team_color_enum,
+        dead_move,
+        invincible_move,
+        force_color,
+        music_speed,
+        show_team_colors,
+        red_on_kill,
+        restart,
+        menu,
+        sensitivity,
+        revive,
+        opts=None,
+    ):
         no_rumble = time.time() + 2
         vibrate = False
         vibration_time = time.time() + 1
@@ -698,13 +774,13 @@ class Game():
 
         # OTEL: Player span
         # Set it as the parent context
-        parent_ctx =  trace.set_span_in_context(
+        parent_ctx = trace.set_span_in_context(
             NonRecordingSpan(
                 SpanContext(
                     trace_id=shared.trace_id,
                     span_id=shared.span_id,
                     is_remote=True,
-                    trace_flags=TraceFlags(shared.trace_flags)
+                    trace_flags=TraceFlags(shared.trace_flags),
                 )
             )
         )
@@ -721,14 +797,16 @@ class Game():
 
                 # Have the controller flash and rumble while invincible
                 if invincible_move.value:
-                    vibration_time = time.time() + .3
+                    vibration_time = time.time() + 0.3
                     no_rumble = vibration_time
                     vibrate = True
 
                 if restart.value == 1:
                     return
 
-                opts = cls.handle_opts(move=move, team=team.value, opts=opts, dead_move=dead_move.value)
+                opts = cls.handle_opts(
+                    move=move, team=team.value, opts=opts, dead_move=dead_move.value
+                )
                 team_color = cls.handle_team_color(move, team.value, opts, team_color_enum)
 
                 if show_team_colors.value == 1:
@@ -747,7 +825,7 @@ class Game():
                         move.set_leds(*Colors.Black.value)
                     move.set_rumble(90)
                     move.update_leds()
-                    time.sleep(0.25) # Wait for death to process in main loop
+                    time.sleep(0.25)  # Wait for death to process in main loop
                     dead_move.value = Status.DEAD.value
                     vibration_time = time.time() + 0.5
                     player_span.end()
@@ -755,10 +833,16 @@ class Game():
                     if move.poll():
                         ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
                         total = sqrt(sum([ax**2, ay**2, az**2]))
-                        change = (change * 4 + total)/5
-                        speed_percent = (music_speed.value - SLOW_MUSIC_SPEED)/(FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED)
-                        warning = cls.get_warning(team.value, speed_percent, sensitivity.value, opts)
-                        threshold = cls.get_threshold(team.value, speed_percent, sensitivity.value, opts)
+                        change = (change * 4 + total) / 5
+                        speed_percent = (music_speed.value - SLOW_MUSIC_SPEED) / (
+                            FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED
+                        )
+                        warning = cls.get_warning(
+                            team.value, speed_percent, sensitivity.value, opts
+                        )
+                        threshold = cls.get_threshold(
+                            team.value, speed_percent, sensitivity.value, opts
+                        )
 
                         if vibrate:
                             flash_lights_timer += 1
@@ -770,7 +854,7 @@ class Game():
                             else:
                                 move.set_leds(*team_color)
 
-                            if time.time() < vibration_time-0.25:
+                            if time.time() < vibration_time - 0.25:
                                 move.set_rumble(90)
                             else:
                                 move.set_rumble(0)
@@ -789,12 +873,10 @@ class Game():
                                 dead_move.value = Status.DIED.value
 
                             elif not vibrate and change > warning and time.time() > no_rumble:
-
                                 # OTEL: SPAN EVENT
-                                player_span.add_event("warning", {
-                                    "change": change,
-                                    "warning": warning
-                                })
+                                player_span.add_event(
+                                    "warning", {"change": change, "warning": warning}
+                                )
                                 vibrate = True
                                 vibration_time = time.time() + 0.5
                     move.update_leds()

@@ -10,40 +10,42 @@ Manages PS Move controller lifecycle as a gRPC service:
 This replaces the Queue-based IPC with gRPC (Phase 8a).
 """
 
-import logging
-import time
-import threading
-import queue
 import asyncio
-from typing import Dict, List, Optional
-from concurrent import futures
+import logging
+import os
+import queue
+
+# Import protobuf
+import sys
+import threading
+import time
+
 import grpc
 import grpc.aio
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
 # OpenTelemetry imports
 from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.grpc import GrpcInstrumentorServer
+from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.resources import Resource, SERVICE_NAME, SERVICE_VERSION
-from opentelemetry.instrumentation.grpc import GrpcInstrumentorServer
 
-# Import protobuf
-import sys
-import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from services.controller_manager import controller_manager_pb2, controller_manager_pb2_grpc
 
 # PS Move imports (optional for testing)
 try:
-    import psmove
-    from multiprocessing import Process, Array, Value
-    import controller_process
-    from controller_state import ControllerState
+    from multiprocessing import Array, Process, Value
+
     import common
+    import controller_process
     import pair as pair_module
+    import psmove
+    from controller_state import ControllerState
+
     PSMOVE_AVAILABLE = True
 except ImportError:
     PSMOVE_AVAILABLE = False
@@ -51,17 +53,20 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 # Initialize OpenTelemetry
 def init_telemetry():
     """Initialize OpenTelemetry with OTLP exporter."""
-    otlp_endpoint = os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://localhost:4317')
-    service_name = os.getenv('OTEL_SERVICE_NAME', 'controller-manager-service')
+    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
+    service_name = os.getenv("OTEL_SERVICE_NAME", "controller-manager-service")
 
-    resource = Resource(attributes={
-        SERVICE_NAME: service_name,
-        SERVICE_VERSION: "1.0.0",
-        "service.namespace": "joustmania",
-    })
+    resource = Resource(
+        attributes={
+            SERVICE_NAME: service_name,
+            SERVICE_VERSION: "1.0.0",
+            "service.namespace": "joustmania",
+        }
+    )
 
     provider = TracerProvider(resource=resource)
     otlp_exporter = OTLPSpanExporter(endpoint=otlp_endpoint, insecure=True)
@@ -72,6 +77,7 @@ def init_telemetry():
 
     logger.info(f"OpenTelemetry initialized: {service_name} -> {otlp_endpoint}")
     return trace.get_tracer(__name__)
+
 
 tracer = init_telemetry()
 
@@ -89,13 +95,13 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
     def __init__(self):
         """Initialize controller manager."""
-        self.tracked_controllers: Dict[str, Dict] = {}  # serial -> controller info
-        self.controller_states: Dict[str, ControllerState] = {}  # serial -> state
-        self.controller_processes: Dict[str, Process] = {}  # serial -> process
-        self.paired_serials: List[str] = []
+        self.tracked_controllers: dict[str, dict] = {}  # serial -> controller info
+        self.controller_states: dict[str, ControllerState] = {}  # serial -> state
+        self.controller_processes: dict[str, Process] = {}  # serial -> process
+        self.paired_serials: list[str] = []
 
         # Streaming subscribers
-        self.stream_subscribers: Dict[str, queue.Queue] = {}
+        self.stream_subscribers: dict[str, queue.Queue] = {}
         self.stream_lock = threading.Lock()
 
         # Discovery thread
@@ -175,13 +181,13 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
             # Track controller
             self.tracked_controllers[serial] = {
-                'serial': serial,
-                'move_num': move_num,
-                'battery': battery,
-                'ready': False,
-                'team': 0,
-                'connected_at': time.time(),
-                'move': move  # Store move object for feedback operations
+                "serial": serial,
+                "move_num": move_num,
+                "battery": battery,
+                "ready": False,
+                "team": 0,
+                "connected_at": time.time(),
+                "move": move,  # Store move object for feedback operations
             }
 
             # Add attributes to current span (this is called within "spawn_controller_process" span)
@@ -189,11 +195,10 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             current_span.set_attribute("controller.serial", serial)
             current_span.set_attribute("controller.move_num", move_num)
             current_span.set_attribute("controller.battery", battery)
-            current_span.add_event("controller_added_to_tracking", {
-                "serial": serial,
-                "move_num": move_num,
-                "battery": battery
-            })
+            current_span.add_event(
+                "controller_added_to_tracking",
+                {"serial": serial, "move_num": move_num, "battery": battery},
+            )
 
             logger.info(f"Spawned tracking for controller {serial}")
 
@@ -211,18 +216,14 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 span.set_attribute("controller.count", count)
 
                 return controller_manager_pb2.GetControllerCountResponse(
-                    count=count,
-                    success=True,
-                    error=""
+                    count=count, success=True, error=""
                 )
             except Exception as e:
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 logger.error(f"GetControllerCount error: {e}", exc_info=True)
                 return controller_manager_pb2.GetControllerCountResponse(
-                    count=0,
-                    success=False,
-                    error=str(e)
+                    count=0, success=False, error=str(e)
                 )
 
     def GetReadyControllers(self, request, context):
@@ -232,24 +233,20 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 ready_controllers = [
                     self._build_controller_state_message(serial, info)
                     for serial, info in self.tracked_controllers.items()
-                    if info.get('ready', False)
+                    if info.get("ready", False)
                 ]
 
                 span.set_attribute("controller.ready_count", len(ready_controllers))
 
                 return controller_manager_pb2.GetReadyControllersResponse(
-                    controllers=ready_controllers,
-                    success=True,
-                    error=""
+                    controllers=ready_controllers, success=True, error=""
                 )
             except Exception as e:
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 logger.error(f"GetReadyControllers error: {e}", exc_info=True)
                 return controller_manager_pb2.GetReadyControllersResponse(
-                    controllers=[],
-                    success=False,
-                    error=str(e)
+                    controllers=[], success=False, error=str(e)
                 )
 
     def GetControllers(self, request, context):
@@ -264,18 +261,14 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 span.set_attribute("controller.total_count", len(all_controllers))
 
                 return controller_manager_pb2.GetControllersResponse(
-                    controllers=all_controllers,
-                    success=True,
-                    error=""
+                    controllers=all_controllers, success=True, error=""
                 )
             except Exception as e:
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 logger.error(f"GetControllers error: {e}", exc_info=True)
                 return controller_manager_pb2.GetControllersResponse(
-                    controllers=[],
-                    success=False,
-                    error=str(e)
+                    controllers=[], success=False, error=str(e)
                 )
 
     async def StreamControllerStates(self, request, context):
@@ -307,8 +300,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         ]
 
                         update = controller_manager_pb2.ControllerStateUpdate(
-                            controllers=controllers,
-                            timestamp=int(time.time() * 1000)
+                            controllers=controllers, timestamp=int(time.time() * 1000)
                         )
 
                         yield update
@@ -337,23 +329,18 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 # In production, this would trigger USB pairing
                 # For now, return mock response
                 serial = "mock_serial_12345"
-                span.add_event("controller_paired", {
-                    "serial": serial,
-                    "color_index": request.color_index
-                })
+                span.add_event(
+                    "controller_paired", {"serial": serial, "color_index": request.color_index}
+                )
                 return controller_manager_pb2.PairControllerResponse(
-                    success=True,
-                    error="",
-                    serial=serial
+                    success=True, error="", serial=serial
                 )
             except Exception as e:
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 logger.error(f"PairController error: {e}", exc_info=True)
                 return controller_manager_pb2.PairControllerResponse(
-                    success=False,
-                    error=str(e),
-                    serial=""
+                    success=False, error=str(e), serial=""
                 )
 
     def RemoveController(self, request, context):
@@ -379,29 +366,19 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     if serial in self.controller_states:
                         del self.controller_states[serial]
 
-                    span.add_event("controller_removed", {
-                        "serial": serial
-                    })
+                    span.add_event("controller_removed", {"serial": serial})
                     logger.info(f"Removed controller {serial}")
 
-                    return controller_manager_pb2.RemoveControllerResponse(
-                        success=True,
-                        error=""
-                    )
-                else:
-                    return controller_manager_pb2.RemoveControllerResponse(
-                        success=False,
-                        error=f"Controller {serial} not found"
-                    )
+                    return controller_manager_pb2.RemoveControllerResponse(success=True, error="")
+                return controller_manager_pb2.RemoveControllerResponse(
+                    success=False, error=f"Controller {serial} not found"
+                )
 
             except Exception as e:
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 logger.error(f"RemoveController error: {e}", exc_info=True)
-                return controller_manager_pb2.RemoveControllerResponse(
-                    success=False,
-                    error=str(e)
-                )
+                return controller_manager_pb2.RemoveControllerResponse(success=False, error=str(e))
 
     def SetControllerColor(self, request, context):
         """Set LED color on controller(s) - Phase 19 feedback feature."""
@@ -413,38 +390,37 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
             try:
                 if not PSMOVE_AVAILABLE:
-                    logger.info(f"SetControllerColor (mock): {request.serial or 'all'} -> RGB({request.color.r},{request.color.g},{request.color.b})")
-                    return controller_manager_pb2.SetControllerColorResponse(
-                        success=True,
-                        error=""
+                    logger.info(
+                        f"SetControllerColor (mock): {request.serial or 'all'} -> RGB({request.color.r},{request.color.g},{request.color.b})"
                     )
+                    return controller_manager_pb2.SetControllerColorResponse(success=True, error="")
 
                 # Determine which controllers to update
-                serials = [request.serial] if request.serial else list(self.tracked_controllers.keys())
+                serials = (
+                    [request.serial] if request.serial else list(self.tracked_controllers.keys())
+                )
 
                 controllers_updated = 0
                 for serial in serials:
                     if serial in self.tracked_controllers:
                         info = self.tracked_controllers[serial]
-                        move = info.get('move')
+                        move = info.get("move")
                         if move:
                             move.set_leds(request.color.r, request.color.g, request.color.b)
                             move.update_leds()
                             controllers_updated += 1
-                            logger.debug(f"Set color on {serial}: RGB({request.color.r},{request.color.g},{request.color.b})")
+                            logger.debug(
+                                f"Set color on {serial}: RGB({request.color.r},{request.color.g},{request.color.b})"
+                            )
 
                 span.set_attribute("controllers_updated", controllers_updated)
-                return controller_manager_pb2.SetControllerColorResponse(
-                    success=True,
-                    error=""
-                )
+                return controller_manager_pb2.SetControllerColorResponse(success=True, error="")
 
             except Exception as e:
                 span.record_exception(e)
                 logger.error(f"SetControllerColor error: {e}", exc_info=True)
                 return controller_manager_pb2.SetControllerColorResponse(
-                    success=False,
-                    error=str(e)
+                    success=False, error=str(e)
                 )
 
     def SetControllerVibration(self, request, context):
@@ -456,40 +432,41 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
             try:
                 if not PSMOVE_AVAILABLE:
-                    logger.info(f"SetControllerVibration (mock): {request.serial or 'all'} intensity={request.intensity} duration={request.duration_ms}ms")
+                    logger.info(
+                        f"SetControllerVibration (mock): {request.serial or 'all'} intensity={request.intensity} duration={request.duration_ms}ms"
+                    )
                     return controller_manager_pb2.SetControllerVibrationResponse(
-                        success=True,
-                        error=""
+                        success=True, error=""
                     )
 
                 # Determine which controllers to update
-                serials = [request.serial] if request.serial else list(self.tracked_controllers.keys())
+                serials = (
+                    [request.serial] if request.serial else list(self.tracked_controllers.keys())
+                )
 
                 controllers_updated = 0
                 for serial in serials:
                     if serial in self.tracked_controllers:
                         info = self.tracked_controllers[serial]
-                        move = info.get('move')
+                        move = info.get("move")
                         if move:
                             move.set_rumble(request.intensity)
                             controllers_updated += 1
-                            logger.debug(f"Set vibration on {serial}: intensity={request.intensity}")
+                            logger.debug(
+                                f"Set vibration on {serial}: intensity={request.intensity}"
+                            )
 
                 # TODO: Handle duration_ms by resetting rumble after timeout
                 # For now, vibration stays at intensity until explicitly changed
 
                 span.set_attribute("controllers_updated", controllers_updated)
-                return controller_manager_pb2.SetControllerVibrationResponse(
-                    success=True,
-                    error=""
-                )
+                return controller_manager_pb2.SetControllerVibrationResponse(success=True, error="")
 
             except Exception as e:
                 span.record_exception(e)
                 logger.error(f"SetControllerVibration error: {e}", exc_info=True)
                 return controller_manager_pb2.SetControllerVibrationResponse(
-                    success=False,
-                    error=str(e)
+                    success=False, error=str(e)
                 )
 
     def PlayControllerEffect(self, request, context):
@@ -501,10 +478,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             try:
                 if not PSMOVE_AVAILABLE:
                     effect_name = controller_manager_pb2.ControllerEffect.Name(request.effect)
-                    logger.info(f"PlayControllerEffect (mock): {request.serial or 'all'} effect={effect_name}")
+                    logger.info(
+                        f"PlayControllerEffect (mock): {request.serial or 'all'} effect={effect_name}"
+                    )
                     return controller_manager_pb2.PlayControllerEffectResponse(
-                        success=True,
-                        error=""
+                        success=True, error=""
                     )
 
                 # TODO: Implement effects (FLASH, PULSE, RAINBOW, FADE_OUT, FADE_IN)
@@ -515,11 +493,15 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 controllers_updated = 0
                 if request.effect == controller_manager_pb2.EFFECT_NONE:
                     # Set solid color
-                    serials = [request.serial] if request.serial else list(self.tracked_controllers.keys())
+                    serials = (
+                        [request.serial]
+                        if request.serial
+                        else list(self.tracked_controllers.keys())
+                    )
                     for serial in serials:
                         if serial in self.tracked_controllers:
                             info = self.tracked_controllers[serial]
-                            move = info.get('move')
+                            move = info.get("move")
                             if move and request.color:
                                 move.set_leds(request.color.r, request.color.g, request.color.b)
                                 move.update_leds()
@@ -530,35 +512,33 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 span.set_attribute("effect", effect_name)
                 logger.info(f"PlayControllerEffect: {effect_name} (basic implementation)")
 
-                return controller_manager_pb2.PlayControllerEffectResponse(
-                    success=True,
-                    error=""
-                )
+                return controller_manager_pb2.PlayControllerEffectResponse(success=True, error="")
 
             except Exception as e:
                 span.record_exception(e)
                 logger.error(f"PlayControllerEffect error: {e}", exc_info=True)
                 return controller_manager_pb2.PlayControllerEffectResponse(
-                    success=False,
-                    error=str(e)
+                    success=False, error=str(e)
                 )
 
-    def _build_controller_state_message(self, serial: str, info: Dict) -> controller_manager_pb2.ControllerState:
+    def _build_controller_state_message(
+        self, serial: str, info: dict
+    ) -> controller_manager_pb2.ControllerState:
         """Build a ControllerState protobuf message."""
         # Get state snapshot if available
         state = self.controller_states.get(serial)
 
         if state:
             snapshot = state.get_snapshot()
-            trigger_pressed = snapshot.get('trigger', False)
-            move_pressed = snapshot.get('move', False)
-            cross_pressed = snapshot.get('cross', False)
-            circle_pressed = snapshot.get('circle', False)
-            square_pressed = snapshot.get('square', False)
-            triangle_pressed = snapshot.get('triangle', False)
-            ps_pressed = snapshot.get('ps', False)
-            accel = snapshot.get('accel', {'x': 0, 'y': 0, 'z': 0})
-            gyro = snapshot.get('gyro', {'x': 0, 'y': 0, 'z': 0})
+            trigger_pressed = snapshot.get("trigger", False)
+            move_pressed = snapshot.get("move", False)
+            cross_pressed = snapshot.get("cross", False)
+            circle_pressed = snapshot.get("circle", False)
+            square_pressed = snapshot.get("square", False)
+            triangle_pressed = snapshot.get("triangle", False)
+            ps_pressed = snapshot.get("ps", False)
+            accel = snapshot.get("accel", {"x": 0, "y": 0, "z": 0})
+            gyro = snapshot.get("gyro", {"x": 0, "y": 0, "z": 0})
         else:
             trigger_pressed = False
             move_pressed = False
@@ -567,25 +547,25 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             square_pressed = False
             triangle_pressed = False
             ps_pressed = False
-            accel = {'x': 0, 'y': 0, 'z': 0}
-            gyro = {'x': 0, 'y': 0, 'z': 0}
+            accel = {"x": 0, "y": 0, "z": 0}
+            gyro = {"x": 0, "y": 0, "z": 0}
 
         return controller_manager_pb2.ControllerState(
             serial=serial,
-            move_num=info.get('move_num', 0),
-            battery=info.get('battery', 0),
+            move_num=info.get("move_num", 0),
+            battery=info.get("battery", 0),
             trigger_pressed=trigger_pressed,
             move_pressed=move_pressed,
-            ready=info.get('ready', False),
-            team=info.get('team', 0),
+            ready=info.get("ready", False),
+            team=info.get("team", 0),
             color=controller_manager_pb2.RGB(r=0, g=0, b=255),
-            accel=controller_manager_pb2.Vector3(x=accel['x'], y=accel['y'], z=accel['z']),
-            gyro=controller_manager_pb2.Vector3(x=gyro['x'], y=gyro['y'], z=gyro['z']),
+            accel=controller_manager_pb2.Vector3(x=accel["x"], y=accel["y"], z=accel["z"]),
+            gyro=controller_manager_pb2.Vector3(x=gyro["x"], y=gyro["y"], z=gyro["z"]),
             cross_pressed=cross_pressed,
             circle_pressed=circle_pressed,
             square_pressed=square_pressed,
             triangle_pressed=triangle_pressed,
-            ps_pressed=ps_pressed
+            ps_pressed=ps_pressed,
         )
 
     def shutdown(self):
@@ -606,8 +586,7 @@ async def serve(port=50052):
     """Start the ControllerManager async gRPC server."""
     # Configure logging
     logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 
     # Create async server (CRITICAL FIX: grpc.aio instead of grpc.server)
@@ -624,11 +603,13 @@ async def serve(port=50052):
     health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
 
     # Mark the ControllerManager service as SERVING
-    await health_servicer.set("controller_manager.ControllerManagerService", health_pb2.HealthCheckResponse.SERVING)
+    await health_servicer.set(
+        "controller_manager.ControllerManagerService", health_pb2.HealthCheckResponse.SERVING
+    )
     await health_servicer.set("", health_pb2.HealthCheckResponse.SERVING)  # Overall health
 
     # Bind to port
-    server.add_insecure_port(f'[::]:{port}')
+    server.add_insecure_port(f"[::]:{port}")
 
     # Start server
     logger.info(f"Starting ControllerManager async gRPC server on port {port}")
@@ -644,5 +625,5 @@ async def serve(port=50052):
         await server.stop(grace=5)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(serve())

@@ -1,18 +1,52 @@
-from games.game import Game
-from common import Status
-from piaudio import Audio
-import random, math, time
 import logging
+import random
+import time
+
+from common import Status
+from games.game import Game
+from piaudio import Audio
 
 logger = logging.getLogger(__name__)
 
+
 class Joust(Game):
-    def __init__(self, moves, command_queue, ns, red_on_kill, music, teams, game_mode, controller_teams, controller_colors, dead_moves, invincible_moves, force_move_colors, music_speed, show_team_colors, restart, revive):
+    def __init__(
+        self,
+        moves,
+        command_queue,
+        ns,
+        red_on_kill,
+        music,
+        teams,
+        game_mode,
+        controller_teams,
+        controller_colors,
+        dead_moves,
+        invincible_moves,
+        force_move_colors,
+        music_speed,
+        show_team_colors,
+        restart,
+        revive,
+    ):
         super().__init__(
-            moves=moves, command_queue=command_queue, ns=ns, red_on_kill=red_on_kill, music=music, teams=teams, game_mode=game_mode, \
-            controller_teams=controller_teams, controller_colors=controller_colors, dead_moves=dead_moves, invincible_moves=invincible_moves, \
-            force_move_colors=force_move_colors, music_speed=music_speed, show_team_colors=show_team_colors, \
-            restart=restart, revive=revive)
+            moves=moves,
+            command_queue=command_queue,
+            ns=ns,
+            red_on_kill=red_on_kill,
+            music=music,
+            teams=teams,
+            game_mode=game_mode,
+            controller_teams=controller_teams,
+            controller_colors=controller_colors,
+            dead_moves=dead_moves,
+            invincible_moves=invincible_moves,
+            force_move_colors=force_move_colors,
+            music_speed=music_speed,
+            show_team_colors=show_team_colors,
+            restart=restart,
+            revive=revive,
+        )
 
         # Everyone on their own team (so players can switch to a unique team)
         self.num_teams = len(moves)
@@ -22,13 +56,14 @@ class Joust(Game):
         self.invincible_end = {}
 
         self.tourney_list = self.generate_tourney_list(len(moves))
-        logger.debug("Bracket: {}".format(self.tourney_list))
+        logger.debug(f"Bracket: {self.tourney_list}")
 
         self.game_loop()
 
-    '''
+    """
     Override joust functions
-    '''
+    """
+
     # @Override
     # Set up initial moves
     def init_moves(self):
@@ -58,7 +93,7 @@ class Joust(Game):
 
         for move_serial, end in self.invincible_end.items():
             if end is not None and time.time() > end:
-                logger.debug("Removing invincibility from: {}".format(move_serial))
+                logger.debug(f"Removing invincibility from: {move_serial}")
                 self.invincible_moves[move_serial].value = False
                 self.invincible_end[move_serial] = None
                 self.play_revive_sound()
@@ -73,13 +108,12 @@ class Joust(Game):
 
         if len(self.winning_moves) > 1:
             return False
-        else:
-            return True
+        return True
 
     # @Override
     # Play generic congratulations as teams are not relevant
     def winning_team_sound(self):
-        Audio('audio/Joust/vox/' + self.voice + '/congratulations.wav').start_effect()
+        Audio("audio/Joust/vox/" + self.voice + "/congratulations.wav").start_effect()
 
     def generate_tourney_list(self, player_num):
         def divide(arr, depth, m):
@@ -110,9 +144,10 @@ class Joust(Game):
         insert_move(arr)
         return arr
 
-    '''
+    """
     Game-specific functions
-    '''
+    """
+
     def check_matches(self):
         # Check when a controller dies, or at the beginning
         def check_moves(arr):
@@ -121,20 +156,20 @@ class Joust(Game):
                 # If the arr[0] and arr[1] are not lists
                 if type(arr[0]) is not list and type(arr[1]) is not list:
                     if self.teams[arr[1]] != -1:
-                        logger.debug("Switching {} to team {}".format(arr[0], self.teams[arr[1]]))
+                        logger.debug(f"Switching {arr[0]} to team {self.teams[arr[1]]}")
                         self.switch_teams(arr[0], self.teams[arr[1]])
                         self.dead_moves[arr[0]].value = Status.ALIVE.value
                     else:
-                        logger.debug("Switching {} to team {}".format(arr[1], self.teams[arr[0]]))
+                        logger.debug(f"Switching {arr[1]} to team {self.teams[arr[0]]}")
                         self.switch_teams(arr[1], self.teams[arr[0]])
                         self.dead_moves[arr[1]].value = Status.ALIVE.value
                 elif type(arr[0]) is not list and type(arr[1]) is list:
-                    logger.debug("Switching {} into waiting".format(arr[0]))
+                    logger.debug(f"Switching {arr[0]} into waiting")
                     self.switch_teams(arr[0], -1)
                     self.dead_moves[arr[0]].value = Status.ON.value
                     check_moves(arr[1])
                 elif type(arr[1]) is not list and type(arr[0]) is list:
-                    logger.debug("Switching {} into waiting".format(arr[1]))
+                    logger.debug(f"Switching {arr[1]} into waiting")
                     self.switch_teams(arr[1], -1)
                     self.dead_moves[arr[1]].value = Status.ON.value
                     check_moves(arr[0])
@@ -142,6 +177,7 @@ class Joust(Game):
                     logger.debug("Checking next level")
                     check_moves(arr[0])
                     check_moves(arr[1])
+
         check_moves(self.tourney_list)
 
     def remove_dead_player(self, dead_serial):
@@ -153,29 +189,30 @@ class Joust(Game):
                     remove_dead(arr[0])
                 if type(arr[1]) is list:
                     remove_dead(arr[1])
+
         remove_dead(self.tourney_list)
 
         def move_up(arr):
             if type(arr) is list and len(arr) == 1:
                 return arr[0]
-            else:
-                if type(arr[0]) is list and move_up(arr[0]):
-                    arr[0] = move_up(arr[0])
-                    if type(arr[1]) is not list:
-                        self.set_invincible(arr[0])
-                        self.set_invincible(arr[1])
-                    else:
-                        self.dead_moves[arr[0]].value = Status.ON.value
-                elif type(arr[1]) is list and move_up(arr[1]):
-                    arr[1] = move_up(arr[1])
-                    if type(arr[0]) is not list:
-                        self.set_invincible(arr[0])
-                        self.set_invincible(arr[1])
-                    else:
-                        self.dead_moves[arr[1]].value = Status.ON.value
+            if type(arr[0]) is list and move_up(arr[0]):
+                arr[0] = move_up(arr[0])
+                if type(arr[1]) is not list:
+                    self.set_invincible(arr[0])
+                    self.set_invincible(arr[1])
+                else:
+                    self.dead_moves[arr[0]].value = Status.ON.value
+            elif type(arr[1]) is list and move_up(arr[1]):
+                arr[1] = move_up(arr[1])
+                if type(arr[0]) is not list:
+                    self.set_invincible(arr[0])
+                    self.set_invincible(arr[1])
+                else:
+                    self.dead_moves[arr[1]].value = Status.ON.value
+
         move_up(self.tourney_list)
 
-        logger.debug("Updated bracket: {}".format(self.tourney_list))
+        logger.debug(f"Updated bracket: {self.tourney_list}")
 
     def set_invincible(self, serial):
         self.invincible_moves[serial].value = True

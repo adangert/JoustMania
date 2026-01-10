@@ -8,14 +8,14 @@ Usage:
 2. Run this test: python test_orchestrator.py
 """
 
-import time
 import logging
+import time
+
 from piparty_grpc import JoustManiaOrchestrator
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ def test_orchestrator():
     logger.info("=" * 60)
 
     # Create orchestrator
-    orchestrator = JoustManiaOrchestrator(services_host='localhost')
+    orchestrator = JoustManiaOrchestrator(services_host="localhost")
 
     try:
         # Start orchestrator
@@ -38,23 +38,23 @@ def test_orchestrator():
 
         # Check initial settings
         logger.info("\n2. Checking initial settings...")
-        sensitivity = orchestrator.get_setting('sensitivity')
-        current_game = orchestrator.get_setting('current_game')
+        sensitivity = orchestrator.get_setting("sensitivity")
+        current_game = orchestrator.get_setting("current_game")
         logger.info(f"✅ sensitivity = {sensitivity}")
         logger.info(f"✅ current_game = {current_game}")
 
         # Update a setting
         logger.info("\n3. Updating setting...")
-        orchestrator.update_setting('sensitivity', 4, source='test')
+        orchestrator.update_setting("sensitivity", 4, source="test")
         time.sleep(0.5)  # Wait for change event
-        new_sensitivity = orchestrator.get_setting('sensitivity')
+        new_sensitivity = orchestrator.get_setting("sensitivity")
         logger.info(f"✅ Updated sensitivity = {new_sensitivity}")
 
         # Update another setting
         logger.info("\n4. Updating another setting...")
-        orchestrator.update_setting('current_game', 'Werewolf', source='test')
+        orchestrator.update_setting("current_game", "Werewolf", source="test")
         time.sleep(0.5)
-        new_game = orchestrator.get_setting('current_game')
+        new_game = orchestrator.get_setting("current_game")
         logger.info(f"✅ Updated current_game = {new_game}")
 
         # Wait a bit to see subscription events
@@ -83,6 +83,7 @@ def test_orchestrator():
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
+
     sys.exit(test_orchestrator())

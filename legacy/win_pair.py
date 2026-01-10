@@ -1,17 +1,16 @@
-import psmove
-import os
 
 from sys import platform
-print(platform)
-if platform == "linux" or platform == "linux2":
-    import jm_dbus
-elif "win" in platform:
-    import win_jm_dbus as jm_dbus
 
-class Pair():
+print(platform)
+if platform == "linux" or platform == "linux2" or "win" in platform:
+    pass
+
+
+class Pair:
     """
     Manage paring move controllers to the server
     """
+
     def __init__(self):
         """Use DBus to find bluetooth controllers"""
         pass

@@ -1,6 +1,5 @@
 import abc
 import asyncio
-import collections
 import enum
 import functools
 import itertools
@@ -13,9 +12,10 @@ from numpy import linalg
 
 from core import common
 
-NUM_WARNING_FLASHES=5
-WARNING_FLASH_DURATION=0.1
-RAINBOW_PHASE_DURATION=0.1
+NUM_WARNING_FLASHES = 5
+WARNING_FLASH_DURATION = 0.1
+RAINBOW_PHASE_DURATION = 0.1
+
 
 class EventType(enum.Flag):
     SENSOR = enum.auto()
@@ -23,12 +23,16 @@ class EventType(enum.Flag):
     BUTTON_UP = enum.auto()
     # TODO: Add trigger events
 
+
 class ControllerEvent(abc.ABC):
     @abc.abstractproperty
-    def type(self): raise NotImplemented()
+    def type(self):
+        raise NotImplementedError()
+
 
 class SensorEvent(ControllerEvent):
     """Base class for controller events."""
+
     def __init__(self, acceleration, jerk, gyroscope):
         self.acceleration = acceleration
         self.jerk = jerk
@@ -46,8 +50,10 @@ class SensorEvent(ControllerEvent):
     def jerk_magnitude(self):
         return linalg.norm(self.jerk)
 
+
 class ButtonDownEvent(ControllerEvent):
     """Sent when a player first presses a button."""
+
     def __init__(self, button: common.Button):
         self.button = button
 
@@ -55,8 +61,10 @@ class ButtonDownEvent(ControllerEvent):
     def type(self):
         return EventType.BUTTON_DOWN
 
+
 class ButtonUpEvent(ControllerEvent):
     """Sent when a player first releases a button."""
+
     def __init__(self, player, button: common.Button):
         super().__init__(player)
         self.button = button
@@ -68,7 +76,8 @@ class ButtonUpEvent(ControllerEvent):
 
 class ControllerState:
     """The state of inputs on a controller at one point in time."""
-    #we need to not just get the newest state.
+
+    # we need to not just get the newest state.
     def __init__(self, move):
         self.our_buttons = move.get_buttons()
         self.buttons = common.Button(move.get_buttons())
@@ -79,12 +88,12 @@ class ControllerState:
 
     @property
     def acceleration_magnitude(self):
-        return math.sqrt(sum([ v*v for v in self.acceleration ]))
+        return math.sqrt(sum([v * v for v in self.acceleration]))
 
     def get_events_from_state_diff(self, prev_state):
         acc_diff = map(lambda a, b: a - b, self.acceleration, prev_state.acceleration)
         time_diff = self.ts - prev_state.ts
-        jerk = tuple([ e / time_diff for e in acc_diff ])
+        jerk = tuple([e / time_diff for e in acc_diff])
         yield SensorEvent(self.acceleration, jerk, self.gyroscope)
 
         new_buttons = self.buttons & (~prev_state.buttons)
@@ -96,16 +105,21 @@ class ControllerState:
             if button in released_buttons:
                 yield ButtonDownEvent(button)
 
+
 # TODO: Break this out into a util library if it seems useful.
 def with_lock(lock):
     """Decorator that makes a coroutine hold a lock during execution"""
+
     def decorator(func):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             async with lock:
                 return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator
+
 
 class Player:
     def __init__(self, move):
@@ -118,10 +132,11 @@ class Player:
         self.flush_events_()
 
     def flush_events_(self):
-        #why do we ever want to flush the events????
-        #it seems like this is wasted data?
-        
-        while self.move_.poll(): pass
+        # why do we ever want to flush the events????
+        # it seems like this is wasted data?
+
+        while self.move_.poll():
+            pass
 
     def get_events(self) -> typing.Iterator[ControllerEvent]:
         """Returns an iterator over events currently pending on the controller."""
@@ -177,6 +192,7 @@ class Player:
                 self.set_color_(self.color_)
                 self.set_rumble(0)
                 self.warn_ = None
+
         self.warn_ = self.set_effect_(run())
 
     def show_rainbow(self, duration_seconds: float):
@@ -192,11 +208,13 @@ class Player:
                     await asyncio.sleep(RAINBOW_PHASE_DURATION)
             finally:
                 self.set_color_(self.color_)
+
         async def run():
             try:
                 await asyncio.wait_for(cycle_colors(), duration_seconds)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass
+
         return self.set_effect_(run())
 
     def show_death(self):
@@ -213,23 +231,29 @@ class Player:
             finally:
                 self.set_color_(common.Color.BLACK)
                 self.set_rumble(0)
+
         self.set_effect_(run())
 
     def __str__(self):
-        return '<Player %s %s>' % (self.move_, self.color_)
+        return "<Player %s %s>" % (self.move_, self.color_)
+
 
 class PlayerCollection:
     """The set of players in a round of the game."""
+
     def __init__(self, players):
         self.players = players
         self.active_players = set(players)
+
     def kill_player(self, player: Player):
         self.active_players.remove(player)
         return player.show_death()
+
     def active_player_events(self, event_type: EventType):
         # consider randomizing this so players don't get an advantage by being first in the list.
         for player in list(self.active_players):
             yield from (e for e in player.get_events() if e.type in event_type)
+
     def cancel_effects(self):
         for player in self.players:
             player.cancel_effect()

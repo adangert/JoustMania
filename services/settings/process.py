@@ -10,104 +10,94 @@ Manages settings as a separate process:
 This is part of the microservices refactoring (Phase 3).
 """
 
-import logging
-import time
-import yaml
-import os
-import uuid
 import fnmatch
-from multiprocessing import Process, Queue
-from typing import Optional, Dict, Any, Tuple
-from core.common import Games, Sensitivity
+import logging
+import os
+import time
+import uuid
+from multiprocessing import Process
 from sys import platform
+from typing import Any
+
+import yaml
+
+from core.common import Games, Sensitivity
 
 logger = logging.getLogger(__name__)
 
 
 # Settings schema with validation rules
 SETTINGS_SCHEMA = {
-    'sensitivity': {
-        'type': int,
-        'min': 0,
-        'max': 4,
-        'default': Sensitivity.MID.value,
-        'description': 'Controller sensitivity (0=ultra slow, 4=ultra fast)'
+    "sensitivity": {
+        "type": int,
+        "min": 0,
+        "max": 4,
+        "default": Sensitivity.MID.value,
+        "description": "Controller sensitivity (0=ultra slow, 4=ultra fast)",
     },
-    'play_instructions': {
-        'type': bool,
-        'default': True,
-        'description': 'Play voice instructions before games'
+    "play_instructions": {
+        "type": bool,
+        "default": True,
+        "description": "Play voice instructions before games",
     },
-    'random_modes': {
-        'type': list,
-        'default': ['JoustFFA', 'JoustRandomTeams', 'Werewolf', 'Swapper'],
-        'description': 'Game modes included in random selection'
+    "random_modes": {
+        "type": list,
+        "default": ["JoustFFA", "JoustRandomTeams", "Werewolf", "Swapper"],
+        "description": "Game modes included in random selection",
     },
-    'current_game': {
-        'type': str,
-        'default': 'JoustFFA',
-        'description': 'Currently selected game mode'
+    "current_game": {
+        "type": str,
+        "default": "JoustFFA",
+        "description": "Currently selected game mode",
     },
-    'play_audio': {
-        'type': bool,
-        'default': True,
-        'immutable': True,  # Cannot be changed
-        'description': 'Enable audio playback'
+    "play_audio": {
+        "type": bool,
+        "default": True,
+        "immutable": True,  # Cannot be changed
+        "description": "Enable audio playback",
     },
-    'menu_voice': {
-        'type': str,
-        'allowed_values': ['ivy', 'en', 'es', 'fr', 'de'],
-        'default': 'ivy',
-        'description': 'Voice pack for menu announcements'
+    "menu_voice": {
+        "type": str,
+        "allowed_values": ["ivy", "en", "es", "fr", "de"],
+        "default": "ivy",
+        "description": "Voice pack for menu announcements",
     },
-    'move_can_be_admin': {
-        'type': bool,
-        'default': True,
-        'immutable': True,
-        'description': 'Allow controllers to become admin'
+    "move_can_be_admin": {
+        "type": bool,
+        "default": True,
+        "immutable": True,
+        "description": "Allow controllers to become admin",
     },
-    'enforce_minimum': {
-        'type': bool,
-        'default': True,
-        'immutable': True,
-        'description': 'Enforce minimum player requirements'
+    "enforce_minimum": {
+        "type": bool,
+        "default": True,
+        "immutable": True,
+        "description": "Enforce minimum player requirements",
     },
-    'red_on_kill': {
-        'type': bool,
-        'default': True,
-        'description': 'Flash red when killed'
+    "red_on_kill": {"type": bool, "default": True, "description": "Flash red when killed"},
+    "random_teams": {"type": bool, "default": True, "description": "Randomize team assignments"},
+    "color_lock": {"type": bool, "default": False, "description": "Lock team colors"},
+    "random_team_size": {
+        "type": int,
+        "min": 2,
+        "max": 6,
+        "default": 4,
+        "description": "Size of random teams",
     },
-    'random_teams': {
-        'type': bool,
-        'default': True,
-        'description': 'Randomize team assignments'
+    "force_all_start": {
+        "type": bool,
+        "default": False,
+        "description": "Start game with all controllers (even not ready)",
     },
-    'color_lock': {
-        'type': bool,
-        'default': False,
-        'description': 'Lock team colors'
-    },
-    'random_team_size': {
-        'type': int,
-        'min': 2,
-        'max': 6,
-        'default': 4,
-        'description': 'Size of random teams'
-    },
-    'force_all_start': {
-        'type': bool,
-        'default': False,
-        'description': 'Start game with all controllers (even not ready)'
-    },
-    'color_lock_choices': {
-        'type': dict,
-        'default': {
-            2: ['Magenta', 'Green'],
-            3: ['Orange', 'Turquoise', 'Purple'],
-            4: ['Yellow', 'Green', 'Blue', 'Purple']
+    "color_lock_choices": {
+        "type": dict,
+        "default": {
+            2: ["Magenta", "Green"],
+            3: ["Orange", "Turquoise", "Purple"],
+            4: ["Yellow", "Green", "Blue", "Purple"],
         },
-        'description': 'Color choices for locked teams'
-    }
+        "description": "Color choices for locked teams",
+    },
 }
 
 
@@ -199,7 +189,7 @@ class SettingsProcess(Process):
         try:
             if os.path.exists(self.settings_file):
                 logger.info(f"Loading settings from {self.settings_file}")
-                with open(self.settings_file, 'r') as f:
+                with open(self.settings_file) as f:
                     file_settings = yaml.safe_load(f)
 
                 if file_settings:
@@ -229,7 +219,7 @@ class SettingsProcess(Process):
         """Get default settings from schema."""
         defaults = {}
         for key, schema in SETTINGS_SCHEMA.items():
-            defaults[key] = schema['default']
+            defaults[key] = schema["default"]
         return defaults
 
     def save_settings(self):
@@ -239,10 +229,10 @@ class SettingsProcess(Process):
         Uses temp file + rename for atomic write.
         """
         try:
-            temp_file = self.settings_file + '.tmp'
+            temp_file = self.settings_file + ".tmp"
 
             # Write to temp file
-            with open(temp_file, 'w') as f:
+            with open(temp_file, "w") as f:
                 yaml.dump(self.settings, f, default_flow_style=False)
 
             # Atomic rename
@@ -257,7 +247,7 @@ class SettingsProcess(Process):
         except Exception as e:
             logger.error(f"Error saving settings: {e}", exc_info=True)
 
-    def validate_setting_value(self, key: str, value: Any) -> Tuple[bool, str]:
+    def validate_setting_value(self, key: str, value: Any) -> tuple[bool, str]:
         """
         Validate a setting value against schema.
 
@@ -274,26 +264,26 @@ class SettingsProcess(Process):
         schema = SETTINGS_SCHEMA[key]
 
         # Check type
-        expected_type = schema['type']
+        expected_type = schema["type"]
         if not isinstance(value, expected_type):
             return False, f"Expected {expected_type.__name__}, got {type(value).__name__}"
 
         # Check range (for int)
         if expected_type == int:
-            if 'min' in schema and value < schema['min']:
+            if "min" in schema and value < schema["min"]:
                 return False, f"Value {value} below minimum {schema['min']}"
-            if 'max' in schema and value > schema['max']:
+            if "max" in schema and value > schema["max"]:
                 return False, f"Value {value} above maximum {schema['max']}"
 
         # Check allowed values (for str)
         if expected_type == str:
-            if 'allowed_values' in schema and value not in schema['allowed_values']:
+            if "allowed_values" in schema and value not in schema["allowed_values"]:
                 return False, f"Value '{value}' not in allowed values: {schema['allowed_values']}"
 
         # Check list items (for list)
         if expected_type == list:
             # Validate random_modes specifically
-            if key == 'random_modes':
+            if key == "random_modes":
                 valid_games = [g.name for g in Games if g != Games.JoustTeams and g != Games.Random]
                 for item in value:
                     if item not in valid_games:
@@ -316,35 +306,32 @@ class SettingsProcess(Process):
         try:
             while not self.command_queue.empty():
                 message = self.command_queue.get_nowait()
-                command = message.get('command')
-                params = message.get('params', {})
-                request_id = message.get('request_id')
+                command = message.get("command")
+                params = message.get("params", {})
+                request_id = message.get("request_id")
 
                 logger.debug(f"Processing command: {command}")
 
                 # Dispatch command
-                if command == 'get_settings':
+                if command == "get_settings":
                     response = self.handle_get_settings()
-                elif command == 'get_setting':
+                elif command == "get_setting":
                     response = self.handle_get_setting(params)
-                elif command == 'update_setting':
+                elif command == "update_setting":
                     response = self.handle_update_setting(params)
-                elif command == 'subscribe':
+                elif command == "subscribe":
                     response = self.handle_subscribe(params)
-                elif command == 'unsubscribe':
+                elif command == "unsubscribe":
                     response = self.handle_unsubscribe(params)
-                elif command == 'shutdown':
+                elif command == "shutdown":
                     self.running = False
-                    response = {'status': 'success', 'data': {}}
+                    response = {"status": "success", "data": {}}
                 else:
-                    response = {
-                        'status': 'error',
-                        'error': f'Unknown command: {command}'
-                    }
+                    response = {"status": "error", "error": f"Unknown command: {command}"}
 
                 # Send response
-                response['request_id'] = request_id
-                response['timestamp'] = time.time()
+                response["request_id"] = request_id
+                response["timestamp"] = time.time()
                 self.response_queue.put(response)
 
         except Exception as e:
@@ -352,70 +339,41 @@ class SettingsProcess(Process):
 
     def handle_get_settings(self) -> dict:
         """Handle get_settings command."""
-        return {
-            'status': 'success',
-            'data': {
-                'settings': self.settings.copy()
-            }
-        }
+        return {"status": "success", "data": {"settings": self.settings.copy()}}
 
     def handle_get_setting(self, params: dict) -> dict:
         """Handle get_setting command."""
-        key = params.get('key')
+        key = params.get("key")
 
         if not key:
-            return {
-                'status': 'error',
-                'error': 'Missing key parameter'
-            }
+            return {"status": "error", "error": "Missing key parameter"}
 
         if key not in self.settings:
-            return {
-                'status': 'error',
-                'error': f'Unknown setting: {key}'
-            }
+            return {"status": "error", "error": f"Unknown setting: {key}"}
 
-        return {
-            'status': 'success',
-            'data': {
-                'key': key,
-                'value': self.settings[key]
-            }
-        }
+        return {"status": "success", "data": {"key": key, "value": self.settings[key]}}
 
     def handle_update_setting(self, params: dict) -> dict:
         """Handle update_setting command."""
-        key = params.get('key')
-        value = params.get('value')
-        source = params.get('source', 'unknown')
+        key = params.get("key")
+        value = params.get("value")
+        source = params.get("source", "unknown")
 
         if not key:
-            return {
-                'status': 'error',
-                'error': 'Missing key parameter'
-            }
+            return {"status": "error", "error": "Missing key parameter"}
 
         if key not in SETTINGS_SCHEMA:
-            return {
-                'status': 'error',
-                'error': f'Unknown setting: {key}'
-            }
+            return {"status": "error", "error": f"Unknown setting: {key}"}
 
         # Check if immutable
         schema = SETTINGS_SCHEMA[key]
-        if schema.get('immutable', False):
-            return {
-                'status': 'error',
-                'error': f'Setting {key} is immutable'
-            }
+        if schema.get("immutable", False):
+            return {"status": "error", "error": f"Setting {key} is immutable"}
 
         # Validate value
         valid, error = self.validate_setting_value(key, value)
         if not valid:
-            return {
-                'status': 'error',
-                'error': f'Validation failed: {error}'
-            }
+            return {"status": "error", "error": f"Validation failed: {error}"}
 
         # Update setting
         old_value = self.settings.get(key)
@@ -430,68 +388,46 @@ class SettingsProcess(Process):
         logger.info(f"Setting updated: {key} = {value} (source: {source})")
 
         return {
-            'status': 'success',
-            'data': {
-                'key': key,
-                'old_value': old_value,
-                'new_value': value
-            }
+            "status": "success",
+            "data": {"key": key, "old_value": old_value, "new_value": value},
         }
 
     def handle_subscribe(self, params: dict) -> dict:
         """Handle subscribe command."""
-        pattern = params.get('pattern', '*')
-        event_queue = params.get('event_queue')
+        pattern = params.get("pattern", "*")
+        event_queue = params.get("event_queue")
 
         if not event_queue:
-            return {
-                'status': 'error',
-                'error': 'Missing event_queue parameter'
-            }
+            return {"status": "error", "error": "Missing event_queue parameter"}
 
         # Create subscription
         subscription_id = str(uuid.uuid4())
-        self.subscribers[subscription_id] = {
-            'queue': event_queue,
-            'pattern': pattern
-        }
+        self.subscribers[subscription_id] = {"queue": event_queue, "pattern": pattern}
 
         logger.info(f"New subscription: {subscription_id} (pattern: {pattern})")
 
         return {
-            'status': 'success',
-            'data': {
-                'subscription_id': subscription_id,
-                'pattern': pattern
-            }
+            "status": "success",
+            "data": {"subscription_id": subscription_id, "pattern": pattern},
         }
 
     def handle_unsubscribe(self, params: dict) -> dict:
         """Handle unsubscribe command."""
-        subscription_id = params.get('subscription_id')
+        subscription_id = params.get("subscription_id")
 
         if not subscription_id:
-            return {
-                'status': 'error',
-                'error': 'Missing subscription_id parameter'
-            }
+            return {"status": "error", "error": "Missing subscription_id parameter"}
 
         if subscription_id not in self.subscribers:
-            return {
-                'status': 'error',
-                'error': f'Unknown subscription: {subscription_id}'
-            }
+            return {"status": "error", "error": f"Unknown subscription: {subscription_id}"}
 
         del self.subscribers[subscription_id]
 
         logger.info(f"Unsubscribed: {subscription_id}")
 
-        return {
-            'status': 'success',
-            'data': {'subscription_id': subscription_id}
-        }
+        return {"status": "success", "data": {"subscription_id": subscription_id}}
 
-    def publish_change(self, key: str, old_value: Any, new_value: Any, source: str = 'unknown'):
+    def publish_change(self, key: str, old_value: Any, new_value: Any, source: str = "unknown"):
         """
         Publish setting change to matching subscribers.
 
@@ -502,24 +438,19 @@ class SettingsProcess(Process):
             source: Source of the change (webui, menu, etc.)
         """
         event = {
-            'event': 'setting_changed',
-            'data': {
-                'key': key,
-                'old_value': old_value,
-                'new_value': new_value,
-                'source': source
-            },
-            'timestamp': time.time()
+            "event": "setting_changed",
+            "data": {"key": key, "old_value": old_value, "new_value": new_value, "source": source},
+            "timestamp": time.time(),
         }
 
         # Send to all matching subscribers
         for sub_id, subscriber in list(self.subscribers.items()):
-            pattern = subscriber['pattern']
+            pattern = subscriber["pattern"]
 
             # Check if pattern matches
             if pattern == "*" or pattern == key or fnmatch.fnmatch(key, pattern):
                 try:
-                    subscriber['queue'].put_nowait(event)
+                    subscriber["queue"].put_nowait(event)
                     logger.debug(f"Published change to subscriber {sub_id}")
                 except Exception as e:
                     logger.warning(f"Failed to send event to subscriber {sub_id}: {e}")
@@ -537,7 +468,9 @@ class SettingsProcess(Process):
         logger.info("Settings process shutdown complete")
 
 
-def send_command(command_queue, response_queue, command: str, params: dict = None, timeout: float = 1.0) -> dict:
+def send_command(
+    command_queue, response_queue, command: str, params: dict = None, timeout: float = 1.0
+) -> dict:
     """
     Helper function to send command to Settings process and wait for response.
 
@@ -553,10 +486,10 @@ def send_command(command_queue, response_queue, command: str, params: dict = Non
     """
     request_id = str(uuid.uuid4())
     message = {
-        'command': command,
-        'params': params or {},
-        'request_id': request_id,
-        'timestamp': time.time()
+        "command": command,
+        "params": params or {},
+        "request_id": request_id,
+        "timestamp": time.time(),
     }
 
     # Send command
@@ -567,13 +500,10 @@ def send_command(command_queue, response_queue, command: str, params: dict = Non
     while time.time() - start_time < timeout:
         try:
             response = response_queue.get(timeout=0.1)
-            if response.get('request_id') == request_id:
+            if response.get("request_id") == request_id:
                 return response
         except:
             continue
 
     # Timeout
-    return {
-        'status': 'error',
-        'error': 'Request timeout'
-    }
+    return {"status": "error", "error": "Request timeout"}

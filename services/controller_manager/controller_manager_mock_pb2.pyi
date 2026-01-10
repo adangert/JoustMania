@@ -1,9 +1,10 @@
-from google.protobuf.internal import containers as _containers
-from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
+from collections.abc import Iterable as _Iterable
+from typing import ClassVar as _ClassVar
+
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from collections.abc import Iterable as _Iterable
-from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
+from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -17,7 +18,13 @@ class MovementRequest(_message.Message):
     accel_x: float
     accel_y: float
     accel_z: float
-    def __init__(self, serial: _Optional[str] = ..., accel_x: _Optional[float] = ..., accel_y: _Optional[float] = ..., accel_z: _Optional[float] = ...) -> None: ...
+    def __init__(
+        self,
+        serial: str | None = ...,
+        accel_x: float | None = ...,
+        accel_y: float | None = ...,
+        accel_z: float | None = ...,
+    ) -> None: ...
 
 class MovementResponse(_message.Message):
     __slots__ = ("success", "error")
@@ -25,13 +32,13 @@ class MovementResponse(_message.Message):
     ERROR_FIELD_NUMBER: _ClassVar[int]
     success: bool
     error: str
-    def __init__(self, success: bool = ..., error: _Optional[str] = ...) -> None: ...
+    def __init__(self, success: bool = ..., error: str | None = ...) -> None: ...
 
 class DeathRequest(_message.Message):
     __slots__ = ("serial",)
     SERIAL_FIELD_NUMBER: _ClassVar[int]
     serial: str
-    def __init__(self, serial: _Optional[str] = ...) -> None: ...
+    def __init__(self, serial: str | None = ...) -> None: ...
 
 class DeathResponse(_message.Message):
     __slots__ = ("success", "accel_magnitude")
@@ -39,7 +46,7 @@ class DeathResponse(_message.Message):
     ACCEL_MAGNITUDE_FIELD_NUMBER: _ClassVar[int]
     success: bool
     accel_magnitude: float
-    def __init__(self, success: bool = ..., accel_magnitude: _Optional[float] = ...) -> None: ...
+    def __init__(self, success: bool = ..., accel_magnitude: float | None = ...) -> None: ...
 
 class ButtonRequest(_message.Message):
     __slots__ = ("serial", "button", "pressed")
@@ -49,6 +56,7 @@ class ButtonRequest(_message.Message):
         MOVE: _ClassVar[ButtonRequest.Button]
         SELECT: _ClassVar[ButtonRequest.Button]
         START: _ClassVar[ButtonRequest.Button]
+
     TRIGGER: ButtonRequest.Button
     MOVE: ButtonRequest.Button
     SELECT: ButtonRequest.Button
@@ -59,7 +67,12 @@ class ButtonRequest(_message.Message):
     serial: str
     button: ButtonRequest.Button
     pressed: bool
-    def __init__(self, serial: _Optional[str] = ..., button: _Optional[_Union[ButtonRequest.Button, str]] = ..., pressed: bool = ...) -> None: ...
+    def __init__(
+        self,
+        serial: str | None = ...,
+        button: ButtonRequest.Button | str | None = ...,
+        pressed: bool = ...,
+    ) -> None: ...
 
 class ButtonResponse(_message.Message):
     __slots__ = ("success", "error")
@@ -67,7 +80,7 @@ class ButtonResponse(_message.Message):
     ERROR_FIELD_NUMBER: _ClassVar[int]
     success: bool
     error: str
-    def __init__(self, success: bool = ..., error: _Optional[str] = ...) -> None: ...
+    def __init__(self, success: bool = ..., error: str | None = ...) -> None: ...
 
 class ColorRequest(_message.Message):
     __slots__ = ("serial", "r", "g", "b")
@@ -79,7 +92,13 @@ class ColorRequest(_message.Message):
     r: int
     g: int
     b: int
-    def __init__(self, serial: _Optional[str] = ..., r: _Optional[int] = ..., g: _Optional[int] = ..., b: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self,
+        serial: str | None = ...,
+        r: int | None = ...,
+        g: int | None = ...,
+        b: int | None = ...,
+    ) -> None: ...
 
 class ColorResponse(_message.Message):
     __slots__ = ("success", "error")
@@ -87,13 +106,13 @@ class ColorResponse(_message.Message):
     ERROR_FIELD_NUMBER: _ClassVar[int]
     success: bool
     error: str
-    def __init__(self, success: bool = ..., error: _Optional[str] = ...) -> None: ...
+    def __init__(self, success: bool = ..., error: str | None = ...) -> None: ...
 
 class ResetRequest(_message.Message):
     __slots__ = ("serial",)
     SERIAL_FIELD_NUMBER: _ClassVar[int]
     serial: str
-    def __init__(self, serial: _Optional[str] = ...) -> None: ...
+    def __init__(self, serial: str | None = ...) -> None: ...
 
 class ResetResponse(_message.Message):
     __slots__ = ("success", "error")
@@ -101,7 +120,7 @@ class ResetResponse(_message.Message):
     ERROR_FIELD_NUMBER: _ClassVar[int]
     success: bool
     error: str
-    def __init__(self, success: bool = ..., error: _Optional[str] = ...) -> None: ...
+    def __init__(self, success: bool = ..., error: str | None = ...) -> None: ...
 
 class ListRequest(_message.Message):
     __slots__ = ()
@@ -113,4 +132,6 @@ class ListResponse(_message.Message):
     COUNT_FIELD_NUMBER: _ClassVar[int]
     serials: _containers.RepeatedScalarFieldContainer[str]
     count: int
-    def __init__(self, serials: _Optional[_Iterable[str]] = ..., count: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self, serials: _Iterable[str] | None = ..., count: int | None = ...
+    ) -> None: ...

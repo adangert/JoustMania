@@ -1,9 +1,11 @@
 import asyncio
 import unittest
 
-from games import ffa
-from testing import fakes
 import piaudio
+from games import ffa
+
+from testing import fakes
+
 
 class TestFFA(unittest.TestCase):
     def test_one_winner(self):
@@ -25,6 +27,7 @@ class TestFFA(unittest.TestCase):
         # Shouldn't throw timeout.
         loop.run_until_complete(asyncio.wait_for(game_task, timeout=3))
         self.assertTrue(game.has_winner_())
+
     def test_two_outs(self):
         """Tests that we don't lose all the players if they all simultaenously register high accel."""
         controller1 = fakes.FakeMove()
@@ -47,5 +50,6 @@ class TestFFA(unittest.TestCase):
         loop.run_until_complete(asyncio.wait_for(game_task, timeout=3))
         self.assertTrue(game.has_winner_())
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -11,13 +11,15 @@ Supports both:
 # gRPC exports (always available)
 try:
     from . import settings_pb2, settings_pb2_grpc
+
     _grpc_available = True
 except ImportError:
     _grpc_available = False
 
 # Legacy Queue-based exports (optional - requires psmove)
 try:
-    from .process import SettingsProcess, send_command, SETTINGS_SCHEMA
+    from .process import SETTINGS_SCHEMA, SettingsProcess, send_command
+
     _queue_available = True
 except ImportError:
     _queue_available = False
@@ -25,4 +27,10 @@ except ImportError:
     send_command = None
     SETTINGS_SCHEMA = None
 
-__all__ = ['settings_pb2', 'settings_pb2_grpc', 'SettingsProcess', 'send_command', 'SETTINGS_SCHEMA']
+__all__ = [
+    "settings_pb2",
+    "settings_pb2_grpc",
+    "SettingsProcess",
+    "send_command",
+    "SETTINGS_SCHEMA",
+]

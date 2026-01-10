@@ -12,18 +12,29 @@ This is part of the microservices refactoring (Phase 2).
 """
 
 import logging
-import time
 import random
-from multiprocessing import Process, Queue
-from typing import Optional, List, Dict
-from core.common import Games, Status
-from piaudio import Music, Audio
-from games import (
-    joust_ffa, joust_teams, joust_random_teams, joust_non_stop,
-    traitor, werewolf, zombie, commander, swapper, tournament,
-    speed_bomb, fight_club, ffa
-)
+import time
+from multiprocessing import Process
+
 import controller_manager
+from games import (
+    commander,
+    ffa,
+    fight_club,
+    joust_ffa,
+    joust_non_stop,
+    joust_random_teams,
+    joust_teams,
+    speed_bomb,
+    swapper,
+    tournament,
+    traitor,
+    werewolf,
+    zombie,
+)
+from piaudio import Audio, Music
+
+from core.common import Games
 
 logger = logging.getLogger(__name__)
 
@@ -45,11 +56,23 @@ class GameCoordinatorProcess(Process):
     - Event Queue: Sends events to Menu (game_started, game_ended, etc.)
     """
 
-    def __init__(self, command_queue, response_queue, event_queue,
-                 controller_cmd_queue, controller_resp_queue,
-                 menu_flag, restart_flag, music_speed, red_on_kill,
-                 show_team_colors, revive, controller_game_mode, ns,
-                 experimental=False):
+    def __init__(
+        self,
+        command_queue,
+        response_queue,
+        event_queue,
+        controller_cmd_queue,
+        controller_resp_queue,
+        menu_flag,
+        restart_flag,
+        music_speed,
+        red_on_kill,
+        show_team_colors,
+        revive,
+        controller_game_mode,
+        ns,
+        experimental=False,
+    ):
         """
         Initialize GameCoordinator process.
 
@@ -89,7 +112,7 @@ class GameCoordinatorProcess(Process):
         self.ns = ns
 
         # Game state
-        self.current_game_mode = Games[ns.settings.get('current_game', 'JoustFFA')]
+        self.current_game_mode = Games[ns.settings.get("current_game", "JoustFFA")]
         self.old_game_mode = self.current_game_mode
         self.random_history = []  # Track recently played modes for random
         self.game_in_progress = False
@@ -172,33 +195,30 @@ class GameCoordinatorProcess(Process):
         try:
             while not self.command_queue.empty():
                 message = self.command_queue.get_nowait()
-                command = message.get('command')
-                params = message.get('params', {})
-                request_id = message.get('request_id')
+                command = message.get("command")
+                params = message.get("params", {})
+                request_id = message.get("request_id")
 
                 logger.debug(f"Processing command: {command}")
 
                 # Dispatch command
-                if command == 'start_game':
+                if command == "start_game":
                     response = self.handle_start_game(params)
-                elif command == 'get_game_status':
+                elif command == "get_game_status":
                     response = self.handle_get_game_status()
-                elif command == 'force_end_game':
+                elif command == "force_end_game":
                     response = self.handle_force_end_game()
-                elif command == 'update_controller_state':
+                elif command == "update_controller_state":
                     response = self.handle_update_controller_state(params)
-                elif command == 'shutdown':
+                elif command == "shutdown":
                     self.running = False
-                    response = {'status': 'success', 'data': {}}
+                    response = {"status": "success", "data": {}}
                 else:
-                    response = {
-                        'status': 'error',
-                        'error': f'Unknown command: {command}'
-                    }
+                    response = {"status": "error", "error": f"Unknown command: {command}"}
 
                 # Send response
-                response['request_id'] = request_id
-                response['timestamp'] = time.time()
+                response["request_id"] = request_id
+                response["timestamp"] = time.time()
                 self.response_queue.put(response)
 
         except Exception as e:
@@ -219,25 +239,22 @@ class GameCoordinatorProcess(Process):
             Response dict with game start info
         """
         try:
-            random_mode = params.get('random_mode', False)
-            requested_mode = params.get('game_mode')
-            force_all = params.get('force_all', False)
+            random_mode = params.get("random_mode", False)
+            requested_mode = params.get("game_mode")
+            force_all = params.get("force_all", False)
 
             # Get ready controllers from ControllerManager
             ctrl_response = controller_manager.send_command(
                 self.controller_cmd_queue,
                 self.controller_resp_queue,
-                'get_ready_controllers',
-                {'force_all': force_all}
+                "get_ready_controllers",
+                {"force_all": force_all},
             )
 
-            if ctrl_response['status'] != 'success':
-                return {
-                    'status': 'error',
-                    'error': 'Failed to get ready controllers'
-                }
+            if ctrl_response["status"] != "success":
+                return {"status": "error", "error": "Failed to get ready controllers"}
 
-            game_moves = ctrl_response['data']['controllers']
+            game_moves = ctrl_response["data"]["controllers"]
 
             # Select game mode
             if random_mode:
@@ -248,12 +265,16 @@ class GameCoordinatorProcess(Process):
                 game_mode = self.current_game_mode
 
             # Check minimum players
-            if len(game_moves) < game_mode.minimum_players and self.ns.settings.get('enforce_minimum', True):
-                if self.ns.settings.get('play_audio', True):
-                    Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/notenoughplayers.wav').start_effect()
+            if len(game_moves) < game_mode.minimum_players and self.ns.settings.get(
+                "enforce_minimum", True
+            ):
+                if self.ns.settings.get("play_audio", True):
+                    Audio(
+                        "audio/Menu/vox/" + self.ns.settings["menu_voice"] + "/notenoughplayers.wav"
+                    ).start_effect()
                 return {
-                    'status': 'error',
-                    'error': f'Not enough players (need {game_mode.minimum_players}, have {len(game_moves)})'
+                    "status": "error",
+                    "error": f"Not enough players (need {game_mode.minimum_players}, have {len(game_moves)})",
                 }
 
             # Get teams
@@ -269,19 +290,23 @@ class GameCoordinatorProcess(Process):
             self.controller_game_mode.value = game_mode.value
 
             # Play instructions
-            if self.ns.settings.get('play_instructions', False) and self.ns.settings.get('play_audio', True):
+            if self.ns.settings.get("play_instructions", False) and self.ns.settings.get(
+                "play_audio", True
+            ):
                 self.play_instructions(game_mode)
 
             # Send game_started event
-            self.event_queue.put({
-                'event': 'game_started',
-                'data': {
-                    'game_mode': game_mode.name,
-                    'player_count': len(game_moves),
-                    'random_mode': random_mode
-                },
-                'timestamp': time.time()
-            })
+            self.event_queue.put(
+                {
+                    "event": "game_started",
+                    "data": {
+                        "game_mode": game_mode.name,
+                        "player_count": len(game_moves),
+                        "random_mode": random_mode,
+                    },
+                    "timestamp": time.time(),
+                }
+            )
 
             # Create and run game instance (blocking)
             logger.info(f"Starting game: {game_mode.name} with {len(game_moves)} players")
@@ -294,12 +319,12 @@ class GameCoordinatorProcess(Process):
             self.cleanup_game(random_mode)
 
             return {
-                'status': 'success',
-                'data': {
-                    'game_started': True,
-                    'game_mode': game_mode.name,
-                    'player_count': len(game_moves)
-                }
+                "status": "success",
+                "data": {
+                    "game_started": True,
+                    "game_mode": game_mode.name,
+                    "player_count": len(game_moves),
+                },
             }
 
         except Exception as e:
@@ -307,19 +332,16 @@ class GameCoordinatorProcess(Process):
             self.game_in_progress = False
             self.menu.value = 1
             self.restart.value = 0
-            return {
-                'status': 'error',
-                'error': str(e)
-            }
+            return {"status": "error", "error": str(e)}
 
     def handle_get_game_status(self) -> dict:
         """Get current game status."""
         return {
-            'status': 'success',
-            'data': {
-                'game_in_progress': self.game_in_progress,
-                'game_mode': self.current_game_mode.name if self.current_game_mode else None
-            }
+            "status": "success",
+            "data": {
+                "game_in_progress": self.game_in_progress,
+                "game_mode": self.current_game_mode.name if self.current_game_mode else None,
+            },
         }
 
     def handle_force_end_game(self) -> dict:
@@ -328,9 +350,11 @@ class GameCoordinatorProcess(Process):
             self.menu.value = 1
             self.restart.value = 0
             self.game_in_progress = False
-            return {'status': 'success', 'data': {'forced': True}}
-        else:
-            return {'status': 'success', 'data': {'forced': False, 'message': 'No game in progress'}}
+            return {"status": "success", "data": {"forced": True}}
+        return {
+            "status": "success",
+            "data": {"forced": False, "message": "No game in progress"},
+        }
 
     def handle_update_controller_state(self, params: dict) -> dict:
         """
@@ -338,14 +362,14 @@ class GameCoordinatorProcess(Process):
 
         Called by Menu to pass controller state dictionaries.
         """
-        self.controller_teams = params.get('controller_teams', {})
-        self.controller_colors = params.get('controller_colors', {})
-        self.dead_moves = params.get('dead_moves', {})
-        self.invincible_moves = params.get('invincible_moves', {})
-        self.force_color = params.get('force_color', {})
-        self.game_opts = params.get('game_opts', {})
+        self.controller_teams = params.get("controller_teams", {})
+        self.controller_colors = params.get("controller_colors", {})
+        self.dead_moves = params.get("dead_moves", {})
+        self.invincible_moves = params.get("invincible_moves", {})
+        self.force_color = params.get("force_color", {})
+        self.game_opts = params.get("game_opts", {})
 
-        return {'status': 'success', 'data': {'updated': True}}
+        return {"status": "success", "data": {"updated": True}}
 
     def select_random_game_mode(self, player_count: int) -> Games:
         """
@@ -358,12 +382,14 @@ class GameCoordinatorProcess(Process):
             Selected game mode
         """
         # Get available random modes from settings
-        random_mode_names = self.ns.settings.get('random_modes', [])
+        random_mode_names = self.ns.settings.get("random_modes", [])
         available_modes = [Games[name] for name in random_mode_names if name in Games.__members__]
 
         # Filter by minimum players if enforcing
-        if self.ns.settings.get('enforce_minimum', True):
-            available_modes = [mode for mode in available_modes if mode.minimum_players <= player_count]
+        if self.ns.settings.get("enforce_minimum", True):
+            available_modes = [
+                mode for mode in available_modes if mode.minimum_players <= player_count
+            ]
 
         # If no valid modes, default to FFA
         if len(available_modes) == 0:
@@ -387,7 +413,7 @@ class GameCoordinatorProcess(Process):
 
         return selected
 
-    def get_game_teams(self, game_moves: List[str]) -> dict:
+    def get_game_teams(self, game_moves: list[str]) -> dict:
         """
         Get team assignments for game.
 
@@ -404,16 +430,16 @@ class GameCoordinatorProcess(Process):
 
     def play_instructions(self, game_mode: Games):
         """Play instruction audio for game mode."""
-        voice = self.ns.settings.get('menu_voice', 'en')
+        voice = self.ns.settings.get("menu_voice", "en")
 
         instruction_files = {
-            Games.JoustFFA: f'audio/Menu/vox/{voice}/FFA-instructions.wav',
-            Games.JoustRandomTeams: f'audio/Menu/vox/{voice}/Teams-instructions.wav',
-            Games.Traitor: f'audio/Menu/vox/{voice}/Traitor-instructions.wav',
-            Games.Werewolf: f'audio/Menu/vox/{voice}/werewolf-instructions.wav',
-            Games.Zombies: f'audio/Menu/vox/{voice}/zombie-instructions.wav',
-            Games.Commander: f'audio/Menu/vox/{voice}/commander-instructions.wav',
-            Games.Ninja: f'audio/Menu/vox/{voice}/Ninjabomb-instructions.wav',
+            Games.JoustFFA: f"audio/Menu/vox/{voice}/FFA-instructions.wav",
+            Games.JoustRandomTeams: f"audio/Menu/vox/{voice}/Teams-instructions.wav",
+            Games.Traitor: f"audio/Menu/vox/{voice}/Traitor-instructions.wav",
+            Games.Werewolf: f"audio/Menu/vox/{voice}/werewolf-instructions.wav",
+            Games.Zombies: f"audio/Menu/vox/{voice}/zombie-instructions.wav",
+            Games.Commander: f"audio/Menu/vox/{voice}/commander-instructions.wav",
+            Games.Ninja: f"audio/Menu/vox/{voice}/Ninjabomb-instructions.wav",
         }
 
         if game_mode in instruction_files:
@@ -422,7 +448,7 @@ class GameCoordinatorProcess(Process):
             except Exception as e:
                 logger.warning(f"Could not play instructions: {e}")
 
-    def create_game_instance(self, game_mode: Games, moves: List[str], teams: dict):
+    def create_game_instance(self, game_mode: Games, moves: list[str], teams: dict):
         """
         Create and run game instance.
 
@@ -449,27 +475,33 @@ class GameCoordinatorProcess(Process):
 
         # Common game constructor args
         common_args = {
-            'moves': moves,
-            'command_queue': self.command_queue,
-            'ns': self.ns,
-            'red_on_kill': self.red_on_kill,
-            'music': music,
-            'teams': teams,
-            'game_mode': game_mode,
-            'controller_teams': self.controller_teams,
-            'controller_colors': self.controller_colors,
-            'dead_moves': self.dead_moves,
-            'invincible_moves': self.invincible_moves,
-            'force_move_colors': self.force_color,
-            'music_speed': self.music_speed,
-            'show_team_colors': self.show_team_colors,
-            'restart': self.restart,
-            'revive': self.revive
+            "moves": moves,
+            "command_queue": self.command_queue,
+            "ns": self.ns,
+            "red_on_kill": self.red_on_kill,
+            "music": music,
+            "teams": teams,
+            "game_mode": game_mode,
+            "controller_teams": self.controller_teams,
+            "controller_colors": self.controller_colors,
+            "dead_moves": self.dead_moves,
+            "invincible_moves": self.invincible_moves,
+            "force_move_colors": self.force_color,
+            "music_speed": self.music_speed,
+            "show_team_colors": self.show_team_colors,
+            "restart": self.restart,
+            "revive": self.revive,
         }
 
         # Add opts for games that need it
-        if game_mode in [Games.Zombies, Games.Commander, Games.NonStop, Games.FightClub, Games.Ninja]:
-            common_args['opts'] = self.game_opts
+        if game_mode in [
+            Games.Zombies,
+            Games.Commander,
+            Games.NonStop,
+            Games.FightClub,
+            Games.Ninja,
+        ]:
+            common_args["opts"] = self.game_opts
 
         # Create appropriate game instance
         # Note: Game constructors are blocking and run the game loop
@@ -477,47 +509,48 @@ class GameCoordinatorProcess(Process):
             if self.experimental:
                 logger.info("Using experimental FFA mode")
                 import common as common_module
-                moves_objs = [common_module.get_move(serial, num) for num, serial in enumerate(moves)]
-                return ffa.FreeForAll(moves_objs, music)
-            else:
-                return joust_ffa.Joust(**common_args)
 
-        elif game_mode == Games.JoustTeams:
+                moves_objs = [
+                    common_module.get_move(serial, num) for num, serial in enumerate(moves)
+                ]
+                return ffa.FreeForAll(moves_objs, music)
+            return joust_ffa.Joust(**common_args)
+
+        if game_mode == Games.JoustTeams:
             return joust_teams.Joust(**common_args)
 
-        elif game_mode == Games.JoustRandomTeams:
+        if game_mode == Games.JoustRandomTeams:
             return joust_random_teams.Joust(**common_args)
 
-        elif game_mode == Games.Traitor:
+        if game_mode == Games.Traitor:
             return traitor.Joust(**common_args)
 
-        elif game_mode == Games.Werewolf:
+        if game_mode == Games.Werewolf:
             return werewolf.Joust(**common_args)
 
-        elif game_mode == Games.Zombies:
+        if game_mode == Games.Zombies:
             return zombie.Joust(**common_args)
 
-        elif game_mode == Games.Commander:
+        if game_mode == Games.Commander:
             return commander.Joust(**common_args)
 
-        elif game_mode == Games.Swapper:
+        if game_mode == Games.Swapper:
             return swapper.Joust(**common_args)
 
-        elif game_mode == Games.FightClub:
+        if game_mode == Games.FightClub:
             return fight_club.Joust(**common_args)
 
-        elif game_mode == Games.Tournament:
+        if game_mode == Games.Tournament:
             return tournament.Joust(**common_args)
 
-        elif game_mode == Games.NonStop:
+        if game_mode == Games.NonStop:
             return joust_non_stop.Joust(**common_args)
 
-        elif game_mode == Games.Ninja:
+        if game_mode == Games.Ninja:
             return speed_bomb.Joust(**common_args)
 
-        else:
-            logger.error(f"Unknown game mode: {game_mode}")
-            return None
+        logger.error(f"Unknown game mode: {game_mode}")
+        return None
 
     def cleanup_game(self, was_random_mode: bool):
         """
@@ -542,31 +575,31 @@ class GameCoordinatorProcess(Process):
         # If was random mode, play transition audio
         if was_random_mode:
             self.current_game_mode = Games.Random
-            if self.ns.settings.get('play_instructions', False) and self.ns.settings.get('play_audio', True):
+            if self.ns.settings.get("play_instructions", False) and self.ns.settings.get(
+                "play_audio", True
+            ):
                 try:
-                    voice = self.ns.settings.get('menu_voice', 'en')
-                    Audio(f'audio/Menu/vox/{voice}/tradeoff2.wav').start_effect_and_wait()
+                    voice = self.ns.settings.get("menu_voice", "en")
+                    Audio(f"audio/Menu/vox/{voice}/tradeoff2.wav").start_effect_and_wait()
                 except Exception as e:
                     logger.warning(f"Could not play transition audio: {e}")
 
         # Reset controller state via ControllerManager
         ctrl_response = controller_manager.send_command(
-            self.controller_cmd_queue,
-            self.controller_resp_queue,
-            'reset_state'
+            self.controller_cmd_queue, self.controller_resp_queue, "reset_state"
         )
 
-        if ctrl_response['status'] != 'success':
+        if ctrl_response["status"] != "success":
             logger.warning("Failed to reset controller state")
 
         # Send game_ended event
-        self.event_queue.put({
-            'event': 'game_ended',
-            'data': {
-                'game_mode': self.current_game_mode.name
-            },
-            'timestamp': time.time()
-        })
+        self.event_queue.put(
+            {
+                "event": "game_ended",
+                "data": {"game_mode": self.current_game_mode.name},
+                "timestamp": time.time(),
+            }
+        )
 
         logger.info("Game cleanup complete")
 
@@ -588,7 +621,9 @@ class GameCoordinatorProcess(Process):
         logger.info("GameCoordinator shutdown complete")
 
 
-def send_command(command_queue, response_queue, command: str, params: dict = None, timeout: float = 1.0) -> dict:
+def send_command(
+    command_queue, response_queue, command: str, params: dict = None, timeout: float = 1.0
+) -> dict:
     """
     Helper function to send command to GameCoordinator and wait for response.
 
@@ -606,10 +641,10 @@ def send_command(command_queue, response_queue, command: str, params: dict = Non
 
     request_id = str(uuid.uuid4())
     message = {
-        'command': command,
-        'params': params or {},
-        'request_id': request_id,
-        'timestamp': time.time()
+        "command": command,
+        "params": params or {},
+        "request_id": request_id,
+        "timestamp": time.time(),
     }
 
     # Send command
@@ -620,13 +655,10 @@ def send_command(command_queue, response_queue, command: str, params: dict = Non
     while time.time() - start_time < timeout:
         try:
             response = response_queue.get(timeout=0.1)
-            if response.get('request_id') == request_id:
+            if response.get("request_id") == request_id:
                 return response
         except:
             continue
 
     # Timeout
-    return {
-        'status': 'error',
-        'error': 'Request timeout'
-    }
+    return {"status": "error", "error": "Request timeout"}

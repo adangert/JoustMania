@@ -14,11 +14,19 @@ if __name__ == "__main__":
     env = os.environ.copy()
     env["PAUSE_BEFORE_TEARDOWN"] = "1"
 
-    sys.exit(subprocess.call([
-        "uv", "run",
-        "--package", "joustmania-integration-tests",
-        "pytest",
-        "tests/integration/test_mock_environment.py",
-        "-v",
-        "-s"
-    ], cwd=project_root, env=env))
+    sys.exit(
+        subprocess.call(
+            [
+                "uv",
+                "run",
+                "--package",
+                "joustmania-integration-tests",
+                "pytest",
+                "tests/integration/test_mock_environment.py",
+                "-v",
+                "-s",
+            ],
+            cwd=project_root,
+            env=env,
+        )
+    )

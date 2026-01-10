@@ -12,14 +12,13 @@ This is part of the microservices refactoring to separate concerns.
 
 import logging
 import time
-import psmove
-from multiprocessing import Process, Queue, Value, Array, Manager
-from typing import Dict, List, Optional
+from multiprocessing import Array, Process, Value
+
 import controller_process
-from controller_state import ControllerState
-import common
-from common import Status, Opts, Games
 import pair
+import psmove
+from common import Opts, Status
+from controller_state import ControllerState
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +39,22 @@ class ControllerManagerProcess(Process):
     - Shared Memory: ControllerState instances
     """
 
-    def __init__(self, command_queue, response_queue, menu_flag, restart_flag,
-                 dead_count, music_speed, show_battery, show_team_colors,
-                 red_on_kill, revive, controller_game_mode, ns,
-                 use_state_based_tracking=True):
+    def __init__(
+        self,
+        command_queue,
+        response_queue,
+        menu_flag,
+        restart_flag,
+        dead_count,
+        music_speed,
+        show_battery,
+        show_team_colors,
+        red_on_kill,
+        revive,
+        controller_game_mode,
+        ns,
+        use_state_based_tracking=True,
+    ):
         """
         Initialize ControllerManager process.
 
@@ -84,21 +95,21 @@ class ControllerManagerProcess(Process):
         self.use_state_based_tracking = use_state_based_tracking
 
         # Controller tracking
-        self.tracked_moves: Dict[str, Process] = {}
-        self.controller_states: Dict[str, ControllerState] = {}
-        self.paired_moves: List[str] = []
-        self.out_moves: Dict[str, int] = {}
+        self.tracked_moves: dict[str, Process] = {}
+        self.controller_states: dict[str, ControllerState] = {}
+        self.paired_moves: list[str] = []
+        self.out_moves: dict[str, int] = {}
 
         # Per-controller state (shared memory)
-        self.menu_opts: Dict[str, Array] = {}
-        self.game_opts: Dict[str, Array] = {}
-        self.force_color: Dict[str, Array] = {}
-        self.controller_teams: Dict[str, Value] = {}
-        self.controller_colors: Dict[str, Array] = {}
-        self.controller_sensitivity: Dict[str, Value] = {}
-        self.dead_moves: Dict[str, Value] = {}
-        self.invincible_moves: Dict[str, Value] = {}
-        self.kill_controller_proc: Dict[str, Value] = {}
+        self.menu_opts: dict[str, Array] = {}
+        self.game_opts: dict[str, Array] = {}
+        self.force_color: dict[str, Array] = {}
+        self.controller_teams: dict[str, Value] = {}
+        self.controller_colors: dict[str, Array] = {}
+        self.controller_sensitivity: dict[str, Value] = {}
+        self.dead_moves: dict[str, Value] = {}
+        self.invincible_moves: dict[str, Value] = {}
+        self.kill_controller_proc: dict[str, Value] = {}
 
         # Pairing
         self.pair = pair.Pair()
@@ -163,39 +174,36 @@ class ControllerManagerProcess(Process):
         try:
             while not self.command_queue.empty():
                 message = self.command_queue.get_nowait()
-                command = message.get('command')
-                params = message.get('params', {})
-                request_id = message.get('request_id')
+                command = message.get("command")
+                params = message.get("params", {})
+                request_id = message.get("request_id")
 
                 logger.debug(f"Processing command: {command}")
 
                 # Dispatch command
-                if command == 'get_controller_count':
+                if command == "get_controller_count":
                     response = self.handle_get_controller_count()
-                elif command == 'get_ready_controllers':
+                elif command == "get_ready_controllers":
                     response = self.handle_get_ready_controllers(params)
-                elif command == 'get_game_controllers':
+                elif command == "get_game_controllers":
                     response = self.handle_get_game_controllers()
-                elif command == 'pair_controller':
+                elif command == "pair_controller":
                     response = self.handle_pair_controller(params)
-                elif command == 'remove_controller':
+                elif command == "remove_controller":
                     response = self.handle_remove_controller(params)
-                elif command == 'stop_all':
+                elif command == "stop_all":
                     response = self.handle_stop_all()
-                elif command == 'reset_state':
+                elif command == "reset_state":
                     response = self.handle_reset_state()
-                elif command == 'shutdown':
+                elif command == "shutdown":
                     self.running = False
-                    response = {'status': 'success', 'data': {}}
+                    response = {"status": "success", "data": {}}
                 else:
-                    response = {
-                        'status': 'error',
-                        'error': f'Unknown command: {command}'
-                    }
+                    response = {"status": "error", "error": f"Unknown command: {command}"}
 
                 # Send response
-                response['request_id'] = request_id
-                response['timestamp'] = time.time()
+                response["request_id"] = request_id
+                response["timestamp"] = time.time()
                 self.response_queue.put(response)
 
         except Exception as e:
@@ -261,16 +269,16 @@ class ControllerManagerProcess(Process):
             move_serial = move.get_serial()
 
             # Create shared memory for this controller
-            menu_opts = Array('i', [0] * 8)
-            game_opts = Array('i', [0] * 10)
-            color = Array('i', [0, 0, 0])
-            team = Value('i', 0)
-            team_color_enum = Array('i', [0, 0, 0])
-            dead_move = Value('i', 0)
-            invincible_move = Value('i', 0)
-            kill_proc = Value('b', False)
-            sensitivity = Value('i', 0)
-            sensitivity.value = self.ns.settings.get('sensitivity', 2)
+            menu_opts = Array("i", [0] * 8)
+            game_opts = Array("i", [0] * 10)
+            color = Array("i", [0, 0, 0])
+            team = Value("i", 0)
+            team_color_enum = Array("i", [0, 0, 0])
+            dead_move = Value("i", 0)
+            invincible_move = Value("i", 0)
+            kill_proc = Value("b", False)
+            sensitivity = Value("i", 0)
+            sensitivity.value = self.ns.settings.get("sensitivity", 2)
 
             # Initialize menu options
             menu_opts[Opts.STATUS.value] = Status.ALIVE.value
@@ -284,30 +292,57 @@ class ControllerManagerProcess(Process):
                 proc = Process(
                     target=controller_process.state_based_track_move,
                     args=(
-                        controller_state, move_serial, move_num,
-                        self.menu, self.restart, menu_opts, game_opts,
-                        color, self.show_battery, self.dead_count,
-                        self.controller_game_mode, team, team_color_enum,
-                        sensitivity, dead_move, invincible_move,
-                        self.music_speed, self.show_team_colors,
-                        self.red_on_kill, self.revive, kill_proc
+                        controller_state,
+                        move_serial,
+                        move_num,
+                        self.menu,
+                        self.restart,
+                        menu_opts,
+                        game_opts,
+                        color,
+                        self.show_battery,
+                        self.dead_count,
+                        self.controller_game_mode,
+                        team,
+                        team_color_enum,
+                        sensitivity,
+                        dead_move,
+                        invincible_move,
+                        self.music_speed,
+                        self.show_team_colors,
+                        self.red_on_kill,
+                        self.revive,
+                        kill_proc,
                     ),
-                    name=f"Controller-{move_serial}"
+                    name=f"Controller-{move_serial}",
                 )
             else:
                 # Spawn legacy process
                 proc = Process(
                     target=controller_process.main_track_move,
                     args=(
-                        self.menu, self.restart, move_serial, move_num,
-                        menu_opts, game_opts, color, self.show_battery,
-                        self.dead_count, self.controller_game_mode, team,
-                        team_color_enum, sensitivity, dead_move,
-                        invincible_move, self.music_speed,
-                        self.show_team_colors, self.red_on_kill,
-                        self.revive, kill_proc
+                        self.menu,
+                        self.restart,
+                        move_serial,
+                        move_num,
+                        menu_opts,
+                        game_opts,
+                        color,
+                        self.show_battery,
+                        self.dead_count,
+                        self.controller_game_mode,
+                        team,
+                        team_color_enum,
+                        sensitivity,
+                        dead_move,
+                        invincible_move,
+                        self.music_speed,
+                        self.show_team_colors,
+                        self.red_on_kill,
+                        self.revive,
+                        kill_proc,
                     ),
-                    name=f"Controller-{move_serial}"
+                    name=f"Controller-{move_serial}",
                 )
 
             proc.start()
@@ -416,12 +451,7 @@ class ControllerManagerProcess(Process):
 
     def handle_get_controller_count(self) -> dict:
         """Get number of tracked controllers."""
-        return {
-            'status': 'success',
-            'data': {
-                'count': len(self.tracked_moves)
-            }
-        }
+        return {"status": "success", "data": {"count": len(self.tracked_moves)}}
 
     def handle_get_ready_controllers(self, params: dict) -> dict:
         """
@@ -430,75 +460,54 @@ class ControllerManagerProcess(Process):
         Args:
             params: {'force_all': bool}
         """
-        force_all = params.get('force_all', False)
+        force_all = params.get("force_all", False)
         ready_serials = []
 
         for move_serial, menu_opts in self.menu_opts.items():
             # Check if controller is alive
             if self.out_moves[move_serial] == Status.ALIVE.value:
                 # Check if charging (skip charging controllers)
-                is_charging = menu_opts[Opts.CHARGING.value] if hasattr(Opts, 'CHARGING') else False
+                is_charging = menu_opts[Opts.CHARGING.value] if hasattr(Opts, "CHARGING") else False
 
                 if not is_charging:
                     ready_serials.append(move_serial)
 
         return {
-            'status': 'success',
-            'data': {
-                'controllers': ready_serials,
-                'count': len(ready_serials)
-            }
+            "status": "success",
+            "data": {"controllers": ready_serials, "count": len(ready_serials)},
         }
 
     def handle_get_game_controllers(self) -> dict:
         """Get list of all tracked controllers."""
         return {
-            'status': 'success',
-            'data': {
-                'controllers': list(self.tracked_moves.keys()),
-                'count': len(self.tracked_moves)
-            }
+            "status": "success",
+            "data": {
+                "controllers": list(self.tracked_moves.keys()),
+                "count": len(self.tracked_moves),
+            },
         }
 
     def handle_pair_controller(self, params: dict) -> dict:
         """Pair a new controller (triggered by IPC)."""
         # This will be handled by periodic discovery
         # Just acknowledge the request
-        return {
-            'status': 'success',
-            'data': {
-                'message': 'Controller discovery runs automatically'
-            }
-        }
+        return {"status": "success", "data": {"message": "Controller discovery runs automatically"}}
 
     def handle_remove_controller(self, params: dict) -> dict:
         """Remove a controller."""
-        move_serial = params.get('serial')
+        move_serial = params.get("serial")
         if not move_serial:
-            return {
-                'status': 'error',
-                'error': 'Missing serial parameter'
-            }
+            return {"status": "error", "error": "Missing serial parameter"}
 
         self.remove_controller(move_serial)
-        return {
-            'status': 'success',
-            'data': {
-                'serial': move_serial
-            }
-        }
+        return {"status": "success", "data": {"serial": move_serial}}
 
     def handle_stop_all(self) -> dict:
         """Stop all controllers."""
         for move_serial in list(self.tracked_moves.keys()):
             self.remove_controller(move_serial)
 
-        return {
-            'status': 'success',
-            'data': {
-                'stopped': len(self.tracked_moves)
-            }
-        }
+        return {"status": "success", "data": {"stopped": len(self.tracked_moves)}}
 
     def handle_reset_state(self) -> dict:
         """Reset all controller game state."""
@@ -511,15 +520,12 @@ class ControllerManagerProcess(Process):
             self.dead_moves[move_serial].value = 0
             self.invincible_moves[move_serial].value = 0
 
-        return {
-            'status': 'success',
-            'data': {
-                'reset_count': len(self.tracked_moves)
-            }
-        }
+        return {"status": "success", "data": {"reset_count": len(self.tracked_moves)}}
 
 
-def send_command(command_queue, response_queue, command: str, params: dict = None, timeout: float = 1.0) -> dict:
+def send_command(
+    command_queue, response_queue, command: str, params: dict = None, timeout: float = 1.0
+) -> dict:
     """
     Helper function to send command to ControllerManager and wait for response.
 
@@ -537,10 +543,10 @@ def send_command(command_queue, response_queue, command: str, params: dict = Non
 
     request_id = str(uuid.uuid4())
     message = {
-        'command': command,
-        'params': params or {},
-        'request_id': request_id,
-        'timestamp': time.time()
+        "command": command,
+        "params": params or {},
+        "request_id": request_id,
+        "timestamp": time.time(),
     }
 
     # Send command
@@ -551,13 +557,10 @@ def send_command(command_queue, response_queue, command: str, params: dict = Non
     while time.time() - start_time < timeout:
         try:
             response = response_queue.get(timeout=0.1)
-            if response.get('request_id') == request_id:
+            if response.get("request_id") == request_id:
                 return response
         except:
             continue
 
     # Timeout
-    return {
-        'status': 'error',
-        'error': 'Request timeout'
-    }
+    return {"status": "error", "error": "Request timeout"}

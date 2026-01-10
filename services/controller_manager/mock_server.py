@@ -13,27 +13,32 @@ import logging
 import os
 import time
 from concurrent import futures
-from typing import Dict
 
+import controller_manager_mock_pb2_grpc
+import controller_manager_pb2_grpc
 import grpc
+from controller_manager_mock_pb2 import (
+    ButtonResponse,
+    ColorResponse,
+    DeathResponse,
+    ListResponse,
+    MovementResponse,
+    ResetResponse,
+)
+from controller_manager_pb2 import (
+    RGB,
+    ControllerState,
+    ControllerStateUpdate,
+    GetReadyControllersResponse,
+    Vector3,
+)
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.grpc import GrpcInstrumentorServer
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.resources import Resource, SERVICE_NAME
-from opentelemetry.instrumentation.grpc import GrpcInstrumentorServer
-
-from controller_manager_pb2 import (
-    ControllerState, RGB, Vector3,
-    GetReadyControllersResponse, ControllerStateUpdate
-)
-from controller_manager_mock_pb2 import (
-    MovementResponse, DeathResponse, ButtonResponse,
-    ColorResponse, ResetResponse, ListResponse
-)
-import controller_manager_pb2_grpc
-import controller_manager_mock_pb2_grpc
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +61,7 @@ class MockController:
         """Convert to protobuf ControllerState."""
         return ControllerState(
             serial=self.serial,
-            move_num=int(self.serial.split('_')[-1]),
+            move_num=int(self.serial.split("_")[-1]),
             battery=self.battery,
             trigger_pressed=self.trigger_pressed,
             move_pressed=self.move_pressed,
@@ -64,7 +69,7 @@ class MockController:
             team=self.team,
             color=self.color,
             accel=self.accel,
-            gyro=self.gyro
+            gyro=self.gyro,
         )
 
 
@@ -72,7 +77,7 @@ class MockControllerManagerService(controller_manager_pb2_grpc.ControllerManager
     """Mock ControllerManager implementing same interface as real one."""
 
     def __init__(self, num_controllers: int):
-        self.controllers: Dict[str, MockController] = {}
+        self.controllers: dict[str, MockController] = {}
 
         # Initialize mock controllers
         for i in range(num_controllers):
@@ -84,11 +89,7 @@ class MockControllerManagerService(controller_manager_pb2_grpc.ControllerManager
     def GetReadyControllers(self, request, context):
         """Return all mock controllers as ready."""
         controllers = [c.to_proto() for c in self.controllers.values()]
-        return GetReadyControllersResponse(
-            controllers=controllers,
-            success=True,
-            error=""
-        )
+        return GetReadyControllersResponse(controllers=controllers, success=True, error="")
 
     async def StreamControllerStates(self, request, context):
         """Stream controller states at requested frequency."""
@@ -101,10 +102,7 @@ class MockControllerManagerService(controller_manager_pb2_grpc.ControllerManager
             # Get current states
             controllers = [c.to_proto() for c in self.controllers.values()]
 
-            yield ControllerStateUpdate(
-                controllers=controllers,
-                timestamp=int(time.time() * 1000)
-            )
+            yield ControllerStateUpdate(controllers=controllers, timestamp=int(time.time() * 1000))
 
             await asyncio.sleep(interval)
 
@@ -120,18 +118,13 @@ class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControll
         controller = self.manager.controllers.get(request.serial)
 
         if not controller:
-            return MovementResponse(
-                success=False,
-                error=f"Controller {request.serial} not found"
-            )
+            return MovementResponse(success=False, error=f"Controller {request.serial} not found")
 
-        controller.accel = Vector3(
-            x=request.accel_x,
-            y=request.accel_y,
-            z=request.accel_z
+        controller.accel = Vector3(x=request.accel_x, y=request.accel_y, z=request.accel_z)
+
+        logger.info(
+            f"Simulated movement for {request.serial}: ({request.accel_x}, {request.accel_y}, {request.accel_z})"
         )
-
-        logger.info(f"Simulated movement for {request.serial}: ({request.accel_x}, {request.accel_y}, {request.accel_z})")
 
         return MovementResponse(success=True, error="")
 
@@ -140,10 +133,7 @@ class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControll
         controller = self.manager.controllers.get(request.serial)
 
         if not controller:
-            return DeathResponse(
-                success=False,
-                accel_magnitude=0.0
-            )
+            return DeathResponse(success=False, accel_magnitude=0.0)
 
         # Set death-level acceleration (>2.8 for FAST sensitivity)
         controller.accel = Vector3(x=5.0, y=3.0, z=4.0)
@@ -158,17 +148,16 @@ class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControll
         controller = self.manager.controllers.get(request.serial)
 
         if not controller:
-            return ButtonResponse(
-                success=False,
-                error=f"Controller {request.serial} not found"
-            )
+            return ButtonResponse(success=False, error=f"Controller {request.serial} not found")
 
         if request.button == 0:  # TRIGGER
             controller.trigger_pressed = request.pressed
         elif request.button == 1:  # MOVE
             controller.move_pressed = request.pressed
 
-        logger.info(f"Simulated button {request.button} {'press' if request.pressed else 'release'} for {request.serial}")
+        logger.info(
+            f"Simulated button {request.button} {'press' if request.pressed else 'release'} for {request.serial}"
+        )
 
         return ButtonResponse(success=True, error="")
 
@@ -177,10 +166,7 @@ class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControll
         controller = self.manager.controllers.get(request.serial)
 
         if not controller:
-            return ColorResponse(
-                success=False,
-                error=f"Controller {request.serial} not found"
-            )
+            return ColorResponse(success=False, error=f"Controller {request.serial} not found")
 
         controller.color = RGB(r=request.r, g=request.g, b=request.b)
 
@@ -193,10 +179,7 @@ class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControll
         controller = self.manager.controllers.get(request.serial)
 
         if not controller:
-            return ResetResponse(
-                success=False,
-                error=f"Controller {request.serial} not found"
-            )
+            return ResetResponse(success=False, error=f"Controller {request.serial} not found")
 
         # Reset to idle
         controller.accel = Vector3(x=0.0, y=0.0, z=1.0)
@@ -212,24 +195,22 @@ class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControll
         """List all mock controllers."""
         serials = list(self.manager.controllers.keys())
 
-        return ListResponse(
-            serials=serials,
-            count=len(serials)
-        )
+        return ListResponse(serials=serials, count=len(serials))
 
 
 def init_telemetry():
     """Initialize OpenTelemetry."""
-    resource = Resource(attributes={
-        SERVICE_NAME: "controller-manager-service",
-        "service.namespace": "joustmania",
-        "mock.enabled": "true"
-    })
+    resource = Resource(
+        attributes={
+            SERVICE_NAME: "controller-manager-service",
+            "service.namespace": "joustmania",
+            "mock.enabled": "true",
+        }
+    )
 
     provider = TracerProvider(resource=resource)
     otlp_exporter = OTLPSpanExporter(
-        endpoint=os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://localhost:4317'),
-        insecure=True
+        endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"), insecure=True
     )
     provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
     trace.set_tracer_provider(provider)
@@ -244,9 +225,9 @@ async def serve():
     init_telemetry()
 
     # Get configuration
-    num_controllers = int(os.getenv('MOCK_CONTROLLER_COUNT', '4'))
-    main_port = int(os.getenv('GRPC_PORT', '50052'))
-    control_port = int(os.getenv('MOCK_CONTROL_PORT', '50062'))
+    num_controllers = int(os.getenv("MOCK_CONTROLLER_COUNT", "4"))
+    main_port = int(os.getenv("GRPC_PORT", "50052"))
+    control_port = int(os.getenv("MOCK_CONTROL_PORT", "50062"))
 
     # Create services
     controller_manager = MockControllerManagerService(num_controllers)
@@ -262,16 +243,16 @@ async def serve():
     health_servicer = health.aio.HealthServicer()
     health_pb2_grpc.add_HealthServicer_to_server(health_servicer, main_server)
 
-    main_server.add_insecure_port(f'[::]:{main_port}')
+    main_server.add_insecure_port(f"[::]:{main_port}")
 
     # Control server (mock control interface)
     control_server = grpc.aio.server(futures.ThreadPoolExecutor(max_workers=10))
     controller_manager_mock_pb2_grpc.add_MockControllerServiceServicer_to_server(
         control_service, control_server
     )
-    control_server.add_insecure_port(f'[::]:{control_port}')
+    control_server.add_insecure_port(f"[::]:{control_port}")
 
-    logger.info(f"Starting Mock ControllerManager:")
+    logger.info("Starting Mock ControllerManager:")
     logger.info(f"  - Main gRPC server on port {main_port}")
     logger.info(f"  - Control gRPC server on port {control_port}")
     logger.info(f"  - Mock controllers: {num_controllers}")
@@ -280,7 +261,9 @@ async def serve():
     await control_server.start()
 
     # Mark the ControllerManager service as SERVING
-    await health_servicer.set("controller_manager.ControllerManagerService", health_pb2.HealthCheckResponse.SERVING)
+    await health_servicer.set(
+        "controller_manager.ControllerManagerService", health_pb2.HealthCheckResponse.SERVING
+    )
     await health_servicer.set("", health_pb2.HealthCheckResponse.SERVING)  # Overall health
 
     logger.info("Mock ControllerManager servers started")
@@ -294,5 +277,5 @@ async def main():
     await serve()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())

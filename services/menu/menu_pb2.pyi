@@ -1,9 +1,10 @@
-from google.protobuf.internal import containers as _containers
-from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
+from collections.abc import Mapping as _Mapping
+from typing import ClassVar as _ClassVar
+
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from collections.abc import Mapping as _Mapping
-from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
+from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -12,6 +13,7 @@ class MenuState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     STOPPED: _ClassVar[MenuState]
     RUNNING: _ClassVar[MenuState]
     GAME_STARTING: _ClassVar[MenuState]
+
 STOPPED: MenuState
 RUNNING: MenuState
 GAME_STARTING: MenuState
@@ -26,7 +28,7 @@ class StartMenuResponse(_message.Message):
     ERROR_FIELD_NUMBER: _ClassVar[int]
     success: bool
     error: str
-    def __init__(self, success: bool = ..., error: _Optional[str] = ...) -> None: ...
+    def __init__(self, success: bool = ..., error: str | None = ...) -> None: ...
 
 class StopMenuRequest(_message.Message):
     __slots__ = ()
@@ -38,7 +40,7 @@ class StopMenuResponse(_message.Message):
     ERROR_FIELD_NUMBER: _ClassVar[int]
     success: bool
     error: str
-    def __init__(self, success: bool = ..., error: _Optional[str] = ...) -> None: ...
+    def __init__(self, success: bool = ..., error: str | None = ...) -> None: ...
 
 class GetMenuStatusRequest(_message.Message):
     __slots__ = ()
@@ -56,7 +58,14 @@ class GetMenuStatusResponse(_message.Message):
     ready_controller_count: int
     success: bool
     error: str
-    def __init__(self, state: _Optional[_Union[MenuState, str]] = ..., current_selection: _Optional[str] = ..., ready_controller_count: _Optional[int] = ..., success: bool = ..., error: _Optional[str] = ...) -> None: ...
+    def __init__(
+        self,
+        state: MenuState | str | None = ...,
+        current_selection: str | None = ...,
+        ready_controller_count: int | None = ...,
+        success: bool = ...,
+        error: str | None = ...,
+    ) -> None: ...
 
 class StreamMenuEventsRequest(_message.Message):
     __slots__ = ()
@@ -70,14 +79,20 @@ class MenuEvent(_message.Message):
         VALUE_FIELD_NUMBER: _ClassVar[int]
         key: str
         value: str
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+        def __init__(self, key: str | None = ..., value: str | None = ...) -> None: ...
+
     EVENT_TYPE_FIELD_NUMBER: _ClassVar[int]
     DATA_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     event_type: str
     data: _containers.ScalarMap[str, str]
     timestamp: int
-    def __init__(self, event_type: _Optional[str] = ..., data: _Optional[_Mapping[str, str]] = ..., timestamp: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self,
+        event_type: str | None = ...,
+        data: _Mapping[str, str] | None = ...,
+        timestamp: int | None = ...,
+    ) -> None: ...
 
 class ProcessInputRequest(_message.Message):
     __slots__ = ("input_type", "data")
@@ -87,12 +102,15 @@ class ProcessInputRequest(_message.Message):
         VALUE_FIELD_NUMBER: _ClassVar[int]
         key: str
         value: str
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+        def __init__(self, key: str | None = ..., value: str | None = ...) -> None: ...
+
     INPUT_TYPE_FIELD_NUMBER: _ClassVar[int]
     DATA_FIELD_NUMBER: _ClassVar[int]
     input_type: str
     data: _containers.ScalarMap[str, str]
-    def __init__(self, input_type: _Optional[str] = ..., data: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    def __init__(
+        self, input_type: str | None = ..., data: _Mapping[str, str] | None = ...
+    ) -> None: ...
 
 class ProcessInputResponse(_message.Message):
     __slots__ = ("success", "error")
@@ -100,4 +118,4 @@ class ProcessInputResponse(_message.Message):
     ERROR_FIELD_NUMBER: _ClassVar[int]
     success: bool
     error: str
-    def __init__(self, success: bool = ..., error: _Optional[str] = ...) -> None: ...
+    def __init__(self, success: bool = ..., error: str | None = ...) -> None: ...

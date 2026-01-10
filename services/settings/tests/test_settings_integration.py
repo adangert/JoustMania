@@ -6,30 +6,31 @@ Tests the full gRPC server with real network communication.
 
 import os
 import tempfile
-import yaml
-import pytest
-import grpc
-import time
 import threading
+import time
 from concurrent import futures
 
-from services.settings.server import SettingsServicer, serve
+import grpc
+import pytest
+import yaml
+
 from services.settings import settings_pb2, settings_pb2_grpc
+from services.settings.server import SettingsServicer
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def temp_settings_file():
     """Create a temporary settings file for integration tests."""
-    fd, path = tempfile.mkstemp(suffix='.yaml')
+    fd, path = tempfile.mkstemp(suffix=".yaml")
     os.close(fd)
     yield path
     if os.path.exists(path):
         os.remove(path)
-    if os.path.exists(path + '.tmp'):
-        os.remove(path + '.tmp')
+    if os.path.exists(path + ".tmp"):
+        os.remove(path + ".tmp")
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def grpc_server(temp_settings_file):
     """Start a gRPC server for integration tests."""
     port = 50099  # Use different port to avoid conflicts
@@ -42,7 +43,7 @@ def grpc_server(temp_settings_file):
     settings_pb2_grpc.add_SettingsServiceServicer_to_server(servicer, server)
 
     # Bind to port
-    server.add_insecure_port(f'[::]:{port}')
+    server.add_insecure_port(f"[::]:{port}")
 
     # Start server in background
     server.start()
@@ -60,7 +61,7 @@ def grpc_server(temp_settings_file):
 def grpc_channel(grpc_server):
     """Create a gRPC channel to the test server."""
     port, _ = grpc_server
-    channel = grpc.insecure_channel(f'localhost:{port}')
+    channel = grpc.insecure_channel(f"localhost:{port}")
 
     # Wait for channel to be ready
     grpc.channel_ready_future(channel).result(timeout=5)
@@ -86,48 +87,46 @@ class TestSettingsIntegration:
 
         assert response.success is True
         assert len(response.settings) > 0
-        assert 'sensitivity' in response.settings
-        assert 'current_game' in response.settings
+        assert "sensitivity" in response.settings
+        assert "current_game" in response.settings
 
     def test_get_setting(self, grpc_stub):
         """Test GetSetting RPC over network."""
-        request = settings_pb2.GetSettingRequest(key='sensitivity')
+        request = settings_pb2.GetSettingRequest(key="sensitivity")
         response = grpc_stub.GetSetting(request, timeout=5.0)
 
         assert response.success is True
-        assert response.key == 'sensitivity'
+        assert response.key == "sensitivity"
         assert response.value != ""
 
     def test_update_setting(self, grpc_stub):
         """Test UpdateSetting RPC over network."""
         # Update setting
         update_request = settings_pb2.UpdateSettingRequest(
-            key='sensitivity',
-            value='4',
-            source='integration_test'
+            key="sensitivity", value="4", source="integration_test"
         )
         update_response = grpc_stub.UpdateSetting(update_request, timeout=5.0)
 
         assert update_response.success is True
-        assert update_response.new_value == '4'
+        assert update_response.new_value == "4"
 
         # Verify update
-        get_request = settings_pb2.GetSettingRequest(key='sensitivity')
+        get_request = settings_pb2.GetSettingRequest(key="sensitivity")
         get_response = grpc_stub.GetSetting(get_request, timeout=5.0)
 
-        assert get_response.value == '4'
+        assert get_response.value == "4"
 
     def test_update_setting_validation(self, grpc_stub):
         """Test UpdateSetting validation over network."""
         request = settings_pb2.UpdateSettingRequest(
-            key='sensitivity',
-            value='999',  # Invalid
-            source='integration_test'
+            key="sensitivity",
+            value="999",  # Invalid
+            source="integration_test",
         )
         response = grpc_stub.UpdateSetting(request, timeout=5.0)
 
         assert response.success is False
-        assert 'maximum' in response.error.lower()
+        assert "maximum" in response.error.lower()
 
     def test_subscribe_to_changes(self, grpc_stub, grpc_server):
         """Test SubscribeToChanges streaming RPC."""
@@ -143,7 +142,7 @@ class TestSettingsIntegration:
                     events_received.append(event)
                     if len(events_received) >= 1:
                         break
-            except grpc.RpcError as e:
+            except grpc.RpcError:
                 # Timeout or cancellation is expected
                 pass
 
@@ -155,9 +154,7 @@ class TestSettingsIntegration:
 
         # Trigger a change
         update_request = settings_pb2.UpdateSettingRequest(
-            key='sensitivity',
-            value='2',
-            source='integration_test'
+            key="sensitivity", value="2", source="integration_test"
         )
         grpc_stub.UpdateSetting(update_request, timeout=5.0)
 
@@ -167,16 +164,15 @@ class TestSettingsIntegration:
         # Should have received event
         assert len(events_received) > 0
         event = events_received[0]
-        assert event.key == 'sensitivity'
-        assert event.source == 'integration_test'
+        assert event.key == "sensitivity"
+        assert event.source == "integration_test"
 
     def test_concurrent_updates(self, grpc_stub):
         """Test concurrent updates from multiple clients."""
+
         def update_setting(value):
             request = settings_pb2.UpdateSettingRequest(
-                key='random_team_size',
-                value=str(value),
-                source='concurrent_test'
+                key="random_team_size", value=str(value), source="concurrent_test"
             )
             response = grpc_stub.UpdateSetting(request, timeout=5.0)
             return response.success
@@ -193,7 +189,7 @@ class TestSettingsIntegration:
             thread.join(timeout=5.0)
 
         # Final value should be valid
-        request = settings_pb2.GetSettingRequest(key='random_team_size')
+        request = settings_pb2.GetSettingRequest(key="random_team_size")
         response = grpc_stub.GetSetting(request, timeout=5.0)
 
         assert response.success is True
@@ -206,26 +202,22 @@ class TestSettingsIntegration:
 
         # Update setting
         request = settings_pb2.UpdateSettingRequest(
-            key='current_game',
-            value='Werewolf',
-            source='persistence_test'
+            key="current_game", value="Werewolf", source="persistence_test"
         )
         response = grpc_stub.UpdateSetting(request, timeout=5.0)
         assert response.success is True
 
         # Read from file directly
-        with open(temp_settings_file, 'r') as f:
+        with open(temp_settings_file) as f:
             saved_settings = yaml.safe_load(f)
 
-        assert saved_settings['current_game'] == 'Werewolf'
+        assert saved_settings["current_game"] == "Werewolf"
 
     def test_error_handling(self, grpc_stub):
         """Test error handling in RPC calls."""
         # Unknown setting
         request = settings_pb2.UpdateSettingRequest(
-            key='nonexistent',
-            value='value',
-            source='error_test'
+            key="nonexistent", value="value", source="error_test"
         )
         response = grpc_stub.UpdateSetting(request, timeout=5.0)
 
@@ -256,7 +248,7 @@ class TestSettingsIntegration:
             grpc.ChannelConnectivity.READY,
             grpc.ChannelConnectivity.IDLE,
             grpc.ChannelConnectivity.READY.value[0],  # Enum value
-            grpc.ChannelConnectivity.IDLE.value[0]  # Enum value
+            grpc.ChannelConnectivity.IDLE.value[0],  # Enum value
         ]
 
 
@@ -268,7 +260,7 @@ class TestSettingsLoadTest:
         success_count = 0
 
         for i in range(100):
-            request = settings_pb2.GetSettingRequest(key='sensitivity')
+            request = settings_pb2.GetSettingRequest(key="sensitivity")
             try:
                 response = grpc_stub.GetSetting(request, timeout=5.0)
                 if response.success:
@@ -284,11 +276,9 @@ class TestSettingsLoadTest:
         success_count = 0
 
         for i in range(20):
-            value = (i % 5)  # Cycle through valid values 0-4
+            value = i % 5  # Cycle through valid values 0-4
             request = settings_pb2.UpdateSettingRequest(
-                key='sensitivity',
-                value=str(value),
-                source='load_test'
+                key="sensitivity", value=str(value), source="load_test"
             )
             try:
                 response = grpc_stub.UpdateSetting(request, timeout=5.0)

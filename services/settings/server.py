@@ -20,8 +20,48 @@ from typing import Dict, Any, Tuple
 from concurrent import futures
 import grpc
 
+# Import protobuf directly (not through __init__.py to avoid psmove dependency)
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 from services.settings import settings_pb2, settings_pb2_grpc
-from common import Games, Sensitivity
+
+# We need Games enum for validation, but don't want psmove dependency
+# So we'll define a minimal version here for server-only use
+from enum import Enum
+
+class Games(Enum):
+    """Minimal Games enum for validation (server doesn't need psmove)."""
+    JoustFFA = (0, 'Joust Free-for-All', 2)
+    JoustTeams = (1, 'Joust Teams', 3)
+    JoustRandomTeams = (2, 'Joust Random Teams', 3)
+    Traitor = (3, 'Traitors', 4)
+    Werewolf = (4, 'Werewolf', 3)
+    Zombies = (5, 'Zombies', 4)
+    Commander = (6, 'Commander', 4)
+    Swapper = (7, 'Swapper', 3)
+    FightClub = (8, 'Fight Club', 2)
+    Tournament = (9, 'Tournament', 3)
+    NonStop = (10, 'Non Stop Joust', 2)
+    Ninja = (11, 'Ninja Bomb', 2)
+    Random = (12, 'Random', 2)
+
+    def __new__(cls, value, pretty_name, min_players):
+        obj = object.__new__(cls)
+        obj._value_ = value
+        obj.pretty_name = pretty_name
+        obj.min_players = min_players
+        return obj
+
+class Sensitivity(Enum):
+    """Sensitivity levels."""
+    SLOWEST = 0
+    SLOW = 1
+    MID = 2
+    FAST = 3
+    FASTEST = 4
+
 from sys import platform
 
 logger = logging.getLogger(__name__)

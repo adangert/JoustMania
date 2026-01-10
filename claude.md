@@ -334,20 +334,24 @@ for message in pubsub.listen():
 
 ### Running the System
 
+**IMPORTANT: Always use `uv run` for running Python commands!**
+
 ```bash
-# Activate uv environment
-cd /home/simon/JoustMania
-source .venv/bin/activate  # or use `uv run`
-
 # Run main application
-python3 piparty.py
-
-# Or with uv
+cd /home/simon/JoustMania
 uv run python piparty.py
+
+# Run Settings gRPC server
+uv run python services/settings/server.py
+
+# Run tests
+uv run pytest services/settings/tests/ -v
 
 # Access web UI
 # http://localhost:5000
 ```
+
+**Never use `.venv/bin/python` directly - always use `uv run`!**
 
 ### Testing Changes
 

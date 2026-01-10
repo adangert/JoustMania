@@ -24,57 +24,57 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x18\x63ontroller_manager.proto\x12\x1djoustmania.controller_manager\"\xb0\x02\n\x0f\x43ontrollerState\x12\x0e\n\x06serial\x18\x01 \x01(\t\x12\x10\n\x08move_num\x18\x02 \x01(\x05\x12\x0f\n\x07\x62\x61ttery\x18\x03 \x01(\x05\x12\x17\n\x0ftrigger_pressed\x18\x04 \x01(\x08\x12\x14\n\x0cmove_pressed\x18\x05 \x01(\x08\x12\r\n\x05ready\x18\x06 \x01(\x08\x12\x0c\n\x04team\x18\x07 \x01(\x05\x12\x31\n\x05\x63olor\x18\x08 \x01(\x0b\x32\".joustmania.controller_manager.RGB\x12\x35\n\x05\x61\x63\x63\x65l\x18\t \x01(\x0b\x32&.joustmania.controller_manager.Vector3\x12\x34\n\x04gyro\x18\n \x01(\x0b\x32&.joustmania.controller_manager.Vector3\"&\n\x03RGB\x12\t\n\x01r\x18\x01 \x01(\x05\x12\t\n\x01g\x18\x02 \x01(\x05\x12\t\n\x01\x62\x18\x03 \x01(\x05\"*\n\x07Vector3\x12\t\n\x01x\x18\x01 \x01(\x02\x12\t\n\x01y\x18\x02 \x01(\x02\x12\t\n\x01z\x18\x03 \x01(\x02\"\x1b\n\x19GetControllerCountRequest\"K\n\x1aGetControllerCountResponse\x12\r\n\x05\x63ount\x18\x01 \x01(\x05\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\r\n\x05\x65rror\x18\x03 \x01(\t\"\x1c\n\x1aGetReadyControllersRequest\"\x82\x01\n\x1bGetReadyControllersResponse\x12\x43\n\x0b\x63ontrollers\x18\x01 \x03(\x0b\x32..joustmania.controller_manager.ControllerState\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\r\n\x05\x65rror\x18\x03 \x01(\t\"\x17\n\x15GetControllersRequest\"}\n\x16GetControllersResponse\x12\x43\n\x0b\x63ontrollers\x18\x01 \x03(\x0b\x32..joustmania.controller_manager.ControllerState\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\r\n\x05\x65rror\x18\x03 \x01(\t\",\n\rStreamRequest\x12\x1b\n\x13update_frequency_hz\x18\x01 \x01(\x05\"o\n\x15\x43ontrollerStateUpdate\x12\x43\n\x0b\x63ontrollers\x18\x01 \x03(\x0b\x32..joustmania.controller_manager.ControllerState\x12\x11\n\ttimestamp\x18\x02 \x01(\x03\",\n\x15PairControllerRequest\x12\x13\n\x0b\x63olor_index\x18\x01 \x01(\x05\"H\n\x16PairControllerResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\x12\x0e\n\x06serial\x18\x03 \x01(\t\")\n\x17RemoveControllerRequest\x12\x0e\n\x06serial\x18\x01 \x01(\t\":\n\x18RemoveControllerResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\"s\n\x19SetControllerColorRequest\x12\x0e\n\x06serial\x18\x01 \x01(\t\x12\x31\n\x05\x63olor\x18\x02 \x01(\x0b\x32\".joustmania.controller_manager.RGB\x12\x13\n\x0b\x64uration_ms\x18\x03 \x01(\x05\"<\n\x1aSetControllerColorResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\"W\n\x1dSetControllerVibrationRequest\x12\x0e\n\x06serial\x18\x01 \x01(\t\x12\x11\n\tintensity\x18\x02 \x01(\x05\x12\x13\n\x0b\x64uration_ms\x18\x03 \x01(\x05\"@\n\x1eSetControllerVibrationResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\"\xc5\x01\n\x1bPlayControllerEffectRequest\x12\x0e\n\x06serial\x18\x01 \x01(\t\x12?\n\x06\x65\x66\x66\x65\x63t\x18\x02 \x01(\x0e\x32/.joustmania.controller_manager.ControllerEffect\x12\x31\n\x05\x63olor\x18\x03 \x01(\x0b\x32\".joustmania.controller_manager.RGB\x12\x13\n\x0b\x64uration_ms\x18\x04 \x01(\x05\x12\r\n\x05speed\x18\x05 \x01(\x05\">\n\x1cPlayControllerEffectResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t*\x84\x01\n\x10\x43ontrollerEffect\x12\x0f\n\x0b\x45\x46\x46\x45\x43T_NONE\x10\x00\x12\x10\n\x0c\x45\x46\x46\x45\x43T_FLASH\x10\x01\x12\x10\n\x0c\x45\x46\x46\x45\x43T_PULSE\x10\x02\x12\x12\n\x0e\x45\x46\x46\x45\x43T_RAINBOW\x10\x03\x12\x13\n\x0f\x45\x46\x46\x45\x43T_FADE_OUT\x10\x04\x12\x12\n\x0e\x45\x46\x46\x45\x43T_FADE_IN\x10\x05\x32\xef\t\n\x18\x43ontrollerManagerService\x12\x89\x01\n\x12GetControllerCount\x12\x38.joustmania.controller_manager.GetControllerCountRequest\x1a\x39.joustmania.controller_manager.GetControllerCountResponse\x12\x8c\x01\n\x13GetReadyControllers\x12\x39.joustmania.controller_manager.GetReadyControllersRequest\x1a:.joustmania.controller_manager.GetReadyControllersResponse\x12}\n\x0eGetControllers\x12\x34.joustmania.controller_manager.GetControllersRequest\x1a\x35.joustmania.controller_manager.GetControllersResponse\x12~\n\x16StreamControllerStates\x12,.joustmania.controller_manager.StreamRequest\x1a\x34.joustmania.controller_manager.ControllerStateUpdate0\x01\x12}\n\x0ePairController\x12\x34.joustmania.controller_manager.PairControllerRequest\x1a\x35.joustmania.controller_manager.PairControllerResponse\x12\x83\x01\n\x10RemoveController\x12\x36.joustmania.controller_manager.RemoveControllerRequest\x1a\x37.joustmania.controller_manager.RemoveControllerResponse\x12\x89\x01\n\x12SetControllerColor\x12\x38.joustmania.controller_manager.SetControllerColorRequest\x1a\x39.joustmania.controller_manager.SetControllerColorResponse\x12\x95\x01\n\x16SetControllerVibration\x12<.joustmania.controller_manager.SetControllerVibrationRequest\x1a=.joustmania.controller_manager.SetControllerVibrationResponse\x12\x8f\x01\n\x14PlayControllerEffect\x12:.joustmania.controller_manager.PlayControllerEffectRequest\x1a;.joustmania.controller_manager.PlayControllerEffectResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x18\x63ontroller_manager.proto\x12\x1djoustmania.controller_manager\"\xa5\x03\n\x0f\x43ontrollerState\x12\x0e\n\x06serial\x18\x01 \x01(\t\x12\x10\n\x08move_num\x18\x02 \x01(\x05\x12\x0f\n\x07\x62\x61ttery\x18\x03 \x01(\x05\x12\x17\n\x0ftrigger_pressed\x18\x04 \x01(\x08\x12\x14\n\x0cmove_pressed\x18\x05 \x01(\x08\x12\r\n\x05ready\x18\x06 \x01(\x08\x12\x0c\n\x04team\x18\x07 \x01(\x05\x12\x31\n\x05\x63olor\x18\x08 \x01(\x0b\x32\".joustmania.controller_manager.RGB\x12\x35\n\x05\x61\x63\x63\x65l\x18\t \x01(\x0b\x32&.joustmania.controller_manager.Vector3\x12\x34\n\x04gyro\x18\n \x01(\x0b\x32&.joustmania.controller_manager.Vector3\x12\x15\n\rcross_pressed\x18\x0b \x01(\x08\x12\x16\n\x0e\x63ircle_pressed\x18\x0c \x01(\x08\x12\x16\n\x0esquare_pressed\x18\r \x01(\x08\x12\x18\n\x10triangle_pressed\x18\x0e \x01(\x08\x12\x12\n\nps_pressed\x18\x0f \x01(\x08\"&\n\x03RGB\x12\t\n\x01r\x18\x01 \x01(\x05\x12\t\n\x01g\x18\x02 \x01(\x05\x12\t\n\x01\x62\x18\x03 \x01(\x05\"*\n\x07Vector3\x12\t\n\x01x\x18\x01 \x01(\x02\x12\t\n\x01y\x18\x02 \x01(\x02\x12\t\n\x01z\x18\x03 \x01(\x02\"\x1b\n\x19GetControllerCountRequest\"K\n\x1aGetControllerCountResponse\x12\r\n\x05\x63ount\x18\x01 \x01(\x05\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\r\n\x05\x65rror\x18\x03 \x01(\t\"\x1c\n\x1aGetReadyControllersRequest\"\x82\x01\n\x1bGetReadyControllersResponse\x12\x43\n\x0b\x63ontrollers\x18\x01 \x03(\x0b\x32..joustmania.controller_manager.ControllerState\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\r\n\x05\x65rror\x18\x03 \x01(\t\"\x17\n\x15GetControllersRequest\"}\n\x16GetControllersResponse\x12\x43\n\x0b\x63ontrollers\x18\x01 \x03(\x0b\x32..joustmania.controller_manager.ControllerState\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\r\n\x05\x65rror\x18\x03 \x01(\t\",\n\rStreamRequest\x12\x1b\n\x13update_frequency_hz\x18\x01 \x01(\x05\"o\n\x15\x43ontrollerStateUpdate\x12\x43\n\x0b\x63ontrollers\x18\x01 \x03(\x0b\x32..joustmania.controller_manager.ControllerState\x12\x11\n\ttimestamp\x18\x02 \x01(\x03\",\n\x15PairControllerRequest\x12\x13\n\x0b\x63olor_index\x18\x01 \x01(\x05\"H\n\x16PairControllerResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\x12\x0e\n\x06serial\x18\x03 \x01(\t\")\n\x17RemoveControllerRequest\x12\x0e\n\x06serial\x18\x01 \x01(\t\":\n\x18RemoveControllerResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\"s\n\x19SetControllerColorRequest\x12\x0e\n\x06serial\x18\x01 \x01(\t\x12\x31\n\x05\x63olor\x18\x02 \x01(\x0b\x32\".joustmania.controller_manager.RGB\x12\x13\n\x0b\x64uration_ms\x18\x03 \x01(\x05\"<\n\x1aSetControllerColorResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\"W\n\x1dSetControllerVibrationRequest\x12\x0e\n\x06serial\x18\x01 \x01(\t\x12\x11\n\tintensity\x18\x02 \x01(\x05\x12\x13\n\x0b\x64uration_ms\x18\x03 \x01(\x05\"@\n\x1eSetControllerVibrationResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\"\xc5\x01\n\x1bPlayControllerEffectRequest\x12\x0e\n\x06serial\x18\x01 \x01(\t\x12?\n\x06\x65\x66\x66\x65\x63t\x18\x02 \x01(\x0e\x32/.joustmania.controller_manager.ControllerEffect\x12\x31\n\x05\x63olor\x18\x03 \x01(\x0b\x32\".joustmania.controller_manager.RGB\x12\x13\n\x0b\x64uration_ms\x18\x04 \x01(\x05\x12\r\n\x05speed\x18\x05 \x01(\x05\">\n\x1cPlayControllerEffectResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t*\x84\x01\n\x10\x43ontrollerEffect\x12\x0f\n\x0b\x45\x46\x46\x45\x43T_NONE\x10\x00\x12\x10\n\x0c\x45\x46\x46\x45\x43T_FLASH\x10\x01\x12\x10\n\x0c\x45\x46\x46\x45\x43T_PULSE\x10\x02\x12\x12\n\x0e\x45\x46\x46\x45\x43T_RAINBOW\x10\x03\x12\x13\n\x0f\x45\x46\x46\x45\x43T_FADE_OUT\x10\x04\x12\x12\n\x0e\x45\x46\x46\x45\x43T_FADE_IN\x10\x05\x32\xef\t\n\x18\x43ontrollerManagerService\x12\x89\x01\n\x12GetControllerCount\x12\x38.joustmania.controller_manager.GetControllerCountRequest\x1a\x39.joustmania.controller_manager.GetControllerCountResponse\x12\x8c\x01\n\x13GetReadyControllers\x12\x39.joustmania.controller_manager.GetReadyControllersRequest\x1a:.joustmania.controller_manager.GetReadyControllersResponse\x12}\n\x0eGetControllers\x12\x34.joustmania.controller_manager.GetControllersRequest\x1a\x35.joustmania.controller_manager.GetControllersResponse\x12~\n\x16StreamControllerStates\x12,.joustmania.controller_manager.StreamRequest\x1a\x34.joustmania.controller_manager.ControllerStateUpdate0\x01\x12}\n\x0ePairController\x12\x34.joustmania.controller_manager.PairControllerRequest\x1a\x35.joustmania.controller_manager.PairControllerResponse\x12\x83\x01\n\x10RemoveController\x12\x36.joustmania.controller_manager.RemoveControllerRequest\x1a\x37.joustmania.controller_manager.RemoveControllerResponse\x12\x89\x01\n\x12SetControllerColor\x12\x38.joustmania.controller_manager.SetControllerColorRequest\x1a\x39.joustmania.controller_manager.SetControllerColorResponse\x12\x95\x01\n\x16SetControllerVibration\x12<.joustmania.controller_manager.SetControllerVibrationRequest\x1a=.joustmania.controller_manager.SetControllerVibrationResponse\x12\x8f\x01\n\x14PlayControllerEffect\x12:.joustmania.controller_manager.PlayControllerEffectRequest\x1a;.joustmania.controller_manager.PlayControllerEffectResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'controller_manager_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_CONTROLLEREFFECT']._serialized_start=1852
-  _globals['_CONTROLLEREFFECT']._serialized_end=1984
+  _globals['_CONTROLLEREFFECT']._serialized_start=1969
+  _globals['_CONTROLLEREFFECT']._serialized_end=2101
   _globals['_CONTROLLERSTATE']._serialized_start=60
-  _globals['_CONTROLLERSTATE']._serialized_end=364
-  _globals['_RGB']._serialized_start=366
-  _globals['_RGB']._serialized_end=404
-  _globals['_VECTOR3']._serialized_start=406
-  _globals['_VECTOR3']._serialized_end=448
-  _globals['_GETCONTROLLERCOUNTREQUEST']._serialized_start=450
-  _globals['_GETCONTROLLERCOUNTREQUEST']._serialized_end=477
-  _globals['_GETCONTROLLERCOUNTRESPONSE']._serialized_start=479
-  _globals['_GETCONTROLLERCOUNTRESPONSE']._serialized_end=554
-  _globals['_GETREADYCONTROLLERSREQUEST']._serialized_start=556
-  _globals['_GETREADYCONTROLLERSREQUEST']._serialized_end=584
-  _globals['_GETREADYCONTROLLERSRESPONSE']._serialized_start=587
-  _globals['_GETREADYCONTROLLERSRESPONSE']._serialized_end=717
-  _globals['_GETCONTROLLERSREQUEST']._serialized_start=719
-  _globals['_GETCONTROLLERSREQUEST']._serialized_end=742
-  _globals['_GETCONTROLLERSRESPONSE']._serialized_start=744
-  _globals['_GETCONTROLLERSRESPONSE']._serialized_end=869
-  _globals['_STREAMREQUEST']._serialized_start=871
-  _globals['_STREAMREQUEST']._serialized_end=915
-  _globals['_CONTROLLERSTATEUPDATE']._serialized_start=917
-  _globals['_CONTROLLERSTATEUPDATE']._serialized_end=1028
-  _globals['_PAIRCONTROLLERREQUEST']._serialized_start=1030
-  _globals['_PAIRCONTROLLERREQUEST']._serialized_end=1074
-  _globals['_PAIRCONTROLLERRESPONSE']._serialized_start=1076
-  _globals['_PAIRCONTROLLERRESPONSE']._serialized_end=1148
-  _globals['_REMOVECONTROLLERREQUEST']._serialized_start=1150
-  _globals['_REMOVECONTROLLERREQUEST']._serialized_end=1191
-  _globals['_REMOVECONTROLLERRESPONSE']._serialized_start=1193
-  _globals['_REMOVECONTROLLERRESPONSE']._serialized_end=1251
-  _globals['_SETCONTROLLERCOLORREQUEST']._serialized_start=1253
-  _globals['_SETCONTROLLERCOLORREQUEST']._serialized_end=1368
-  _globals['_SETCONTROLLERCOLORRESPONSE']._serialized_start=1370
-  _globals['_SETCONTROLLERCOLORRESPONSE']._serialized_end=1430
-  _globals['_SETCONTROLLERVIBRATIONREQUEST']._serialized_start=1432
-  _globals['_SETCONTROLLERVIBRATIONREQUEST']._serialized_end=1519
-  _globals['_SETCONTROLLERVIBRATIONRESPONSE']._serialized_start=1521
-  _globals['_SETCONTROLLERVIBRATIONRESPONSE']._serialized_end=1585
-  _globals['_PLAYCONTROLLEREFFECTREQUEST']._serialized_start=1588
-  _globals['_PLAYCONTROLLEREFFECTREQUEST']._serialized_end=1785
-  _globals['_PLAYCONTROLLEREFFECTRESPONSE']._serialized_start=1787
-  _globals['_PLAYCONTROLLEREFFECTRESPONSE']._serialized_end=1849
-  _globals['_CONTROLLERMANAGERSERVICE']._serialized_start=1987
-  _globals['_CONTROLLERMANAGERSERVICE']._serialized_end=3250
+  _globals['_CONTROLLERSTATE']._serialized_end=481
+  _globals['_RGB']._serialized_start=483
+  _globals['_RGB']._serialized_end=521
+  _globals['_VECTOR3']._serialized_start=523
+  _globals['_VECTOR3']._serialized_end=565
+  _globals['_GETCONTROLLERCOUNTREQUEST']._serialized_start=567
+  _globals['_GETCONTROLLERCOUNTREQUEST']._serialized_end=594
+  _globals['_GETCONTROLLERCOUNTRESPONSE']._serialized_start=596
+  _globals['_GETCONTROLLERCOUNTRESPONSE']._serialized_end=671
+  _globals['_GETREADYCONTROLLERSREQUEST']._serialized_start=673
+  _globals['_GETREADYCONTROLLERSREQUEST']._serialized_end=701
+  _globals['_GETREADYCONTROLLERSRESPONSE']._serialized_start=704
+  _globals['_GETREADYCONTROLLERSRESPONSE']._serialized_end=834
+  _globals['_GETCONTROLLERSREQUEST']._serialized_start=836
+  _globals['_GETCONTROLLERSREQUEST']._serialized_end=859
+  _globals['_GETCONTROLLERSRESPONSE']._serialized_start=861
+  _globals['_GETCONTROLLERSRESPONSE']._serialized_end=986
+  _globals['_STREAMREQUEST']._serialized_start=988
+  _globals['_STREAMREQUEST']._serialized_end=1032
+  _globals['_CONTROLLERSTATEUPDATE']._serialized_start=1034
+  _globals['_CONTROLLERSTATEUPDATE']._serialized_end=1145
+  _globals['_PAIRCONTROLLERREQUEST']._serialized_start=1147
+  _globals['_PAIRCONTROLLERREQUEST']._serialized_end=1191
+  _globals['_PAIRCONTROLLERRESPONSE']._serialized_start=1193
+  _globals['_PAIRCONTROLLERRESPONSE']._serialized_end=1265
+  _globals['_REMOVECONTROLLERREQUEST']._serialized_start=1267
+  _globals['_REMOVECONTROLLERREQUEST']._serialized_end=1308
+  _globals['_REMOVECONTROLLERRESPONSE']._serialized_start=1310
+  _globals['_REMOVECONTROLLERRESPONSE']._serialized_end=1368
+  _globals['_SETCONTROLLERCOLORREQUEST']._serialized_start=1370
+  _globals['_SETCONTROLLERCOLORREQUEST']._serialized_end=1485
+  _globals['_SETCONTROLLERCOLORRESPONSE']._serialized_start=1487
+  _globals['_SETCONTROLLERCOLORRESPONSE']._serialized_end=1547
+  _globals['_SETCONTROLLERVIBRATIONREQUEST']._serialized_start=1549
+  _globals['_SETCONTROLLERVIBRATIONREQUEST']._serialized_end=1636
+  _globals['_SETCONTROLLERVIBRATIONRESPONSE']._serialized_start=1638
+  _globals['_SETCONTROLLERVIBRATIONRESPONSE']._serialized_end=1702
+  _globals['_PLAYCONTROLLEREFFECTREQUEST']._serialized_start=1705
+  _globals['_PLAYCONTROLLEREFFECTREQUEST']._serialized_end=1902
+  _globals['_PLAYCONTROLLEREFFECTRESPONSE']._serialized_start=1904
+  _globals['_PLAYCONTROLLEREFFECTRESPONSE']._serialized_end=1966
+  _globals['_CONTROLLERMANAGERSERVICE']._serialized_start=2104
+  _globals['_CONTROLLERMANAGERSERVICE']._serialized_end=3367
 # @@protoc_insertion_point(module_scope)

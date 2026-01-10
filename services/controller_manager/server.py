@@ -552,11 +552,21 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             snapshot = state.get_snapshot()
             trigger_pressed = snapshot.get('trigger', False)
             move_pressed = snapshot.get('move', False)
+            cross_pressed = snapshot.get('cross', False)
+            circle_pressed = snapshot.get('circle', False)
+            square_pressed = snapshot.get('square', False)
+            triangle_pressed = snapshot.get('triangle', False)
+            ps_pressed = snapshot.get('ps', False)
             accel = snapshot.get('accel', {'x': 0, 'y': 0, 'z': 0})
             gyro = snapshot.get('gyro', {'x': 0, 'y': 0, 'z': 0})
         else:
             trigger_pressed = False
             move_pressed = False
+            cross_pressed = False
+            circle_pressed = False
+            square_pressed = False
+            triangle_pressed = False
+            ps_pressed = False
             accel = {'x': 0, 'y': 0, 'z': 0}
             gyro = {'x': 0, 'y': 0, 'z': 0}
 
@@ -570,7 +580,12 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             team=info.get('team', 0),
             color=controller_manager_pb2.RGB(r=0, g=0, b=255),
             accel=controller_manager_pb2.Vector3(x=accel['x'], y=accel['y'], z=accel['z']),
-            gyro=controller_manager_pb2.Vector3(x=gyro['x'], y=gyro['y'], z=gyro['z'])
+            gyro=controller_manager_pb2.Vector3(x=gyro['x'], y=gyro['y'], z=gyro['z']),
+            cross_pressed=cross_pressed,
+            circle_pressed=circle_pressed,
+            square_pressed=square_pressed,
+            triangle_pressed=triangle_pressed,
+            ps_pressed=ps_pressed
         )
 
     def shutdown(self):

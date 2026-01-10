@@ -158,6 +158,79 @@ grpcurl -plaintext -d '{}' localhost:50051 joustmania.SettingsService/GetSetting
 
 ---
 
+## Controller Guide
+
+JoustMania uses **PlayStation Move controllers** for gameplay. Controllers feature physical button controls for menu navigation, gameplay, and admin functions.
+
+### Button Layout
+
+PS Move controllers have the following buttons:
+- **MOVE Button** - Large middle button with PlayStation logo
+- **TRIGGER** - Rear trigger button
+- **X (Cross)** - Front face button (bottom)
+- **O (Circle)** - Front face button (right)
+- **Square** - Front face button (left)
+- **Triangle** - Front face button (top)
+- **PlayStation Button** - PS logo button (special functions)
+
+### Menu Navigation
+
+Navigate the game menu using physical controller buttons:
+
+| Button | Action |
+|--------|--------|
+| **MOVE** | Cycle through available games |
+| **TRIGGER** | Start selected game |
+
+Available games cycle in order:
+1. Joust FFA
+2. Joust Teams
+3. Tournament
+4. Werewolf
+5. Nonstop Joust
+
+### Admin Mode
+
+Access advanced settings by pressing **all 4 front buttons simultaneously** (X + O + Square + Triangle).
+
+**Visual Feedback:** Controller flashes white 3 times when entering admin mode.
+
+#### Admin Commands
+
+While in admin mode, use these buttons:
+
+| Button | Function | Feedback |
+|--------|----------|----------|
+| **Circle (O)** | Cycle sensitivity (Normal → High → Low) | Blue pulse |
+| **Triangle** | Show battery levels on all controllers | Color-coded LEDs (2s) |
+| **Square** | Toggle instruction display | Purple pulse |
+| **PlayStation** | Exit admin mode | - |
+
+#### Battery Display Colors
+
+When Triangle is pressed in admin mode, controllers display battery status:
+- **Green** - Battery > 66%
+- **Yellow** - Battery 33-66%
+- **Red** - Battery < 33%
+
+### In-Game Controls
+
+During gameplay:
+- **Movement Detection** - Controller accelerometer/gyroscope detect jousting motions
+- **TRIGGER** - Context-dependent (varies by game mode)
+- **MOVE** - Context-dependent (varies by game mode)
+
+Game-specific controls are announced at game start.
+
+### Pairing Controllers
+
+Controllers can be paired via:
+1. **Web UI** - http://localhost:80 (recommended)
+2. **Physical pairing mode** - Hold PlayStation button until LED blinks
+3. **gRPC API** - `ControllerManagerService/PairController`
+
+---
+
 ## Hardware Setup (Optional)
 
 For full hardware testing with PS Move controllers:

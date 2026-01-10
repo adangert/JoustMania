@@ -103,9 +103,15 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         # Controller button monitoring (Phase 21)
         self.button_monitor_task = None
         self.button_monitor_running = False
-        self.controller_button_states: Dict[str, Dict[str, bool]] = {}  # {serial: {trigger: bool, move: bool}}
+        self.controller_button_states: Dict[str, Dict[str, bool]] = {}  # {serial: {trigger: bool, move: bool, ...}}
         self.last_button_press_time: Dict[str, Dict[str, float]] = {}  # {serial: {button: timestamp}}
         self.channel_options = channel_options
+
+        # Admin mode state (Phase 23)
+        self.admin_mode_active = False
+        self.admin_mode_controller = None  # Serial of controller that activated admin mode
+        self.admin_mode_entry_time = 0
+        self.admin_combo_shown = False  # Track if we've shown combo feedback
 
         logger.info("Menu service initialized")
 
@@ -380,7 +386,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
     async def _process_button_state(self, controller):
         """
-        Detect button press transitions and trigger menu actions (Phase 21).
+        Detect button press transitions and trigger menu actions (Phase 21 & 23).
 
         Args:
             controller: ControllerState protobuf message
@@ -392,25 +398,56 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         if serial not in self.controller_button_states:
             self.controller_button_states[serial] = {
                 'trigger': False,
-                'move': False
+                'move': False,
+                'cross': False,
+                'circle': False,
+                'square': False,
+                'triangle': False,
+                'ps': False
             }
             self.last_button_press_time[serial] = {}
 
         prev_state = self.controller_button_states[serial]
 
-        # Detect trigger press (False → True) - starts game
+        # Phase 23: Check for admin mode combo (all 4 front buttons)
+        if self._check_admin_mode_combo(controller):
+            if not self.admin_combo_shown:  # Only trigger once per combo
+                await self._enter_admin_mode(serial)
+                self.admin_combo_shown = True
+        else:
+            self.admin_combo_shown = False
+
+        # Phase 23: Process admin mode commands if active
+        if self.admin_mode_active and serial == self.admin_mode_controller:
+            await self._process_admin_commands(controller, prev_state, current_time)
+            # Update all button states
+            prev_state['trigger'] = controller.trigger_pressed
+            prev_state['move'] = controller.move_pressed
+            prev_state['cross'] = controller.cross_pressed
+            prev_state['circle'] = controller.circle_pressed
+            prev_state['square'] = controller.square_pressed
+            prev_state['triangle'] = controller.triangle_pressed
+            prev_state['ps'] = controller.ps_pressed
+            return
+
+        # Normal menu mode: Detect trigger press (False → True) - starts game
         if controller.trigger_pressed and not prev_state['trigger']:
             if self._should_process_button(serial, 'trigger', current_time):
                 await self._handle_trigger_press(serial)
 
-        # Detect move press (False → True) - cycles through games (SELECT)
+        # Normal menu mode: Detect move press (False → True) - cycles through games (SELECT)
         if controller.move_pressed and not prev_state['move']:
             if self._should_process_button(serial, 'move', current_time):
                 await self._handle_select_press(serial)
 
-        # Update state
+        # Update all button states
         prev_state['trigger'] = controller.trigger_pressed
         prev_state['move'] = controller.move_pressed
+        prev_state['cross'] = controller.cross_pressed
+        prev_state['circle'] = controller.circle_pressed
+        prev_state['square'] = controller.square_pressed
+        prev_state['triangle'] = controller.triangle_pressed
+        prev_state['ps'] = controller.ps_pressed
 
     def _should_process_button(self, serial: str, button: str, current_time: float) -> bool:
         """
@@ -472,6 +509,252 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 "serial": serial
             })
             logger.info(f"Selection changed via controller {serial}: {self.current_selection}")
+
+    # ========== Admin Mode Methods (Phase 23) ==========
+
+    def _check_admin_mode_combo(self, controller) -> bool:
+        """
+        Check if all 4 front buttons are pressed simultaneously (Phase 23).
+
+        Args:
+            controller: ControllerState protobuf message
+
+        Returns:
+            True if admin mode combo is active
+        """
+        return (controller.cross_pressed and
+                controller.circle_pressed and
+                controller.square_pressed and
+                controller.triangle_pressed)
+
+    async def _enter_admin_mode(self, serial: str):
+        """
+        Enter admin mode with visual feedback (Phase 23).
+
+        Args:
+            serial: Controller serial number
+        """
+        with tracer.start_as_current_span("enter_admin_mode") as span:
+            span.set_attribute("controller.serial", serial)
+
+            self.admin_mode_active = True
+            self.admin_mode_controller = serial
+            self.admin_mode_entry_time = time.time()
+
+            # Visual feedback: Flash white 3 times
+            from services.controller_manager import controller_manager_pb2, controller_manager_pb2_grpc
+
+            try:
+                channel = grpc.aio.insecure_channel(
+                    'controller-manager:50052',
+                    options=self.channel_options
+                )
+                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
+
+                # Play flash effect in white
+                effect_request = controller_manager_pb2.PlayControllerEffectRequest(
+                    serial=serial,
+                    effect=controller_manager_pb2.ControllerEffect.EFFECT_FLASH,
+                    color=controller_manager_pb2.RGB(r=255, g=255, b=255),
+                    duration_ms=600,  # 3 flashes at ~5Hz
+                    speed=5
+                )
+                await stub.PlayControllerEffect(effect_request)
+                await channel.close()
+
+                span.add_event("admin_mode_entered")
+                logger.info(f"Admin mode entered by controller {serial}")
+
+            except Exception as e:
+                logger.error(f"Error entering admin mode: {e}", exc_info=True)
+
+    async def _exit_admin_mode(self):
+        """Exit admin mode (Phase 23)."""
+        if self.admin_mode_active:
+            with tracer.start_as_current_span("exit_admin_mode") as span:
+                span.set_attribute("controller.serial", self.admin_mode_controller)
+                span.set_attribute("duration_seconds", time.time() - self.admin_mode_entry_time)
+
+                logger.info(f"Admin mode exited by controller {self.admin_mode_controller}")
+
+                self.admin_mode_active = False
+                self.admin_mode_controller = None
+                self.admin_mode_entry_time = 0
+                span.add_event("admin_mode_exited")
+
+    async def _process_admin_commands(self, controller, prev_state: Dict[str, bool], current_time: float):
+        """
+        Process admin mode commands (Phase 23).
+
+        Admin commands:
+        - Circle: Cycle sensitivity
+        - Triangle: Show battery levels
+        - Square: Toggle instructions
+        - PlayStation: Exit admin mode
+
+        Args:
+            controller: ControllerState protobuf message
+            prev_state: Previous button states
+            current_time: Current timestamp
+        """
+        # Circle button: Cycle sensitivity
+        if controller.circle_pressed and not prev_state['circle']:
+            if self._should_process_button(controller.serial, 'circle', current_time):
+                await self._handle_admin_sensitivity(controller.serial)
+
+        # Triangle button: Show battery levels
+        if controller.triangle_pressed and not prev_state['triangle']:
+            if self._should_process_button(controller.serial, 'triangle', current_time):
+                await self._handle_admin_battery(controller.serial)
+
+        # Square button: Toggle instructions
+        if controller.square_pressed and not prev_state['square']:
+            if self._should_process_button(controller.serial, 'square', current_time):
+                await self._handle_admin_instructions(controller.serial)
+
+        # PlayStation button: Exit admin mode
+        if controller.ps_pressed and not prev_state['ps']:
+            if self._should_process_button(controller.serial, 'ps', current_time):
+                await self._exit_admin_mode()
+
+    async def _handle_admin_sensitivity(self, serial: str):
+        """
+        Handle sensitivity cycling in admin mode (Phase 23).
+
+        Cycles through: Normal → High → Low → Normal
+
+        Args:
+            serial: Controller serial number
+        """
+        with tracer.start_as_current_span("admin_sensitivity") as span:
+            span.set_attribute("controller.serial", serial)
+
+            # TODO: Implement sensitivity state persistence
+            # For now, just provide visual feedback
+            from services.controller_manager import controller_manager_pb2, controller_manager_pb2_grpc
+
+            try:
+                channel = grpc.aio.insecure_channel(
+                    'controller-manager:50052',
+                    options=self.channel_options
+                )
+                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
+
+                # Visual feedback: Blue pulse (sensitivity changed)
+                effect_request = controller_manager_pb2.PlayControllerEffectRequest(
+                    serial=serial,
+                    effect=controller_manager_pb2.ControllerEffect.EFFECT_PULSE,
+                    color=controller_manager_pb2.RGB(r=0, g=0, b=255),
+                    duration_ms=500,
+                    speed=7
+                )
+                await stub.PlayControllerEffect(effect_request)
+                await channel.close()
+
+                span.add_event("sensitivity_changed")
+                logger.info(f"Sensitivity cycle requested by admin controller {serial}")
+
+            except Exception as e:
+                logger.error(f"Error changing sensitivity: {e}", exc_info=True)
+
+    async def _handle_admin_battery(self, serial: str):
+        """
+        Handle battery display in admin mode (Phase 23).
+
+        Shows battery level via LED color:
+        - Green: >66%
+        - Yellow: 33-66%
+        - Red: <33%
+
+        Args:
+            serial: Controller serial number
+        """
+        with tracer.start_as_current_span("admin_battery") as span:
+            span.set_attribute("controller.serial", serial)
+
+            from services.controller_manager import controller_manager_pb2, controller_manager_pb2_grpc
+
+            try:
+                channel = grpc.aio.insecure_channel(
+                    'controller-manager:50052',
+                    options=self.channel_options
+                )
+                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
+
+                # Get all controllers to show battery levels
+                controllers_request = controller_manager_pb2.GetControllersRequest()
+                controllers_response = await stub.GetControllers(controllers_request)
+
+                # Show battery for each controller
+                for ctrl in controllers_response.controllers:
+                    battery_percent = ctrl.battery
+
+                    # Determine color based on battery level
+                    if battery_percent > 66:
+                        color = controller_manager_pb2.RGB(r=0, g=255, b=0)  # Green
+                    elif battery_percent > 33:
+                        color = controller_manager_pb2.RGB(r=255, g=255, b=0)  # Yellow
+                    else:
+                        color = controller_manager_pb2.RGB(r=255, g=0, b=0)  # Red
+
+                    # Show battery color for 2 seconds
+                    color_request = controller_manager_pb2.SetControllerColorRequest(
+                        serial=ctrl.serial,
+                        color=color,
+                        duration_ms=2000
+                    )
+                    await stub.SetControllerColor(color_request)
+
+                    span.add_event("battery_displayed", {
+                        "controller.serial": ctrl.serial,
+                        "battery.percent": battery_percent
+                    })
+
+                await channel.close()
+                logger.info(f"Battery levels displayed by admin controller {serial}")
+
+            except Exception as e:
+                logger.error(f"Error displaying battery: {e}", exc_info=True)
+
+    async def _handle_admin_instructions(self, serial: str):
+        """
+        Handle instruction toggle in admin mode (Phase 23).
+
+        Toggles instruction display on/off.
+
+        Args:
+            serial: Controller serial number
+        """
+        with tracer.start_as_current_span("admin_instructions") as span:
+            span.set_attribute("controller.serial", serial)
+
+            # TODO: Implement instruction state persistence
+            # For now, just provide visual feedback
+            from services.controller_manager import controller_manager_pb2, controller_manager_pb2_grpc
+
+            try:
+                channel = grpc.aio.insecure_channel(
+                    'controller-manager:50052',
+                    options=self.channel_options
+                )
+                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
+
+                # Visual feedback: Purple pulse (instructions toggled)
+                effect_request = controller_manager_pb2.PlayControllerEffectRequest(
+                    serial=serial,
+                    effect=controller_manager_pb2.ControllerEffect.EFFECT_PULSE,
+                    color=controller_manager_pb2.RGB(r=128, g=0, b=128),
+                    duration_ms=500,
+                    speed=7
+                )
+                await stub.PlayControllerEffect(effect_request)
+                await channel.close()
+
+                span.add_event("instructions_toggled")
+                logger.info(f"Instructions toggle requested by admin controller {serial}")
+
+            except Exception as e:
+                logger.error(f"Error toggling instructions: {e}", exc_info=True)
 
 
 async def serve(port=50054):

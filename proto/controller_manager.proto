@@ -45,6 +45,13 @@ message ControllerState {
   RGB color = 8;
   Vector3 accel = 9;
   Vector3 gyro = 10;
+
+  // Additional button states (Phase 23 - Admin Mode)
+  bool cross_pressed = 11;      // X button
+  bool circle_pressed = 12;     // O button
+  bool square_pressed = 13;     // Square button
+  bool triangle_pressed = 14;   // Triangle button
+  bool ps_pressed = 15;         // PlayStation button
 }
 
 message RGB {

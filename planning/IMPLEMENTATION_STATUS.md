@@ -1,7 +1,7 @@
 # JoustMania Refactoring - Implementation Status
 
 **Date:** 2026-01-10
-**Status:** 🎉 Phases 1-13 Complete, Phase 14 In Progress - Cloud-Native Microservices Architecture
+**Status:** 🎉 Phases 1-13 Complete, Phases 14-15 In Progress - Cloud-Native Microservices Architecture
 **Branch:** dev-refactor
 
 ---
@@ -21,6 +21,7 @@
 11. ✅ **Comprehensive Documentation** - Architecture docs, developer guides, service READMEs (Phase 11)
 12. ✅ **Dependency Modernization** - All dependencies pinned to latest stable versions (Phase 12)
 13. 🔄 **Shared Protocol Buffer Package** - Centralized proto contracts, cleaner dependency management (Phase 14)
+14. 📋 **Docker Compose Optimization** - Port mappings without host binding, proper health checks (Phase 15)
 
 ---
 
@@ -1310,8 +1311,6 @@ legacy/games/           # Archive old implementations
 **In Progress:**
 - [ ] Update remaining Dockerfiles (controller_manager, game_coordinator, menu, supervisor, audio, webui)
 - [ ] Remove individual protobuf file copies from Dockerfiles
-- [ ] Update docker-compose port mappings (expose without 1:1 host mapping)
-- [ ] Add service_healthy checks back to docker-compose
 - [ ] Test integration tests with new proto package
 - [ ] Verify all services build and run correctly
 
@@ -1338,6 +1337,59 @@ proto/
 - ✅ **Easier versioning** - Proto package can be versioned independently
 - ✅ **Reduced duplication** - No more copying pb2 files across services
 - ✅ **Consistent code generation** - Single script generates all Python code
+
+### 📋 Phase 15: Docker Compose Optimization (PLANNED)
+
+**Goal:** Optimize docker-compose configuration for better networking and observability
+
+**Motivation:**
+- Port mappings should expose services within Docker network without 1:1 host binding
+- Services accessible internally via service names (e.g., `settings:50051`)
+- Only expose necessary ports to host (UI, Jaeger, etc.)
+- Proper health checks for dependency management and observability
+- Use `service_healthy` conditions instead of `service_started` where applicable
+
+**Planned Changes:**
+
+**Port Mapping Optimization:**
+```yaml
+# Current (exposes all ports to host with static mapping):
+ports:
+  - "50051:50051"  # Settings
+  - "50052:50052"  # ControllerManager
+  - "50053:50053"  # GameCoordinator
+  # ... etc
+
+# Target (expose only necessary ports, others internal-only):
+# Services accessible within network via service_name:port
+# Only expose to host: WebUI (80), Jaeger (16686), OTel metrics (8889)
+ports:
+  - "80"           # WebUI - expose without static host mapping
+  - "16686:16686"  # Jaeger UI - needs known port for users
+  - "8889:8889"    # OTel Prometheus metrics - needs known port
+```
+
+**Health Check Additions:**
+- Add health checks to all microservices (settings, controller_manager, game_coordinator, menu, supervisor, audio, webui)
+- Use gRPC health check protocol or simple port connectivity checks
+- Update `depends_on` to use `service_healthy` instead of `service_started`
+- Ensures services only start when dependencies are actually ready
+
+**Tasks:**
+- [ ] Review current port mappings in docker-compose.yml and docker-compose.mock.yml
+- [ ] Update port configurations (remove host bindings for internal services)
+- [ ] Add health checks to all microservices
+- [ ] Update all `depends_on` conditions to use `service_healthy`
+- [ ] Test service startup order and health monitoring
+- [ ] Verify internal service communication still works
+- [ ] Update documentation with new port access patterns
+
+**Benefits:**
+- ✅ **Better security** - Internal services not exposed to host unnecessarily
+- ✅ **Cleaner networking** - Only user-facing ports exposed with known mappings
+- ✅ **Proper orchestration** - Services wait for healthy dependencies
+- ✅ **Better observability** - Health checks provide service status information
+- ✅ **Production-ready** - Follows Docker Compose best practices
 
 ---
 

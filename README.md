@@ -202,7 +202,7 @@ Admin mode supports two control schemes:
 **Option Navigation (recommended):**
 | Button | Function | Feedback |
 |--------|----------|----------|
-| **MOVE** | Cycle through settings (Team Size → Force Start) | Shows option color (1s) |
+| **MOVE** | Cycle through settings (Num Teams → Force Start) | Shows option color (1s) |
 | **TRIGGER** | Increase current setting value | Flashes/color based on value |
 | **X (Cross)** | Decrease current setting value | Flashes/color based on value |
 
@@ -216,10 +216,10 @@ Admin mode supports two control schemes:
 
 #### Admin Settings
 
-**Team Size** (Light Blue):
-- Adjusts random team size for team-based games
-- Range: 2-6 players per team
-- Feedback: Flashes N times (N = team size)
+**Number of Teams** (Light Blue):
+- Adjusts number of teams for team-based games (Teams, Random Teams)
+- Range: 2-6 teams
+- Feedback: Flashes N times (N = number of teams)
 
 **Force Start Mode** (Purple):
 - Controls which players start when force-starting

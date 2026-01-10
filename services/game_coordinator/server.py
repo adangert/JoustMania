@@ -317,7 +317,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     logger.info("Starting Random Teams game")
 
                     # Get number of teams from settings (default 2)
-                    num_teams = int(self.settings.get("random_team_size", "2"))
+                    num_teams = int(self.settings.get("num_teams", "2"))
 
                     # Create Random Teams game instance
                     game = random_teams.RandomTeamsGame(

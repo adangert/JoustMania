@@ -114,10 +114,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.admin_combo_shown = False  # Track if we've shown combo feedback
 
         # Admin mode option navigation (Phase 23 - enhanced)
-        self.admin_current_option = 0  # 0=team_size, 1=force_all_start
-        self.admin_option_names = ["team_size", "force_all_start"]
+        self.admin_current_option = 0  # 0=num_teams, 1=force_all_start
+        self.admin_option_names = ["num_teams", "force_all_start"]
         self.admin_option_colors = [
-            (0, 100, 255),    # Light blue for team_size
+            (0, 100, 255),    # Light blue for num_teams
             (150, 0, 255)     # Purple for force_all_start
         ]
 
@@ -596,7 +596,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         Process admin mode commands (Phase 23).
 
         Admin option navigation:
-        - MOVE button: Cycle through settings (team_size, force_all_start)
+        - MOVE button: Cycle through settings (num_teams, force_all_start)
         - TRIGGER button: Increase current setting value
         - CROSS button: Decrease current setting value
 
@@ -789,7 +789,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         """
         Cycle through admin options (Phase 23 - enhanced).
 
-        Options: team_size → force_all_start → team_size
+        Options: num_teams → force_all_start → num_teams
 
         Args:
             serial: Controller serial number
@@ -860,7 +860,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 current_value = get_response.value
 
                 # Calculate new value based on option type
-                if option_name == "random_team_size":
+                if option_name == "num_teams":
                     # Cycle: 2 → 3 → 4 → 5 → 6 → 2
                     current = int(current_value) if current_value else 2
                     new_value = str((current % 6) + 1) if current < 6 else "2"
@@ -921,7 +921,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 current_value = get_response.value
 
                 # Calculate new value based on option type
-                if option_name == "random_team_size":
+                if option_name == "num_teams":
                     # Cycle: 6 → 5 → 4 → 3 → 2 → 6
                     current = int(current_value) if current_value else 2
                     new_value = str(current - 1) if current > 2 else "6"
@@ -974,8 +974,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             )
             stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
 
-            if option_name == "random_team_size":
-                # Flash white N times (where N = team size)
+            if option_name == "num_teams":
+                # Flash white N times (where N = team count)
                 num_flashes = int(value)
                 duration_ms = num_flashes * 200  # 200ms per flash
                 effect_request = controller_manager_pb2.PlayControllerEffectRequest(

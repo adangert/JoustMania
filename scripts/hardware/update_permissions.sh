@@ -1,2 +1,2 @@
 #!/bin/bash
-sudo chown -R pi:pi .
+sudo chown -R $USER:$USER .

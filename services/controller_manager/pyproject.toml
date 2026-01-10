@@ -1,0 +1,18 @@
+[project]
+name = "joustmania-controller-manager"
+version = "1.0.0"
+description = "Controller Manager microservice for JoustMania"
+requires-python = ">=3.9,<3.13"
+dependencies = [
+    # Core dependencies
+    "pyyaml>=6.0",
+    "dbus-python>=1.2.0",
+
+    # OpenTelemetry
+    "opentelemetry-distro>=0.43b0",
+    "opentelemetry-exporter-otlp>=1.22.0",
+]
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"

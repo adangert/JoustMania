@@ -19,11 +19,20 @@ if platform == "linux" or platform == "linux2":
 elif "win" in platform:
     import win_jm_dbus as jm_dbus
     import win_pair as pair
+
+# Core infrastructure
+from core import controller_state
 import controller_process
-import controller_manager
-import game_coordinator
-import settings_process
-import process_supervisor
+
+# Microservices (new structure)
+from services import controller_manager
+from services import game_coordinator
+from services import settings
+from services import supervisor as process_supervisor
+
+# Legacy imports (for backward compatibility during transition)
+import settings_process  # Fallback to root if services.settings fails
+
 import update
 
 # find .env file in parent directory
@@ -641,7 +650,7 @@ class Menu():
                 self.supervisor.start_all_processes()
 
                 # Post-startup: Subscribe to settings and get initial values
-                response = settings_process.send_command(
+                response = settings.send_command(
                     self.settings_cmd_queue,
                     self.settings_resp_queue,
                     'subscribe',
@@ -651,7 +660,7 @@ class Menu():
                     self.settings_subscription_id = response['data']['subscription_id']
                     logger.info(f"Subscribed to setting changes: {self.settings_subscription_id}")
 
-                response = settings_process.send_command(
+                response = settings.send_command(
                     self.settings_cmd_queue,
                     self.settings_resp_queue,
                     'get_settings'
@@ -681,7 +690,7 @@ class Menu():
             self.settings_resp_queue = Queue()
             self.settings_event_queue = Queue()
 
-            self.settings_proc = settings_process.SettingsProcess(
+            self.settings_proc = settings.SettingsProcess(
                 command_queue=self.settings_cmd_queue,
                 response_queue=self.settings_resp_queue,
                 settings_file=common.SETTINGSFILE
@@ -689,7 +698,7 @@ class Menu():
             self.settings_proc.start()
 
             # Subscribe to setting changes
-            response = settings_process.send_command(
+            response = settings.send_command(
                 self.settings_cmd_queue,
                 self.settings_resp_queue,
                 'subscribe',
@@ -700,7 +709,7 @@ class Menu():
                 logger.info(f"Subscribed to setting changes: {self.settings_subscription_id}")
 
             # Get initial settings
-            response = settings_process.send_command(
+            response = settings.send_command(
                 self.settings_cmd_queue,
                 self.settings_resp_queue,
                 'get_settings'
@@ -814,7 +823,7 @@ class Menu():
 
     def _create_settings_process(self):
         """Factory function to create Settings process."""
-        return settings_process.SettingsProcess(
+        return settings.SettingsProcess(
             command_queue=self.settings_cmd_queue,
             response_queue=self.settings_resp_queue,
             settings_file=common.SETTINGSFILE
@@ -1254,7 +1263,7 @@ class Menu():
         if not self.use_settings_process:
             return {'status': 'error', 'error': 'Settings process not enabled'}
 
-        return settings_process.send_command(
+        return settings.send_command(
             self.settings_cmd_queue,
             self.settings_resp_queue,
             command,

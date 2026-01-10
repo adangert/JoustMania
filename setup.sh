@@ -62,19 +62,17 @@ setup() {
     /usr/bin/python3 -m virtualenv --system-site-packages $VENV || exit -1
     PYTHON=$VENV/bin/python3
 
-    echo "installing virtual environment dependencies"
-    $PYTHON -m pip install --ignore-installed flask Flask-WTF pyalsaaudio pydub pyyaml dbus-python python-dotenv || exit -1
+    echo "installing uv for dependency management"
+    # Install uv if not already installed
+    if ! command -v uv &> /dev/null; then
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        # Add uv to PATH for current session
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
 
-    # audioop is not available on python >= 3.13
-    $PYTHON -m pip install --ignore-installed audioop-lts || exit -1
-
-    #Sometimes pygame tries to install without a whl, and fails (like 2.4.0) this
-    #checks that only correct versions will install
-    $PYTHON -m pip install --ignore-installed --only-binary ":all:" pygame || exit -1
-
-    # Use OpenTelemetry zero-code instrumentation
-    $PYTHON -m pip install --ignore-installed opentelemetry-distro || exit -1
-    $PYTHON -m pip install --ignore-installed opentelemetry-exporter-otlp || exit -1
+    echo "syncing Python dependencies using uv workspace"
+    cd $HOMEDIR/JoustMania
+    uv sync --python $PYTHON || exit -1
 
     echo "downloading PS move API"
     #install psmoveapi (currently adangert's for opencv 3 support)

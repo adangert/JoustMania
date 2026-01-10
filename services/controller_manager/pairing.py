@@ -1,5 +1,6 @@
 import psmove
 import os
+import subprocess
 
 from sys import platform
 print(platform)
@@ -7,8 +8,6 @@ if platform == "linux" or platform == "linux2":
     import jm_dbus
 elif platform == "windows" or platform == "win32":
     import win_jm_dbus as jm_dbus
-    
-import update
 
 class Pair():
     """
@@ -76,4 +75,4 @@ class Pair():
                     move.pair_custom(self.get_lowest_bt_device())
                 #in order to add the new controller to the bluetooth service, restart
                 #Otherwise it will not be recognized
-                update.run_command("sudo systemctl restart bluetooth")
+                subprocess.run(["sudo", "systemctl", "restart", "bluetooth"], check=False)

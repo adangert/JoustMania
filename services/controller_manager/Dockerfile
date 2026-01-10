@@ -5,8 +5,11 @@ FROM python:3.11-slim as builder
 # Install build dependencies (including bluetooth libraries for PS Move)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    pkg-config \
     libbluetooth-dev \
     libusb-dev \
+    libdbus-1-dev \
+    libglib2.0-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -32,6 +35,8 @@ FROM python:3.11-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libbluetooth3 \
     libusb-1.0-0 \
+    libdbus-1-3 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

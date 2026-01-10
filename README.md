@@ -197,14 +197,35 @@ Access advanced settings by pressing **all 4 front buttons simultaneously** (X +
 
 #### Admin Commands
 
-While in admin mode, use these buttons:
+Admin mode supports two control schemes:
 
+**Option Navigation (recommended):**
+| Button | Function | Feedback |
+|--------|----------|----------|
+| **MOVE** | Cycle through settings (Team Size → Force Start) | Shows option color (1s) |
+| **TRIGGER** | Increase current setting value | Flashes/color based on value |
+| **X (Cross)** | Decrease current setting value | Flashes/color based on value |
+
+**Quick Access Functions:**
 | Button | Function | Feedback |
 |--------|----------|----------|
 | **Circle (O)** | Cycle sensitivity (Normal → High → Low) | Blue pulse |
 | **Triangle** | Show battery levels on all controllers | Color-coded LEDs (2s) |
 | **Square** | Toggle instruction display | Purple pulse |
 | **PlayStation** | Exit admin mode | - |
+
+#### Admin Settings
+
+**Team Size** (Light Blue):
+- Adjusts random team size for team-based games
+- Range: 2-6 players per team
+- Feedback: Flashes N times (N = team size)
+
+**Force Start Mode** (Purple):
+- Controls which players start when force-starting
+- `All`: All connected controllers start
+- `Trigger Only`: Only players who pressed trigger start
+- Feedback: Green (All) / Red (Trigger Only)
 
 #### Battery Display Colors
 

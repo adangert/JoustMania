@@ -113,6 +113,14 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.admin_mode_entry_time = 0
         self.admin_combo_shown = False  # Track if we've shown combo feedback
 
+        # Admin mode option navigation (Phase 23 - enhanced)
+        self.admin_current_option = 0  # 0=team_size, 1=force_all_start
+        self.admin_option_names = ["team_size", "force_all_start"]
+        self.admin_option_colors = [
+            (0, 100, 255),    # Light blue for team_size
+            (150, 0, 255)     # Purple for force_all_start
+        ]
+
         logger.info("Menu service initialized")
 
     def StartMenu(self, request, context):
@@ -540,6 +548,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             self.admin_mode_active = True
             self.admin_mode_controller = serial
             self.admin_mode_entry_time = time.time()
+            self.admin_current_option = 0  # Reset to first option (team_size)
 
             # Visual feedback: Flash white 3 times
             from services.controller_manager import controller_manager_pb2, controller_manager_pb2_grpc
@@ -586,7 +595,12 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         """
         Process admin mode commands (Phase 23).
 
-        Admin commands:
+        Admin option navigation:
+        - MOVE button: Cycle through settings (team_size, force_all_start)
+        - TRIGGER button: Increase current setting value
+        - CROSS button: Decrease current setting value
+
+        Quick access commands:
         - Circle: Cycle sensitivity
         - Triangle: Show battery levels
         - Square: Toggle instructions
@@ -597,17 +611,32 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             prev_state: Previous button states
             current_time: Current timestamp
         """
-        # Circle button: Cycle sensitivity
+        # MOVE button: Cycle through admin options
+        if controller.move_pressed and not prev_state['move']:
+            if self._should_process_button(controller.serial, 'move', current_time):
+                await self._handle_admin_cycle_option(controller.serial)
+
+        # TRIGGER button: Increase current setting value
+        if controller.trigger_pressed and not prev_state['trigger']:
+            if self._should_process_button(controller.serial, 'trigger', current_time):
+                await self._handle_admin_increase_value(controller.serial)
+
+        # CROSS button: Decrease current setting value
+        if controller.cross_pressed and not prev_state['cross']:
+            if self._should_process_button(controller.serial, 'cross', current_time):
+                await self._handle_admin_decrease_value(controller.serial)
+
+        # Circle button: Cycle sensitivity (quick access)
         if controller.circle_pressed and not prev_state['circle']:
             if self._should_process_button(controller.serial, 'circle', current_time):
                 await self._handle_admin_sensitivity(controller.serial)
 
-        # Triangle button: Show battery levels
+        # Triangle button: Show battery levels (quick access)
         if controller.triangle_pressed and not prev_state['triangle']:
             if self._should_process_button(controller.serial, 'triangle', current_time):
                 await self._handle_admin_battery(controller.serial)
 
-        # Square button: Toggle instructions
+        # Square button: Toggle instructions (quick access)
         if controller.square_pressed and not prev_state['square']:
             if self._should_process_button(controller.serial, 'square', current_time):
                 await self._handle_admin_instructions(controller.serial)
@@ -755,6 +784,227 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
             except Exception as e:
                 logger.error(f"Error toggling instructions: {e}", exc_info=True)
+
+    async def _handle_admin_cycle_option(self, serial: str):
+        """
+        Cycle through admin options (Phase 23 - enhanced).
+
+        Options: team_size → force_all_start → team_size
+
+        Args:
+            serial: Controller serial number
+        """
+        with tracer.start_as_current_span("admin_cycle_option") as span:
+            span.set_attribute("controller.serial", serial)
+
+            # Cycle to next option
+            self.admin_current_option = (self.admin_current_option + 1) % len(self.admin_option_names)
+            option_name = self.admin_option_names[self.admin_current_option]
+            option_color = self.admin_option_colors[self.admin_current_option]
+
+            span.set_attribute("admin.option", option_name)
+
+            from services.controller_manager import controller_manager_pb2, controller_manager_pb2_grpc
+
+            try:
+                channel = grpc.aio.insecure_channel(
+                    'controller-manager:50052',
+                    options=self.channel_options
+                )
+                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
+
+                # Show option color for 1 second
+                color_request = controller_manager_pb2.SetControllerColorRequest(
+                    serial=serial,
+                    color=controller_manager_pb2.RGB(r=option_color[0], g=option_color[1], b=option_color[2]),
+                    duration_ms=1000
+                )
+                await stub.SetControllerColor(color_request)
+                await channel.close()
+
+                span.add_event("admin_option_changed", {
+                    "option": option_name,
+                    "option_index": self.admin_current_option
+                })
+                logger.info(f"Admin option changed to {option_name} by controller {serial}")
+
+            except Exception as e:
+                logger.error(f"Error cycling admin option: {e}", exc_info=True)
+
+    async def _handle_admin_increase_value(self, serial: str):
+        """
+        Increase the value of the current admin option (Phase 23 - enhanced).
+
+        Args:
+            serial: Controller serial number
+        """
+        with tracer.start_as_current_span("admin_increase_value") as span:
+            span.set_attribute("controller.serial", serial)
+
+            option_name = self.admin_option_names[self.admin_current_option]
+            span.set_attribute("admin.option", option_name)
+
+            from services.settings import settings_pb2, settings_pb2_grpc
+
+            try:
+                # Connect to Settings service
+                channel = grpc.aio.insecure_channel(
+                    'settings:50051',
+                    options=self.channel_options
+                )
+                stub = settings_pb2_grpc.SettingsServiceStub(channel)
+
+                # Get current value
+                get_request = settings_pb2.GetSettingRequest(key=option_name)
+                get_response = await stub.GetSetting(get_request)
+                current_value = get_response.value
+
+                # Calculate new value based on option type
+                if option_name == "random_team_size":
+                    # Cycle: 2 → 3 → 4 → 5 → 6 → 2
+                    current = int(current_value) if current_value else 2
+                    new_value = str((current % 6) + 1) if current < 6 else "2"
+                elif option_name == "force_all_start":
+                    # Toggle: true ↔ false
+                    new_value = "true" if current_value == "false" else "false"
+                else:
+                    new_value = current_value
+
+                # Update setting
+                update_request = settings_pb2.UpdateSettingRequest(
+                    key=option_name,
+                    value=new_value,
+                    source="admin_mode"
+                )
+                await stub.UpdateSetting(update_request)
+                await channel.close()
+
+                # Visual feedback
+                await self._show_value_feedback(serial, option_name, new_value)
+
+                span.add_event("admin_value_increased", {
+                    "option": option_name,
+                    "old_value": current_value,
+                    "new_value": new_value
+                })
+                logger.info(f"Admin increased {option_name}: {current_value} → {new_value}")
+
+            except Exception as e:
+                logger.error(f"Error increasing admin value: {e}", exc_info=True)
+
+    async def _handle_admin_decrease_value(self, serial: str):
+        """
+        Decrease the value of the current admin option (Phase 23 - enhanced).
+
+        Args:
+            serial: Controller serial number
+        """
+        with tracer.start_as_current_span("admin_decrease_value") as span:
+            span.set_attribute("controller.serial", serial)
+
+            option_name = self.admin_option_names[self.admin_current_option]
+            span.set_attribute("admin.option", option_name)
+
+            from services.settings import settings_pb2, settings_pb2_grpc
+
+            try:
+                # Connect to Settings service
+                channel = grpc.aio.insecure_channel(
+                    'settings:50051',
+                    options=self.channel_options
+                )
+                stub = settings_pb2_grpc.SettingsServiceStub(channel)
+
+                # Get current value
+                get_request = settings_pb2.GetSettingRequest(key=option_name)
+                get_response = await stub.GetSetting(get_request)
+                current_value = get_response.value
+
+                # Calculate new value based on option type
+                if option_name == "random_team_size":
+                    # Cycle: 6 → 5 → 4 → 3 → 2 → 6
+                    current = int(current_value) if current_value else 2
+                    new_value = str(current - 1) if current > 2 else "6"
+                elif option_name == "force_all_start":
+                    # Toggle: true ↔ false
+                    new_value = "false" if current_value == "true" else "true"
+                else:
+                    new_value = current_value
+
+                # Update setting
+                update_request = settings_pb2.UpdateSettingRequest(
+                    key=option_name,
+                    value=new_value,
+                    source="admin_mode"
+                )
+                await stub.UpdateSetting(update_request)
+                await channel.close()
+
+                # Visual feedback
+                await self._show_value_feedback(serial, option_name, new_value)
+
+                span.add_event("admin_value_decreased", {
+                    "option": option_name,
+                    "old_value": current_value,
+                    "new_value": new_value
+                })
+                logger.info(f"Admin decreased {option_name}: {current_value} → {new_value}")
+
+            except Exception as e:
+                logger.error(f"Error decreasing admin value: {e}", exc_info=True)
+
+    async def _show_value_feedback(self, serial: str, option_name: str, value: str):
+        """
+        Show visual feedback for admin value change (Phase 23 - enhanced).
+
+        For team_size: Flash N times (where N = team size)
+        For force_all_start: Green (true) or Red (false)
+
+        Args:
+            serial: Controller serial number
+            option_name: Name of the setting
+            value: New value
+        """
+        from services.controller_manager import controller_manager_pb2, controller_manager_pb2_grpc
+
+        try:
+            channel = grpc.aio.insecure_channel(
+                'controller-manager:50052',
+                options=self.channel_options
+            )
+            stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
+
+            if option_name == "random_team_size":
+                # Flash white N times (where N = team size)
+                num_flashes = int(value)
+                duration_ms = num_flashes * 200  # 200ms per flash
+                effect_request = controller_manager_pb2.PlayControllerEffectRequest(
+                    serial=serial,
+                    effect=controller_manager_pb2.ControllerEffect.EFFECT_FLASH,
+                    color=controller_manager_pb2.RGB(r=255, g=255, b=255),
+                    duration_ms=duration_ms,
+                    speed=5
+                )
+                await stub.PlayControllerEffect(effect_request)
+
+            elif option_name == "force_all_start":
+                # Green for true, Red for false
+                if value == "true":
+                    color = controller_manager_pb2.RGB(r=0, g=255, b=0)  # Green
+                else:
+                    color = controller_manager_pb2.RGB(r=255, g=0, b=0)  # Red
+
+                color_request = controller_manager_pb2.SetControllerColorRequest(
+                    serial=serial,
+                    color=color,
+                    duration_ms=800
+                )
+                await stub.SetControllerColor(color_request)
+
+            await channel.close()
+
+        except Exception as e:
+            logger.error(f"Error showing value feedback: {e}", exc_info=True)
 
 
 async def serve(port=50054):

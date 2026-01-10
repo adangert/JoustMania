@@ -141,17 +141,18 @@ These files have been moved to `utils/`:
     - Test file
     - **Action:** KEEP (or move to testing/)
 
-### ⚠️ DECIDE - Pacemanager
+### ✅ KEEP - Game Utilities
 
 27. **pacemanager.py**
-    - Pace management utility
-    - **Check:** Is this still used?
-    - **Action:** INVESTIGATE - If unused, DELETE
+    - Pace management for game dynamics (speed/intensity transitions)
+    - Used by `games/ffa.py` (Free-For-All mode)
+    - Manages weighted random transitions between game paces
+    - **Action:** KEEP - Actively used
 
 28. **player.py**
-    - Player management
-    - **Check:** Is this still used?
-    - **Action:** INVESTIGATE - If unused, DELETE
+    - Player management classes
+    - Used by `games/ffa.py` and potentially other game modes
+    - **Action:** KEEP - Likely used by game implementations
 
 ### ✅ KEEP - Package Init
 
@@ -393,7 +394,7 @@ After cleanup, verify:
 **Can remove immediately:** 10 (duplicates in services/, core/, utils/)
 **Should archive:** 1 (piparty.py - old orchestrator)
 **Should reorganize:** 5 (move to utils/ or testing/)
-**Keep in root:** 14 (entry points, tools, system integration)
+**Keep in root:** 14 (entry points, tools, system integration, game utilities)
 
 **Expected root directory reduction:** ~50% fewer Python files
 

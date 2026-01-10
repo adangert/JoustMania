@@ -4,6 +4,8 @@ version = "1.0.0"
 description = "Audio microservice for JoustMania"
 requires-python = ">=3.9,<3.13"
 dependencies = [
+    # Protocol buffer contracts
+    "joustmania-proto",
     # Audio libraries
     "pygame>=2.5.0",
 

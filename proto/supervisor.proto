@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package joustmania.supervisor;
+
+// Supervisor Service - Monitors and manages all microservices
+service SupervisorService {
+  // Get status of a specific process
+  rpc GetProcessStatus(GetProcessStatusRequest) returns (GetProcessStatusResponse);
+
+  // Get status of all processes
+  rpc GetAllProcessStatus(GetAllProcessStatusRequest) returns (GetAllProcessStatusResponse);
+
+  // Restart a failed process
+  rpc RestartProcess(RestartProcessRequest) returns (RestartProcessResponse);
+
+  // Get system health summary
+  rpc GetHealthSummary(GetHealthSummaryRequest) returns (GetHealthSummaryResponse);
+
+  // Stream process status updates
+  rpc StreamProcessUpdates(StreamUpdatesRequest) returns (stream ProcessStatusUpdate);
+}
+
+// Process status
+enum ProcessStatus {
+  UNKNOWN = 0;
+  STARTING = 1;
+  RUNNING = 2;
+  STOPPING = 3;
+  STOPPED = 4;
+  FAILED = 5;
+}
+
+message ProcessInfo {
+  string name = 1;
+  int32 pid = 2;
+  ProcessStatus status = 3;
+  int32 uptime_seconds = 4;
+  int32 restart_count = 5;
+  string last_error = 6;
+  bool critical = 7;
+  int64 last_health_check_ago = 8;  // Seconds since last health check
+}
+
+// Request/Response messages
+message GetProcessStatusRequest {
+  string name = 1;  // Process name (e.g., "Settings", "ControllerManager")
+}
+
+message GetProcessStatusResponse {
+  ProcessInfo info = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+message GetAllProcessStatusRequest {}
+
+message GetAllProcessStatusResponse {
+  repeated ProcessInfo processes = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+message RestartProcessRequest {
+  string name = 1;
+}
+
+message RestartProcessResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message GetHealthSummaryRequest {}
+
+message GetHealthSummaryResponse {
+  bool all_healthy = 1;
+  int32 total_processes = 2;
+  int32 running_processes = 3;
+  int32 failed_processes = 4;
+  repeated ProcessInfo unhealthy = 5;  // List of unhealthy processes
+  bool success = 6;
+  string error = 7;
+}
+
+message StreamUpdatesRequest {
+  int32 interval_seconds = 1;  // Update interval (default: 5)
+}
+
+message ProcessStatusUpdate {
+  repeated ProcessInfo processes = 1;
+  int64 timestamp = 2;  // Unix timestamp in milliseconds
+}

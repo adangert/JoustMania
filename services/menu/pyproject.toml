@@ -4,6 +4,8 @@ version = "1.0.0"
 description = "Menu microservice for JoustMania"
 requires-python = ">=3.9,<3.13"
 dependencies = [
+    # Protocol buffer contracts
+    "joustmania-proto",
     # Core dependencies
     "pyyaml>=6.0",
     "pygame>=2.0.0",

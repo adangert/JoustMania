@@ -13,8 +13,8 @@
 
 ### What to do first:
 1. Read this file completely
-2. Check `IMPLEMENTATION_STATUS.md` for detailed phase status
-3. Check `CONTAINERIZATION_PLAN.md` for gRPC/Docker architecture
+2. Check `planning/IMPLEMENTATION_STATUS.md` for detailed phase status
+3. Check `planning/CONTAINERIZATION_PLAN.md` for gRPC/Docker architecture
 4. Review git log: `git log --oneline -10`
 5. Check current working directory status: `git status`
 
@@ -254,10 +254,10 @@ utils/
 
 ### Documentation
 
-- **`CONTAINERIZATION_PLAN.md`** - Full gRPC + Docker architecture
-- **`IMPLEMENTATION_STATUS.md`** - Detailed phase-by-phase status
+- **`planning/CONTAINERIZATION_PLAN.md`** - Full gRPC + Docker architecture
+- **`planning/IMPLEMENTATION_STATUS.md`** - Detailed phase-by-phase status
 - **`README.md`** - User-facing documentation
-- **`claude.md`** - This file (session continuity)
+- **`claude.md`** - This file (session continuity, located in project root)
 
 ---
 
@@ -397,6 +397,39 @@ EOF
 git push origin dev-refactor
 ```
 
+**IMPORTANT: Commit After Each Phase**
+
+When completing implementation phases, create a commit immediately after the phase ends:
+- Commit at natural breakpoints (e.g., after Phase 8a completion, before Phase 8b)
+- Use descriptive commit messages that reference the phase number
+- This creates clear checkpoints for rolling back if needed
+- Makes it easier to track progress through the refactoring
+- Allows for easier code review and understanding of changes
+
+Example phase completion commit:
+```bash
+git add .
+git commit -m "$(cat <<'EOF'
+feat: Complete Phase 8a - gRPC conversion
+
+Successfully converted all services from multiprocessing.Queue to gRPC:
+- Converted Settings service to gRPC (port 50051)
+- Converted ControllerManager service to gRPC (port 50052)
+- Converted GameCoordinator service to gRPC (port 50053)
+- Converted Menu service to gRPC (port 50054)
+- Updated orchestrator to use gRPC stubs
+- Set up Redis for pub/sub events
+- Removed all old Queue-based IPC code
+
+Phase 8a is now complete. Ready to begin Phase 8b (Dockerization).
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+EOF
+)"
+```
+
 ---
 
 ## Common Tasks
@@ -526,8 +559,8 @@ Throughout this refactoring, the user has made specific decisions:
 When starting a new session:
 
 - [ ] Read this entire file
-- [ ] Check `IMPLEMENTATION_STATUS.md` for latest status
-- [ ] Check `CONTAINERIZATION_PLAN.md` for architecture details
+- [ ] Check `planning/IMPLEMENTATION_STATUS.md` for latest status
+- [ ] Check `planning/CONTAINERIZATION_PLAN.md` for architecture details
 - [ ] Run `git status` to see current state
 - [ ] Run `git log --oneline -10` to see recent commits
 - [ ] Check if any tests are available: `find . -name "test_*.py"`
@@ -536,7 +569,7 @@ When starting a new session:
 
 **Current Task:** Implement Phase 8a - Convert Settings service to gRPC
 **Next File to Edit:** `services/settings/settings.proto` (create)
-**Reference:** See CONTAINERIZATION_PLAN.md for protobuf schema
+**Reference:** See planning/CONTAINERIZATION_PLAN.md for protobuf schema
 
 ---
 

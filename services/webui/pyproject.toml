@@ -4,6 +4,8 @@ version = "1.0.0"
 description = "Web UI microservice for JoustMania"
 requires-python = ">=3.9,<3.13"
 dependencies = [
+    # Protocol buffer contracts
+    "joustmania-proto",
     # Web framework
     "flask>=3.0.0",
     "wtforms>=3.1.0",

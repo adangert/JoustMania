@@ -29,8 +29,9 @@ These documents track the iterative development process, architectural decisions
 - `IMPLEMENTATION_STATUS.md` - Overall project status tracking
 
 ### Development Artifacts
-- `claude.md` - Claude Code interaction notes
 - `vox_transcripts.md` - Development conversation transcripts
+
+**Note:** `claude.md` has been moved to the project root for better discoverability.
 
 ## Phases Overview
 

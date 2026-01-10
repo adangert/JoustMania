@@ -4,6 +4,9 @@ version = "1.0.0"
 description = "Integration tests for JoustMania using testcontainers and mock environment"
 requires-python = ">=3.11"
 dependencies = [
+    # Protocol buffer contracts
+    "joustmania-proto",
+
     # Testing framework
     "pytest>=7.0.0",
     "pytest-asyncio>=0.23.0",
@@ -14,8 +17,6 @@ dependencies = [
 
     # gRPC client libraries for testing
     "grpcio>=1.50.0",
-    "grpcio-tools>=1.50.0",
-    "protobuf>=4.21.0",
 ]
 
 [build-system]

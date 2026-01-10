@@ -4,13 +4,15 @@ version = "1.0.0"
 description = "Controller Manager microservice for JoustMania"
 requires-python = ">=3.9,<3.13"
 dependencies = [
+    # Protocol buffer contracts
+    "joustmania-proto",
+
     # Core dependencies
     "pyyaml>=6.0",
     "dbus-python>=1.2.0",
 
     # gRPC
     "grpcio>=1.70.0",
-    "grpcio-tools>=1.70.0",
 
     # Redis for pub/sub events
     "redis>=5.0.0",

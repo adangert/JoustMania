@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+package joustmania.audio;
+
+// Audio Service - Manages audio playback and mixing
+service AudioService {
+  rpc PlaySound(PlaySoundRequest) returns (PlaySoundResponse);
+  rpc PlayMusic(PlayMusicRequest) returns (PlayMusicResponse);
+  rpc StopMusic(StopMusicRequest) returns (StopMusicResponse);
+  rpc ChangeTempo(ChangeTempoRequest) returns (ChangeTempoResponse);
+  rpc SetVolume(SetVolumeRequest) returns (SetVolumeResponse);
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
+}
+
+enum AudioPriority {
+  LOW = 0;
+  MEDIUM = 1;
+  HIGH = 2;
+  CRITICAL = 3;
+}
+
+message PlaySoundRequest {
+  string file_path = 1;
+  float volume = 2;
+  AudioPriority priority = 3;
+}
+
+message PlaySoundResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message PlayMusicRequest {
+  string file_pattern = 1;
+  bool loop = 2;
+  float tempo = 3;
+  AudioPriority priority = 4;
+}
+
+message PlayMusicResponse {
+  string track_id = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+message StopMusicRequest {
+  string track_id = 1;
+}
+
+message StopMusicResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message ChangeTempoRequest {
+  string track_id = 1;
+  float new_tempo = 2;
+  float transition_duration = 3;
+}
+
+message ChangeTempoResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message SetVolumeRequest {
+  float volume = 1;
+}
+
+message SetVolumeResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message GetStatusRequest {}
+
+message GetStatusResponse {
+  string current_track_id = 1;
+  string current_track_file = 2;
+  bool is_playing = 3;
+  float volume = 4;
+  float tempo = 5;
+  int32 queued_sounds_count = 6;
+  bool success = 7;
+  string error = 8;
+}

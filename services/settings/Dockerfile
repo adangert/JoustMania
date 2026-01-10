@@ -13,6 +13,10 @@ WORKDIR /app
 # Copy root pyproject.toml for workspace configuration
 COPY pyproject.toml /app/
 
+# Copy proto package (shared protocol buffer contracts)
+COPY proto/pyproject.toml /app/proto/
+COPY proto/*.py /app/proto/
+
 # Copy service dependencies
 COPY services/settings/pyproject.toml /app/services/settings/
 
@@ -41,6 +45,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY --from=builder /app/pyproject.toml /app/
 COPY core/ /app/core/
 COPY utils/ /app/utils/
+COPY proto/ /app/proto/
 COPY services/settings/ /app/services/settings/
 
 # Set Python path

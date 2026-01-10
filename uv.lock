@@ -9,6 +9,7 @@ members = [
     "joustmania-game-coordinator",
     "joustmania-integration-tests",
     "joustmania-menu",
+    "joustmania-proto",
     "joustmania-settings",
     "joustmania-supervisor",
 ]
@@ -471,6 +472,23 @@ requires-dist = [
     { name = "pygame", specifier = ">=2.0.0" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "redis", specifier = ">=5.0.0" },
+]
+
+[[package]]
+name = "joustmania-proto"
+version = "1.0.0"
+source = { editable = "proto" }
+dependencies = [
+    { name = "grpcio" },
+    { name = "grpcio-tools" },
+    { name = "protobuf" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "grpcio", specifier = ">=1.70.0" },
+    { name = "grpcio-tools", specifier = ">=1.70.0" },
+    { name = "protobuf", specifier = ">=5.29.0" },
 ]
 
 [[package]]

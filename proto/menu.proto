@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package joustmania.menu;
+
+// Menu Service - Manages menu UI and user interactions
+service MenuService {
+  // Start menu
+  rpc StartMenu(StartMenuRequest) returns (StartMenuResponse);
+
+  // Stop menu
+  rpc StopMenu(StopMenuRequest) returns (StopMenuResponse);
+
+  // Get menu status
+  rpc GetMenuStatus(GetMenuStatusRequest) returns (GetMenuStatusResponse);
+
+  // Stream menu events (button presses, selections)
+  rpc StreamMenuEvents(StreamMenuEventsRequest) returns (stream MenuEvent);
+
+  // Process menu input
+  rpc ProcessInput(ProcessInputRequest) returns (ProcessInputResponse);
+}
+
+// Menu state
+enum MenuState {
+  STOPPED = 0;
+  RUNNING = 1;
+  GAME_STARTING = 2;
+}
+
+// Request/Response messages
+message StartMenuRequest {}
+
+message StartMenuResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message StopMenuRequest {}
+
+message StopMenuResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message GetMenuStatusRequest {}
+
+message GetMenuStatusResponse {
+  MenuState state = 1;
+  string current_selection = 2;  // Currently selected game mode
+  int32 ready_controller_count = 3;
+  bool success = 4;
+  string error = 5;
+}
+
+message StreamMenuEventsRequest {}
+
+message MenuEvent {
+  string event_type = 1;  // "selection_changed", "game_requested", "admin_action"
+  map<string, string> data = 2;  // Event-specific data
+  int64 timestamp = 3;  // Unix timestamp in milliseconds
+}
+
+message ProcessInputRequest {
+  string input_type = 1;  // "button_press", "web_command", etc.
+  map<string, string> data = 2;
+}
+
+message ProcessInputResponse {
+  bool success = 1;
+  string error = 2;
+}

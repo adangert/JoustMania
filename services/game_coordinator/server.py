@@ -25,7 +25,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource, SERVICE_NAME, SERVICE_VERSION
-from opentelemetry.instrumentation.grpc import GrpcInstrumentorServer
+from opentelemetry.instrumentation.grpc import GrpcInstrumentorServer, GrpcInstrumentorClient
 
 # Import protobuf
 import sys
@@ -71,7 +71,9 @@ def init_telemetry():
     provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
     trace.set_tracer_provider(provider)
 
+    # Instrument both server and client-side gRPC calls
     GrpcInstrumentorServer().instrument()
+    GrpcInstrumentorClient().instrument()
 
     logger.info(f"OpenTelemetry initialized: {service_name} -> {otlp_endpoint}")
     return trace.get_tracer(__name__)

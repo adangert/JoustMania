@@ -28,7 +28,7 @@
 18. ✅ **Menu Controller Integration** - Physical button navigation restored (MOVE/TRIGGER) (Phase 21)
 19. ✅ **Nonstop Joust Game Mode** - Endless respawn with scoring and spawn protection (Phase 22)
 20. ✅ **Proper Service Health Checks** - gRPC Health protocol, HTTP health endpoints, PSMove refactoring (Phase 24)
-21. 🔍 **Type Safety & Type Annotations** - Comprehensive type hints, mypy integration, improved code quality (Phase 25)
+21. 🔍 **Type Safety & Code Quality** - Comprehensive type hints with ty, linting/formatting with ruff, Astral tooling (Phase 25)
 
 ---
 
@@ -2513,32 +2513,47 @@ class MenuServicer:
 ✅ jaeger - Up (healthy)
 ```
 
-### 🔍 Phase 25: Type Safety & Type Annotations (PLANNED)
+### 🔍 Phase 25: Type Safety & Code Quality with Astral Tools (PLANNED)
 
-**Goal:** Add comprehensive type hints throughout the codebase and integrate static type checking
+**Goal:** Add comprehensive type hints and integrate static analysis using Astral's ty (type checker) and ruff (linter/formatter)
 
 **Motivation:**
 - Type hints improve code readability and IDE support (autocomplete, inline docs)
 - Catch bugs at development time before runtime
+- Consistent code formatting and style enforcement
 - Better refactoring safety with type-aware tools
 - Documentation through type signatures
+- Blazingly fast tooling (10x-100x faster than mypy/pyright)
+- Native integration with uv (already in use)
 - Industry best practice for Python 3.9+
 
 **Proposed Implementation:**
 
-**1. Type Checker Selection & Configuration:**
-- Add `mypy` as development dependency (or `pyright` as alternative)
-- Create `pyproject.toml` configuration for type checking
-- Configure strict mode incrementally (per-module basis)
-- Set up type checking in development workflow
+**1. Astral Tooling Stack:**
+- **ty** - Exceptionally fast type checker (10x-100x faster than mypy)
+- **ruff** - Lightning-fast linter and formatter (replaces black, isort, flake8, etc.)
+- Both integrate seamlessly with uv (already in use)
+- Single configuration in `pyproject.toml`
 
-**2. Core Types & Proto Files:**
+**2. Installation & Setup:**
+```bash
+# Add as development dependencies
+uv add --dev ty
+uv add --dev ruff
+
+# Or run without installing
+uvx ty check
+uvx ruff check
+uvx ruff format
+```
+
+**3. Core Types & Proto Files:**
 - ✅ `core/types.py` - Already has clean data structures, add type hints
 - ✅ `core/common.py` - Add type hints to all functions
 - ✅ Protocol buffer stubs - Automatically generated with types
 - Add generic types for complex data structures (Dict, List, Optional, etc.)
 
-**3. Service-by-Service Type Annotation:**
+**4. Service-by-Service Type Annotation:**
 
 **Priority 1 - Core Services (High Impact):**
 - `services/settings/server.py` - Settings gRPC service
@@ -2559,52 +2574,95 @@ class MenuServicer:
 - `core/controller_state.py` - Controller state management (if we keep it)
 - Legacy game mode files (if still in use)
 
-**4. Configuration:**
+**5. Configuration:**
 
-**pyproject.toml (mypy configuration):**
+**pyproject.toml (Astral tools configuration):**
 ```toml
-[tool.mypy]
-python_version = "3.11"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = false  # Start permissive, tighten later
-disallow_untyped_calls = false
-check_untyped_defs = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-strict_optional = true
-show_error_codes = true
+# ty - Type checking configuration
+[tool.ty]
+# Start permissive, tighten gradually
+# ty is designed for gradual adoption
 
-# Per-module options (gradually enable strict mode)
-[[tool.mypy.overrides]]
-module = "core.types"
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
+[tool.ty.rules]
+# Enable strict checking for core modules incrementally
+# Example: index-out-of-bounds = "error"
 
-[[tool.mypy.overrides]]
-module = "services.settings.*"
-disallow_untyped_defs = true
+# Per-file overrides for gradual migration
+[[tool.ty.per-file-ignores]]
+"legacy/**/*.py" = ["*"]  # Ignore legacy code initially
 
-# Ignore third-party libraries without stubs
-[[tool.mypy.overrides]]
-module = [
-    "psmove.*",
-    "pygame.*",
-    "pydub.*",
-    "pyalsaaudio.*",
+# ruff - Linting and formatting configuration
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+# Enable specific rule sets
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "N",      # pep8-naming
+    "UP",     # pyupgrade
+    "ANN",    # flake8-annotations (type hints)
+    "ASYNC",  # flake8-async
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "RET",    # flake8-return
+    "SIM",    # flake8-simplify
+    "ARG",    # flake8-unused-arguments
 ]
-ignore_missing_imports = true
+
+ignore = [
+    "ANN101",  # Missing type annotation for self
+    "ANN102",  # Missing type annotation for cls
+    "ANN401",  # Allow Any types initially
+]
+
+# Per-file ignore rules
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Unused imports OK in __init__
+"tests/**/*.py" = ["ANN"]  # No type hints required in tests initially
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
 ```
 
-**5. Development Workflow:**
-- Add `scripts/lint/typecheck.sh` - Run mypy on all code
-- Add type checking to pre-commit hooks (optional)
-- VS Code/PyCharm integration for real-time type checking
-- Document type checking process in CONTRIBUTING.md
+**6. Development Workflow:**
 
-**6. Common Type Patterns:**
+**Create helper scripts:**
+```bash
+# scripts/lint/check-types.sh
+#!/bin/bash
+echo "Running ty type checker..."
+uv run ty check
+
+# scripts/lint/check-lint.sh
+#!/bin/bash
+echo "Running ruff linter..."
+uv run ruff check .
+
+# scripts/lint/format.sh
+#!/bin/bash
+echo "Formatting code with ruff..."
+uv run ruff format .
+
+# scripts/lint/check-all.sh
+#!/bin/bash
+./scripts/lint/check-types.sh
+./scripts/lint/check-lint.sh
+echo "✓ All checks passed!"
+```
+
+**IDE Integration:**
+- VS Code: ty language server provides autocomplete, inline hints, navigation
+- Real-time type checking as you code
+- Quick fixes and auto-imports
+- Document workflow in CONTRIBUTING.md
+
+**7. Common Type Patterns:**
 
 ```python
 from typing import Optional, Dict, List, Tuple, Any, Callable
@@ -2643,16 +2701,19 @@ class Moveable(Protocol):
 ```
 
 **Benefits:**
-- ✅ **Catch bugs early** - Type errors found before runtime
-- ✅ **Better IDE support** - Autocomplete, inline documentation, refactoring tools
+- ✅ **Blazingly fast** - ty is 10x-100x faster than mypy/pyright (Rust-based)
+- ✅ **Catch bugs early** - Type errors and lint issues found before runtime
+- ✅ **Better IDE support** - ty language server provides autocomplete, inline docs, navigation
+- ✅ **Consistent formatting** - ruff auto-formats code with zero configuration
 - ✅ **Code documentation** - Type signatures are self-documenting
 - ✅ **Refactoring safety** - Type checker verifies changes don't break contracts
 - ✅ **Onboarding** - New developers understand code structure faster
+- ✅ **Native uv integration** - Seamless workflow with existing tooling
 - ✅ **Professional quality** - Aligns with modern Python best practices
 
 **Tasks:**
-- [ ] Install mypy as dev dependency (add to root pyproject.toml)
-- [ ] Configure mypy in pyproject.toml with incremental strictness
+- [ ] Install ty and ruff as dev dependencies (`uv add --dev ty ruff`)
+- [ ] Configure ty and ruff in pyproject.toml
 - [ ] Add type hints to `core/types.py` (all classes and functions)
 - [ ] Add type hints to `core/common.py` (PSMove utility functions)
 - [ ] Add type hints to `services/settings/server.py`
@@ -2664,11 +2725,16 @@ class Moveable(Protocol):
 - [ ] Add type hints to `services/webui/server.py`
 - [ ] Add type hints to all game mode files (`games/*.py`)
 - [ ] Add type hints to utility modules (`utils/colors.py`, etc.)
-- [ ] Create `scripts/lint/typecheck.sh` script
-- [ ] Run mypy and fix all critical type errors
-- [ ] Document type checking workflow in CONTRIBUTING.md
-- [ ] Add type checking to CI/CD pipeline (optional)
-- [ ] Enable strict mode for core modules incrementally
+- [ ] Create `scripts/lint/check-types.sh` script (run ty)
+- [ ] Create `scripts/lint/check-lint.sh` script (run ruff check)
+- [ ] Create `scripts/lint/format.sh` script (run ruff format)
+- [ ] Create `scripts/lint/check-all.sh` script (run all checks)
+- [ ] Run `ruff format` on entire codebase for consistent formatting
+- [ ] Run `ruff check` and fix all auto-fixable issues
+- [ ] Run `ty check` and fix all critical type errors
+- [ ] Document workflow in CONTRIBUTING.md
+- [ ] Add to CI/CD pipeline (optional)
+- [ ] Enable strict ty rules for core modules incrementally
 
 **Migration Strategy:**
 1. Start with `core/types.py` - Pure data structures, easiest to type
@@ -2678,15 +2744,20 @@ class Moveable(Protocol):
 5. Incrementally enable strict mode per module as types improve
 
 **Tools & Resources:**
-- **mypy**: https://mypy.readthedocs.io/
-- **pyright**: https://github.com/microsoft/pyright (alternative, faster)
+- **ty docs**: https://docs.astral.sh/ty/
+- **ty playground**: https://play.ty.dev (test snippets online)
+- **ruff docs**: https://docs.astral.sh/ruff/
+- **uv docs**: https://docs.astral.sh/uv/
 - **typing module**: https://docs.python.org/3/library/typing.html
 - **Type hints cheat sheet**: https://mypy.readthedocs.io/en/stable/cheat_sheet_py3.html
 
 **Expected Outcome:**
 - 80%+ type hint coverage across all Python files
-- Zero critical type errors in mypy strict mode for core modules
-- Type checking integrated into development workflow
+- Zero critical type errors in ty strict mode for core modules
+- Consistent code formatting enforced by ruff
+- Linting issues caught automatically
+- Fast feedback loop (seconds vs minutes with traditional tools)
+- Type checking and linting integrated into development workflow
 - Improved code quality and maintainability
 
 ### Optional Future Phases

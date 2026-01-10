@@ -244,7 +244,7 @@ services:
       - joustmania
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget --spider -q http://localhost:80/health || exit 1"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:80/health', timeout=2); exit(0)"]
       interval: 10s
       timeout: 5s
       retries: 5

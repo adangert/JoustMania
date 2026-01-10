@@ -43,8 +43,8 @@ from proto import menu_pb2, menu_pb2_grpc
 from proto import settings_pb2, settings_pb2_grpc
 from proto import supervisor_pb2, supervisor_pb2_grpc
 
-# Import core modules
-from core import common
+# Import core modules (use types to avoid psmove dependency)
+from core.types import Games, Opts, Sensitivity
 from utils import colors
 
 # Configure logging
@@ -105,13 +105,13 @@ class SettingsForm(Form):
     )
     mode_selection = SelectField(
         "Mode selection",
-        choices=[game.pretty_name for game in common.Games],
+        choices=[game.pretty_name for game in Games],
         coerce=str,
     )
     mode_options = [
         game
-        for game in common.Games
-        if game not in [common.Games.Random, common.Games.JoustTeams]
+        for game in Games
+        if game not in [Games.Random, Games.JoustTeams]
     ]
     random_modes = MultiCheckboxField(
         "Random Modes", choices=[(game.name, game.pretty_name) for game in mode_options]
@@ -176,21 +176,21 @@ class GrpcClients:
         logger.info("Connecting to gRPC services...")
 
         # Settings service
-        self.settings_channel = grpc.insecure_channel(self.settings_addr, options=channel_options)
+        self.settings_channel = grpc.insecure_channel(self.settings_addr)
         self.settings_stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
 
         # ControllerManager service
-        self.controller_channel = grpc.insecure_channel(self.controller_mgr_addr, options=channel_options)
+        self.controller_channel = grpc.insecure_channel(self.controller_mgr_addr)
         self.controller_stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
             self.controller_channel
         )
 
         # Menu service
-        self.menu_channel = grpc.insecure_channel(self.menu_addr, options=channel_options)
+        self.menu_channel = grpc.insecure_channel(self.menu_addr)
         self.menu_stub = menu_pb2_grpc.MenuServiceStub(self.menu_channel)
 
         # Supervisor service
-        self.supervisor_channel = grpc.insecure_channel(self.supervisor_addr, options=channel_options)
+        self.supervisor_channel = grpc.insecure_channel(self.supervisor_addr)
         self.supervisor_stub = supervisor_pb2_grpc.SupervisorServiceStub(
             self.supervisor_channel
         )
@@ -354,18 +354,18 @@ class WebUI:
                     return render_template(
                         "battery.html",
                         battery_status=battery_status,
-                        levels=common.battery_levels,
+                        levels=Opts.battery_levels_dict(),
                     )
                 else:
                     logger.error(f"GetControllers failed: {response.error}")
                     return render_template(
-                        "battery.html", battery_status={}, levels=common.battery_levels
+                        "battery.html", battery_status={}, levels=Opts.battery_levels_dict()
                     )
 
             except grpc.RpcError as e:
                 logger.error(f"gRPC error in battery_status: {e}")
                 return render_template(
-                    "battery.html", battery_status={}, levels=common.battery_levels
+                    "battery.html", battery_status={}, levels=Opts.battery_levels_dict()
                 )
 
     def power(self):
@@ -488,7 +488,7 @@ class WebUI:
             temp_settings["color_lock_choices"] = yaml.dump(temp_colors)
 
             if temp_settings.get("random_modes") == []:
-                temp_settings["random_modes"] = [common.Games.JoustFFA.name]
+                temp_settings["random_modes"] = [Games.JoustFFA.name]
 
             # Convert to string map for protobuf
             settings_map = {}

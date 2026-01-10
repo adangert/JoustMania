@@ -365,7 +365,7 @@ source = { editable = "services/controller_manager" }
 dependencies = [
     { name = "dbus-python" },
     { name = "grpcio" },
-    { name = "grpcio-tools" },
+    { name = "joustmania-proto" },
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-instrumentation-grpc" },
@@ -377,7 +377,7 @@ dependencies = [
 requires-dist = [
     { name = "dbus-python", specifier = ">=1.2.0" },
     { name = "grpcio", specifier = ">=1.70.0" },
-    { name = "grpcio-tools", specifier = ">=1.70.0" },
+    { name = "joustmania-proto", editable = "proto" },
     { name = "opentelemetry-distro", specifier = ">=0.49b0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.28.0" },
     { name = "opentelemetry-instrumentation-grpc", specifier = ">=0.49b0" },
@@ -392,6 +392,7 @@ source = { editable = "services/game_coordinator" }
 dependencies = [
     { name = "grpcio" },
     { name = "grpcio-tools" },
+    { name = "joustmania-proto" },
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-instrumentation-grpc" },
@@ -407,6 +408,7 @@ requires-dist = [
     { name = "audioop-lts", marker = "python_full_version >= '3.13'", specifier = ">=0.2.0" },
     { name = "grpcio", specifier = ">=1.70.0" },
     { name = "grpcio-tools", specifier = ">=1.70.0" },
+    { name = "joustmania-proto", editable = "proto" },
     { name = "opentelemetry-distro", specifier = ">=0.49b0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.28.0" },
     { name = "opentelemetry-instrumentation-grpc", specifier = ">=0.49b0" },
@@ -423,8 +425,7 @@ version = "1.0.0"
 source = { editable = "tests/integration" }
 dependencies = [
     { name = "grpcio" },
-    { name = "grpcio-tools" },
-    { name = "protobuf" },
+    { name = "joustmania-proto" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -434,8 +435,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "grpcio", specifier = ">=1.50.0" },
-    { name = "grpcio-tools", specifier = ">=1.50.0" },
-    { name = "protobuf", specifier = ">=4.21.0" },
+    { name = "joustmania-proto", editable = "proto" },
     { name = "pytest", specifier = ">=7.0.0" },
     { name = "pytest-asyncio", specifier = ">=0.23.0" },
     { name = "pytest-cov", specifier = ">=4.0.0" },
@@ -449,6 +449,7 @@ source = { editable = "services/menu" }
 dependencies = [
     { name = "grpcio" },
     { name = "grpcio-tools" },
+    { name = "joustmania-proto" },
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-instrumentation-grpc" },
@@ -464,6 +465,7 @@ requires-dist = [
     { name = "audioop-lts", marker = "python_full_version >= '3.13'", specifier = ">=0.2.0" },
     { name = "grpcio", specifier = ">=1.70.0" },
     { name = "grpcio-tools", specifier = ">=1.70.0" },
+    { name = "joustmania-proto", editable = "proto" },
     { name = "opentelemetry-distro", specifier = ">=0.49b0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.28.0" },
     { name = "opentelemetry-instrumentation-grpc", specifier = ">=0.49b0" },
@@ -497,7 +499,7 @@ version = "1.0.0"
 source = { editable = "services/settings" }
 dependencies = [
     { name = "grpcio" },
-    { name = "grpcio-tools" },
+    { name = "joustmania-proto" },
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-instrumentation-grpc" },
@@ -515,7 +517,7 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "grpcio", specifier = ">=1.70.0" },
-    { name = "grpcio-tools", specifier = ">=1.70.0" },
+    { name = "joustmania-proto", editable = "proto" },
     { name = "opentelemetry-distro", specifier = ">=0.49b0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.28.0" },
     { name = "opentelemetry-instrumentation-grpc", specifier = ">=0.49b0" },
@@ -534,6 +536,7 @@ source = { editable = "services/supervisor" }
 dependencies = [
     { name = "grpcio" },
     { name = "grpcio-tools" },
+    { name = "joustmania-proto" },
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-instrumentation-grpc" },
@@ -543,6 +546,7 @@ dependencies = [
 requires-dist = [
     { name = "grpcio", specifier = ">=1.70.0" },
     { name = "grpcio-tools", specifier = ">=1.70.0" },
+    { name = "joustmania-proto", editable = "proto" },
     { name = "opentelemetry-distro", specifier = ">=0.49b0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.28.0" },
     { name = "opentelemetry-instrumentation-grpc", specifier = ">=0.49b0" },

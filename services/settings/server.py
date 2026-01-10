@@ -20,6 +20,14 @@ from typing import Dict, Any, Tuple
 from concurrent import futures
 import grpc
 
+# OpenTelemetry imports
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource, SERVICE_NAME, SERVICE_VERSION
+from opentelemetry.instrumentation.grpc import GrpcInstrumentorServer
+
 # Import protobuf directly (not through __init__.py to avoid psmove dependency)
 import sys
 import os
@@ -65,6 +73,44 @@ class Sensitivity(Enum):
 from sys import platform
 
 logger = logging.getLogger(__name__)
+
+# Initialize OpenTelemetry
+def init_telemetry():
+    """Initialize OpenTelemetry with OTLP exporter."""
+    # Get configuration from environment
+    otlp_endpoint = os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://localhost:4317')
+    service_name = os.getenv('OTEL_SERVICE_NAME', 'settings-service')
+
+    # Create resource with service info
+    resource = Resource(attributes={
+        SERVICE_NAME: service_name,
+        SERVICE_VERSION: "1.0.0",
+        "service.namespace": "joustmania",
+    })
+
+    # Create tracer provider
+    provider = TracerProvider(resource=resource)
+
+    # Create OTLP exporter
+    otlp_exporter = OTLPSpanExporter(
+        endpoint=otlp_endpoint,
+        insecure=True  # Use insecure for local development
+    )
+
+    # Add span processor
+    provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
+
+    # Set as global tracer provider
+    trace.set_tracer_provider(provider)
+
+    # Instrument gRPC server automatically
+    GrpcInstrumentorServer().instrument()
+
+    logger.info(f"OpenTelemetry initialized: {service_name} -> {otlp_endpoint}")
+    return trace.get_tracer(__name__)
+
+# Global tracer instance
+tracer = init_telemetry()
 
 # Settings schema with validation rules (same as process.py)
 SETTINGS_SCHEMA = {
@@ -212,24 +258,29 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
 
         Uses temp file + rename for atomic write.
         """
-        try:
-            temp_file = self.settings_file + '.tmp'
+        with tracer.start_as_current_span("save_settings") as span:
+            try:
+                temp_file = self.settings_file + '.tmp'
 
-            # Write to temp file
-            with open(temp_file, 'w') as f:
-                yaml.dump(self.settings, f, default_flow_style=False)
+                # Write to temp file
+                with open(temp_file, 'w') as f:
+                    yaml.dump(self.settings, f, default_flow_style=False)
 
-            # Atomic rename
-            os.replace(temp_file, self.settings_file)
+                # Atomic rename
+                os.replace(temp_file, self.settings_file)
 
-            # Set permissions
-            if platform == "linux" or platform == "linux2":
-                os.chmod(self.settings_file, 0o666)
+                # Set permissions
+                if platform == "linux" or platform == "linux2":
+                    os.chmod(self.settings_file, 0o666)
 
-            logger.debug(f"Settings saved to {self.settings_file}")
+                span.set_attribute("settings.file", self.settings_file)
+                span.set_attribute("settings.count", len(self.settings))
+                logger.debug(f"Settings saved to {self.settings_file}")
 
-        except Exception as e:
-            logger.error(f"Error saving settings: {e}", exc_info=True)
+            except Exception as e:
+                span.record_exception(e)
+                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+                logger.error(f"Error saving settings: {e}", exc_info=True)
 
     def validate_setting_value(self, key: str, value: Any) -> Tuple[bool, str]:
         """
@@ -242,41 +293,60 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
         Returns:
             (valid, error_message)
         """
-        if key not in SETTINGS_SCHEMA:
-            return False, f"Unknown setting: {key}"
+        with tracer.start_as_current_span("validate_setting_value") as span:
+            span.set_attribute("setting.key", key)
+            span.set_attribute("setting.value_type", type(value).__name__)
 
-        schema = SETTINGS_SCHEMA[key]
+            if key not in SETTINGS_SCHEMA:
+                span.set_attribute("validation.result", "invalid")
+                span.set_attribute("validation.reason", "unknown_key")
+                return False, f"Unknown setting: {key}"
 
-        # Check if immutable
-        if schema.get('immutable', False):
-            return False, f"Setting '{key}' is immutable"
+            schema = SETTINGS_SCHEMA[key]
 
-        # Check type
-        expected_type = schema['type']
-        if not isinstance(value, expected_type):
-            return False, f"Expected {expected_type.__name__}, got {type(value).__name__}"
+            # Check if immutable
+            if schema.get('immutable', False):
+                span.set_attribute("validation.result", "invalid")
+                span.set_attribute("validation.reason", "immutable")
+                return False, f"Setting '{key}' is immutable"
 
-        # Check range (for int)
-        if expected_type == int:
-            if 'min' in schema and value < schema['min']:
-                return False, f"Value {value} below minimum {schema['min']}"
-            if 'max' in schema and value > schema['max']:
-                return False, f"Value {value} above maximum {schema['max']}"
+            # Check type
+            expected_type = schema['type']
+            if not isinstance(value, expected_type):
+                span.set_attribute("validation.result", "invalid")
+                span.set_attribute("validation.reason", "type_mismatch")
+                return False, f"Expected {expected_type.__name__}, got {type(value).__name__}"
 
-        # Check allowed values (for str)
-        if expected_type == str:
-            if 'allowed_values' in schema and value not in schema['allowed_values']:
-                return False, f"Value '{value}' not in allowed values: {schema['allowed_values']}"
+            # Check range (for int)
+            if expected_type == int:
+                if 'min' in schema and value < schema['min']:
+                    span.set_attribute("validation.result", "invalid")
+                    span.set_attribute("validation.reason", "below_min")
+                    return False, f"Value {value} below minimum {schema['min']}"
+                if 'max' in schema and value > schema['max']:
+                    span.set_attribute("validation.result", "invalid")
+                    span.set_attribute("validation.reason", "above_max")
+                    return False, f"Value {value} above maximum {schema['max']}"
 
-        # Check list items (for list)
-        if expected_type == list:
-            if key == 'random_modes':
-                valid_games = [g.name for g in Games if g != Games.JoustTeams and g != Games.Random]
-                for item in value:
-                    if item not in valid_games:
-                        return False, f"Invalid game mode: {item}"
+            # Check allowed values (for str)
+            if expected_type == str:
+                if 'allowed_values' in schema and value not in schema['allowed_values']:
+                    span.set_attribute("validation.result", "invalid")
+                    span.set_attribute("validation.reason", "not_allowed")
+                    return False, f"Value '{value}' not in allowed values: {schema['allowed_values']}"
 
-        return True, ""
+            # Check list items (for list)
+            if expected_type == list:
+                if key == 'random_modes':
+                    valid_games = [g.name for g in Games if g != Games.JoustTeams and g != Games.Random]
+                    for item in value:
+                        if item not in valid_games:
+                            span.set_attribute("validation.result", "invalid")
+                            span.set_attribute("validation.reason", "invalid_list_item")
+                            return False, f"Invalid game mode: {item}"
+
+            span.set_attribute("validation.result", "valid")
+            return True, ""
 
     def publish_change(self, key: str, old_value: Any, new_value: Any, source: str):
         """
@@ -288,25 +358,34 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
             new_value: New value
             source: Source of the change
         """
-        event = settings_pb2.SettingChangeEvent(
-            key=key,
-            old_value=str(old_value),
-            new_value=str(new_value),
-            source=source,
-            timestamp=int(time.time() * 1000)  # milliseconds
-        )
+        with tracer.start_as_current_span("publish_change") as span:
+            span.set_attribute("setting.key", key)
+            span.set_attribute("setting.old_value", str(old_value))
+            span.set_attribute("setting.new_value", str(new_value))
+            span.set_attribute("change.source", source)
 
-        with self.subscriber_lock:
-            dead_subscribers = []
-            for sub_id, event_queue in self.subscribers.items():
-                try:
-                    event_queue.put_nowait(event)
-                    logger.debug(f"Published change to subscriber {sub_id}")
-                except queue.Full:
-                    logger.warning(f"Subscriber {sub_id} queue full, skipping")
-                except Exception as e:
-                    logger.error(f"Error publishing to subscriber {sub_id}: {e}")
-                    dead_subscribers.append(sub_id)
+            event = settings_pb2.SettingChangeEvent(
+                key=key,
+                old_value=str(old_value),
+                new_value=str(new_value),
+                source=source,
+                timestamp=int(time.time() * 1000)  # milliseconds
+            )
+
+            with self.subscriber_lock:
+                dead_subscribers = []
+                subscriber_count = len(self.subscribers)
+                span.set_attribute("subscribers.count", subscriber_count)
+
+                for sub_id, event_queue in self.subscribers.items():
+                    try:
+                        event_queue.put_nowait(event)
+                        logger.debug(f"Published change to subscriber {sub_id}")
+                    except queue.Full:
+                        logger.warning(f"Subscriber {sub_id} queue full, skipping")
+                    except Exception as e:
+                        logger.error(f"Error publishing to subscriber {sub_id}: {e}")
+                        dead_subscribers.append(sub_id)
 
             # Clean up dead subscribers
             for sub_id in dead_subscribers:

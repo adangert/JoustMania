@@ -7,49 +7,63 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 processors:
-  # Batching improves performance by sending groups of data at once
+  # Batch processor for better performance
   batch:
+    timeout: 10s
+    send_batch_size: 1024
+
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+
+  # Resource processor to add common attributes
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: development
+        action: insert
+      - key: service.namespace
+        value: joustmania
+        action: insert
 
 exporters:
-  otlp:
-    endpoint: "DT-GXT9Y74:4317"
+  # Jaeger exporter for trace visualization in Docker Compose
+  jaeger:
+    endpoint: jaeger:14250
     tls:
       insecure: true
-    sending_queue:
-      batch:
-  otlphttp/prometheus:
-    endpoint: "http://prometheus:9090/api/v1/otlp"
-    tls:
-      insecure: true
-    sending_queue:
-      batch:
-  opensearch:
-    logs_index: otel-logs
-    logs_index_time_format: "yyyy-MM-dd"
-    http:
-      endpoint: "http://opensearch:9200"
-      tls:
-        insecure: true
-    sending_queue:
-      # Explicitly set due to bug: https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/45016
-      num_consumers: 10
-      queue_size: 1000
-      batch:
-  # 'debug' replaces the old 'logging' exporter
+
+  # Prometheus exporter for metrics (exposed on :8888)
+  prometheus:
+    endpoint: "0.0.0.0:8888"
+
+  # Debug exporter for local troubleshooting
   debug:
-    verbosity: basic # Changed from 'detailed' to avoid terminal spam
+    verbosity: basic
 
 service:
   pipelines:
+    # Traces pipeline
     traces:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [debug, otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [jaeger, debug]
+
+    # Metrics pipeline
     metrics:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [debug, otlphttp/prometheus]
+      processors: [memory_limiter, batch, resource]
+      exporters: [prometheus, debug]
+
+    # Logs pipeline
     logs:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [debug, opensearch]
+      processors: [memory_limiter, batch, resource]
+      exporters: [debug]
+
+  extensions: [health_check]
+
+extensions:
+  health_check:
+    endpoint: :13133

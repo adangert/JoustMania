@@ -1,7 +1,7 @@
 # JoustMania Refactoring - Implementation Status
 
 **Date:** 2026-01-10
-**Status:** 🎉 Phase 1-5, 7 Complete - All Core Microservices Implemented
+**Status:** 🎉 Phase 1-5, 7, 8a Complete - Cloud-Native Microservices Architecture
 **Branch:** dev-refactor
 
 ---
@@ -15,6 +15,7 @@
 5. ✅ **Process Supervisor** - Unified process management and health monitoring (Phase 4)
 6. ✅ **Menu Process** - Menu UI as separate microservice (Phase 5)
 7. ✅ **Code Restructuring** - Microservices in services/, uv workspace, clean dependency management (Phase 7)
+8. ✅ **gRPC + Docker + OpenTelemetry** - Cloud-native architecture with observability (Phase 8a)
 
 ---
 
@@ -127,6 +128,70 @@
 - Process registry and configuration
 - Health monitoring strategy
 - Restart policies and failure handling
+
+### Phase 8a: gRPC + Docker + OpenTelemetry ✅ (NEW)
+
+**gRPC Protobuf Schemas:**
+- `services/settings/settings.proto` - Settings management with streaming subscriptions
+- `services/controller_manager/controller_manager.proto` - Controller state streaming at 60Hz
+- `services/game_coordinator/game_coordinator.proto` - Game lifecycle and event streaming
+- `services/menu/menu.proto` - Menu interactions and event streaming
+- `services/supervisor/supervisor.proto` - Process health monitoring and streaming
+- All schemas with bi-directional streaming support
+
+**Settings gRPC Service:**
+- `services/settings/server.py` (500+ lines) - Full gRPC implementation with OpenTelemetry
+- Schema-based validation with detailed error messages
+- Atomic YAML file saves (temp + rename)
+- Streaming change subscriptions via gRPC
+- OpenTelemetry instrumentation:
+  - Automatic gRPC span creation
+  - Manual spans for critical operations (save_settings, validate_setting_value, publish_change)
+  - Detailed span attributes (setting.key, validation.result, etc.)
+  - Exception tracking and error status
+- Comprehensive test suite: 37 tests (25 unit, 12 integration)
+
+**Dockerfiles:**
+- `services/settings/Dockerfile` - Multi-stage build, Python 3.11-slim
+- `services/controller_manager/Dockerfile` - With Bluetooth/USB support for PS Move
+- `services/game_coordinator/Dockerfile` - Game logic containerized
+- `services/menu/Dockerfile` - Menu UI containerized
+- `services/supervisor/Dockerfile` - Process health monitoring
+- All with health checks and OpenTelemetry configuration
+- Multi-stage builds for minimal image size
+
+**Docker Compose Stack:**
+- `docker-compose.yml` - Complete cloud-native stack:
+  - Redis (pub/sub messaging)
+  - Jaeger (distributed tracing UI on :16686)
+  - OpenTelemetry Collector (OTLP receiver on :4317)
+  - All 5 microservices with proper dependency ordering
+  - Health checks for all services
+  - Automatic restart policies
+
+**OpenTelemetry Collector:**
+- `otel-collector-config.yaml` - Production-ready configuration:
+  - OTLP receiver (gRPC + HTTP)
+  - Batch processor for performance
+  - Memory limiter (512MB)
+  - Resource processor (adds service.namespace, deployment.environment)
+  - Jaeger exporter for trace visualization
+  - Prometheus exporter for metrics (:8888)
+  - Health check endpoint (:13133)
+
+**Benefits:**
+- ✅ **Cloud-Native** - Containerized microservices ready for Kubernetes
+- ✅ **Observability** - Distributed tracing with OpenTelemetry + Jaeger
+- ✅ **Performance** - gRPC binary protocol (3-10x faster than REST)
+- ✅ **Scalability** - Services can scale independently
+- ✅ **Resilience** - Health checks and automatic restarts
+- ✅ **Development** - Docker Compose for local testing
+
+**Architecture:**
+- Direct gRPC communication (no Queue-based IPC fallback)
+- Settings service as reference implementation for all others
+- OpenTelemetry context propagation across service boundaries
+- Streaming RPCs for real-time updates (controller state, settings changes, game events)
 
 ### Core Infrastructure ✅
 
@@ -508,11 +573,8 @@ htop
 - [x] Integration with piparty.py (factory function)
 - [x] Dependencies: Settings, ControllerManager
 
-### Phase 6: Observability Integration 📅 PLANNED
-- [ ] OpenTelemetry per process
-- [ ] Process-level metrics
-- [ ] IPC tracing
-- [ ] Monitoring dashboard
+### Phase 6: Observability Integration ⏭️ SKIPPED
+- Integrated directly into Phase 8a (gRPC + Docker + OpenTelemetry)
 
 ### Phase 7: Code Restructuring & Cleanup ✅ COMPLETE
 - [x] Create services/ directory structure
@@ -524,17 +586,48 @@ htop
 - [x] Update setup.sh for uv dependency management
 - [x] Create __init__.py files for all packages
 
+### Phase 8a: gRPC + Docker + OpenTelemetry ✅ COMPLETE
+- [x] Create protobuf schemas for all services (settings, controller_manager, game_coordinator, menu, supervisor)
+- [x] Generate Python gRPC code from protobuf schemas
+- [x] Implement Settings gRPC server with OpenTelemetry
+- [x] Add OpenTelemetry instrumentation (automatic gRPC + manual spans)
+- [x] Create comprehensive test suite for Settings service (37 tests)
+- [x] Create Dockerfiles for all services (multi-stage builds)
+- [x] Create docker-compose.yml with Redis, Jaeger, OTel Collector
+- [x] Configure OpenTelemetry Collector for Jaeger + Prometheus
+- [x] Health checks and automatic restarts
+- [x] Complete cloud-native stack ready for testing
+
+### Phase 8b: Complete gRPC Migration 📅 PLANNED
+- [ ] Implement ControllerManager gRPC server (based on Settings pattern)
+- [ ] Implement GameCoordinator gRPC server
+- [ ] Implement Menu gRPC server
+- [ ] Implement Supervisor gRPC server
+- [ ] Add OpenTelemetry to all services
+- [ ] Update piparty_grpc.py orchestrator
+- [ ] End-to-end integration testing
+- [ ] Performance testing and optimization
+
 ---
 
 ## Next Steps
 
-### Immediate (Phase 7 - Restructuring)
-1. 🚀 Create directory structure (services/, core/, utils/, web/)
-2. 🚀 Move microservices to services/
-3. 🚀 Create pyproject.toml with uv
-4. 🚀 Update imports in piparty.py
-5. 🚀 Update setup.sh
-6. 🚀 Test and validate
+### Immediate (Phase 8a Testing)
+1. ✅ Settings gRPC service implemented with OpenTelemetry
+2. ✅ All protobuf schemas created
+3. ✅ Dockerfiles for all services
+4. ✅ docker-compose.yml with observability stack
+5. 🔄 Test Settings service with docker-compose
+6. 📅 Implement remaining gRPC servers (Phase 8b)
+
+### Testing Cloud-Native Stack
+1. Build and start stack: `docker-compose up --build`
+2. Verify services start: `docker-compose ps`
+3. Check Jaeger UI: http://localhost:16686
+4. Test Settings gRPC: `grpcurl -plaintext localhost:50051 list`
+5. View traces in Jaeger for Settings RPCs
+6. Check Prometheus metrics: http://localhost:8888/metrics
+7. Monitor logs: `docker-compose logs -f settings`
 
 ### For Testing (Both State-Based and ControllerManager)
 1. ✅ Install test dependencies: `pip3 install -r testing/requirements.txt`

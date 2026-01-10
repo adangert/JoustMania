@@ -112,6 +112,14 @@ class ProcessSupervisor:
                 'health_check_interval': 5.0,
                 'critical': False,  # Can operate without games
                 'startup_timeout': 5.0
+            },
+            'Menu': {
+                'dependencies': ['Settings', 'ControllerManager'],
+                'restart_on_failure': True,
+                'max_restarts': 3,
+                'health_check_interval': 5.0,
+                'critical': True,  # System needs menu to function
+                'startup_timeout': 5.0
             }
         }
 

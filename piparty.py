@@ -29,6 +29,7 @@ from services import controller_manager
 from services import game_coordinator
 from services import settings
 from services import supervisor as process_supervisor
+from services import menu
 
 # Legacy imports (for backward compatibility during transition)
 import settings_process  # Fallback to root if services.settings fails
@@ -637,6 +638,10 @@ class Menu():
             self.game_resp_queue = Queue()
             self.game_event_queue = Queue()
 
+            self.menu_cmd_queue = Queue()
+            self.menu_resp_queue = Queue()
+            self.menu_event_queue = Queue()
+
             # Create supervisor
             self.supervisor = process_supervisor.ProcessSupervisor()
 
@@ -644,6 +649,7 @@ class Menu():
             self.supervisor.register_process_factory('Settings', self._create_settings_process)
             self.supervisor.register_process_factory('ControllerManager', self._create_controller_manager_process)
             self.supervisor.register_process_factory('GameCoordinator', self._create_game_coordinator_process)
+            self.supervisor.register_process_factory('Menu', self._create_menu_process)
 
             # Start all processes via supervisor
             try:
@@ -864,6 +870,20 @@ class Menu():
             controller_game_mode=self.controller_game_mode,
             ns=self.ns,
             experimental=self.experimental
+        )
+
+    def _create_menu_process(self):
+        """Factory function to create Menu process."""
+        return menu.MenuProcess(
+            command_queue=self.menu_cmd_queue,
+            response_queue=self.menu_resp_queue,
+            event_queue=self.menu_event_queue,
+            controller_cmd_queue=self.controller_cmd_queue,
+            controller_resp_queue=self.controller_resp_queue,
+            settings_cmd_queue=self.settings_cmd_queue,
+            settings_resp_queue=self.settings_resp_queue,
+            menu_flag=self.menu,
+            ns=self.ns
         )
 
     def choose_new_music(self):

@@ -38,4 +38,5 @@ members = [
     "services/game_coordinator",
     "services/settings",
     "services/supervisor",
+    "services/menu",
 ]

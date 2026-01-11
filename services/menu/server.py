@@ -114,6 +114,12 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.last_button_press_time: dict[
             str, dict[str, float]
         ] = {}  # {serial: {button: timestamp}}
+
+        # Lobby state feedback (Phase 39)
+        self.ready_controllers: set[str] = set()  # Controllers with trigger pressed (ready)
+        self.connected_controllers: set[str] = set()  # All connected controllers
+        self.controller_lobby_state: dict[str, str] = {}  # {serial: "connected"|"ready"|"admin"}
+        self.last_lobby_feedback_update: dict[str, float] = {}  # {serial: timestamp}
         self.channel_options = channel_options
 
         # Admin mode state (Phase 23)
@@ -186,6 +192,13 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     return menu_pb2.StopMenuResponse(success=False, error="Menu already stopped")
 
                 self.state = menu_pb2.MenuState.STOPPED
+
+                # Phase 39: Clear lobby feedback state
+                self.ready_controllers.clear()
+                self.connected_controllers.clear()
+                self.controller_lobby_state.clear()
+                self.last_lobby_feedback_update.clear()
+                self.ready_controller_count = 0
 
                 # Publish menu_stopped event
                 self._publish_event("menu_stopped", {})
@@ -396,6 +409,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     if self.state == menu_pb2.MenuState.RUNNING:
                         for controller in update.controllers:
                             await self._process_button_state(controller)
+                            # Phase 39: Update lobby feedback for this controller
+                            await self._update_lobby_feedback(controller, stub)
 
                 # Phase 26: Don't close persistent channel here
 
@@ -469,6 +484,103 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         prev_state["square"] = controller.square_pressed
         prev_state["triangle"] = controller.triangle_pressed
         prev_state["ps"] = controller.ps_pressed
+
+    async def _update_lobby_feedback(self, controller, stub):
+        """
+        Update controller LED feedback based on lobby state (Phase 39).
+
+        Colors:
+        - Dim orange (128,70,0): Connected but not ready
+        - Bright orange (255,140,0): Ready (trigger pressed)
+        - Green flash: Initial connection
+        - White: Admin mode
+
+        Args:
+            controller: ControllerState protobuf message
+            stub: ControllerManagerServiceStub for LED control
+        """
+        from proto import controller_manager_pb2
+
+        serial = controller.serial
+        current_time = time.time()
+
+        # Skip admin mode controllers (handled separately)
+        if self.admin_mode_active and serial == self.admin_mode_controller:
+            return
+
+        # Detect first connection (green flash welcome)
+        if serial not in self.connected_controllers:
+            self.connected_controllers.add(serial)
+            # Flash green to acknowledge connection
+            try:
+                await stub.SetControllerColor(
+                    controller_manager_pb2.SetControllerColorRequest(
+                        serial=serial,
+                        color=controller_manager_pb2.RGB(r=0, g=255, b=0),
+                        duration_ms=300
+                    )
+                )
+                logger.info(f"Controller {serial} connected - green flash")
+            except Exception as e:
+                logger.error(f"Failed to send connection flash for {serial}: {e}")
+
+            # Set initial state to connected (will be updated below after flash)
+            self.controller_lobby_state[serial] = "connected"
+            self.last_lobby_feedback_update[serial] = current_time
+            # Wait for green flash to complete, then normal state will be set on next update
+            return
+
+        # Determine target state
+        if controller.trigger_pressed:
+            target_state = "ready"
+        else:
+            target_state = "connected"
+
+        # Only update if state changed (avoid redundant SetControllerColor calls)
+        current_state = self.controller_lobby_state.get(serial, "unknown")
+        if target_state == current_state:
+            return
+
+        # Rate limit updates (max 2 per second per controller)
+        last_update = self.last_lobby_feedback_update.get(serial, 0)
+        if current_time - last_update < 0.5:
+            return
+
+        # Update ready controller tracking
+        if target_state == "ready" and serial not in self.ready_controllers:
+            self.ready_controllers.add(serial)
+            self.ready_controller_count = len(self.ready_controllers)
+            logger.info(f"Controller {serial} ready ({self.ready_controller_count} total)")
+        elif target_state == "connected" and serial in self.ready_controllers:
+            self.ready_controllers.remove(serial)
+            self.ready_controller_count = len(self.ready_controllers)
+            logger.info(f"Controller {serial} unready ({self.ready_controller_count} total)")
+
+        # Set LED color based on state
+        try:
+            if target_state == "ready":
+                # Bright orange: Ready for game
+                color = controller_manager_pb2.RGB(r=255, g=140, b=0)
+            else:
+                # Dim orange: Connected but not ready
+                color = controller_manager_pb2.RGB(r=128, g=70, b=0)
+
+            await stub.SetControllerColor(
+                controller_manager_pb2.SetControllerColorRequest(
+                    serial=serial,
+                    color=color,
+                    duration_ms=0  # Persistent until changed
+                )
+            )
+
+            # Update state tracking
+            self.controller_lobby_state[serial] = target_state
+            self.last_lobby_feedback_update[serial] = current_time
+
+            logger.debug(f"Controller {serial} lobby state: {target_state}")
+
+        except Exception as e:
+            logger.error(f"Failed to update lobby feedback for {serial}: {e}")
 
     def _should_process_button(self, serial: str, button: str, current_time: float) -> bool:
         """

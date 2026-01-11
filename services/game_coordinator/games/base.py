@@ -49,6 +49,14 @@ class Player:
     span: trace.Span | None = None  # OpenTelemetry span for this player's lifecycle
 
 
+@dataclass
+class Phase:
+    """Represents a game phase with a name and execution method."""
+
+    name: str
+    execute: callable
+
+
 class GameState(Enum):
     """Game lifecycle states."""
 
@@ -99,6 +107,7 @@ class BaseGameMode(ABC):
         controller_manager_client,
         settings_client,
         event_publisher: Callable,
+        audio_client=None,
         game_id: str = "",
     ):
         """
@@ -108,11 +117,13 @@ class BaseGameMode(ABC):
             controller_manager_client: gRPC stub for ControllerManager service
             settings_client: gRPC stub for Settings service
             event_publisher: Callback function to publish game events
+            audio_client: gRPC stub for Audio service (Phase 29)
             game_id: Unique identifier for this game instance
         """
         self.controller_client = controller_manager_client
         self.settings_client = settings_client
         self.event_publisher = event_publisher
+        self.audio_client = audio_client
 
         # Game ID - subclasses can override with mode-specific prefix
         if not game_id:
@@ -311,6 +322,9 @@ class BaseGameMode(ABC):
                 logger.info("Countdown interrupted by force_end")
                 return
 
+            # Play countdown beep (Phase 29)
+            await self._play_sound("Joust/sounds/beep_loud.wav", priority=2)
+
             # Set color on all controllers
             color_request = controller_manager_pb2.SetControllerColorRequest(
                 serial="",  # Empty = all controllers
@@ -325,6 +339,9 @@ class BaseGameMode(ABC):
                     logger.info("Countdown interrupted by force_end")
                     return
                 await asyncio.sleep(0.1)
+
+        # Play start sound (Phase 29 - GO!)
+        await self._play_sound("Joust/sounds/start3.wav", priority=2)
 
         self.event_publisher("countdown_end", {})
         logger.info("Countdown complete")
@@ -452,6 +469,9 @@ class BaseGameMode(ABC):
 
         alive_count_before = len([p for p in self.players.values() if p.alive])
         logger.info(f"Player died: {serial}, {alive_count_before - 1} players remaining")
+
+        # Play death explosion sound (Phase 29)
+        await self._play_sound("Joust/sounds/Explosion34.wav", priority=2)
 
         # Call subclass-specific death handling
         await self._kill_player_impl(serial, accel_mag)
@@ -593,3 +613,32 @@ class BaseGameMode(ABC):
             },
         )
         return span
+
+    async def _play_sound(self, sound_path: str, priority: int = 2):
+        """
+        Play sound via Audio service (Phase 29).
+
+        Args:
+            sound_path: Relative path to sound file (e.g., "Joust/sounds/Explosion34.wav")
+            priority: Audio priority (0=LOW, 1=MEDIUM, 2=HIGH, 3=CRITICAL)
+        """
+        if not self.play_audio or not self.audio_client:
+            return
+
+        try:
+            from proto import audio_pb2
+
+            # Prepend assets path
+            full_path = f"assets/{sound_path}"
+
+            request = audio_pb2.PlaySoundRequest(
+                file_path=full_path,
+                volume=1.0,
+                priority=priority
+            )
+
+            # Fire-and-forget - don't wait for response
+            await self.audio_client.PlaySound(request)
+            logger.debug(f"Playing sound: {sound_path}")
+        except Exception as e:
+            logger.warning(f"Failed to play sound {sound_path}: {e}")

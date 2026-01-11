@@ -11,23 +11,14 @@ Phase 36b: Refactored to extend TeamsGameBase, eliminating ~550 lines of duplica
 import asyncio
 import logging
 import random
-from dataclasses import dataclass
 
-from services.game_coordinator.games.base import Player
+from services.game_coordinator.games.base import Phase, Player
 from services.game_coordinator.games.teams_base import TEAM_COLORS, TeamsGameBase
 
 logger = logging.getLogger(__name__)
 
 # Game constants
 TEAM_FORMATION_DURATION = 5  # seconds - time to show team colors
-
-
-@dataclass
-class Phase:
-    """Represents a game phase with a name and execution method."""
-
-    name: str
-    execute: callable
 
 
 class RandomTeamsGame(TeamsGameBase):

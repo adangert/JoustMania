@@ -637,9 +637,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
     async def _handle_admin_sensitivity(self, serial: str):
         """
-        Handle sensitivity cycling in admin mode (Phase 23).
+        Handle sensitivity cycling in admin mode (Phase 28).
 
-        Cycles through: Normal → High → Low → Normal
+        Cycles through: Slow (0) → Medium (1) → Fast (2) → Slow
 
         Args:
             serial: Controller serial number
@@ -647,32 +647,71 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         with tracer.start_as_current_span("admin_sensitivity") as span:
             span.set_attribute("controller.serial", serial)
 
-            # TODO: Implement sensitivity state persistence
-            # For now, just provide visual feedback
             from services.controller_manager import (
                 controller_manager_pb2,
                 controller_manager_pb2_grpc,
             )
+            from services.settings import settings_pb2, settings_pb2_grpc
 
             try:
-                channel = grpc.aio.insecure_channel(
+                # Connect to Settings service
+                settings_channel = grpc.aio.insecure_channel("settings:50051", options=self.channel_options)
+                settings_stub = settings_pb2_grpc.SettingsServiceStub(settings_channel)
+
+                # Get current sensitivity
+                get_request = settings_pb2.GetSettingRequest(key="sensitivity")
+                get_response = await settings_stub.GetSetting(get_request)
+                current = int(get_response.value) if get_response.value else 1
+
+                # Validate current value is in range
+                if current < 0 or current > 2:
+                    logger.warning(f"Invalid sensitivity value {current}, resetting to 1")
+                    current = 1
+
+                # Cycle: 0 (slow) → 1 (medium) → 2 (fast) → 0
+                new_value = str((current + 1) % 3)
+
+                # Update setting
+                update_request = settings_pb2.UpdateSettingRequest(
+                    key="sensitivity",
+                    value=new_value,
+                    source="admin_mode"
+                )
+                await settings_stub.UpdateSetting(update_request)
+                await settings_channel.close()
+
+                # Visual feedback: Color by sensitivity level
+                sensitivity_colors = [
+                    (0, 0, 255),    # Slow: Blue
+                    (0, 255, 0),    # Medium: Green
+                    (255, 0, 0)     # Fast: Red
+                ]
+                color = sensitivity_colors[int(new_value)]
+
+                # Connect to Controller Manager for visual feedback
+                controller_channel = grpc.aio.insecure_channel(
                     "controller-manager:50052", options=self.channel_options
                 )
-                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
+                controller_stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(controller_channel)
 
-                # Visual feedback: Blue pulse (sensitivity changed)
+                # Show color pulse
                 effect_request = controller_manager_pb2.PlayControllerEffectRequest(
                     serial=serial,
                     effect=controller_manager_pb2.ControllerEffect.EFFECT_PULSE,
-                    color=controller_manager_pb2.RGB(r=0, g=0, b=255),
-                    duration_ms=500,
-                    speed=7,
+                    color=controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]),
+                    duration_ms=800,
+                    speed=5,
                 )
-                await stub.PlayControllerEffect(effect_request)
-                await channel.close()
+                await controller_stub.PlayControllerEffect(effect_request)
+                await controller_channel.close()
 
-                span.add_event("sensitivity_changed")
-                logger.info(f"Sensitivity cycle requested by admin controller {serial}")
+                sensitivity_names = ["Slow", "Medium", "Fast"]
+                span.add_event("sensitivity_changed", {
+                    "old_value": current,
+                    "new_value": new_value,
+                    "sensitivity_name": sensitivity_names[int(new_value)]
+                })
+                logger.info(f"Sensitivity changed by admin controller {serial}: {current} → {new_value} ({sensitivity_names[int(new_value)]})")
 
             except Exception as e:
                 logger.error(f"Error changing sensitivity: {e}", exc_info=True)
@@ -738,7 +777,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
     async def _handle_admin_instructions(self, serial: str):
         """
-        Handle instruction toggle in admin mode (Phase 23).
+        Handle instruction toggle in admin mode (Phase 28).
 
         Toggles instruction display on/off.
 
@@ -748,32 +787,63 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         with tracer.start_as_current_span("admin_instructions") as span:
             span.set_attribute("controller.serial", serial)
 
-            # TODO: Implement instruction state persistence
-            # For now, just provide visual feedback
             from services.controller_manager import (
                 controller_manager_pb2,
                 controller_manager_pb2_grpc,
             )
+            from services.settings import settings_pb2, settings_pb2_grpc
 
             try:
-                channel = grpc.aio.insecure_channel(
+                # Connect to Settings service
+                settings_channel = grpc.aio.insecure_channel("settings:50051", options=self.channel_options)
+                settings_stub = settings_pb2_grpc.SettingsServiceStub(settings_channel)
+
+                # Get current instruction state
+                get_request = settings_pb2.GetSettingRequest(key="instructions")
+                get_response = await settings_stub.GetSetting(get_request)
+                current = get_response.value if get_response.value else "true"
+
+                # Toggle: true ↔ false
+                new_value = "false" if current == "true" else "true"
+
+                # Update setting
+                update_request = settings_pb2.UpdateSettingRequest(
+                    key="instructions",
+                    value=new_value,
+                    source="admin_mode"
+                )
+                await settings_stub.UpdateSetting(update_request)
+                await settings_channel.close()
+
+                # Visual feedback: Green (enabled) or Red (disabled)
+                if new_value == "true":
+                    color = controller_manager_pb2.RGB(r=0, g=255, b=0)  # Green - enabled
+                else:
+                    color = controller_manager_pb2.RGB(r=255, g=0, b=0)  # Red - disabled
+
+                # Connect to Controller Manager for visual feedback
+                controller_channel = grpc.aio.insecure_channel(
                     "controller-manager:50052", options=self.channel_options
                 )
-                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
+                controller_stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(controller_channel)
 
-                # Visual feedback: Purple pulse (instructions toggled)
+                # Show color pulse
                 effect_request = controller_manager_pb2.PlayControllerEffectRequest(
                     serial=serial,
                     effect=controller_manager_pb2.ControllerEffect.EFFECT_PULSE,
-                    color=controller_manager_pb2.RGB(r=128, g=0, b=128),
-                    duration_ms=500,
-                    speed=7,
+                    color=color,
+                    duration_ms=800,
+                    speed=5,
                 )
-                await stub.PlayControllerEffect(effect_request)
-                await channel.close()
+                await controller_stub.PlayControllerEffect(effect_request)
+                await controller_channel.close()
 
-                span.add_event("instructions_toggled")
-                logger.info(f"Instructions toggle requested by admin controller {serial}")
+                span.add_event("instructions_toggled", {
+                    "old_value": current,
+                    "new_value": new_value,
+                    "enabled": new_value == "true"
+                })
+                logger.info(f"Instructions toggled by admin controller {serial}: {current} → {new_value}")
 
             except Exception as e:
                 logger.error(f"Error toggling instructions: {e}", exc_info=True)
@@ -859,9 +929,17 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 if option_name == "num_teams":
                     # Cycle: 2 → 3 → 4 → 5 → 6 → 2
                     current = int(current_value) if current_value else 2
+                    # Validate range
+                    if current < 2 or current > 6:
+                        logger.warning(f"Invalid num_teams value {current}, resetting to 2")
+                        current = 2
                     new_value = str((current % 6) + 1) if current < 6 else "2"
                 elif option_name == "force_all_start":
                     # Toggle: true ↔ false
+                    # Validate boolean
+                    if current_value not in ["true", "false"]:
+                        logger.warning(f"Invalid force_all_start value {current_value}, resetting to false")
+                        current_value = "false"
                     new_value = "true" if current_value == "false" else "false"
                 else:
                     new_value = current_value
@@ -914,9 +992,17 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 if option_name == "num_teams":
                     # Cycle: 6 → 5 → 4 → 3 → 2 → 6
                     current = int(current_value) if current_value else 2
+                    # Validate range
+                    if current < 2 or current > 6:
+                        logger.warning(f"Invalid num_teams value {current}, resetting to 2")
+                        current = 2
                     new_value = str(current - 1) if current > 2 else "6"
                 elif option_name == "force_all_start":
                     # Toggle: true ↔ false
+                    # Validate boolean
+                    if current_value not in ["true", "false"]:
+                        logger.warning(f"Invalid force_all_start value {current_value}, resetting to false")
+                        current_value = "false"
                     new_value = "false" if current_value == "true" else "true"
                 else:
                     new_value = current_value

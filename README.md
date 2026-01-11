@@ -209,10 +209,12 @@ Admin mode supports two control schemes:
 **Quick Access Functions:**
 | Button | Function | Feedback |
 |--------|----------|----------|
-| **Circle (O)** | Cycle sensitivity (Normal → High → Low) | Blue pulse |
+| **Circle (O)** | Cycle sensitivity (Slow → Medium → Fast) | Color-coded pulse (Blue/Green/Red) |
 | **Triangle** | Show battery levels on all controllers | Color-coded LEDs (2s) |
-| **Square** | Toggle instruction display | Purple pulse |
+| **Square** | Toggle instruction audio | Green (enabled) / Red (disabled) |
 | **PlayStation** | Exit admin mode | - |
+
+**Note:** Sensitivity and instruction settings persist to the Settings service and apply to all subsequent games.
 
 #### Admin Settings
 
@@ -226,6 +228,15 @@ Admin mode supports two control schemes:
 - `All`: All connected controllers start
 - `Trigger Only`: Only players who pressed trigger start
 - Feedback: Green (All) / Red (Trigger Only)
+
+**Sensitivity Levels** (Circle button):
+- **Slow** (0) - Blue pulse - Lower thresholds, easier gameplay
+- **Medium** (1) - Green pulse - Default balanced gameplay
+- **Fast** (2) - Red pulse - Higher thresholds, faster paced
+
+**Instructions Toggle** (Square button):
+- **Enabled** - Green pulse - Audio instructions play during games
+- **Disabled** - Red pulse - Silent gameplay, no audio prompts
 
 #### Battery Display Colors
 

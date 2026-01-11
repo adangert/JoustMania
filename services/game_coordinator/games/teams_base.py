@@ -350,8 +350,24 @@ class TeamsGameBase(BaseGameMode):
                     f"Ended lifecycle span for team {team.name} ({'WINNER' if is_winning_team else 'survived'})"
                 )
 
-        # TODO: Show rainbow effect on winning team's controllers
-        # TODO: Play victory sound via Audio service
+        # Show rainbow effect on winning team's controllers (Phase 29)
+        if winning_team_num is not None:
+            from proto import controller_manager_pb2
+
+            # Play rainbow effect on all winning team members
+            for serial, player in self.players.items():
+                if player.alive and player.team == winning_team_num:
+                    rainbow_request = controller_manager_pb2.PlayControllerEffectRequest(
+                        serial=serial,
+                        effect=controller_manager_pb2.EFFECT_RAINBOW,
+                        color=controller_manager_pb2.RGB(r=255, g=255, b=255),
+                        duration_ms=2000,
+                        speed=5,
+                    )
+                    await self.controller_client.PlayControllerEffect(rainbow_request)
+
+            # Play victory sound (Phase 29)
+            await self._play_sound("Joust/sounds/wolfdown.wav", priority=2)
 
         # Show winner for a bit (interruptible by force_end)
         for _ in range(20):  # 2 seconds in 0.1s increments

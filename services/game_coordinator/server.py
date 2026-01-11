@@ -135,12 +135,16 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         self.controller_manager_port = os.getenv("CONTROLLER_MANAGER_PORT", "50052")
         self.settings_host = os.getenv("SETTINGS_HOST", "settings")
         self.settings_port = os.getenv("SETTINGS_PORT", "50051")
+        self.audio_host = os.getenv("AUDIO_HOST", "audio")  # Phase 29
+        self.audio_port = os.getenv("AUDIO_PORT", "50054")  # Phase 29
 
         # These will be set to None initially and created in the game loop
         self.controller_manager_channel = None
         self.controller_manager_client = None
         self.settings_channel = None
         self.settings_client = None
+        self.audio_channel = None
+        self.audio_client = None  # Phase 29: Audio integration
 
         logger.info("GameCoordinator initialized")
 
@@ -187,11 +191,19 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
             self.settings_client = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
             logger.info(f"Connected to Settings at {settings_address} (with channel options)")
 
+            # Audio client (async) - Phase 29
+            from proto import audio_pb2_grpc
+            audio_address = f"{self.audio_host}:{self.audio_port}"
+            self.audio_channel = grpc.aio.insecure_channel(audio_address, options=channel_options)
+            self.audio_client = audio_pb2_grpc.AudioServiceStub(self.audio_channel)
+            logger.info(f"Connected to Audio at {audio_address} (with channel options)")
+
         except Exception as e:
             logger.error(f"Failed to initialize gRPC clients: {e}")
             # Create None clients for graceful degradation
             self.controller_manager_client = None
             self.settings_client = None
+            self.audio_client = None
 
     def StartGame(self, request, context):
         """Start a new game (setup only - game span created in game loop)."""
@@ -299,6 +311,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                         controller_manager_client=self.controller_manager_client,
                         settings_client=self.settings_client,
                         event_publisher=self._publish_event,
+                        audio_client=self.audio_client,  # Phase 29
                         game_id=self.game_id,
                     )
 
@@ -321,6 +334,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                         controller_manager_client=self.controller_manager_client,
                         settings_client=self.settings_client,
                         event_publisher=self._publish_event,
+                        audio_client=self.audio_client,  # Phase 29
                         game_id=self.game_id,
                         num_teams=num_teams,
                     )
@@ -348,6 +362,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                         controller_manager_client=self.controller_manager_client,
                         settings_client=self.settings_client,
                         event_publisher=self._publish_event,
+                        audio_client=self.audio_client,  # Phase 29
                         game_id=self.game_id,
                         num_teams=num_teams,
                     )
@@ -371,6 +386,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                         controller_manager_client=self.controller_manager_client,
                         settings_client=self.settings_client,
                         event_publisher=self._publish_event,
+                        audio_client=self.audio_client,  # Phase 29
                         game_id=self.game_id,
                     )
 

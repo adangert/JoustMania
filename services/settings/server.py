@@ -546,9 +546,11 @@ async def serve(port: int = 50051):
     Args:
         port: Port to listen on (default: 50051)
     """
-    # Configure logging
+    # Configure logging with environment variable support
+    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
     logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        level=getattr(logging, log_level, logging.INFO),
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 
     # Create server

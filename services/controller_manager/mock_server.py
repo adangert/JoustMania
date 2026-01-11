@@ -273,7 +273,9 @@ async def serve():
 
 async def main():
     """Main entry point."""
-    logging.basicConfig(level=logging.INFO)
+    # Configure logging with environment variable support
+    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(level=getattr(logging, log_level, logging.INFO))
     await serve()
 
 

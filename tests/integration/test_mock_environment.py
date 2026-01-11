@@ -213,10 +213,10 @@ async def test_ffa_game_with_mock_controllers(docker_compose):
         game_coordinator_pb2.GameState.ENDED,
     ]
 
-    # Force end game
-    end_response = await game_client.ForceEndGame(game_coordinator_pb2.ForceEndGameRequest())
-
-    assert end_response.success
+    # Force end game if still running
+    if status_response.state == game_coordinator_pb2.GameState.RUNNING:
+        end_response = await game_client.ForceEndGame(game_coordinator_pb2.ForceEndGameRequest())
+        assert end_response.success
 
     await game_channel.close()
     await mock_channel.close()

@@ -1,5 +1,10 @@
 version: '3.8'
 
+# Environment Variables (can be set in shell or .env file):
+# - LOG_LEVEL: Logging level for all services (DEBUG, INFO, WARNING, ERROR) [default: INFO]
+# - OTEL_EXPORTER_OTLP_ENDPOINT: OpenTelemetry endpoint [default: http://otel-collector:4317]
+# - OTEL_SERVICE_NAME: Overridden per-service below
+
 services:
   # Redis for pub/sub messaging
   redis:
@@ -73,6 +78,7 @@ services:
     environment:
       - OTEL_SERVICE_NAME=settings-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      # - LOG_LEVEL=INFO  # Uncomment to override logging level (DEBUG, INFO, WARNING, ERROR)
     volumes:
       - ./joustsettings.yaml:/app/joustsettings.yaml
     depends_on:

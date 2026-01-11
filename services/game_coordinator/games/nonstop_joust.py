@@ -19,7 +19,7 @@ from dataclasses import dataclass
 
 from opentelemetry import trace
 
-from services.game_coordinator.games.base import BaseGameMode, Player
+from services.game_coordinator.games.base import BaseGameMode, Phase, Player
 
 tracer = trace.get_tracer(__name__)
 logger = logging.getLogger(__name__)
@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 UPDATE_FREQUENCY = 60  # Hz - game tick frequency
 RESPAWN_DURATION = 3.0  # seconds to respawn
 SPAWN_PROTECTION_DURATION = 2.0  # seconds of invulnerability after spawn
+COLOR_DISPLAY_DURATION = 1  # second to show unique colors
 
 
 @dataclass
@@ -365,14 +366,65 @@ class NonstopJoustGame(BaseGameMode):
             },
         )
 
+    async def _set_unique_colors(self):
+        """
+        Set unique colors for each player in Nonstop Joust (Phase 39 - Task 3).
+
+        Each player gets a distinct color so they can be identified during gameplay.
+        Uses HSV color generation for maximum distinction.
+        """
+        from proto import controller_manager_pb2
+        from utils.colors import generate_colors
+
+        logger.info("Setting unique Nonstop colors...")
+
+        self.event_publisher(
+            "nonstop_colors_display",
+            {
+                "duration": COLOR_DISPLAY_DURATION,
+                "player_count": len(self.players),
+            },
+        )
+
+        try:
+            # Generate unique colors for each player
+            unique_colors = generate_colors(len(self.players))
+
+            # Assign colors to players
+            for idx, (serial, player) in enumerate(self.players.items()):
+                color = unique_colors[idx]
+                player.color = color  # Update player's color attribute
+
+                await self.controller_manager_client.SetControllerColor(
+                    controller_manager_pb2.SetControllerColorRequest(
+                        serial=serial,
+                        color=controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]),
+                        duration_ms=0,  # Persistent
+                    )
+                )
+
+            logger.info(f"Set {len(self.players)} controllers to unique colors (Nonstop mode)")
+
+        except Exception as e:
+            logger.error(f"Failed to set Nonstop colors: {e}", exc_info=True)
+
+        # Brief pause to let players see their unique colors
+        for _ in range(COLOR_DISPLAY_DURATION * 10):
+            if not self.running:
+                logger.info("Nonstop colors display interrupted by force_end")
+                return
+            await asyncio.sleep(0.1)
+
+        logger.info("Nonstop unique colors displayed")
+
     def _get_additional_phases(self) -> list:
         """
-        No additional phases for Nonstop Joust.
+        Return unique color phase to execute before countdown (Phase 39 - Task 3).
 
         Returns:
-            Empty list (no extra phases)
+            List containing unique color display phase
         """
-        return []
+        return [Phase(name="nonstop_colors_phase", execute=self._set_unique_colors)]
 
     async def _end_game_impl(self):
         """Handle game ending with scoring calculation."""

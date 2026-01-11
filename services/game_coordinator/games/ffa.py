@@ -129,13 +129,15 @@ class FFAGame(BaseGameMode):
 
     async def _set_ffa_colors(self):
         """
-        Set all controllers to white for FFA mode (Phase 39 - Task 3).
+        Set unique colors for each player in FFA mode (Phase 39 - Task 3).
 
-        FFA has no teams, so all players get white to indicate this is free-for-all.
+        Each player gets a distinct color so they can be identified during gameplay.
+        Uses HSV color generation for maximum distinction.
         """
         from proto import controller_manager_pb2
+        from utils.colors import generate_colors
 
-        logger.info("Setting FFA white colors...")
+        logger.info("Setting unique FFA colors...")
 
         self.event_publisher(
             "ffa_colors_display",
@@ -146,29 +148,35 @@ class FFAGame(BaseGameMode):
         )
 
         try:
-            # Set all controllers to white
-            for serial in self.players.keys():
+            # Generate unique colors for each player
+            unique_colors = generate_colors(len(self.players))
+
+            # Assign colors to players
+            for idx, (serial, player) in enumerate(self.players.items()):
+                color = unique_colors[idx]
+                player.color = color  # Update player's color attribute
+
                 await self.controller_manager_client.SetControllerColor(
                     controller_manager_pb2.SetControllerColorRequest(
                         serial=serial,
-                        color=controller_manager_pb2.RGB(r=255, g=255, b=255),
+                        color=controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]),
                         duration_ms=0,  # Persistent
                     )
                 )
 
-            logger.info(f"Set {len(self.players)} controllers to white (FFA mode)")
+            logger.info(f"Set {len(self.players)} controllers to unique colors (FFA mode)")
 
         except Exception as e:
             logger.error(f"Failed to set FFA colors: {e}", exc_info=True)
 
-        # Brief pause to let players see white color
+        # Brief pause to let players see their unique colors
         for _ in range(FFA_COLOR_DURATION * 10):
             if not self.running:
                 logger.info("FFA colors display interrupted by force_end")
                 return
             await asyncio.sleep(0.1)
 
-        logger.info("FFA colors displayed")
+        logger.info("FFA unique colors displayed")
 
     def _get_additional_phases(self) -> list:
         """

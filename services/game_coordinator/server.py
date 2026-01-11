@@ -130,17 +130,22 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         self.game_running = False
 
         # Initialize gRPC clients for other services
+        # Store gRPC service addresses (channels will be created in game loop's event loop)
         self.controller_manager_host = os.getenv("CONTROLLER_MANAGER_HOST", "controller-manager")
         self.controller_manager_port = os.getenv("CONTROLLER_MANAGER_PORT", "50052")
         self.settings_host = os.getenv("SETTINGS_HOST", "settings")
         self.settings_port = os.getenv("SETTINGS_PORT", "50051")
 
-        self._init_grpc_clients()
+        # These will be set to None initially and created in the game loop
+        self.controller_manager_channel = None
+        self.controller_manager_client = None
+        self.settings_channel = None
+        self.settings_client = None
 
         logger.info("GameCoordinator initialized")
 
-    def _init_grpc_clients(self):
-        """Initialize gRPC clients for ControllerManager and Settings with optimized channel options."""
+    async def _init_grpc_clients_async(self):
+        """Initialize async gRPC clients in the game loop's event loop."""
         # gRPC channel options for better performance and reliability
         channel_options = [
             # Keep-alive settings to detect dead connections
@@ -268,6 +273,9 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
     async def _run_game_loop_async(self):
         """Run the async game loop."""
+        # Initialize async gRPC clients in this event loop
+        await self._init_grpc_clients_async()
+
         # Create parent span with human-readable game mode name
         # Use shared game name mapping from core.types
         span_name = get_game_display_name(self.game_name)
@@ -396,6 +404,14 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
             finally:
                 self.game_running = False
                 self.current_game = None
+
+                # Close async gRPC channels
+                if self.controller_manager_channel:
+                    await self.controller_manager_channel.close()
+                if self.settings_channel:
+                    await self.settings_channel.close()
+                logger.info("Closed gRPC channels")
+
                 # game_session span will automatically end here
 
     def GetGameStatus(self, request, context):

@@ -92,6 +92,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             # Message size limits (10MB for large messages)
             ("grpc.max_receive_message_length", 10 * 1024 * 1024),
             ("grpc.max_send_message_length", 10 * 1024 * 1024),
+            # Compression (Phase 26 - Performance)
+            ("grpc.default_compression_algorithm", grpc.Compression.Gzip),
+            ("grpc.grpc.default_compression_level", grpc.Compression.Gzip),
         ]
 
         self.state = menu_pb2.MenuState.STOPPED

@@ -153,6 +153,9 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
             # Message size limits (10MB for large controller state messages)
             ("grpc.max_receive_message_length", 10 * 1024 * 1024),
             ("grpc.max_send_message_length", 10 * 1024 * 1024),
+            # Compression (Phase 26 - Performance)
+            ("grpc.default_compression_algorithm", grpc.Compression.Gzip),
+            ("grpc.grpc.default_compression_level", grpc.Compression.Gzip),
         ]
 
         try:

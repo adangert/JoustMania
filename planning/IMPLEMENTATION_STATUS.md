@@ -32,7 +32,7 @@ This document tracks the progress of the JoustMania microservices refactoring pr
 | 15 | Docker Compose Optimization | HIGH | ✅ Complete | [View](phases/completed/phase-15-docker-compose-optimization.md) |
 | 16 | Critical Performance Fixes | CRITICAL | ✅ Complete | [View](phases/completed/phase-16-critical-performance-fixes.md) |
 | 17 | Network Architecture | HIGH | ✅ Complete | [View](phases/completed/phase-17-network-architecture-improvements.md) |
-| 18 | Game Loop Optimization | MEDIUM | ⚡ Planned | [View](phases/planned/phase-18-game-loop-telemetry-optimization.md) |
+| 18 | Game Loop CPU Optimization | HIGH | ⚡ Planned | [View](phases/planned/phase-18-game-loop-cpu-optimization.md) |
 | 19 | Controller Feedback | MEDIUM | ✅ Complete | [View](phases/completed/phase-19-controller-feedback-implementation.md) |
 | 20 | Production Optimization | LOW | 🚀 Planned | [View](phases/planned/phase-20-production-optimization.md) |
 | 21 | Menu Controller Integration | HIGH | ✅ Complete | [View](phases/completed/phase-21-menu-controller-integration.md) |
@@ -41,7 +41,7 @@ This document tracks the progress of the JoustMania microservices refactoring pr
 | 24 | Service Health Checks | HIGH | ✅ Complete | [View](phases/completed/phase-24-proper-service-health-checks.md) |
 | 25 | Type Safety & Code Quality | MEDIUM | ✅ Complete | [View](phases/completed/phase-25-type-safety-code-quality.md) |
 | 26 | Critical Performance Fixes | HIGH | 🔥 Planned | [View](phases/planned/phase-26-critical-performance-fixes.md) |
-| 27 | Telemetry Optimization | HIGH | 📊 Planned | [View](phases/planned/phase-27-telemetry-optimization.md) |
+| 27 | OpenTelemetry Optimization | HIGH | 📊 Planned | [View](phases/planned/phase-27-opentelemetry-optimization.md) |
 | 28 | Admin Mode Completion | MEDIUM | ✅ Planned | [View](phases/planned/phase-28-admin-mode-completion.md) |
 | 29 | Audio Integration | MEDIUM | 🔊 Planned | [View](phases/planned/phase-29-audio-integration.md) |
 | 30 | Controller Feedback Completion | MEDIUM | 🎮 Planned | [View](phases/planned/phase-30-controller-feedback-completion.md) |
@@ -49,6 +49,7 @@ This document tracks the progress of the JoustMania microservices refactoring pr
 | 32 | Settings Cleanup | LOW | 🧹 Planned | [View](phases/planned/phase-32-settings-cleanup.md) |
 | 33 | Code Quality | LOW | 💎 Planned | [View](phases/planned/phase-33-code-quality-improvements.md) |
 | 34 | Async/Await Consistency | LOW | ⚡ Planned | [View](phases/planned/phase-34-async-await-consistency.md) |
+| 35 | Logging Optimization | MEDIUM | 🔍 Planned | [View](phases/planned/phase-35-logging-optimization.md) |
 
 ## Completed Phases (22)
 
@@ -82,18 +83,19 @@ This document tracks the progress of the JoustMania microservices refactoring pr
 - **Phase 24**: [Service Health Checks](phases/completed/phase-24-proper-service-health-checks.md) - gRPC health protocol
 - **Phase 25**: [Type Safety & Code Quality](phases/completed/phase-25-type-safety-code-quality.md) - ty + ruff integration
 
-## Planned Phases (12)
+## Planned Phases (13)
 
 ### High Priority - Performance & Reliability
-- **Phase 18**: [Game Loop Optimization](phases/planned/phase-18-game-loop-telemetry-optimization.md) - State caching and OTel sampling
+- **Phase 18**: [Game Loop CPU Optimization](phases/planned/phase-18-game-loop-cpu-optimization.md) - State caching and protobuf pooling
 - **Phase 26**: [Critical Performance Fixes](phases/planned/phase-26-critical-performance-fixes.md) - Channel pooling and resource limits
-- **Phase 27**: [Telemetry Optimization](phases/planned/phase-27-telemetry-optimization.md) - Reduce span overhead
+- **Phase 27**: [OpenTelemetry Optimization](phases/planned/phase-27-opentelemetry-optimization.md) - Span sampling and hot path reduction
 
-### Medium Priority - Game Features
+### Medium Priority - Game Features & Polish
 - **Phase 23**: [Admin Mode & Controls](phases/planned/phase-23-admin-mode-advanced-controls.md) - On-the-fly settings adjustment
 - **Phase 28**: [Admin Mode Completion](phases/planned/phase-28-admin-mode-completion.md) - Settings persistence
 - **Phase 29**: [Audio Integration](phases/planned/phase-29-audio-integration.md) - Sound effects for all games
 - **Phase 30**: [Controller Feedback Completion](phases/planned/phase-30-controller-feedback-completion.md) - Teams game feedback
+- **Phase 35**: [Logging Optimization](phases/planned/phase-35-logging-optimization.md) - Clean up excessive logging
 
 ### Low Priority - Polish & Refinement
 - **Phase 20**: [Production Optimization](phases/planned/phase-20-production-optimization.md) - Future scalability improvements
@@ -126,9 +128,10 @@ This document tracks the progress of the JoustMania microservices refactoring pr
 ## Next Steps
 
 ### Immediate Priorities
-1. **Phase 26** - Fix gRPC channel pooling and add resource limits
-2. **Phase 27** - Optimize telemetry for Raspberry Pi deployment
-3. **Phase 18** - Implement state caching and OTel sampling
+1. **Phase 35** - Clean up logging (low-hanging fruit, 5% CPU reduction)
+2. **Phase 18** - Game loop CPU optimization (state caching, protobuf pooling)
+3. **Phase 27** - OpenTelemetry optimization (span sampling, hot path reduction)
+4. **Phase 26** - Critical performance fixes (channel pooling, resource limits)
 
 ### Mid-term Goals
 - Complete admin mode functionality (Phases 23, 28)

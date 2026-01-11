@@ -45,6 +45,25 @@ from services.controller_manager import (
 from services.game_coordinator import game_coordinator_pb2, game_coordinator_pb2_grpc
 
 
+async def get_ready_players(docker_compose):
+    """Helper function to get ready controllers and convert them to players."""
+    host = docker_compose.get_service_host("mock-controller-manager", 50052)
+    port = docker_compose.get_service_port("mock-controller-manager", 50052)
+    channel = grpc.aio.insecure_channel(f"{host}:{port}")
+    client = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
+
+    response = await client.GetReadyControllers(controller_manager_pb2.GetReadyControllersRequest())
+    await channel.close()
+
+    # Convert controllers to players
+    players = []
+    for i, controller in enumerate(response.controllers):
+        players.append(
+            game_coordinator_pb2.Player(serial=controller.serial, team=i % 2, alive=True, score=0)
+        )
+    return players
+
+
 @pytest.fixture(scope="module")
 def docker_compose():
     """Fixture to start docker-compose mock environment."""
@@ -163,8 +182,13 @@ async def test_ffa_game_with_mock_controllers(docker_compose):
     mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
     mock_client = controller_manager_mock_pb2_grpc.MockControllerServiceStub(mock_channel)
 
+    # Get ready players
+    players = await get_ready_players(docker_compose)
+
     # Start FFA game
-    start_response = await game_client.StartGame(game_coordinator_pb2.StartGameRequest(game_name="FFA"))
+    start_response = await game_client.StartGame(
+        game_coordinator_pb2.StartGameRequest(game_name="FFA", players=players)
+    )
 
     assert start_response.success
     assert start_response.game_id != ""
@@ -183,7 +207,11 @@ async def test_ffa_game_with_mock_controllers(docker_compose):
     # Check game status
     status_response = await game_client.GetGameStatus(game_coordinator_pb2.GetGameStatusRequest())
 
-    assert status_response.is_running or status_response.is_ended  # Game might have auto-ended
+    # Game might be running or ended
+    assert status_response.state in [
+        game_coordinator_pb2.GameState.RUNNING,
+        game_coordinator_pb2.GameState.ENDED,
+    ]
 
     # Force end game
     end_response = await game_client.ForceEndGame(game_coordinator_pb2.ForceEndGameRequest())
@@ -210,9 +238,12 @@ async def test_teams_game_with_mock_controllers(docker_compose):
     mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
     mock_client = controller_manager_mock_pb2_grpc.MockControllerServiceStub(mock_channel)
 
+    # Get ready players
+    players = await get_ready_players(docker_compose)
+
     # Start Teams game
     start_response = await game_client.StartGame(
-        game_coordinator_pb2.StartGameRequest(game_name="Teams")
+        game_coordinator_pb2.StartGameRequest(game_name="Teams", players=players)
     )
 
     assert start_response.success
@@ -236,10 +267,13 @@ async def test_teams_game_with_mock_controllers(docker_compose):
     status_response = await game_client.GetGameStatus(game_coordinator_pb2.GetGameStatusRequest())
 
     # Game might be ended or still running depending on team assignment
-    assert status_response.is_running or status_response.is_ended
+    assert status_response.state in [
+        game_coordinator_pb2.GameState.RUNNING,
+        game_coordinator_pb2.GameState.ENDED,
+    ]
 
     # Force end if still running
-    if status_response.is_running:
+    if status_response.state == game_coordinator_pb2.GameState.RUNNING:
         await game_client.ForceEndGame(game_coordinator_pb2.ForceEndGameRequest())
 
     await game_channel.close()
@@ -284,8 +318,13 @@ async def test_distributed_tracing_propagation(docker_compose):
     game_channel = grpc.aio.insecure_channel(f"{game_host}:{game_port}")
     game_client = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(game_channel)
 
+    # Get ready players
+    players = await get_ready_players(docker_compose)
+
     # Start game (this should create a trace spanning all services)
-    start_response = await game_client.StartGame(game_coordinator_pb2.StartGameRequest(game_name="FFA"))
+    start_response = await game_client.StartGame(
+        game_coordinator_pb2.StartGameRequest(game_name="FFA", players=players)
+    )
 
     assert start_response.success
 
@@ -321,11 +360,14 @@ async def test_multiple_games_sequence(docker_compose):
     mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
     mock_client = controller_manager_mock_pb2_grpc.MockControllerServiceStub(mock_channel)
 
+    # Get ready players once
+    players = await get_ready_players(docker_compose)
+
     # Run 3 games in sequence
     for i in range(3):
         # Start game
         start_response = await game_client.StartGame(
-            game_coordinator_pb2.StartGameRequest(game_name="FFA")
+            game_coordinator_pb2.StartGameRequest(game_name="FFA", players=players)
         )
         assert start_response.success
 

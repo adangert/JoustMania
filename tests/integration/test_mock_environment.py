@@ -36,13 +36,12 @@ from testcontainers.compose import DockerCompose
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
-from services.controller_manager import (
-    controller_manager_mock_pb2,
-    controller_manager_mock_pb2_grpc,
+from proto import (
     controller_manager_pb2,
     controller_manager_pb2_grpc,
+    game_coordinator_pb2,
+    game_coordinator_pb2_grpc,
 )
-from services.game_coordinator import game_coordinator_pb2, game_coordinator_pb2_grpc
 
 
 async def get_ready_players(docker_compose):

@@ -29,8 +29,9 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy application code (mock server only needs controller_manager directory)
+# Copy application code (mock server only needs controller_manager directory and proto)
 COPY services/controller_manager/ /app/services/controller_manager/
+COPY proto/ /app/proto/
 
 # Set Python path
 ENV PYTHONPATH=/app

@@ -624,6 +624,84 @@ class ControllerManagerServicer(
                                     }
                                 )
 
+                        elif control_msg.HasField("color_command"):
+                            # Phase 46: Process color command via stream
+                            cmd = control_msg.color_command
+                            target_serial = cmd.serial if cmd.serial else None
+
+                            # Apply to target serial or all controllers (broadcast)
+                            serials_to_update = (
+                                [target_serial] if target_serial else list(self.tracked_controllers.keys())
+                            )
+
+                            for serial in serials_to_update:
+                                if serial in self.tracked_controllers:
+                                    await self._set_controller_color_internal(
+                                        serial, (cmd.color.r, cmd.color.g, cmd.color.b)
+                                    )
+
+                            logger.debug(
+                                f"[{subscriber_id}] Color command: "
+                                f"serial={cmd.serial or 'all'}, "
+                                f"rgb=({cmd.color.r},{cmd.color.g},{cmd.color.b})"
+                            )
+
+                            # Metric (Phase 46)
+                            metrics.stream_commands_total.labels(command_type='color').inc()
+
+                        elif control_msg.HasField("effect_command"):
+                            # Phase 46: Process effect command via stream
+                            cmd = control_msg.effect_command
+                            target_serial = cmd.serial if cmd.serial else None
+
+                            # Apply to target serial or all controllers (broadcast)
+                            serials_to_update = (
+                                [target_serial] if target_serial else list(self.tracked_controllers.keys())
+                            )
+
+                            color_rgb = (cmd.color.r, cmd.color.g, cmd.color.b) if cmd.color.r or cmd.color.g or cmd.color.b else (255, 255, 255)
+                            duration_ms = cmd.duration_ms or 1000
+
+                            for serial in serials_to_update:
+                                if serial in self.tracked_controllers:
+                                    await self._play_effect_internal(
+                                        serial, cmd.effect, color_rgb, duration_ms, speed=5
+                                    )
+
+                            effect_name = controller_manager_pb2.ControllerEffect.Name(cmd.effect)
+                            logger.debug(
+                                f"[{subscriber_id}] Effect command: "
+                                f"serial={cmd.serial or 'all'}, effect={effect_name}"
+                            )
+
+                            # Metric (Phase 46)
+                            metrics.stream_commands_total.labels(command_type='effect').inc()
+
+                        elif control_msg.HasField("vibration_command"):
+                            # Phase 46: Process vibration command via stream
+                            cmd = control_msg.vibration_command
+                            target_serial = cmd.serial if cmd.serial else None
+
+                            # Apply to target serial or all controllers (broadcast)
+                            serials_to_update = (
+                                [target_serial] if target_serial else list(self.tracked_controllers.keys())
+                            )
+
+                            for serial in serials_to_update:
+                                if serial in self.tracked_controllers:
+                                    await self._set_vibration_internal(
+                                        serial, cmd.intensity, cmd.duration_ms
+                                    )
+
+                            logger.debug(
+                                f"[{subscriber_id}] Vibration command: "
+                                f"serial={cmd.serial or 'all'}, "
+                                f"intensity={cmd.intensity}, duration={cmd.duration_ms}ms"
+                            )
+
+                            # Metric (Phase 46)
+                            metrics.stream_commands_total.labels(command_type='vibration').inc()
+
                 except Exception as e:
                     logger.error(f"[{subscriber_id}] Error reading client updates: {e}", exc_info=True)
 
@@ -952,6 +1030,173 @@ class ControllerManagerServicer(
                 return controller_manager_pb2.PlayControllerEffectResponse(
                     success=False, error=str(e)
                 )
+
+    # Phase 46: Internal feedback methods (called from both unary RPCs and stream)
+
+    async def _set_controller_color_internal(self, serial: str, color_rgb: tuple[int, int, int]) -> bool:
+        """
+        Internal method to set controller color (Phase 46).
+
+        Can be called from both SetControllerColor RPC and stream-based ColorCommand.
+
+        Args:
+            serial: Controller serial number
+            color_rgb: RGB color tuple (r, g, b)
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not PSMOVE_AVAILABLE:
+                logger.debug(
+                    f"_set_controller_color_internal (mock): {serial} -> RGB{color_rgb}"
+                )
+                return True
+
+            if serial not in self.tracked_controllers:
+                logger.warning(f"Controller {serial} not found for color change")
+                return False
+
+            info = self.tracked_controllers[serial]
+            move = info.get("move")
+            if move:
+                move.set_leds(color_rgb[0], color_rgb[1], color_rgb[2])
+                move.update_leds()
+                logger.debug(f"Set color on {serial}: RGB{color_rgb}")
+                return True
+            else:
+                logger.warning(f"No move object for controller {serial}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error setting color on {serial}: {e}", exc_info=True)
+            return False
+
+    async def _play_effect_internal(
+        self,
+        serial: str,
+        effect: int,
+        color_rgb: tuple[int, int, int] = (255, 255, 255),
+        duration_ms: int = 1000,
+        speed: int = 5
+    ) -> bool:
+        """
+        Internal method to play controller effect (Phase 46).
+
+        Can be called from both PlayControllerEffect RPC and stream-based EffectCommand.
+
+        Args:
+            serial: Controller serial number
+            effect: Effect enum value
+            color_rgb: RGB color tuple for effect
+            duration_ms: Effect duration in milliseconds
+            speed: Effect speed (1-10)
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not PSMOVE_AVAILABLE:
+                effect_name = controller_manager_pb2.ControllerEffect.Name(effect)
+                logger.debug(
+                    f"_play_effect_internal (mock): {serial} effect={effect_name}"
+                )
+                return True
+
+            if serial not in self.tracked_controllers:
+                logger.warning(f"Controller {serial} not found for effect")
+                return False
+
+            # Cancel any existing effect on this controller
+            async with self.effect_lock:
+                if serial in self.active_effects:
+                    self.active_effects[serial].cancel()
+                    try:
+                        await self.active_effects[serial]
+                    except asyncio.CancelledError:
+                        pass
+                    del self.active_effects[serial]
+
+            # Start the appropriate effect
+            if effect == controller_manager_pb2.EFFECT_NONE:
+                self._set_led_color(serial, color_rgb)
+
+            elif effect == controller_manager_pb2.EFFECT_FLASH:
+                task = asyncio.create_task(self._effect_flash(serial, color_rgb, duration_ms, speed))
+                async with self.effect_lock:
+                    self.active_effects[serial] = task
+
+            elif effect == controller_manager_pb2.EFFECT_PULSE:
+                task = asyncio.create_task(self._effect_pulse(serial, color_rgb, duration_ms, speed))
+                async with self.effect_lock:
+                    self.active_effects[serial] = task
+
+            elif effect == controller_manager_pb2.EFFECT_RAINBOW:
+                task = asyncio.create_task(self._effect_rainbow(serial, duration_ms, speed))
+                async with self.effect_lock:
+                    self.active_effects[serial] = task
+
+            elif effect == controller_manager_pb2.EFFECT_FADE_OUT:
+                task = asyncio.create_task(self._effect_fade_out(serial, color_rgb, duration_ms))
+                async with self.effect_lock:
+                    self.active_effects[serial] = task
+
+            elif effect == controller_manager_pb2.EFFECT_FADE_IN:
+                task = asyncio.create_task(self._effect_fade_in(serial, color_rgb, duration_ms))
+                async with self.effect_lock:
+                    self.active_effects[serial] = task
+
+            else:
+                effect_name = controller_manager_pb2.ControllerEffect.Name(effect)
+                logger.warning(f"Unknown effect: {effect_name}")
+                return False
+
+            logger.debug(f"Playing effect {effect} on {serial}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error playing effect on {serial}: {e}", exc_info=True)
+            return False
+
+    async def _set_vibration_internal(self, serial: str, intensity: int, duration_ms: int) -> bool:
+        """
+        Internal method to set controller vibration (Phase 46).
+
+        Can be called from both SetControllerVibration RPC and stream-based VibrationCommand.
+
+        Args:
+            serial: Controller serial number
+            intensity: Vibration intensity (0-255)
+            duration_ms: Duration in milliseconds
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not PSMOVE_AVAILABLE:
+                logger.debug(
+                    f"_set_vibration_internal (mock): {serial} intensity={intensity} duration={duration_ms}ms"
+                )
+                return True
+
+            if serial not in self.tracked_controllers:
+                logger.warning(f"Controller {serial} not found for vibration")
+                return False
+
+            info = self.tracked_controllers[serial]
+            move = info.get("move")
+            if move:
+                move.set_rumble(intensity)
+                logger.debug(f"Set vibration on {serial}: intensity={intensity}")
+                # TODO: Handle duration_ms by resetting rumble after timeout
+                return True
+            else:
+                logger.warning(f"No move object for controller {serial}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error setting vibration on {serial}: {e}", exc_info=True)
+            return False
 
     def _set_led_color(self, serial: str, color: tuple[int, int, int]):
         """Helper to set LED color on a controller (Phase 31)."""

@@ -114,3 +114,17 @@ grpc_request_duration_seconds = Histogram(
     ['method'],
     buckets=[0.001, 0.005, 0.010, 0.025, 0.050, 0.100, 0.250, 0.500, 1.0]
 )
+
+# Adaptive controller filtering metrics (Phase 45)
+streamed_controllers = Histogram(
+    'controller_streamed_per_frame',
+    'Number of controllers streamed per frame',
+    buckets=[1, 2, 5, 10, 15, 20, 25, 30]
+)
+
+# Stream-based feedback commands (Phase 46)
+stream_commands_total = Counter(
+    'controller_stream_commands_total',
+    'Total feedback commands received via stream',
+    ['command_type']  # 'color', 'effect', 'vibration'
+)

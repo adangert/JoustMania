@@ -23,6 +23,9 @@ service ControllerManagerService {
   // Stream gameplay data (acceleration/gyro only, Phase 41 - for game modes)
   rpc StreamGameplayData(GameplayStreamRequest) returns (stream GameplayDataUpdate);
 
+  // Stream gameplay data with dynamic filtering (Phase 45 - bidirectional streaming)
+  rpc StreamGameplayDataDynamic(stream GameplayStreamControl) returns (stream GameplayDataUpdate);
+
   // Pair a new controller
   rpc PairController(PairControllerRequest) returns (PairControllerResponse);
 
@@ -222,4 +225,49 @@ message GameplayDataUpdate {
 
 message GameplayStreamRequest {
   int32 update_frequency_hz = 1;  // Desired update frequency (default: 60)
+}
+
+// Phase 45: Bidirectional streaming for dynamic controller filtering
+// Control messages sent by client to update stream behavior mid-stream
+message GameplayStreamControl {
+  oneof control {
+    GameplayStreamConfig config = 1;           // Initial configuration
+    FilterUpdate filter_update = 2;            // Mid-stream filter change
+    ColorCommand color_command = 3;            // Controller color change (Phase 46)
+    EffectCommand effect_command = 4;          // Controller effect (Phase 46)
+    VibrationCommand vibration_command = 5;    // Controller vibration (Phase 46)
+  }
+}
+
+// Initial stream configuration (sent once at start)
+message GameplayStreamConfig {
+  int32 update_frequency_hz = 1;            // Game loop frequency
+  repeated string serials = 2;              // Initial filter (empty = all controllers)
+}
+
+// Filter update (sent when alive players change)
+message FilterUpdate {
+  repeated string serials = 1;              // New filter list (empty = all controllers)
+}
+
+// Phase 46: Stream-based feedback commands
+// Set controller color via stream
+message ColorCommand {
+  string serial = 1;          // Target controller (empty = all)
+  RGB color = 2;              // RGB color to set
+}
+
+// Play controller effect via stream
+message EffectCommand {
+  string serial = 1;          // Target controller (empty = all)
+  ControllerEffect effect = 2; // Effect to play
+  RGB color = 3;              // Base color for effect (optional)
+  int32 duration_ms = 4;      // Effect duration (optional, 0 = use default)
+}
+
+// Set controller vibration via stream
+message VibrationCommand {
+  string serial = 1;          // Target controller (empty = all)
+  int32 intensity = 2;        // Vibration intensity (0-255)
+  int32 duration_ms = 3;      // Vibration duration in milliseconds
 }

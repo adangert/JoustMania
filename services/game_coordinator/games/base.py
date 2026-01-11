@@ -140,6 +140,7 @@ class BaseGameMode(ABC):
         self.players: dict[str, Player] = {}
         self.start_time = None
         self.running = False
+        self.gameplay_stream = None  # Phase 46: Bidirectional stream for feedback commands
 
         # Settings (will be fetched from Settings service)
         self.sensitivity = Sensitivity.MEDIUM
@@ -368,12 +369,23 @@ class BaseGameMode(ABC):
             # Emit configured Hz metric (Phase 43)
             metrics.configured_update_frequency_hz.set(update_frequency_hz)
 
-            logger.info(f"Starting game loop at {update_frequency_hz}Hz")
+            logger.info(f"Starting game loop with dynamic filtering at {update_frequency_hz}Hz")
 
-            # Start streaming gameplay data (Phase 41 - acceleration/gyro only, no buttons)
-            stream_request = controller_manager_pb2.GameplayStreamRequest(
-                update_frequency_hz=update_frequency_hz
+            # Create bidirectional stream (Phase 45 - dynamic filtering, Phase 46 - feedback commands)
+            self.gameplay_stream = self.controller_client.StreamGameplayDataDynamic()
+
+            # Send initial configuration
+            initial_config = controller_manager_pb2.GameplayStreamControl(
+                config=controller_manager_pb2.GameplayStreamConfig(
+                    update_frequency_hz=update_frequency_hz,
+                    serials=[],  # Start with all controllers
+                )
             )
+            await self.gameplay_stream.write(initial_config)
+
+            # Track current alive set for detecting changes
+            last_alive_serials = set(p.serial for p in self.players.values() if p.alive)
+            logger.info(f"Initial alive players: {len(last_alive_serials)}")
 
             # Track loop timing for actual Hz calculation (Phase 43)
             loop_start_time = time.time()
@@ -381,9 +393,7 @@ class BaseGameMode(ABC):
             last_iteration_time = loop_start_time
 
             # Stream gameplay data and process game logic
-            async for gameplay_update in self.controller_client.StreamGameplayData(
-                stream_request
-            ):
+            async for gameplay_update in self.gameplay_stream:
                 iteration_start = time.time()
 
                 if not self.running:
@@ -392,6 +402,32 @@ class BaseGameMode(ABC):
                 # Process each controller's gameplay data
                 for gameplay_data in gameplay_update.controllers:
                     await self._process_controller_state(gameplay_data)
+
+                # Check if alive players changed (Phase 45 - dynamic filtering)
+                current_alive_serials = set(
+                    p.serial for p in self.players.values() if p.alive
+                )
+
+                if current_alive_serials != last_alive_serials:
+                    # Send filter update to server
+                    filter_msg = controller_manager_pb2.GameplayStreamControl(
+                        filter_update=controller_manager_pb2.FilterUpdate(
+                            serials=list(current_alive_serials)
+                        )
+                    )
+                    await self.gameplay_stream.write(filter_msg)
+
+                    logger.info(
+                        f"Updated controller filter: {len(last_alive_serials)} → "
+                        f"{len(current_alive_serials)} alive players"
+                    )
+
+                    # Emit filter metrics (Phase 45)
+                    metrics.filter_updates_total.labels(game_mode=self.get_game_name()).inc()
+                    metrics.active_controllers.set(len(current_alive_serials))
+                    metrics.filtered_controllers.set(len(self.players) - len(current_alive_serials))
+
+                    last_alive_serials = current_alive_serials
 
                 # Check win condition
                 if self._check_win_condition():
@@ -424,6 +460,9 @@ class BaseGameMode(ABC):
         except Exception as e:
             logger.error(f"Game loop error: {e}", exc_info=True)
             raise
+        finally:
+            # Cleanup stream reference (Phase 46)
+            self.gameplay_stream = None
 
     async def _process_controller_state(self, controller_state):
         """
@@ -518,23 +557,44 @@ class BaseGameMode(ABC):
         # Call subclass-specific death handling
         await self._kill_player_impl(serial, accel_mag)
 
-        # Set controller color to red (death indication)
+        # Set controller color to red and vibrate (death indication)
         from proto import controller_manager_pb2
 
-        death_color_request = controller_manager_pb2.SetControllerColorRequest(
-            serial=serial,
-            color=controller_manager_pb2.RGB(r=255, g=0, b=0),  # Red
-            duration_ms=0,  # Permanent
-        )
-        await self.controller_client.SetControllerColor(death_color_request)
+        # Phase 46: Use stream-based commands if stream is active, otherwise fall back to unary RPCs
+        if self.gameplay_stream:
+            # Send color command via stream
+            color_cmd = controller_manager_pb2.GameplayStreamControl(
+                color_command=controller_manager_pb2.ColorCommand(
+                    serial=serial,
+                    color=controller_manager_pb2.RGB(r=255, g=0, b=0)  # Red
+                )
+            )
+            await self.gameplay_stream.write(color_cmd)
 
-        # Strong vibration on death
-        death_vibrate_request = controller_manager_pb2.SetControllerVibrationRequest(
-            serial=serial,
-            intensity=255,  # Maximum vibration
-            duration_ms=500,  # Half second
-        )
-        await self.controller_client.SetControllerVibration(death_vibrate_request)
+            # Send vibration command via stream
+            vib_cmd = controller_manager_pb2.GameplayStreamControl(
+                vibration_command=controller_manager_pb2.VibrationCommand(
+                    serial=serial,
+                    intensity=255,  # Maximum vibration
+                    duration_ms=500  # Half second
+                )
+            )
+            await self.gameplay_stream.write(vib_cmd)
+        else:
+            # Fall back to unary RPCs (menu/lobby context)
+            death_color_request = controller_manager_pb2.SetControllerColorRequest(
+                serial=serial,
+                color=controller_manager_pb2.RGB(r=255, g=0, b=0),  # Red
+                duration_ms=0,  # Permanent
+            )
+            await self.controller_client.SetControllerColor(death_color_request)
+
+            death_vibrate_request = controller_manager_pb2.SetControllerVibrationRequest(
+                serial=serial,
+                intensity=255,  # Maximum vibration
+                duration_ms=500,  # Half second
+            )
+            await self.controller_client.SetControllerVibration(death_vibrate_request)
 
     def force_end(self):
         """Force the game to end (called externally)."""

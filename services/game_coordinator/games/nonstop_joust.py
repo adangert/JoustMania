@@ -227,8 +227,8 @@ class NonstopJoustGame(BaseGameMode):
         )
 
     async def _game_loop(self):
-        """Override game loop to add respawn timer updates."""
-        logger.info("Starting game loop with respawn mechanics...")
+        """Override game loop to add respawn timer updates and dynamic filtering."""
+        logger.info("Starting Nonstop game loop with respawn mechanics and dynamic filtering...")
 
         try:
             from proto import controller_manager_pb2
@@ -243,18 +243,27 @@ class NonstopJoustGame(BaseGameMode):
 
             logger.info(f"Starting Nonstop game loop at {update_frequency_hz}Hz")
 
-            # Start streaming gameplay data (Phase 41 - acceleration/gyro only, no buttons)
-            stream_request = controller_manager_pb2.GameplayStreamRequest(
-                update_frequency_hz=update_frequency_hz
+            # Create bidirectional stream (Phase 45 - dynamic filtering, Phase 46 - feedback commands)
+            self.gameplay_stream = self.controller_client.StreamGameplayDataDynamic()
+
+            # Send initial configuration
+            initial_config = controller_manager_pb2.GameplayStreamControl(
+                config=controller_manager_pb2.GameplayStreamConfig(
+                    update_frequency_hz=update_frequency_hz,
+                    serials=[],  # Start with all controllers
+                )
             )
+            await self.gameplay_stream.write(initial_config)
+
+            # Track current alive set for detecting changes (Phase 45)
+            last_alive_serials = set(p.serial for p in self.players.values() if p.alive)
+            logger.info(f"Initial alive players: {len(last_alive_serials)}")
 
             # Store Hz for respawn timer calculations
             self._current_update_frequency = update_frequency_hz
 
             # Stream gameplay data and process game logic
-            async for gameplay_update in self.controller_client.StreamGameplayData(
-                stream_request
-            ):
+            async for gameplay_update in self.gameplay_stream:
                 if not self.running:
                     break
 
@@ -264,6 +273,34 @@ class NonstopJoustGame(BaseGameMode):
 
                 # Update respawn timers (Nonstop-specific)
                 await self._update_respawn_timers()
+
+                # Check if alive players changed (Phase 45 - dynamic filtering)
+                # Note: Nonstop has frequent changes due to respawns
+                current_alive_serials = set(
+                    p.serial for p in self.players.values() if p.alive
+                )
+
+                if current_alive_serials != last_alive_serials:
+                    # Send filter update to server
+                    filter_msg = controller_manager_pb2.GameplayStreamControl(
+                        filter_update=controller_manager_pb2.FilterUpdate(
+                            serials=list(current_alive_serials)
+                        )
+                    )
+                    await self.gameplay_stream.write(filter_msg)
+
+                    logger.info(
+                        f"Nonstop filter updated: {len(last_alive_serials)} → "
+                        f"{len(current_alive_serials)} alive players"
+                    )
+
+                    # Emit filter metrics (Phase 45)
+                    from services.game_coordinator import metrics
+                    metrics.filter_updates_total.labels(game_mode=self.get_game_name()).inc()
+                    metrics.active_controllers.set(len(current_alive_serials))
+                    metrics.filtered_controllers.set(len(self.players) - len(current_alive_serials))
+
+                    last_alive_serials = current_alive_serials
 
                 # Check win condition (time limit)
                 if self._check_win_condition():
@@ -275,6 +312,9 @@ class NonstopJoustGame(BaseGameMode):
         except Exception as e:
             logger.error(f"Game loop error: {e}", exc_info=True)
             raise
+        finally:
+            # Cleanup stream reference (Phase 46)
+            self.gameplay_stream = None
 
     async def _update_respawn_timers(self):
         """Update respawn timers and respawn players (Nonstop-specific)."""
@@ -394,7 +434,7 @@ class NonstopJoustGame(BaseGameMode):
         Uses HSV color generation for maximum distinction.
         """
         from proto import controller_manager_pb2
-        from utils.colors import generate_colors
+        from lib.colors import generate_colors
 
         logger.info("Setting unique Nonstop colors...")
 

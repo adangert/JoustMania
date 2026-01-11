@@ -65,6 +65,11 @@ class ControllerManagerServiceStub(object):
                 request_serializer=controller__manager__pb2.GameplayStreamRequest.SerializeToString,
                 response_deserializer=controller__manager__pb2.GameplayDataUpdate.FromString,
                 _registered_method=True)
+        self.StreamGameplayDataDynamic = channel.stream_stream(
+                '/joustmania.controller_manager.ControllerManagerService/StreamGameplayDataDynamic',
+                request_serializer=controller__manager__pb2.GameplayStreamControl.SerializeToString,
+                response_deserializer=controller__manager__pb2.GameplayDataUpdate.FromString,
+                _registered_method=True)
         self.PairController = channel.unary_unary(
                 '/joustmania.controller_manager.ControllerManagerService/PairController',
                 request_serializer=controller__manager__pb2.PairControllerRequest.SerializeToString,
@@ -139,6 +144,13 @@ class ControllerManagerServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def StreamGameplayDataDynamic(self, request_iterator, context):
+        """Stream gameplay data with dynamic filtering (Phase 45 - bidirectional streaming)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def PairController(self, request, context):
         """Pair a new controller
         """
@@ -206,6 +218,11 @@ def add_ControllerManagerServiceServicer_to_server(servicer, server):
             'StreamGameplayData': grpc.unary_stream_rpc_method_handler(
                     servicer.StreamGameplayData,
                     request_deserializer=controller__manager__pb2.GameplayStreamRequest.FromString,
+                    response_serializer=controller__manager__pb2.GameplayDataUpdate.SerializeToString,
+            ),
+            'StreamGameplayDataDynamic': grpc.stream_stream_rpc_method_handler(
+                    servicer.StreamGameplayDataDynamic,
+                    request_deserializer=controller__manager__pb2.GameplayStreamControl.FromString,
                     response_serializer=controller__manager__pb2.GameplayDataUpdate.SerializeToString,
             ),
             'PairController': grpc.unary_unary_rpc_method_handler(
@@ -396,6 +413,33 @@ class ControllerManagerService(object):
             target,
             '/joustmania.controller_manager.ControllerManagerService/StreamGameplayData',
             controller__manager__pb2.GameplayStreamRequest.SerializeToString,
+            controller__manager__pb2.GameplayDataUpdate.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StreamGameplayDataDynamic(request_iterator,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.stream_stream(
+            request_iterator,
+            target,
+            '/joustmania.controller_manager.ControllerManagerService/StreamGameplayDataDynamic',
+            controller__manager__pb2.GameplayStreamControl.SerializeToString,
             controller__manager__pb2.GameplayDataUpdate.FromString,
             options,
             channel_credentials,

@@ -166,3 +166,20 @@ game_loop_latency_ms = Histogram(
     ['mode'],
     buckets=[10, 20, 30, 40, 50, 75, 100, 150, 200, 300, 500]
 )
+
+# Adaptive controller filtering metrics (Phase 45)
+filtered_controllers = Gauge(
+    'game_filtered_controllers',
+    'Number of controllers currently filtered out (dead players)'
+)
+
+filter_updates_total = Counter(
+    'game_filter_updates_total',
+    'Total number of controller filter updates sent',
+    ['game_mode']  # Track per game mode
+)
+
+active_controllers = Gauge(
+    'game_active_controllers',
+    'Number of controllers currently being monitored (alive players)'
+)

@@ -485,13 +485,24 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         prev_state["triangle"] = controller.triangle_pressed
         prev_state["ps"] = controller.ps_pressed
 
+    # Game mode lobby colors (Phase 39)
+    # Each game mode has a distinct color in the lobby
+    GAME_MODE_COLORS = {
+        "JoustFFA": (255, 140, 0),      # Orange - FFA
+        "JoustTeams": (0, 100, 255),    # Blue - Team play
+        "Tournament": (150, 0, 255),    # Purple - Competitive
+        "Werewolf": (0, 255, 100),      # Green - Mysterious
+        "NonstopJoust": (255, 50, 120), # Pink - Intense/energetic
+    }
+
     async def _update_lobby_feedback(self, controller, stub):
         """
-        Update controller LED feedback based on lobby state (Phase 39).
+        Update controller LED feedback based on lobby state and selected game mode (Phase 39).
 
-        Colors:
-        - Dim orange (128,70,0): Connected but not ready
-        - Bright orange (255,140,0): Ready (trigger pressed)
+        Colors are game-mode-specific:
+        - Each game mode has its own base color (e.g., orange for FFA, blue for Teams)
+        - Dim version (~50% brightness): Connected but not ready
+        - Bright version (100% brightness): Ready (trigger pressed)
         - Green flash: Initial connection
         - White: Admin mode
 
@@ -530,15 +541,31 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             # Wait for green flash to complete, then normal state will be set on next update
             return
 
-        # Determine target state
-        if controller.trigger_pressed:
-            target_state = "ready"
+        # Detect trigger press to toggle ready state (Phase 39)
+        # Press trigger once → become ready (and stay ready even after releasing)
+        prev_state = self.controller_button_states.get(serial, {})
+
+        # Detect trigger press event (False → True transition)
+        if controller.trigger_pressed and not prev_state.get("trigger", False):
+            # Toggle ready state on trigger press
+            if serial in self.ready_controllers:
+                # Already ready → pressing trigger starts game (handled by _process_button_state)
+                # Don't update lobby feedback, let game start happen
+                return
+            else:
+                # Not ready → mark as ready
+                target_state = "ready"
         else:
-            target_state = "connected"
+            # No trigger press event → maintain current state
+            current_state = self.controller_lobby_state.get(serial, "connected")
+            # Once ready, stay ready (don't go back to connected when releasing trigger)
+            if serial in self.ready_controllers:
+                target_state = "ready"
+            else:
+                target_state = "connected"
 
         # Only update if state changed (avoid redundant SetControllerColor calls)
-        current_state = self.controller_lobby_state.get(serial, "unknown")
-        if target_state == current_state:
+        if target_state == self.controller_lobby_state.get(serial, "unknown"):
             return
 
         # Rate limit updates (max 2 per second per controller)
@@ -556,14 +583,24 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             self.ready_controller_count = len(self.ready_controllers)
             logger.info(f"Controller {serial} unready ({self.ready_controller_count} total)")
 
+        # Get base color for current game mode
+        base_color = self.GAME_MODE_COLORS.get(
+            self.current_selection,
+            (255, 140, 0)  # Default to orange if game mode not found
+        )
+
         # Set LED color based on state
         try:
             if target_state == "ready":
-                # Bright orange: Ready for game
-                color = controller_manager_pb2.RGB(r=255, g=140, b=0)
+                # Bright version (100% brightness)
+                color = controller_manager_pb2.RGB(r=base_color[0], g=base_color[1], b=base_color[2])
             else:
-                # Dim orange: Connected but not ready
-                color = controller_manager_pb2.RGB(r=128, g=70, b=0)
+                # Dim version (~50% brightness)
+                color = controller_manager_pb2.RGB(
+                    r=int(base_color[0] * 0.5),
+                    g=int(base_color[1] * 0.5),
+                    b=int(base_color[2] * 0.5)
+                )
 
             await stub.SetControllerColor(
                 controller_manager_pb2.SetControllerColorRequest(
@@ -577,7 +614,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             self.controller_lobby_state[serial] = target_state
             self.last_lobby_feedback_update[serial] = current_time
 
-            logger.debug(f"Controller {serial} lobby state: {target_state}")
+            logger.debug(f"Controller {serial} lobby state: {target_state} (game: {self.current_selection})")
 
         except Exception as e:
             logger.error(f"Failed to update lobby feedback for {serial}: {e}")
@@ -642,6 +679,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 {"game_name": self.current_selection, "source": "controller", "serial": serial},
             )
             logger.info(f"Selection changed via controller {serial}: {self.current_selection}")
+
+            # Phase 39: Force lobby color update for all controllers to reflect new game mode
+            # Clear the state so colors update on next _update_lobby_feedback call
+            self.controller_lobby_state.clear()
+            self.last_lobby_feedback_update.clear()
 
     # ========== Admin Mode Methods (Phase 23) ==========
 

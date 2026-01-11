@@ -163,8 +163,8 @@ class ControllerManagerServicer(
 
         # Controller effects (Phase 31 / Phase 40)
         # active_effects dict inherited from ControllerEffectsBase
-        # Thread lock for safe access from discovery thread
-        self.effect_lock = threading.Lock()
+        # Phase 34: Use async lock since effects are managed from async gRPC methods
+        self.effect_lock = asyncio.Lock()
 
         # Battery monitoring (Phase 39 - Task 4)
         self.last_battery_warning: dict[str, float] = {}  # {serial: timestamp of last warning}
@@ -717,8 +717,8 @@ class ControllerManagerServicer(
                     success=False, error=str(e), serial=""
                 )
 
-    def RemoveController(self, request, context):
-        """Remove a controller."""
+    async def RemoveController(self, request, context):
+        """Remove a controller (Phase 34: async for effect_lock)."""
         with tracer.start_as_current_span("RemoveController") as span:
             span.set_attribute("controller.serial", request.serial)
 
@@ -744,8 +744,8 @@ class ControllerManagerServicer(
                     if serial in self.state_cache:
                         del self.state_cache[serial]
 
-                    # Cancel any active effects (Phase 31)
-                    with self.effect_lock:
+                    # Cancel any active effects (Phase 31, Phase 34: async lock)
+                    async with self.effect_lock:
                         if serial in self.active_effects:
                             self.active_effects[serial].cancel()
                             del self.active_effects[serial]
@@ -895,8 +895,8 @@ class ControllerManagerServicer(
                     if serial not in self.tracked_controllers:
                         continue
 
-                    # Cancel any existing effect on this controller
-                    with self.effect_lock:
+                    # Cancel any existing effect on this controller (Phase 34: async lock)
+                    async with self.effect_lock:
                         if serial in self.active_effects:
                             self.active_effects[serial].cancel()
                             try:
@@ -912,27 +912,27 @@ class ControllerManagerServicer(
 
                     elif request.effect == controller_manager_pb2.EFFECT_FLASH:
                         task = asyncio.create_task(self._effect_flash(serial, color, duration_ms, speed))
-                        with self.effect_lock:
+                        async with self.effect_lock:  # Phase 34: async lock
                             self.active_effects[serial] = task
 
                     elif request.effect == controller_manager_pb2.EFFECT_PULSE:
                         task = asyncio.create_task(self._effect_pulse(serial, color, duration_ms, speed))
-                        with self.effect_lock:
+                        async with self.effect_lock:  # Phase 34: async lock
                             self.active_effects[serial] = task
 
                     elif request.effect == controller_manager_pb2.EFFECT_RAINBOW:
                         task = asyncio.create_task(self._effect_rainbow(serial, duration_ms, speed))
-                        with self.effect_lock:
+                        async with self.effect_lock:  # Phase 34: async lock
                             self.active_effects[serial] = task
 
                     elif request.effect == controller_manager_pb2.EFFECT_FADE_OUT:
                         task = asyncio.create_task(self._effect_fade_out(serial, color, duration_ms))
-                        with self.effect_lock:
+                        async with self.effect_lock:  # Phase 34: async lock
                             self.active_effects[serial] = task
 
                     elif request.effect == controller_manager_pb2.EFFECT_FADE_IN:
                         task = asyncio.create_task(self._effect_fade_in(serial, color, duration_ms))
-                        with self.effect_lock:
+                        async with self.effect_lock:  # Phase 34: async lock
                             self.active_effects[serial] = task
 
                     else:

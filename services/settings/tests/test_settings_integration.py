@@ -2,13 +2,14 @@
 Integration tests for Settings gRPC Server.
 
 Tests the full gRPC server with real network communication.
+Phase 34: Updated for async gRPC server.
 """
 
+import asyncio
 import os
 import tempfile
 import threading
 import time
-from concurrent import futures
 
 import grpc
 import pytest
@@ -31,22 +32,36 @@ def temp_settings_file():
 
 
 @pytest.fixture(scope="module")
-def grpc_server(temp_settings_file):
-    """Start a gRPC server for integration tests."""
+def event_loop():
+    """Create event loop for async fixtures."""
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest.fixture(scope="module")
+def grpc_server(temp_settings_file, event_loop):
+    """Start a gRPC server for integration tests (Phase 34: async server)."""
     port = 50099  # Use different port to avoid conflicts
 
-    # Create server
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    async def start_server():
+        # Create async server
+        server = grpc.aio.server()
 
-    # Add servicer
-    servicer = SettingsServicer(settings_file=temp_settings_file)
-    settings_pb2_grpc.add_SettingsServiceServicer_to_server(servicer, server)
+        # Add servicer
+        servicer = SettingsServicer(settings_file=temp_settings_file)
+        settings_pb2_grpc.add_SettingsServiceServicer_to_server(servicer, server)
 
-    # Bind to port
-    server.add_insecure_port(f"[::]:{port}")
+        # Bind to port
+        server.add_insecure_port(f"[::]:{port}")
 
-    # Start server in background
-    server.start()
+        # Start server
+        await server.start()
+
+        return server, servicer
+
+    # Run in event loop
+    server, servicer = event_loop.run_until_complete(start_server())
 
     # Give server time to start
     time.sleep(0.5)
@@ -54,7 +69,10 @@ def grpc_server(temp_settings_file):
     yield port, servicer
 
     # Cleanup
-    server.stop(grace=1)
+    async def stop_server():
+        await server.stop(grace=1)
+
+    event_loop.run_until_complete(stop_server())
 
 
 @pytest.fixture

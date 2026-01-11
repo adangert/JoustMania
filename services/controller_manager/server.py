@@ -11,9 +11,7 @@ This replaces the Queue-based IPC with gRPC (Phase 8a).
 """
 
 import asyncio
-import colorsys
 import logging
-import math
 import os
 import queue
 from collections import deque
@@ -38,6 +36,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from proto import controller_manager_pb2, controller_manager_pb2_grpc
+from services.controller_manager.effects_base import ControllerEffectsBase
 
 # PS Move imports (optional for testing)
 try:
@@ -110,7 +109,10 @@ class MessagePool:
             self.pool.append(msg)
 
 
-class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerServiceServicer):
+class ControllerManagerServicer(
+    controller_manager_pb2_grpc.ControllerManagerServiceServicer,
+    ControllerEffectsBase
+):
     """
     ControllerManager gRPC servicer.
 
@@ -119,10 +121,13 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
     - Controller process spawning
     - State monitoring and streaming
     - Health checking
+
+    Phase 40: Inherits from ControllerEffectsBase for shared effect logic.
     """
 
     def __init__(self):
         """Initialize controller manager."""
+        ControllerEffectsBase.__init__(self)  # Initialize effects base class
         self.tracked_controllers: dict[str, dict] = {}  # serial -> controller info
         self.controller_states: dict[str, ControllerState] = {}  # serial -> state
         self.controller_processes: dict[str, Process] = {}  # serial -> process
@@ -146,9 +151,9 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         self.controller_state_pool = MessagePool(controller_manager_pb2.ControllerState, pool_size=10)
         self.vector3_pool = MessagePool(controller_manager_pb2.Vector3, pool_size=20)
 
-        # Controller effects (Phase 31)
-        # Track active effect tasks per controller: {serial: asyncio.Task}
-        self.active_effects: dict[str, asyncio.Task] = {}
+        # Controller effects (Phase 31 / Phase 40)
+        # active_effects dict inherited from ControllerEffectsBase
+        # Thread lock for safe access from discovery thread
         self.effect_lock = threading.Lock()
 
         # Discovery thread
@@ -542,7 +547,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 )
 
     async def PlayControllerEffect(self, request, context):
-        """Play visual effect on controller(s) - Phase 31 full implementation."""
+        """Play visual effect on controller(s) - Phase 31/40 implementation.
+
+        Uses effect methods inherited from ControllerEffectsBase.
+        Adds tracing and thread-safe task management.
+        """
         with tracer.start_as_current_span("PlayControllerEffect") as span:
             effect_name = controller_manager_pb2.ControllerEffect.Name(request.effect)
             span.set_attribute("serial", request.serial or "all")
@@ -584,7 +593,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                                 pass
                             del self.active_effects[serial]
 
-                    # Start the appropriate effect
+                    # Start the appropriate effect (methods inherited from ControllerEffectsBase - Phase 40)
                     if request.effect == controller_manager_pb2.EFFECT_NONE:
                         # Solid color (no animation)
                         self._set_led_color(serial, color)
@@ -643,103 +652,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             move.set_leds(color[0], color[1], color[2])
             move.update_leds()
 
-    async def _effect_flash(self, serial: str, color: tuple[int, int, int], duration_ms: int, speed: int):
-        """FLASH effect: rapid on/off blinking (Phase 31)."""
-        interval = 1.0 / max(1, speed)  # seconds per flash cycle
-        end_time = time.time() + (duration_ms / 1000.0)
-
-        try:
-            while time.time() < end_time:
-                self._set_led_color(serial, color)
-                await asyncio.sleep(interval / 2)
-                self._set_led_color(serial, (0, 0, 0))  # Off
-                await asyncio.sleep(interval / 2)
-        except asyncio.CancelledError:
-            logger.debug(f"FLASH effect cancelled for {serial}")
-            raise
-        finally:
-            # Restore color at end
-            self._set_led_color(serial, color)
-
-    async def _effect_pulse(self, serial: str, color: tuple[int, int, int], duration_ms: int, speed: int):
-        """PULSE effect: smooth breathing/fade (Phase 31)."""
-        interval = 0.05  # 20 Hz update rate for smooth animation
-        cycle_duration = 1.0 / max(1, speed)  # seconds per pulse cycle
-        end_time = time.time() + (duration_ms / 1000.0)
-
-        try:
-            start = time.time()
-            while time.time() < end_time:
-                elapsed = time.time() - start
-                # Sine wave: 0 → 1 → 0 (smooth breathing)
-                brightness = (math.sin(2 * math.pi * elapsed / cycle_duration) + 1) / 2
-
-                scaled_color = tuple(int(c * brightness) for c in color)
-                self._set_led_color(serial, scaled_color)
-                await asyncio.sleep(interval)
-        except asyncio.CancelledError:
-            logger.debug(f"PULSE effect cancelled for {serial}")
-            raise
-        finally:
-            # Restore full brightness at end
-            self._set_led_color(serial, color)
-
-    async def _effect_rainbow(self, serial: str, duration_ms: int, speed: int):
-        """RAINBOW effect: cycle through color spectrum (Phase 31)."""
-        interval = 0.05  # 20 Hz update rate
-        cycle_duration = 1.0 / max(1, speed)  # seconds per full rainbow cycle
-        end_time = time.time() + (duration_ms / 1000.0)
-
-        try:
-            start = time.time()
-            while time.time() < end_time:
-                elapsed = time.time() - start
-                # HSV color space: rotate hue 0 → 1
-                hue = (elapsed / cycle_duration) % 1.0
-
-                rgb = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
-                color = tuple(int(c * 255) for c in rgb)
-                self._set_led_color(serial, color)
-                await asyncio.sleep(interval)
-        except asyncio.CancelledError:
-            logger.debug(f"RAINBOW effect cancelled for {serial}")
-            raise
-
-    async def _effect_fade_out(self, serial: str, color: tuple[int, int, int], duration_ms: int):
-        """FADE_OUT effect: fade from current color to black (Phase 31)."""
-        interval = 0.05  # 20 Hz update rate
-        steps = int((duration_ms / 1000.0) / interval)
-
-        try:
-            for i in range(steps, 0, -1):
-                brightness = i / steps
-                scaled_color = tuple(int(c * brightness) for c in color)
-                self._set_led_color(serial, scaled_color)
-                await asyncio.sleep(interval)
-
-            # Final state: off
-            self._set_led_color(serial, (0, 0, 0))
-        except asyncio.CancelledError:
-            logger.debug(f"FADE_OUT effect cancelled for {serial}")
-            raise
-
-    async def _effect_fade_in(self, serial: str, color: tuple[int, int, int], duration_ms: int):
-        """FADE_IN effect: fade from black to target color (Phase 31)."""
-        interval = 0.05  # 20 Hz update rate
-        steps = int((duration_ms / 1000.0) / interval)
-
-        try:
-            for i in range(1, steps + 1):
-                brightness = i / steps
-                scaled_color = tuple(int(c * brightness) for c in color)
-                self._set_led_color(serial, scaled_color)
-                await asyncio.sleep(interval)
-
-            # Final state: full color
-            self._set_led_color(serial, color)
-        except asyncio.CancelledError:
-            logger.debug(f"FADE_IN effect cancelled for {serial}")
-            raise
+    # Effect methods (_effect_flash, _effect_pulse, etc.) inherited from ControllerEffectsBase (Phase 40)
 
     def _controller_state_hash(self, state: controller_manager_pb2.ControllerState) -> str:
         """Create a hash of controller state for delta comparison (Phase 26 - Part 3)."""

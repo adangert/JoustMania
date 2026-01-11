@@ -138,14 +138,14 @@ class ControllerManagerServicer(
         self.controller_processes: dict[str, Process] = {}  # serial -> process
         self.paired_serials: list[str] = []
 
-        # Streaming subscribers
-        self.stream_subscribers: dict[str, queue.Queue] = {}
-        self.stream_lock = threading.Lock()
+        # Streaming subscribers (Phase 34: async queue and lock)
+        self.stream_subscribers: dict[str, asyncio.Queue] = {}
+        self.stream_lock = asyncio.Lock()
 
-        # Button event streaming (Phase 41)
-        self.button_event_subscribers: dict[str, queue.Queue] = {}
+        # Button event streaming (Phase 41, Phase 34: async queue and lock)
+        self.button_event_subscribers: dict[str, asyncio.Queue] = {}
         self.button_states: dict[str, dict[str, bool]] = {}  # {serial: {button_name: pressed}}
-        self.button_event_lock = threading.Lock()
+        self.button_event_lock = asyncio.Lock()
 
         # Delta update tracking (Phase 26 - Part 3)
         # Store last sent state per subscriber per controller
@@ -362,10 +362,10 @@ class ControllerManagerServicer(
             span.set_attribute("subscriber.id", subscriber_id)
             span.set_attribute("update_frequency_hz", request.update_frequency_hz or 60)
 
-            # Create queue for this subscriber
-            event_queue = queue.Queue(maxsize=100)
+            # Create queue for this subscriber (Phase 34: asyncio.Queue, though not actively used)
+            event_queue = asyncio.Queue(maxsize=100)
 
-            with self.stream_lock:
+            async with self.stream_lock:  # Phase 34: async lock
                 self.stream_subscribers[subscriber_id] = event_queue
                 # Initialize delta tracking for this subscriber
                 self.last_sent_states[subscriber_id] = {}
@@ -415,8 +415,8 @@ class ControllerManagerServicer(
                         break
 
             finally:
-                # Cleanup
-                with self.stream_lock:
+                # Cleanup (Phase 34: async lock)
+                async with self.stream_lock:
                     if subscriber_id in self.stream_subscribers:
                         del self.stream_subscribers[subscriber_id]
                     # Clean up delta tracking
@@ -440,10 +440,10 @@ class ControllerManagerServicer(
         with tracer.start_as_current_span("StreamButtonEvents") as span:
             span.set_attribute("subscriber.id", subscriber_id)
 
-            # Create queue for this subscriber
-            event_queue = queue.Queue(maxsize=100)
+            # Create queue for this subscriber (Phase 34: asyncio.Queue)
+            event_queue = asyncio.Queue(maxsize=100)
 
-            with self.button_event_lock:
+            async with self.button_event_lock:  # Phase 34: async lock
                 self.button_event_subscribers[subscriber_id] = event_queue
 
             # Update stream metrics (Phase 38)
@@ -454,14 +454,14 @@ class ControllerManagerServicer(
             try:
                 while not context.cancelled():
                     try:
-                        # Wait for button events (blocking with timeout)
-                        # Check for events every 100ms to stay responsive to cancellation
+                        # Wait for button events (Phase 34: async wait with timeout)
+                        # Check for events every 1s to stay responsive to cancellation
                         try:
-                            event = event_queue.get(timeout=0.1)
+                            event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
                             yield event
                             # Track stream update (Phase 38)
                             metrics.stream_updates_total.labels(stream_type='button_events').inc()
-                        except queue.Empty:
+                        except asyncio.TimeoutError:  # Phase 34: asyncio exception
                             # No events, continue loop to check cancellation
                             continue
 
@@ -470,8 +470,8 @@ class ControllerManagerServicer(
                         break
 
             finally:
-                # Cleanup
-                with self.button_event_lock:
+                # Cleanup (Phase 34: async lock)
+                async with self.button_event_lock:
                     if subscriber_id in self.button_event_subscribers:
                         del self.button_event_subscribers[subscriber_id]
 
@@ -545,6 +545,154 @@ class ControllerManagerServicer(
                 metrics.active_streams.dec()
 
                 logger.info(f"Gameplay data subscriber disconnected: {subscriber_id}")
+
+    async def StreamGameplayDataDynamic(self, request_iterator, context):
+        """
+        Stream gameplay data with dynamic filtering via bidirectional communication (Phase 45).
+
+        Client can send filter updates at any time to adjust which controllers
+        are being monitored without restarting the stream.
+
+        Args:
+            request_iterator: AsyncIterator of GameplayStreamControl messages from client
+            context: gRPC context
+
+        Yields:
+            GameplayDataUpdate messages with filtered controller data
+        """
+        subscriber_id = f"gameplay_dynamic_stream_{time.time()}"
+
+        with tracer.start_as_current_span("StreamGameplayDataDynamic") as span:
+            span.set_attribute("subscriber.id", subscriber_id)
+
+            # Update stream metrics
+            metrics.active_streams.inc()
+
+            # Stream state (updated by client messages)
+            current_hz = 30  # Default Hz
+            current_filter = None  # None = all controllers
+
+            # Background task to read client updates
+            async def read_client_updates():
+                nonlocal current_hz, current_filter
+
+                try:
+                    async for control_msg in request_iterator:
+                        if control_msg.HasField("config"):
+                            # Initial configuration
+                            current_hz = control_msg.config.update_frequency_hz
+                            current_filter = (
+                                set(control_msg.config.serials)
+                                if control_msg.config.serials
+                                else None
+                            )
+                            logger.info(
+                                f"[{subscriber_id}] Stream configured: {current_hz}Hz, "
+                                f"filter={len(current_filter) if current_filter else 'all'} controllers"
+                            )
+                            span.set_attribute("update_frequency_hz", current_hz)
+                            span.set_attribute(
+                                "initial_filter_count",
+                                len(current_filter) if current_filter else 0
+                            )
+
+                        elif control_msg.HasField("filter_update"):
+                            # Mid-stream filter update
+                            new_filter = (
+                                set(control_msg.filter_update.serials)
+                                if control_msg.filter_update.serials
+                                else None
+                            )
+
+                            if new_filter != current_filter:
+                                old_count = len(current_filter) if current_filter else 0
+                                new_count = len(new_filter) if new_filter else 0
+
+                                logger.info(
+                                    f"[{subscriber_id}] Filter updated: "
+                                    f"{old_count} → {new_count} controllers"
+                                )
+
+                                current_filter = new_filter
+
+                                # Add span event for filter update
+                                span.add_event(
+                                    "filter_updated",
+                                    {
+                                        "previous_count": old_count,
+                                        "new_count": new_count,
+                                    }
+                                )
+
+                except Exception as e:
+                    logger.error(f"[{subscriber_id}] Error reading client updates: {e}", exc_info=True)
+
+            # Start background task to read client updates
+            update_task = asyncio.create_task(read_client_updates())
+
+            logger.info(f"New dynamic gameplay subscriber: {subscriber_id}")
+
+            try:
+                # Stream gameplay data
+                while not context.cancelled():
+                    try:
+                        # Calculate interval from current Hz
+                        interval = 1.0 / current_hz
+
+                        # Build data for each controller (respecting filter)
+                        gameplay_data = []
+                        for serial, info in self.tracked_controllers.items():
+                            # Apply filter if present
+                            if current_filter is not None and serial not in current_filter:
+                                continue  # Skip filtered controller
+
+                            # Get full controller state
+                            full_state = self._build_or_get_cached_state(serial, info)
+
+                            # Convert to GameplayData (no buttons)
+                            gd = controller_manager_pb2.GameplayData(
+                                serial=full_state.serial,
+                                move_num=full_state.move_num,
+                                battery=full_state.battery,
+                                ready=full_state.ready,
+                                team=full_state.team,
+                                color=full_state.color,
+                                accel=full_state.accel,
+                                gyro=full_state.gyro
+                            )
+                            gameplay_data.append(gd)
+
+                        # Send update
+                        update = controller_manager_pb2.GameplayDataUpdate(
+                            controllers=gameplay_data,
+                            timestamp=int(time.time() * 1000)
+                        )
+                        yield update
+
+                        # Track stream update
+                        if gameplay_data:
+                            metrics.stream_updates_total.labels(stream_type='gameplay_data_dynamic').inc()
+                            # Track number of controllers streamed per frame (Phase 45)
+                            metrics.streamed_controllers.observe(len(gameplay_data))
+
+                        await asyncio.sleep(interval)
+
+                    except Exception as e:
+                        logger.error(f"[{subscriber_id}] Gameplay stream error: {e}", exc_info=True)
+                        break
+
+            finally:
+                # Cleanup: Cancel background task
+                update_task.cancel()
+                try:
+                    await update_task
+                except asyncio.CancelledError:
+                    pass
+
+                # Update stream metrics
+                metrics.active_streams.dec()
+
+                logger.info(f"Dynamic gameplay subscriber disconnected: {subscriber_id}")
 
     def PairController(self, request, context):
         """Pair a new controller."""
@@ -1107,14 +1255,14 @@ class ControllerManagerServicer(
                 prev_states[button_name] = current_pressed
 
         # Publish events to all subscribers
+        # Phase 34: put_nowait() is thread-safe, no lock needed for publishing
         if events:
-            with self.button_event_lock:
-                for subscriber_queue in self.button_event_subscribers.values():
-                    for event in events:
-                        try:
-                            subscriber_queue.put_nowait(event)
-                        except queue.Full:
-                            logger.warning(f"Button event queue full for subscriber")
+            for subscriber_queue in self.button_event_subscribers.values():
+                for event in events:
+                    try:
+                        subscriber_queue.put_nowait(event)
+                    except asyncio.QueueFull:  # Phase 34: asyncio exception
+                        logger.warning(f"Button event queue full for subscriber")
 
     def shutdown(self):
         """Shutdown the controller manager."""
@@ -1145,13 +1293,29 @@ async def serve(port=50052, metrics_port=8000):
 
     # Start system metrics collection task (Phase 38)
     async def collect_system_metrics():
-        """Background task to collect system metrics every 10 seconds."""
+        """
+        Background task to collect system metrics every 10 seconds.
+        Phase 34: Run psutil calls in thread pool to avoid blocking event loop.
+        """
         process = psutil.Process()
+        loop = asyncio.get_event_loop()
+
         while True:
             try:
-                metrics.process_cpu_percent.set(process.cpu_percent(interval=None))
-                metrics.process_memory_mb.set(process.memory_info().rss / 1024 / 1024)
-                metrics.process_threads.set(process.num_threads())
+                # Phase 34: Run blocking psutil calls in thread pool
+                cpu_percent = await loop.run_in_executor(
+                    None, lambda: process.cpu_percent(interval=None)
+                )
+                mem_info = await loop.run_in_executor(
+                    None, lambda: process.memory_info()
+                )
+                thread_count = await loop.run_in_executor(
+                    None, process.num_threads
+                )
+
+                metrics.process_cpu_percent.set(cpu_percent)
+                metrics.process_memory_mb.set(mem_info.rss / 1024 / 1024)
+                metrics.process_threads.set(thread_count)
             except Exception as e:
                 logger.error(f"Error collecting system metrics: {e}")
             await asyncio.sleep(10.0)

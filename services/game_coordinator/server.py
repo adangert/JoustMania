@@ -123,9 +123,9 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         self.game_start_time = None
         self.game_id = None
 
-        # Event streaming
-        self.event_subscribers: dict[str, queue.Queue] = {}
-        self.event_lock = threading.Lock()
+        # Event streaming (Phase 34: async queue and lock)
+        self.event_subscribers: dict[str, asyncio.Queue] = {}
+        self.event_lock = asyncio.Lock()
 
         # Random game history
         self.random_history: list[str] = []
@@ -520,10 +520,10 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         with tracer.start_as_current_span("StreamGameEvents") as span:
             span.set_attribute("subscriber.id", subscriber_id)
 
-            # Create queue for this subscriber
-            event_queue = queue.Queue(maxsize=100)
+            # Create queue for this subscriber (Phase 34: asyncio.Queue)
+            event_queue = asyncio.Queue(maxsize=100)
 
-            with self.event_lock:
+            async with self.event_lock:  # Phase 34: async lock
                 self.event_subscribers[subscriber_id] = event_queue
 
             logger.info(f"New event subscriber: {subscriber_id}")
@@ -531,21 +531,20 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
             try:
                 while not context.cancelled():
                     try:
-                        # Non-blocking get with timeout
-                        event = event_queue.get(timeout=0.1)
+                        # Phase 34: async wait with timeout
+                        event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
                         yield event
 
-                    except queue.Empty:
-                        # No event, yield control to event loop
-                        await asyncio.sleep(0.1)
+                    except asyncio.TimeoutError:  # Phase 34: asyncio exception
+                        # No event, continue (timeout keeps connection alive)
                         continue
                     except Exception as e:
                         logger.error(f"Stream error for {subscriber_id}: {e}")
                         break
 
             finally:
-                # Cleanup
-                with self.event_lock:
+                # Cleanup (Phase 34: async lock)
+                async with self.event_lock:
                     if subscriber_id in self.event_subscribers:
                         del self.event_subscribers[subscriber_id]
 
@@ -572,33 +571,37 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 event_type=event_type, data=string_data, timestamp=int(time.time() * 1000)
             )
 
-            with self.event_lock:
-                subscriber_count = len(self.event_subscribers)
-                span.set_attribute("subscribers.count", subscriber_count)
+            # Phase 34: put_nowait() is thread-safe, no lock needed for publishing
+            subscriber_count = len(self.event_subscribers)
+            span.set_attribute("subscribers.count", subscriber_count)
 
-                for sub_id, event_queue in self.event_subscribers.items():
-                    try:
-                        event_queue.put_nowait(event)
-                        logger.debug(f"Published {event_type} to subscriber {sub_id}")
-                    except queue.Full:
-                        logger.warning(f"Subscriber {sub_id} queue full, skipping event")
-                    except Exception as e:
-                        logger.error(f"Error publishing to subscriber {sub_id}: {e}")
+            for sub_id, event_queue in self.event_subscribers.items():
+                try:
+                    event_queue.put_nowait(event)
+                    logger.debug(f"Published {event_type} to subscriber {sub_id}")
+                except asyncio.QueueFull:  # Phase 34: asyncio exception
+                    logger.warning(f"Subscriber {sub_id} queue full, skipping event")
+                except Exception as e:
+                    logger.error(f"Error publishing to subscriber {sub_id}: {e}")
 
-    def shutdown(self):
-        """Shutdown the game coordinator."""
+    async def shutdown(self):
+        """Shutdown the game coordinator (Phase 34: async for proper cleanup)."""
         logger.info("Shutting down GameCoordinator...")
         self.game_running = False
 
+        # Phase 34: Run thread.join() in executor to avoid blocking event loop
         if self.game_thread and self.game_thread.is_alive():
-            self.game_thread.join(timeout=5.0)
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, lambda: self.game_thread.join(timeout=5.0))
 
-        # Close gRPC channels (Phase 26 - Part 2)
+        # Close gRPC channels (Phase 26 - Part 2, Phase 34: async close)
         logger.info("Closing gRPC channels...")
         if hasattr(self, 'controller_manager_channel') and self.controller_manager_channel:
-            self.controller_manager_channel.close()
+            await self.controller_manager_channel.close()
         if hasattr(self, 'settings_channel') and self.settings_channel:
-            self.settings_channel.close()
+            await self.settings_channel.close()
+        if hasattr(self, 'audio_channel') and self.audio_channel:  # Phase 29
+            await self.audio_channel.close()
 
 
 async def serve(port=50053, metrics_port=8000):
@@ -616,13 +619,29 @@ async def serve(port=50053, metrics_port=8000):
 
     # Start system metrics collection task (Phase 38)
     async def collect_system_metrics():
-        """Background task to collect system metrics every 10 seconds."""
+        """
+        Background task to collect system metrics every 10 seconds.
+        Phase 34: Run psutil calls in thread pool to avoid blocking event loop.
+        """
         process = psutil.Process()
+        loop = asyncio.get_event_loop()
+
         while True:
             try:
-                metrics.process_cpu_percent.set(process.cpu_percent(interval=None))
-                metrics.process_memory_mb.set(process.memory_info().rss / 1024 / 1024)
-                metrics.process_threads.set(process.num_threads())
+                # Phase 34: Run blocking psutil calls in thread pool
+                cpu_percent = await loop.run_in_executor(
+                    None, lambda: process.cpu_percent(interval=None)
+                )
+                mem_info = await loop.run_in_executor(
+                    None, lambda: process.memory_info()
+                )
+                thread_count = await loop.run_in_executor(
+                    None, process.num_threads
+                )
+
+                metrics.process_cpu_percent.set(cpu_percent)
+                metrics.process_memory_mb.set(mem_info.rss / 1024 / 1024)
+                metrics.process_threads.set(thread_count)
             except Exception as e:
                 logger.error(f"Error collecting system metrics: {e}")
             await asyncio.sleep(10.0)
@@ -659,7 +678,7 @@ async def serve(port=50053, metrics_port=8000):
         await server.wait_for_termination()
     except KeyboardInterrupt:
         logger.info("Shutting down GameCoordinator server...")
-        game_servicer.shutdown()
+        await game_servicer.shutdown()  # Phase 34: await async shutdown
         await server.stop(grace=5)
 
 

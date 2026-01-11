@@ -192,8 +192,8 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
         """
         self.settings_file = settings_file
         self.settings: dict[str, Any] = {}
-        self.subscribers: dict[str, queue.Queue] = {}  # {subscriber_id: event_queue}
-        self.subscriber_lock = threading.Lock()
+        self.subscribers: dict[str, asyncio.Queue] = {}  # {subscriber_id: event_queue}
+        self.subscriber_lock = asyncio.Lock()  # Phase 34: Use async lock
 
         # Load settings from file
         self.load_settings()
@@ -339,9 +339,9 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
             span.set_attribute("validation.result", "valid")
             return True, ""
 
-    def publish_change(self, key: str, old_value: Any, new_value: Any, source: str):
+    async def publish_change(self, key: str, old_value: Any, new_value: Any, source: str):
         """
-        Publish setting change event to all subscribers.
+        Publish setting change event to all subscribers (Phase 34: async).
 
         Args:
             key: Setting key that changed
@@ -363,7 +363,7 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
                 timestamp=int(time.time() * 1000),  # milliseconds
             )
 
-            with self.subscriber_lock:
+            async with self.subscriber_lock:  # Phase 34: async lock
                 dead_subscribers = []
                 subscriber_count = len(self.subscribers)
                 span.set_attribute("subscribers.count", subscriber_count)
@@ -372,16 +372,18 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
                     try:
                         event_queue.put_nowait(event)
                         logger.debug(f"Published change to subscriber {sub_id}")
-                    except queue.Full:
+                    except asyncio.QueueFull:  # Phase 34: asyncio exception
                         logger.warning(f"Subscriber {sub_id} queue full, skipping")
                     except Exception as e:
                         logger.error(f"Error publishing to subscriber {sub_id}: {e}")
                         dead_subscribers.append(sub_id)
 
-            # Clean up dead subscribers
-            for sub_id in dead_subscribers:
-                del self.subscribers[sub_id]
-                logger.info(f"Removed dead subscriber {sub_id}")
+            # Clean up dead subscribers (outside lock)
+            async with self.subscriber_lock:
+                for sub_id in dead_subscribers:
+                    if sub_id in self.subscribers:
+                        del self.subscribers[sub_id]
+                        logger.info(f"Removed dead subscriber {sub_id}")
 
     # gRPC Service Methods
 
@@ -423,8 +425,8 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
                 key=request.key, value="", success=False, error=str(e)
             )
 
-    def UpdateSetting(self, request, context):
-        """Update a setting."""
+    async def UpdateSetting(self, request, context):
+        """Update a setting (Phase 34: async for publish_change)."""
         logger.info(
             f"UpdateSetting called: key={request.key}, value={request.value}, source={request.source}"
         )
@@ -474,8 +476,8 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
             # Save to file
             self.save_settings()
 
-            # Publish change event
-            self.publish_change(key, old_value, value, source)
+            # Publish change event (Phase 34: await async call)
+            await self.publish_change(key, old_value, value, source)
 
             logger.info(f"Setting '{key}' updated: {old_value} -> {value}")
 
@@ -489,37 +491,38 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
                 success=False, error=str(e), old_value="", new_value=""
             )
 
-    def SubscribeToChanges(self, request, context):
+    async def SubscribeToChanges(self, request, context):
         """
         Subscribe to setting change events (server-side streaming).
+        Phase 34: Converted to async with asyncio.Queue.
 
         Yields SettingChangeEvent messages as settings change.
         """
         import uuid
 
         subscriber_id = str(uuid.uuid4())
-        event_queue = queue.Queue(maxsize=100)
+        event_queue = asyncio.Queue(maxsize=100)  # Phase 34: asyncio.Queue
 
         logger.info(f"New subscriber: {subscriber_id}")
 
-        # Register subscriber
-        with self.subscriber_lock:
+        # Register subscriber (Phase 34: async lock)
+        async with self.subscriber_lock:
             self.subscribers[subscriber_id] = event_queue
 
         try:
             # Stream events to client
-            while context.is_active():
+            while not context.cancelled():  # Phase 34: async-compatible check
                 try:
-                    # Wait for event with timeout
-                    event = event_queue.get(timeout=1.0)
+                    # Wait for event with timeout (Phase 34: async wait)
+                    event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
                     yield event
-                except queue.Empty:
+                except asyncio.TimeoutError:  # Phase 34: asyncio exception
                     # No event, continue (keeps connection alive)
                     continue
 
         finally:
-            # Unregister subscriber
-            with self.subscriber_lock:
+            # Unregister subscriber (Phase 34: async lock)
+            async with self.subscriber_lock:
                 if subscriber_id in self.subscribers:
                     del self.subscribers[subscriber_id]
                     logger.info(f"Subscriber disconnected: {subscriber_id}")
@@ -546,13 +549,29 @@ async def serve(port: int = 50051, metrics_port: int = 8000):
 
     # Start system metrics collection task (Phase 38)
     async def collect_system_metrics():
-        """Background task to collect system metrics every 10 seconds."""
+        """
+        Background task to collect system metrics every 10 seconds.
+        Phase 34: Run psutil calls in thread pool to avoid blocking event loop.
+        """
         process = psutil.Process()
+        loop = asyncio.get_event_loop()
+
         while True:
             try:
-                metrics.process_cpu_percent.set(process.cpu_percent(interval=None))
-                metrics.process_memory_mb.set(process.memory_info().rss / 1024 / 1024)
-                metrics.process_threads.set(process.num_threads())
+                # Phase 34: Run blocking psutil calls in thread pool
+                cpu_percent = await loop.run_in_executor(
+                    None, lambda: process.cpu_percent(interval=None)
+                )
+                mem_info = await loop.run_in_executor(
+                    None, lambda: process.memory_info()
+                )
+                thread_count = await loop.run_in_executor(
+                    None, process.num_threads
+                )
+
+                metrics.process_cpu_percent.set(cpu_percent)
+                metrics.process_memory_mb.set(mem_info.rss / 1024 / 1024)
+                metrics.process_threads.set(thread_count)
             except Exception as e:
                 logger.error(f"Error collecting system metrics: {e}")
             await asyncio.sleep(10.0)

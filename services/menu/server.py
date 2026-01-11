@@ -88,9 +88,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.current_selection = "JoustFFA"
         self.ready_controller_count = 0
 
-        # Event streaming
-        self.event_subscribers: dict[str, queue.Queue] = {}
-        self.event_lock = threading.Lock()
+        # Event streaming (Phase 34: async queue and lock)
+        self.event_subscribers: dict[str, asyncio.Queue] = {}
+        self.event_lock = asyncio.Lock()
 
         # Controller button monitoring (Phase 21)
         self.button_monitor_task = None
@@ -140,8 +140,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
         logger.info("Menu service initialized with persistent gRPC channels")
 
-    def StartMenu(self, request, context):
-        """Start the menu."""
+    async def StartMenu(self, request, context):
+        """Start the menu (Phase 34: async for _publish_event)."""
         with tracer.start_as_current_span("StartMenu") as span:
             try:
                 if self.state == menu_pb2.MenuState.RUNNING:
@@ -151,8 +151,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 self.current_selection = "JoustFFA"
                 self.ready_controller_count = 0
 
-                # Publish menu_started event
-                self._publish_event("menu_started", {})
+                # Publish menu_started event (Phase 34: await)
+                await self._publish_event("menu_started", {})
 
                 logger.info("Menu started")
 
@@ -166,8 +166,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 logger.error(f"StartMenu error: {e}", exc_info=True)
                 return menu_pb2.StartMenuResponse(success=False, error=str(e))
 
-    def StopMenu(self, request, context):
-        """Stop the menu."""
+    async def StopMenu(self, request, context):
+        """Stop the menu (Phase 34: async for _publish_event)."""
         with tracer.start_as_current_span("StopMenu") as span:
             try:
                 if self.state == menu_pb2.MenuState.STOPPED:
@@ -182,8 +182,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 self.last_lobby_feedback_update.clear()
                 self.ready_controller_count = 0
 
-                # Publish menu_stopped event
-                self._publish_event("menu_stopped", {})
+                # Publish menu_stopped event (Phase 34: await)
+                await self._publish_event("menu_stopped", {})
 
                 logger.info("Menu stopped")
 
@@ -225,8 +225,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     error=str(e),
                 )
 
-    def ProcessInput(self, request, context):
-        """Process menu input."""
+    async def ProcessInput(self, request, context):
+        """Process menu input (Phase 34: async for _publish_event)."""
         with tracer.start_as_current_span("ProcessInput") as span:
             span.set_attribute("input.type", request.input_type)
 
@@ -242,7 +242,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     if button == "trigger":
                         # Game requested
                         self.state = menu_pb2.MenuState.GAME_STARTING
-                        self._publish_event("game_requested", {"game_name": self.current_selection})
+                        await self._publish_event("game_requested", {"game_name": self.current_selection})
                         logger.info(f"Game requested: {self.current_selection}")
 
                     elif button == "select":
@@ -254,7 +254,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                             else 0
                         )
                         self.current_selection = games[(current_index + 1) % len(games)]
-                        self._publish_event(
+                        await self._publish_event(
                             "selection_changed", {"game_name": self.current_selection}
                         )
                         logger.info(f"Selection changed to: {self.current_selection}")
@@ -265,7 +265,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
                     if command == "start_game":
                         self.state = menu_pb2.MenuState.GAME_STARTING
-                        self._publish_event(
+                        await self._publish_event(
                             "game_requested", {"game_name": self.current_selection, "source": "web"}
                         )
 
@@ -278,16 +278,19 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 return menu_pb2.ProcessInputResponse(success=False, error=str(e))
 
     async def StreamMenuEvents(self, request, context):
-        """Stream menu events in real-time (async)."""
+        """
+        Stream menu events in real-time (async).
+        Phase 34: Converted to asyncio.Queue.
+        """
         subscriber_id = f"menu_events_{time.time()}"
 
         with tracer.start_as_current_span("StreamMenuEvents") as span:
             span.set_attribute("subscriber.id", subscriber_id)
 
-            # Create queue for this subscriber
-            event_queue = queue.Queue(maxsize=100)
+            # Create queue for this subscriber (Phase 34: asyncio.Queue)
+            event_queue = asyncio.Queue(maxsize=100)
 
-            with self.event_lock:
+            async with self.event_lock:  # Phase 34: async lock
                 self.event_subscribers[subscriber_id] = event_queue
 
             logger.info(f"New menu event subscriber: {subscriber_id}")
@@ -295,28 +298,27 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             try:
                 while not context.cancelled():
                     try:
-                        # Non-blocking get with short timeout
-                        event = event_queue.get(timeout=0.1)
+                        # Phase 34: async wait with timeout
+                        event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
                         yield event
 
-                    except queue.Empty:
-                        # Yield control to event loop
-                        await asyncio.sleep(0.1)
+                    except asyncio.TimeoutError:  # Phase 34: asyncio exception
+                        # Keep connection alive
                         continue
                     except Exception as e:
                         logger.error(f"Stream error for {subscriber_id}: {e}")
                         break
 
             finally:
-                # Cleanup
-                with self.event_lock:
+                # Cleanup (Phase 34: async lock)
+                async with self.event_lock:
                     if subscriber_id in self.event_subscribers:
                         del self.event_subscribers[subscriber_id]
 
                 logger.info(f"Menu event subscriber disconnected: {subscriber_id}")
 
-    def _publish_event(self, event_type: str, data: dict[str, str]):
-        """Publish an event to all subscribers."""
+    async def _publish_event(self, event_type: str, data: dict[str, str]):
+        """Publish an event to all subscribers (Phase 34: async)."""
         with tracer.start_as_current_span("publish_menu_event") as span:
             span.set_attribute("event.type", event_type)
 
@@ -324,7 +326,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 event_type=event_type, data=data, timestamp=int(time.time() * 1000)
             )
 
-            with self.event_lock:
+            async with self.event_lock:  # Phase 34: async lock
                 subscriber_count = len(self.event_subscribers)
                 span.set_attribute("subscribers.count", subscriber_count)
 
@@ -332,7 +334,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     try:
                         event_queue.put_nowait(event)
                         logger.debug(f"Published {event_type} to subscriber {sub_id}")
-                    except queue.Full:
+                    except asyncio.QueueFull:  # Phase 34: asyncio exception
                         logger.warning(f"Subscriber {sub_id} queue full, skipping event")
                     except Exception as e:
                         logger.error(f"Error publishing to subscriber {sub_id}: {e}")
@@ -631,7 +633,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             span.set_attribute("game.name", self.current_selection)
 
             self.state = menu_pb2.MenuState.GAME_STARTING
-            self._publish_event(
+            await self._publish_event(  # Phase 34: await
                 "game_requested",
                 {"game_name": self.current_selection, "source": "controller", "serial": serial},
             )
@@ -656,7 +658,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
             span.set_attribute("game.name", self.current_selection)
 
-            self._publish_event(
+            await self._publish_event(  # Phase 34: await
                 "selection_changed",
                 {"game_name": self.current_selection, "source": "controller", "serial": serial},
             )
@@ -1310,13 +1312,29 @@ async def serve(port=50054, metrics_port=8000):
 
     # Start system metrics collection task (Phase 38)
     async def collect_system_metrics():
-        """Background task to collect system metrics every 10 seconds."""
+        """
+        Background task to collect system metrics every 10 seconds.
+        Phase 34: Run psutil calls in thread pool to avoid blocking event loop.
+        """
         process = psutil.Process()
+        loop = asyncio.get_event_loop()
+
         while True:
             try:
-                metrics.process_cpu_percent.set(process.cpu_percent(interval=None))
-                metrics.process_memory_mb.set(process.memory_info().rss / 1024 / 1024)
-                metrics.process_threads.set(process.num_threads())
+                # Phase 34: Run blocking psutil calls in thread pool
+                cpu_percent = await loop.run_in_executor(
+                    None, lambda: process.cpu_percent(interval=None)
+                )
+                mem_info = await loop.run_in_executor(
+                    None, lambda: process.memory_info()
+                )
+                thread_count = await loop.run_in_executor(
+                    None, process.num_threads
+                )
+
+                metrics.process_cpu_percent.set(cpu_percent)
+                metrics.process_memory_mb.set(mem_info.rss / 1024 / 1024)
+                metrics.process_threads.set(thread_count)
             except Exception as e:
                 logger.error(f"Error collecting system metrics: {e}")
             await asyncio.sleep(10.0)

@@ -417,13 +417,29 @@ async def serve(metrics_port=8000):
 
     # Start system metrics collection task (Phase 38)
     async def collect_system_metrics():
-        """Background task to collect system metrics every 10 seconds."""
+        """
+        Background task to collect system metrics every 10 seconds.
+        Phase 34: Run psutil calls in thread pool to avoid blocking event loop.
+        """
         process = psutil.Process()
+        loop = asyncio.get_event_loop()
+
         while True:
             try:
-                metrics.process_cpu_percent.set(process.cpu_percent(interval=None))
-                metrics.process_memory_mb.set(process.memory_info().rss / 1024 / 1024)
-                metrics.process_threads.set(process.num_threads())
+                # Phase 34: Run blocking psutil calls in thread pool
+                cpu_percent = await loop.run_in_executor(
+                    None, lambda: process.cpu_percent(interval=None)
+                )
+                mem_info = await loop.run_in_executor(
+                    None, lambda: process.memory_info()
+                )
+                thread_count = await loop.run_in_executor(
+                    None, process.num_threads
+                )
+
+                metrics.process_cpu_percent.set(cpu_percent)
+                metrics.process_memory_mb.set(mem_info.rss / 1024 / 1024)
+                metrics.process_threads.set(thread_count)
             except Exception as e:
                 logger.error(f"Error collecting system metrics: {e}")
             await asyncio.sleep(10.0)

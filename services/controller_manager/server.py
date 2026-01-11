@@ -14,6 +14,7 @@ import asyncio
 import logging
 import os
 import queue
+from collections import deque
 
 # Import protobuf
 import sys
@@ -82,6 +83,31 @@ def init_telemetry():
 tracer = init_telemetry()
 
 
+class MessagePool:
+    """Pool of reusable protobuf messages (Phase 18 - Task 3)."""
+
+    def __init__(self, message_class, pool_size=10):
+        """Initialize message pool with pre-allocated messages."""
+        self.pool = deque([message_class() for _ in range(pool_size)])
+        self.message_class = message_class
+        self.lock = threading.Lock()
+
+    def get(self):
+        """Get a message from pool or create new if empty."""
+        with self.lock:
+            if self.pool:
+                msg = self.pool.popleft()
+                msg.Clear()
+                return msg
+        # Pool empty, create new message
+        return self.message_class()
+
+    def return_msg(self, msg):
+        """Return message to pool for reuse."""
+        with self.lock:
+            self.pool.append(msg)
+
+
 class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerServiceServicer):
     """
     ControllerManager gRPC servicer.
@@ -108,6 +134,15 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Store last sent state per subscriber per controller
         # Format: {subscriber_id: {serial: ControllerState}}
         self.last_sent_states: dict[str, dict[str, any]] = {}
+
+        # State caching (Phase 18 - Task 1)
+        # Cache protobuf messages to avoid rebuilding on every frame
+        # Format: {serial: {'cached_state': ControllerState, 'snapshot_hash': str, 'dirty': bool}}
+        self.state_cache: dict[str, dict] = {}
+
+        # Protobuf object pools (Phase 18 - Task 3)
+        self.controller_state_pool = MessagePool(controller_manager_pb2.ControllerState, pool_size=10)
+        self.vector3_pool = MessagePool(controller_manager_pb2.Vector3, pool_size=20)
 
         # Discovery thread
         self.running = True
@@ -236,7 +271,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         with tracer.start_as_current_span("GetReadyControllers") as span:
             try:
                 ready_controllers = [
-                    self._build_controller_state_message(serial, info)
+                    self._build_or_get_cached_state(serial, info)
                     for serial, info in self.tracked_controllers.items()
                     if info.get("ready", False)
                 ]
@@ -259,7 +294,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         with tracer.start_as_current_span("GetControllers") as span:
             try:
                 all_controllers = [
-                    self._build_controller_state_message(serial, info)
+                    self._build_or_get_cached_state(serial, info)
                     for serial, info in self.tracked_controllers.items()
                 ]
 
@@ -300,9 +335,9 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                 while not context.cancelled():
                     try:
-                        # Build current state for all controllers
+                        # Build current state for all controllers (Phase 18: Use caching)
                         current_states = {
-                            serial: self._build_controller_state_message(serial, info)
+                            serial: self._build_or_get_cached_state(serial, info)
                             for serial, info in self.tracked_controllers.items()
                         }
 
@@ -385,6 +420,10 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                     if serial in self.controller_states:
                         del self.controller_states[serial]
+
+                    # Clean up state cache (Phase 18 - Task 1)
+                    if serial in self.state_cache:
+                        del self.state_cache[serial]
 
                     span.add_event("controller_removed", {"serial": serial})
                     logger.info(f"Removed controller {serial}")
@@ -546,10 +585,59 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Simple hash based on key fields that change during gameplay
         return f"{state.battery}|{state.trigger_pressed}|{state.move_pressed}|{state.ready}|{state.team}|{state.color.r},{state.color.g},{state.color.b}"
 
+    def _snapshot_hash(self, serial: str, info: dict) -> str:
+        """Create a hash of controller hardware snapshot (Phase 18 - Task 1)."""
+        # Get state snapshot if available
+        state = self.controller_states.get(serial)
+
+        if state:
+            snapshot = state.get_snapshot()
+            # Hash all fields that can change during gameplay
+            return (
+                f"{info.get('battery', 0)}|"
+                f"{snapshot.get('trigger', False)}|{snapshot.get('move', False)}|"
+                f"{snapshot.get('cross', False)}|{snapshot.get('circle', False)}|"
+                f"{snapshot.get('square', False)}|{snapshot.get('triangle', False)}|"
+                f"{snapshot.get('ps', False)}|"
+                f"{snapshot.get('accel', {}).get('x', 0):.2f},{snapshot.get('accel', {}).get('y', 0):.2f},{snapshot.get('accel', {}).get('z', 0):.2f}|"
+                f"{snapshot.get('gyro', {}).get('x', 0):.2f},{snapshot.get('gyro', {}).get('y', 0):.2f},{snapshot.get('gyro', {}).get('z', 0):.2f}|"
+                f"{info.get('ready', False)}|{info.get('team', 0)}"
+            )
+        else:
+            # No state available, return hash based on info only
+            return f"{info.get('battery', 0)}|{info.get('ready', False)}|{info.get('team', 0)}"
+
+    def _build_or_get_cached_state(
+        self, serial: str, info: dict
+    ) -> controller_manager_pb2.ControllerState:
+        """Return cached state if unchanged, rebuild if dirty (Phase 18 - Task 1)."""
+        # Calculate current snapshot hash
+        current_hash = self._snapshot_hash(serial, info)
+
+        # Get cache entry for this controller
+        cache_entry = self.state_cache.get(serial)
+
+        if cache_entry:
+            # Check if state changed
+            if cache_entry["snapshot_hash"] == current_hash:
+                # State unchanged, return cached protobuf message
+                return cache_entry["cached_state"]
+
+        # State changed or not cached yet - rebuild
+        new_state = self._build_controller_state_message(serial, info)
+
+        # Update cache
+        self.state_cache[serial] = {
+            "cached_state": new_state,
+            "snapshot_hash": current_hash,
+        }
+
+        return new_state
+
     def _build_controller_state_message(
         self, serial: str, info: dict
     ) -> controller_manager_pb2.ControllerState:
-        """Build a ControllerState protobuf message."""
+        """Build a ControllerState protobuf message (Phase 18: Use pooled objects)."""
         # Get state snapshot if available
         state = self.controller_states.get(serial)
 
@@ -575,23 +663,42 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             accel = {"x": 0, "y": 0, "z": 0}
             gyro = {"x": 0, "y": 0, "z": 0}
 
-        return controller_manager_pb2.ControllerState(
-            serial=serial,
-            move_num=info.get("move_num", 0),
-            battery=info.get("battery", 0),
-            trigger_pressed=trigger_pressed,
-            move_pressed=move_pressed,
-            ready=info.get("ready", False),
-            team=info.get("team", 0),
-            color=controller_manager_pb2.RGB(r=0, g=0, b=255),
-            accel=controller_manager_pb2.Vector3(x=accel["x"], y=accel["y"], z=accel["z"]),
-            gyro=controller_manager_pb2.Vector3(x=gyro["x"], y=gyro["y"], z=gyro["z"]),
-            cross_pressed=cross_pressed,
-            circle_pressed=circle_pressed,
-            square_pressed=square_pressed,
-            triangle_pressed=triangle_pressed,
-            ps_pressed=ps_pressed,
-        )
+        # Use pooled Vector3 objects (Phase 18 - Task 3)
+        accel_vec = self.vector3_pool.get()
+        accel_vec.x = accel["x"]
+        accel_vec.y = accel["y"]
+        accel_vec.z = accel["z"]
+
+        gyro_vec = self.vector3_pool.get()
+        gyro_vec.x = gyro["x"]
+        gyro_vec.y = gyro["y"]
+        gyro_vec.z = gyro["z"]
+
+        # Use pooled ControllerState (Phase 18 - Task 3)
+        controller_state = self.controller_state_pool.get()
+        controller_state.serial = serial
+        controller_state.move_num = info.get("move_num", 0)
+        controller_state.battery = info.get("battery", 0)
+        controller_state.trigger_pressed = trigger_pressed
+        controller_state.move_pressed = move_pressed
+        controller_state.ready = info.get("ready", False)
+        controller_state.team = info.get("team", 0)
+        controller_state.color.r = 0
+        controller_state.color.g = 0
+        controller_state.color.b = 255
+        controller_state.accel.CopyFrom(accel_vec)
+        controller_state.gyro.CopyFrom(gyro_vec)
+        controller_state.cross_pressed = cross_pressed
+        controller_state.circle_pressed = circle_pressed
+        controller_state.square_pressed = square_pressed
+        controller_state.triangle_pressed = triangle_pressed
+        controller_state.ps_pressed = ps_pressed
+
+        # Return pooled Vector3 objects (ControllerState made copies with CopyFrom)
+        self.vector3_pool.return_msg(accel_vec)
+        self.vector3_pool.return_msg(gyro_vec)
+
+        return controller_state
 
     def shutdown(self):
         """Shutdown the controller manager."""

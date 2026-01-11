@@ -98,13 +98,17 @@ class MockControllerManagerService(controller_manager_pb2_grpc.ControllerManager
 
         logger.info(f"Starting controller state stream at {frequency}Hz")
 
-        while context.is_active():
-            # Get current states
-            controllers = [c.to_proto() for c in self.controllers.values()]
+        try:
+            while not context.cancelled():
+                # Get current states
+                controllers = [c.to_proto() for c in self.controllers.values()]
 
-            yield ControllerStateUpdate(controllers=controllers, timestamp=int(time.time() * 1000))
+                yield ControllerStateUpdate(controllers=controllers, timestamp=int(time.time() * 1000))
 
-            await asyncio.sleep(interval)
+                await asyncio.sleep(interval)
+        except asyncio.CancelledError:
+            logger.info("Controller state stream cancelled")
+            raise
 
 
 class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControllerServiceServicer):

@@ -121,62 +121,71 @@ class NonstopJoustGame:
         Args:
             game_context: Parent game_session span context for proper hierarchy
         """
-        logger.info(f"Starting Nonstop Joust game: {self.game_id}")
-        self.state = GameState.STARTING
-        self.running = True
+        try:
+            logger.info(f"Starting Nonstop Joust game: {self.game_id}")
+            self.state = GameState.STARTING
+            self.running = True
 
-        # Initialization phase (load settings + initialize players)
-        with tracer.start_as_current_span("initialization_phase", context=game_context) as init_span:
-            init_span.set_attribute("game.id", self.game_id)
-            init_span.set_attribute("game.mode", "NonstopJoust")
+            # Initialization phase (load settings + initialize players)
+            with tracer.start_as_current_span("initialization_phase", context=game_context) as init_span:
+                init_span.set_attribute("game.id", self.game_id)
+                init_span.set_attribute("game.mode", "NonstopJoust")
 
-            # Load settings
-            await self._load_settings()
+                # Load settings
+                await self._load_settings()
 
-            # Add settings to init span
-            init_span.set_attribute("game.time_limit", self.time_limit)
-            init_span.set_attribute("game.sensitivity", self.sensitivity.name)
-            init_span.set_attribute("game.play_audio", self.play_audio)
+                # Add settings to init span
+                init_span.set_attribute("game.time_limit", self.time_limit)
+                init_span.set_attribute("game.sensitivity", self.sensitivity.name)
+                init_span.set_attribute("game.play_audio", self.play_audio)
 
-            # Initialize players
-            await self._initialize_players()
+                # Initialize players
+                await self._initialize_players()
 
-            if not self.players:
-                logger.error("No players available to start game")
-                self.state = GameState.ENDED
-                return
+                if not self.players:
+                    logger.error("No players available to start game")
+                    self.state = GameState.ENDED
+                    return
 
-            init_span.set_attribute("player_count", len(self.players))
+                init_span.set_attribute("player_count", len(self.players))
 
-        # Countdown phase
-        with tracer.start_as_current_span("countdown_phase", context=game_context):
-            await self._countdown()
+            # Countdown phase
+            with tracer.start_as_current_span("countdown_phase", context=game_context):
+                await self._countdown()
 
-        # Start game loop
-        self.state = GameState.RUNNING
-        self.start_time = time.time()
+            # Start game loop
+            self.state = GameState.RUNNING
+            self.start_time = time.time()
 
-        self.event_publisher(
-            "game_started",
-            {
-                "game_id": self.game_id,
-                "game_mode": "NonstopJoust",
-                "player_count": len(self.players),
-            },
-        )
+            self.event_publisher(
+                "game_started",
+                {
+                    "game_id": self.game_id,
+                    "game_mode": "NonstopJoust",
+                    "player_count": len(self.players),
+                },
+            )
 
-        logger.info("Nonstop Joust game loop starting...")
+            logger.info("Nonstop Joust game loop starting...")
 
-        # Gameplay phase (main game loop)
-        with tracer.start_as_current_span("gameplay_phase", context=game_context):
-            await self._game_loop()
+            # Gameplay phase (main game loop)
+            with tracer.start_as_current_span("gameplay_phase", context=game_context):
+                await self._game_loop()
 
-        # Teardown phase (end game)
-        with tracer.start_as_current_span("teardown_phase", context=game_context):
-            await self._end_game()
+            # Teardown phase (end game)
+            with tracer.start_as_current_span("teardown_phase", context=game_context):
+                await self._end_game()
 
-        self.state = GameState.ENDED
-        logger.info(f"Nonstop Joust game ended: {self.game_id}")
+        except Exception as e:
+            logger.error(f"Nonstop Joust game error: {e}", exc_info=True)
+            self.state = GameState.ENDED
+            self.event_publisher("game_error", {"game_id": self.game_id, "error": str(e)})
+            raise
+
+        finally:
+            self.running = False
+            self.state = GameState.ENDED
+            logger.info(f"Nonstop Joust game ended: {self.game_id}")
 
     async def stop(self):
         """Stop the game (force end)."""

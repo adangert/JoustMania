@@ -457,10 +457,22 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 span.set_attribute("game.state", self.game_state)
                 span.set_attribute("game.elapsed_seconds", elapsed)
 
+                # Get live player data from current game if running
+                players_status = self.players  # Default to initial state
+                if self.current_game and hasattr(self.current_game, 'players'):
+                    # Convert game's player dict to protobuf Player list with live state
+                    players_status = []
+                    for serial, player in self.current_game.players.items():
+                        players_status.append(game_coordinator_pb2.Player(
+                            serial=serial,
+                            team=player.team,
+                            alive=player.alive,
+                        ))
+
                 return game_coordinator_pb2.GetGameStatusResponse(
                     state=self.game_state,
                     game_name=self.game_name,
-                    players=self.players,
+                    players=players_status,
                     elapsed_seconds=elapsed,
                     success=True,
                     error="",

@@ -41,6 +41,7 @@ This version focuses on:
 ### Technical Features
 
 - Real-time controller state streaming (1000Hz hardware polling → 60Hz gRPC stream)
+- **Comprehensive LED feedback** - Game-mode colors, team assignments, battery warnings ([see docs](docs/controller-feedback.md))
 - Priority-based audio mixing
 - Distributed tracing across all services
 - Web UI for game control and monitoring
@@ -161,6 +162,16 @@ grpcurl -plaintext -d '{}' localhost:50051 joustmania.SettingsService/GetSetting
 ## Controller Guide
 
 JoustMania uses **PlayStation Move controllers** for gameplay. Controllers feature physical button controls for menu navigation, gameplay, and admin functions.
+
+### LED Feedback
+
+Controllers provide comprehensive visual feedback through LED colors:
+- **Menu/Lobby**: Game-mode-specific colors (dim when connected, bright when ready)
+- **Game Phase**: Unique colors per player (FFA/Nonstop) or team colors (Teams modes)
+- **Admin Mode**: White LED indicator
+- **Low Battery**: Automatic red pulse warnings (<20% battery)
+
+**For complete LED reference:** See [Controller LED Feedback Documentation](docs/controller-feedback.md)
 
 ### Button Layout
 

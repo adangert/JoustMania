@@ -520,8 +520,26 @@ async def test_controller_effects(docker_compose):
     await channel.close()
 
 @pytest.mark.asyncio
-async def test_staggered_player_deaths(docker_compose):
-    """Test game with staggered player deaths to show varied span lengths in Jaeger."""
+@pytest.mark.parametrize(
+    "game_mode",
+    [
+        "FFA",
+        "Teams",
+        "Random Teams",
+        # Note: Nonstop Joust not included - players respawn so spans don't end on death
+    ],
+)
+async def test_staggered_player_deaths(docker_compose, game_mode):
+    """Test game with staggered player deaths to show varied span lengths in Jaeger.
+
+    This test demonstrates realistic gameplay where players die at different times,
+    creating varied player lifecycle span lengths in distributed traces.
+
+    For FFA: Players die one by one until winner remains
+    For Teams/Random Teams: Players from different teams die, last team wins
+
+    Note: Nonstop Joust is excluded because players respawn - deaths don't end spans.
+    """
 
     # Connect to game coordinator
     game_host = docker_compose.get_service_host("game-coordinator", 50053)
@@ -539,40 +557,44 @@ async def test_staggered_player_deaths(docker_compose):
     players = await get_ready_players(docker_compose)
     assert len(players) == 4
 
-    # Start FFA game
+    # Start game
     start_response = await game_client.StartGame(
-        game_coordinator_pb2.StartGameRequest(game_name="FFA", players=players)
+        game_coordinator_pb2.StartGameRequest(game_name=game_mode, players=players)
     )
     assert start_response.success
     game_id = start_response.game_id
 
-    # Wait for game to fully start
+    print(f"\n=== Starting {game_mode} game with staggered deaths ===")
+
+    # Wait for game to fully start (initialization + countdown)
     await asyncio.sleep(2)
 
     # Simulate deaths at different times to create varied span lengths
+    # For team games, kill players from different teams to avoid early game end
+
     # Player 0 dies first (shortest span)
     await asyncio.sleep(1)
     death_0 = await mock_client.SimulateDeath(
         controller_manager_mock_pb2.DeathRequest(serial="mock_controller_0")
     )
     assert death_0.success
-    print(f"Player 0 died at ~3s with accel magnitude {death_0.accel_magnitude:.2f}")
+    print(f"  Player 0 died at ~3s (accel: {death_0.accel_magnitude:.2f})")
 
-    # Player 1 dies second
-    await asyncio.sleep(2)
-    death_1 = await mock_client.SimulateDeath(
-        controller_manager_mock_pb2.DeathRequest(serial="mock_controller_1")
-    )
-    assert death_1.success
-    print(f"Player 1 died at ~5s with accel magnitude {death_1.accel_magnitude:.2f}")
-
-    # Player 2 dies third
+    # Player 2 dies second (different team for team modes)
     await asyncio.sleep(2)
     death_2 = await mock_client.SimulateDeath(
         controller_manager_mock_pb2.DeathRequest(serial="mock_controller_2")
     )
     assert death_2.success
-    print(f"Player 2 died at ~7s with accel magnitude {death_2.accel_magnitude:.2f}")
+    print(f"  Player 2 died at ~5s (accel: {death_2.accel_magnitude:.2f})")
+
+    # Player 1 dies third
+    await asyncio.sleep(2)
+    death_1 = await mock_client.SimulateDeath(
+        controller_manager_mock_pb2.DeathRequest(serial="mock_controller_1")
+    )
+    assert death_1.success
+    print(f"  Player 1 died at ~7s (accel: {death_1.accel_magnitude:.2f})")
 
     # Player 3 wins (longest span) - let them survive a bit longer
     await asyncio.sleep(2)
@@ -581,11 +603,15 @@ async def test_staggered_player_deaths(docker_compose):
     status_response = await game_client.GetGameStatus(
         game_coordinator_pb2.GetGameStatusRequest()
     )
-    # Game should have ended automatically when only 1 player remained
+    # Game should have ended automatically
+    # FFA: when only 1 player remains
+    # Teams/Random Teams: when only 1 team remains
     assert status_response.state == game_coordinator_pb2.GameState.ENDED
 
-    print(f"Game {game_id} ended with player 3 as winner")
-    print("Check Jaeger UI at http://localhost:16686 to see varied player span lengths!")
+    print(f"  Game ended with player 3 as winner")
+    print(f"  Check Jaeger UI: http://localhost:16686")
+    print(f"  Search for: {game_mode.replace(' ', '-')}")
+    print(f"  Look for varied player/team span lengths!")
 
     # Cleanup
     await game_channel.close()

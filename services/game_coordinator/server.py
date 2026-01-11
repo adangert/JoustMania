@@ -529,8 +529,11 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 self.game_state = game_coordinator_pb2.GameState.ENDED
                 logger.info("Game state transitioned to ENDED")
 
+            # Convert all values to strings (protobuf map<string, string> requirement)
+            string_data = {k: str(v) for k, v in data.items()}
+
             event = game_coordinator_pb2.GameEvent(
-                event_type=event_type, data=data, timestamp=int(time.time() * 1000)
+                event_type=event_type, data=string_data, timestamp=int(time.time() * 1000)
             )
 
             with self.event_lock:

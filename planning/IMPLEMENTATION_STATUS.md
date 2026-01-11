@@ -49,9 +49,9 @@ This document tracks the progress of the JoustMania microservices refactoring pr
 | 32 | Settings Cleanup | LOW | 🧹 Planned | [View](phases/planned/phase-32-settings-cleanup.md) |
 | 33 | Code Quality | LOW | 💎 Planned | [View](phases/planned/phase-33-code-quality-improvements.md) |
 | 34 | Async/Await Consistency | LOW | ⚡ Planned | [View](phases/planned/phase-34-async-await-consistency.md) |
-| 35 | Logging Optimization | MEDIUM | 🔍 Planned | [View](phases/planned/phase-35-logging-optimization.md) |
+| 35 | Logging Optimization | MEDIUM | ✅ Complete | [View](phases/completed/phase-35-logging-optimization.md) |
 
-## Completed Phases (22)
+## Completed Phases (23)
 
 ### Core Infrastructure (Phases 1-5, 7)
 - **Phase 1**: [Controller Manager](phases/completed/phase-01-controller-manager.md) - PSMove controller management service
@@ -82,8 +82,9 @@ This document tracks the progress of the JoustMania microservices refactoring pr
 - **Phase 22**: [Nonstop Joust Game Mode](phases/completed/phase-22-nonstop-joust-game-mode.md) - Endless respawn mode
 - **Phase 24**: [Service Health Checks](phases/completed/phase-24-proper-service-health-checks.md) - gRPC health protocol
 - **Phase 25**: [Type Safety & Code Quality](phases/completed/phase-25-type-safety-code-quality.md) - ty + ruff integration
+- **Phase 35**: [Logging Optimization](phases/completed/phase-35-logging-optimization.md) - Environment variable log level control
 
-## Planned Phases (13)
+## Planned Phases (12)
 
 ### High Priority - Performance & Reliability
 - **Phase 18**: [Game Loop CPU Optimization](phases/planned/phase-18-game-loop-cpu-optimization.md) - State caching and protobuf pooling
@@ -95,8 +96,6 @@ This document tracks the progress of the JoustMania microservices refactoring pr
 - **Phase 28**: [Admin Mode Completion](phases/planned/phase-28-admin-mode-completion.md) - Settings persistence
 - **Phase 29**: [Audio Integration](phases/planned/phase-29-audio-integration.md) - Sound effects for all games
 - **Phase 30**: [Controller Feedback Completion](phases/planned/phase-30-controller-feedback-completion.md) - Teams game feedback
-- **Phase 35**: [Logging Optimization](phases/planned/phase-35-logging-optimization.md) - Clean up excessive logging
-
 ### Low Priority - Polish & Refinement
 - **Phase 20**: [Production Optimization](phases/planned/phase-20-production-optimization.md) - Future scalability improvements
 - **Phase 31**: [Controller Effects](phases/planned/phase-31-controller-effects-implementation.md) - FLASH, PULSE, RAINBOW effects
@@ -128,10 +127,9 @@ This document tracks the progress of the JoustMania microservices refactoring pr
 ## Next Steps
 
 ### Immediate Priorities
-1. **Phase 35** - Clean up logging (low-hanging fruit, 5% CPU reduction)
-2. **Phase 18** - Game loop CPU optimization (state caching, protobuf pooling)
-3. **Phase 27** - OpenTelemetry optimization (span sampling, hot path reduction)
-4. **Phase 26** - Critical performance fixes (channel pooling, resource limits)
+1. **Phase 18** - Game loop CPU optimization (state caching, protobuf pooling)
+2. **Phase 27** - OpenTelemetry optimization (span sampling, hot path reduction)
+3. **Phase 26** - Critical performance fixes (channel pooling, resource limits)
 
 ### Mid-term Goals
 - Complete admin mode functionality (Phases 23, 28)

@@ -175,7 +175,8 @@ class RandomTeamsGame(TeamsGameBase):
         # Set controller colors to team colors with pulse effect (Phase 39)
         await self._set_team_colors(pulse_effect=True, duration_ms=TEAM_FORMATION_DURATION * 1000)
 
-        # TODO: Play "teams form" audio
+        # Play team formation sound (Phase 29)
+        await self._play_sound("Joust/sounds/start3.wav", priority=2)
 
         # Use shorter sleeps to allow force_end to interrupt
         for _ in range(TEAM_FORMATION_DURATION * 10):

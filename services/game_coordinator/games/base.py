@@ -535,8 +535,6 @@ class BaseGameMode(ABC):
         )
         await self.controller_client.SetControllerVibration(death_vibrate_request)
 
-        # TODO: Play explosion sound via Audio service
-
     def force_end(self):
         """Force the game to end (called externally)."""
         logger.info("Force ending game...")

@@ -49,34 +49,45 @@ message GameplayStreamControl {
   oneof control {
     GameplayStreamConfig config = 1;           // Initial configuration (Phase 45)
     FilterUpdate filter_update = 2;            // Mid-stream filter change (Phase 45)
-    ColorCommand color_command = 3;            // NEW: Set controller color
-    EffectCommand effect_command = 4;          // NEW: Play controller effect
-    VibrationCommand vibration_command = 5;    // NEW: Set controller vibration
+    ColorCommand color_command = 3;            // Set controller color
+    EffectCommand effect_command = 4;          // Play controller effect
+    VibrationCommand vibration_command = 5;    // Set controller vibration
+    CombinedFeedback combined_feedback = 6;    // Combined color + vibration (atomic)
   }
 }
 
 message ColorCommand {
   string serial = 1;          // Target controller (empty = all)
-  Color color = 2;            // RGB color
+  RGB color = 2;              // RGB color
 }
 
 message EffectCommand {
   string serial = 1;          // Target controller (empty = all)
-  string effect_name = 2;     // Effect identifier
+  ControllerEffect effect = 2; // Effect to play
+  RGB color = 3;              // Base color for effect (optional)
+  int32 duration_ms = 4;      // Effect duration (optional)
 }
 
 message VibrationCommand {
   string serial = 1;          // Target controller (empty = all)
-  int32 duration_ms = 2;      // Vibration duration
-  int32 intensity = 3;        // Vibration intensity (0-255)
+  int32 intensity = 2;        // Vibration intensity (0-255)
+  int32 duration_ms = 3;      // Vibration duration in milliseconds
+}
+
+message CombinedFeedback {
+  string serial = 1;              // Target controller (empty = all)
+  RGB color = 2;                  // Color to set
+  int32 vibration_intensity = 3;  // Vibration intensity (0-255, 0 = no vibration)
+  int32 vibration_duration_ms = 4; // Vibration duration in milliseconds
 }
 ```
 
 **Design notes**:
-- Reuse existing Color message definition
+- Reuse existing RGB and ControllerEffect definitions
 - Empty serial means "all controllers" (broadcast)
 - Commands processed immediately when received
 - No response needed (fire-and-forget like existing RPCs)
+- **CombinedFeedback**: Atomic operation for common events (death, hit, spawn) - single message instead of 2 separate commands
 
 ### Server Implementation
 
@@ -158,36 +169,46 @@ async def read_client_updates():
 
 Update game modes to send feedback via stream during gameplay:
 
-**Example: Sending color on death**
+**Example: Death feedback (using CombinedFeedback - RECOMMENDED)**
 ```python
-# OLD (separate RPC)
-await self.controller_client.SetControllerColor(
-    controller_manager_pb2.SetControllerColorRequest(
-        serial=serial,
-        color=controller_manager_pb2.Color(r=255, g=0, b=0)
+# BEST: Combined color + vibration (1 message, atomic)
+if self.gameplay_stream:
+    combined_feedback = controller_manager_pb2.GameplayStreamControl(
+        combined_feedback=controller_manager_pb2.CombinedFeedback(
+            serial=serial,
+            color=controller_manager_pb2.RGB(r=255, g=0, b=0),  # Red
+            vibration_intensity=255,  # Maximum vibration
+            vibration_duration_ms=500  # Half second
+        )
     )
-)
+    await self.gameplay_stream.write(combined_feedback)
+else:
+    # Fallback to unary RPCs (menu/lobby)
+    await self.controller_client.SetControllerColor(...)
+    await self.controller_client.SetControllerVibration(...)
+```
 
-# NEW (via stream during gameplay)
+**Example: Individual commands (when only one type needed)**
+```python
+# Color only
 color_msg = controller_manager_pb2.GameplayStreamControl(
     color_command=controller_manager_pb2.ColorCommand(
         serial=serial,
-        color=controller_manager_pb2.Color(r=255, g=0, b=0)
+        color=controller_manager_pb2.RGB(r=255, g=0, b=0)
     )
 )
-await stream.write(color_msg)
-```
+await self.gameplay_stream.write(color_msg)
 
-**Example: Broadcast effect on game start**
-```python
-# Send to all controllers via stream
+# Effect only
 effect_msg = controller_manager_pb2.GameplayStreamControl(
     effect_command=controller_manager_pb2.EffectCommand(
-        serial="",  # Empty = broadcast
-        effect_name="game_start"
+        serial="",  # Broadcast to all
+        effect=controller_manager_pb2.EFFECT_FLASH,
+        color=controller_manager_pb2.RGB(r=0, g=255, b=0),
+        duration_ms=1000
     )
 )
-await stream.write(effect_msg)
+await self.gameplay_stream.write(effect_msg)
 ```
 
 ### Backward Compatibility
@@ -346,7 +367,7 @@ Add counter for stream-based commands:
 stream_commands_total = Counter(
     'controller_stream_commands_total',
     'Total feedback commands received via stream',
-    ['command_type']  # 'color', 'effect', 'vibration'
+    ['command_type']  # 'color', 'effect', 'vibration', 'combined'
 )
 ```
 
@@ -356,6 +377,7 @@ stream_commands_total = Counter(
 metrics.stream_commands_total.labels(command_type='color').inc()
 metrics.stream_commands_total.labels(command_type='effect').inc()
 metrics.stream_commands_total.labels(command_type='vibration').inc()
+metrics.stream_commands_total.labels(command_type='combined').inc()  # For CombinedFeedback
 ```
 
 **Verification**: Check `/metrics` endpoint, verify counters increment
@@ -368,18 +390,20 @@ Tests:
 1. Send color_command via stream, verify controller changes color
 2. Send effect_command via stream, verify effect plays
 3. Send vibration_command via stream, verify vibration triggers
-4. Send broadcast commands (empty serial), verify all controllers affected
-5. Verify ordering: color then filter update
-6. Verify stream commands work alongside filter updates
-7. Verify unary RPCs still work (backward compatibility)
+4. Send combined_feedback via stream, verify both color and vibration applied atomically
+5. Send broadcast commands (empty serial), verify all controllers affected
+6. Verify ordering: color then filter update
+7. Verify stream commands work alongside filter updates
+8. Verify unary RPCs still work (backward compatibility)
 
 **File**: `tools/validate_stream_feedback.py` (new)
 
 Validation checks:
-1. Proto messages defined correctly
-2. Server processes all 3 command types
-3. Metrics defined and accessible
-4. Helper methods extracted properly
+1. Proto messages defined correctly (ColorCommand, EffectCommand, VibrationCommand, CombinedFeedback)
+2. Server processes all 4 command types
+3. Metrics defined and accessible (stream_commands_total with all labels)
+4. Server internal methods exist and are async
+5. Client implementation uses stream-based feedback
 
 **Verification**: All tests pass, validation script succeeds
 
@@ -394,7 +418,7 @@ from prometheus_client import Counter
 stream_commands_total = Counter(
     'controller_stream_commands_total',
     'Total feedback commands received via stream',
-    ['command_type']  # 'color', 'effect', 'vibration'
+    ['command_type']  # 'color', 'effect', 'vibration', 'combined'
 )
 ```
 
@@ -405,6 +429,9 @@ metrics.stream_commands_total.labels(command_type='color').inc()
 
 # When processing effect_command
 metrics.stream_commands_total.labels(command_type='effect').inc()
+
+# When processing combined_feedback
+metrics.stream_commands_total.labels(command_type='combined').inc()
 
 # When processing vibration_command
 metrics.stream_commands_total.labels(command_type='vibration').inc()
@@ -537,13 +564,16 @@ async def test_stream_vs_unary_latency():
 - Use same stream to adjust update_frequency_hz mid-game
 - Could reduce Hz in late game for additional savings
 
-**Phase 48+: Batched Commands**
-- Add BatchCommand message for multiple colors/effects at once
-- Further reduce overhead for simultaneous effects
+**Phase 48+: Additional Combined Commands**
+- `HitFeedback`: Orange flash + medium vibration (preset values)
+- `SpawnFeedback`: Team color + spawn protection pulse
+- Event-specific presets to further simplify game mode code
 
 **Phase 49+: Response Stream**
 - Send acknowledgments for critical commands
 - Enable error handling for failed commands
+
+**Note**: Basic batched feedback is already achieved via `CombinedFeedback` in Phase 46, which handles the most common case (color + vibration).
 
 ---
 
@@ -551,19 +581,32 @@ async def test_stream_vs_unary_latency():
 
 Phase 46 extends the Phase 45 bidirectional stream to include controller feedback commands, providing:
 
-✅ **Lower latency**: 10-18ms savings per command
-✅ **Ordering guarantees**: Commands arrive in sequence
-✅ **Cleaner architecture**: All gameplay messages on one channel
-✅ **Backward compatible**: Existing unary RPCs continue working
-✅ **Low complexity**: ~2 hours of implementation
+✅ **Lower latency**: 10-18ms savings per command (no RPC round-trip overhead)
+✅ **Ordering guarantees**: Commands arrive in sequence with state updates
+✅ **Cleaner architecture**: All gameplay messages on one bidirectional stream
+✅ **Backward compatible**: Existing unary RPCs continue working for menu/lobby
+✅ **Atomic operations**: CombinedFeedback for color+vibration (50% fewer messages for death/hit events)
+✅ **Low complexity**: ~2 hours actual implementation time
 
-**Next Steps**:
-1. Task 1: Proto definition
-2. Task 2: Server implementation
-3. Task 3: Client implementation
-4. Task 4: Metrics
-5. Task 5: Testing
+### Implementation Completed
+
+**All 5 tasks completed**:
+1. ✅ Proto definition - Added ColorCommand, EffectCommand, VibrationCommand, CombinedFeedback
+2. ✅ Server implementation - Internal methods + stream command processing
+3. ✅ Client implementation - Hybrid approach (stream in gameplay, unary in menus)
+4. ✅ Metrics - stream_commands_total counter with command_type labels
+5. ✅ Testing - Validation script + proto message tests
+
+**Files Modified**:
+- `proto/controller_manager.proto` - Added 4 new messages
+- `services/controller_manager/server.py` - Added 3 internal methods + 4 command handlers
+- `services/controller_manager/metrics.py` - Added stream_commands_total metric
+- `services/game_coordinator/games/base.py` - Stream-based feedback with fallback
+- `services/game_coordinator/games/nonstop_joust.py` - Stream reference updates
+- `tools/validate_stream_feedback.py` - New validation script
+
+**Key Achievement**: The **CombinedFeedback** message is particularly valuable, reducing death events from 2 stream writes to 1 atomic operation. This pattern can be reused for hit feedback, spawn protection, and other events requiring coordinated color+haptic feedback.
 
 ---
 
-**End of Phase 46 Plan**
+**End of Phase 46 Documentation**

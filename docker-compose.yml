@@ -72,9 +72,10 @@ services:
       context: .
       dockerfile: services/settings/Dockerfile
     container_name: joustmania-settings
-    # Port 50051 exposed only within Docker network (no host binding)
+    # Ports exposed only within Docker network (no host binding)
     expose:
-      - "50051"
+      - "50051"  # gRPC service
+      - "8000"   # Prometheus metrics (Phase 38)
     environment:
       - OTEL_SERVICE_NAME=settings-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
@@ -188,9 +189,10 @@ services:
       context: .
       dockerfile: services/menu/Dockerfile
     container_name: joustmania-menu
-    # Port 50054 exposed only within Docker network (no host binding)
+    # Ports exposed only within Docker network (no host binding)
     expose:
-      - "50054"
+      - "50054"  # gRPC service
+      - "8000"   # Prometheus metrics (Phase 38)
     environment:
       - OTEL_SERVICE_NAME=menu-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
@@ -225,9 +227,10 @@ services:
       context: .
       dockerfile: services/supervisor/Dockerfile
     container_name: joustmania-supervisor
-    # Port 50055 exposed only within Docker network (no host binding)
+    # Ports exposed only within Docker network (no host binding)
     expose:
-      - "50055"
+      - "50055"  # gRPC service
+      - "8000"   # Prometheus metrics (Phase 38)
     environment:
       - OTEL_SERVICE_NAME=supervisor-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
@@ -266,6 +269,9 @@ services:
     container_name: joustmania-webui
     ports:
       - "80:80"  # WebUI exposed to host for browser access
+    # Metrics port exposed only within Docker network (Phase 38)
+    expose:
+      - "8000"  # Prometheus metrics
     environment:
       - OTEL_SERVICE_NAME=webui-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
@@ -311,9 +317,10 @@ services:
       - /dev/snd:/dev/snd  # Audio hardware
     volumes:
       - ./services/audio/assets:/app/services/audio/assets:ro  # Audio files (read-only)
-    # Port 50056 exposed only within Docker network (no host binding)
+    # Ports exposed only within Docker network (no host binding)
     expose:
-      - "50056"
+      - "50056"  # gRPC service
+      - "8000"   # Prometheus metrics (Phase 38)
     environment:
       - OTEL_SERVICE_NAME=audio-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317

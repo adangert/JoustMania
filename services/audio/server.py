@@ -31,6 +31,11 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 # Import protobuf definitions
 from proto import audio_pb2, audio_pb2_grpc
 
+# Prometheus metrics (Phase 38)
+from prometheus_client import start_http_server
+import psutil
+from services.audio import metrics
+
 # Configure logging with environment variable support
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
@@ -402,9 +407,28 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
             )
 
 
-async def serve():
+async def serve(metrics_port=8000):
     """Start the Audio gRPC server."""
     logger.info("Starting JoustMania Audio service...")
+
+    # Start Prometheus metrics HTTP server (Phase 38)
+    start_http_server(metrics_port)
+    logger.info(f"Prometheus metrics available at http://0.0.0.0:{metrics_port}/metrics")
+
+    # Start system metrics collection task (Phase 38)
+    async def collect_system_metrics():
+        """Background task to collect system metrics every 10 seconds."""
+        process = psutil.Process()
+        while True:
+            try:
+                metrics.process_cpu_percent.set(process.cpu_percent(interval=None))
+                metrics.process_memory_mb.set(process.memory_info().rss / 1024 / 1024)
+                metrics.process_threads.set(process.num_threads())
+            except Exception as e:
+                logger.error(f"Error collecting system metrics: {e}")
+            await asyncio.sleep(10.0)
+
+    asyncio.create_task(collect_system_metrics())
 
     # Create gRPC server
     server = grpc.aio.server()

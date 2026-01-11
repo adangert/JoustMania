@@ -42,6 +42,11 @@ from enum import Enum
 
 from proto import settings_pb2, settings_pb2_grpc
 
+# Prometheus metrics (Phase 38)
+from prometheus_client import start_http_server
+import psutil
+from services.settings import metrics
+
 
 class Games(Enum):
     """Minimal Games enum for validation (server doesn't need psmove)."""
@@ -539,12 +544,13 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
                     logger.info(f"Subscriber disconnected: {subscriber_id}")
 
 
-async def serve(port: int = 50051):
+async def serve(port: int = 50051, metrics_port: int = 8000):
     """
     Start the Settings gRPC server.
 
     Args:
         port: Port to listen on (default: 50051)
+        metrics_port: Port for Prometheus metrics (default: 8000)
     """
     # Configure logging with environment variable support
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -552,6 +558,25 @@ async def serve(port: int = 50051):
         level=getattr(logging, log_level, logging.INFO),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
+
+    # Start Prometheus metrics HTTP server (Phase 38)
+    start_http_server(metrics_port)
+    logger.info(f"Prometheus metrics available at http://0.0.0.0:{metrics_port}/metrics")
+
+    # Start system metrics collection task (Phase 38)
+    async def collect_system_metrics():
+        """Background task to collect system metrics every 10 seconds."""
+        process = psutil.Process()
+        while True:
+            try:
+                metrics.process_cpu_percent.set(process.cpu_percent(interval=None))
+                metrics.process_memory_mb.set(process.memory_info().rss / 1024 / 1024)
+                metrics.process_threads.set(process.num_threads())
+            except Exception as e:
+                logger.error(f"Error collecting system metrics: {e}")
+            await asyncio.sleep(10.0)
+
+    asyncio.create_task(collect_system_metrics())
 
     # Create server
     server = grpc.aio.server()

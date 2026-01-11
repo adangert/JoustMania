@@ -48,6 +48,12 @@ from proto import (
 )
 from utils import colors
 
+# Prometheus metrics (Phase 38)
+from prometheus_client import start_http_server
+import psutil
+from services.webui import metrics
+import threading
+
 # Configure logging with environment variable support
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
@@ -525,9 +531,30 @@ class WebUI:
             return str(team_colors).replace("'", '"')  # JSON is dumb and demands double quotes
 
 
-def serve():
+def serve(metrics_port=8000):
     """Start the Web UI service."""
     logger.info("Starting JoustMania Web UI service...")
+
+    # Start Prometheus metrics HTTP server (Phase 38)
+    start_http_server(metrics_port)
+    logger.info(f"Prometheus metrics available at http://0.0.0.0:{metrics_port}/metrics")
+
+    # Start system metrics collection thread (Phase 38)
+    def collect_system_metrics():
+        """Background thread to collect system metrics every 10 seconds."""
+        import time
+        process = psutil.Process()
+        while True:
+            try:
+                metrics.process_cpu_percent.set(process.cpu_percent(interval=None))
+                metrics.process_memory_mb.set(process.memory_info().rss / 1024 / 1024)
+                metrics.process_threads.set(process.num_threads())
+            except Exception as e:
+                logger.error(f"Error collecting system metrics: {e}")
+            time.sleep(10.0)
+
+    metrics_thread = threading.Thread(target=collect_system_metrics, daemon=True)
+    metrics_thread.start()
 
     webui = WebUI()
 

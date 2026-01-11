@@ -36,6 +36,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from proto import menu_pb2, menu_pb2_grpc
 
+# Prometheus metrics (Phase 38)
+from prometheus_client import start_http_server
+import psutil
+from services.menu import metrics
+
 logger = logging.getLogger(__name__)
 
 
@@ -1313,7 +1318,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             logger.error(f"Error showing value feedback: {e}", exc_info=True)
 
 
-async def serve(port=50054):
+async def serve(port=50054, metrics_port=8000):
     """Start the Menu gRPC server."""
     # Configure logging with environment variable support
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -1321,6 +1326,25 @@ async def serve(port=50054):
         level=getattr(logging, log_level, logging.INFO),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
+
+    # Start Prometheus metrics HTTP server (Phase 38)
+    start_http_server(metrics_port)
+    logger.info(f"Prometheus metrics available at http://0.0.0.0:{metrics_port}/metrics")
+
+    # Start system metrics collection task (Phase 38)
+    async def collect_system_metrics():
+        """Background task to collect system metrics every 10 seconds."""
+        process = psutil.Process()
+        while True:
+            try:
+                metrics.process_cpu_percent.set(process.cpu_percent(interval=None))
+                metrics.process_memory_mb.set(process.memory_info().rss / 1024 / 1024)
+                metrics.process_threads.set(process.num_threads())
+            except Exception as e:
+                logger.error(f"Error collecting system metrics: {e}")
+            await asyncio.sleep(10.0)
+
+    asyncio.create_task(collect_system_metrics())
 
     # Create server
     server = grpc.aio.server()

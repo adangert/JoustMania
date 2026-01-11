@@ -136,3 +136,33 @@ grpc_request_duration_seconds = Histogram(
     ['method'],
     buckets=[0.001, 0.005, 0.010, 0.025, 0.050, 0.100, 0.250, 0.500, 1.0]
 )
+
+# Runtime configuration metrics (Phase 43)
+configured_update_frequency_hz = Gauge(
+    'game_configured_update_frequency_hz',
+    'Configured update frequency from runtime config'
+)
+
+actual_update_frequency_hz = Gauge(
+    'game_actual_update_frequency_hz',
+    'Actual measured update frequency during gameplay'
+)
+
+config_changes_total = Counter(
+    'game_config_changes_total',
+    'Total number of configuration changes',
+    ['parameter']  # 'update_frequency_hz', 'sensitivity_mode', etc.
+)
+
+game_loop_iterations_total = Counter(
+    'game_loop_iterations_total',
+    'Total number of game loop iterations',
+    ['mode']
+)
+
+game_loop_latency_ms = Histogram(
+    'game_loop_latency_ms',
+    'Game loop iteration latency in milliseconds',
+    ['mode'],
+    buckets=[10, 20, 30, 40, 50, 75, 100, 150, 200, 300, 500]
+)

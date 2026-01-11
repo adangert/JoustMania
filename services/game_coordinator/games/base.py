@@ -22,11 +22,14 @@ from enum import Enum
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
+from services.game_coordinator.runtime_config import get_config_manager
+from services.game_coordinator import metrics
+
 tracer = trace.get_tracer(__name__)
 logger = logging.getLogger(__name__)
 
-# Game constants
-UPDATE_FREQUENCY = 60  # Hz - game tick frequency
+# Game constants (Phase 43: Now uses runtime config for dynamic adjustment)
+UPDATE_FREQUENCY = 30  # Hz - default, overridden by runtime config
 COUNTDOWN_DURATION = 3  # seconds
 
 
@@ -357,15 +360,31 @@ class BaseGameMode(ABC):
             # Pass None to use current active span context (we're inside gameplay_phase)
             self._create_player_spans(None)
 
+            # Get runtime config (Phase 43: Dynamic Hz adjustment)
+            config = get_config_manager().get_config()
+            update_frequency_hz = config.update_frequency_hz
+
+            # Emit configured Hz metric (Phase 43)
+            metrics.configured_update_frequency_hz.set(update_frequency_hz)
+
+            logger.info(f"Starting game loop at {update_frequency_hz}Hz")
+
             # Start streaming gameplay data (Phase 41 - acceleration/gyro only, no buttons)
             stream_request = controller_manager_pb2.GameplayStreamRequest(
-                update_frequency_hz=UPDATE_FREQUENCY
+                update_frequency_hz=update_frequency_hz
             )
+
+            # Track loop timing for actual Hz calculation (Phase 43)
+            loop_start_time = time.time()
+            loop_iterations = 0
+            last_iteration_time = loop_start_time
 
             # Stream gameplay data and process game logic
             async for gameplay_update in self.controller_client.StreamGameplayData(
                 stream_request
             ):
+                iteration_start = time.time()
+
                 if not self.running:
                     break
 
@@ -377,8 +396,29 @@ class BaseGameMode(ABC):
                 if self._check_win_condition():
                     break
 
+                # Check if config changed (Phase 43: Live Hz adjustment)
+                current_hz = get_config_manager().get_config().update_frequency_hz
+                if current_hz != update_frequency_hz:
+                    logger.info(f"Update frequency changed: {update_frequency_hz}Hz → {current_hz}Hz (will apply on next game)")
+
+                # Emit metrics (Phase 43)
+                loop_iterations += 1
+                iteration_end = time.time()
+                iteration_latency_ms = (iteration_end - last_iteration_time) * 1000
+
+                metrics.game_loop_iterations_total.labels(mode=self.get_game_name()).inc()
+                metrics.game_loop_latency_ms.labels(mode=self.get_game_name()).observe(iteration_latency_ms)
+
+                # Calculate actual Hz every 10 iterations
+                if loop_iterations % 10 == 0:
+                    elapsed = time.time() - loop_start_time
+                    actual_hz = loop_iterations / elapsed if elapsed > 0 else 0
+                    metrics.actual_update_frequency_hz.set(actual_hz)
+
+                last_iteration_time = iteration_end
+
                 # Small sleep to maintain tick rate
-                await asyncio.sleep(1.0 / UPDATE_FREQUENCY)
+                await asyncio.sleep(1.0 / update_frequency_hz)
 
         except Exception as e:
             logger.error(f"Game loop error: {e}", exc_info=True)

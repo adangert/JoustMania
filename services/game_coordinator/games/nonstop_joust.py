@@ -25,7 +25,7 @@ tracer = trace.get_tracer(__name__)
 logger = logging.getLogger(__name__)
 
 # Game constants
-UPDATE_FREQUENCY = 60  # Hz - game tick frequency
+UPDATE_FREQUENCY = 30  # Hz - game tick frequency (Phase 39: Optimized for 25 controllers)
 RESPAWN_DURATION = 3.0  # seconds to respawn
 SPAWN_PROTECTION_DURATION = 2.0  # seconds of invulnerability after spawn
 COLOR_DISPLAY_DURATION = 1  # second to show unique colors

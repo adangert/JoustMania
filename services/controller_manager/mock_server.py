@@ -57,6 +57,8 @@ class MockController:
         self.color = RGB(r=255, g=255, b=255)
         self.accel = Vector3(x=0.0, y=0.0, z=1.0)  # Default idle
         self.gyro = Vector3(x=0.0, y=0.0, z=0.0)
+        self.death_accel = None  # Set by SimulateDeath to hold death acceleration
+        self.death_hold_until = 0.0  # Timestamp until which to hold death acceleration
 
     def to_proto(self) -> ControllerState:
         """Convert to protobuf ControllerState."""
@@ -110,8 +112,23 @@ class MockControllerManagerService(
 
         try:
             while not context.cancelled():
-                # Get current states
-                controllers = [c.to_proto() for c in self.controllers.values()]
+                current_time = time.time()
+                # Get current states (apply death hold logic)
+                controllers = []
+                for controller in self.controllers.values():
+                    # Use death_accel if we're still holding the death acceleration
+                    if controller.death_hold_until > current_time and controller.death_accel:
+                        # Temporarily override accel for this tick
+                        original_accel = controller.accel
+                        controller.accel = controller.death_accel
+                        controllers.append(controller.to_proto())
+                        controller.accel = original_accel
+                    else:
+                        controllers.append(controller.to_proto())
+                        # Clear death hold if expired
+                        if controller.death_hold_until > 0 and controller.death_hold_until <= current_time:
+                            controller.death_accel = None
+                            controller.death_hold_until = 0.0
 
                 yield ControllerStateUpdate(controllers=controllers, timestamp=int(time.time() * 1000))
 
@@ -149,9 +166,21 @@ class MockControllerManagerService(
 
         try:
             while not context.cancelled():
+                current_time = time.time()
                 # Build gameplay data for all controllers (no buttons)
                 gameplay_data = []
                 for controller in self.controllers.values():
+                    # Use death_accel if we're still holding the death acceleration
+                    if controller.death_hold_until > current_time and controller.death_accel:
+                        accel = controller.death_accel
+                    else:
+                        accel = controller.accel
+                        # Clear death hold if expired
+                        if controller.death_hold_until > 0 and controller.death_hold_until <= current_time:
+                            controller.death_accel = None
+                            controller.death_hold_until = 0.0
+                            logger.debug(f"Death hold expired for {controller.serial}, reverting to normal accel")
+
                     gd = GameplayData(
                         serial=controller.serial,
                         move_num=int(controller.serial.split("_")[-1]),
@@ -159,7 +188,7 @@ class MockControllerManagerService(
                         ready=controller.ready,
                         team=controller.team,
                         color=controller.color,
-                        accel=controller.accel,
+                        accel=accel,
                         gyro=controller.gyro
                     )
                     gameplay_data.append(gd)
@@ -290,17 +319,21 @@ class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControll
         return MovementResponse(success=True, error="")
 
     def SimulateDeath(self, request, context):
-        """Simulate death by setting high acceleration."""
+        """Simulate death by setting high acceleration and holding it for 0.5 seconds."""
         controller = self.manager.controllers.get(request.serial)
 
         if not controller:
             return DeathResponse(success=False, accel_magnitude=0.0)
 
         # Set death-level acceleration (>2.8 for FAST sensitivity)
-        controller.accel = Vector3(x=5.0, y=3.0, z=4.0)
+        death_vector = Vector3(x=5.0, y=3.0, z=4.0)
         accel_mag = (5.0**2 + 3.0**2 + 4.0**2) ** 0.5
 
-        logger.info(f"Simulated death for {request.serial}: magnitude={accel_mag:.2f}")
+        # Hold death acceleration for 0.5 seconds to ensure game loop catches it
+        controller.death_accel = death_vector
+        controller.death_hold_until = time.time() + 0.5
+
+        logger.info(f"Simulated death for {request.serial}: magnitude={accel_mag:.2f}, holding for 0.5s")
 
         return DeathResponse(success=True, accel_magnitude=accel_mag)
 

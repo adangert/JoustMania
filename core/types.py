@@ -116,6 +116,47 @@ def get_game_name(value: int) -> str | None:
     return None
 
 
+# Game name normalization mapping for display in UI and tracing
+# Maps various input formats to canonical display names
+GAME_DISPLAY_NAMES = {
+    # FFA variants
+    "ffa": "Free-For-All",
+    "free-for-all": "Free-For-All",
+    "joust free-for-all": "Free-For-All",
+    # Teams variants
+    "teams": "Teams",
+    "joust teams": "Teams",
+    # Random Teams variants
+    "random teams": "Random Teams",
+    "joust random teams": "Random Teams",
+    "random_teams": "Random Teams",
+    # Nonstop Joust variants
+    "nonstop": "Nonstop Joust",
+    "nonstop joust": "Nonstop Joust",
+    "nonstopjoust": "Nonstop Joust",
+    "non stop joust": "Nonstop Joust",
+}
+
+
+def get_game_display_name(game_name: str) -> str:
+    """
+    Get canonical display name for a game mode.
+
+    Args:
+        game_name: Game name in any format (case-insensitive)
+
+    Returns:
+        Canonical display name, or original name if not found
+
+    Examples:
+        >>> get_game_display_name("FFA")
+        "Free-For-All"
+        >>> get_game_display_name("joust teams")
+        "Teams"
+    """
+    return GAME_DISPLAY_NAMES.get(game_name.lower(), game_name)
+
+
 class Button(Flag):
     """Controller buttons (hardware-independent constants)."""
 

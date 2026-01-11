@@ -34,6 +34,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from core.types import get_game_display_name
 from proto import (
     controller_manager_pb2_grpc,
     game_coordinator_pb2,
@@ -268,21 +269,8 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
     async def _run_game_loop_async(self):
         """Run the async game loop."""
         # Create parent span with human-readable game mode name
-        # Map internal game names to nice display names for Jaeger
-        game_name_mapping = {
-            "ffa": "Free-For-All",
-            "free-for-all": "Free-For-All",
-            "joust free-for-all": "Free-For-All",
-            "teams": "Teams",
-            "joust teams": "Teams",
-            "random teams": "Random Teams",
-            "joust random teams": "Random Teams",
-            "random_teams": "Random Teams",
-            "nonstop": "Nonstop Joust",
-            "nonstop joust": "Nonstop Joust",
-            "nonstopjoust": "Nonstop Joust",
-        }
-        span_name = game_name_mapping.get(self.game_name.lower(), self.game_name)
+        # Use shared game name mapping from core.types
+        span_name = get_game_display_name(self.game_name)
 
         with tracer.start_as_current_span(span_name) as game_span:
             game_span.set_attribute("game.name", self.game_name)

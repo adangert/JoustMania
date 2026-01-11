@@ -215,6 +215,39 @@ class MockControllerManagerService(controller_manager_pb2_grpc.ControllerManager
         finally:
             self._set_led_color(serial, color)
 
+    async def SetControllerColor(self, request, context):
+        """Set LED color on controller(s)."""
+        from proto.controller_manager_pb2 import SetControllerColorResponse
+
+        # Determine target controllers
+        if request.serial:
+            target_serials = [request.serial]
+        else:
+            target_serials = list(self.controllers.keys())
+
+        color = (request.color.r, request.color.g, request.color.b)
+
+        for serial in target_serials:
+            self._set_led_color(serial, color)
+
+        logger.debug(f"SetControllerColor: color={color}, targets={len(target_serials)}")
+        return SetControllerColorResponse(success=True, error="")
+
+    async def SetControllerVibration(self, request, context):
+        """Set vibration intensity on controller(s)."""
+        from proto.controller_manager_pb2 import SetControllerVibrationResponse
+
+        # Mock implementation - we don't actually vibrate in mock mode
+        # but we acknowledge the request
+
+        if request.serial:
+            target_serials = [request.serial]
+        else:
+            target_serials = list(self.controllers.keys())
+
+        logger.debug(f"SetControllerVibration: intensity={request.intensity}, targets={len(target_serials)}")
+        return SetControllerVibrationResponse(success=True, error="")
+
     async def PlayControllerEffect(self, request, context):
         """Play visual effect on controller(s) - Phase 31 implementation."""
         from proto import controller_manager_pb2

@@ -601,7 +601,9 @@ async def test_staggered_player_deaths(docker_compose, game_mode):
     print(f"  Player 1 died at ~7s (accel: {death_1.accel_magnitude:.2f})")
 
     # Player 3 wins (longest span) - let them survive a bit longer
-    await asyncio.sleep(2)
+    # Wait for game to detect win condition and complete teardown
+    # Game needs time to: detect win (immediate) + play effects + 2s sleep in _end_game_impl
+    await asyncio.sleep(4)
 
     # Check game status
     status_response = await game_client.GetGameStatus(

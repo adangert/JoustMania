@@ -127,7 +127,19 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             (150, 0, 255),  # Purple for force_all_start
         ]
 
-        logger.info("Menu service initialized")
+        # Persistent gRPC channels (Phase 26 - Performance)
+        # Create channels once and reuse throughout service lifecycle
+        self.controller_channel = grpc.aio.insecure_channel(
+            "controller-manager:50052", options=self.channel_options
+        )
+        self.settings_channel = grpc.aio.insecure_channel(
+            "settings:50051", options=self.channel_options
+        )
+        self.game_coordinator_channel = grpc.aio.insecure_channel(
+            "game-coordinator:50053", options=self.channel_options
+        )
+
+        logger.info("Menu service initialized with persistent gRPC channels")
 
     def StartMenu(self, request, context):
         """Start the menu."""
@@ -337,6 +349,14 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 pass
             logger.info("Controller button monitor stopped")
 
+    async def shutdown(self):
+        """Cleanup resources on shutdown (Phase 26)."""
+        logger.info("Shutting down Menu service, closing gRPC channels...")
+        await self.controller_channel.close()
+        await self.settings_channel.close()
+        await self.game_coordinator_channel.close()
+        logger.info("Menu service gRPC channels closed")
+
     async def _button_monitor_loop(self):
         """Monitor controller buttons and trigger menu actions (Phase 21)."""
         with tracer.start_as_current_span("button_monitor_loop"):
@@ -347,11 +367,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     controller_manager_pb2_grpc,
                 )
 
-                # Connect to Controller Manager
-                channel = grpc.aio.insecure_channel(
-                    "controller-manager:50052", options=self.channel_options
+                # Use persistent channel (Phase 26)
+                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
+                    self.controller_channel
                 )
-                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
 
                 logger.info("Button monitor connected to Controller Manager")
 
@@ -367,7 +386,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         for controller in update.controllers:
                             await self._process_button_state(controller)
 
-                await channel.close()
+                # Phase 26: Don't close persistent channel here
 
             except asyncio.CancelledError:
                 logger.info("Button monitor task cancelled")
@@ -542,10 +561,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             )
 
             try:
-                channel = grpc.aio.insecure_channel(
-                    "controller-manager:50052", options=self.channel_options
+                # Use persistent channel (Phase 26)
+                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
+                    self.controller_channel
                 )
-                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
 
                 # Play flash effect in white
                 effect_request = controller_manager_pb2.PlayControllerEffectRequest(
@@ -556,7 +575,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     speed=5,
                 )
                 await stub.PlayControllerEffect(effect_request)
-                await channel.close()
 
                 span.add_event("admin_mode_entered")
                 logger.info(f"Admin mode entered by controller {serial}")
@@ -737,10 +755,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             )
 
             try:
-                channel = grpc.aio.insecure_channel(
-                    "controller-manager:50052", options=self.channel_options
+                # Use persistent channel (Phase 26)
+                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
+                    self.controller_channel
                 )
-                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
 
                 # Get all controllers to show battery levels
                 controllers_request = controller_manager_pb2.GetControllersRequest()
@@ -769,7 +787,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         {"controller.serial": ctrl.serial, "battery.percent": battery_percent},
                     )
 
-                await channel.close()
                 logger.info(f"Battery levels displayed by admin controller {serial}")
 
             except Exception as e:
@@ -875,10 +892,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             )
 
             try:
-                channel = grpc.aio.insecure_channel(
-                    "controller-manager:50052", options=self.channel_options
+                # Use persistent channel (Phase 26)
+                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
+                    self.controller_channel
                 )
-                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
 
                 # Show option color for 1 second
                 color_request = controller_manager_pb2.SetControllerColorRequest(
@@ -889,7 +906,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     duration_ms=1000,
                 )
                 await stub.SetControllerColor(color_request)
-                await channel.close()
 
                 span.add_event(
                     "admin_option_changed",
@@ -916,9 +932,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             from services.settings import settings_pb2, settings_pb2_grpc
 
             try:
-                # Connect to Settings service
-                channel = grpc.aio.insecure_channel("settings:50051", options=self.channel_options)
-                stub = settings_pb2_grpc.SettingsServiceStub(channel)
+                # Use persistent channel (Phase 26)
+                stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
 
                 # Get current value
                 get_request = settings_pb2.GetSettingRequest(key=option_name)
@@ -949,7 +964,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     key=option_name, value=new_value, source="admin_mode"
                 )
                 await stub.UpdateSetting(update_request)
-                await channel.close()
 
                 # Visual feedback
                 await self._show_value_feedback(serial, option_name, new_value)
@@ -979,9 +993,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             from services.settings import settings_pb2, settings_pb2_grpc
 
             try:
-                # Connect to Settings service
-                channel = grpc.aio.insecure_channel("settings:50051", options=self.channel_options)
-                stub = settings_pb2_grpc.SettingsServiceStub(channel)
+                # Use persistent channel (Phase 26)
+                stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
 
                 # Get current value
                 get_request = settings_pb2.GetSettingRequest(key=option_name)
@@ -1012,7 +1025,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     key=option_name, value=new_value, source="admin_mode"
                 )
                 await stub.UpdateSetting(update_request)
-                await channel.close()
 
                 # Visual feedback
                 await self._show_value_feedback(serial, option_name, new_value)
@@ -1114,6 +1126,7 @@ async def serve(port=50054):
     except KeyboardInterrupt:
         logger.info("Shutting down Menu server...")
         await menu_servicer.stop_button_monitor()
+        await menu_servicer.shutdown()  # Phase 26: Close persistent channels
         await server.stop(grace=5)
 
 

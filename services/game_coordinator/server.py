@@ -517,6 +517,14 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         with tracer.start_as_current_span("publish_event") as span:
             span.set_attribute("event.type", event_type)
 
+            # Sync server game_state with game mode lifecycle events
+            if event_type == "game_started":
+                self.game_state = game_coordinator_pb2.GameState.RUNNING
+                logger.info("Game state transitioned to RUNNING")
+            elif event_type in ["game_ended", "game_error"]:
+                self.game_state = game_coordinator_pb2.GameState.ENDED
+                logger.info("Game state transitioned to ENDED")
+
             event = game_coordinator_pb2.GameEvent(
                 event_type=event_type, data=data, timestamp=int(time.time() * 1000)
             )

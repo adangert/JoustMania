@@ -672,9 +672,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             from services.settings import settings_pb2, settings_pb2_grpc
 
             try:
-                # Connect to Settings service
-                settings_channel = grpc.aio.insecure_channel("settings:50051", options=self.channel_options)
-                settings_stub = settings_pb2_grpc.SettingsServiceStub(settings_channel)
+                # Use persistent channels (Phase 26)
+                settings_stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
 
                 # Get current sensitivity
                 get_request = settings_pb2.GetSettingRequest(key="sensitivity")
@@ -696,7 +695,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     source="admin_mode"
                 )
                 await settings_stub.UpdateSetting(update_request)
-                await settings_channel.close()
 
                 # Visual feedback: Color by sensitivity level
                 sensitivity_colors = [
@@ -706,11 +704,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 ]
                 color = sensitivity_colors[int(new_value)]
 
-                # Connect to Controller Manager for visual feedback
-                controller_channel = grpc.aio.insecure_channel(
-                    "controller-manager:50052", options=self.channel_options
+                # Use persistent controller channel for visual feedback
+                controller_stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
+                    self.controller_channel
                 )
-                controller_stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(controller_channel)
 
                 # Show color pulse
                 effect_request = controller_manager_pb2.PlayControllerEffectRequest(
@@ -721,7 +718,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     speed=5,
                 )
                 await controller_stub.PlayControllerEffect(effect_request)
-                await controller_channel.close()
 
                 sensitivity_names = ["Slow", "Medium", "Fast"]
                 span.add_event("sensitivity_changed", {
@@ -811,9 +807,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             from services.settings import settings_pb2, settings_pb2_grpc
 
             try:
-                # Connect to Settings service
-                settings_channel = grpc.aio.insecure_channel("settings:50051", options=self.channel_options)
-                settings_stub = settings_pb2_grpc.SettingsServiceStub(settings_channel)
+                # Use persistent channels (Phase 26)
+                settings_stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
 
                 # Get current instruction state
                 get_request = settings_pb2.GetSettingRequest(key="instructions")
@@ -830,7 +825,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     source="admin_mode"
                 )
                 await settings_stub.UpdateSetting(update_request)
-                await settings_channel.close()
 
                 # Visual feedback: Green (enabled) or Red (disabled)
                 if new_value == "true":
@@ -838,11 +832,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 else:
                     color = controller_manager_pb2.RGB(r=255, g=0, b=0)  # Red - disabled
 
-                # Connect to Controller Manager for visual feedback
-                controller_channel = grpc.aio.insecure_channel(
-                    "controller-manager:50052", options=self.channel_options
+                # Use persistent controller channel for visual feedback
+                controller_stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
+                    self.controller_channel
                 )
-                controller_stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(controller_channel)
 
                 # Show color pulse
                 effect_request = controller_manager_pb2.PlayControllerEffectRequest(
@@ -853,7 +846,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     speed=5,
                 )
                 await controller_stub.PlayControllerEffect(effect_request)
-                await controller_channel.close()
 
                 span.add_event("instructions_toggled", {
                     "old_value": current,
@@ -1053,10 +1045,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         from services.controller_manager import controller_manager_pb2, controller_manager_pb2_grpc
 
         try:
-            channel = grpc.aio.insecure_channel(
-                "controller-manager:50052", options=self.channel_options
+            # Use persistent channel (Phase 26)
+            stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
+                self.controller_channel
             )
-            stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
 
             if option_name == "num_teams":
                 # Flash white N times (where N = team count)
@@ -1082,8 +1074,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     serial=serial, color=color, duration_ms=800
                 )
                 await stub.SetControllerColor(color_request)
-
-            await channel.close()
 
         except Exception as e:
             logger.error(f"Error showing value feedback: {e}", exc_info=True)

@@ -143,9 +143,7 @@ class NonstopJoustGame:
                 await self._initialize_players()
 
                 if not self.players:
-                    logger.error("No players available to start game")
-                    self.state = GameState.ENDED
-                    return
+                    raise RuntimeError("No players available to start game")
 
                 init_span.set_attribute("player_count", len(self.players))
 

@@ -100,7 +100,7 @@ class FFAGame:
         """Fetch game settings from Settings service."""
         with tracer.start_as_current_span("ffa_load_settings"):
             try:
-                from services.settings import settings_pb2
+                from proto import settings_pb2
 
                 response = self.settings_client.GetSettings(settings_pb2.GetSettingsRequest())
 
@@ -127,7 +127,7 @@ class FFAGame:
         """Get initial controller states and create player objects."""
         with tracer.start_as_current_span("ffa_initialize_players") as span:
             try:
-                from services.controller_manager import controller_manager_pb2
+                from proto import controller_manager_pb2
 
                 response = self.controller_client.GetReadyControllers(
                     controller_manager_pb2.GetReadyControllersRequest()
@@ -164,7 +164,7 @@ class FFAGame:
     async def _countdown(self):
         """Run countdown before game starts."""
         with tracer.start_as_current_span("ffa_countdown") as span:
-            from services.controller_manager import controller_manager_pb2
+            from proto import controller_manager_pb2
 
             logger.info("Starting countdown...")
             self.event_publisher("countdown_start", {"duration": COUNTDOWN_DURATION})
@@ -210,7 +210,7 @@ class FFAGame:
             logger.info("Starting game loop...")
 
             try:
-                from services.controller_manager import controller_manager_pb2
+                from proto import controller_manager_pb2
 
                 # Start per-player lifecycle spans (as children of game_loop span)
                 for serial, player in self.players.items():
@@ -299,7 +299,7 @@ class FFAGame:
             serial: Controller serial number
             accel_mag: Acceleration magnitude that triggered warning
         """
-        from services.controller_manager import controller_manager_pb2
+        from proto import controller_manager_pb2
 
         player = self.players.get(serial)
         if not player or not player.alive:
@@ -370,7 +370,7 @@ class FFAGame:
             )
 
             # Set controller color to red (death indication)
-            from services.controller_manager import controller_manager_pb2
+            from proto import controller_manager_pb2
 
             death_color_request = controller_manager_pb2.SetControllerColorRequest(
                 serial=serial,
@@ -418,7 +418,7 @@ class FFAGame:
     async def _end_game(self):
         """Handle game ending - show winner, cleanup."""
         with tracer.start_as_current_span("ffa_end_game") as span:
-            from services.controller_manager import controller_manager_pb2
+            from proto import controller_manager_pb2
 
             logger.info("Ending game...")
             self.state = GameState.ENDING

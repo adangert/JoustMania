@@ -40,7 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 # So we'll define a minimal version here for server-only use
 from enum import Enum
 
-from services.settings import settings_pb2, settings_pb2_grpc
+from proto import settings_pb2, settings_pb2_grpc
 
 
 class Games(Enum):

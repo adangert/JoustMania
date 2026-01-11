@@ -176,7 +176,7 @@ class RandomTeamsGame:
         """Fetch game settings from Settings service."""
         with tracer.start_as_current_span("random_teams_load_settings"):
             try:
-                from services.settings import settings_pb2
+                from proto import settings_pb2
 
                 response = self.settings_client.GetSettings(settings_pb2.GetSettingsRequest())
 
@@ -203,7 +203,7 @@ class RandomTeamsGame:
         """Get initial controller states and randomly assign players to teams."""
         with tracer.start_as_current_span("random_teams_initialize_players") as span:
             try:
-                from services.controller_manager import controller_manager_pb2
+                from proto import controller_manager_pb2
 
                 response = self.controller_client.GetReadyControllers(
                     controller_manager_pb2.GetReadyControllersRequest()
@@ -313,7 +313,7 @@ class RandomTeamsGame:
             logger.info("Starting game loop...")
 
             try:
-                from services.controller_manager import controller_manager_pb2
+                from proto import controller_manager_pb2
 
                 # Start per-team lifecycle spans (as children of game_loop span)
                 for team_num, team in self.teams.items():

@@ -178,7 +178,7 @@ class NonstopJoustGame:
         """Fetch game settings from Settings service."""
         with tracer.start_as_current_span("nonstop_load_settings"):
             try:
-                from services.settings import settings_pb2
+                from proto import settings_pb2
 
                 response = self.settings_client.GetSettings(settings_pb2.GetSettingsRequest())
 
@@ -207,7 +207,7 @@ class NonstopJoustGame:
         """Get initial controller states and create player objects."""
         with tracer.start_as_current_span("nonstop_initialize_players") as span:
             try:
-                from services.controller_manager import controller_manager_pb2
+                from proto import controller_manager_pb2
 
                 response = self.controller_client.GetReadyControllers(
                     controller_manager_pb2.GetReadyControllersRequest()
@@ -240,7 +240,7 @@ class NonstopJoustGame:
     async def _countdown(self):
         """Run countdown before game starts."""
         with tracer.start_as_current_span("nonstop_countdown") as span:
-            from services.controller_manager import controller_manager_pb2
+            from proto import controller_manager_pb2
 
             logger.info("Starting countdown...")
             self.event_publisher("countdown_start", {"duration": COUNTDOWN_DURATION})
@@ -286,7 +286,7 @@ class NonstopJoustGame:
             logger.info("Starting game loop...")
 
             try:
-                from services.controller_manager import controller_manager_pb2
+                from proto import controller_manager_pb2
 
                 # Start per-player lifecycle spans
                 for serial, player in self.players.items():
@@ -403,7 +403,7 @@ class NonstopJoustGame:
             serial: Controller serial number
             accel_mag: Acceleration magnitude that triggered warning
         """
-        from services.controller_manager import controller_manager_pb2
+        from proto import controller_manager_pb2
 
         player = self.players.get(serial)
         if not player or not player.alive:
@@ -440,7 +440,7 @@ class NonstopJoustGame:
             accel_mag: Acceleration magnitude that caused death
         """
         with tracer.start_as_current_span("nonstop_kill_player") as span:
-            from services.controller_manager import controller_manager_pb2
+            from proto import controller_manager_pb2
 
             player = self.players.get(serial)
             if not player or not player.alive:
@@ -501,7 +501,7 @@ class NonstopJoustGame:
 
     async def _update_respawn_timers(self):
         """Update respawn timers and respawn players."""
-        from services.controller_manager import controller_manager_pb2
+        from proto import controller_manager_pb2
 
         current_time = time.time()
 
@@ -536,7 +536,7 @@ class NonstopJoustGame:
             serial: Controller serial number
             time_remaining: Seconds until respawn
         """
-        from services.controller_manager import controller_manager_pb2
+        from proto import controller_manager_pb2
 
         # Countdown colors: Gray -> Yellow -> Green
         if time_remaining > 2.0:
@@ -565,7 +565,7 @@ class NonstopJoustGame:
             serial: Controller serial number
         """
         with tracer.start_as_current_span("nonstop_respawn_player") as span:
-            from services.controller_manager import controller_manager_pb2
+            from proto import controller_manager_pb2
 
             player = self.players[serial]
             player.alive = True
@@ -628,7 +628,7 @@ class NonstopJoustGame:
     async def _end_game(self):
         """Handle game ending - determine winner, cleanup."""
         with tracer.start_as_current_span("nonstop_end_game") as span:
-            from services.controller_manager import controller_manager_pb2
+            from proto import controller_manager_pb2
 
             logger.info("Ending game...")
             self.state = GameState.ENDING

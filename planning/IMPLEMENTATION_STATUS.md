@@ -50,8 +50,10 @@ This document tracks the progress of the JoustMania microservices refactoring pr
 | 33 | Code Quality | LOW | 💎 Planned | [View](phases/planned/phase-33-code-quality-improvements.md) |
 | 34 | Async/Await Consistency | LOW | ⚡ Planned | [View](phases/planned/phase-34-async-await-consistency.md) |
 | 35 | Logging Optimization | MEDIUM | ✅ Complete | [View](phases/completed/phase-35-logging-optimization.md) |
+| 36 | Span Hierarchy Rework | HIGH | 🎯 Planned | [View](phases/planned/phase-36-span-hierarchy-rework.md) |
+| 37 | Protobuf File Cleanup | MEDIUM | ✅ Complete | [View](phases/completed/phase-37-protobuf-cleanup.md) |
 
-## Completed Phases (23)
+## Completed Phases (24)
 
 ### Core Infrastructure (Phases 1-5, 7)
 - **Phase 1**: [Controller Manager](phases/completed/phase-01-controller-manager.md) - PSMove controller management service
@@ -83,13 +85,15 @@ This document tracks the progress of the JoustMania microservices refactoring pr
 - **Phase 24**: [Service Health Checks](phases/completed/phase-24-proper-service-health-checks.md) - gRPC health protocol
 - **Phase 25**: [Type Safety & Code Quality](phases/completed/phase-25-type-safety-code-quality.md) - ty + ruff integration
 - **Phase 35**: [Logging Optimization](phases/completed/phase-35-logging-optimization.md) - Environment variable log level control
+- **Phase 37**: [Protobuf File Cleanup](phases/completed/phase-37-protobuf-cleanup.md) - Remove duplicate proto files from services
 
-## Planned Phases (12)
+## Planned Phases (13)
 
 ### High Priority - Performance & Reliability
 - **Phase 18**: [Game Loop CPU Optimization](phases/planned/phase-18-game-loop-cpu-optimization.md) - State caching and protobuf pooling
 - **Phase 26**: [Critical Performance Fixes](phases/planned/phase-26-critical-performance-fixes.md) - Channel pooling and resource limits
 - **Phase 27**: [OpenTelemetry Optimization](phases/planned/phase-27-opentelemetry-optimization.md) - Span sampling and hot path reduction
+- **Phase 36**: [Span Hierarchy Rework](phases/planned/phase-36-span-hierarchy-rework.md) - Proper parent/child span structure for game lifecycle
 
 ### Medium Priority - Game Features & Polish
 - **Phase 23**: [Admin Mode & Controls](phases/planned/phase-23-admin-mode-advanced-controls.md) - On-the-fly settings adjustment
@@ -127,9 +131,10 @@ This document tracks the progress of the JoustMania microservices refactoring pr
 ## Next Steps
 
 ### Immediate Priorities
-1. **Phase 18** - Game loop CPU optimization (state caching, protobuf pooling)
-2. **Phase 27** - OpenTelemetry optimization (span sampling, hot path reduction)
-3. **Phase 26** - Critical performance fixes (channel pooling, resource limits)
+1. **Phase 36** - Span hierarchy rework (proper parent/child structure for game lifecycle)
+2. **Phase 18** - Game loop CPU optimization (state caching, protobuf pooling)
+3. **Phase 27** - OpenTelemetry optimization (span sampling, hot path reduction)
+4. **Phase 26** - Critical performance fixes (channel pooling, resource limits)
 
 ### Mid-term Goals
 - Complete admin mode functionality (Phases 23, 28)

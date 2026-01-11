@@ -34,7 +34,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from services.controller_manager import controller_manager_pb2, controller_manager_pb2_grpc
+from proto import controller_manager_pb2, controller_manager_pb2_grpc
 
 # PS Move imports (optional for testing)
 try:

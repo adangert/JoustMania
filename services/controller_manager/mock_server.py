@@ -14,10 +14,9 @@ import os
 import time
 from concurrent import futures
 
-import controller_manager_mock_pb2_grpc
-import controller_manager_pb2_grpc
 import grpc
-from controller_manager_mock_pb2 import (
+from proto import controller_manager_mock_pb2_grpc, controller_manager_pb2_grpc
+from proto.controller_manager_mock_pb2 import (
     ButtonResponse,
     ColorResponse,
     DeathResponse,
@@ -25,7 +24,7 @@ from controller_manager_mock_pb2 import (
     MovementResponse,
     ResetResponse,
 )
-from controller_manager_pb2 import (
+from proto.controller_manager_pb2 import (
     RGB,
     ControllerState,
     ControllerStateUpdate,

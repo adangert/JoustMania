@@ -34,7 +34,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from services.supervisor import supervisor_pb2, supervisor_pb2_grpc
+from proto import supervisor_pb2, supervisor_pb2_grpc
 
 logger = logging.getLogger(__name__)
 

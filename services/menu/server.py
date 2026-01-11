@@ -34,7 +34,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from services.menu import menu_pb2, menu_pb2_grpc
+from proto import menu_pb2, menu_pb2_grpc
 
 logger = logging.getLogger(__name__)
 
@@ -365,7 +365,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         with tracer.start_as_current_span("button_monitor_loop"):
             try:
                 # Import controller_manager protobuf
-                from services.controller_manager import (
+                from proto import (
                     controller_manager_pb2,
                     controller_manager_pb2_grpc,
                 )
@@ -672,7 +672,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 controller_manager_pb2,
                 controller_manager_pb2_grpc,
             )
-            from services.settings import settings_pb2, settings_pb2_grpc
+            from proto import settings_pb2, settings_pb2_grpc
 
             try:
                 # Use persistent channels (Phase 26)
@@ -807,7 +807,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 controller_manager_pb2,
                 controller_manager_pb2_grpc,
             )
-            from services.settings import settings_pb2, settings_pb2_grpc
+            from proto import settings_pb2, settings_pb2_grpc
 
             try:
                 # Use persistent channels (Phase 26)
@@ -924,7 +924,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             option_name = self.admin_option_names[self.admin_current_option]
             span.set_attribute("admin.option", option_name)
 
-            from services.settings import settings_pb2, settings_pb2_grpc
+            from proto import settings_pb2, settings_pb2_grpc
 
             try:
                 # Use persistent channel (Phase 26)
@@ -985,7 +985,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             option_name = self.admin_option_names[self.admin_current_option]
             span.set_attribute("admin.option", option_name)
 
-            from services.settings import settings_pb2, settings_pb2_grpc
+            from proto import settings_pb2, settings_pb2_grpc
 
             try:
                 # Use persistent channel (Phase 26)
@@ -1045,7 +1045,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             option_name: Name of the setting
             value: New value
         """
-        from services.controller_manager import controller_manager_pb2, controller_manager_pb2_grpc
+        from proto import controller_manager_pb2, controller_manager_pb2_grpc
 
         try:
             # Use persistent channel (Phase 26)

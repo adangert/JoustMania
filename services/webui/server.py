@@ -35,7 +35,7 @@ from wtforms import (
 )
 
 # Import core modules (use types to avoid psmove dependency)
-from core.types import Games, Opts
+from lib.types import Games, Opts
 
 # Import protobuf definitions
 from proto import (
@@ -47,7 +47,7 @@ from proto import (
     settings_pb2_grpc,
     supervisor_pb2_grpc,
 )
-from utils import colors
+from lib import colors
 
 # Prometheus metrics (Phase 38)
 from prometheus_client import start_http_server

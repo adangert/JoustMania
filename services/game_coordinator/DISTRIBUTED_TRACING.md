@@ -20,30 +20,91 @@ GameCoordinator now has **full distributed tracing** with OpenTelemetry, trackin
 
 ### Trace Hierarchy
 
+**Phase 36 Normalized Hierarchy** - All game modes follow consistent span naming:
+
+#### FFA (Free-For-All)
 ```
 StartGame (incoming RPC to GameCoordinator)
-├── ffa_run (game execution)
-│   ├── ffa_load_settings
-│   │   └── GetSettings → Settings service (outgoing RPC)
-│   │       └── settings.validate_and_get
-│   ├── ffa_initialize_players
+├── Free-For-All (game session)
+│   ├── initialization_phase
+│   │   ├── GetSettings → Settings service (outgoing RPC)
+│   │   │   └── settings.validate_and_get
 │   │   └── GetReadyControllers → ControllerManager (outgoing RPC)
 │   │       └── controller_manager.get_ready_controllers
-│   ├── ffa_countdown
-│   ├── ffa_game_loop
+│   ├── countdown_phase
+│   ├── gameplay_phase
 │   │   ├── StreamControllerStates → ControllerManager (outgoing RPC)
 │   │   │   └── controller_manager.stream_controller_states
-│   │   ├── player_controller_0_lifecycle
-│   │   │   ├── player_warning (event)
-│   │   │   └── player_survived (event)
-│   │   ├── player_controller_1_lifecycle
+│   │   ├── player_mock_controller_0_lifecycle
 │   │   │   ├── player_warning (event)
 │   │   │   └── player_death (event)
-│   │   └── player_controller_2_lifecycle
-│   │       └── player_death (event)
-│   └── ffa_end_game
+│   │   ├── player_mock_controller_1_lifecycle
+│   │   │   ├── player_warning (event)
+│   │   │   └── player_death (event)
+│   │   └── player_mock_controller_2_lifecycle
+│   │       └── player_survived (event)
+│   └── teardown_phase
 └── game_ended (event)
 ```
+
+#### Teams / Random Teams (Hierarchical Spans)
+```
+StartGame (incoming RPC to GameCoordinator)
+├── Teams (or "Random Teams") (game session)
+│   ├── initialization_phase
+│   │   ├── GetSettings → Settings service
+│   │   └── GetReadyControllers → ControllerManager
+│   ├── team_formation_phase (Random Teams only)
+│   │   └── display_team_colors (event)
+│   ├── countdown_phase
+│   ├── gameplay_phase
+│   │   ├── StreamControllerStates → ControllerManager
+│   │   ├── team_0_lifecycle
+│   │   │   ├── player_mock_controller_0_lifecycle
+│   │   │   │   └── player_death (event)
+│   │   │   ├── player_mock_controller_2_lifecycle
+│   │   │   │   └── player_death (event)
+│   │   │   └── team_eliminated (event)
+│   │   └── team_1_lifecycle
+│   │       ├── player_mock_controller_1_lifecycle
+│   │       │   └── player_death (event)
+│   │       └── player_mock_controller_3_lifecycle
+│   │           └── player_survived (event)
+│   └── teardown_phase
+│       └── team_1_wins (event)
+└── game_ended (event)
+```
+
+#### Nonstop Joust (Respawning Players)
+```
+StartGame (incoming RPC to GameCoordinator)
+├── Nonstop Joust (game session)
+│   ├── initialization_phase
+│   │   ├── GetSettings → Settings service
+│   │   └── GetReadyControllers → ControllerManager
+│   ├── countdown_phase
+│   ├── gameplay_phase
+│   │   ├── StreamControllerStates → ControllerManager
+│   │   ├── player_mock_controller_0_lifecycle (stays open)
+│   │   │   ├── player_death (event)
+│   │   │   ├── player_respawn (event)
+│   │   │   └── player_death (event)
+│   │   ├── player_mock_controller_1_lifecycle (stays open)
+│   │   │   ├── player_death (event)
+│   │   │   └── player_respawn (event)
+│   │   └── player_mock_controller_2_lifecycle (stays open)
+│   │       └── player_death (event)
+│   └── teardown_phase
+│       ├── final_scores (event)
+│       └── winner_determined (event)
+└── game_ended (event)
+```
+
+**Key Differences:**
+- **FFA**: Flat player hierarchy, players die permanently (spans end)
+- **Teams**: Hierarchical (team → player), team-based win condition
+- **Random Teams**: Same as Teams + `team_formation_phase` before countdown
+- **Nonstop Joust**: Player spans stay open, death events only, scoring-based winner
 
 ## Context Propagation
 
@@ -77,23 +138,40 @@ def init_telemetry():
     GrpcInstrumentorClient().instrument()  # Outgoing RPCs
 ```
 
-### No Changes Needed in Game Modes
+### Game Mode Span Management
 
-Game modes (ffa.py, teams.py, random_teams.py) continue to make normal gRPC calls:
+**Phase 36b Base Class** - Span creation is now centralized in `BaseGameMode`:
 
 ```python
-# Automatically traced by GrpcInstrumentorClient
-response = self.settings_client.GetSettings(settings_pb2.GetSettingsRequest())
+# BaseGameMode.run() orchestrates all spans automatically
+async def run(self, game_context=None):
+    """Template method handling span hierarchy."""
+    span_name = get_game_display_name(self.get_game_name())
 
-# Automatically traced by GrpcInstrumentorClient
-response = self.controller_client.GetReadyControllers(
-    controller_manager_pb2.GetReadyControllersRequest()
-)
+    with tracer.start_as_current_span(span_name, context=game_context) as game_span:
+        # initialization_phase span
+        with tracer.start_as_current_span("initialization_phase", ...):
+            await self._load_settings()  # GetSettings RPC automatically traced
+            await self._initialize_players()  # GetReadyControllers RPC automatically traced
+            self._create_player_spans(game_context)
 
-# Automatically traced by GrpcInstrumentorClient (streaming)
-async for state_update in self.controller_client.StreamControllerStates(stream_request):
-    # Process states...
+        # Additional phases (e.g., team_formation_phase)
+        for phase in self._get_additional_phases():
+            with tracer.start_as_current_span(phase.name, ...):
+                await phase.execute()
+
+        # countdown_phase, gameplay_phase, teardown_phase...
 ```
+
+**Subclasses** (FFA, Teams, Random Teams, Nonstop Joust) focus on game-specific logic:
+- Inherit span orchestration from `BaseGameMode`
+- Implement abstract methods (`_initialize_players_impl`, `_create_player_spans`, etc.)
+- Make normal gRPC calls (automatically traced by `GrpcInstrumentorClient`)
+
+**Benefits:**
+- **Consistency**: All game modes use identical span hierarchy
+- **DRY**: Span creation logic exists in one place
+- **Maintainability**: Fix span bugs once in base class
 
 ## Viewing Traces in Jaeger
 
@@ -123,53 +201,84 @@ http://localhost:16686
 service="game-coordinator-service"
 ```
 
-**By Operation:**
+**By Operation (Root Span):**
 ```
 operation="StartGame"
 ```
 
-**By Game Mode:**
+**By Game Mode (Human-Readable):**
 ```
-game.mode="FFA"
+operation="Free-For-All"
+operation="Teams"
+operation="Random Teams"
+operation="Nonstop Joust"
+```
+
+**By Game Phase:**
+```
+operation="initialization_phase"
+operation="countdown_phase"
+operation="gameplay_phase"
+operation="teardown_phase"
+operation="team_formation_phase"  # Random Teams only
 ```
 
 **By Player:**
 ```
-player.serial="controller_abc123"
+player.serial="mock_controller_0"
+```
+
+**By Team (Team Games):**
+```
+team.number=0
+team.number=1
 ```
 
 ### 5. Explore the Trace
 
 You should see:
 - **Root span**: `StartGame` (incoming RPC to GameCoordinator)
-- **Child spans**:
-  - `ffa_run` (game execution)
-  - `GetSettings` (outgoing RPC to Settings)
-  - `GetReadyControllers` (outgoing RPC to ControllerManager)
-  - `StreamControllerStates` (streaming RPC to ControllerManager)
-  - Per-player lifecycle spans
-  - Team lifecycle spans (for team games)
+- **Game session span**: Human-readable name (`Free-For-All`, `Teams`, `Random Teams`, `Nonstop Joust`)
+- **Phase spans**: Consistent across all modes
+  - `initialization_phase` (contains Settings and ControllerManager RPCs)
+  - `team_formation_phase` (Random Teams only)
+  - `countdown_phase`
+  - `gameplay_phase` (contains player/team lifecycle spans)
+  - `teardown_phase`
+- **Lifecycle spans**:
+  - FFA/Nonstop: `player_{serial}_lifecycle` (flat hierarchy)
+  - Teams/Random Teams: `team_{number}_lifecycle` → `player_{serial}_lifecycle` (hierarchical)
+- **RPC spans** (automatic from instrumentation):
+  - `GetSettings` (outgoing to Settings service)
+  - `GetReadyControllers` (outgoing to ControllerManager)
+  - `StreamControllerStates` (streaming from ControllerManager)
 
 ## Metrics Available
 
 ### Latency Metrics
 
 **Cross-Service Latency:**
-- Time from `ffa_load_settings` to `GetSettings` response
-- Time from `ffa_initialize_players` to `GetReadyControllers` response
-- Time from `ffa_game_loop` to first `StreamControllerStates` frame
+- Time from `initialization_phase` to `GetSettings` response
+- Time from `initialization_phase` to `GetReadyControllers` response
+- Time from `gameplay_phase` to first `StreamControllerStates` frame
 
 **Game Phase Latency:**
-- Settings load time
-- Player initialization time
-- Countdown duration
-- Game loop duration (per frame at 60 FPS)
-- End game duration
+- `initialization_phase` duration (settings + player setup)
+- `team_formation_phase` duration (Random Teams: ~3 seconds)
+- `countdown_phase` duration (typically 3 seconds)
+- `gameplay_phase` duration (entire game, varies by mode)
+- `teardown_phase` duration (cleanup + winner declaration)
 
 **Player-Level Latency:**
-- Time to first warning
-- Time to death
-- Survival duration
+- Time to first warning (high acceleration detected)
+- Time to death (span duration for FFA/Teams)
+- Survival duration (player lifecycle span length)
+- Respawn time (Nonstop Joust: 3 seconds between death and respawn events)
+
+**Team-Level Latency (Teams/Random Teams):**
+- Team lifecycle span duration (formation → elimination)
+- Time to team elimination
+- Player death intervals within team
 
 ### Error Tracking
 
@@ -218,14 +327,27 @@ GrpcInstrumentorClient().instrument()  # Must be present
 
 ### Missing Player Spans
 
-**Symptom:** You see `ffa_run` but no `player_controller_X_lifecycle` spans.
+**Symptom:** You see `Free-For-All` (or other game mode) but no `player_{serial}_lifecycle` spans.
 
 **Cause:** Game didn't start properly or no players detected.
 
 **Solution:**
 - Check ControllerManager is returning controllers
-- Verify `GetReadyControllers` RPC succeeds
+- Verify `GetReadyControllers` RPC succeeds in `initialization_phase`
 - Look for `players_initialized` event in logs
+- Check that `gameplay_phase` span exists (player spans created there)
+
+### Missing Team Spans
+
+**Symptom:** You see `Teams` or `Random Teams` but no `team_{number}_lifecycle` spans.
+
+**Cause:** Team initialization failed or no teams created.
+
+**Solution:**
+- Verify at least 2 players are ready (minimum for team games)
+- Check team assignment logic in initialization
+- Look for `teams_created` event in logs
+- Verify player → team assignment completed
 
 ## Performance Impact
 
@@ -305,33 +427,48 @@ provider = TracerProvider(
 - Only receive requests, don't make gRPC client calls
 - Instrumented with: `GrpcInstrumentorServer()` only
 
+## Completed Enhancements
+
+### Phase 36: Span Hierarchy Normalization ✓
+- **Human-readable game names**: `Free-For-All`, `Teams`, `Random Teams`, `Nonstop Joust`
+- **Consistent phase spans**: `initialization_phase`, `countdown_phase`, `gameplay_phase`, `teardown_phase`
+- **Standardized lifecycle spans**: `player_{serial}_lifecycle`, `team_{number}_lifecycle`
+- **Hierarchical team spans**: Team spans contain player spans for Teams/Random Teams
+
+### Phase 36b: Base Game Class Refactoring (In Progress)
+- **BaseGameMode**: Template method pattern for span orchestration
+- **Code reduction**: ~1,500 lines of duplicate code eliminated (56% reduction)
+- **Consistent behavior**: All game modes inherit same span creation logic
+- **Easier maintenance**: Fix span issues once in base class
+
 ## Future Enhancements
 
 ### 1. Menu → GameCoordinator Traces
 When Menu service calls `StartGame`, trace will show:
 ```
-ProcessInput (Menu) → StartGame (GameCoordinator) → ffa_run → ...
+ProcessInput (Menu) → StartGame (GameCoordinator) → Free-For-All → ...
 ```
 
 ### 2. Audio Service Integration
 When GameCoordinator calls Audio service:
 ```
-ffa_countdown → PlaySound (Audio) → audio.play
+countdown_phase → PlaySound (Audio) → audio.play
 ```
 
 ### 3. Multi-Game Sessions
 Track multiple games in sequence:
 ```
-StartGame (game1) → ... → game_ended
-StartGame (game2) → ... → game_ended
-StartGame (game3) → ... → game_ended
+StartGame (game1) → Free-For-All → ... → game_ended
+StartGame (game2) → Teams → ... → game_ended
+StartGame (game3) → Random Teams → ... → game_ended
 ```
 
 ### 4. Advanced Analytics
-- Player behavior across multiple games
+- Player behavior across multiple games (survival rates, warning frequencies)
 - Team composition impact on win rate
-- Optimal sensitivity thresholds
-- Controller hardware reliability
+- Optimal sensitivity thresholds by player
+- Controller hardware reliability (death patterns)
+- Game duration comparisons by mode
 
 ## References
 

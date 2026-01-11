@@ -317,7 +317,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     num_teams = int(self.settings.get("num_teams", "2"))
 
                     # Create Teams game instance
-                    game = teams.TeamsGame(
+                    game = teams.SimpleTeamsGame(
                         controller_manager_client=self.controller_manager_client,
                         settings_client=self.settings_client,
                         event_publisher=self._publish_event,

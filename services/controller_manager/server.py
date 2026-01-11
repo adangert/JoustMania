@@ -156,6 +156,11 @@ class ControllerManagerServicer(
         # Thread lock for safe access from discovery thread
         self.effect_lock = threading.Lock()
 
+        # Battery monitoring (Phase 39 - Task 4)
+        self.last_battery_warning: dict[str, float] = {}  # {serial: timestamp of last warning}
+        self.low_battery_threshold = 1  # Battery level 0 or 1 (out of 5) = <20%
+        self.last_battery_check = 0.0  # Timestamp of last battery check
+
         # Discovery thread
         self.running = True
         self.discovery_thread = threading.Thread(target=self._discovery_loop, daemon=True)
@@ -164,14 +169,22 @@ class ControllerManagerServicer(
         logger.info("ControllerManager initialized")
 
     def _discovery_loop(self):
-        """Background thread for controller discovery."""
+        """Background thread for controller discovery and battery monitoring."""
         with tracer.start_as_current_span("discovery_loop"):
             while self.running:
                 try:
+                    current_time = time.time()
+
+                    # Check for new controllers every second
                     with tracer.start_as_current_span("check_new_controllers") as span:
                         if PSMOVE_AVAILABLE:
                             self._check_for_new_controllers()
                         span.set_attribute("controller.count", len(self.tracked_controllers))
+
+                    # Check battery levels every 30 seconds (Phase 39 - Task 4)
+                    if current_time - self.last_battery_check >= 30.0:
+                        self._check_battery_levels()
+                        self.last_battery_check = current_time
 
                     time.sleep(1.0)  # Check every second
 
@@ -651,6 +664,71 @@ class ControllerManagerServicer(
         if move and PSMOVE_AVAILABLE:
             move.set_leds(color[0], color[1], color[2])
             move.update_leds()
+
+    def _check_battery_levels(self):
+        """Check battery levels and warn about low batteries (Phase 39 - Task 4).
+
+        Called every 30 seconds from discovery loop.
+        Warns when battery level is <= 1 (out of 5), which is <20%.
+        """
+        if not PSMOVE_AVAILABLE:
+            return
+
+        current_time = time.time()
+
+        for serial, info in list(self.tracked_controllers.items()):
+            try:
+                battery = info.get("battery", 5)  # Default to full if unknown
+
+                # Warn if battery is critically low (0 or 1 out of 5 = <20%)
+                if battery <= self.low_battery_threshold:
+                    # Check if we've warned recently (avoid spam)
+                    last_warning = self.last_battery_warning.get(serial, 0)
+                    if current_time - last_warning >= 30.0:  # Warn every 30 seconds
+                        self._warn_low_battery(serial, battery)
+                        self.last_battery_warning[serial] = current_time
+
+            except Exception as e:
+                logger.error(f"Error checking battery for {serial}: {e}")
+
+    def _warn_low_battery(self, serial: str, battery_level: int):
+        """Warn player about low battery with red pulse (Phase 39 - Task 4).
+
+        Args:
+            serial: Controller serial number
+            battery_level: Current battery level (0-5)
+        """
+        logger.warning(f"Controller {serial} has low battery: {battery_level}/5 (<20%)")
+
+        if not PSMOVE_AVAILABLE:
+            return
+
+        try:
+            # Get controller move object
+            info = self.tracked_controllers.get(serial)
+            if not info:
+                return
+
+            move = info.get("move")
+            if not move:
+                return
+
+            # Pulse red 3 times (overrides current color temporarily)
+            # This is a synchronous warning that briefly interrupts current state
+            for _ in range(3):
+                move.set_leds(255, 0, 0)  # Bright red
+                move.update_leds()
+                time.sleep(0.3)
+
+                move.set_leds(100, 0, 0)  # Dim red
+                move.update_leds()
+                time.sleep(0.3)
+
+            # Note: Current game/menu state will restore color on next update
+            logger.info(f"Low battery warning displayed for {serial}")
+
+        except Exception as e:
+            logger.error(f"Failed to display low battery warning for {serial}: {e}")
 
     # Effect methods (_effect_flash, _effect_pulse, etc.) inherited from ControllerEffectsBase (Phase 40)
 

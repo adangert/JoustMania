@@ -70,6 +70,9 @@ ENV OTEL_LOGS_EXPORTER=none
 # Expose gRPC port
 EXPOSE 50052
 
+# Expose Prometheus metrics port (Phase 38)
+EXPOSE 8000
+
 # Note: Controller manager needs privileged access for bluetooth
 # Run with: docker run --privileged or docker-compose privileged: true
 

@@ -117,9 +117,10 @@ services:
       - /var/run/dbus:/var/run/dbus  # DBus for Bluetooth pairing
     devices:
       - /dev/bus/usb:/dev/bus/usb  # USB devices for PS Move
-    # Port exposed only within Docker network (no host binding)
+    # Ports exposed only within Docker network (no host binding)
     expose:
-      - "50052"
+      - "50052"  # gRPC service
+      - "8000"   # Prometheus metrics (Phase 38)
     environment:
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
       - OTEL_SERVICE_NAME=controller-manager-service

@@ -38,6 +38,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from proto import controller_manager_pb2, controller_manager_pb2_grpc
 from services.controller_manager.effects_base import ControllerEffectsBase
 
+# Prometheus metrics (Phase 38)
+from prometheus_client import start_http_server
+import psutil
+from services.controller_manager import metrics
+
 # PS Move imports (optional for testing)
 try:
     from multiprocessing import Array, Process, Value
@@ -272,6 +277,14 @@ class ControllerManagerServicer(
 
             logger.info(f"Spawned tracking for controller {serial}")
 
+            # Update metrics (Phase 38)
+            metrics.active_controllers.inc()
+            metrics.controller_connected.labels(serial=serial).set(1)
+            metrics.controller_battery_level.labels(serial=serial).set(battery)
+            # Check if this is a reconnect
+            if serial in self.paired_serials:
+                metrics.controller_reconnect_total.labels(serial=serial).inc()
+
             # Note: Actual process spawning would happen here in production
             # For now, we track the controller info
 
@@ -357,6 +370,9 @@ class ControllerManagerServicer(
                 # Initialize delta tracking for this subscriber
                 self.last_sent_states[subscriber_id] = {}
 
+            # Update stream metrics (Phase 38)
+            metrics.active_streams.inc()
+
             logger.info(f"New stream subscriber: {subscriber_id}")
 
             try:
@@ -387,6 +403,10 @@ class ControllerManagerServicer(
                         )
                         yield update
 
+                        # Track stream update (Phase 38)
+                        if changed_controllers:
+                            metrics.stream_updates_total.labels(stream_type='legacy').inc()
+
                         # CRITICAL FIX: Use async sleep instead of blocking time.sleep()
                         await asyncio.sleep(interval)
 
@@ -402,6 +422,9 @@ class ControllerManagerServicer(
                     # Clean up delta tracking
                     if subscriber_id in self.last_sent_states:
                         del self.last_sent_states[subscriber_id]
+
+                # Update stream metrics (Phase 38)
+                metrics.active_streams.dec()
 
                 logger.info(f"Stream subscriber disconnected: {subscriber_id}")
 
@@ -423,6 +446,9 @@ class ControllerManagerServicer(
             with self.button_event_lock:
                 self.button_event_subscribers[subscriber_id] = event_queue
 
+            # Update stream metrics (Phase 38)
+            metrics.active_streams.inc()
+
             logger.info(f"New button event subscriber: {subscriber_id}")
 
             try:
@@ -433,6 +459,8 @@ class ControllerManagerServicer(
                         try:
                             event = event_queue.get(timeout=0.1)
                             yield event
+                            # Track stream update (Phase 38)
+                            metrics.stream_updates_total.labels(stream_type='button_events').inc()
                         except queue.Empty:
                             # No events, continue loop to check cancellation
                             continue
@@ -446,6 +474,9 @@ class ControllerManagerServicer(
                 with self.button_event_lock:
                     if subscriber_id in self.button_event_subscribers:
                         del self.button_event_subscribers[subscriber_id]
+
+                # Update stream metrics (Phase 38)
+                metrics.active_streams.dec()
 
                 logger.info(f"Button event subscriber disconnected: {subscriber_id}")
 
@@ -461,6 +492,9 @@ class ControllerManagerServicer(
         with tracer.start_as_current_span("StreamGameplayData") as span:
             span.set_attribute("subscriber.id", subscriber_id)
             span.set_attribute("update_frequency_hz", request.update_frequency_hz or 60)
+
+            # Update stream metrics (Phase 38)
+            metrics.active_streams.inc()
 
             logger.info(f"New gameplay data subscriber: {subscriber_id}")
 
@@ -496,6 +530,10 @@ class ControllerManagerServicer(
                         )
                         yield update
 
+                        # Track stream update (Phase 38)
+                        if gameplay_data:
+                            metrics.stream_updates_total.labels(stream_type='gameplay_data').inc()
+
                         await asyncio.sleep(interval)
 
                     except Exception as e:
@@ -503,6 +541,9 @@ class ControllerManagerServicer(
                         break
 
             finally:
+                # Update stream metrics (Phase 38)
+                metrics.active_streams.dec()
+
                 logger.info(f"Gameplay data subscriber disconnected: {subscriber_id}")
 
     def PairController(self, request, context):
@@ -560,6 +601,11 @@ class ControllerManagerServicer(
                         if serial in self.active_effects:
                             self.active_effects[serial].cancel()
                             del self.active_effects[serial]
+
+                    # Update metrics (Phase 38)
+                    metrics.active_controllers.dec()
+                    metrics.controller_connected.labels(serial=serial).set(0)
+                    metrics.controller_disconnect_total.labels(serial=serial).inc()
 
                     span.add_event("controller_removed", {"serial": serial})
                     logger.info(f"Removed controller {serial}")
@@ -785,6 +831,9 @@ class ControllerManagerServicer(
             try:
                 battery = info.get("battery", 5)  # Default to full if unknown
 
+                # Update battery metric (Phase 38)
+                metrics.controller_battery_level.labels(serial=serial).set(battery)
+
                 # Warn if battery is critically low (0 or 1 out of 5 = <20%)
                 if battery <= self.low_battery_threshold:
                     # Check if we've warned recently (avoid spam)
@@ -877,10 +926,12 @@ class ControllerManagerServicer(
         if cache_entry:
             # Check if state changed
             if cache_entry["snapshot_hash"] == current_hash:
-                # State unchanged, return cached protobuf message
+                # State unchanged, return cached protobuf message (Phase 38: Track cache hit)
+                metrics.state_cache_hits_total.inc()
                 return cache_entry["cached_state"]
 
-        # State changed or not cached yet - rebuild
+        # State changed or not cached yet - rebuild (Phase 38: Track cache miss)
+        metrics.state_cache_misses_total.inc()
         new_state = self._build_controller_state_message(serial, info)
 
         # Update cache
@@ -1044,6 +1095,14 @@ class ControllerManagerServicer(
                 )
                 events.append(event)
 
+                # Track button event (Phase 38)
+                action_str = 'press' if current_pressed else 'release'
+                metrics.button_events_total.labels(
+                    serial=serial,
+                    button=button_name,
+                    action=action_str
+                ).inc()
+
                 # Update tracked state
                 prev_states[button_name] = current_pressed
 
@@ -1071,7 +1130,7 @@ class ControllerManagerServicer(
         self.discovery_thread.join(timeout=5.0)
 
 
-async def serve(port=50052):
+async def serve(port=50052, metrics_port=8000):
     """Start the ControllerManager async gRPC server."""
     # Configure logging with environment variable support
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -1079,6 +1138,25 @@ async def serve(port=50052):
         level=getattr(logging, log_level, logging.INFO),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
+
+    # Start Prometheus metrics HTTP server (Phase 38)
+    start_http_server(metrics_port)
+    logger.info(f"Prometheus metrics available at http://0.0.0.0:{metrics_port}/metrics")
+
+    # Start system metrics collection task (Phase 38)
+    async def collect_system_metrics():
+        """Background task to collect system metrics every 10 seconds."""
+        process = psutil.Process()
+        while True:
+            try:
+                metrics.process_cpu_percent.set(process.cpu_percent(interval=None))
+                metrics.process_memory_mb.set(process.memory_info().rss / 1024 / 1024)
+                metrics.process_threads.set(process.num_threads())
+            except Exception as e:
+                logger.error(f"Error collecting system metrics: {e}")
+            await asyncio.sleep(10.0)
+
+    asyncio.create_task(collect_system_metrics())
 
     # Create async server (CRITICAL FIX: grpc.aio instead of grpc.server)
     server = grpc.aio.server()

@@ -9,7 +9,9 @@ Provides:
 """
 
 import asyncio
+import colorsys
 import logging
+import math
 import os
 import time
 from concurrent import futures
@@ -29,6 +31,7 @@ from proto.controller_manager_pb2 import (
     ControllerState,
     ControllerStateUpdate,
     GetReadyControllersResponse,
+    PlayControllerEffectResponse,
     Vector3,
 )
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc
@@ -83,6 +86,9 @@ class MockControllerManagerService(controller_manager_pb2_grpc.ControllerManager
             serial = f"mock_controller_{i}"
             self.controllers[serial] = MockController(serial)
 
+        # Controller effects tracking (Phase 31)
+        self.active_effects: dict[str, asyncio.Task] = {}
+
         logger.info(f"Initialized {num_controllers} mock controllers")
 
     def GetReadyControllers(self, request, context):
@@ -108,6 +114,155 @@ class MockControllerManagerService(controller_manager_pb2_grpc.ControllerManager
         except asyncio.CancelledError:
             logger.info("Controller state stream cancelled")
             raise
+
+    def _set_led_color(self, serial: str, color: tuple[int, int, int]):
+        """Helper to set LED color on a mock controller (Phase 31)."""
+        controller = self.controllers.get(serial)
+        if controller:
+            controller.color = RGB(r=color[0], g=color[1], b=color[2])
+
+    async def _effect_flash(self, serial: str, color: tuple[int, int, int], duration_ms: int, speed: int):
+        """FLASH effect: rapid on/off blinking (Phase 31)."""
+        interval = 1.0 / max(1, speed)
+        end_time = time.time() + (duration_ms / 1000.0)
+
+        try:
+            while time.time() < end_time:
+                self._set_led_color(serial, color)
+                await asyncio.sleep(interval / 2)
+                self._set_led_color(serial, (0, 0, 0))
+                await asyncio.sleep(interval / 2)
+        except asyncio.CancelledError:
+            logger.debug(f"FLASH effect cancelled for {serial}")
+            raise
+        finally:
+            self._set_led_color(serial, color)
+
+    async def _effect_pulse(self, serial: str, color: tuple[int, int, int], duration_ms: int, speed: int):
+        """PULSE effect: smooth breathing/fade (Phase 31)."""
+        interval = 0.05
+        cycle_duration = 1.0 / max(1, speed)
+        end_time = time.time() + (duration_ms / 1000.0)
+
+        try:
+            start = time.time()
+            while time.time() < end_time:
+                elapsed = time.time() - start
+                brightness = (math.sin(2 * math.pi * elapsed / cycle_duration) + 1) / 2
+
+                scaled_color = tuple(int(c * brightness) for c in color)
+                self._set_led_color(serial, scaled_color)
+                await asyncio.sleep(interval)
+        except asyncio.CancelledError:
+            logger.debug(f"PULSE effect cancelled for {serial}")
+            raise
+        finally:
+            self._set_led_color(serial, color)
+
+    async def _effect_rainbow(self, serial: str, duration_ms: int, speed: int):
+        """RAINBOW effect: cycle through color spectrum (Phase 31)."""
+        interval = 0.05
+        cycle_duration = 1.0 / max(1, speed)
+        end_time = time.time() + (duration_ms / 1000.0)
+
+        try:
+            start = time.time()
+            while time.time() < end_time:
+                elapsed = time.time() - start
+                hue = (elapsed / cycle_duration) % 1.0
+
+                rgb = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+                color = tuple(int(c * 255) for c in rgb)
+                self._set_led_color(serial, color)
+                await asyncio.sleep(interval)
+        except asyncio.CancelledError:
+            logger.debug(f"RAINBOW effect cancelled for {serial}")
+            raise
+
+    async def _effect_fade_out(self, serial: str, color: tuple[int, int, int], duration_ms: int):
+        """FADE_OUT effect: fade to black (Phase 31)."""
+        interval = 0.05
+        steps = int((duration_ms / 1000.0) / interval)
+        steps = max(1, steps)
+
+        try:
+            for step in range(steps):
+                brightness = 1.0 - (step / steps)
+                scaled_color = tuple(int(c * brightness) for c in color)
+                self._set_led_color(serial, scaled_color)
+                await asyncio.sleep(interval)
+        except asyncio.CancelledError:
+            logger.debug(f"FADE_OUT effect cancelled for {serial}")
+            raise
+        finally:
+            self._set_led_color(serial, (0, 0, 0))
+
+    async def _effect_fade_in(self, serial: str, color: tuple[int, int, int], duration_ms: int):
+        """FADE_IN effect: fade from black to color (Phase 31)."""
+        interval = 0.05
+        steps = int((duration_ms / 1000.0) / interval)
+        steps = max(1, steps)
+
+        try:
+            for step in range(steps + 1):
+                brightness = step / steps
+                scaled_color = tuple(int(c * brightness) for c in color)
+                self._set_led_color(serial, scaled_color)
+                await asyncio.sleep(interval)
+        except asyncio.CancelledError:
+            logger.debug(f"FADE_IN effect cancelled for {serial}")
+            raise
+        finally:
+            self._set_led_color(serial, color)
+
+    async def PlayControllerEffect(self, request, context):
+        """Play visual effect on controller(s) - Phase 31 implementation."""
+        from proto import controller_manager_pb2
+
+        # Determine target controllers
+        if request.serial:
+            target_serials = [request.serial]
+        else:
+            target_serials = list(self.controllers.keys())
+
+        color = (request.color.r, request.color.g, request.color.b)
+        duration_ms = request.duration_ms
+        speed = request.speed or 5
+
+        for serial in target_serials:
+            if serial not in self.controllers:
+                continue
+
+            # Cancel any existing effect
+            if serial in self.active_effects:
+                self.active_effects[serial].cancel()
+                try:
+                    await self.active_effects[serial]
+                except asyncio.CancelledError:
+                    pass
+                del self.active_effects[serial]
+
+            # Start the appropriate effect
+            if request.effect == controller_manager_pb2.EFFECT_FLASH:
+                task = asyncio.create_task(self._effect_flash(serial, color, duration_ms, speed))
+                self.active_effects[serial] = task
+            elif request.effect == controller_manager_pb2.EFFECT_PULSE:
+                task = asyncio.create_task(self._effect_pulse(serial, color, duration_ms, speed))
+                self.active_effects[serial] = task
+            elif request.effect == controller_manager_pb2.EFFECT_RAINBOW:
+                task = asyncio.create_task(self._effect_rainbow(serial, duration_ms, speed))
+                self.active_effects[serial] = task
+            elif request.effect == controller_manager_pb2.EFFECT_FADE_OUT:
+                task = asyncio.create_task(self._effect_fade_out(serial, color, duration_ms))
+                self.active_effects[serial] = task
+            elif request.effect == controller_manager_pb2.EFFECT_FADE_IN:
+                task = asyncio.create_task(self._effect_fade_in(serial, color, duration_ms))
+                self.active_effects[serial] = task
+            elif request.effect == controller_manager_pb2.EFFECT_NONE:
+                self._set_led_color(serial, color)
+
+        logger.info(f"PlayControllerEffect: effect={request.effect}, targets={len(target_serials)}")
+        return PlayControllerEffectResponse(success=True, error="")
 
 
 class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControllerServiceServicer):

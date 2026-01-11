@@ -518,7 +518,8 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
     def _publish_event(self, event_type: str, data: dict[str, str]):
         """Publish an event to all subscribers."""
-        with tracer.start_as_current_span("publish_event") as span:
+        # Use event type in span name for better visibility in Jaeger
+        with tracer.start_as_current_span(f"event:{event_type}") as span:
             span.set_attribute("event.type", event_type)
 
             # Sync server game_state with game mode lifecycle events

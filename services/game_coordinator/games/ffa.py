@@ -101,7 +101,7 @@ class FFAGame:
         try:
             from proto import settings_pb2
 
-            response = self.settings_client.GetSettings(settings_pb2.GetSettingsRequest())
+            response = await self.settings_client.GetSettings(settings_pb2.GetSettingsRequest())
 
             if response.success:
                 settings = response.settings
@@ -127,7 +127,7 @@ class FFAGame:
         try:
             from proto import controller_manager_pb2
 
-            response = self.controller_client.GetReadyControllers(
+            response = await self.controller_client.GetReadyControllers(
                 controller_manager_pb2.GetReadyControllersRequest()
             )
 

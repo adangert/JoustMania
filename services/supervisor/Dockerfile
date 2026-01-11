@@ -60,7 +60,8 @@ ENV OTEL_LOGS_EXPORTER=none
 
 # Expose gRPC port
 EXPOSE 50055
-\n# Expose Prometheus metrics port (Phase 38)
+
+# Expose Prometheus metrics port (Phase 38)
 EXPOSE 8000
 
 # Health check

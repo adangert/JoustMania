@@ -63,7 +63,8 @@ ENV SUPERVISOR_SERVICE=supervisor:50055
 
 # Expose HTTP port
 EXPOSE 80
-\n# Expose Prometheus metrics port (Phase 38)
+
+# Expose Prometheus metrics port (Phase 38)
 EXPOSE 8000
 
 # Health check

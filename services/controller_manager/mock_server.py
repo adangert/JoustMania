@@ -319,7 +319,7 @@ class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControll
         return MovementResponse(success=True, error="")
 
     def SimulateDeath(self, request, context):
-        """Simulate death by setting high acceleration and holding it for 0.5 seconds."""
+        """Simulate death by setting high acceleration and holding it for 2 seconds."""
         controller = self.manager.controllers.get(request.serial)
 
         if not controller:
@@ -329,11 +329,12 @@ class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControll
         death_vector = Vector3(x=5.0, y=3.0, z=4.0)
         accel_mag = (5.0**2 + 3.0**2 + 4.0**2) ** 0.5
 
-        # Hold death acceleration for 0.5 seconds to ensure game loop catches it
+        # Hold death acceleration for 2 seconds to ensure game loop catches it
+        # This accounts for potential timing between SimulateDeath call and game loop processing
         controller.death_accel = death_vector
-        controller.death_hold_until = time.time() + 0.5
+        controller.death_hold_until = time.time() + 2.0
 
-        logger.info(f"Simulated death for {request.serial}: magnitude={accel_mag:.2f}, holding for 0.5s")
+        logger.info(f"Simulated death for {request.serial}: magnitude={accel_mag:.2f}, holding for 2.0s")
 
         return DeathResponse(success=True, accel_magnitude=accel_mag)
 

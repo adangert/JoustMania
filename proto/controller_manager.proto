@@ -236,6 +236,7 @@ message GameplayStreamControl {
     ColorCommand color_command = 3;            // Controller color change (Phase 46)
     EffectCommand effect_command = 4;          // Controller effect (Phase 46)
     VibrationCommand vibration_command = 5;    // Controller vibration (Phase 46)
+    CombinedFeedback combined_feedback = 6;    // Combined color + vibration (Phase 46)
   }
 }
 
@@ -270,4 +271,13 @@ message VibrationCommand {
   string serial = 1;          // Target controller (empty = all)
   int32 intensity = 2;        // Vibration intensity (0-255)
   int32 duration_ms = 3;      // Vibration duration in milliseconds
+}
+
+// Combined color and vibration feedback via stream
+// Useful for events like death, hit, spawn where both are needed
+message CombinedFeedback {
+  string serial = 1;          // Target controller (empty = all)
+  RGB color = 2;              // Color to set
+  int32 vibration_intensity = 3;  // Vibration intensity (0-255, 0 = no vibration)
+  int32 vibration_duration_ms = 4; // Vibration duration in milliseconds
 }

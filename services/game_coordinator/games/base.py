@@ -562,24 +562,16 @@ class BaseGameMode(ABC):
 
         # Phase 46: Use stream-based commands if stream is active, otherwise fall back to unary RPCs
         if self.gameplay_stream:
-            # Send color command via stream
-            color_cmd = controller_manager_pb2.GameplayStreamControl(
-                color_command=controller_manager_pb2.ColorCommand(
+            # Send combined color + vibration via stream (single message)
+            combined_feedback = controller_manager_pb2.GameplayStreamControl(
+                combined_feedback=controller_manager_pb2.CombinedFeedback(
                     serial=serial,
-                    color=controller_manager_pb2.RGB(r=255, g=0, b=0)  # Red
+                    color=controller_manager_pb2.RGB(r=255, g=0, b=0),  # Red
+                    vibration_intensity=255,  # Maximum vibration
+                    vibration_duration_ms=500  # Half second
                 )
             )
-            await self.gameplay_stream.write(color_cmd)
-
-            # Send vibration command via stream
-            vib_cmd = controller_manager_pb2.GameplayStreamControl(
-                vibration_command=controller_manager_pb2.VibrationCommand(
-                    serial=serial,
-                    intensity=255,  # Maximum vibration
-                    duration_ms=500  # Half second
-                )
-            )
-            await self.gameplay_stream.write(vib_cmd)
+            await self.gameplay_stream.write(combined_feedback)
         else:
             # Fall back to unary RPCs (menu/lobby context)
             death_color_request = controller_manager_pb2.SetControllerColorRequest(

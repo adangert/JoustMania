@@ -66,6 +66,19 @@ def check_proto_messages():
         control_vib = controller_manager_pb2.GameplayStreamControl(vibration_command=vib_cmd)
         print(f"✓ GameplayStreamControl with vibration_command: HasField={control_vib.HasField('vibration_command')}")
 
+        # Test CombinedFeedback
+        combined = controller_manager_pb2.CombinedFeedback(
+            serial="test_1",
+            color=controller_manager_pb2.RGB(r=255, g=0, b=0),
+            vibration_intensity=255,
+            vibration_duration_ms=500
+        )
+        print(f"✓ CombinedFeedback created: serial={combined.serial}, rgb=({combined.color.r},{combined.color.g},{combined.color.b}), vib={combined.vibration_intensity}@{combined.vibration_duration_ms}ms")
+
+        # Test GameplayStreamControl with CombinedFeedback
+        control_combined = controller_manager_pb2.GameplayStreamControl(combined_feedback=combined)
+        print(f"✓ GameplayStreamControl with combined_feedback: HasField={control_combined.HasField('combined_feedback')}")
+
         # Test oneof behavior
         control_msg = controller_manager_pb2.GameplayStreamControl(
             config=controller_manager_pb2.GameplayStreamConfig(
@@ -174,11 +187,12 @@ def check_client_implementation():
         assert 'self.gameplay_stream' in base_content
         print("✓ base.py uses self.gameplay_stream")
 
-        assert 'color_command' in base_content
-        print("✓ base.py creates ColorCommand messages")
+        assert 'combined_feedback' in base_content
+        print("✓ base.py creates CombinedFeedback messages (atomic color+vibration)")
 
-        assert 'vibration_command' in base_content
-        print("✓ base.py creates VibrationCommand messages")
+        # Check that it uses stream-based feedback commands
+        assert 'GameplayStreamControl' in base_content
+        print("✓ base.py creates GameplayStreamControl messages")
 
         assert 'if self.gameplay_stream:' in base_content
         print("✓ base.py checks for active stream before sending commands")

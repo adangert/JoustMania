@@ -702,6 +702,37 @@ class ControllerManagerServicer(
                             # Metric (Phase 46)
                             metrics.stream_commands_total.labels(command_type='vibration').inc()
 
+                        elif control_msg.HasField("combined_feedback"):
+                            # Phase 46: Process combined color + vibration command
+                            cmd = control_msg.combined_feedback
+                            target_serial = cmd.serial if cmd.serial else None
+
+                            # Apply to target serial or all controllers (broadcast)
+                            serials_to_update = (
+                                [target_serial] if target_serial else list(self.tracked_controllers.keys())
+                            )
+
+                            for serial in serials_to_update:
+                                if serial in self.tracked_controllers:
+                                    # Set color and vibration atomically
+                                    await self._set_controller_color_internal(
+                                        serial, (cmd.color.r, cmd.color.g, cmd.color.b)
+                                    )
+                                    if cmd.vibration_intensity > 0:
+                                        await self._set_vibration_internal(
+                                            serial, cmd.vibration_intensity, cmd.vibration_duration_ms
+                                        )
+
+                            logger.debug(
+                                f"[{subscriber_id}] Combined feedback: "
+                                f"serial={cmd.serial or 'all'}, "
+                                f"rgb=({cmd.color.r},{cmd.color.g},{cmd.color.b}), "
+                                f"vib={cmd.vibration_intensity}@{cmd.vibration_duration_ms}ms"
+                            )
+
+                            # Metric (Phase 46)
+                            metrics.stream_commands_total.labels(command_type='combined').inc()
+
                 except Exception as e:
                     logger.error(f"[{subscriber_id}] Error reading client updates: {e}", exc_info=True)
 

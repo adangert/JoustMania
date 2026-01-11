@@ -206,6 +206,76 @@ class TeamsGameBase(BaseGameMode):
         except Exception as e:
             logger.error(f"Failed to set team colors: {e}", exc_info=True)
 
+    async def _countdown(self):
+        """
+        Run countdown with team colors (Phase 30 - Controller Feedback Completion).
+
+        Team-specific countdown sequence:
+        - 3 seconds: Team color (each player sees their team color)
+        - 2 seconds: White flash (neutral, heightens anticipation)
+        - 1 second: Green (universal GO signal)
+
+        This overrides the base class countdown which uses Red → Yellow → Green.
+        """
+        from proto import controller_manager_pb2
+        from services.game_coordinator.games.base import COUNTDOWN_DURATION
+
+        logger.info("Starting team countdown...")
+        self.event_publisher("countdown_start", {"duration": COUNTDOWN_DURATION})
+
+        # Countdown sequence specific to team-based games
+        countdown_phases = [
+            {
+                "name": "team_colors",
+                "duration": 1.0,
+                "set_team_colors": True,  # Each player sees their team color
+            },
+            {
+                "name": "white_flash",
+                "color": (255, 255, 255),
+                "duration": 1.0,
+            },
+            {
+                "name": "green_go",
+                "color": (0, 255, 0),
+                "duration": 1.0,
+            },
+        ]
+
+        for phase in countdown_phases:
+            if not self.running:
+                logger.info("Countdown interrupted by force_end")
+                return
+
+            # Play countdown beep (Phase 29)
+            await self._play_sound("Joust/sounds/beep_loud.wav", priority=2)
+
+            if phase.get("set_team_colors"):
+                # Set each player to their team color
+                await self._set_team_colors(pulse_effect=False, duration_ms=0)
+            else:
+                # Set all players to same color (broadcast)
+                r, g, b = phase["color"]
+                color_request = controller_manager_pb2.SetControllerColorRequest(
+                    serial="",  # Empty = all controllers
+                    color=controller_manager_pb2.RGB(r=r, g=g, b=b),
+                    duration_ms=0,
+                )
+                await self.controller_client.SetControllerColor(color_request)
+
+            # Wait 1 second (in 0.1s increments to allow interruption)
+            for _ in range(10):
+                if not self.running:
+                    logger.info("Countdown interrupted by force_end")
+                    return
+                await asyncio.sleep(0.1)
+
+        # Play start sound (Phase 29)
+        await self._play_sound("Joust/sounds/start3.wav", priority=2)
+
+        self.event_publisher("countdown_end", {})
+        logger.info("Team countdown complete")
+
     def _get_alive_teams(self) -> set[int]:
         """
         Get set of teams that still have alive players.

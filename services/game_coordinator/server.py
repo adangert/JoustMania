@@ -159,11 +159,11 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         ]
 
         try:
-            # ControllerManager client
+            # ControllerManager client (async for streaming)
             controller_manager_address = (
                 f"{self.controller_manager_host}:{self.controller_manager_port}"
             )
-            self.controller_manager_channel = grpc.insecure_channel(
+            self.controller_manager_channel = grpc.aio.insecure_channel(
                 controller_manager_address, options=channel_options
             )
             self.controller_manager_client = (
@@ -175,9 +175,9 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 f"Connected to ControllerManager at {controller_manager_address} (with channel options)"
             )
 
-            # Settings client
+            # Settings client (async)
             settings_address = f"{self.settings_host}:{self.settings_port}"
-            self.settings_channel = grpc.insecure_channel(settings_address, options=channel_options)
+            self.settings_channel = grpc.aio.insecure_channel(settings_address, options=channel_options)
             self.settings_client = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
             logger.info(f"Connected to Settings at {settings_address} (with channel options)")
 

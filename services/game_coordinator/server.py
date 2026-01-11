@@ -267,10 +267,22 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
     async def _run_game_loop_async(self):
         """Run the async game loop."""
-        # Create parent game_session span that covers entire game lifecycle
-        # Include game name in span name for easy filtering in Jaeger
-        game_name_clean = self.game_name.lower().replace(" ", "_")
-        span_name = f"game_session_{game_name_clean}"
+        # Create parent span with human-readable game mode name
+        # Map internal game names to nice display names for Jaeger
+        game_name_mapping = {
+            "ffa": "Free-For-All",
+            "free-for-all": "Free-For-All",
+            "joust free-for-all": "Free-For-All",
+            "teams": "Teams",
+            "joust teams": "Teams",
+            "random teams": "Random Teams",
+            "joust random teams": "Random Teams",
+            "random_teams": "Random Teams",
+            "nonstop": "Nonstop Joust",
+            "nonstop joust": "Nonstop Joust",
+            "nonstopjoust": "Nonstop Joust",
+        }
+        span_name = game_name_mapping.get(self.game_name.lower(), self.game_name)
 
         with tracer.start_as_current_span(span_name) as game_span:
             game_span.set_attribute("game.name", self.game_name)

@@ -281,7 +281,7 @@ services:
 networks:
   joustmania:
     driver: bridge
-    name: joustmania-network
+    name: joustmania
 
 volumes:
   redis-data:

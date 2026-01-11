@@ -98,68 +98,65 @@ class FFAGame:
 
     async def _load_settings(self):
         """Fetch game settings from Settings service."""
-        with tracer.start_as_current_span("ffa_load_settings"):
-            try:
-                from proto import settings_pb2
+        try:
+            from proto import settings_pb2
 
-                response = self.settings_client.GetSettings(settings_pb2.GetSettingsRequest())
+            response = self.settings_client.GetSettings(settings_pb2.GetSettingsRequest())
 
-                if response.success:
-                    settings = response.settings
-                    logger.info(f"Loaded settings: {len(settings)} keys")
+            if response.success:
+                settings = response.settings
+                logger.info(f"Loaded settings: {len(settings)} keys")
 
-                    # Parse sensitivity
-                    sens_str = settings.get("sensitivity", "MEDIUM").upper()
-                    if sens_str in Sensitivity.__members__:
-                        self.sensitivity = Sensitivity[sens_str]
+                # Parse sensitivity
+                sens_str = settings.get("sensitivity", "MEDIUM").upper()
+                if sens_str in Sensitivity.__members__:
+                    self.sensitivity = Sensitivity[sens_str]
 
-                    # Parse audio setting
-                    self.play_audio = settings.get("play_audio", "true").lower() == "true"
+                # Parse audio setting
+                self.play_audio = settings.get("play_audio", "true").lower() == "true"
 
-                else:
-                    logger.warning(f"Failed to load settings: {response.error}")
+            else:
+                logger.warning(f"Failed to load settings: {response.error}")
 
-            except Exception as e:
-                logger.error(f"Error loading settings: {e}", exc_info=True)
-                # Use defaults
+        except Exception as e:
+            logger.error(f"Error loading settings: {e}", exc_info=True)
+            # Use defaults
 
     async def _initialize_players(self):
         """Get initial controller states and create player objects."""
-        with tracer.start_as_current_span("ffa_initialize_players") as span:
-            try:
-                from proto import controller_manager_pb2
+        try:
+            from proto import controller_manager_pb2
 
-                response = self.controller_client.GetReadyControllers(
-                    controller_manager_pb2.GetReadyControllersRequest()
+            response = self.controller_client.GetReadyControllers(
+                controller_manager_pb2.GetReadyControllersRequest()
+            )
+
+            if response.success:
+                for controller in response.controllers:
+                    player = Player(
+                        serial=controller.serial,
+                        team=0,  # FFA - everyone on their own team
+                        alive=True,
+                        color=(255, 255, 255),
+                    )
+                    self.players[controller.serial] = player
+                    logger.debug(f"Added player: {controller.serial}")
+
+                logger.info(f"Initialized {len(self.players)} players")
+
+                # Publish event
+                self.event_publisher(
+                    "players_initialized",
+                    {"player_count": len(self.players), "serials": list(self.players.keys())},
                 )
 
-                if response.success:
-                    for controller in response.controllers:
-                        player = Player(
-                            serial=controller.serial,
-                            team=0,  # FFA - everyone on their own team
-                            alive=True,
-                            color=(255, 255, 255),
-                        )
-                        self.players[controller.serial] = player
-                        logger.debug(f"Added player: {controller.serial}")
+            else:
+                logger.error(f"Failed to get controllers: {response.error}")
+                raise RuntimeError(f"Failed to get controllers: {response.error}")
 
-                    span.set_attribute("player_count", len(self.players))
-                    logger.info(f"Initialized {len(self.players)} players")
-
-                    # Publish event
-                    self.event_publisher(
-                        "players_initialized",
-                        {"player_count": len(self.players), "serials": list(self.players.keys())},
-                    )
-
-                else:
-                    logger.error(f"Failed to get controllers: {response.error}")
-                    raise RuntimeError(f"Failed to get controllers: {response.error}")
-
-            except Exception as e:
-                logger.error(f"Error initializing players: {e}", exc_info=True)
-                raise
+        except Exception as e:
+            logger.error(f"Error initializing players: {e}", exc_info=True)
+            raise
 
     async def _countdown(self):
         """Run countdown before game starts."""
@@ -475,21 +472,25 @@ class FFAGame:
 
             logger.info("Game ended")
 
-    async def run(self):
+    async def run(self, game_context=None):
         """
         Main entry point to run the FFA game.
 
         This is the async method called by GameCoordinator.
-        """
-        with tracer.start_as_current_span("ffa_run") as span:
-            span.set_attribute("game.id", self.game_id)
-            span.set_attribute("game.mode", "FFA")
 
-            try:
-                # IDLE -> STARTING
-                self.state = GameState.STARTING
-                self.running = True  # Set early to allow force_end during countdown
-                self.event_publisher("game_starting", {"game_id": self.game_id})
+        Args:
+            game_context: Parent game_session span context for proper hierarchy
+        """
+        try:
+            # IDLE -> STARTING
+            self.state = GameState.STARTING
+            self.running = True  # Set early to allow force_end during countdown
+            self.event_publisher("game_starting", {"game_id": self.game_id})
+
+            # Initialization phase (load settings + initialize players)
+            with tracer.start_as_current_span("initialization_phase", context=game_context) as init_span:
+                init_span.set_attribute("game.id", self.game_id)
+                init_span.set_attribute("game.mode", "FFA")
 
                 # Load settings
                 await self._load_settings()
@@ -501,37 +502,36 @@ class FFAGame:
                 if len(self.players) < 2:
                     raise ValueError(f"Need at least 2 players, got {len(self.players)}")
 
-                # Countdown
+                init_span.set_attribute("player_count", len(self.players))
+
+            # Countdown phase
+            with tracer.start_as_current_span("countdown_phase", context=game_context):
                 await self._countdown()
 
-                # STARTING -> RUNNING
-                self.state = GameState.RUNNING
-                self.start_time = time.time()
-                self.event_publisher(
-                    "game_started", {"game_id": self.game_id, "player_count": len(self.players)}
-                )
+            # STARTING -> RUNNING
+            self.state = GameState.RUNNING
+            self.start_time = time.time()
+            self.event_publisher(
+                "game_started", {"game_id": self.game_id, "player_count": len(self.players)}
+            )
 
-                # Run main game loop
+            # Gameplay phase (main game loop)
+            with tracer.start_as_current_span("gameplay_phase", context=game_context):
                 await self._game_loop()
 
-                # RUNNING -> ENDING/ENDED
+            # Teardown phase (end game)
+            with tracer.start_as_current_span("teardown_phase", context=game_context):
                 await self._end_game()
 
-                span.set_attribute("game.completed", True)
+        except Exception as e:
+            logger.error(f"FFA game error: {e}", exc_info=True)
+            self.state = GameState.ENDED
+            self.event_publisher("game_error", {"game_id": self.game_id, "error": str(e)})
+            raise
 
-            except Exception as e:
-                logger.error(f"FFA game error: {e}", exc_info=True)
-                span.record_exception(e)
-                span.set_attribute("game.error", str(e))
-
-                self.state = GameState.ENDED
-                self.event_publisher("game_error", {"game_id": self.game_id, "error": str(e)})
-
-                raise
-
-            finally:
-                self.running = False
-                logger.info(f"FFA game finished: {self.game_id}")
+        finally:
+            self.running = False
+            logger.info(f"FFA game finished: {self.game_id}")
 
     def force_end(self):
         """Force the game to end (called externally)."""

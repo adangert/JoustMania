@@ -300,8 +300,8 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     # Store reference
                     self.current_game = game
 
-                    # Run the game (async)
-                    await game.run()
+                    # Run the game (async) with parent span context
+                    await game.run(game_context=game_context)
 
                     logger.info("FFA game completed")
 
@@ -323,8 +323,8 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     # Store reference
                     self.current_game = game
 
-                    # Run the game (async)
-                    await game.run()
+                    # Run the game (async) with parent span context
+                    await game.run(game_context=game_context)
 
                     logger.info("Teams game completed")
 
@@ -350,8 +350,8 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     # Store reference
                     self.current_game = game
 
-                    # Run the game (async)
-                    await game.run()
+                    # Run the game (async) with parent span context
+                    await game.run(game_context=game_context)
 
                     logger.info("Random Teams game completed")
 
@@ -372,8 +372,8 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     # Store reference
                     self.current_game = game
 
-                    # Run the game (async)
-                    await game.run()
+                    # Run the game (async) with parent span context
+                    await game.run(game_context=game_context)
 
                     logger.info("Nonstop Joust game completed")
 
@@ -384,14 +384,15 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     self._publish_event("game_error", {"error": error_msg})
 
             except Exception as e:
-                span.record_exception(e)
-                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+                game_span.record_exception(e)
+                game_span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 logger.error(f"Game loop error: {e}", exc_info=True)
                 self.game_state = game_coordinator_pb2.GameState.ENDED
                 self._publish_event("game_error", {"error": str(e)})
             finally:
                 self.game_running = False
                 self.current_game = None
+                # game_session span will automatically end here
 
     def GetGameStatus(self, request, context):
         """Get current game status."""

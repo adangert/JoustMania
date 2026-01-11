@@ -50,7 +50,7 @@ This document tracks the progress of the JoustMania microservices refactoring pr
 | 33 | Code Quality | LOW | 💎 Planned | [View](phases/planned/phase-33-code-quality-improvements.md) |
 | 34 | Async/Await Consistency | LOW | ⚡ Planned | [View](phases/planned/phase-34-async-await-consistency.md) |
 | 35 | Logging Optimization | MEDIUM | ✅ Complete | [View](phases/completed/phase-35-logging-optimization.md) |
-| 36 | Span Hierarchy Rework | HIGH | 🎯 Planned | [View](phases/planned/phase-36-span-hierarchy-rework.md) |
+| 36 | Span Hierarchy Rework | HIGH | 🏗️ In Progress | [View](phases/in-progress/phase-36-span-hierarchy-rework.md) |
 | 37 | Protobuf File Cleanup | MEDIUM | ✅ Complete | [View](phases/completed/phase-37-protobuf-cleanup.md) |
 
 ## Completed Phases (24)

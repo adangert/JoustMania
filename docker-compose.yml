@@ -56,10 +56,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.3'
           memory: 256M
         reservations:
-          cpus: '0.2'
           memory: 128M
     # No healthcheck: distroless image has no shell/wget/curl
 
@@ -88,10 +86,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.1'
           memory: 64M
         reservations:
-          cpus: '0.05'
           memory: 32M
     healthcheck:
       test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50051'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
@@ -131,10 +127,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.3'
           memory: 256M
         reservations:
-          cpus: '0.2'
           memory: 128M
     healthcheck:
       test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50052'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
@@ -170,10 +164,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
           memory: 512M
         reservations:
-          cpus: '0.3'
           memory: 256M
     healthcheck:
       test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50053'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
@@ -209,10 +201,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.2'
           memory: 128M
         reservations:
-          cpus: '0.1'
           memory: 64M
     healthcheck:
       test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50054'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
@@ -250,10 +240,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.1'
           memory: 64M
         reservations:
-          cpus: '0.05'
           memory: 32M
     healthcheck:
       test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50055'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
@@ -294,10 +282,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.2'
           memory: 128M
         reservations:
-          cpus: '0.1'
           memory: 64M
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:80/health', timeout=2); exit(0)"]
@@ -332,10 +318,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.3'
           memory: 256M
         reservations:
-          cpus: '0.2'
           memory: 128M
     healthcheck:
       test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50056'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]

@@ -13,7 +13,7 @@
 
 ### What to do first:
 1. Read this file completely
-2. Check `planning/IMPLEMENTATION_STATUS.md` for detailed phase status
+2. Check `planning/IMPLEMENTATION_STATUS.md` for phase overview (links to 34 individual phase files)
 3. Review recent commits: `git log --oneline -10`
 4. Check current working directory: `git status`
 5. Verify Docker services are healthy: `docker-compose ps`
@@ -347,12 +347,24 @@ uv.lock                  # Dependency lock file
 ### Documentation
 ```
 planning/
-├── IMPLEMENTATION_STATUS.md   # Detailed phase status
+├── IMPLEMENTATION_STATUS.md   # Quick status summary with links to all phases
+├── phases/
+│   ├── completed/            # 22 completed phase files
+│   ├── in-progress/          # Active phases
+│   └── planned/              # 12 planned phase files
+├── archive/                  # Legacy planning documents
 ├── CONTAINERIZATION_PLAN.md   # gRPC/Docker architecture
-└── [other planning docs]
+└── [other architecture docs]
 README.md                 # User-facing documentation
 claude.md                 # This file (session continuity)
 ```
+
+**Phase Documentation Structure:**
+- Each phase has its own markdown file with full implementation details
+- `IMPLEMENTATION_STATUS.md` provides a quick overview table with links
+- Completed phases: `planning/phases/completed/phase-{number}-{name}.md`
+- Planned phases: `planning/phases/planned/phase-{number}-{name}.md`
+- Legacy phase files moved to `planning/archive/`
 
 ### Linting & Type Checking
 ```

@@ -25,7 +25,7 @@ tracer = trace.get_tracer(__name__)
 logger = logging.getLogger(__name__)
 
 # Game constants
-UPDATE_FREQUENCY = 30  # Hz - game tick frequency (Phase 39: Optimized for 25 controllers)
+# UPDATE_FREQUENCY is now read from runtime_config (Phase 43)
 RESPAWN_DURATION = 3.0  # seconds to respawn
 SPAWN_PROTECTION_DURATION = 2.0  # seconds of invulnerability after spawn
 COLOR_DISPLAY_DURATION = 1  # second to show unique colors
@@ -236,10 +236,20 @@ class NonstopJoustGame(BaseGameMode):
             # Create player spans (pass None to use current active span context)
             self._create_player_spans(None)
 
+            # Get runtime config (Phase 43: Dynamic Hz adjustment like base class)
+            from services.game_coordinator.runtime_config import get_config_manager
+            config = get_config_manager().get_config()
+            update_frequency_hz = config.update_frequency_hz
+
+            logger.info(f"Starting Nonstop game loop at {update_frequency_hz}Hz")
+
             # Start streaming gameplay data (Phase 41 - acceleration/gyro only, no buttons)
             stream_request = controller_manager_pb2.GameplayStreamRequest(
-                update_frequency_hz=UPDATE_FREQUENCY
+                update_frequency_hz=update_frequency_hz
             )
+
+            # Store Hz for respawn timer calculations
+            self._current_update_frequency = update_frequency_hz
 
             # Stream gameplay data and process game logic
             async for gameplay_update in self.controller_client.StreamGameplayData(
@@ -260,7 +270,7 @@ class NonstopJoustGame(BaseGameMode):
                     break
 
                 # Small sleep to maintain tick rate
-                await asyncio.sleep(1.0 / UPDATE_FREQUENCY)
+                await asyncio.sleep(1.0 / update_frequency_hz)
 
         except Exception as e:
             logger.error(f"Game loop error: {e}", exc_info=True)
@@ -272,10 +282,13 @@ class NonstopJoustGame(BaseGameMode):
 
         current_time = time.time()
 
+        # Use current update frequency (Phase 43: dynamic from runtime config)
+        update_frequency = getattr(self, '_current_update_frequency', 30)
+
         for serial, player in self.players.items():
             # Handle respawn countdown
             if not player.alive and player.respawn_timer > 0:
-                player.respawn_timer -= 1.0 / UPDATE_FREQUENCY
+                player.respawn_timer -= 1.0 / update_frequency
 
                 # Show respawn countdown colors
                 await self._show_respawn_countdown(serial, player.respawn_timer)

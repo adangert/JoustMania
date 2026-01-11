@@ -706,7 +706,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
     async def _enter_admin_mode(self, serial: str):
         """
-        Enter admin mode with visual feedback (Phase 23).
+        Enter admin mode with visual feedback (Phase 23 & 39).
+
+        Provides clear feedback:
+        - White flash (3 times) to acknowledge entry
+        - Persistent white LED while in admin mode
 
         Args:
             serial: Controller serial number
@@ -719,8 +723,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             self.admin_mode_entry_time = time.time()
             self.admin_current_option = 0  # Reset to first option (team_size)
 
-            # Visual feedback: Flash white 3 times
-            from services.controller_manager import (
+            # Visual feedback: Flash white 3 times, then set persistent white LED
+            from proto import (
                 controller_manager_pb2,
                 controller_manager_pb2_grpc,
             )
@@ -741,20 +745,85 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 )
                 await stub.PlayControllerEffect(effect_request)
 
+                # Wait for flash to complete, then set persistent white LED (Phase 39)
+                await asyncio.sleep(0.7)  # 600ms flash + small buffer
+
+                color_request = controller_manager_pb2.SetControllerColorRequest(
+                    serial=serial,
+                    color=controller_manager_pb2.RGB(r=255, g=255, b=255),
+                    duration_ms=0  # Persistent white
+                )
+                await stub.SetControllerColor(color_request)
+
+                # Mark as admin in lobby state (prevents normal lobby feedback)
+                self.controller_lobby_state[serial] = "admin"
+
                 span.add_event("admin_mode_entered")
-                logger.info(f"Admin mode entered by controller {serial}")
+                logger.info(f"Admin mode entered by controller {serial} - white LED active")
 
             except Exception as e:
                 logger.error(f"Error entering admin mode: {e}", exc_info=True)
 
     async def _exit_admin_mode(self):
-        """Exit admin mode (Phase 23)."""
+        """Exit admin mode and restore lobby color (Phase 23 & 39)."""
         if self.admin_mode_active:
             with tracer.start_as_current_span("exit_admin_mode") as span:
                 span.set_attribute("controller.serial", self.admin_mode_controller)
                 span.set_attribute("duration_seconds", time.time() - self.admin_mode_entry_time)
 
                 logger.info(f"Admin mode exited by controller {self.admin_mode_controller}")
+
+                # Phase 39: Restore lobby color for the admin controller
+                serial = self.admin_mode_controller
+                if serial:
+                    from proto import (
+                        controller_manager_pb2,
+                        controller_manager_pb2_grpc,
+                    )
+
+                    try:
+                        stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
+                            self.controller_channel
+                        )
+
+                        # Get base color for current game mode
+                        base_color = self.GAME_MODE_COLORS.get(
+                            self.current_selection,
+                            (255, 140, 0)  # Default to orange
+                        )
+
+                        # Determine if controller was ready before entering admin mode
+                        if serial in self.ready_controllers:
+                            # Bright version (ready)
+                            color = controller_manager_pb2.RGB(
+                                r=base_color[0],
+                                g=base_color[1],
+                                b=base_color[2]
+                            )
+                        else:
+                            # Dim version (connected but not ready)
+                            color = controller_manager_pb2.RGB(
+                                r=int(base_color[0] * 0.5),
+                                g=int(base_color[1] * 0.5),
+                                b=int(base_color[2] * 0.5)
+                            )
+
+                        # Restore lobby color
+                        color_request = controller_manager_pb2.SetControllerColorRequest(
+                            serial=serial,
+                            color=color,
+                            duration_ms=0  # Persistent
+                        )
+                        await stub.SetControllerColor(color_request)
+
+                        # Clear admin state
+                        if serial in self.controller_lobby_state:
+                            del self.controller_lobby_state[serial]
+
+                        logger.info(f"Restored lobby color for {serial} after exiting admin mode")
+
+                    except Exception as e:
+                        logger.error(f"Error restoring lobby color after admin mode: {e}", exc_info=True)
 
                 self.admin_mode_active = False
                 self.admin_mode_controller = None

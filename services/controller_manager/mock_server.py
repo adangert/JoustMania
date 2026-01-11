@@ -120,6 +120,60 @@ class MockControllerManagerService(
             logger.info("Controller state stream cancelled")
             raise
 
+    async def StreamButtonEvents(self, request, context):
+        """
+        Stream button press/release events (Phase 41).
+
+        For the mock, we don't simulate button presses, so this stream
+        stays open but doesn't send events unless explicitly controlled.
+        """
+        logger.info("Starting button event stream (mock)")
+
+        try:
+            while not context.cancelled():
+                # Mock implementation - no automatic button events
+                # In real testing, button events could be triggered via control RPCs
+                await asyncio.sleep(0.1)
+        except asyncio.CancelledError:
+            logger.info("Button event stream cancelled")
+            raise
+
+    async def StreamGameplayData(self, request, context):
+        """Stream gameplay data (acceleration/gyro only) at requested frequency (Phase 41)."""
+        from proto.controller_manager_pb2 import GameplayData, GameplayDataUpdate
+
+        frequency = request.update_frequency_hz or 60
+        interval = 1.0 / frequency
+
+        logger.info(f"Starting gameplay data stream at {frequency}Hz (mock)")
+
+        try:
+            while not context.cancelled():
+                # Build gameplay data for all controllers (no buttons)
+                gameplay_data = []
+                for controller in self.controllers.values():
+                    gd = GameplayData(
+                        serial=controller.serial,
+                        move_num=int(controller.serial.split("_")[-1]),
+                        battery=controller.battery,
+                        ready=controller.ready,
+                        team=controller.team,
+                        color=controller.color,
+                        accel=controller.accel,
+                        gyro=controller.gyro
+                    )
+                    gameplay_data.append(gd)
+
+                yield GameplayDataUpdate(
+                    controllers=gameplay_data,
+                    timestamp=int(time.time() * 1000)
+                )
+
+                await asyncio.sleep(interval)
+        except asyncio.CancelledError:
+            logger.info("Gameplay data stream cancelled")
+            raise
+
     def _set_led_color(self, serial: str, color: tuple[int, int, int]):
         """Helper to set LED color on a mock controller (Phase 31 / Phase 40 override)."""
         controller = self.controllers.get(serial)

@@ -137,6 +137,11 @@ class ControllerManagerServicer(
         self.stream_subscribers: dict[str, queue.Queue] = {}
         self.stream_lock = threading.Lock()
 
+        # Button event streaming (Phase 41)
+        self.button_event_subscribers: dict[str, queue.Queue] = {}
+        self.button_states: dict[str, dict[str, bool]] = {}  # {serial: {button_name: pressed}}
+        self.button_event_lock = threading.Lock()
+
         # Delta update tracking (Phase 26 - Part 3)
         # Store last sent state per subscriber per controller
         # Format: {subscriber_id: {serial: ControllerState}}
@@ -399,6 +404,106 @@ class ControllerManagerServicer(
                         del self.last_sent_states[subscriber_id]
 
                 logger.info(f"Stream subscriber disconnected: {subscriber_id}")
+
+    async def StreamButtonEvents(self, request, context):
+        """
+        Stream button press/release events as they occur (Phase 41).
+
+        This is an event-driven stream - events are only sent when buttons
+        change state (press or release), not on every frame.
+        """
+        subscriber_id = f"button_stream_{time.time()}"
+
+        with tracer.start_as_current_span("StreamButtonEvents") as span:
+            span.set_attribute("subscriber.id", subscriber_id)
+
+            # Create queue for this subscriber
+            event_queue = queue.Queue(maxsize=100)
+
+            with self.button_event_lock:
+                self.button_event_subscribers[subscriber_id] = event_queue
+
+            logger.info(f"New button event subscriber: {subscriber_id}")
+
+            try:
+                while not context.cancelled():
+                    try:
+                        # Wait for button events (blocking with timeout)
+                        # Check for events every 100ms to stay responsive to cancellation
+                        try:
+                            event = event_queue.get(timeout=0.1)
+                            yield event
+                        except queue.Empty:
+                            # No events, continue loop to check cancellation
+                            continue
+
+                    except Exception as e:
+                        logger.error(f"Button event stream error for {subscriber_id}: {e}")
+                        break
+
+            finally:
+                # Cleanup
+                with self.button_event_lock:
+                    if subscriber_id in self.button_event_subscribers:
+                        del self.button_event_subscribers[subscriber_id]
+
+                logger.info(f"Button event subscriber disconnected: {subscriber_id}")
+
+    async def StreamGameplayData(self, request, context):
+        """
+        Stream gameplay data (acceleration/gyro only) in real-time (Phase 41).
+
+        This stream excludes button states and is optimized for game modes
+        that only need motion data.
+        """
+        subscriber_id = f"gameplay_stream_{time.time()}"
+
+        with tracer.start_as_current_span("StreamGameplayData") as span:
+            span.set_attribute("subscriber.id", subscriber_id)
+            span.set_attribute("update_frequency_hz", request.update_frequency_hz or 60)
+
+            logger.info(f"New gameplay data subscriber: {subscriber_id}")
+
+            try:
+                frequency = request.update_frequency_hz or 60
+                interval = 1.0 / frequency
+
+                while not context.cancelled():
+                    try:
+                        # Build gameplay data for all controllers
+                        gameplay_data = []
+                        for serial, info in self.tracked_controllers.items():
+                            # Get full controller state
+                            full_state = self._build_or_get_cached_state(serial, info)
+
+                            # Convert to GameplayData (no buttons)
+                            gd = controller_manager_pb2.GameplayData(
+                                serial=full_state.serial,
+                                move_num=full_state.move_num,
+                                battery=full_state.battery,
+                                ready=full_state.ready,
+                                team=full_state.team,
+                                color=full_state.color,
+                                accel=full_state.accel,
+                                gyro=full_state.gyro
+                            )
+                            gameplay_data.append(gd)
+
+                        # Send update
+                        update = controller_manager_pb2.GameplayDataUpdate(
+                            controllers=gameplay_data,
+                            timestamp=int(time.time() * 1000)
+                        )
+                        yield update
+
+                        await asyncio.sleep(interval)
+
+                    except Exception as e:
+                        logger.error(f"Gameplay stream error for {subscriber_id}: {e}")
+                        break
+
+            finally:
+                logger.info(f"Gameplay data subscriber disconnected: {subscriber_id}")
 
     def PairController(self, request, context):
         """Pair a new controller."""
@@ -850,7 +955,107 @@ class ControllerManagerServicer(
         self.vector3_pool.return_msg(accel_vec)
         self.vector3_pool.return_msg(gyro_vec)
 
+        # Phase 41: Detect button transitions and publish events
+        self._detect_button_transitions(
+            serial,
+            info,
+            trigger_pressed,
+            move_pressed,
+            cross_pressed,
+            circle_pressed,
+            square_pressed,
+            triangle_pressed,
+            ps_pressed
+        )
+
         return controller_state
+
+    def _detect_button_transitions(
+        self,
+        serial: str,
+        info: dict,
+        trigger: bool,
+        move: bool,
+        cross: bool,
+        circle: bool,
+        square: bool,
+        triangle: bool,
+        ps: bool
+    ):
+        """
+        Detect button press/release transitions and publish button events (Phase 41).
+
+        Args:
+            serial: Controller serial number
+            info: Controller info dict (for battery, color)
+            trigger, move, cross, circle, square, triangle, ps: Current button states
+        """
+        # Initialize button state tracking for this controller if needed
+        if serial not in self.button_states:
+            self.button_states[serial] = {
+                "trigger": False,
+                "move": False,
+                "cross": False,
+                "circle": False,
+                "square": False,
+                "triangle": False,
+                "ps": False
+            }
+
+        prev_states = self.button_states[serial]
+        current_states = {
+            "trigger": trigger,
+            "move": move,
+            "cross": cross,
+            "circle": circle,
+            "square": square,
+            "triangle": triangle,
+            "ps": ps
+        }
+
+        # Map button names to ButtonType enum
+        button_type_map = {
+            "trigger": controller_manager_pb2.BUTTON_TRIGGER,
+            "move": controller_manager_pb2.BUTTON_MOVE,
+            "cross": controller_manager_pb2.BUTTON_CROSS,
+            "circle": controller_manager_pb2.BUTTON_CIRCLE,
+            "square": controller_manager_pb2.BUTTON_SQUARE,
+            "triangle": controller_manager_pb2.BUTTON_TRIANGLE,
+            "ps": controller_manager_pb2.BUTTON_PS
+        }
+
+        # Detect transitions and create events
+        events = []
+        for button_name, current_pressed in current_states.items():
+            prev_pressed = prev_states[button_name]
+
+            if current_pressed != prev_pressed:
+                # State changed - create event
+                action = controller_manager_pb2.ACTION_PRESS if current_pressed else controller_manager_pb2.ACTION_RELEASE
+                button_type = button_type_map[button_name]
+
+                event = controller_manager_pb2.ButtonEvent(
+                    serial=serial,
+                    timestamp=int(time.time() * 1000),
+                    button=button_type,
+                    action=action,
+                    battery=info.get("battery", 0),
+                    color=controller_manager_pb2.RGB(r=0, g=0, b=255)  # Default color, could get from info
+                )
+                events.append(event)
+
+                # Update tracked state
+                prev_states[button_name] = current_pressed
+
+        # Publish events to all subscribers
+        if events:
+            with self.button_event_lock:
+                for subscriber_queue in self.button_event_subscribers.values():
+                    for event in events:
+                        try:
+                            subscriber_queue.put_nowait(event)
+                        except queue.Full:
+                            logger.warning(f"Button event queue full for subscriber")
 
     def shutdown(self):
         """Shutdown the controller manager."""

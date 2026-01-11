@@ -14,7 +14,14 @@ service ControllerManagerService {
   rpc GetControllers(GetControllersRequest) returns (GetControllersResponse);
 
   // Stream controller states (real-time updates)
+  // DEPRECATED: Use StreamButtonEvents for menu/UI and StreamGameplayData for games
   rpc StreamControllerStates(StreamRequest) returns (stream ControllerStateUpdate);
+
+  // Stream button press/release events (Phase 41 - event-driven for menu/UI)
+  rpc StreamButtonEvents(ButtonEventStreamRequest) returns (stream ButtonEvent);
+
+  // Stream gameplay data (acceleration/gyro only, Phase 41 - for game modes)
+  rpc StreamGameplayData(GameplayStreamRequest) returns (stream GameplayDataUpdate);
 
   // Pair a new controller
   rpc PairController(PairControllerRequest) returns (PairControllerResponse);
@@ -163,4 +170,56 @@ message PlayControllerEffectRequest {
 message PlayControllerEffectResponse {
   bool success = 1;
   string error = 2;
+}
+
+// Phase 41: Button event streaming (event-driven for menu/UI)
+enum ButtonType {
+  BUTTON_TRIGGER = 0;
+  BUTTON_MOVE = 1;
+  BUTTON_CROSS = 2;
+  BUTTON_CIRCLE = 3;
+  BUTTON_SQUARE = 4;
+  BUTTON_TRIANGLE = 5;
+  BUTTON_PS = 6;
+}
+
+enum ButtonAction {
+  ACTION_PRESS = 0;    // Button transitioned from released to pressed
+  ACTION_RELEASE = 1;  // Button transitioned from pressed to released
+}
+
+message ButtonEvent {
+  string serial = 1;
+  int64 timestamp = 2;     // Unix timestamp in milliseconds
+  ButtonType button = 3;   // Which button
+  ButtonAction action = 4; // Press or release
+  int32 battery = 5;       // Battery level at time of event
+  RGB color = 6;           // Current controller color
+}
+
+message ButtonEventStreamRequest {
+  // Empty - all button events are streamed
+  // Could add filter options in future (e.g., specific buttons, controllers)
+}
+
+// Phase 41: Gameplay data streaming (acceleration/gyro only, no buttons)
+message GameplayData {
+  string serial = 1;
+  int32 move_num = 2;
+  int32 battery = 3;
+  bool ready = 4;
+  int32 team = 5;
+  RGB color = 6;
+  Vector3 accel = 7;  // Primary gameplay data
+  Vector3 gyro = 8;   // Secondary gameplay data
+  // NO button states - use StreamButtonEvents if buttons are needed
+}
+
+message GameplayDataUpdate {
+  repeated GameplayData controllers = 1;
+  int64 timestamp = 2;  // Unix timestamp in milliseconds
+}
+
+message GameplayStreamRequest {
+  int32 update_frequency_hz = 1;  // Desired update frequency (default: 60)
 }

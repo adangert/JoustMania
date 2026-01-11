@@ -8,47 +8,31 @@ Features:
 - Kill/death/streak tracking
 - Time-limited or manual stop
 
-This is Phase 22 - endless action gameplay mode.
+Phase 36b: Refactored to extend BaseGameMode, eliminating ~450 lines of duplicate code.
 """
 
 import asyncio
 import logging
 import math
 import time
-from collections.abc import Callable
 from dataclasses import dataclass
-from enum import Enum
 
 from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
+
+from services.game_coordinator.games.base import BaseGameMode, Player
 
 tracer = trace.get_tracer(__name__)
 logger = logging.getLogger(__name__)
 
 # Game constants
 UPDATE_FREQUENCY = 60  # Hz - game tick frequency
-COUNTDOWN_DURATION = 3  # seconds
 RESPAWN_DURATION = 3.0  # seconds to respawn
 SPAWN_PROTECTION_DURATION = 2.0  # seconds of invulnerability after spawn
 
 
-# Sensitivity thresholds
-class Sensitivity(Enum):
-    SLOW = (1.3, 1.5)  # (warning_threshold, death_threshold)
-    MEDIUM = (1.6, 1.8)
-    FAST = (1.9, 2.8)
-
-
 @dataclass
-class NonstopPlayer:
-    """Represents a player in Nonstop Joust."""
-
-    serial: str
-    team: int = 0
-    alive: bool = True
-    color: tuple = (255, 255, 255)
-    last_accel_mag: float = 0.0
-    span: trace.Span | None = None
+class NonstopPlayer(Player):
+    """Represents a player in Nonstop Joust with scoring and respawn state."""
 
     # Scoring (Phase 22)
     kills: int = 0
@@ -63,29 +47,31 @@ class NonstopPlayer:
     spawn_protection_end: float = 0.0
 
 
-class GameState(Enum):
-    """Game lifecycle states."""
-
-    IDLE = "idle"
-    STARTING = "starting"
-    RUNNING = "running"
-    ENDING = "ending"
-    ENDED = "ended"
-
-
-class NonstopJoustGame:
+class NonstopJoustGame(BaseGameMode):
     """
     Nonstop Joust game mode - endless respawn with scoring.
 
     Players compete for highest score in time-limited or endless matches.
     Features respawn mechanics, spawn protection, and kill tracking.
+
+    Phase 36b: Extends BaseGameMode to inherit:
+    - Span orchestration (run() template method)
+    - Common game operations (_load_settings, _countdown, _process_controller_state, etc.)
+    - Consistent OpenTelemetry span hierarchy
+
+    Implements Nonstop-specific behavior:
+    - NonstopPlayer with scoring fields (kills, deaths, score, streaks)
+    - Time-based win condition (time_limit setting)
+    - Respawn mechanics (players don't stay dead)
+    - Spawn protection (2 seconds after respawn)
+    - Player spans stay open (death events only, no span end)
     """
 
     def __init__(
         self,
         controller_manager_client,
         settings_client,
-        event_publisher: Callable,
+        event_publisher,
         game_id: str = "",
     ):
         """
@@ -97,263 +83,82 @@ class NonstopJoustGame:
             event_publisher: Callback function to publish game events
             game_id: Unique identifier for this game instance
         """
-        self.controller_client = controller_manager_client
-        self.settings_client = settings_client
-        self.event_publisher = event_publisher
-        self.game_id = game_id or f"nonstop_{int(time.time())}"
+        super().__init__(
+            controller_manager_client=controller_manager_client,
+            settings_client=settings_client,
+            event_publisher=event_publisher,
+            game_id=game_id,
+        )
 
-        # Game state
-        self.state = GameState.IDLE
-        self.players: dict[str, NonstopPlayer] = {}
-        self.start_time = None
-        self.running = False
-
-        # Settings
-        self.sensitivity = Sensitivity.MEDIUM
-        self.play_audio = True
+        # Nonstop-specific settings
         self.time_limit = 0  # 0 = unlimited, otherwise seconds
+        self.players: dict[str, NonstopPlayer] = {}  # Override type hint
 
-        logger.info(f"Nonstop Joust game initialized: {self.game_id}")
-
-    async def run(self, game_context=None):
-        """Run the Nonstop Joust game.
-
-        Args:
-            game_context: Parent game_session span context for proper hierarchy
-        """
-        try:
-            logger.info(f"Starting Nonstop Joust game: {self.game_id}")
-            self.state = GameState.STARTING
-            self.running = True
-
-            # Initialization phase (load settings + initialize players)
-            with tracer.start_as_current_span("initialization_phase", context=game_context) as init_span:
-                init_span.set_attribute("game.id", self.game_id)
-                init_span.set_attribute("game.mode", "NonstopJoust")
-
-                # Load settings
-                await self._load_settings()
-
-                # Add settings to init span
-                init_span.set_attribute("game.time_limit", self.time_limit)
-                init_span.set_attribute("game.sensitivity", self.sensitivity.name)
-                init_span.set_attribute("game.play_audio", self.play_audio)
-
-                # Initialize players
-                await self._initialize_players()
-
-                if not self.players:
-                    raise RuntimeError("No players available to start game")
-
-                init_span.set_attribute("player_count", len(self.players))
-
-            # Countdown phase
-            with tracer.start_as_current_span("countdown_phase", context=game_context):
-                await self._countdown()
-
-            # Start game loop
-            self.state = GameState.RUNNING
-            self.start_time = time.time()
-
-            self.event_publisher(
-                "game_started",
-                {
-                    "game_id": self.game_id,
-                    "game_mode": "NonstopJoust",
-                    "player_count": len(self.players),
-                },
-            )
-
-            logger.info("Nonstop Joust game loop starting...")
-
-            # Gameplay phase (main game loop)
-            with tracer.start_as_current_span("gameplay_phase", context=game_context):
-                await self._game_loop()
-
-            # Teardown phase (end game)
-            with tracer.start_as_current_span("teardown_phase", context=game_context):
-                await self._end_game()
-
-        except Exception as e:
-            logger.error(f"Nonstop Joust game error: {e}", exc_info=True)
-            self.state = GameState.ENDED
-            self.event_publisher("game_error", {"game_id": self.game_id, "error": str(e)})
-            raise
-
-        finally:
-            self.running = False
-            self.state = GameState.ENDED
-            logger.info(f"Nonstop Joust game ended: {self.game_id}")
-
-    async def stop(self):
-        """Stop the game (force end)."""
-        logger.info(f"Force stopping Nonstop Joust game: {self.game_id}")
-        self.running = False
+    def get_game_name(self) -> str:
+        """Return game mode identifier."""
+        return "Nonstop Joust"
 
     async def _load_settings(self):
-        """Fetch game settings from Settings service."""
-        try:
-            from proto import settings_pb2
+        """Load settings with Nonstop-specific time_limit."""
+        # Call parent to load base settings (sensitivity, play_audio)
+        await super()._load_settings()
 
-            response = await self.settings_client.GetSettings(settings_pb2.GetSettingsRequest())
+        # Parse Nonstop-specific time limit (0 = unlimited)
+        self.time_limit = int(self.settings.get("nonstop_time_limit", "0"))
+        logger.info(f"Loaded Nonstop settings: time_limit={self.time_limit}s")
 
-            if response.success:
-                settings = response.settings
-                logger.info(f"Loaded settings: {len(settings)} keys")
+    async def _initialize_players_impl(self, controllers: list):
+        """
+        Initialize players using NonstopPlayer with scoring fields.
 
-                # Parse sensitivity
-                sens_str = settings.get("sensitivity", "MEDIUM").upper()
-                if sens_str in Sensitivity.__members__:
-                    self.sensitivity = Sensitivity[sens_str]
-
-                # Parse audio setting
-                self.play_audio = settings.get("play_audio", "true").lower() == "true"
-
-                # Parse time limit (0 = unlimited)
-                self.time_limit = int(settings.get("nonstop_time_limit", "0"))
-
-            else:
-                logger.warning(f"Failed to load settings: {response.error}")
-
-        except Exception as e:
-            logger.error(f"Error loading settings: {e}", exc_info=True)
-
-    async def _initialize_players(self):
-        """Get initial controller states and create player objects."""
-        try:
-            from proto import controller_manager_pb2
-
-            response = await self.controller_client.GetReadyControllers(
-                controller_manager_pb2.GetReadyControllersRequest()
+        Args:
+            controllers: List of controller protobuf messages from GetReadyControllers
+        """
+        for controller in controllers:
+            player = NonstopPlayer(
+                serial=controller.serial, team=0, alive=True, color=(255, 255, 255)
             )
+            self.players[controller.serial] = player
+            logger.debug(f"Added player: {controller.serial}")
 
-            if response.success:
-                for controller in response.controllers:
-                    player = NonstopPlayer(
-                        serial=controller.serial, team=0, alive=True, color=(255, 255, 255)
-                    )
-                    self.players[controller.serial] = player
-                    logger.debug(f"Added player: {controller.serial}")
+    def _create_player_spans(self, game_context):
+        """
+        Create flat player lifecycle spans (stay open for entire game).
 
-                logger.info(f"Initialized {len(self.players)} players")
+        Nonstop Joust spans don't end on death - players respawn.
 
-                self.event_publisher(
-                    "players_initialized",
-                    {"player_count": len(self.players), "serials": list(self.players.keys())},
-                )
+        Args:
+            game_context: Parent span context for proper hierarchy
+        """
+        for serial, player in self.players.items():
+            player.span = self._create_player_lifecycle_span(serial, game_context)
+            logger.debug(f"Started lifecycle span for player {serial} (stays open)")
 
-            else:
-                logger.error(f"Failed to get controllers: {response.error}")
-                raise RuntimeError(f"Failed to get controllers: {response.error}")
+    def _check_win_condition(self) -> bool:
+        """
+        Check if time limit has been reached.
 
-        except Exception as e:
-            logger.error(f"Error initializing players: {e}", exc_info=True)
-            raise
+        Returns:
+            True if game should end (time limit reached), False otherwise
+        """
+        if self.time_limit == 0:
+            return False  # Unlimited mode
 
-    async def _countdown(self):
-        """Run countdown before game starts."""
-        from proto import controller_manager_pb2
+        if not self.start_time:
+            return False
 
-        logger.info("Starting countdown...")
-        self.event_publisher("countdown_start", {"duration": COUNTDOWN_DURATION})
+        elapsed = time.time() - self.start_time
+        if elapsed >= self.time_limit:
+            logger.info(f"Time limit reached: {elapsed:.1f}s / {self.time_limit}s")
+            return True
 
-        # Countdown colors: Red -> Yellow -> Green
-        countdown_colors = [
-            (255, 0, 0),  # Red (3 seconds)
-            (255, 255, 0),  # Yellow (2 seconds)
-            (0, 255, 0),  # Green (1 second)
-        ]
-
-        for i, (r, g, b) in enumerate(countdown_colors):
-            if not self.running:
-                logger.info("Countdown interrupted by force_end")
-                return
-
-            # Set color on all controllers
-            color_request = controller_manager_pb2.SetControllerColorRequest(
-                serial="",  # Empty = all controllers
-                color=controller_manager_pb2.RGB(r=r, g=g, b=b),
-                duration_ms=0,
-            )
-            await self.controller_client.SetControllerColor(color_request)
-
-            # Wait 1 second
-            for _ in range(10):
-                if not self.running:
-                    logger.info("Countdown interrupted by force_end")
-                    return
-                await asyncio.sleep(0.1)
-
-        self.event_publisher("countdown_end", {})
-        logger.info("Countdown complete")
-
-    async def _game_loop(self):
-        """Main game loop - processes controller states, respawns, and checks victory."""
-        logger.info("Starting game loop...")
-
-        try:
-            from proto import controller_manager_pb2
-
-            # Start per-player lifecycle spans
-            for serial, player in self.players.items():
-                player_span = tracer.start_span(
-                    f"player_{serial}_lifecycle",
-                    attributes={"player.serial": serial, "game.mode": "NonstopJoust"},
-                )
-                player.span = player_span
-                logger.debug(f"Started lifecycle span for player {serial}")
-
-            # Start streaming controller states
-            stream_request = controller_manager_pb2.StreamRequest(
-                update_frequency_hz=UPDATE_FREQUENCY
-            )
-
-
-            # Track game progress for periodic telemetry
-            last_progress_event = time.time()
-            game_tick = 0
-
-            # Stream controller states and process game logic
-            async for state_update in self.controller_client.StreamControllerStates(
-                stream_request
-            ):
-                if not self.running:
-                    break
-
-                game_tick += 1
-
-                # Process each controller's state
-                for controller_state in state_update.controllers:
-                    await self._process_controller_state(controller_state)
-
-                # Update respawn timers
-                await self._update_respawn_timers()
-
-                # Periodic progress events (every 30 seconds)
-                current_time = time.time()
-                if current_time - last_progress_event >= 30.0:
-                    total_deaths = sum(p.deaths for p in self.players.values())
-                    total_respawns = sum(
-                        1 for p in self.players.values() if p.respawn_timer > 0
-                    )
-                    alive_count = sum(1 for p in self.players.values() if p.alive)
-
-                    last_progress_event = current_time
-
-                # Check time limit
-                if self._check_time_limit():
-                    break
-
-                # Small sleep to maintain tick rate
-                await asyncio.sleep(1.0 / UPDATE_FREQUENCY)
-
-        except Exception as e:
-            logger.error(f"Game loop error: {e}", exc_info=True)
-            raise
+        return False
 
     async def _process_controller_state(self, controller_state):
         """
-        Process a single controller's state and check for death.
+        Process controller state with spawn protection check.
+
+        Override parent to skip death checks during spawn protection.
 
         Args:
             controller_state: ControllerState protobuf message
@@ -368,88 +173,34 @@ class NonstopJoustGame:
         if not player.alive:
             return  # Dead player, ignore
 
-        # Calculate acceleration magnitude
-        accel = controller_state.accel
-        accel_mag = math.sqrt(accel.x**2 + accel.y**2 + accel.z**2)
-
-        player.last_accel_mag = accel_mag
-
-        # Skip death checks during spawn protection
+        # Skip death checks during spawn protection (Nonstop-specific)
         if player.spawn_protected:
             return
 
-        # Get thresholds
-        warn_threshold, death_threshold = self.sensitivity.value
+        # Call parent for standard acceleration processing
+        await super()._process_controller_state(controller_state)
 
-        # Check for death
-        if accel_mag > death_threshold:
-            await self._kill_player(serial, accel_mag)
-
-        # Check for warning (flash controller)
-        elif accel_mag > warn_threshold:
-            await self._warn_player(serial, accel_mag)
-
-    async def _warn_player(self, serial: str, accel_mag: float):
+    async def _kill_player_impl(self, serial: str, accel_mag: float):
         """
-        Warn a player that they're moving too much.
+        Kill a player and start respawn timer (DON'T end span).
 
-        Args:
-            serial: Controller serial number
-            accel_mag: Acceleration magnitude that triggered warning
-        """
-        from proto import controller_manager_pb2
-
-        player = self.players.get(serial)
-        if not player or not player.alive:
-            return
-
-        # Add warning event to player's lifecycle span
-        if player.span:
-            player.span.add_event(
-                "death_warning",
-                attributes={"accel_magnitude": accel_mag, "threshold": self.sensitivity.value[0]},
-            )
-            logger.debug(f"Player {serial} triggered warning (accel: {accel_mag:.2f})")
-
-        # Flash controller LED (orange warning)
-        flash_request = controller_manager_pb2.SetControllerColorRequest(
-            serial=serial,
-            color=controller_manager_pb2.RGB(r=255, g=128, b=0),  # Orange
-            duration_ms=200,
-        )
-        await self.controller_client.SetControllerColor(flash_request)
-
-        # Vibrate controller briefly
-        vibrate_request = controller_manager_pb2.SetControllerVibrationRequest(
-            serial=serial, intensity=100, duration_ms=200
-        )
-        await self.controller_client.SetControllerVibration(vibrate_request)
-
-    async def _kill_player(self, serial: str, accel_mag: float):
-        """
-        Kill a player and start respawn timer.
+        Nonstop Joust players respawn, so their lifecycle spans stay open.
 
         Args:
             serial: Controller serial number
             accel_mag: Acceleration magnitude that caused death
         """
-        from proto import controller_manager_pb2
-
-        player = self.players.get(serial)
-        if not player or not player.alive:
-            return
-
+        player = self.players[serial]
         player.alive = False
         player.deaths += 1
         player.current_streak = 0
         player.respawn_timer = RESPAWN_DURATION
 
-
         logger.info(
             f"Player died: {serial} (kills: {player.kills}, deaths: {player.deaths}, score: {player.score})"
         )
 
-        # Add death event to player's lifecycle span
+        # Add death event to player's lifecycle span (DON'T end span)
         if player.span:
             player.span.add_event(
                 "player_death",
@@ -462,7 +213,7 @@ class NonstopJoustGame:
                 },
             )
 
-        # Publish death event
+        # Publish death event (unique to Nonstop)
         self.event_publisher(
             "player_death",
             {
@@ -474,22 +225,48 @@ class NonstopJoustGame:
             },
         )
 
-        # Set controller color to red (death indication)
-        death_color_request = controller_manager_pb2.SetControllerColorRequest(
-            serial=serial,
-            color=controller_manager_pb2.RGB(r=255, g=0, b=0),  # Red
-            duration_ms=0,
-        )
-        await self.controller_client.SetControllerColor(death_color_request)
+    async def _game_loop(self):
+        """Override game loop to add respawn timer updates."""
+        logger.info("Starting game loop with respawn mechanics...")
 
-        # Strong vibration on death
-        death_vibrate_request = controller_manager_pb2.SetControllerVibrationRequest(
-            serial=serial, intensity=255, duration_ms=500
-        )
-        await self.controller_client.SetControllerVibration(death_vibrate_request)
+        try:
+            from proto import controller_manager_pb2
+
+            # Create player spans
+            self._create_player_spans(trace.get_current_span().get_span_context())
+
+            # Start streaming gameplay data (Phase 41 - acceleration/gyro only, no buttons)
+            stream_request = controller_manager_pb2.GameplayStreamRequest(
+                update_frequency_hz=UPDATE_FREQUENCY
+            )
+
+            # Stream gameplay data and process game logic
+            async for gameplay_update in self.controller_client.StreamGameplayData(
+                stream_request
+            ):
+                if not self.running:
+                    break
+
+                # Process each controller's gameplay data
+                for gameplay_data in gameplay_update.controllers:
+                    await self._process_controller_state(gameplay_data)
+
+                # Update respawn timers (Nonstop-specific)
+                await self._update_respawn_timers()
+
+                # Check win condition (time limit)
+                if self._check_win_condition():
+                    break
+
+                # Small sleep to maintain tick rate
+                await asyncio.sleep(1.0 / UPDATE_FREQUENCY)
+
+        except Exception as e:
+            logger.error(f"Game loop error: {e}", exc_info=True)
+            raise
 
     async def _update_respawn_timers(self):
-        """Update respawn timers and respawn players."""
+        """Update respawn timers and respawn players (Nonstop-specific)."""
         from proto import controller_manager_pb2
 
         current_time = time.time()
@@ -519,7 +296,7 @@ class NonstopJoustGame:
 
     async def _show_respawn_countdown(self, serial: str, time_remaining: float):
         """
-        Show respawn countdown colors.
+        Show respawn countdown colors (Nonstop-specific).
 
         Args:
             serial: Controller serial number
@@ -548,7 +325,7 @@ class NonstopJoustGame:
 
     async def _respawn_player(self, serial: str):
         """
-        Respawn a dead player.
+        Respawn a dead player (Nonstop-specific).
 
         Args:
             serial: Controller serial number
@@ -560,7 +337,6 @@ class NonstopJoustGame:
         player.spawn_protected = True
         player.spawn_protection_end = time.time() + SPAWN_PROTECTION_DURATION
 
-
         # Add respawn event to player's lifecycle span
         if player.span:
             player.span.add_event(
@@ -570,8 +346,7 @@ class NonstopJoustGame:
 
         logger.info(f"Player respawned: {serial} (spawn protection active)")
 
-        # White pulsing glow during spawn protection
-        # For now, just set white - can implement pulse effect later
+        # White color during spawn protection
         protection_color_request = controller_manager_pb2.SetControllerColorRequest(
             serial=serial,
             color=controller_manager_pb2.RGB(r=255, g=255, b=255),  # White
@@ -590,29 +365,20 @@ class NonstopJoustGame:
             },
         )
 
-    def _check_time_limit(self) -> bool:
+    def _get_additional_phases(self) -> list:
         """
-        Check if time limit has been reached.
+        No additional phases for Nonstop Joust.
 
         Returns:
-            True if game should end, False otherwise
+            Empty list (no extra phases)
         """
-        if self.time_limit == 0:
-            return False  # Unlimited mode
+        return []
 
-        if not self.start_time:
-            return False
-
-        elapsed = time.time() - self.start_time
-        if elapsed >= self.time_limit:
-            logger.info(f"Time limit reached: {elapsed:.1f}s / {self.time_limit}s")
-            return True
-
-        return False
-
-    async def _end_game(self):
-        """Handle game ending - determine winner, cleanup."""
+    async def _end_game_impl(self):
+        """Handle game ending with scoring calculation."""
         from proto import controller_manager_pb2
+        from services.game_coordinator.games.base import GameState
+        from opentelemetry.trace import Status, StatusCode
 
         logger.info("Ending game...")
         self.state = GameState.ENDING
@@ -621,12 +387,6 @@ class NonstopJoustGame:
         # Score = 100 - (deaths * 10), minimum 0
         for player in self.players.values():
             player.score = max(0, 100 - (player.deaths * 10))
-
-        # Add final game statistics to span
-        total_deaths = sum(p.deaths for p in self.players.values())
-        avg_deaths = total_deaths / len(self.players) if self.players else 0
-        game_duration = time.time() - self.start_time if self.start_time else 0
-
 
         # Determine winner (highest score, tie-break by fewest deaths)
         winner = max(self.players.values(), key=lambda p: (p.score, -p.deaths), default=None)
@@ -653,32 +413,29 @@ class NonstopJoustGame:
                     "score": winner.score,
                     "kills": winner.kills,
                     "deaths": winner.deaths,
-                    "best_streak": winner.best_streak,
                 },
             )
 
-        # End spans for all players
+        # End all player lifecycle spans (they stayed open during respawns)
         for serial, player in self.players.items():
             if player.span:
                 player.span.add_event(
-                    "game_ended",
-                    attributes={
-                        "game_duration": time.time() - self.start_time
-                        if self.start_time
-                        else 0,
+                    "final_score",
+                    {
                         "score": player.score,
                         "kills": player.kills,
                         "deaths": player.deaths,
-                        "best_streak": player.best_streak,
-                        "winner": player == winner,
+                        "game_duration": time.time() - self.start_time
+                        if self.start_time
+                        else 0,
                     },
                 )
                 player.span.set_status(Status(StatusCode.OK))
                 player.span.end()
                 logger.debug(f"Ended lifecycle span for player {serial}")
 
-        # Show winner for a bit
-        for _ in range(30):  # 3 seconds in 0.1s increments
+        # Show winner for a bit (interruptible by force_end)
+        for _ in range(20):  # 2 seconds in 0.1s increments
             if not self.running:
                 logger.info("End game interrupted by force_end")
                 break
@@ -692,3 +449,5 @@ class NonstopJoustGame:
                 "duration": time.time() - self.start_time if self.start_time else 0,
             },
         )
+
+        logger.info("Game ended")

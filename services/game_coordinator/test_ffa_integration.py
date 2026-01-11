@@ -117,6 +117,59 @@ class MockControllerManagerService:
             # 60 FPS = ~16.67ms per frame
             await asyncio.sleep(1.0 / 60.0)
 
+    async def StreamGameplayData(self, request):
+        """
+        Mock StreamGameplayData RPC (Phase 41).
+
+        Simulates gameplay data updates with one controller dying after 2 seconds.
+        """
+        start_time = time.time()
+        frame = 0
+
+        # Simulate game for 5 seconds
+        while time.time() - start_time < 5.0:
+            frame += 1
+
+            # Update controller states
+            gameplay_data_list = []
+            for i, controller in enumerate(self.controllers):
+                # After 2 seconds, make controller 1 move violently (dies)
+                if time.time() - start_time > 2.0 and i == 1:
+                    controller.accel.x = 5.0  # High acceleration = death
+                    controller.accel.y = 3.0
+                    controller.accel.z = 4.0
+                # After 3 seconds, make controller 2 move violently (dies)
+                elif time.time() - start_time > 3.0 and i == 2:
+                    controller.accel.x = 6.0
+                    controller.accel.y = 4.0
+                    controller.accel.z = 3.0
+                else:
+                    # Normal idle state (small movements)
+                    controller.accel.x = 0.1
+                    controller.accel.y = 0.0
+                    controller.accel.z = 1.0
+
+                # Convert to GameplayData (no buttons)
+                gd = controller_manager_pb2.GameplayData(
+                    serial=controller.serial,
+                    move_num=int(controller.serial.split("_")[-1]),
+                    battery=controller.battery,
+                    ready=controller.ready,
+                    team=controller.team,
+                    color=controller.color,
+                    accel=controller.accel,
+                    gyro=controller.gyro
+                )
+                gameplay_data_list.append(gd)
+
+            # Yield gameplay data update
+            yield controller_manager_pb2.GameplayDataUpdate(
+                controllers=gameplay_data_list, timestamp=int(time.time() * 1000)
+            )
+
+            # 60 FPS = ~16.67ms per frame
+            await asyncio.sleep(1.0 / 60.0)
+
 
 class MockSettingsService:
     """Mock Settings gRPC service for testing."""

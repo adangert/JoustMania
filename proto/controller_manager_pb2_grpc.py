@@ -55,6 +55,16 @@ class ControllerManagerServiceStub(object):
                 request_serializer=controller__manager__pb2.StreamRequest.SerializeToString,
                 response_deserializer=controller__manager__pb2.ControllerStateUpdate.FromString,
                 _registered_method=True)
+        self.StreamButtonEvents = channel.unary_stream(
+                '/joustmania.controller_manager.ControllerManagerService/StreamButtonEvents',
+                request_serializer=controller__manager__pb2.ButtonEventStreamRequest.SerializeToString,
+                response_deserializer=controller__manager__pb2.ButtonEvent.FromString,
+                _registered_method=True)
+        self.StreamGameplayData = channel.unary_stream(
+                '/joustmania.controller_manager.ControllerManagerService/StreamGameplayData',
+                request_serializer=controller__manager__pb2.GameplayStreamRequest.SerializeToString,
+                response_deserializer=controller__manager__pb2.GameplayDataUpdate.FromString,
+                _registered_method=True)
         self.PairController = channel.unary_unary(
                 '/joustmania.controller_manager.ControllerManagerService/PairController',
                 request_serializer=controller__manager__pb2.PairControllerRequest.SerializeToString,
@@ -109,6 +119,21 @@ class ControllerManagerServiceServicer(object):
 
     def StreamControllerStates(self, request, context):
         """Stream controller states (real-time updates)
+        DEPRECATED: Use StreamButtonEvents for menu/UI and StreamGameplayData for games
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StreamButtonEvents(self, request, context):
+        """Stream button press/release events (Phase 41 - event-driven for menu/UI)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StreamGameplayData(self, request, context):
+        """Stream gameplay data (acceleration/gyro only, Phase 41 - for game modes)
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -172,6 +197,16 @@ def add_ControllerManagerServiceServicer_to_server(servicer, server):
                     servicer.StreamControllerStates,
                     request_deserializer=controller__manager__pb2.StreamRequest.FromString,
                     response_serializer=controller__manager__pb2.ControllerStateUpdate.SerializeToString,
+            ),
+            'StreamButtonEvents': grpc.unary_stream_rpc_method_handler(
+                    servicer.StreamButtonEvents,
+                    request_deserializer=controller__manager__pb2.ButtonEventStreamRequest.FromString,
+                    response_serializer=controller__manager__pb2.ButtonEvent.SerializeToString,
+            ),
+            'StreamGameplayData': grpc.unary_stream_rpc_method_handler(
+                    servicer.StreamGameplayData,
+                    request_deserializer=controller__manager__pb2.GameplayStreamRequest.FromString,
+                    response_serializer=controller__manager__pb2.GameplayDataUpdate.SerializeToString,
             ),
             'PairController': grpc.unary_unary_rpc_method_handler(
                     servicer.PairController,
@@ -308,6 +343,60 @@ class ControllerManagerService(object):
             '/joustmania.controller_manager.ControllerManagerService/StreamControllerStates',
             controller__manager__pb2.StreamRequest.SerializeToString,
             controller__manager__pb2.ControllerStateUpdate.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StreamButtonEvents(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/joustmania.controller_manager.ControllerManagerService/StreamButtonEvents',
+            controller__manager__pb2.ButtonEventStreamRequest.SerializeToString,
+            controller__manager__pb2.ButtonEvent.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StreamGameplayData(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/joustmania.controller_manager.ControllerManagerService/StreamGameplayData',
+            controller__manager__pb2.GameplayStreamRequest.SerializeToString,
+            controller__manager__pb2.GameplayDataUpdate.FromString,
             options,
             channel_credentials,
             insecure,

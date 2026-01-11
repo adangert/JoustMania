@@ -64,6 +64,9 @@ ENV OTEL_LOGS_EXPORTER=none
 # Expose gRPC port
 EXPOSE 50053
 
+# Expose Prometheus metrics port (Phase 38)
+EXPOSE 8000
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import grpc; channel = grpc.insecure_channel('localhost:50053'); channel.channel_ready()" || exit 1

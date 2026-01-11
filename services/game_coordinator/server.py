@@ -42,6 +42,11 @@ from proto import (
     settings_pb2_grpc,
 )
 
+# Prometheus metrics (Phase 38)
+from prometheus_client import start_http_server
+import psutil
+from services.game_coordinator import metrics
+
 # Modern game imports (gRPC-based)
 from services.game_coordinator.games import ffa, nonstop_joust, random_teams, teams
 
@@ -235,6 +240,11 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
             # Update state
             self.game_state = game_coordinator_pb2.GameState.STARTING
 
+            # Update metrics (Phase 38)
+            metrics.active_game.set(1)
+            metrics.games_started_total.labels(mode=self.game_name).inc()
+            metrics.active_players.set(len(self.players))
+
             # Publish game_start event
             self._publish_event(
                 "game_start",
@@ -414,6 +424,16 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 self.game_running = False
                 self.current_game = None
 
+                # Update metrics (Phase 38)
+                metrics.active_game.set(0)
+                metrics.active_players.set(0)
+                metrics.players_alive.set(0)
+                if self.game_name:
+                    metrics.games_completed_total.labels(mode=self.game_name).inc()
+                if self.game_start_time:
+                    duration = time.time() - self.game_start_time
+                    metrics.game_duration_seconds.set(duration)
+
                 # Close async gRPC channels
                 if self.controller_manager_channel:
                     await self.controller_manager_channel.close()
@@ -587,7 +607,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
             self.settings_channel.close()
 
 
-async def serve(port=50053):
+async def serve(port=50053, metrics_port=8000):
     """Start the GameCoordinator async gRPC server."""
     # Configure logging with environment variable support
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -595,6 +615,25 @@ async def serve(port=50053):
         level=getattr(logging, log_level, logging.INFO),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
+
+    # Start Prometheus metrics HTTP server (Phase 38)
+    start_http_server(metrics_port)
+    logger.info(f"Prometheus metrics available at http://0.0.0.0:{metrics_port}/metrics")
+
+    # Start system metrics collection task (Phase 38)
+    async def collect_system_metrics():
+        """Background task to collect system metrics every 10 seconds."""
+        process = psutil.Process()
+        while True:
+            try:
+                metrics.process_cpu_percent.set(process.cpu_percent(interval=None))
+                metrics.process_memory_mb.set(process.memory_info().rss / 1024 / 1024)
+                metrics.process_threads.set(process.num_threads())
+            except Exception as e:
+                logger.error(f"Error collecting system metrics: {e}")
+            await asyncio.sleep(10.0)
+
+    asyncio.create_task(collect_system_metrics())
 
     # Create async server
     server = grpc.aio.server()

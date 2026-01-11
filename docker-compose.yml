@@ -150,9 +150,10 @@ services:
       context: .
       dockerfile: services/game_coordinator/Dockerfile
     container_name: joustmania-game-coordinator
-    # Port 50053 exposed only within Docker network (no host binding)
+    # Ports exposed only within Docker network (no host binding)
     expose:
-      - "50053"
+      - "50053"  # gRPC service
+      - "8000"   # Prometheus metrics (Phase 38)
     environment:
       - OTEL_SERVICE_NAME=game-coordinator-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317

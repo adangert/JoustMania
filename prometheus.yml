@@ -1,0 +1,64 @@
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+  external_labels:
+    cluster: 'joustmania'
+    environment: 'production'
+
+rule_files:
+  - 'prometheus-alerts.yml'
+
+scrape_configs:
+  # Controller Manager
+  - job_name: 'controller-manager'
+    static_configs:
+      - targets: ['controller-manager:8000']
+        labels:
+          service: 'controller-manager'
+
+  # Game Coordinator
+  - job_name: 'game-coordinator'
+    static_configs:
+      - targets: ['game-coordinator:8000']
+        labels:
+          service: 'game-coordinator'
+
+  # Menu Service
+  - job_name: 'menu'
+    static_configs:
+      - targets: ['menu:8000']
+        labels:
+          service: 'menu'
+
+  # Settings Service
+  - job_name: 'settings'
+    static_configs:
+      - targets: ['settings:8000']
+        labels:
+          service: 'settings'
+
+  # Supervisor Service
+  - job_name: 'supervisor'
+    static_configs:
+      - targets: ['supervisor:8000']
+        labels:
+          service: 'supervisor'
+
+  # WebUI Service
+  - job_name: 'webui'
+    static_configs:
+      - targets: ['webui:8000']
+        labels:
+          service: 'webui'
+
+  # Audio Service
+  - job_name: 'audio'
+    static_configs:
+      - targets: ['audio:8000']
+        labels:
+          service: 'audio'
+
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

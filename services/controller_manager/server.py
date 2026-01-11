@@ -104,6 +104,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         self.stream_subscribers: dict[str, queue.Queue] = {}
         self.stream_lock = threading.Lock()
 
+        # Delta update tracking (Phase 26 - Part 3)
+        # Store last sent state per subscriber per controller
+        # Format: {subscriber_id: {serial: ControllerState}}
+        self.last_sent_states: dict[str, dict[str, any]] = {}
+
         # Discovery thread
         self.running = True
         self.discovery_thread = threading.Thread(target=self._discovery_loop, daemon=True)
@@ -284,6 +289,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
             with self.stream_lock:
                 self.stream_subscribers[subscriber_id] = event_queue
+                # Initialize delta tracking for this subscriber
+                self.last_sent_states[subscriber_id] = {}
 
             logger.info(f"New stream subscriber: {subscriber_id}")
 
@@ -293,16 +300,26 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                 while not context.cancelled():
                     try:
-                        # Build current state
-                        controllers = [
-                            self._build_controller_state_message(serial, info)
+                        # Build current state for all controllers
+                        current_states = {
+                            serial: self._build_controller_state_message(serial, info)
                             for serial, info in self.tracked_controllers.items()
-                        ]
+                        }
 
+                        # Delta update: only include controllers that changed (Phase 26 - Part 3)
+                        changed_controllers = []
+                        for serial, current_state in current_states.items():
+                            current_hash = self._controller_state_hash(current_state)
+                            last_hash = self.last_sent_states[subscriber_id].get(serial)
+
+                            if current_hash != last_hash:
+                                changed_controllers.append(current_state)
+                                self.last_sent_states[subscriber_id][serial] = current_hash
+
+                        # Send update (empty if nothing changed, keeps stream alive)
                         update = controller_manager_pb2.ControllerStateUpdate(
-                            controllers=controllers, timestamp=int(time.time() * 1000)
+                            controllers=changed_controllers, timestamp=int(time.time() * 1000)
                         )
-
                         yield update
 
                         # CRITICAL FIX: Use async sleep instead of blocking time.sleep()
@@ -317,6 +334,9 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 with self.stream_lock:
                     if subscriber_id in self.stream_subscribers:
                         del self.stream_subscribers[subscriber_id]
+                    # Clean up delta tracking
+                    if subscriber_id in self.last_sent_states:
+                        del self.last_sent_states[subscriber_id]
 
                 logger.info(f"Stream subscriber disconnected: {subscriber_id}")
 
@@ -520,6 +540,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 return controller_manager_pb2.PlayControllerEffectResponse(
                     success=False, error=str(e)
                 )
+
+    def _controller_state_hash(self, state: controller_manager_pb2.ControllerState) -> str:
+        """Create a hash of controller state for delta comparison (Phase 26 - Part 3)."""
+        # Simple hash based on key fields that change during gameplay
+        return f"{state.battery}|{state.trigger_pressed}|{state.move_pressed}|{state.ready}|{state.team}|{state.color.r},{state.color.g},{state.color.b}"
 
     def _build_controller_state_message(
         self, serial: str, info: dict

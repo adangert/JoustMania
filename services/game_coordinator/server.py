@@ -267,9 +267,14 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
     async def _run_game_loop_async(self):
         """Run the async game loop."""
-        with tracer.start_as_current_span("game_loop") as span:
-            span.set_attribute("game.name", self.game_name)
-            span.set_attribute("game.id", self.game_id)
+        # Create parent game_session span that covers entire game lifecycle
+        with tracer.start_as_current_span("game_session") as game_span:
+            game_span.set_attribute("game.name", self.game_name)
+            game_span.set_attribute("game.id", self.game_id)
+            game_span.set_attribute("game.player_count", len(self.players))
+
+            # Store span context for child spans in game modes
+            game_context = trace.set_span_in_context(game_span)
 
             try:
                 # Check if gRPC clients are available
@@ -535,6 +540,13 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
         if self.game_thread and self.game_thread.is_alive():
             self.game_thread.join(timeout=5.0)
+
+        # Close gRPC channels (Phase 26 - Part 2)
+        logger.info("Closing gRPC channels...")
+        if hasattr(self, 'controller_manager_channel') and self.controller_manager_channel:
+            self.controller_manager_channel.close()
+        if hasattr(self, 'settings_channel') and self.settings_channel:
+            self.settings_channel.close()
 
 
 async def serve(port=50053):

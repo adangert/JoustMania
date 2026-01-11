@@ -145,7 +145,8 @@ services:
     environment:
       - OTEL_SERVICE_NAME=game-coordinator-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-      - CONTROLLER_MANAGER_SERVICE=mock-controller-manager:50052  # Point to mock
+      - CONTROLLER_MANAGER_HOST=mock-controller-manager  # Point to mock
+      - CONTROLLER_MANAGER_PORT=50052
     depends_on:
       otel-collector:
         condition: service_started
@@ -183,7 +184,8 @@ services:
     environment:
       - OTEL_SERVICE_NAME=menu-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-      - CONTROLLER_MANAGER_SERVICE=mock-controller-manager:50052  # Point to mock
+      - CONTROLLER_MANAGER_HOST=mock-controller-manager  # Point to mock
+      - CONTROLLER_MANAGER_PORT=50052
     depends_on:
       otel-collector:
         condition: service_started

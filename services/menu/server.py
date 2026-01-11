@@ -132,14 +132,22 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
         # Persistent gRPC channels (Phase 26 - Performance)
         # Create channels once and reuse throughout service lifecycle
+        # Use environment variables for service addresses (supports mock environment)
+        controller_host = os.getenv("CONTROLLER_MANAGER_HOST", "controller-manager")
+        controller_port = os.getenv("CONTROLLER_MANAGER_PORT", "50052")
+        settings_host = os.getenv("SETTINGS_HOST", "settings")
+        settings_port = os.getenv("SETTINGS_PORT", "50051")
+        game_coordinator_host = os.getenv("GAME_COORDINATOR_HOST", "game-coordinator")
+        game_coordinator_port = os.getenv("GAME_COORDINATOR_PORT", "50053")
+
         self.controller_channel = grpc.aio.insecure_channel(
-            "controller-manager:50052", options=self.channel_options
+            f"{controller_host}:{controller_port}", options=self.channel_options
         )
         self.settings_channel = grpc.aio.insecure_channel(
-            "settings:50051", options=self.channel_options
+            f"{settings_host}:{settings_port}", options=self.channel_options
         )
         self.game_coordinator_channel = grpc.aio.insecure_channel(
-            "game-coordinator:50053", options=self.channel_options
+            f"{game_coordinator_host}:{game_coordinator_port}", options=self.channel_options
         )
 
         logger.info("Menu service initialized with persistent gRPC channels")

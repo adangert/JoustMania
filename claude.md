@@ -1,6 +1,6 @@
 # Claude Session Continuity Guide
 
-**Last Updated:** 2026-01-11
+**Last Updated:** 2026-01-11 (Integration tests fixed, phase management workflow added)
 **Project:** JoustMania - Multi-player gaming system using PS Move controllers
 
 ---
@@ -538,11 +538,45 @@ for message in pubsub.listen():
 
 ---
 
+## Phase Management Workflow
+
+**Three-Stage Process:**
+```
+📋 planned/ → 🏗️ in-progress/ → ✅ completed/
+```
+
+**Before Starting Work on a Phase:**
+1. Check current status: `./scripts/planning/phase-status.sh`
+2. Move phase to in-progress: `./scripts/planning/phase-start.sh <number>`
+3. Update `planning/IMPLEMENTATION_STATUS.md` with 🏗️ In Progress status
+4. Review the phase tasks in `planning/phases/in-progress/phase-XX-name.md`
+
+**While Working:**
+- Phase file stays in `in-progress/` directory
+- Update task checkboxes as you complete them
+- Commit regularly with phase context in commit messages
+
+**When Complete:**
+1. Mark phase complete: `./scripts/planning/phase-complete.sh <number>`
+2. Update `planning/IMPLEMENTATION_STATUS.md` status to ✅ Complete
+3. Update `claude.md` Recent Achievements section if significant
+4. Create final commit documenting completion
+
+**Helper Scripts:**
+```bash
+./scripts/planning/phase-status.sh       # Show current status
+./scripts/planning/phase-start.sh 36     # Start Phase 36
+./scripts/planning/phase-complete.sh 36  # Mark Phase 36 complete
+```
+
+---
+
 ## Next Session Checklist
 
 When starting a new session:
 
 - [ ] Read this entire file
+- [ ] Check phase status: `./scripts/planning/phase-status.sh`
 - [ ] Check `planning/IMPLEMENTATION_STATUS.md` for latest status
 - [ ] Run `git status` to see current state
 - [ ] Run `git log --oneline -10` to see recent commits
@@ -552,15 +586,20 @@ When starting a new session:
 - [ ] Check Python version: `python3 --version` (should be 3.9-3.12)
 
 **Recent Achievements:**
-- Phase 25 (Type Safety & Code Quality) - COMPLETE
-- All services have health checks and proper error handling
-- Complete Astral tooling stack integrated (uv + ruff + ty)
+- Phase 35 (Logging Optimization) - COMPLETE ✅
+- Phase 28 (Admin Mode Completion) - COMPLETE ✅
+- Phase 26 (Performance Fixes Part 1/3) - COMPLETE ✅
+- Phase 25 (Type Safety & Code Quality) - COMPLETE ✅
+- Integration tests - ALL PASSING ✅ (7/7 tests)
+
+**Current Work:**
+- Check `./scripts/planning/phase-status.sh` for in-progress phases
 
 **Potential Next Tasks:**
-- Review planning/IMPLEMENTATION_STATUS.md for remaining phases
-- Consider additional game modes or features
-- Performance optimization based on Jaeger traces
-- Additional type hints for service implementations
+- Phase 36 (Span Hierarchy Rework) - HIGH priority, better observability
+- Phase 26 Part 2/3 (Finish performance fixes) - CRITICAL for RPi
+- Phase 18 (Game Loop Optimization) - HIGH priority, CPU reduction
+- Phase 27 (OpenTelemetry Optimization) - HIGH priority, overhead reduction
 
 ---
 

@@ -354,7 +354,8 @@ class BaseGameMode(ABC):
             from proto import controller_manager_pb2
 
             # Create player lifecycle spans (subclass-specific: flat vs hierarchical)
-            self._create_player_spans(trace.get_current_span().get_span_context())
+            # Pass None to use current active span context (we're inside gameplay_phase)
+            self._create_player_spans(None)
 
             # Start streaming gameplay data (Phase 41 - acceleration/gyro only, no buttons)
             stream_request = controller_manager_pb2.GameplayStreamRequest(
@@ -590,28 +591,41 @@ class BaseGameMode(ABC):
     # Helper Methods - Span creation utilities
     # ========================================================================
 
-    def _create_player_lifecycle_span(self, serial: str, context) -> trace.Span:
+    def _create_player_lifecycle_span(self, serial: str, context=None) -> trace.Span:
         """
         Create a player lifecycle span.
 
         Args:
             serial: Controller serial number
-            context: Parent span context
+            context: Parent span context (None to use current active span)
 
         Returns:
             Started span (caller is responsible for ending it)
         """
         player = self.players[serial]
-        span = tracer.start_span(
-            f"player_{serial}_lifecycle",
-            context=context,
-            attributes={
-                "player.serial": serial,
-                "player.team": player.team,
-                "player.color": str(player.color),
-                "game.mode": self.get_game_name(),
-            },
-        )
+
+        # If context is provided, use it; otherwise let tracer use current active span
+        if context is not None:
+            span = tracer.start_span(
+                f"player_{serial}_lifecycle",
+                context=context,
+                attributes={
+                    "player.serial": serial,
+                    "player.team": player.team,
+                    "player.color": str(player.color),
+                    "game.mode": self.get_game_name(),
+                },
+            )
+        else:
+            span = tracer.start_span(
+                f"player_{serial}_lifecycle",
+                attributes={
+                    "player.serial": serial,
+                    "player.team": player.team,
+                    "player.color": str(player.color),
+                    "game.mode": self.get_game_name(),
+                },
+            )
         return span
 
     async def _play_sound(self, sound_path: str, priority: int = 2):

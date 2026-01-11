@@ -233,8 +233,8 @@ class NonstopJoustGame(BaseGameMode):
         try:
             from proto import controller_manager_pb2
 
-            # Create player spans
-            self._create_player_spans(trace.get_current_span().get_span_context())
+            # Create player spans (pass None to use current active span context)
+            self._create_player_spans(None)
 
             # Start streaming gameplay data (Phase 41 - acceleration/gyro only, no buttons)
             stream_request = controller_manager_pb2.GameplayStreamRequest(

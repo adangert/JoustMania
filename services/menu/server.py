@@ -83,25 +83,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
     """
 
     def __init__(self):
-        """Initialize menu service."""
-        # gRPC channel options for better performance and reliability
-        channel_options = [
-            # Keep-alive settings to detect dead connections
-            ("grpc.keepalive_time_ms", 30000),  # Send keepalive ping every 30s
-            ("grpc.keepalive_timeout_ms", 5000),  # Wait 5s for keepalive ack
-            ("grpc.keepalive_permit_without_calls", True),  # Allow keepalive pings when no calls
-            ("grpc.http2.max_pings_without_data", 2),  # Allow 2 pings without data
-            # Connection and timeout settings
-            ("grpc.initial_reconnect_backoff_ms", 1000),  # 1s initial backoff
-            ("grpc.max_reconnect_backoff_ms", 5000),  # 5s max backoff
-            # Message size limits (10MB for large messages)
-            ("grpc.max_receive_message_length", 10 * 1024 * 1024),
-            ("grpc.max_send_message_length", 10 * 1024 * 1024),
-            # Compression (Phase 26 - Performance)
-            ("grpc.default_compression_algorithm", grpc.Compression.Gzip),
-            ("grpc.grpc.default_compression_level", grpc.Compression.Gzip),
-        ]
-
+        """Initialize menu service (Phase 33 - using shared gRPC utilities)."""
         self.state = menu_pb2.MenuState.STOPPED
         self.current_selection = "JoustFFA"
         self.ready_controller_count = 0
@@ -125,7 +107,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.connected_controllers: set[str] = set()  # All connected controllers
         self.controller_lobby_state: dict[str, str] = {}  # {serial: "connected"|"ready"|"admin"}
         self.last_lobby_feedback_update: dict[str, float] = {}  # {serial: timestamp}
-        self.channel_options = channel_options
 
         # Admin mode state (Phase 23)
         self.admin_mode_active = False
@@ -141,9 +122,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             (150, 0, 255),  # Purple for force_all_start
         ]
 
-        # Persistent gRPC channels (Phase 26 - Performance)
+        # Persistent gRPC channels (Phase 26 - Performance, Phase 33 - shared utilities)
         # Create channels once and reuse throughout service lifecycle
         # Use environment variables for service addresses (supports mock environment)
+        from common.grpc_utils import create_channel
+
         controller_host = os.getenv("CONTROLLER_MANAGER_HOST", "controller-manager")
         controller_port = os.getenv("CONTROLLER_MANAGER_PORT", "50052")
         settings_host = os.getenv("SETTINGS_HOST", "settings")
@@ -151,15 +134,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         game_coordinator_host = os.getenv("GAME_COORDINATOR_HOST", "game-coordinator")
         game_coordinator_port = os.getenv("GAME_COORDINATOR_PORT", "50053")
 
-        self.controller_channel = grpc.aio.insecure_channel(
-            f"{controller_host}:{controller_port}", options=self.channel_options
-        )
-        self.settings_channel = grpc.aio.insecure_channel(
-            f"{settings_host}:{settings_port}", options=self.channel_options
-        )
-        self.game_coordinator_channel = grpc.aio.insecure_channel(
-            f"{game_coordinator_host}:{game_coordinator_port}", options=self.channel_options
-        )
+        self.controller_channel = create_channel(f"{controller_host}:{controller_port}")
+        self.settings_channel = create_channel(f"{settings_host}:{settings_port}")
+        self.game_coordinator_channel = create_channel(f"{game_coordinator_host}:{game_coordinator_port}")
 
         logger.info("Menu service initialized with persistent gRPC channels")
 

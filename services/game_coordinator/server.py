@@ -154,54 +154,36 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         logger.info("GameCoordinator initialized")
 
     async def _init_grpc_clients_async(self):
-        """Initialize async gRPC clients in the game loop's event loop."""
-        # gRPC channel options for better performance and reliability
-        channel_options = [
-            # Keep-alive settings to detect dead connections
-            ("grpc.keepalive_time_ms", 30000),  # Send keepalive ping every 30s
-            ("grpc.keepalive_timeout_ms", 5000),  # Wait 5s for keepalive ack
-            ("grpc.keepalive_permit_without_calls", True),  # Allow keepalive pings when no calls
-            ("grpc.http2.max_pings_without_data", 2),  # Allow 2 pings without data
-            # Connection and timeout settings
-            ("grpc.initial_reconnect_backoff_ms", 1000),  # 1s initial backoff
-            ("grpc.max_reconnect_backoff_ms", 5000),  # 5s max backoff
-            # Message size limits (10MB for large controller state messages)
-            ("grpc.max_receive_message_length", 10 * 1024 * 1024),
-            ("grpc.max_send_message_length", 10 * 1024 * 1024),
-            # Compression (Phase 26 - Performance)
-            ("grpc.default_compression_algorithm", grpc.Compression.Gzip),
-            ("grpc.grpc.default_compression_level", grpc.Compression.Gzip),
-        ]
+        """Initialize async gRPC clients (Phase 33 - using shared gRPC utilities)."""
+        from common.grpc_utils import create_channel
 
         try:
             # ControllerManager client (async for streaming)
             controller_manager_address = (
                 f"{self.controller_manager_host}:{self.controller_manager_port}"
             )
-            self.controller_manager_channel = grpc.aio.insecure_channel(
-                controller_manager_address, options=channel_options
-            )
+            self.controller_manager_channel = create_channel(controller_manager_address)
             self.controller_manager_client = (
                 controller_manager_pb2_grpc.ControllerManagerServiceStub(
                     self.controller_manager_channel
                 )
             )
             logger.info(
-                f"Connected to ControllerManager at {controller_manager_address} (with channel options)"
+                f"Connected to ControllerManager at {controller_manager_address}"
             )
 
             # Settings client (async)
             settings_address = f"{self.settings_host}:{self.settings_port}"
-            self.settings_channel = grpc.aio.insecure_channel(settings_address, options=channel_options)
+            self.settings_channel = create_channel(settings_address)
             self.settings_client = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
-            logger.info(f"Connected to Settings at {settings_address} (with channel options)")
+            logger.info(f"Connected to Settings at {settings_address}")
 
             # Audio client (async) - Phase 29
             from proto import audio_pb2_grpc
             audio_address = f"{self.audio_host}:{self.audio_port}"
-            self.audio_channel = grpc.aio.insecure_channel(audio_address, options=channel_options)
+            self.audio_channel = create_channel(audio_address)
             self.audio_client = audio_pb2_grpc.AudioServiceStub(self.audio_channel)
-            logger.info(f"Connected to Audio at {audio_address} (with channel options)")
+            logger.info(f"Connected to Audio at {audio_address}")
 
         except Exception as e:
             logger.error(f"Failed to initialize gRPC clients: {e}")

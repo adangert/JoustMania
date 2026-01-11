@@ -268,7 +268,11 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
     async def _run_game_loop_async(self):
         """Run the async game loop."""
         # Create parent game_session span that covers entire game lifecycle
-        with tracer.start_as_current_span("game_session") as game_span:
+        # Include game name in span name for easy filtering in Jaeger
+        game_name_clean = self.game_name.lower().replace(" ", "_")
+        span_name = f"game_session_{game_name_clean}"
+
+        with tracer.start_as_current_span(span_name) as game_span:
             game_span.set_attribute("game.name", self.game_name)
             game_span.set_attribute("game.id", self.game_id)
             game_span.set_attribute("game.player_count", len(self.players))

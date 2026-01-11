@@ -26,7 +26,7 @@ from core.common import Games, Sensitivity
 logger = logging.getLogger(__name__)
 
 
-# Settings schema with validation rules
+# Settings schema with validation rules (Phase 32 - cleaned up)
 SETTINGS_SCHEMA = {
     "sensitivity": {
         "type": int,
@@ -35,68 +35,40 @@ SETTINGS_SCHEMA = {
         "default": Sensitivity.MID.value,
         "description": "Controller sensitivity (0=ultra slow, 4=ultra fast)",
     },
-    "play_instructions": {
+    "instructions": {
         "type": bool,
         "default": True,
         "description": "Play voice instructions before games",
     },
-    "random_modes": {
-        "type": list,
-        "default": ["JoustFFA", "JoustRandomTeams", "Werewolf", "Swapper"],
-        "description": "Game modes included in random selection",
-    },
-    "current_game": {
-        "type": str,
-        "default": "JoustFFA",
-        "description": "Currently selected game mode",
-    },
-    "play_audio": {
-        "type": bool,
-        "default": True,
-        "immutable": True,  # Cannot be changed
-        "description": "Enable audio playback",
-    },
-    "menu_voice": {
-        "type": str,
-        "allowed_values": ["ivy", "en", "es", "fr", "de"],
-        "default": "ivy",
-        "description": "Voice pack for menu announcements",
-    },
-    "move_can_be_admin": {
-        "type": bool,
-        "default": True,
-        "immutable": True,
-        "description": "Allow controllers to become admin",
-    },
-    "enforce_minimum": {
-        "type": bool,
-        "default": True,
-        "immutable": True,
-        "description": "Enforce minimum player requirements",
-    },
-    "red_on_kill": {"type": bool, "default": True, "description": "Flash red when killed"},
-    "random_teams": {"type": bool, "default": True, "description": "Randomize team assignments"},
-    "color_lock": {"type": bool, "default": False, "description": "Lock team colors"},
-    "random_team_size": {
+    "num_teams": {
         "type": int,
         "min": 2,
         "max": 6,
-        "default": 4,
-        "description": "Size of random teams",
+        "default": 2,
+        "description": "Number of teams for team-based games",
     },
     "force_all_start": {
         "type": bool,
         "default": False,
         "description": "Start game with all controllers (even not ready)",
     },
-    "color_lock_choices": {
-        "type": dict,
-        "default": {
-            2: ["Magenta", "Green"],
-            3: ["Orange", "Turquoise", "Purple"],
-            4: ["Yellow", "Green", "Blue", "Purple"],
-        },
-        "description": "Color choices for locked teams",
+    "nonstop_time_limit": {
+        "type": int,
+        "min": 0,
+        "max": 3600,
+        "default": 0,
+        "description": "Time limit in seconds for Nonstop Joust (0 = no limit)",
+    },
+    "random_modes": {
+        "type": list,
+        "default": ["JoustFFA", "JoustRandomTeams", "Werewolf", "Nonstop"],
+        "description": "Game modes included in random selection (for future Random game mode)",
+    },
+    "menu_voice": {
+        "type": str,
+        "allowed_values": ["ivy", "en", "es", "fr", "de"],
+        "default": "ivy",
+        "description": "Voice pack for menu announcements (for future multi-language support)",
     },
 }
 

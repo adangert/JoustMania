@@ -28,6 +28,7 @@ from wtforms import (
     BooleanField,
     FieldList,
     Form,
+    IntegerField,
     SelectField,
     SelectMultipleField,
     widgets,
@@ -95,12 +96,8 @@ class MultiCheckboxField(SelectMultipleField):
 
 
 class SettingsForm(Form):
-    move_can_be_admin = BooleanField("Allow Move to change settings")
-    play_instructions = BooleanField("Play instructions before game start")
-    play_audio = BooleanField("Play audio")
-    red_on_kill = SelectField(
-        "Kill notification", choices=[(True, "Red"), ("", "Dark")], coerce=bool
-    )
+    """Settings form with actively used settings (Phase 32 cleanup)."""
+
     sensitivity = SelectField(
         "Move sensitivity",
         choices=[
@@ -112,28 +109,34 @@ class SettingsForm(Form):
         ],
         coerce=int,
     )
-    mode_selection = SelectField(
-        "Mode selection",
-        choices=[game.pretty_name for game in Games],
-        coerce=str,
+    instructions = BooleanField("Play instructions before game start")
+    num_teams = SelectField(
+        "Number of teams",
+        choices=[(2, "2"), (3, "3"), (4, "4"), (5, "5"), (6, "6")],
+        coerce=int,
+    )
+    force_all_start = BooleanField(
+        "When force starting, start with all controllers (not just ready ones)"
+    )
+    nonstop_time_limit = IntegerField(
+        "Nonstop Joust time limit in seconds (0 = no limit)",
+        default=0,
     )
     mode_options = [game for game in Games if game not in [Games.Random, Games.JoustTeams]]
     random_modes = MultiCheckboxField(
-        "Random Modes", choices=[(game.name, game.pretty_name) for game in mode_options]
+        "Random Modes (for future Random game mode)",
+        choices=[(game.name, game.pretty_name) for game in mode_options]
     )
-    color_lock = BooleanField("Lock team colors")
-    color_choices = [(color.name, color.name) for color in colors.team_color_list]
-    color_lock_choices = FieldList(
-        SelectField("", choices=color_choices, coerce=str), min_entries=9
-    )
-    random_teams = BooleanField("Randomize teams each round")
-    force_all_start = BooleanField(
-        "When force starting start with all or only those who pushed trigger"
-    )
-    random_team_size = SelectField(
-        "size of random teams",
-        choices=[(2, "2"), (3, "3"), (4, "4"), (5, "5"), (6, "6")],
-        coerce=int,
+    menu_voice = SelectField(
+        "Menu voice pack (for future multi-language support)",
+        choices=[
+            ("ivy", "Ivy (English)"),
+            ("en", "English"),
+            ("es", "Spanish"),
+            ("fr", "French"),
+            ("de", "German"),
+        ],
+        coerce=str,
     )
 
 
@@ -420,7 +423,7 @@ class WebUI:
                 new_settings = SettingsForm(request.form).data
                 self.web_settings_update(new_settings)
                 return redirect(url_for("settings"))
-            # Get current settings from Settings service
+            # Get current settings from Settings service (Phase 32 - simplified)
             try:
                 req = settings_pb2.GetSettingsRequest()
                 response = self.grpc.settings_stub.GetSettings(req, timeout=2.0)
@@ -429,28 +432,22 @@ class WebUI:
                     # Convert settings map to dict
                     current_settings = dict(response.settings)
 
-                    # Parse color_lock_choices from settings
-                    # (assuming it's stored as a complex structure)
-                    temp_colors = current_settings.get(
-                        "color_lock_choices", {2: [], 3: [], 4: []}
-                    )
-                    if isinstance(temp_colors, str):
-                        # Parse from YAML string if stored that way
+                    # Parse random_modes from YAML if needed
+                    random_modes_value = current_settings.get("random_modes", "[]")
+                    if isinstance(random_modes_value, str):
                         import yaml
-
-                        temp_colors = yaml.safe_load(temp_colors)
-
-                    temp_colors_flat = (
-                        temp_colors.get(2, []) + temp_colors.get(3, []) + temp_colors.get(4, [])
-                    )
+                        random_modes_list = yaml.safe_load(random_modes_value)
+                    else:
+                        random_modes_list = random_modes_value
 
                     settingsForm = SettingsForm(
-                        sensitivity=int(current_settings.get("sensitivity", 1)),
-                        red_on_kill=current_settings.get("red_on_kill", "false") == "true",
-                        random_team_size=int(current_settings.get("random_team_size", 3)),
-                        force_all_start=current_settings.get("force_all_start", "false")
-                        == "true",
-                        color_lock_choices=temp_colors_flat,
+                        sensitivity=int(current_settings.get("sensitivity", 2)),
+                        instructions=current_settings.get("instructions", "true") == "true",
+                        num_teams=int(current_settings.get("num_teams", 2)),
+                        force_all_start=current_settings.get("force_all_start", "false") == "true",
+                        nonstop_time_limit=int(current_settings.get("nonstop_time_limit", 0)),
+                        random_modes=random_modes_list,
+                        menu_voice=current_settings.get("menu_voice", "ivy"),
                     )
 
                     span.set_attribute("settings.loaded", True)
@@ -466,37 +463,21 @@ class WebUI:
                 return render_template("settings.html", form=SettingsForm(), settings={})
 
     def web_settings_update(self, web_settings):
-        """Update settings via gRPC."""
+        """Update settings via gRPC (Phase 32 - simplified)."""
         with tracer.start_as_current_span("update_settings") as span:
-            colors_are_good = True
-
-            # Process color lock choices
-            temp_colors = {
-                2: web_settings["color_lock_choices"][0:2],
-                3: web_settings["color_lock_choices"][2:5],
-                4: web_settings["color_lock_choices"][5:9],
-            }
-
-            # Validate no duplicate colors
-            for key in temp_colors:
-                colorset = temp_colors[key]
-                if len(colorset) != len(set(colorset)):
-                    colors_are_good = False
-                    # Revert to previous colors (would need to fetch from service)
-                    break
-
-            # Prepare settings dict
-            temp_settings = web_settings.copy()
-            temp_settings["color_lock_choices"] = yaml.dump(temp_colors)
-
-            if temp_settings.get("random_modes") == []:
-                temp_settings["random_modes"] = [Games.JoustFFA.name]
-
             # Convert to string map for protobuf
             settings_map = {}
-            for key, value in temp_settings.items():
+            for key, value in web_settings.items():
+                # Skip csrf_token and other form metadata
+                if key.startswith("csrf"):
+                    continue
+
+                # Handle list values (like random_modes)
                 if isinstance(value, list):
-                    settings_map[key] = yaml.dump(value)
+                    if not value:  # Empty list
+                        settings_map[key] = yaml.dump(["JoustFFA"])  # Default to at least one mode
+                    else:
+                        settings_map[key] = yaml.dump(value)
                 else:
                     settings_map[key] = str(value)
 
@@ -507,10 +488,7 @@ class WebUI:
 
                 if response.success:
                     span.set_attribute("settings.updated", True)
-                    if colors_are_good:
-                        flash("Settings updated!")
-                    else:
-                        flash("Duplicate color lock colors! Other settings saved.")
+                    flash("Settings updated!")
                 else:
                     logger.error(f"UpdateSettings failed: {response.error}")
                     flash(f"Error updating settings: {response.error}")

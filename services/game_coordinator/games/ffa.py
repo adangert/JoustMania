@@ -348,11 +348,7 @@ class FFAGame:
             player.span.end()
             logger.debug(f"Ended lifecycle span for player {serial}")
 
-        # Publish death event
-        self.event_publisher(
-            "player_death",
-            {"serial": serial, "accel_magnitude": accel_mag, "alive_count": alive_count},
-        )
+        # No need to publish player_death event - span ending is enough
 
         # Set controller color to red (death indication)
         from proto import controller_manager_pb2
@@ -429,7 +425,6 @@ class FFAGame:
 
         # Show rainbow effect on winner's controller
         if winner_serial:
-            span.add_event("victory_celebration", {"winner_serial": winner_serial})
             rainbow_request = controller_manager_pb2.PlayControllerEffectRequest(
                 serial=winner_serial,
                 effect=controller_manager_pb2.EFFECT_RAINBOW,

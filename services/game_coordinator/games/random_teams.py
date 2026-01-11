@@ -487,18 +487,7 @@ class RandomTeamsGame:
             team.span.end()
             logger.info(f"Team {team.name} eliminated! Ended team lifecycle span")
 
-        # Publish death event
-        self.event_publisher(
-            "player_death",
-            {
-                "serial": serial,
-                "team": player.team,
-                "team_name": self.team_colors[player.team]["name"],
-                "accel_magnitude": accel_mag,
-                "alive_count": alive_count,
-                "alive_teams_count": len(alive_teams),
-            },
-        )
+        # No need to publish player_death event - span ending is enough
 
         # TODO: Set controller color to black/red
         # TODO: Play explosion sound

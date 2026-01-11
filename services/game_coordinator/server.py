@@ -194,70 +194,63 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
             self.settings_client = None
 
     def StartGame(self, request, context):
-        """Start a new game."""
-        with tracer.start_as_current_span("StartGame") as span:
-            span.set_attribute("game.name", request.game_name)
-            span.set_attribute("game.player_count", len(request.players))
-
-            try:
-                # Check if game already running
-                if self.game_state in [
-                    game_coordinator_pb2.GameState.STARTING,
-                    game_coordinator_pb2.GameState.RUNNING,
-                ]:
-                    return game_coordinator_pb2.StartGameResponse(
-                        success=False, error="Game already in progress", game_id=""
-                    )
-
-                # Validate player count
-                if len(request.players) < 2:
-                    return game_coordinator_pb2.StartGameResponse(
-                        success=False, error="Need at least 2 players", game_id=""
-                    )
-
-                # Store game configuration
-                self.game_name = request.game_name
-                self.players = list(request.players)
-                self.settings = dict(request.settings)
-                self.game_id = f"game_{int(time.time())}"
-                self.game_start_time = time.time()
-
-                # Update state
-                self.game_state = game_coordinator_pb2.GameState.STARTING
-
-                # Publish game_start event
-                self._publish_event(
-                    "game_start",
-                    {
-                        "game_name": self.game_name,
-                        "game_id": self.game_id,
-                        "player_count": str(len(self.players)),
-                    },
-                )
-
-                # Start game in background thread (with async support)
-                self.game_running = True
-                self.game_thread = threading.Thread(
-                    target=self._run_game_loop_threaded, daemon=True
-                )
-                self.game_thread.start()
-
-                logger.info(f"Started game: {self.game_name} with {len(self.players)} players")
-
-                span.set_attribute("game.id", self.game_id)
-                span.set_attribute("game.started", True)
-
+        """Start a new game (setup only - game span created in game loop)."""
+        # Note: Don't create a span here - the game_session span will be created
+        # in the game loop and encompasses the entire game lifecycle
+        try:
+            # Check if game already running
+            if self.game_state in [
+                game_coordinator_pb2.GameState.STARTING,
+                game_coordinator_pb2.GameState.RUNNING,
+            ]:
                 return game_coordinator_pb2.StartGameResponse(
-                    success=True, error="", game_id=self.game_id
+                    success=False, error="Game already in progress", game_id=""
                 )
 
-            except Exception as e:
-                span.record_exception(e)
-                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-                logger.error(f"StartGame error: {e}", exc_info=True)
+            # Validate player count
+            if len(request.players) < 2:
                 return game_coordinator_pb2.StartGameResponse(
-                    success=False, error=str(e), game_id=""
+                    success=False, error="Need at least 2 players", game_id=""
                 )
+
+            # Store game configuration
+            self.game_name = request.game_name
+            self.players = list(request.players)
+            self.settings = dict(request.settings)
+            self.game_id = f"game_{int(time.time())}"
+            self.game_start_time = time.time()
+
+            # Update state
+            self.game_state = game_coordinator_pb2.GameState.STARTING
+
+            # Publish game_start event
+            self._publish_event(
+                "game_start",
+                {
+                    "game_name": self.game_name,
+                    "game_id": self.game_id,
+                    "player_count": str(len(self.players)),
+                },
+            )
+
+            # Start game in background thread (with async support)
+            self.game_running = True
+            self.game_thread = threading.Thread(
+                target=self._run_game_loop_threaded, daemon=True
+            )
+            self.game_thread.start()
+
+            logger.info(f"Started game: {self.game_name} with {len(self.players)} players")
+
+            return game_coordinator_pb2.StartGameResponse(
+                success=True, error="", game_id=self.game_id
+            )
+
+        except Exception as e:
+            logger.error(f"StartGame error: {e}", exc_info=True)
+            return game_coordinator_pb2.StartGameResponse(
+                success=False, error=str(e), game_id=""
+            )
 
     def _run_game_loop_threaded(self):
         """Run the game loop in background thread (creates async event loop)."""
@@ -452,47 +445,43 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
     def ForceEndGame(self, request, context):
         """Force end the current game."""
-        with tracer.start_as_current_span("ForceEndGame") as span:
-            span.set_attribute("force_end.reason", request.reason)
-
-            try:
-                if self.game_state not in [
-                    game_coordinator_pb2.GameState.STARTING,
-                    game_coordinator_pb2.GameState.RUNNING,
-                ]:
-                    return game_coordinator_pb2.ForceEndGameResponse(
-                        success=False, error="No game in progress"
-                    )
-
-                # Stop game loop
-                self.game_running = False
-
-                # Call force_end on current game if it exists
-                if self.current_game and hasattr(self.current_game, "force_end"):
-                    self.current_game.force_end()
-
-                # Wait for thread to finish
-                if self.game_thread and self.game_thread.is_alive():
-                    self.game_thread.join(timeout=5.0)
-
-                # Update state
-                self.game_state = game_coordinator_pb2.GameState.ENDED
-
-                # Publish event
-                self._publish_event(
-                    "game_force_ended",
-                    {"reason": request.reason, "game_id": self.game_id or "unknown"},
+        # Note: Don't create a span here - the game_session span encompasses the game lifecycle
+        try:
+            if self.game_state not in [
+                game_coordinator_pb2.GameState.STARTING,
+                game_coordinator_pb2.GameState.RUNNING,
+            ]:
+                return game_coordinator_pb2.ForceEndGameResponse(
+                    success=False, error="No game in progress"
                 )
 
-                logger.info(f"Force ended game: {request.reason}")
+            # Stop game loop
+            self.game_running = False
 
-                return game_coordinator_pb2.ForceEndGameResponse(success=True, error="")
+            # Call force_end on current game if it exists
+            if self.current_game and hasattr(self.current_game, "force_end"):
+                self.current_game.force_end()
 
-            except Exception as e:
-                span.record_exception(e)
-                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-                logger.error(f"ForceEndGame error: {e}", exc_info=True)
-                return game_coordinator_pb2.ForceEndGameResponse(success=False, error=str(e))
+            # Wait for thread to finish
+            if self.game_thread and self.game_thread.is_alive():
+                self.game_thread.join(timeout=5.0)
+
+            # Update state
+            self.game_state = game_coordinator_pb2.GameState.ENDED
+
+            # Publish event
+            self._publish_event(
+                "game_force_ended",
+                {"reason": request.reason, "game_id": self.game_id or "unknown"},
+            )
+
+            logger.info(f"Force ended game: {request.reason}")
+
+            return game_coordinator_pb2.ForceEndGameResponse(success=True, error="")
+
+        except Exception as e:
+            logger.error(f"ForceEndGame error: {e}", exc_info=True)
+            return game_coordinator_pb2.ForceEndGameResponse(success=False, error=str(e))
 
     async def StreamGameEvents(self, request, context):
         """Stream game events in real-time (async)."""

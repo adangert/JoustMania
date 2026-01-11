@@ -566,8 +566,12 @@ async def test_staggered_player_deaths(docker_compose, game_mode):
 
     print(f"\n=== Starting {game_mode} game with staggered deaths ===")
 
-    # Wait for game to fully start (initialization + countdown)
-    await asyncio.sleep(2)
+    # Wait for game to fully start (initialization + color phases + countdown)
+    # FFA: 1s colors + 3s countdown = 4s
+    # Teams: 2s colors + 3s countdown = 5s
+    # Random Teams: 5s team formation + 3s countdown = 8s
+    # Wait 9 seconds to be safe for all modes (covers Random Teams + buffer)
+    await asyncio.sleep(9)
 
     # Simulate deaths at different times to create varied span lengths
     # For team games, kill players from different teams to avoid early game end

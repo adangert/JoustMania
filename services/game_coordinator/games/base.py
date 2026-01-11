@@ -18,6 +18,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
+from typing import Optional, Any
 
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
@@ -107,19 +108,19 @@ class BaseGameMode(ABC):
 
     def __init__(
         self,
-        controller_manager_client,
-        settings_client,
-        event_publisher: Callable,
-        audio_client=None,
+        controller_manager_client: Any,  # controller_manager_pb2_grpc.ControllerManagerServiceStub
+        settings_client: Any,  # settings_pb2_grpc.SettingsServiceStub
+        event_publisher: Callable[[str, dict[str, str]], None],
+        audio_client: Optional[Any] = None,  # audio_pb2_grpc.AudioServiceStub
         game_id: str = "",
-    ):
+    ) -> None:
         """
-        Initialize base game mode.
+        Initialize base game mode (Phase 33 - added type hints).
 
         Args:
             controller_manager_client: gRPC stub for ControllerManager service
             settings_client: gRPC stub for Settings service
-            event_publisher: Callback function to publish game events
+            event_publisher: Callback function to publish game events (event_type, data)
             audio_client: gRPC stub for Audio service (Phase 29)
             game_id: Unique identifier for this game instance
         """

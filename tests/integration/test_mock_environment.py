@@ -518,3 +518,75 @@ async def test_controller_effects(docker_compose):
     await asyncio.sleep(0.4)
 
     await channel.close()
+
+@pytest.mark.asyncio
+async def test_staggered_player_deaths(docker_compose):
+    """Test game with staggered player deaths to show varied span lengths in Jaeger."""
+
+    # Connect to game coordinator
+    game_host = docker_compose.get_service_host("game-coordinator", 50053)
+    game_port = docker_compose.get_service_port("game-coordinator", 50053)
+    game_channel = grpc.aio.insecure_channel(f"{game_host}:{game_port}")
+    game_client = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(game_channel)
+
+    # Connect to mock controller control
+    mock_host = docker_compose.get_service_host("mock-controller-manager", 50062)
+    mock_port = docker_compose.get_service_port("mock-controller-manager", 50062)
+    mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
+    mock_client = controller_manager_mock_pb2_grpc.MockControllerServiceStub(mock_channel)
+
+    # Get ready players
+    players = await get_ready_players(docker_compose)
+    assert len(players) == 4
+
+    # Start FFA game
+    start_response = await game_client.StartGame(
+        game_coordinator_pb2.StartGameRequest(game_name="FFA", players=players)
+    )
+    assert start_response.success
+    game_id = start_response.game_id
+
+    # Wait for game to fully start
+    await asyncio.sleep(2)
+
+    # Simulate deaths at different times to create varied span lengths
+    # Player 0 dies first (shortest span)
+    await asyncio.sleep(1)
+    death_0 = await mock_client.SimulateDeath(
+        controller_manager_mock_pb2.DeathRequest(serial="mock_controller_0")
+    )
+    assert death_0.success
+    print(f"Player 0 died at ~3s with accel magnitude {death_0.accel_magnitude:.2f}")
+
+    # Player 1 dies second
+    await asyncio.sleep(2)
+    death_1 = await mock_client.SimulateDeath(
+        controller_manager_mock_pb2.DeathRequest(serial="mock_controller_1")
+    )
+    assert death_1.success
+    print(f"Player 1 died at ~5s with accel magnitude {death_1.accel_magnitude:.2f}")
+
+    # Player 2 dies third
+    await asyncio.sleep(2)
+    death_2 = await mock_client.SimulateDeath(
+        controller_manager_mock_pb2.DeathRequest(serial="mock_controller_2")
+    )
+    assert death_2.success
+    print(f"Player 2 died at ~7s with accel magnitude {death_2.accel_magnitude:.2f}")
+
+    # Player 3 wins (longest span) - let them survive a bit longer
+    await asyncio.sleep(2)
+
+    # Check game status
+    status_response = await game_client.GetGameStatus(
+        game_coordinator_pb2.GetGameStatusRequest()
+    )
+    # Game should have ended automatically when only 1 player remained
+    assert status_response.state == game_coordinator_pb2.GameState.ENDED
+
+    print(f"Game {game_id} ended with player 3 as winner")
+    print("Check Jaeger UI at http://localhost:16686 to see varied player span lengths!")
+
+    # Cleanup
+    await game_channel.close()
+    await mock_channel.close()

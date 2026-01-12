@@ -51,6 +51,7 @@ class PlayerProfile:
     # FFA stats
     ffa_total_games: int = 0
     ffa_wins: int = 0
+    ffa_win_rate: float = 0.0  # Precalculated: ffa_wins / ffa_total_games
     ffa_warnings: int = 0
     ffa_avg_survival_time: float = 0.0
 
@@ -58,14 +59,18 @@ class PlayerProfile:
     nonstop_total_games: int = 0
     nonstop_kills: int = 0
     nonstop_deaths: int = 0
+    nonstop_win_rate: float = 0.0  # Precalculated (team-based in Nonstop)
     nonstop_best_streak: int = 0
+    nonstop_kd_ratio: float = 0.0  # Precalculated: kills / deaths
 
     # Team stats
     team_total_games: int = 0
     team_wins: int = 0
+    team_win_rate: float = 0.0  # Precalculated: team_wins / team_total_games
 
     # Hardware/connection
     average_battery_level: float = 5.0
+    average_signal_strength: float = 0.0  # RSSI average (0-100 scale)
     connection_stability_score: float = 1.0
     total_disconnects: int = 0
 

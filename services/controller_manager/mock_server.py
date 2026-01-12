@@ -216,6 +216,7 @@ class MockControllerManagerService(
         # Stream state (updated by client messages)
         current_hz = 30  # Default Hz
         current_filter = None  # None = all controllers
+        config_received = asyncio.Event()  # Signal when initial config arrives
 
         # Background task to read client updates
         async def read_client_updates():
@@ -235,6 +236,7 @@ class MockControllerManagerService(
                             f"[mock] Stream configured: {current_hz}Hz, "
                             f"filter={len(current_filter) if current_filter else 'all'} controllers"
                         )
+                        config_received.set()  # Signal that config has been received
 
                     elif control_msg.HasField("filter_update"):
                         # Mid-stream filter update
@@ -278,6 +280,15 @@ class MockControllerManagerService(
         update_task = asyncio.create_task(read_client_updates())
 
         try:
+            # Wait for initial config before starting to yield data
+            logger.info("[mock] Waiting for initial configuration...")
+            try:
+                await asyncio.wait_for(config_received.wait(), timeout=10.0)
+                logger.info("[mock] Initial configuration received, starting data stream")
+            except asyncio.TimeoutError:
+                logger.error("[mock] Timeout waiting for initial config, aborting stream")
+                return
+
             while not context.cancelled():
                 current_time = time.time()
                 # Build gameplay data for filtered controllers
@@ -427,6 +438,7 @@ class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControll
 
     def __init__(self, controller_manager: MockControllerManagerService):
         self.manager = controller_manager
+        self.auto_end_task = None  # Background task for auto-ending games
 
     def SimulateMovement(self, request, context):
         """Simulate controller movement by setting acceleration."""
@@ -516,6 +528,67 @@ class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControll
         serials = list(self.manager.controllers.keys())
 
         return ListResponse(serials=serials, count=len(serials))
+
+    async def SetAutoGameEnd(self, request, context):
+        """Enable/disable automatic game ending after duration."""
+        from proto.controller_manager_mock_pb2 import AutoGameEndResponse
+
+        try:
+            # Cancel existing task if any
+            if self.auto_end_task and not self.auto_end_task.done():
+                self.auto_end_task.cancel()
+                try:
+                    await self.auto_end_task
+                except asyncio.CancelledError:
+                    pass
+                self.auto_end_task = None
+
+            if request.enabled:
+                # Start new background task
+                self.auto_end_task = asyncio.create_task(
+                    self._auto_end_game(request.duration_seconds)
+                )
+                logger.info(f"[mock] Auto game end enabled: will kill players after {request.duration_seconds}s")
+                return AutoGameEndResponse(success=True, error="")
+            else:
+                logger.info("[mock] Auto game end disabled")
+                return AutoGameEndResponse(success=True, error="")
+
+        except Exception as e:
+            logger.error(f"[mock] Error setting auto game end: {e}", exc_info=True)
+            return AutoGameEndResponse(success=False, error=str(e))
+
+    async def _auto_end_game(self, duration: float):
+        """Background task to auto-end game after duration."""
+        try:
+            logger.info(f"[mock] Waiting {duration}s before auto-ending game...")
+            await asyncio.sleep(duration)
+
+            # Kill all but one player (leave winner)
+            serials = list(self.manager.controllers.keys())
+            if len(serials) > 1:
+                # Leave the last player alive (winner)
+                players_to_kill = serials[:-1]
+                logger.info(
+                    f"[mock] Auto-ending game: killing {len(players_to_kill)} players, "
+                    f"leaving {serials[-1]} alive as winner"
+                )
+
+                for serial in players_to_kill:
+                    # Simulate death for this player
+                    self.SimulateDeath(
+                        DeathRequest(serial=serial),
+                        None  # context not needed for internal call
+                    )
+                    await asyncio.sleep(0.3)  # Stagger deaths for better trace visualization
+
+            logger.info("[mock] Auto game end complete")
+
+        except asyncio.CancelledError:
+            logger.info("[mock] Auto game end cancelled")
+            raise
+        except Exception as e:
+            logger.error(f"[mock] Error in auto game end: {e}", exc_info=True)
 
 
 def init_telemetry():

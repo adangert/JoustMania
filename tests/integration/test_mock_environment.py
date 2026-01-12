@@ -193,6 +193,15 @@ async def test_ffa_game_with_mock_controllers(docker_compose):
     mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
     mock_client = controller_manager_mock_pb2_grpc.MockControllerServiceStub(mock_channel)
 
+    # Enable auto game end: kill players after 12 seconds (3s countdown + 9s gameplay)
+    auto_end_response = await mock_client.SetAutoGameEnd(
+        controller_manager_mock_pb2.AutoGameEndRequest(
+            duration_seconds=12.0,
+            enabled=True
+        )
+    )
+    assert auto_end_response.success
+
     # Get ready players
     players = await get_ready_players(docker_compose)
 
@@ -204,19 +213,9 @@ async def test_ffa_game_with_mock_controllers(docker_compose):
     assert start_response.success
     assert start_response.game_id != ""
 
-    # Wait for game to start
-    await asyncio.sleep(2)
-
-    # Simulate some deaths
-    for i in range(3):
-        death_response = await mock_client.SimulateDeath(
-            controller_manager_mock_pb2.DeathRequest(serial=f"mock_controller_{i}")
-        )
-        assert death_response.success
-        await asyncio.sleep(1)
-
-    # Wait for game to end (with extra time for 1-second winner delay)
-    await wait_for_game_end(game_client, timeout=15)
+    # Wait for auto-end to trigger and game to finish
+    # 12s auto-end + 1s winner delay + 2s teardown = ~15s total
+    await wait_for_game_end(game_client, timeout=20)
 
     # Check game status
     status_response = await game_client.GetGameStatus(game_coordinator_pb2.GetGameStatusRequest())

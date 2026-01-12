@@ -13,7 +13,7 @@
 Integrate flagd flag evaluation into the game loop to enable dynamic gameplay adjustments based on player performance. Instead of building a custom "reward/punishment engine", use flagd's targeting rules with player context to determine adjustments.
 
 **Goals:**
-- Evaluate flags with player context (win_rate, warnings_per_game, K/D, battery)
+- Evaluate flags with player context (win_rate, warnings_this_game, K/D, battery)
 - Apply flag-returned adjustments to gameplay parameters
 - Support per-player, per-mode, and per-game adjustments
 - Enable A/B testing of reward strategies
@@ -48,7 +48,7 @@ class RewardPunishmentEngine:
           {">": [{"var": "win_rate"}, 0.5]},
           "reward_winner",
           {"if": [
-            {">": [{"var": "warnings_per_game"}, 10]},
+            {">": [{"var": "warnings_this_game"}, 10]},
             "punish_warnings",
             "neutral"
           ]}
@@ -86,7 +86,7 @@ class RewardPunishmentEngine:
 │    - serial: "00:06:F7:12:34:56"                            │
 │    - game_mode: "FFA"                                       │
 │    - win_rate: 0.65                                         │
-│    - warnings_per_game: 3.2                                 │
+│    - warnings_this_game: 3.2                                 │
 │    - kd_ratio: 2.1                                          │
 │    - battery: 4.2                                           │
 │    - connection_stability: 0.95                             │
@@ -147,11 +147,11 @@ class RewardPunishmentEngine:
               "reward_good",
               {
                 "if": [
-                  {">": [{"var": "warnings_per_game"}, 10]},
+                  {">": [{"var": "warnings_this_game"}, 10]},
                   "punish_excessive",
                   {
                     "if": [
-                      {">": [{"var": "warnings_per_game"}, 5]},
+                      {">": [{"var": "warnings_this_game"}, 5]},
                       "punish_warnings",
                       "neutral"
                     ]
@@ -372,29 +372,35 @@ async def _evaluate_player_adjustments(
         Dictionary of adjustments to apply
     """
 
-    # Calculate context from profile
+    # Calculate context from profile and current game state
     context = {
         "serial": player.serial,
         "game_mode": self.get_game_name(),
-        "win_rate": player.profile.calculate_win_rate(),
-        "warnings_per_game": player.profile.calculate_warnings_per_game(),
-        "kd_ratio": player.profile.nonstop_kd_ratio,
+        # Current game state (not historical averages)
+        "warnings_this_game": getattr(player, "warnings_this_round", 0),
+        # Hardware/connection
         "battery": player.profile.average_battery_level,
+        "signal_strength": player.profile.average_signal_strength,
         "connection_stability": player.profile.connection_stability_score,
+        # Performance
         "performance_score": player.profile.performance_score,
         "reward_tier": player.profile.reward_tier,
     }
 
-    # Add mode-specific context
+    # Add mode-specific context (precalculated stats)
     if self.get_game_name() == "FFA":
+        context["win_rate"] = player.profile.ffa_win_rate  # Precalculated
         context["ffa_wins"] = player.profile.ffa_wins
         context["ffa_total_games"] = player.profile.ffa_total_games
 
     elif self.get_game_name() == "Nonstop":
+        context["win_rate"] = player.profile.nonstop_win_rate  # Precalculated
+        context["kd_ratio"] = player.profile.nonstop_kd_ratio  # Precalculated
         context["deaths_per_minute"] = player.profile.calculate_deaths_per_minute()
         context["current_streak"] = getattr(player, "current_streak", 0)
 
-    elif self.get_game_name() in ["Teams", "RandomTeams", "Zombies"]:
+    elif self.get_game_mode() in ["Teams", "RandomTeams", "Zombies"]:
+        context["win_rate"] = player.profile.team_win_rate  # Precalculated
         context["team_num"] = player.team_num
         context["team_wins_last_3"] = player.profile.calculate_team_wins_last_3()
         context["team_losses_last_3"] = player.profile.calculate_team_losses_last_3()
@@ -542,23 +548,31 @@ Add helper methods to PlayerProfile:
 @dataclass
 class PlayerProfile:
     # ... existing fields ...
+    # NOTE: ffa_win_rate, nonstop_win_rate, team_win_rate are precalculated
+    # and stored in profile (Phase 49). No need to calculate on-the-fly.
 
-    def calculate_win_rate(self) -> float:
-        """Calculate overall win rate across all modes."""
-        total_games = self.ffa_total_games + self.nonstop_total_games + self.team_total_games
-        total_wins = self.ffa_wins + self.team_wins
+    def update_ffa_win_rate(self) -> None:
+        """Update precalculated FFA win rate after game ends."""
+        if self.ffa_total_games > 0:
+            self.ffa_win_rate = self.ffa_wins / self.ffa_total_games
+        else:
+            self.ffa_win_rate = 0.0
 
-        if total_games == 0:
-            return 0.0
+    def update_nonstop_stats(self) -> None:
+        """Update precalculated Nonstop stats after game ends."""
+        if self.nonstop_total_games > 0:
+            # K/D ratio
+            if self.nonstop_deaths > 0:
+                self.nonstop_kd_ratio = self.nonstop_kills / self.nonstop_deaths
+            else:
+                self.nonstop_kd_ratio = self.nonstop_kills  # No deaths = kills only
 
-        return total_wins / total_games
-
-    def calculate_warnings_per_game(self) -> float:
-        """Calculate average warnings per game (FFA only)."""
-        if self.ffa_total_games == 0:
-            return 0.0
-
-        return self.ffa_warnings / self.ffa_total_games
+    def update_team_win_rate(self) -> None:
+        """Update precalculated team win rate after game ends."""
+        if self.team_total_games > 0:
+            self.team_win_rate = self.team_wins / self.team_total_games
+        else:
+            self.team_win_rate = 0.0
 
     def calculate_deaths_per_minute(self) -> float:
         """Calculate deaths per minute (Nonstop only)."""

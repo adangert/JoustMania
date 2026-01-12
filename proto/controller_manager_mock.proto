@@ -21,6 +21,9 @@ service MockControllerService {
 
     // Get list of mock controllers
     rpc ListMockControllers(ListRequest) returns (ListResponse);
+
+    // Set auto game end - automatically kill players after duration to ensure game ends
+    rpc SetAutoGameEnd(AutoGameEndRequest) returns (AutoGameEndResponse);
 }
 
 message MovementRequest {
@@ -87,4 +90,14 @@ message ListRequest {}
 message ListResponse {
     repeated string serials = 1;
     int32 count = 2;
+}
+
+message AutoGameEndRequest {
+    float duration_seconds = 1;  // After this time, automatically kill all but one player
+    bool enabled = 2;            // Enable/disable auto-end feature
+}
+
+message AutoGameEndResponse {
+    bool success = 1;
+    string error = 2;
 }

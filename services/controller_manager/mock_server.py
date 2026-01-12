@@ -203,6 +203,131 @@ class MockControllerManagerService(
             logger.info("Gameplay data stream cancelled")
             raise
 
+    async def StreamGameplayDataDynamic(self, request_iterator, context):
+        """
+        Stream gameplay data with dynamic filtering via bidirectional communication (Phase 45/46 - mock).
+
+        This is the mock implementation that supports the same interface as the real controller manager.
+        """
+        from proto.controller_manager_pb2 import GameplayData, GameplayDataUpdate
+
+        logger.info("Starting dynamic gameplay data stream (mock)")
+
+        # Stream state (updated by client messages)
+        current_hz = 30  # Default Hz
+        current_filter = None  # None = all controllers
+
+        # Background task to read client updates
+        async def read_client_updates():
+            nonlocal current_hz, current_filter
+
+            try:
+                async for control_msg in request_iterator:
+                    if control_msg.HasField("config"):
+                        # Initial configuration
+                        current_hz = control_msg.config.update_frequency_hz
+                        current_filter = (
+                            set(control_msg.config.serials)
+                            if control_msg.config.serials
+                            else None
+                        )
+                        logger.info(
+                            f"[mock] Stream configured: {current_hz}Hz, "
+                            f"filter={len(current_filter) if current_filter else 'all'} controllers"
+                        )
+
+                    elif control_msg.HasField("filter_update"):
+                        # Mid-stream filter update
+                        new_filter = (
+                            set(control_msg.filter_update.serials)
+                            if control_msg.filter_update.serials
+                            else None
+                        )
+                        if new_filter != current_filter:
+                            logger.info(
+                                f"[mock] Filter updated: {len(current_filter or [])} → "
+                                f"{len(new_filter or [])} controllers"
+                            )
+                            current_filter = new_filter
+
+                    elif control_msg.HasField("color_command"):
+                        # Process color command (Phase 46)
+                        cmd = control_msg.color_command
+                        target_serial = cmd.serial if cmd.serial else None
+                        for serial in self.controllers.keys():
+                            if target_serial is None or serial == target_serial:
+                                self._set_led_color(serial, (cmd.color.r, cmd.color.g, cmd.color.b))
+                        logger.debug(f"[mock] Color command: serial={cmd.serial or 'all'}")
+
+                    elif control_msg.HasField("combined_feedback"):
+                        # Process combined color + vibration (Phase 46)
+                        cmd = control_msg.combined_feedback
+                        target_serial = cmd.serial if cmd.serial else None
+                        for serial in self.controllers.keys():
+                            if target_serial is None or serial == target_serial:
+                                self._set_led_color(serial, (cmd.color.r, cmd.color.g, cmd.color.b))
+                        logger.debug(
+                            f"[mock] Combined feedback: serial={cmd.serial or 'all'}, "
+                            f"rgb=({cmd.color.r},{cmd.color.g},{cmd.color.b})"
+                        )
+
+            except Exception as e:
+                logger.error(f"[mock] Error reading client updates: {e}", exc_info=True)
+
+        # Start background task to read updates
+        update_task = asyncio.create_task(read_client_updates())
+
+        try:
+            while not context.cancelled():
+                current_time = time.time()
+                # Build gameplay data for filtered controllers
+                gameplay_data = []
+
+                for serial, controller in self.controllers.items():
+                    # Apply filter if present (Phase 45)
+                    if current_filter is not None and serial not in current_filter:
+                        continue  # Skip filtered controller
+
+                    # Use death_accel if we're still holding the death acceleration
+                    if controller.death_hold_until > current_time and controller.death_accel:
+                        accel = controller.death_accel
+                    else:
+                        accel = controller.accel
+                        # Clear death hold if expired
+                        if controller.death_hold_until > 0 and controller.death_hold_until <= current_time:
+                            controller.death_accel = None
+                            controller.death_hold_until = 0.0
+
+                    gd = GameplayData(
+                        serial=controller.serial,
+                        move_num=int(controller.serial.split("_")[-1]),
+                        battery=controller.battery,
+                        ready=controller.ready,
+                        team=controller.team,
+                        color=controller.color,
+                        accel=accel,
+                        gyro=controller.gyro
+                    )
+                    gameplay_data.append(gd)
+
+                yield GameplayDataUpdate(
+                    controllers=gameplay_data,
+                    timestamp=int(time.time() * 1000)
+                )
+
+                await asyncio.sleep(1.0 / current_hz)
+
+        except asyncio.CancelledError:
+            logger.info("[mock] Dynamic gameplay data stream cancelled")
+            raise
+        finally:
+            # Cleanup
+            update_task.cancel()
+            try:
+                await update_task
+            except asyncio.CancelledError:
+                pass
+
     def _set_led_color(self, serial: str, color: tuple[int, int, int]):
         """Helper to set LED color on a mock controller (Phase 31 / Phase 40 override)."""
         controller = self.controllers.get(serial)

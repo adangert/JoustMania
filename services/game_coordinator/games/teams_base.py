@@ -169,7 +169,7 @@ class TeamsGameBase(BaseGameMode):
 
                 if pulse_effect:
                     # Use pulse effect for team announcement
-                    await self.controller_manager_client.PlayControllerEffect(
+                    await self.controller_client.PlayControllerEffect(
                         controller_manager_pb2.PlayControllerEffectRequest(
                             serial=serial,
                             effect=controller_manager_pb2.ControllerEffect.EFFECT_PULSE,
@@ -185,7 +185,7 @@ class TeamsGameBase(BaseGameMode):
                     )
                 else:
                     # Set persistent team color
-                    await self.controller_manager_client.SetControllerColor(
+                    await self.controller_client.SetControllerColor(
                         controller_manager_pb2.SetControllerColorRequest(
                             serial=serial,
                             color=controller_manager_pb2.RGB(

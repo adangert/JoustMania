@@ -65,6 +65,16 @@ async def get_ready_players(docker_compose):
     return players
 
 
+async def wait_for_game_end(game_client, timeout=10):
+    """Wait for game to reach ENDED state."""
+    for _ in range(timeout * 10):  # Check every 0.1 seconds
+        status = await game_client.GetGameStatus(game_coordinator_pb2.GetGameStatusRequest())
+        if status.state == game_coordinator_pb2.GameState.ENDED:
+            return
+        await asyncio.sleep(0.1)
+    raise TimeoutError(f"Game did not end within {timeout} seconds")
+
+
 @pytest.fixture(scope="module")
 def docker_compose():
     """Fixture to start docker-compose mock environment."""
@@ -205,19 +215,12 @@ async def test_ffa_game_with_mock_controllers(docker_compose):
         assert death_response.success
         await asyncio.sleep(1)
 
+    # Wait for game to end (with extra time for 1-second winner delay)
+    await wait_for_game_end(game_client, timeout=15)
+
     # Check game status
     status_response = await game_client.GetGameStatus(game_coordinator_pb2.GetGameStatusRequest())
-
-    # Game might be running or ended
-    assert status_response.state in [
-        game_coordinator_pb2.GameState.RUNNING,
-        game_coordinator_pb2.GameState.ENDED,
-    ]
-
-    # Force end game if still running
-    if status_response.state == game_coordinator_pb2.GameState.RUNNING:
-        end_response = await game_client.ForceEndGame(game_coordinator_pb2.ForceEndGameRequest())
-        assert end_response.success
+    assert status_response.state == game_coordinator_pb2.GameState.ENDED
 
     await game_channel.close()
     await mock_channel.close()
@@ -265,17 +268,11 @@ async def test_teams_game_with_mock_controllers(docker_compose):
     await asyncio.sleep(2)
 
     # Game should auto-end when one team is eliminated
+    # Wait for game to end (with extra time for 1-second winner delay)
+    await wait_for_game_end(game_client, timeout=15)
+
     status_response = await game_client.GetGameStatus(game_coordinator_pb2.GetGameStatusRequest())
-
-    # Game might be ended or still running depending on team assignment
-    assert status_response.state in [
-        game_coordinator_pb2.GameState.RUNNING,
-        game_coordinator_pb2.GameState.ENDED,
-    ]
-
-    # Force end if still running
-    if status_response.state == game_coordinator_pb2.GameState.RUNNING:
-        await game_client.ForceEndGame(game_coordinator_pb2.ForceEndGameRequest())
+    assert status_response.state == game_coordinator_pb2.GameState.ENDED
 
     await game_channel.close()
     await mock_channel.close()
@@ -335,6 +332,9 @@ async def test_distributed_tracing_propagation(docker_compose):
     # Force end game
     await game_client.ForceEndGame(game_coordinator_pb2.ForceEndGameRequest())
 
+    # Wait for game to fully end
+    await wait_for_game_end(game_client, timeout=10)
+
     # Note: To verify tracing, check Jaeger UI at http://localhost:16686
     # Search for service="game-coordinator-service" and verify:
     # - StartGame span exists
@@ -382,13 +382,14 @@ async def test_multiple_games_sequence(docker_compose):
         # End game
         await game_client.ForceEndGame(game_coordinator_pb2.ForceEndGameRequest())
 
+        # Wait for game to fully end before starting next game
+        await wait_for_game_end(game_client, timeout=10)
+
         # Reset controllers for next game
         for j in range(4):
             await mock_client.ResetController(
                 controller_manager_mock_pb2.ResetRequest(serial=f"mock_controller_{j}")
             )
-
-        await asyncio.sleep(1)
 
     await game_channel.close()
     await mock_channel.close()
@@ -600,10 +601,9 @@ async def test_staggered_player_deaths(docker_compose, game_mode):
     assert death_1.success
     print(f"  Player 1 died at ~7s (accel: {death_1.accel_magnitude:.2f})")
 
-    # Player 3 wins (longest span) - let them survive a bit longer
-    # Wait for game to detect win condition and complete teardown
-    # Game needs time to: detect win (immediate) + play effects + 2s sleep in _end_game_impl
-    await asyncio.sleep(4)
+    # Player 3 wins (longest span) - wait for game to end naturally
+    # Game will: detect win → sleep 1 second (showing winner) → teardown
+    await wait_for_game_end(game_client, timeout=15)
 
     # Check game status
     status_response = await game_client.GetGameStatus(

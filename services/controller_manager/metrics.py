@@ -31,6 +31,19 @@ controller_reconnect_total = Counter(
     ['serial']
 )
 
+# Connection strength metrics (Phase 48)
+controller_rssi_dbm = Gauge(
+    'controller_rssi_dbm',
+    'Controller Bluetooth signal strength in dBm (-100 to 0, 0 = USB/unavailable)',
+    ['serial']
+)
+
+controller_weak_signal_warnings_total = Counter(
+    'controller_weak_signal_warnings_total',
+    'Total number of weak signal warnings displayed',
+    ['serial']
+)
+
 active_controllers = Gauge(
     'active_controllers_total',
     'Number of currently active controllers'

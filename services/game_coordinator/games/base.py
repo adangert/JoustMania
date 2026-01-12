@@ -626,9 +626,7 @@ class BaseGameMode(ABC):
                 self.event_publisher("game_starting", {"game_id": self.game_id})
 
                 # Phase 1: Initialization
-                with tracer.start_as_current_span(
-                    "initialization_phase", context=game_context
-                ) as init_span:
+                with tracer.start_as_current_span("initialization_phase") as init_span:
                     init_span.set_attribute("game.id", self.game_id)
                     init_span.set_attribute("game.mode", self.get_game_name())
 
@@ -646,11 +644,11 @@ class BaseGameMode(ABC):
 
                 # Phase 2+: Additional phases (e.g., team_formation for Random Teams)
                 for phase in self._get_additional_phases():
-                    with tracer.start_as_current_span(phase.name, context=game_context):
+                    with tracer.start_as_current_span(phase.name):
                         await phase.execute()
 
                 # Phase 3: Countdown
-                with tracer.start_as_current_span("countdown_phase", context=game_context):
+                with tracer.start_as_current_span("countdown_phase"):
                     await self._countdown()
 
                 # Phase 4: Game starts
@@ -661,11 +659,11 @@ class BaseGameMode(ABC):
                 )
 
                 # Phase 5: Gameplay
-                with tracer.start_as_current_span("gameplay_phase", context=game_context):
+                with tracer.start_as_current_span("gameplay_phase"):
                     await self._game_loop()
 
                 # Phase 6: Teardown
-                with tracer.start_as_current_span("teardown_phase", context=game_context):
+                with tracer.start_as_current_span("teardown_phase"):
                     await self._end_game_impl()
 
                 # Keep game span open briefly to clearly show winner in traces

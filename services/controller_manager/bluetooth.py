@@ -192,3 +192,66 @@ def get_node_interfaces(proxy):
     """List interface names exposed by a DBus node"""
     tree = _introspect_tree(proxy)
     return [child.attrib["name"] for child in tree if child.tag == "interface"]
+
+
+def get_device_rssi(hci, device_address):
+    """
+    Get RSSI (signal strength) for a Bluetooth device (Phase 48).
+
+    Args:
+        hci: HCI adapter name (e.g., "hci0")
+        device_address: Bluetooth MAC address (e.g., "00:1A:2B:3C:4D:5E")
+
+    Returns:
+        RSSI in dBm (-100 to 0), or None if not available
+
+    Note:
+        RSSI is only available for actively connected Bluetooth devices.
+        USB-connected controllers will return None.
+    """
+    try:
+        # Convert MAC address to DBus path format (replace : with _)
+        device_path = device_address.replace(":", "_")
+        proxy = get_device_proxy(hci, f"dev_{device_path}")
+
+        # Get RSSI property via DBus
+        rssi = get_device_attrib(proxy, "RSSI")
+
+        if rssi is not None:
+            return int(rssi)
+
+        return None
+
+    except dbus.exceptions.DBusException:
+        # RSSI not available (device not connected, USB, or BlueZ version issue)
+        return None
+    except Exception:
+        # Other errors (invalid device path, etc.)
+        return None
+
+
+def get_all_device_rssi_values(hci):
+    """
+    Get RSSI values for all connected Bluetooth devices (Phase 48).
+
+    Args:
+        hci: HCI adapter name (e.g., "hci0")
+
+    Returns:
+        Dictionary mapping device addresses to RSSI values in dBm
+    """
+    rssi_map = {}
+
+    try:
+        devices = get_attached_addresses(hci)
+
+        for device_addr in devices:
+            rssi = get_device_rssi(hci, device_addr)
+            if rssi is not None:
+                rssi_map[device_addr] = rssi
+
+    except Exception:
+        # Return partial results if error occurs
+        pass
+
+    return rssi_map

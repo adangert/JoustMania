@@ -171,6 +171,14 @@ class ControllerManagerServicer(
         self.low_battery_threshold = 1  # Battery level 0 or 1 (out of 5) = <20%
         self.last_battery_check = 0.0  # Timestamp of last battery check
 
+        # RSSI monitoring (Phase 48)
+        self.controller_rssi: dict[str, int] = {}  # {serial: rssi_dbm}
+        self.controller_bt_addresses: dict[str, str] = {}  # {serial: bluetooth_address}
+        self.last_rssi_check = 0.0
+        self.rssi_check_interval = 10.0  # Check RSSI every 10 seconds
+        self.weak_signal_threshold = -80  # Warn if RSSI < -80 dBm
+        self.last_rssi_warning: dict[str, float] = {}  # {serial: timestamp}
+
         # Discovery thread
         self.running = True
         self.discovery_thread = threading.Thread(target=self._discovery_loop, daemon=True)
@@ -195,6 +203,11 @@ class ControllerManagerServicer(
                     if current_time - self.last_battery_check >= 30.0:
                         self._check_battery_levels()
                         self.last_battery_check = current_time
+
+                    # Check RSSI every 10 seconds (Phase 48)
+                    if current_time - self.last_rssi_check >= self.rssi_check_interval:
+                        self._check_rssi_levels()
+                        self.last_rssi_check = current_time
 
                     time.sleep(1.0)  # Check every second
 
@@ -1308,6 +1321,161 @@ class ControllerManagerServicer(
         except Exception as e:
             logger.error(f"Failed to display low battery warning for {serial}: {e}")
 
+    def _check_rssi_levels(self):
+        """
+        Check RSSI (signal strength) for all Bluetooth controllers (Phase 48).
+
+        Updates controller_rssi dict and warns about weak signals.
+        Only checks Bluetooth-connected controllers (USB returns 0).
+        """
+        if not PSMOVE_AVAILABLE:
+            return
+
+        try:
+            with tracer.start_as_current_span("check_rssi_levels") as span:
+                # Import bluetooth module
+                try:
+                    from . import bluetooth
+                except ImportError:
+                    logger.warning("Bluetooth module not available, skipping RSSI check")
+                    return
+
+                # Get HCI adapters
+                try:
+                    hci_dict = bluetooth.get_hci_dict()
+                except Exception as e:
+                    logger.debug(f"Could not get HCI adapters: {e}")
+                    return
+
+                for hci in hci_dict.keys():
+                    # Get RSSI for all devices on this adapter
+                    rssi_values = bluetooth.get_all_device_rssi_values(hci)
+
+                    # Update RSSI for each controller
+                    for serial, info in self.controllers.items():
+                        # Skip if we don't have BT address mapping
+                        if serial not in self.controller_bt_addresses:
+                            # Try to discover BT address if not yet mapped
+                            move_num = info.get("move_num")
+                            if move_num is not None and move_num in self.moves:
+                                self._discover_bt_address(serial, hci)
+                            continue
+
+                        bt_address = self.controller_bt_addresses[serial]
+
+                        if bt_address in rssi_values:
+                            rssi = rssi_values[bt_address]
+                            self.controller_rssi[serial] = rssi
+
+                            # Update metric
+                            metrics.controller_rssi_dbm.labels(serial=serial).set(rssi)
+
+                            span.set_attribute(f"controller.{serial}.rssi", rssi)
+
+                            # Warn if signal is weak
+                            if rssi < self.weak_signal_threshold:
+                                self._warn_weak_signal(serial, rssi)
+                        else:
+                            # No RSSI available (USB or disconnected)
+                            self.controller_rssi[serial] = 0
+                            metrics.controller_rssi_dbm.labels(serial=serial).set(0)
+
+                span.set_attribute("rssi.checked_controllers", len(self.controller_rssi))
+
+        except Exception as e:
+            logger.error(f"Error checking RSSI levels: {e}", exc_info=True)
+
+    def _discover_bt_address(self, serial: str, hci: str):
+        """
+        Try to discover the Bluetooth MAC address for a controller (Phase 48).
+
+        This is done by correlating with BlueZ's list of connected devices.
+        PS Move controllers typically show as "Motion Controller" in device name.
+
+        Args:
+            serial: Controller serial number
+            hci: HCI adapter name
+        """
+        try:
+            from . import bluetooth
+
+            devices = bluetooth.get_attached_addresses(hci)
+
+            for device_addr in devices:
+                try:
+                    device_path = device_addr.replace(":", "_")
+                    proxy = bluetooth.get_device_proxy(hci, f"dev_{device_path}")
+                    device_name = bluetooth.get_device_attrib(proxy, "Name")
+
+                    # PS Move controllers have "Motion Controller" in their name
+                    if device_name and "Motion Controller" in str(device_name):
+                        # Check if this device is connected (has RSSI)
+                        rssi = bluetooth.get_device_rssi(hci, device_addr)
+                        if rssi is not None:
+                            # Assume this is our controller
+                            self.controller_bt_addresses[serial] = device_addr
+                            logger.info(f"Mapped controller {serial} to BT address {device_addr}")
+                            return
+                except Exception:
+                    # Skip devices we can't query
+                    continue
+
+        except Exception as e:
+            logger.debug(f"Error discovering BT address for {serial}: {e}")
+
+    def _warn_weak_signal(self, serial: str, rssi: int):
+        """
+        Warn player about weak Bluetooth signal (Phase 48).
+
+        Displays orange pulse to indicate weak connection.
+        Only warns once every 60 seconds per controller to avoid spam.
+
+        Args:
+            serial: Controller serial number
+            rssi: Current RSSI in dBm
+        """
+        if not PSMOVE_AVAILABLE:
+            return
+
+        current_time = time.time()
+        last_warning = self.last_rssi_warning.get(serial, 0)
+
+        # Warn at most once per minute
+        if current_time - last_warning < 60.0:
+            return
+
+        logger.warning(f"Controller {serial} has weak signal: {rssi} dBm")
+
+        try:
+            # Get controller info
+            info = self.controllers.get(serial)
+            if not info:
+                return
+
+            move_num = info.get("move_num")
+            move = self.moves.get(move_num)
+
+            if not move:
+                return
+
+            # Display orange pulse (3 times, 200ms on/off)
+            for _ in range(3):
+                move.set_leds(255, 165, 0)  # Orange
+                move.update_leds()
+                time.sleep(0.2)
+
+                move.set_leds(50, 30, 0)  # Dim orange
+                move.update_leds()
+                time.sleep(0.2)
+
+            # Note: Current game/menu state will restore color on next update
+            self.last_rssi_warning[serial] = current_time
+            metrics.controller_weak_signal_warnings_total.labels(serial=serial).inc()
+            logger.info(f"Weak signal warning displayed for {serial}")
+
+        except Exception as e:
+            logger.error(f"Failed to display weak signal warning for {serial}: {e}")
+
     # Effect methods (_effect_flash, _effect_pulse, etc.) inherited from ControllerEffectsBase (Phase 40)
 
     def _controller_state_hash(self, state: controller_manager_pb2.ControllerState) -> str:
@@ -1425,6 +1593,7 @@ class ControllerManagerServicer(
         controller_state.square_pressed = square_pressed
         controller_state.triangle_pressed = triangle_pressed
         controller_state.ps_pressed = ps_pressed
+        controller_state.rssi = self.controller_rssi.get(serial, 0)  # Phase 48
 
         # Return pooled Vector3 objects (ControllerState made copies with CopyFrom)
         self.vector3_pool.return_msg(accel_vec)

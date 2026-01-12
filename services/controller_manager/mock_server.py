@@ -575,11 +575,14 @@ class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControll
                 )
 
                 for serial in players_to_kill:
-                    # Simulate death for this player
-                    self.SimulateDeath(
-                        DeathRequest(serial=serial),
-                        None  # context not needed for internal call
-                    )
+                    # Simulate death by directly setting controller state
+                    controller = self.manager.controllers.get(serial)
+                    if controller:
+                        # Set death-level acceleration (same as SimulateDeath)
+                        death_vector = Vector3(x=5.0, y=3.0, z=4.0)
+                        controller.death_accel = death_vector
+                        controller.death_hold_until = time.time() + 2.0
+                        logger.info(f"[mock] Auto-killed player {serial}")
                     await asyncio.sleep(0.3)  # Stagger deaths for better trace visualization
 
             logger.info("[mock] Auto game end complete")

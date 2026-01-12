@@ -194,69 +194,74 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
     def StartGame(self, request, context):
         """Start a new game (captures parent context for tracing)."""
-        try:
-            # Check if game already running
-            if self.game_state in [
-                game_coordinator_pb2.GameState.STARTING,
-                game_coordinator_pb2.GameState.RUNNING,
-            ]:
-                return game_coordinator_pb2.StartGameResponse(
-                    success=False, error="Game already in progress", game_id=""
+        # Manually create span for this RPC (gRPC auto-instrumentation doesn't work for non-async methods)
+        with tracer.start_as_current_span("StartGame") as span:
+            span.set_attribute("game.name", request.game_name)
+            span.set_attribute("player.count", len(request.players))
+
+            try:
+                # Check if game already running
+                if self.game_state in [
+                    game_coordinator_pb2.GameState.STARTING,
+                    game_coordinator_pb2.GameState.RUNNING,
+                ]:
+                    return game_coordinator_pb2.StartGameResponse(
+                        success=False, error="Game already in progress", game_id=""
+                    )
+
+                # Validate player count
+                if len(request.players) < 2:
+                    return game_coordinator_pb2.StartGameResponse(
+                        success=False, error="Need at least 2 players", game_id=""
+                    )
+
+                # Capture current trace context for propagation to background thread
+                # This links the game span to the menu operation that started it
+                self.parent_context = trace.get_current_span().get_span_context()
+
+                # Store game configuration
+                self.game_name = request.game_name
+                self.players = list(request.players)
+                self.settings = dict(request.settings)
+                self.game_id = f"game_{int(time.time())}"
+                self.game_start_time = time.time()
+
+                # Update state
+                self.game_state = game_coordinator_pb2.GameState.STARTING
+
+                # Update metrics (Phase 38)
+                metrics.active_game.set(1)
+                metrics.games_started_total.labels(mode=self.game_name).inc()
+                metrics.active_players.set(len(self.players))
+
+                # Publish game_start event
+                self._publish_event(
+                    "game_start",
+                    {
+                        "game_name": self.game_name,
+                        "game_id": self.game_id,
+                        "player_count": str(len(self.players)),
+                    },
                 )
 
-            # Validate player count
-            if len(request.players) < 2:
+                # Start game in background thread (with async support)
+                self.game_running = True
+                self.game_thread = threading.Thread(
+                    target=self._run_game_loop_threaded, daemon=True
+                )
+                self.game_thread.start()
+
+                logger.info(f"Started game: {self.game_name} with {len(self.players)} players")
+
                 return game_coordinator_pb2.StartGameResponse(
-                    success=False, error="Need at least 2 players", game_id=""
+                    success=True, error="", game_id=self.game_id
                 )
 
-            # Capture current trace context for propagation to background thread
-            # This links the game span to the menu operation that started it
-            self.parent_context = trace.get_current_span().get_span_context()
-
-            # Store game configuration
-            self.game_name = request.game_name
-            self.players = list(request.players)
-            self.settings = dict(request.settings)
-            self.game_id = f"game_{int(time.time())}"
-            self.game_start_time = time.time()
-
-            # Update state
-            self.game_state = game_coordinator_pb2.GameState.STARTING
-
-            # Update metrics (Phase 38)
-            metrics.active_game.set(1)
-            metrics.games_started_total.labels(mode=self.game_name).inc()
-            metrics.active_players.set(len(self.players))
-
-            # Publish game_start event
-            self._publish_event(
-                "game_start",
-                {
-                    "game_name": self.game_name,
-                    "game_id": self.game_id,
-                    "player_count": str(len(self.players)),
-                },
-            )
-
-            # Start game in background thread (with async support)
-            self.game_running = True
-            self.game_thread = threading.Thread(
-                target=self._run_game_loop_threaded, daemon=True
-            )
-            self.game_thread.start()
-
-            logger.info(f"Started game: {self.game_name} with {len(self.players)} players")
-
-            return game_coordinator_pb2.StartGameResponse(
-                success=True, error="", game_id=self.game_id
-            )
-
-        except Exception as e:
-            logger.error(f"StartGame error: {e}", exc_info=True)
-            return game_coordinator_pb2.StartGameResponse(
-                success=False, error=str(e), game_id=""
-            )
+            except Exception as e:
+                logger.error(f"StartGame error: {e}", exc_info=True)
+                return game_coordinator_pb2.StartGameResponse(
+                    success=False, error=str(e), game_id=""
+                )
 
     def _run_game_loop_threaded(self):
         """Run the game loop in background thread (creates async event loop)."""
@@ -312,8 +317,10 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 self.current_game = game
 
                 # Run the game (async) with parent context from StartGame RPC
+                print(f"[SERVER] About to call game.run() with context={parent_context}", flush=True)
+                logger.info(f"About to call game.run() with context={parent_context}")
                 await game.run(game_context=parent_context)
-
+                print("[SERVER] game.run() completed", flush=True)
                 logger.info("FFA game completed")
 
             elif self.game_name.lower() in ["teams", "joust teams"]:

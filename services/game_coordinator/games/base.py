@@ -28,6 +28,7 @@ from services.game_coordinator import metrics
 
 tracer = trace.get_tracer(__name__)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)  # Force INFO level for game logs
 
 # Game constants (Phase 43: Now uses runtime config for dynamic adjustment)
 UPDATE_FREQUENCY = 30  # Hz - default, overridden by runtime config
@@ -635,7 +636,12 @@ class BaseGameMode(ABC):
         # Create main game span with human-readable name
         span_name = get_game_display_name(self.get_game_name())
 
+        print(f"[GAME] 🎮 Starting game.run() for {span_name}, context={game_context}", flush=True)
+        logger.info(f"🎮 Starting game.run() for {span_name}, context={game_context}")
+
         with tracer.start_as_current_span(span_name, context=game_context) as game_span:
+            print(f"[GAME] ✅ Game span created: {span_name}, span_id={game_span.get_span_context().span_id}", flush=True)
+            logger.info(f"✅ Game span created: {span_name}, span_id={game_span.get_span_context().span_id}")
             game_span.set_attribute("game.id", self.game_id)
             game_span.set_attribute("game.mode", self.get_game_name())
 

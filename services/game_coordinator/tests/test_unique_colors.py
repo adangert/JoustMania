@@ -228,7 +228,7 @@ class TestColorGeneration:
     @pytest.mark.asyncio
     async def test_color_distribution(self, ffa_game):
         """Colors should be evenly distributed in HSV space."""
-        from utils.colors import generate_colors
+        from lib.colors import generate_colors
 
         # Generate colors for 6 players
         colors = generate_colors(6)
@@ -246,7 +246,7 @@ class TestColorGeneration:
     @pytest.mark.asyncio
     async def test_color_ordering_consistent(self, ffa_game):
         """Color generation should be deterministic."""
-        from utils.colors import generate_colors
+        from lib.colors import generate_colors
 
         colors1 = generate_colors(4)
         colors2 = generate_colors(4)
@@ -257,7 +257,7 @@ class TestColorGeneration:
     @pytest.mark.asyncio
     async def test_color_hue_separation(self, ffa_game):
         """Colors should have maximum hue separation."""
-        from utils.colors import generate_colors
+        from lib.colors import generate_colors
         import colorsys
 
         colors = generate_colors(4)

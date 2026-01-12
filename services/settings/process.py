@@ -21,7 +21,7 @@ from typing import Any
 
 import yaml
 
-from core.common import Games, Sensitivity
+from lib.types import Games, Sensitivity
 
 logger = logging.getLogger(__name__)
 

@@ -34,7 +34,7 @@ from games import (
 )
 from piaudio import Audio, Music
 
-from core.common import Games
+from lib.types import Games
 
 logger = logging.getLogger(__name__)
 

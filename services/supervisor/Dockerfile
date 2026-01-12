@@ -43,9 +43,8 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY --from=builder /app/pyproject.toml /app/
-COPY core/ /app/core/
-COPY utils/ /app/utils/
 COPY proto/ /app/proto/
+COPY lib/ /app/lib/
 COPY services/supervisor/ /app/services/supervisor/
 
 # Set Python path

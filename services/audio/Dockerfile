@@ -41,6 +41,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy application code
 COPY --from=builder /app/pyproject.toml /app/
 COPY proto/ /app/proto/
+COPY lib/ /app/lib/
 COPY services/audio/ /app/services/audio/
 # Note: Audio assets are mounted as volume in docker-compose.yml
 

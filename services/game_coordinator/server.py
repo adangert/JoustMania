@@ -34,7 +34,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from core.types import get_game_display_name
+from lib.types import get_game_display_name
 from proto import (
     controller_manager_pb2_grpc,
     game_coordinator_pb2,
@@ -155,7 +155,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
     async def _init_grpc_clients_async(self):
         """Initialize async gRPC clients (Phase 33 - using shared gRPC utilities)."""
-        from common.grpc_utils import create_channel
+        from lib.grpc_utils import create_channel
 
         try:
             # ControllerManager client (async for streaming)
@@ -274,7 +274,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         await self._init_grpc_clients_async()
 
         # Create parent span with human-readable game mode name
-        # Use shared game name mapping from core.types
+        # Use shared game name mapping from lib.types
         span_name = get_game_display_name(self.game_name)
 
         with tracer.start_as_current_span(span_name) as game_span:

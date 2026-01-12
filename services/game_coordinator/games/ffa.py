@@ -135,7 +135,7 @@ class FFAGame(BaseGameMode):
         Uses HSV color generation for maximum distinction.
         """
         from proto import controller_manager_pb2
-        from utils.colors import generate_colors
+        from lib.colors import generate_colors
 
         logger.info("Setting unique FFA colors...")
 

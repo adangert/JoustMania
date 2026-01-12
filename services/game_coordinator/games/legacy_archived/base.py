@@ -13,7 +13,7 @@ from opentelemetry import metrics, trace
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 
 from core import common
-from core.common import Status
+from lib.types import Status
 from utils import colors
 from utils.colors import Colors
 

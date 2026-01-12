@@ -125,7 +125,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         # Persistent gRPC channels (Phase 26 - Performance, Phase 33 - shared utilities)
         # Create channels once and reuse throughout service lifecycle
         # Use environment variables for service addresses (supports mock environment)
-        from common.grpc_utils import create_channel
+        from lib.grpc_utils import create_channel
 
         controller_host = os.getenv("CONTROLLER_MANAGER_HOST", "controller-manager")
         controller_port = os.getenv("CONTROLLER_MANAGER_PORT", "50052")

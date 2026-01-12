@@ -17,8 +17,8 @@ from multiprocessing import Array, Process, Value
 import psmove
 
 from core import controller_process
-from core.common import Opts, Status
-from core.controller_state import ControllerState
+from lib.types import Opts, Status
+from lib.controller_state import ControllerState
 
 from . import pairing as pair
 

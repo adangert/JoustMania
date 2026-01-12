@@ -18,6 +18,7 @@ COPY pyproject.toml /app/
 # Copy proto package (shared protocol buffer contracts)
 COPY proto/pyproject.toml /app/proto/
 COPY proto/*.py /app/proto/
+COPY proto/__pycache__ /app/proto/__pycache__/
 
 # Copy service dependencies
 COPY services/game_coordinator/pyproject.toml /app/services/game_coordinator/
@@ -52,6 +53,8 @@ COPY services/game_coordinator/ /app/services/game_coordinator/
 
 # Set Python path
 ENV PYTHONPATH=/app
+# Ensure Python uses bytecode cache for faster imports (Phase 47)
+ENV PYTHONDONTWRITEBYTECODE=0
 
 # Configure OpenTelemetry
 ENV OTEL_SERVICE_NAME=game-coordinator-service

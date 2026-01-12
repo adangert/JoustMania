@@ -155,6 +155,51 @@ cd proto/
 
 This will generate `*_pb2.py` and `*_pb2_grpc.py` files for all schemas.
 
+## Bytecode Pre-compilation (Phase 47)
+
+For optimal startup performance on Raspberry Pi, protobuf Python files are pre-compiled to optimized bytecode.
+
+### Why Pre-compilation?
+
+- **50-60% faster startup**: Pre-compiled `.pyc` files load instantly
+- **Critical for Pi**: Raspberry Pi CPU is slow at runtime compilation
+- **Docker optimization**: Bytecode is included in images
+
+### Generating Protos with Bytecode
+
+The `generate_proto.sh` script automatically:
+1. Generates `_pb2.py` and `_pb2_grpc.py` files from `.proto` schemas
+2. Fixes imports to use absolute imports
+3. Compiles to optimized bytecode (`.opt-2.pyc` files in `__pycache__/`)
+
+```bash
+# From project root
+make protos
+# or
+bash proto/generate_proto.sh
+```
+
+### Bytecode Files
+
+Bytecode files are stored in `proto/__pycache__/` and are:
+- **Tracked in git** (exception to normal .gitignore rules)
+- **Included in Docker images** (exception to normal .dockerignore)
+- **Optimized with -OO flag** (smallest, fastest, strips docstrings)
+
+**DO NOT** manually delete `proto/__pycache__/` unless regenerating protos.
+
+### When to Regenerate
+
+Regenerate protos when:
+- `.proto` files are modified
+- Python version changes (different bytecode format)
+- protobuf library version changes
+
+```bash
+make clean-protos  # Remove generated files
+make protos        # Regenerate everything
+```
+
 ### Manual Generation (per schema)
 
 If you need to regenerate a specific schema:

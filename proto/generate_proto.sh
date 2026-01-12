@@ -32,4 +32,19 @@ for file in proto/*_pb2_grpc.py; do
     fi
 done
 
-echo "✓ All protobuf code generated successfully"
+# Pre-compile to optimized bytecode for faster startup (Phase 47)
+echo "Pre-compiling protobuf files to optimized bytecode..."
+
+uv run --package joustmania-proto python -OO -m compileall \
+    -q \
+    proto/*_pb2.py proto/*_pb2_grpc.py proto/__init__.py
+
+# Verify bytecode files were created
+PYC_COUNT=$(find proto/__pycache__ -name "*.opt-2.pyc" 2>/dev/null | wc -l)
+echo "✓ Created $PYC_COUNT optimized bytecode files"
+
+# Show cache directory size
+CACHE_SIZE=$(du -sh proto/__pycache__ 2>/dev/null | cut -f1)
+echo "✓ Bytecode cache size: $CACHE_SIZE"
+
+echo "✓ All protobuf code generated and pre-compiled successfully"

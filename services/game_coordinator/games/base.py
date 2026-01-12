@@ -666,9 +666,6 @@ class BaseGameMode(ABC):
                 with tracer.start_as_current_span("teardown_phase"):
                     await self._end_game_impl()
 
-                # Keep game span open briefly to clearly show winner in traces
-                await asyncio.sleep(1.0)
-
             except Exception as e:
                 logger.error(f"{self.get_game_name()} game error: {e}", exc_info=True)
                 self.state = GameState.ENDED
@@ -676,6 +673,10 @@ class BaseGameMode(ABC):
                 raise
 
             finally:
+                # Keep game span open briefly to clearly show winner in traces
+                # This runs even if there was an error during gameplay
+                await asyncio.sleep(1.0)
+
                 self.running = False
                 logger.info(f"{self.get_game_name()} game finished: {self.game_id}")
 

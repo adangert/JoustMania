@@ -431,6 +431,9 @@ class BaseGameMode(ABC):
 
                 # Check win condition
                 if self._check_win_condition():
+                    # Keep game running for 1 second to clearly show winner in traces
+                    logger.info("Win condition met, keeping game active for 1 second to show winner")
+                    await asyncio.sleep(1.0)
                     break
 
                 # Check if config changed (Phase 43: Live Hz adjustment)
@@ -673,10 +676,6 @@ class BaseGameMode(ABC):
                 raise
 
             finally:
-                # Keep game span open briefly to clearly show winner in traces
-                # This runs even if there was an error during gameplay
-                await asyncio.sleep(1.0)
-
                 self.running = False
                 logger.info(f"{self.get_game_name()} game finished: {self.game_id}")
 

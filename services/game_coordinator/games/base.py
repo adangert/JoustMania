@@ -372,9 +372,12 @@ class BaseGameMode(ABC):
             logger.info(f"Starting game loop with dynamic filtering at {update_frequency_hz}Hz")
 
             # Create bidirectional stream (Phase 45 - dynamic filtering, Phase 46 - feedback commands)
+            logger.info("Creating bidirectional stream to controller manager...")
             self.gameplay_stream = self.controller_client.StreamGameplayDataDynamic()
+            logger.info("Stream created successfully")
 
             # Send initial configuration
+            logger.info(f"Sending initial config: {update_frequency_hz}Hz, all controllers")
             initial_config = controller_manager_pb2.GameplayStreamControl(
                 config=controller_manager_pb2.GameplayStreamConfig(
                     update_frequency_hz=update_frequency_hz,
@@ -382,6 +385,7 @@ class BaseGameMode(ABC):
                 )
             )
             await self.gameplay_stream.write(initial_config)
+            logger.info("Initial config sent successfully")
 
             # Track current alive set for detecting changes
             last_alive_serials = set(p.serial for p in self.players.values() if p.alive)
@@ -396,11 +400,15 @@ class BaseGameMode(ABC):
             MAX_GAME_DURATION = 300  # seconds
 
             # Stream gameplay data and process game logic
-            logger.info("Starting gameplay data stream loop...")
+            logger.info("Starting gameplay data stream loop, waiting for first update...")
             async for gameplay_update in self.gameplay_stream:
+                if loop_iterations == 0:
+                    logger.info("✅ Received first gameplay update from stream!")
+
                 iteration_start = time.time()
 
                 if not self.running:
+                    logger.info("Game running=False, breaking loop")
                     break
 
                 # Safety check: timeout if game runs too long

@@ -156,7 +156,7 @@ class FFAGame(BaseGameMode):
                 color = unique_colors[idx]
                 player.color = color  # Update player's color attribute
 
-                await self.controller_manager_client.SetControllerColor(
+                await self.controller_client.SetControllerColor(
                     controller_manager_pb2.SetControllerColorRequest(
                         serial=serial,
                         color=controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]),

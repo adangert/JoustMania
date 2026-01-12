@@ -223,7 +223,9 @@ class MockControllerManagerService(
             nonlocal current_hz, current_filter
 
             try:
+                logger.info("[mock] Background task: waiting for client messages...")
                 async for control_msg in request_iterator:
+                    logger.info(f"[mock] Received control message: {control_msg}")
                     if control_msg.HasField("config"):
                         # Initial configuration
                         current_hz = control_msg.config.update_frequency_hz
@@ -233,10 +235,12 @@ class MockControllerManagerService(
                             else None
                         )
                         logger.info(
-                            f"[mock] Stream configured: {current_hz}Hz, "
+                            f"[mock] ✅ Stream configured: {current_hz}Hz, "
                             f"filter={len(current_filter) if current_filter else 'all'} controllers"
                         )
+                        logger.info("[mock] Setting config_received event...")
                         config_received.set()  # Signal that config has been received
+                        logger.info("[mock] config_received event set!")
 
                     elif control_msg.HasField("filter_update"):
                         # Mid-stream filter update
@@ -281,15 +285,19 @@ class MockControllerManagerService(
 
         try:
             # Wait for initial config before starting to yield data
-            logger.info("[mock] Waiting for initial configuration...")
+            logger.info("[mock] Main loop: Waiting for initial configuration...")
             try:
                 await asyncio.wait_for(config_received.wait(), timeout=10.0)
-                logger.info("[mock] Initial configuration received, starting data stream")
+                logger.info("[mock] ✅ Initial configuration received, starting data stream")
             except asyncio.TimeoutError:
-                logger.error("[mock] Timeout waiting for initial config, aborting stream")
+                logger.error("[mock] ❌ Timeout waiting for initial config (10s), aborting stream")
                 return
 
+            iteration = 0
             while not context.cancelled():
+                if iteration == 0:
+                    logger.info("[mock] Starting yield loop...")
+                iteration += 1
                 current_time = time.time()
                 # Build gameplay data for filtered controllers
                 gameplay_data = []
@@ -321,10 +329,16 @@ class MockControllerManagerService(
                     )
                     gameplay_data.append(gd)
 
+                if iteration == 1:
+                    logger.info(f"[mock] ✅ Yielding first update with {len(gameplay_data)} controllers")
+
                 yield GameplayDataUpdate(
                     controllers=gameplay_data,
                     timestamp=int(time.time() * 1000)
                 )
+
+                if iteration % 30 == 0:  # Log every 30 iterations (~1 second at 30Hz)
+                    logger.debug(f"[mock] Yielded update #{iteration}")
 
                 await asyncio.sleep(1.0 / current_hz)
 

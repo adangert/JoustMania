@@ -355,25 +355,56 @@ class WebUI:
                 if response.success:
                     # Build battery status dict
                     battery_status = {}
+                    rssi_display = {}  # Phase 48: RSSI display text
+                    rssi_classes = {}  # Phase 48: CSS classes for RSSI
+
                     for controller in response.controllers:
                         battery_status[controller.serial] = controller.battery
+
+                        # Phase 48: Add RSSI display
+                        rssi = controller.rssi
+                        if rssi == 0:
+                            rssi_display[controller.serial] = "USB"
+                            rssi_classes[controller.serial] = "rssi-usb"
+                        elif rssi >= -55:
+                            rssi_display[controller.serial] = f"{rssi} dBm (Excellent)"
+                            rssi_classes[controller.serial] = "rssi-excellent"
+                        elif rssi >= -70:
+                            rssi_display[controller.serial] = f"{rssi} dBm (Good)"
+                            rssi_classes[controller.serial] = "rssi-good"
+                        elif rssi >= -80:
+                            rssi_display[controller.serial] = f"{rssi} dBm (Fair)"
+                            rssi_classes[controller.serial] = "rssi-fair"
+                        else:
+                            rssi_display[controller.serial] = f"{rssi} dBm (Poor)"
+                            rssi_classes[controller.serial] = "rssi-poor"
 
                     span.set_attribute("controllers.count", len(battery_status))
 
                     return render_template(
                         "battery.html",
                         battery_status=battery_status,
+                        rssi_display=rssi_display,
+                        rssi_classes=rssi_classes,
                         levels=Opts.battery_levels_dict(),
                     )
                 logger.error(f"GetControllers failed: {response.error}")
                 return render_template(
-                    "battery.html", battery_status={}, levels=Opts.battery_levels_dict()
+                    "battery.html",
+                    battery_status={},
+                    rssi_display={},
+                    rssi_classes={},
+                    levels=Opts.battery_levels_dict()
                 )
 
             except grpc.RpcError as e:
                 logger.error(f"gRPC error in battery_status: {e}")
                 return render_template(
-                    "battery.html", battery_status={}, levels=Opts.battery_levels_dict()
+                    "battery.html",
+                    battery_status={},
+                    rssi_display={},
+                    rssi_classes={},
+                    levels=Opts.battery_levels_dict()
                 )
 
     def power(self):

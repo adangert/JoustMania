@@ -52,6 +52,13 @@ th {
 .act1 { background-color: lightgray; }
 .act0 { background-color: #80ff80; }
 
+/* RSSI signal strength colors (Phase 48) */
+.rssi-excellent { background-color: #80ff80; color: #000; }
+.rssi-good { background-color: #90ee90; color: #000; }
+.rssi-fair { background-color: #ffd700; color: #000; }
+.rssi-poor { background-color: #ff6b6b; color: #fff; }
+.rssi-usb { background-color: #d3d3d3; color: #000; }
+
 .buttons {
     margin-top: 20px;
     text-align: center;
@@ -90,6 +97,7 @@ th {
         <tr>
             <th>MAC Address</th>
             <th>Battery</th>
+            <th>Signal</th>
             <th>Active</th>
         </tr>
     </thead>
@@ -98,6 +106,7 @@ th {
         <tr>
             <td>{{ move }}</td>
             <td class="batt{{ ns.battery_status[move] }}">{{ levels[ns.battery_status[move]] }}</td>
+            <td class="{{ ns.rssi_classes.get(move, 'rssi-usb') }}">{{ ns.rssi_display.get(move, 'USB') }}</td>
             <td class="act{{ ns.out_moves[move] }}">
                 {% if ns.out_moves[move] == 0 %}Yes{% else %}No{% endif %}
             </td>

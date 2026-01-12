@@ -392,11 +392,20 @@ class BaseGameMode(ABC):
             loop_iterations = 0
             last_iteration_time = loop_start_time
 
+            # Safety timeout: maximum 5 minutes per game
+            MAX_GAME_DURATION = 300  # seconds
+
             # Stream gameplay data and process game logic
+            logger.info("Starting gameplay data stream loop...")
             async for gameplay_update in self.gameplay_stream:
                 iteration_start = time.time()
 
                 if not self.running:
+                    break
+
+                # Safety check: timeout if game runs too long
+                if (time.time() - loop_start_time) > MAX_GAME_DURATION:
+                    logger.error(f"Game exceeded maximum duration of {MAX_GAME_DURATION}s, forcing end")
                     break
 
                 # Process each controller's gameplay data

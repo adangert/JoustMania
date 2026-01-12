@@ -1,10 +1,10 @@
-# Phase 52: Flagd Integration
+# Phase 51: Flagd Integration
 
 **Status**: 📋 PLANNED
-**Priority**: High
+**Priority**: High (Foundational - enables flag-based gameplay adjustments)
 **Estimated Effort**: 1 week
-**Dependencies**: Phase 49 (Profiles), Phase 51 (Rewards)
-**Blocks**: Phase 53 (Web UI needs flag API)
+**Dependencies**: Phase 49 (Profiles), Phase 50 (Mode Tracking)
+**Blocks**: Phase 52 (Flag-based Adjustments), Phase 53 (Web UI)
 
 ---
 

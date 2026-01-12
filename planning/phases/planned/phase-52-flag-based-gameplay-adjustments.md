@@ -1,732 +1,586 @@
-# Phase 51: Reward/Punishment Engine
+# Phase 52: Flag-Based Gameplay Adjustments
 
 **Status**: 📋 PLANNED
 **Priority**: High
-**Estimated Effort**: 1 week
-**Dependencies**: Phase 49 (Profiles), Phase 50 (Mode-Specific Tracking)
-**Blocks**: Phase 53 (Web UI - needs reward data to display)
+**Estimated Effort**: 3-5 days
+**Dependencies**: Phase 49 (Profiles), Phase 50 (Mode Tracking), Phase 51 (Flagd)
+**Blocks**: None (enables dynamic gameplay tuning)
 
 ---
 
 ## Overview
 
-Implement dynamic player parameter adjustment based on performance. Reward good performance with easier gameplay, punish poor performance with stricter rules. Game mode-specific rules ensure rewards/punishments match the dynamics of each mode.
+Integrate flagd flag evaluation into the game loop to enable dynamic gameplay adjustments based on player performance. Instead of building a custom "reward/punishment engine", use flagd's targeting rules with player context to determine adjustments.
 
 **Goals:**
-- Create RewardPunishmentEngine to evaluate and apply rules
-- Define game mode-specific rule sets (FFA, Nonstop, Teams)
-- Dynamically adjust thresholds, feedback intensity, and visual effects
-- Track reward/punishment applications in metrics
-- Store reward history in player profiles
+- Evaluate flags with player context (win_rate, warnings_per_game, K/D, battery)
+- Apply flag-returned adjustments to gameplay parameters
+- Support per-player, per-mode, and per-game adjustments
+- Enable A/B testing of reward strategies
+- No hardcoded reward logic - everything via flags
 
 ---
 
 ## Why This Phase Matters
 
-**Current limitation:** All players have identical gameplay parameters regardless of performance. No incentive for consistent good play, no help for struggling players.
+**Key insight:** Flagd's JSONLogic targeting can handle all reward/punishment logic without custom Python code.
 
-**After this phase:**
-- Consistent winners get easier thresholds (more forgiving)
-- Excessive warnings trigger stricter thresholds (punishment)
-- High K/D in Nonstop gets enhanced feedback (reward aggression)
-- Winning teams get visual rewards (team pride)
-- Performance adjustments visible in metrics and UI
-
----
-
-## Reward/Punishment Strategy by Game Mode
-
-### FFA (Free-For-All)
-
-**Philosophy:** Reward individual skill and consistency
-
-**Rewards:**
-1. **Consistent winners** (win rate > 50%)
-   - Action: +0.1 death threshold (easier)
-   - Visual: Gold tint on LED
-
-2. **Good battery management** (avg battery > 4.0)
-   - Action: +20% feedback intensity (stronger vibration)
-
-3. **Long survival times** (avg survival > 120s)
-   - Action: +0.05 warn threshold (fewer nuisance warnings)
-
-**Punishments:**
-1. **Excessive warnings** (>10 warnings/round)
-   - Action: -0.1 warn threshold (more sensitive warnings)
-   - Feedback: -20% intensity (less feedback)
-
-2. **Poor connection** (stability < 0.7)
-   - Action: No adjustments (connection issue, not skill)
-
-### Nonstop Joust
-
-**Philosophy:** Reward aggression and combat effectiveness
-
-**Rewards:**
-1. **High K/D ratio** (K/D > 2.0)
-   - Action: +30% vibration intensity on kills (satisfying feedback)
-   - Visual: Rainbow flash on kill
-   - Audio: Kill streak announcement at 5+ streak
-
-2. **Kill streaks** (current streak >= 5)
-   - Action: +0.15 death threshold (god mode feeling)
-   - Visual: Pulsing gold LED
-   - Audio: "Unstoppable!" announcement
-
-3. **Low deaths per minute** (<1.5 DPM)
-   - Action: +0.5s spawn protection (reward careful play)
-
-**Punishments:**
-1. **Excessive deaths** (>2 deaths/minute)
-   - Action: -0.5s spawn protection (less invulnerability)
-   - Respawn delay: +0.5s (longer wait)
-
-2. **Very low K/D** (K/D < 0.3)
-   - Action: +0.1 death threshold (make it easier)
-   - Note: This is actually a "help" not punishment
-
-### Team Modes
-
-**Philosophy:** Reward teamwork and coordination
-
-**Rewards:**
-1. **Winning teams** (2+ wins in last 3 games)
-   - Action: All team members +0.1 death threshold
-   - Visual: Pulsing team color (synchronized)
-
-2. **Team coordination** (2+ simultaneous kills)
-   - Action: Team score bonus +50 points
-   - Visual: All team LEDs flash in sync
-   - Audio: "Teamwork!" announcement
-
-3. **Consistent team player** (5+ team games, 60%+ win rate)
-   - Action: +0.05 death threshold
-   - Visual: Team color with gold tint
-
-**Punishments:**
-1. **Losing teams** (2+ losses in last 3 games)
-   - Action: All team members -0.05 death threshold
-   - Note: Can be earned back with wins (comeback bonus)
-
-2. **Poor team coordination** (0 simultaneous kills in 5 games)
-   - Action: Visual reminder (flash team color)
-   - No mechanical punishment (encourage learning)
-
----
-
-## Rule Engine Architecture
-
-### Rule Definition Schema
-
+**Instead of:**
 ```python
-@dataclass
-class RewardPunishmentRule:
-    """Single reward/punishment rule."""
-
-    rule_id: str
-    name: str
-    description: str
-    game_modes: list[str]  # Which modes this applies to
-
-    # Trigger
-    trigger_type: str  # "performance_score", "win_rate", "kd_ratio", etc.
-    threshold_value: float
-    comparison: str  # "greater_than", "less_than", "equals"
-
-    # Actions
-    actions: list[RewardAction]
-
-    # Frequency
-    check_frequency: str  # "per_round", "per_game", "cumulative"
-    cooldown_rounds: int = 0  # Minimum rounds between applications
-
-
-@dataclass
-class RewardAction:
-    """Action to apply when rule triggers."""
-
-    action_type: str  # "adjust_threshold", "modify_feedback", "visual", "audio"
-
-    # Threshold adjustments
-    death_threshold_delta: Optional[float] = None
-    warn_threshold_delta: Optional[float] = None
-
-    # Feedback adjustments
-    feedback_intensity_multiplier: Optional[float] = None
-    vibration_duration_multiplier: Optional[float] = None
-
-    # Visual/audio
-    color_override: Optional[tuple[int, int, int]] = None
-    color_effect: Optional[str] = None  # "gold_tint", "pulsing", "rainbow"
-    audio_clip: Optional[str] = None  # "streak", "teamwork", "comeback"
-```
-
-### Rule Sets
-
-**File**: `services/game_coordinator/rewards/rules.py`
-
-```python
-"""Game mode-specific reward/punishment rules."""
-
-FFA_RULES = [
-    RewardPunishmentRule(
-        rule_id="ffa_reward_winners",
-        name="Reward Consistent Winners",
-        description="Players with >50% win rate get easier thresholds",
-        game_modes=["FFA"],
-        trigger_type="win_rate",
-        threshold_value=0.5,
-        comparison="greater_than",
-        actions=[
-            RewardAction(
-                action_type="adjust_threshold",
-                death_threshold_delta=0.1,
-                warn_threshold_delta=0.05,
-            ),
-            RewardAction(
-                action_type="visual",
-                color_effect="gold_tint",
-            ),
-        ],
-        check_frequency="per_round",
-        cooldown_rounds=0,
-    ),
-
-    RewardPunishmentRule(
-        rule_id="ffa_punish_warnings",
-        name="Punish Excessive Warnings",
-        description="Players with >10 warnings/round get stricter thresholds",
-        game_modes=["FFA"],
-        trigger_type="warnings_per_round",
-        threshold_value=10,
-        comparison="greater_than",
-        actions=[
-            RewardAction(
-                action_type="adjust_threshold",
-                warn_threshold_delta=-0.05,
-            ),
-            RewardAction(
-                action_type="modify_feedback",
-                feedback_intensity_multiplier=0.8,
-            ),
-        ],
-        check_frequency="per_round",
-        cooldown_rounds=2,
-    ),
-
-    RewardPunishmentRule(
-        rule_id="ffa_reward_battery",
-        name="Reward Good Battery Management",
-        description="Players maintaining battery >4 get enhanced feedback",
-        game_modes=["FFA"],
-        trigger_type="avg_battery",
-        threshold_value=4.0,
-        comparison="greater_than",
-        actions=[
-            RewardAction(
-                action_type="modify_feedback",
-                feedback_intensity_multiplier=1.2,
-            ),
-        ],
-        check_frequency="cumulative",
-        cooldown_rounds=0,
-    ),
-]
-
-NONSTOP_RULES = [
-    RewardPunishmentRule(
-        rule_id="nonstop_reward_high_kd",
-        name="Reward High K/D Ratio",
-        description="Players with K/D > 2.0 get enhanced kill feedback",
-        game_modes=["Nonstop"],
-        trigger_type="kd_ratio",
-        threshold_value=2.0,
-        comparison="greater_than",
-        actions=[
-            RewardAction(
-                action_type="modify_feedback",
-                feedback_intensity_multiplier=1.3,
-            ),
-            RewardAction(
-                action_type="visual",
-                color_effect="rainbow_on_kill",
-            ),
-        ],
-        check_frequency="cumulative",
-        cooldown_rounds=0,
-    ),
-
-    RewardPunishmentRule(
-        rule_id="nonstop_reward_streak",
-        name="Reward Kill Streaks",
-        description="5+ kill streak gives temporary god mode",
-        game_modes=["Nonstop"],
-        trigger_type="current_streak",
-        threshold_value=5,
-        comparison="greater_than_equal",
-        actions=[
-            RewardAction(
-                action_type="adjust_threshold",
-                death_threshold_delta=0.15,
-            ),
-            RewardAction(
-                action_type="visual",
-                color_effect="pulsing_gold",
-            ),
-            RewardAction(
-                action_type="audio",
-                audio_clip="unstoppable",
-            ),
-        ],
-        check_frequency="per_game",
-        cooldown_rounds=0,
-    ),
-
-    RewardPunishmentRule(
-        rule_id="nonstop_punish_deaths",
-        name="Punish Excessive Deaths",
-        description="Players with >2 deaths/min get reduced spawn protection",
-        game_modes=["Nonstop"],
-        trigger_type="deaths_per_minute",
-        threshold_value=2.0,
-        comparison="greater_than",
-        actions=[
-            RewardAction(
-                action_type="adjust_spawn",
-                spawn_protection_delta=-0.5,  # -0.5 seconds
-                respawn_delay_delta=0.5,  # +0.5 seconds
-            ),
-        ],
-        check_frequency="per_round",
-        cooldown_rounds=1,
-    ),
-]
-
-TEAM_RULES = [
-    RewardPunishmentRule(
-        rule_id="team_reward_winners",
-        name="Reward Winning Teams",
-        description="Teams with 2+ wins in last 3 games get easier thresholds",
-        game_modes=["Teams", "RandomTeams"],
-        trigger_type="team_wins_last_3",
-        threshold_value=2,
-        comparison="greater_than_equal",
-        actions=[
-            RewardAction(
-                action_type="adjust_threshold",
-                death_threshold_delta=0.1,  # All team members
-            ),
-            RewardAction(
-                action_type="visual",
-                color_effect="pulsing_team_color",
-            ),
-        ],
-        check_frequency="per_round",
-        cooldown_rounds=0,
-    ),
-
-    RewardPunishmentRule(
-        rule_id="team_reward_coordination",
-        name="Reward Team Coordination",
-        description="2+ simultaneous kills triggers team bonus",
-        game_modes=["Teams", "RandomTeams"],
-        trigger_type="simultaneous_kills",
-        threshold_value=2,
-        comparison="greater_than_equal",
-        actions=[
-            RewardAction(
-                action_type="score_bonus",
-                bonus_points=50,
-            ),
-            RewardAction(
-                action_type="visual",
-                color_effect="team_flash_sync",
-            ),
-            RewardAction(
-                action_type="audio",
-                audio_clip="teamwork",
-            ),
-        ],
-        check_frequency="per_game",
-        cooldown_rounds=0,
-    ),
-
-    RewardPunishmentRule(
-        rule_id="team_punish_losers",
-        name="Motivate Losing Teams",
-        description="Teams with 2+ losses get slight handicap (encourages comeback)",
-        game_modes=["Teams", "RandomTeams"],
-        trigger_type="team_losses_last_3",
-        threshold_value=2,
-        comparison="greater_than_equal",
-        actions=[
-            RewardAction(
-                action_type="adjust_threshold",
-                death_threshold_delta=-0.05,  # Slight handicap
-            ),
-        ],
-        check_frequency="per_round",
-        cooldown_rounds=1,
-    ),
-]
-```
-
-### Engine Implementation
-
-**File**: `services/game_coordinator/rewards/engine.py`
-
-```python
-"""Reward/punishment engine for dynamic gameplay adjustment."""
-
-import logging
-from typing import Optional
-
-from services.game_coordinator.models.player import EnhancedPlayer, PlayerProfile
-from services.game_coordinator.rewards.rules import FFA_RULES, NONSTOP_RULES, TEAM_RULES
-from services.game_coordinator.storage.player_profiles import PlayerProfileManager
-
-logger = logging.getLogger(__name__)
-
-
 class RewardPunishmentEngine:
-    """Evaluates and applies reward/punishment rules."""
+    def evaluate_rules(self, profile):
+        if profile.ffa_wins / profile.ffa_total_games > 0.5:
+            return RewardAction(death_threshold_delta=0.1)
+```
 
-    def __init__(self, profile_manager: PlayerProfileManager, game_mode: str):
-        self.profile_manager = profile_manager
-        self.game_mode = game_mode
-
-        # Load rules for this game mode
-        self.rules = self._load_rules_for_mode(game_mode)
-
-        logger.info(f"Initialized reward engine for {game_mode} with {len(self.rules)} rules")
-
-    def _load_rules_for_mode(self, game_mode: str) -> list:
-        """Load rules applicable to this game mode."""
-
-        all_rules = FFA_RULES + NONSTOP_RULES + TEAM_RULES
-
-        # Filter by game mode
-        applicable_rules = [
-            rule for rule in all_rules
-            if game_mode in rule.game_modes
+**We can use:**
+```json
+{
+  "death_threshold_adjustment": {
+    "variants": {
+      "reward_winner": 0.1,
+      "neutral": 0.0,
+      "punish_warnings": -0.1
+    },
+    "targeting": [
+      {
+        "if": [
+          {">": [{"var": "win_rate"}, 0.5]},
+          "reward_winner",
+          {"if": [
+            {">": [{"var": "warnings_per_game"}, 10]},
+            "punish_warnings",
+            "neutral"
+          ]}
         ]
+      }
+    ]
+  }
+}
+```
 
-        return applicable_rules
+**Benefits:**
+- Change reward logic via Web UI, not code deploys
+- A/B test different reward strategies
+- Per-player targeting for experiments
+- Simpler codebase (no custom engine)
 
-    async def evaluate_and_apply(
-        self,
-        player: EnhancedPlayer,
-        context: str = "per_round"
-    ) -> list[str]:
-        """
-        Evaluate all rules and apply matching rewards/punishments.
+---
 
-        Args:
-            player: Player to evaluate
-            context: When this is being called ("per_round", "per_game", etc.)
+## Architecture
 
-        Returns:
-            List of rule IDs that were triggered
-        """
+### Flag Evaluation Flow
 
-        triggered_rules = []
-
-        # Calculate metrics for evaluation
-        metrics = self._calculate_metrics(player)
-
-        logger.debug(f"Evaluating {player.serial}: {metrics}")
-
-        # Evaluate each rule
-        for rule in self.rules:
-            # Check frequency matches
-            if rule.check_frequency != context and context != "all":
-                continue
-
-            # Check if trigger condition is met
-            if self._evaluate_trigger(rule, metrics):
-                logger.info(
-                    f"Rule '{rule.name}' triggered for {player.serial}: "
-                    f"{rule.trigger_type}={metrics.get(rule.trigger_type):.2f} "
-                    f"{rule.comparison} {rule.threshold_value}"
-                )
-
-                # Apply all actions
-                for action in rule.actions:
-                    await self._apply_action(player, action)
-
-                triggered_rules.append(rule.rule_id)
-
-                # Update reward tier
-                self._update_reward_tier(player)
-
-        return triggered_rules
-
-    def _calculate_metrics(self, player: EnhancedPlayer) -> dict:
-        """Calculate metrics from player profile for rule evaluation."""
-
-        profile = player.profile
-
-        metrics = {
-            # FFA metrics
-            "win_rate": profile.ffa_wins / max(profile.ffa_total_games, 1),
-            "warnings_per_round": profile.ffa_warnings / max(profile.ffa_total_games, 1),
-            "avg_survival_time": profile.ffa_avg_survival_time,
-
-            # Nonstop metrics
-            "kd_ratio": profile.nonstop_kd_ratio,
-            "current_streak": getattr(player, 'current_streak', 0),
-            "deaths_per_minute": profile.nonstop_avg_deaths_per_minute,
-
-            # Team metrics
-            "team_wins_last_3": self._count_recent_team_wins(profile, 3),
-            "team_losses_last_3": self._count_recent_team_losses(profile, 3),
-            "simultaneous_kills": profile.team_simultaneous_kills,
-
-            # Hardware metrics
-            "avg_battery": profile.average_battery_level,
-            "connection_stability": profile.connection_stability_score,
-
-            # Overall
-            "performance_score": profile.performance_score,
-        }
-
-        return metrics
-
-    def _evaluate_trigger(self, rule, metrics: dict) -> bool:
-        """Check if rule trigger condition is met."""
-
-        value = metrics.get(rule.trigger_type)
-        if value is None:
-            return False
-
-        if rule.comparison == "greater_than":
-            return value > rule.threshold_value
-        elif rule.comparison == "less_than":
-            return value < rule.threshold_value
-        elif rule.comparison == "equals":
-            return abs(value - rule.threshold_value) < 0.01
-        elif rule.comparison == "greater_than_equal":
-            return value >= rule.threshold_value
-        elif rule.comparison == "less_than_equal":
-            return value <= rule.threshold_value
-
-        return False
-
-    async def _apply_action(self, player: EnhancedPlayer, action):
-        """Apply a single reward/punishment action."""
-
-        if action.action_type == "adjust_threshold":
-            # Adjust death/warning thresholds
-            if action.death_threshold_delta:
-                player.death_threshold_override = (
-                    (player.death_threshold_override or 0.0) +
-                    action.death_threshold_delta
-                )
-
-                # Emit metric
-                from services.game_coordinator import metrics
-                metrics.player_death_threshold.labels(serial=player.serial).set(
-                    player.death_threshold_override
-                )
-
-                logger.debug(
-                    f"Adjusted death threshold for {player.serial}: "
-                    f"delta={action.death_threshold_delta:+.2f}, "
-                    f"new={player.death_threshold_override:.2f}"
-                )
-
-            if action.warn_threshold_delta:
-                player.warn_threshold_override = (
-                    (player.warn_threshold_override or 0.0) +
-                    action.warn_threshold_delta
-                )
-
-        elif action.action_type == "modify_feedback":
-            # Adjust feedback intensity
-            if action.feedback_intensity_multiplier:
-                player.feedback_intensity_multiplier = action.feedback_intensity_multiplier
-
-                # Emit metric
-                from services.game_coordinator import metrics
-                metrics.player_feedback_intensity.labels(serial=player.serial).set(
-                    player.feedback_intensity_multiplier
-                )
-
-        elif action.action_type == "visual":
-            # Apply visual effect (will be handled in game loop)
-            player.visual_effect = action.color_effect
-            if action.color_override:
-                player.color = action.color_override
-
-        elif action.action_type == "audio":
-            # Trigger audio announcement (will be handled in game loop)
-            player.audio_announcement = action.audio_clip
-
-    def _update_reward_tier(self, player: EnhancedPlayer):
-        """Update player's reward tier based on performance score."""
-
-        score = player.profile.performance_score
-
-        if score >= 90:
-            tier = "EXCELLENT"
-        elif score >= 75:
-            tier = "GOOD"
-        elif score >= 50:
-            tier = "NEUTRAL"
-        elif score >= 25:
-            tier = "POOR"
-        else:
-            tier = "CRITICAL"
-
-        if player.profile.reward_tier != tier:
-            logger.info(f"Player {player.serial} tier changed: {player.profile.reward_tier} → {tier}")
-            player.profile.reward_tier = tier
-
-    def _count_recent_team_wins(self, profile: PlayerProfile, n: int) -> int:
-        """Count team wins in last N games."""
-        # Placeholder - will implement with round history in Phase 52
-        return 0
-
-    def _count_recent_team_losses(self, profile: PlayerProfile, n: int) -> int:
-        """Count team losses in last N games."""
-        # Placeholder - will implement with round history in Phase 52
-        return 0
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Game Coordinator (BaseGameMode)                            │
+│                                                              │
+│  _initialize_players_impl():                                │
+│    For each player:                                         │
+│      1. Load PlayerProfile from Redis                       │
+│      2. Calculate context (win_rate, kd_ratio, etc.)        │
+│      3. Evaluate flags with context                         │
+│      4. Apply adjustments to player parameters              │
+│                                                              │
+│  Context passed to flagd:                                   │
+│    - serial: "00:06:F7:12:34:56"                            │
+│    - game_mode: "FFA"                                       │
+│    - win_rate: 0.65                                         │
+│    - warnings_per_game: 3.2                                 │
+│    - kd_ratio: 2.1                                          │
+│    - battery: 4.2                                           │
+│    - connection_stability: 0.95                             │
+│    - performance_score: 88.0                                │
+│    - reward_tier: "GOOD"                                    │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      │ gRPC EvaluateFlag(context)
+                      ▼
+            ┌─────────────────┐
+            │  flagd          │
+            │                 │
+            │  Evaluates      │
+            │  targeting      │
+            │  rules with     │
+            │  JSONLogic      │
+            └────────┬────────┘
+                     │
+                     │ Returns variant value
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Game Coordinator                                           │
+│                                                              │
+│  adjustment = 0.1  (from flag)                              │
+│  player.death_threshold += adjustment                       │
+│  player.feedback_intensity *= 1.2                           │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Integration into Game Modes
+## Flag Definitions for Gameplay Adjustments
+
+### 1. Death Threshold Adjustment (FFA)
+
+**Purpose:** Reward winners with easier death threshold, punish excessive warnings with stricter threshold.
+
+```json
+{
+  "ffa_death_threshold_adjustment": {
+    "state": "ENABLED",
+    "variants": {
+      "reward_winner": 0.1,
+      "reward_good": 0.05,
+      "neutral": 0.0,
+      "punish_warnings": -0.05,
+      "punish_excessive": -0.1
+    },
+    "defaultVariant": "neutral",
+    "targeting": [
+      {
+        "if": [
+          {">": [{"var": "win_rate"}, 0.6]},
+          "reward_winner",
+          {
+            "if": [
+              {">": [{"var": "win_rate"}, 0.4]},
+              "reward_good",
+              {
+                "if": [
+                  {">": [{"var": "warnings_per_game"}, 10]},
+                  "punish_excessive",
+                  {
+                    "if": [
+                      {">": [{"var": "warnings_per_game"}, 5]},
+                      "punish_warnings",
+                      "neutral"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 2. Feedback Intensity Multiplier (All Modes)
+
+**Purpose:** Stronger feedback for players with good battery, weaker for low battery.
+
+```json
+{
+  "feedback_intensity_multiplier": {
+    "state": "ENABLED",
+    "variants": {
+      "strong": 1.3,
+      "normal": 1.0,
+      "weak": 0.7
+    },
+    "defaultVariant": "normal",
+    "targeting": [
+      {
+        "if": [
+          {">": [{"var": "battery"}, 4.0]},
+          "strong",
+          {
+            "if": [
+              {"<": [{"var": "battery"}, 2.0]},
+              "weak",
+              "normal"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 3. Nonstop Death Threshold (K/D Ratio)
+
+**Purpose:** Reward high K/D players with easier threshold (god mode effect).
+
+```json
+{
+  "nonstop_death_threshold_adjustment": {
+    "state": "ENABLED",
+    "variants": {
+      "god_mode": 0.15,
+      "strong": 0.1,
+      "neutral": 0.0,
+      "weak": -0.05
+    },
+    "defaultVariant": "neutral",
+    "targeting": [
+      {
+        "if": [
+          {">": [{"var": "kd_ratio"}, 2.5]},
+          "god_mode",
+          {
+            "if": [
+              {">": [{"var": "kd_ratio"}, 1.5]},
+              "strong",
+              {
+                "if": [
+                  {"<": [{"var": "kd_ratio"}, 0.5]},
+                  "weak",
+                  "neutral"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 4. Nonstop Respawn Delay (Deaths Per Minute)
+
+**Purpose:** Punish excessive deaths with longer respawn delay.
+
+```json
+{
+  "nonstop_respawn_delay_adjustment": {
+    "state": "ENABLED",
+    "variants": {
+      "fast": -0.5,
+      "normal": 0.0,
+      "slow": 0.5,
+      "very_slow": 1.0
+    },
+    "defaultVariant": "normal",
+    "targeting": [
+      {
+        "if": [
+          {">": [{"var": "deaths_per_minute"}, 3.0]},
+          "very_slow",
+          {
+            "if": [
+              {">": [{"var": "deaths_per_minute"}, 2.0]},
+              "slow",
+              {
+                "if": [
+                  {"<": [{"var": "deaths_per_minute"}, 0.5]},
+                  "fast",
+                  "normal"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 5. Team Death Threshold (Team Performance)
+
+**Purpose:** Reward winning teams, punish losing teams.
+
+```json
+{
+  "team_death_threshold_adjustment": {
+    "state": "ENABLED",
+    "variants": {
+      "winning_streak": 0.1,
+      "neutral": 0.0,
+      "losing_streak": -0.05
+    },
+    "defaultVariant": "neutral",
+    "targeting": [
+      {
+        "if": [
+          {">=": [{"var": "team_wins_last_3"}, 2]},
+          "winning_streak",
+          {
+            "if": [
+              {">=": [{"var": "team_losses_last_3"}, 2]},
+              "losing_streak",
+              "neutral"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 6. Visual Reward Flag (FFA Winners)
+
+**Purpose:** Apply visual effects for high performers.
+
+```json
+{
+  "visual_reward_effect": {
+    "state": "ENABLED",
+    "variants": {
+      "gold_tint": "gold_tint",
+      "rainbow": "rainbow",
+      "pulsing": "pulsing",
+      "none": "none"
+    },
+    "defaultVariant": "none",
+    "targeting": [
+      {
+        "if": [
+          {">=": [{"var": "performance_score"}, 90]},
+          "gold_tint",
+          {
+            "if": [
+              {">=": [{"var": "performance_score"}, 80]},
+              "pulsing",
+              "none"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Implementation Tasks
+
+### Task 1: Add Flag Evaluation Helper to BaseGameMode
 
 **File**: `services/game_coordinator/games/base.py`
 
+**Method: `_evaluate_player_adjustments()`**
+
 ```python
-from services.game_coordinator.rewards.engine import RewardPunishmentEngine
+async def _evaluate_player_adjustments(
+    self,
+    player: EnhancedPlayer
+) -> dict[str, Any]:
+    """
+    Evaluate flags for player-specific adjustments.
 
-class BaseGameMode(ABC):
+    Args:
+        player: Player with loaded profile
 
-    def __init__(self, ...):
-        # ... existing init ...
+    Returns:
+        Dictionary of adjustments to apply
+    """
 
-        # Phase 51: Reward/punishment engine
-        self.reward_engine = RewardPunishmentEngine(
-            self.profile_manager,
-            self.get_game_name()
+    # Calculate context from profile
+    context = {
+        "serial": player.serial,
+        "game_mode": self.get_game_name(),
+        "win_rate": player.profile.calculate_win_rate(),
+        "warnings_per_game": player.profile.calculate_warnings_per_game(),
+        "kd_ratio": player.profile.nonstop_kd_ratio,
+        "battery": player.profile.average_battery_level,
+        "connection_stability": player.profile.connection_stability_score,
+        "performance_score": player.profile.performance_score,
+        "reward_tier": player.profile.reward_tier,
+    }
+
+    # Add mode-specific context
+    if self.get_game_name() == "FFA":
+        context["ffa_wins"] = player.profile.ffa_wins
+        context["ffa_total_games"] = player.profile.ffa_total_games
+
+    elif self.get_game_name() == "Nonstop":
+        context["deaths_per_minute"] = player.profile.calculate_deaths_per_minute()
+        context["current_streak"] = getattr(player, "current_streak", 0)
+
+    elif self.get_game_name() in ["Teams", "RandomTeams", "Zombies"]:
+        context["team_num"] = player.team_num
+        context["team_wins_last_3"] = player.profile.calculate_team_wins_last_3()
+        context["team_losses_last_3"] = player.profile.calculate_team_losses_last_3()
+
+    # Evaluate flags
+    adjustments = {}
+
+    # Death threshold adjustment
+    threshold_flag = f"{self.get_game_name().lower()}_death_threshold_adjustment"
+    adjustments["death_threshold_delta"] = self.flag_client.get_number_value(
+        threshold_flag,
+        default=0.0,
+        evaluation_context=context
+    )
+
+    # Feedback intensity multiplier
+    adjustments["feedback_intensity_multiplier"] = self.flag_client.get_number_value(
+        "feedback_intensity_multiplier",
+        default=1.0,
+        evaluation_context=context
+    )
+
+    # Visual effects
+    adjustments["visual_effect"] = self.flag_client.get_string_value(
+        "visual_reward_effect",
+        default="none",
+        evaluation_context=context
+    )
+
+    # Nonstop-specific: respawn delay
+    if self.get_game_name() == "Nonstop":
+        adjustments["respawn_delay_delta"] = self.flag_client.get_number_value(
+            "nonstop_respawn_delay_adjustment",
+            default=0.0,
+            evaluation_context=context
         )
 
-    async def run(self, game_context=None):
-        """Enhanced with reward/punishment application."""
-
-        with tracer.start_as_current_span(span_name, context=game_context) as game_span:
-            try:
-                # ... initialization ...
-
-                # Phase 51: Apply pre-game rewards/punishments
-                for player in self.players.values():
-                    triggered = await self.reward_engine.evaluate_and_apply(
-                        player,
-                        context="per_game"
-                    )
-                    if triggered:
-                        logger.info(f"Pre-game adjustments for {player.serial}: {triggered}")
-
-                # ... countdown, gameplay ...
-
-                # Phase 51: Apply post-round rewards/punishments
-                for player in self.players.values():
-                    triggered = await self.reward_engine.evaluate_and_apply(
-                        player,
-                        context="per_round"
-                    )
-                    if triggered:
-                        logger.info(f"Post-round adjustments for {player.serial}: {triggered}")
-
-                # ... teardown ...
-
-            finally:
-                # ... cleanup ...
+    return adjustments
 ```
 
-Apply threshold overrides in `_process_controller_state()`:
+### Task 2: Apply Adjustments in Game Lifecycle
+
+**In `_initialize_players_impl()`:**
 
 ```python
-async def _process_controller_state(self, gameplay_data):
-    """Enhanced with per-player threshold overrides."""
+async def _initialize_players_impl(
+    self,
+    controllers: list[ControllerInfo]
+) -> None:
+    """Initialize players with profile loading and adjustments."""
 
-    player = self.players.get(gameplay_data.serial)
-    if not player or not player.alive:
-        return
+    for controller in controllers:
+        # Load profile
+        profile = await self.profile_manager.get_or_create_profile(
+            controller.serial,
+            self.session_id
+        )
 
-    # Calculate acceleration magnitude
-    accel = gameplay_data.acceleration
-    accel_mag = math.sqrt(accel.x**2 + accel.y**2 + accel.z**2)
-    player.last_accel_mag = accel_mag
+        # Create player
+        player = EnhancedPlayer(
+            serial=controller.serial,
+            profile=profile,
+            current_battery=controller.battery
+        )
 
-    # Get thresholds (with per-player overrides from Phase 51)
-    base_warn, base_death = self.sensitivity.value
+        # Evaluate adjustments via flags
+        adjustments = await self._evaluate_player_adjustments(player)
 
-    warn_threshold = (
-        player.warn_threshold_override
-        if player.warn_threshold_override is not None
-        else base_warn
-    )
+        # Apply adjustments
+        player.death_threshold += adjustments.get("death_threshold_delta", 0.0)
+        player.feedback_intensity *= adjustments.get("feedback_intensity_multiplier", 1.0)
+        player.visual_effect = adjustments.get("visual_effect", "none")
 
-    death_threshold = (
-        player.death_threshold_override
-        if player.death_threshold_override is not None
-        else base_death
-    )
+        if "respawn_delay_delta" in adjustments:
+            player.respawn_delay += adjustments["respawn_delay_delta"]
 
-    # Check death
-    if accel_mag > death_threshold:
-        await self._kill_player(gameplay_data.serial, accel_mag)
-    elif accel_mag > warn_threshold:
-        await self._warn_player(gameplay_data.serial, accel_mag)
+        # Log adjustments
+        if any(v != 0 for v in [
+            adjustments.get("death_threshold_delta", 0),
+            adjustments.get("feedback_intensity_multiplier", 1.0) - 1.0
+        ]):
+            logger.info(
+                f"Applied adjustments to {controller.serial}: "
+                f"threshold_delta={adjustments['death_threshold_delta']:.2f}, "
+                f"feedback_multiplier={adjustments['feedback_intensity_multiplier']:.2f}, "
+                f"visual={adjustments['visual_effect']}"
+            )
+
+        self.players[controller.serial] = player
 ```
 
----
-
-## New Metrics
+### Task 3: Add Metrics for Adjustments
 
 **File**: `services/game_coordinator/metrics.py`
 
 ```python
-# Reward/punishment metrics
-player_death_threshold = Gauge(
-    'player_death_threshold',
-    'Current death threshold per player (after adjustments)',
-    ['serial']
+# Adjustment tracking
+player_death_threshold_adjustment = Gauge(
+    'player_death_threshold_adjustment',
+    'Death threshold adjustment per player',
+    ['serial', 'game_mode']
 )
 
-player_warn_threshold = Gauge(
-    'player_warn_threshold',
-    'Current warning threshold per player (after adjustments)',
-    ['serial']
-)
-
-player_feedback_intensity = Gauge(
-    'player_feedback_intensity',
+player_feedback_intensity_multiplier = Gauge(
+    'player_feedback_intensity_multiplier',
     'Feedback intensity multiplier per player',
-    ['serial']
+    ['serial', 'game_mode']
 )
 
-player_reward_tier = Gauge(
-    'player_reward_tier',
-    'Player reward tier (0=CRITICAL, 1=POOR, 2=NEUTRAL, 3=GOOD, 4=EXCELLENT)',
-    ['serial']
+adjustments_applied_total = Counter(
+    'adjustments_applied_total',
+    'Total gameplay adjustments applied',
+    ['adjustment_type', 'game_mode']
 )
+```
 
-reward_rules_triggered_total = Counter(
-    'reward_rules_triggered_total',
-    'Total reward/punishment rules triggered',
-    ['rule_id', 'game_mode']
-)
+**Update metrics in `_evaluate_player_adjustments()`:**
 
-reward_threshold_adjustments_total = Counter(
-    'reward_threshold_adjustments_total',
-    'Total threshold adjustments applied',
-    ['serial', 'adjustment_type']  # 'death_easier', 'death_harder', 'warn_easier', 'warn_harder'
-)
+```python
+# After evaluating adjustments
+player_death_threshold_adjustment.labels(
+    serial=player.serial,
+    game_mode=self.get_game_name()
+).set(adjustments["death_threshold_delta"])
+
+player_feedback_intensity_multiplier.labels(
+    serial=player.serial,
+    game_mode=self.get_game_name()
+).set(adjustments["feedback_intensity_multiplier"])
+
+if adjustments["death_threshold_delta"] != 0:
+    adjustments_applied_total.labels(
+        adjustment_type="death_threshold",
+        game_mode=self.get_game_name()
+    ).inc()
+```
+
+### Task 4: Add PlayerProfile Calculation Methods
+
+**File**: `services/game_coordinator/models/player.py`
+
+Add helper methods to PlayerProfile:
+
+```python
+@dataclass
+class PlayerProfile:
+    # ... existing fields ...
+
+    def calculate_win_rate(self) -> float:
+        """Calculate overall win rate across all modes."""
+        total_games = self.ffa_total_games + self.nonstop_total_games + self.team_total_games
+        total_wins = self.ffa_wins + self.team_wins
+
+        if total_games == 0:
+            return 0.0
+
+        return total_wins / total_games
+
+    def calculate_warnings_per_game(self) -> float:
+        """Calculate average warnings per game (FFA only)."""
+        if self.ffa_total_games == 0:
+            return 0.0
+
+        return self.ffa_warnings / self.ffa_total_games
+
+    def calculate_deaths_per_minute(self) -> float:
+        """Calculate deaths per minute (Nonstop only)."""
+        # This requires tracking total playtime in Nonstop
+        # For now, estimate based on typical game duration (120s)
+        if self.nonstop_total_games == 0:
+            return 0.0
+
+        total_minutes = (self.nonstop_total_games * 120) / 60
+        return self.nonstop_deaths / max(total_minutes, 0.1)
+
+    def calculate_team_wins_last_3(self) -> int:
+        """Calculate team wins in last 3 team games."""
+        # Requires round history analysis
+        # Placeholder for now
+        return 0
+
+    def calculate_team_losses_last_3(self) -> int:
+        """Calculate team losses in last 3 team games."""
+        # Requires round history analysis
+        # Placeholder for now
+        return 0
 ```
 
 ---
@@ -735,168 +589,244 @@ reward_threshold_adjustments_total = Counter(
 
 ### Unit Tests
 
-**File**: `tests/unit/rewards/test_engine.py`
+**File**: `tests/unit/games/test_flag_adjustments.py`
 
 ```python
-def test_ffa_winner_reward():
-    """Test FFA winner gets threshold reward."""
+import pytest
+from unittest.mock import Mock, AsyncMock
 
-    profile = create_mock_profile(
+from services.game_coordinator.games.base import BaseGameMode
+from services.game_coordinator.models.player import PlayerProfile, EnhancedPlayer
+
+
+@pytest.mark.asyncio
+async def test_evaluate_player_adjustments_winner():
+    """Test adjustments for high win rate player."""
+
+    game = BaseGameMode(game_id="test", controllers=[])
+
+    # Mock flag client
+    game.flag_client = Mock()
+    game.flag_client.get_number_value = Mock(side_effect=lambda flag, default, **ctx: {
+        "ffa_death_threshold_adjustment": 0.1,  # Reward
+        "feedback_intensity_multiplier": 1.2
+    }.get(flag, default))
+    game.flag_client.get_string_value = Mock(return_value="gold_tint")
+
+    # Player with high win rate
+    profile = PlayerProfile(
+        serial="00:06:F7:12:34:56",
+        ffa_total_games=20,
+        ffa_wins=15,  # 75% win rate
+        ffa_warnings=10,
+        performance_score=92.0
+    )
+
+    player = EnhancedPlayer(serial=profile.serial, profile=profile)
+
+    # Evaluate
+    adjustments = await game._evaluate_player_adjustments(player)
+
+    # Assertions
+    assert adjustments["death_threshold_delta"] == 0.1
+    assert adjustments["feedback_intensity_multiplier"] == 1.2
+    assert adjustments["visual_effect"] == "gold_tint"
+
+
+@pytest.mark.asyncio
+async def test_evaluate_player_adjustments_excessive_warnings():
+    """Test punishment for excessive warnings."""
+
+    game = BaseGameMode(game_id="test", controllers=[])
+
+    # Mock flag client returning punishment
+    game.flag_client = Mock()
+    game.flag_client.get_number_value = Mock(side_effect=lambda flag, default, **ctx: {
+        "ffa_death_threshold_adjustment": -0.1,  # Punish
+        "feedback_intensity_multiplier": 0.8
+    }.get(flag, default))
+    game.flag_client.get_string_value = Mock(return_value="none")
+
+    # Player with excessive warnings
+    profile = PlayerProfile(
+        serial="00:06:F7:AB:CD:EF",
         ffa_total_games=10,
-        ffa_wins=6  # 60% win rate
+        ffa_wins=2,
+        ffa_warnings=120,  # 12 warnings per game
+        performance_score=35.0
     )
-    player = create_mock_player(profile=profile)
 
-    engine = RewardPunishmentEngine(mock_manager, "FFA")
-    triggered = await engine.evaluate_and_apply(player, "per_round")
+    player = EnhancedPlayer(serial=profile.serial, profile=profile)
 
-    assert "ffa_reward_winners" in triggered
-    assert player.death_threshold_override > 0  # Got easier
+    # Evaluate
+    adjustments = await game._evaluate_player_adjustments(player)
 
-
-def test_nonstop_high_kd_reward():
-    """Test Nonstop high K/D gets feedback boost."""
-
-    profile = create_mock_profile(
-        nonstop_kills=20,
-        nonstop_deaths=8,  # K/D = 2.5
-        nonstop_kd_ratio=2.5
-    )
-    player = create_mock_player(profile=profile)
-
-    engine = RewardPunishmentEngine(mock_manager, "Nonstop")
-    triggered = await engine.evaluate_and_apply(player, "cumulative")
-
-    assert "nonstop_reward_high_kd" in triggered
-    assert player.feedback_intensity_multiplier > 1.0  # Enhanced
-
-
-def test_excessive_warnings_punishment():
-    """Test excessive warnings trigger punishment."""
-
-    profile = create_mock_profile(
-        ffa_total_games=5,
-        ffa_warnings=60  # 12 warnings/round
-    )
-    player = create_mock_player(profile=profile)
-
-    engine = RewardPunishmentEngine(mock_manager, "FFA")
-    triggered = await engine.evaluate_and_apply(player, "per_round")
-
-    assert "ffa_punish_warnings" in triggered
-    assert player.warn_threshold_override < 0  # Got stricter
+    # Assertions
+    assert adjustments["death_threshold_delta"] == -0.1
+    assert adjustments["feedback_intensity_multiplier"] == 0.8
 ```
 
 ### Integration Tests
 
-**File**: `tests/integration/test_rewards_integration.py`
+**File**: `tests/integration/test_flag_adjustments_integration.py`
 
 ```python
-@pytest.mark.integration
 @pytest.mark.asyncio
-async def test_reward_application_in_game():
-    """Test rewards actually affect gameplay."""
+async def test_flag_adjustments_applied_in_game():
+    """Test adjustments are applied during actual game."""
 
-    # Create profile with good stats
-    profile_manager = PlayerProfileManager()
-    profile = await profile_manager.get_or_create_profile("winner_serial", "test")
-    profile.ffa_wins = 8
-    profile.ffa_total_games = 10
+    # Setup flagd with test flags
+    # ...
+
+    # Create player with profile
+    profile = PlayerProfile(
+        serial="00:06:F7:12:34:56",
+        ffa_total_games=10,
+        ffa_wins=8,  # 80% win rate
+        ffa_warnings=5
+    )
+
     await profile_manager.update_profile(profile)
 
     # Start game
-    game = FFAGame(...)
-    await game.run()
+    game = FFAGame(game_id="test", controllers=[controller])
+    await game.initialize_game()
 
-    # Check player got threshold adjustment
-    player = game.players["winner_serial"]
-    assert player.death_threshold_override > 0
-    assert player.profile.reward_tier == "EXCELLENT"
+    # Check adjustments applied
+    player = game.players[controller.serial]
+    assert player.death_threshold > BASE_DEATH_THRESHOLD  # Rewarded
+    assert player.visual_effect in ["gold_tint", "pulsing"]
 ```
 
 ### Manual Testing
 
-**Test 1: FFA Winner Reward**
-- [ ] Win 3 FFA games in a row
-- [ ] Check logs for "Rule 'Reward Consistent Winners' triggered"
-- [ ] Verify gold tint on LED
-- [ ] Check death threshold increased (easier to survive)
+**Test 1: Winner Reward (FFA)**
+- [ ] Create player profile with 70% win rate
+- [ ] Start FFA game
+- [ ] Check logs: "Applied adjustments to XX:XX:XX: threshold_delta=0.10"
+- [ ] Verify death threshold increased in gameplay
+- [ ] Check Grafana: `player_death_threshold_adjustment{serial="XX:XX:XX"} = 0.1`
 
-**Test 2: Nonstop Kill Streak**
-- [ ] Get 5+ kill streak in Nonstop
-- [ ] Check logs for "Rule 'Reward Kill Streaks' triggered"
-- [ ] Verify pulsing gold LED
-- [ ] Hear "Unstoppable!" audio (if implemented)
-- [ ] Verify death threshold +0.15 (god mode)
+**Test 2: Warning Punishment (FFA)**
+- [ ] Create player profile with 15 warnings per game
+- [ ] Start FFA game
+- [ ] Check logs: "Applied adjustments to XX:XX:XX: threshold_delta=-0.10"
+- [ ] Verify death threshold decreased (harder to survive)
+- [ ] Check Grafana: `adjustments_applied_total{adjustment_type="death_threshold"}`
 
-**Test 3: Team Coordination**
-- [ ] Coordinate 2 simultaneous kills with teammate
-- [ ] Check logs for "Rule 'Reward Team Coordination' triggered"
-- [ ] Verify synchronized LED flash across team
-- [ ] Check team score bonus applied
+**Test 3: K/D Reward (Nonstop)**
+- [ ] Create player profile with K/D ratio 3.0
+- [ ] Start Nonstop game
+- [ ] Check logs: "Applied adjustments: threshold_delta=0.15" (god mode)
+- [ ] Verify player is harder to kill
+- [ ] Visual effect should be applied
 
-**Test 4: Metrics Verification**
-- [ ] Query `player_death_threshold` in Grafana
-- [ ] Verify adjusted thresholds per player
-- [ ] Query `reward_rules_triggered_total`
-- [ ] Verify rules are being evaluated
+**Test 4: Battery-Based Feedback**
+- [ ] Create player with battery 4.5
+- [ ] Start any game
+- [ ] Check logs: "feedback_multiplier=1.30"
+- [ ] Verify stronger vibration/feedback during gameplay
+
+**Test 5: Flag Update During Demo**
+- [ ] Start game with default adjustments
+- [ ] Via Web UI, change `ffa_death_threshold_adjustment` targeting
+- [ ] Wait 10 seconds (flagd sync)
+- [ ] Start new game
+- [ ] Verify new adjustments applied
 
 ---
 
 ## Files to Create
 
 ```
-services/game_coordinator/rewards/
-├── __init__.py
-├── engine.py          # RewardPunishmentEngine
-└── rules.py           # FFA_RULES, NONSTOP_RULES, TEAM_RULES
+services/game_coordinator/
+└── games/
+    └── base.py (modify - add _evaluate_player_adjustments)
 
-tests/unit/rewards/
-├── test_engine.py     # Engine unit tests
-└── test_rules.py      # Rule evaluation tests
+services/game_coordinator/models/
+└── player.py (modify - add calculation methods)
 
-tests/integration/
-└── test_rewards_integration.py
+services/game_coordinator/
+└── metrics.py (modify - add adjustment metrics)
 ```
+
+---
 
 ## Files to Modify
 
-- `services/game_coordinator/games/base.py` - Integrate reward engine, apply overrides
-- `services/game_coordinator/models/player.py` - Add override fields to EnhancedPlayer
-- `services/game_coordinator/metrics.py` - Add reward metrics
+- `services/game_coordinator/games/base.py` - Add flag evaluation and adjustment application
+- `services/game_coordinator/games/ffa.py` - FFA-specific context
+- `services/game_coordinator/games/nonstop_joust.py` - Nonstop-specific context
+- `services/game_coordinator/games/teams.py` - Team-specific context
+- `services/game_coordinator/models/player.py` - Add calculation methods
+- `services/game_coordinator/metrics.py` - Add adjustment metrics
+
+---
+
+## Flag Definitions to Create (Phase 53 - Web UI)
+
+During Phase 53, these flag definitions will be created in the Web UI:
+
+- `ffa_death_threshold_adjustment`
+- `feedback_intensity_multiplier`
+- `nonstop_death_threshold_adjustment`
+- `nonstop_respawn_delay_adjustment`
+- `team_death_threshold_adjustment`
+- `visual_reward_effect`
 
 ---
 
 ## Success Criteria
 
-- [ ] FFA winners get +0.1 death threshold
-- [ ] Excessive warnings trigger -0.1 death threshold
-- [ ] High K/D in Nonstop gets +30% feedback
-- [ ] Kill streaks trigger god mode (+0.15 threshold)
-- [ ] Winning teams get visual rewards
-- [ ] Threshold adjustments visible in metrics
-- [ ] Rules evaluated at correct frequency
-- [ ] Per-player thresholds applied correctly
+- [ ] `_evaluate_player_adjustments()` method implemented
+- [ ] Flag evaluation integrated into `_initialize_players_impl()`
+- [ ] Adjustments applied to player parameters
+- [ ] Metrics track adjustments per player
+- [ ] FFA rewards winners with +0.1 threshold (when flag enabled)
+- [ ] FFA punishes warnings with -0.1 threshold (when flag enabled)
+- [ ] Nonstop rewards high K/D with +0.15 threshold
+- [ ] Battery affects feedback intensity (1.3x for good, 0.7x for low)
+- [ ] Visual effects applied based on performance score
+- [ ] No custom rule engine code (all via flags)
 - [ ] Unit tests pass (>85% coverage)
 - [ ] Integration tests pass
-- [ ] Manual testing confirms visible effects
+- [ ] Flag evaluation <5ms (p95)
+- [ ] No game loop impact (<1ms overhead)
+
+---
+
+## Migration from Old "Engine" Approach
+
+**What we're NOT building:**
+- ❌ RewardPunishmentEngine class
+- ❌ RewardPunishmentRule dataclass
+- ❌ RuleEvaluator with custom logic
+- ❌ ActionApplier classes
+- ❌ Hardcoded Python rule definitions
+
+**What we ARE building:**
+- ✅ Simple flag evaluation with player context
+- ✅ Adjustment application in game loop
+- ✅ Metrics for observability
+- ✅ All logic in flagd targeting rules (Web UI)
+
+**Lines of code comparison:**
+- Old approach (custom engine): ~900 lines
+- New approach (flag evaluation): ~200 lines
 
 ---
 
 ## Next Phase
 
-**Phase 52: Flagd Integration** will enable:
-- Runtime toggling of reward/punishment system
-- A/B testing different rule sets
-- Context-aware rule evaluation (e.g., different rules for 25-player games)
-- Remote configuration of thresholds and rewards
-
 **Phase 53: Web UI Enhancements** will:
-- Display active rewards/punishments per player
-- Show reward tier badges
-- Visualize threshold adjustments
-- Allow manual override of rules
+- Create flag management interface
+- Define flag targeting rules in UI
+- Allow editing adjustment thresholds
+- Visualize player profiles and adjustments
+- Enable A/B testing of reward strategies
+
+**Dependencies**: Requires Phase 51 (Flagd) and Phase 52 (this phase) complete.
 
 ---
 
-**End of Phase 51**
+**End of Phase 52**

@@ -22,3 +22,20 @@ grpc_request_duration_seconds = Histogram(
     ["method"],
     buckets=[0.001, 0.005, 0.010, 0.025, 0.050, 0.100, 0.250, 0.500, 1.0],
 )
+
+# Button monitoring metrics (Phase 56: Event-driven spans)
+button_frames_processed_total = Counter(
+    "menu_button_frames_processed_total",
+    "Total number of controller state frames processed by button monitor",
+)
+
+button_presses_total = Counter(
+    "menu_button_presses_total",
+    "Total number of button presses detected",
+    ["button", "action"],  # button: 'trigger', 'move', 'select', 'start', etc. action: 'press', 'hold'
+)
+
+lobby_updates_total = Counter(
+    "menu_lobby_updates_total",
+    "Total number of lobby feedback updates sent",
+)

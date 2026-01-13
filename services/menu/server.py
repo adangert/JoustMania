@@ -353,41 +353,49 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         logger.info("Menu service gRPC channels closed")
 
     async def _button_monitor_loop(self):
-        """Monitor controller buttons and trigger menu actions (Phase 21)."""
-        with tracer.start_as_current_span("button_monitor_loop"):
-            try:
-                # Import controller_manager protobuf
-                from proto import (
-                    controller_manager_pb2,
-                    controller_manager_pb2_grpc,
-                )
+        """
+        Monitor controller buttons and trigger menu actions (Phase 21).
 
-                # Use persistent channel (Phase 26)
-                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
+        Phase 56: Event-driven spans - Creates spans only for user button actions (trigger press,
+        move press, admin mode), not for routine frame processing. Metrics track polling operations.
+        """
+        try:
+            # Import controller_manager protobuf
+            from proto import (
+                controller_manager_pb2,
+                controller_manager_pb2_grpc,
+            )
 
-                logger.info("Button monitor connected to Controller Manager")
+            # Use persistent channel (Phase 26)
+            stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
 
-                # Stream controller states at 30Hz (enough for button detection)
-                stream_request = controller_manager_pb2.StreamRequest(update_frequency_hz=30)
+            logger.info("Button monitor connected to Controller Manager")
 
-                async for update in stub.StreamControllerStates(stream_request):
-                    if not self.button_monitor_running:
-                        break
+            # Stream controller states at 30Hz (enough for button detection)
+            stream_request = controller_manager_pb2.StreamRequest(update_frequency_hz=30)
 
-                    # Only process buttons when menu is running
-                    if self.state == menu_pb2.MenuState.RUNNING:
-                        for controller in update.controllers:
-                            await self._process_button_state(controller)
-                            # Phase 39: Update lobby feedback for this controller
-                            await self._update_lobby_feedback(controller, stub)
+            async for update in stub.StreamControllerStates(stream_request):
+                if not self.button_monitor_running:
+                    break
 
-                # Phase 26: Don't close persistent channel here
+                # Track frame processing via metrics (no span for routine polling)
+                metrics.button_frames_processed_total.inc()
 
-            except asyncio.CancelledError:
-                logger.info("Button monitor task cancelled")
-                raise
-            except Exception as e:
-                logger.error(f"Button monitor error: {e}", exc_info=True)
+                # Only process buttons when menu is running
+                if self.state == menu_pb2.MenuState.RUNNING:
+                    for controller in update.controllers:
+                        await self._process_button_state(controller)
+                        # Phase 39: Update lobby feedback for this controller
+                        await self._update_lobby_feedback(controller, stub)
+                        metrics.lobby_updates_total.inc()
+
+            # Phase 26: Don't close persistent channel here
+
+        except asyncio.CancelledError:
+            logger.info("Button monitor task cancelled")
+            raise
+        except Exception as e:
+            logger.error(f"Button monitor error: {e}", exc_info=True)
 
     async def _process_button_state(self, controller):
         """
@@ -621,6 +629,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         Args:
             serial: Controller serial number
         """
+        metrics.button_presses_total.labels(button="trigger", action="press").inc()
+
         with tracer.start_as_current_span("handle_trigger_press") as span:
             span.set_attribute("controller.serial", serial)
             span.set_attribute("game.name", self.current_selection)
@@ -639,6 +649,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         Args:
             serial: Controller serial number
         """
+        metrics.button_presses_total.labels(button="move", action="press").inc()
+
         with tracer.start_as_current_span("handle_select_press") as span:
             span.set_attribute("controller.serial", serial)
 
@@ -690,6 +702,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         Args:
             serial: Controller serial number
         """
+        metrics.button_presses_total.labels(button="admin_combo", action="hold").inc()
+
         with tracer.start_as_current_span("enter_admin_mode") as span:
             span.set_attribute("controller.serial", serial)
 

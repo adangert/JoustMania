@@ -184,65 +184,81 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         logger.info("ControllerManager initialized")
 
     def _discovery_loop(self):
-        """Background thread for controller discovery and battery monitoring."""
-        with tracer.start_as_current_span("discovery_loop"):
-            while self.running:
-                try:
-                    current_time = time.time()
+        """
+        Background thread for controller discovery and battery monitoring.
 
-                    # Check for new controllers every second
-                    with tracer.start_as_current_span("check_new_controllers") as span:
-                        if PSMOVE_AVAILABLE:
-                            self._check_for_new_controllers()
-                        span.set_attribute("controller.count", len(self.tracked_controllers))
+        Phase 56: Event-driven spans - Only creates spans for actual events (controller connected),
+        not for routine polling. Metrics track polling operations.
+        """
+        while self.running:
+            try:
+                current_time = time.time()
 
-                    # Check battery levels every 30 seconds (Phase 39 - Task 4)
-                    if current_time - self.last_battery_check >= 30.0:
+                # Check for new controllers every second (metrics, no span)
+                with metrics.discovery_check_duration_seconds.time():
+                    if PSMOVE_AVAILABLE:
+                        self._check_for_new_controllers()
+                    metrics.discovery_checks_total.inc()
+
+                # Check battery levels every 30 seconds (Phase 39 - Task 4)
+                if current_time - self.last_battery_check >= 30.0:
+                    with metrics.battery_check_duration_seconds.time():
                         self._check_battery_levels()
-                        self.last_battery_check = current_time
+                        metrics.battery_checks_total.inc()
+                    self.last_battery_check = current_time
 
-                    # Check RSSI every 10 seconds (Phase 48)
-                    if current_time - self.last_rssi_check >= self.rssi_check_interval:
+                # Check RSSI every 10 seconds (Phase 48)
+                if current_time - self.last_rssi_check >= self.rssi_check_interval:
+                    with metrics.rssi_check_duration_seconds.time():
                         self._check_rssi_levels()
-                        self.last_rssi_check = current_time
+                        metrics.rssi_checks_total.inc()
+                    self.last_rssi_check = current_time
 
-                    time.sleep(1.0)  # Check every second
+                time.sleep(1.0)  # Check every second
 
-                except Exception as e:
-                    logger.error(f"Discovery loop error: {e}", exc_info=True)
-                    time.sleep(5.0)
+            except Exception as e:
+                logger.error(f"Discovery loop error: {e}", exc_info=True)
+                time.sleep(5.0)
 
     def _check_for_new_controllers(self):
-        """Check for newly connected controllers (hardware)."""
+        """
+        Check for newly connected controllers (hardware).
+
+        Phase 56: Event-driven spans - Only creates spans when NEW controllers are discovered.
+        Routine checks are tracked via metrics only (no spans).
+        """
         if not PSMOVE_AVAILABLE:
             return
 
-        with tracer.start_as_current_span("discover_controllers") as span:
-            try:
-                count = psmove.count_connected()
-                span.set_attribute("psmove.count", count)
+        try:
+            count = psmove.count_connected()
 
-                for move_num in range(count):
-                    move = psmove.PSMove(move_num)
-                    serial = move.get_serial()
+            for move_num in range(count):
+                move = psmove.PSMove(move_num)
+                serial = move.get_serial()
 
-                    if serial not in self.tracked_controllers:
-                        # New controller found
+                if serial not in self.tracked_controllers:
+                    # New controller found - create event span
+                    with tracer.start_as_current_span("controller_connected") as span:
+                        span.set_attribute("controller.serial", serial)
+                        span.set_attribute("controller.connection_type", str(move.connection_type))
+                        span.set_attribute("psmove.count_total", count)
+
                         logger.info(f"Discovered new controller: {serial}")
 
                         # Pair if USB
                         if move.connection_type == psmove.Conn_USB and serial not in self.paired_serials:
-                            with tracer.start_as_current_span("pair_controller"):
+                            with tracer.start_as_current_span("pair_controller") as pair_span:
+                                pair_span.set_attribute("controller.serial", serial)
                                 self._pair_controller(move, serial)
 
                         # Spawn tracking process
-                        with tracer.start_as_current_span("spawn_controller_process"):
+                        with tracer.start_as_current_span("spawn_controller_process") as spawn_span:
+                            spawn_span.set_attribute("controller.serial", serial)
                             self._spawn_controller_process(move, serial, move_num)
 
-            except Exception as e:
-                span.record_exception(e)
-                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-                logger.error(f"Error discovering controllers: {e}", exc_info=True)
+        except Exception as e:
+            logger.error(f"Error discovering controllers: {e}", exc_info=True)
 
     def _pair_controller(self, move, serial: str):
         """Pair a controller via Bluetooth."""

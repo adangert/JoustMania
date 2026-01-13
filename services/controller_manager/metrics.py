@@ -102,3 +102,37 @@ stream_commands_total = Counter(
     "Total feedback commands received via stream",
     ["command_type"],  # 'color', 'effect', 'vibration'
 )
+
+# Discovery polling metrics (Phase 56: Event-driven spans)
+discovery_checks_total = Counter(
+    "controller_discovery_checks_total",
+    "Total number of controller discovery checks performed",
+)
+
+discovery_check_duration_seconds = Histogram(
+    "controller_discovery_check_duration_seconds",
+    "Duration of controller discovery checks",
+    buckets=[0.001, 0.005, 0.010, 0.025, 0.050, 0.100, 0.250, 0.500],
+)
+
+battery_checks_total = Counter(
+    "controller_battery_checks_total",
+    "Total number of battery level checks performed",
+)
+
+battery_check_duration_seconds = Histogram(
+    "controller_battery_check_duration_seconds",
+    "Duration of battery checks",
+    buckets=[0.001, 0.005, 0.010, 0.025, 0.050, 0.100],
+)
+
+rssi_checks_total = Counter(
+    "controller_rssi_checks_total",
+    "Total number of RSSI signal checks performed",
+)
+
+rssi_check_duration_seconds = Histogram(
+    "controller_rssi_check_duration_seconds",
+    "Duration of RSSI checks",
+    buckets=[0.001, 0.005, 0.010, 0.025, 0.050, 0.100],
+)

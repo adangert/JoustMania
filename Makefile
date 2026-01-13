@@ -12,9 +12,10 @@ help:
 	@echo "  make docker-stop     - Stop Docker services"
 	@echo ""
 	@echo "Testing Targets:"
-	@echo "  make test-help         - Show all testing targets"
-	@echo "  make test-docker       - Run integration tests in Docker (recommended)"
-	@echo "  make test-teams-docker - Run Teams test in Docker"
+	@echo "  make test-help       - Show all testing targets"
+	@echo "  make test            - Run all integration tests (recommended)"
+	@echo "  make test-teams      - Run Teams test"
+	@echo "  make test-mock-pause - Run with pause for Jaeger inspection"
 	@echo ""
 	@echo "CI/CD Targets:"
 	@echo "  make ci-help         - Show all CI/CD targets"
@@ -154,8 +155,9 @@ ci-build-test:
 
 .PHONY: test
 test:
-	@echo "Running integration tests with mock environment..."
-	@uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v
+	@echo "Running integration tests with mock environment (fresh venv)..."
+	@rm -rf .venv-test 2>/dev/null || true
+	@UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v
 
 .PHONY: test-docker
 test-docker: ci-build-test
@@ -168,20 +170,9 @@ test-docker: ci-build-test
 		joustmania/ci-test:latest \
 		uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v
 
-.PHONY: test-mock
-test-mock:
-	@echo "Running integration tests with mock environment..."
-	@uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v
-
 .PHONY: test-mock-pause
 test-mock-pause:
 	@echo "Running integration tests with pause (for Jaeger inspection)..."
-	@echo "Note: Tests will pause before teardown. Press Enter in test output to continue."
-	@PAUSE_BEFORE_TEARDOWN=1 uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v -s
-
-.PHONY: test-mock-pause-clean
-test-mock-pause-clean:
-	@echo "Running integration tests with pause using fresh venv (for Jaeger inspection)..."
 	@echo "Note: Tests will pause before teardown. Press Enter to continue."
 	@echo ""
 	@rm -rf .venv-test 2>/dev/null || true
@@ -202,8 +193,9 @@ test-mock-pause-docker: ci-build-test
 
 .PHONY: test-ffa
 test-ffa:
-	@echo "Running FFA integration test..."
-	@uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_ffa_game_with_mock_controllers -v
+	@echo "Running FFA integration test (fresh venv)..."
+	@rm -rf .venv-test 2>/dev/null || true
+	@UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_ffa_game_with_mock_controllers -v
 
 .PHONY: test-ffa-docker
 test-ffa-docker: ci-build-test
@@ -218,12 +210,7 @@ test-ffa-docker: ci-build-test
 
 .PHONY: test-teams
 test-teams:
-	@echo "Running Teams integration test..."
-	@uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_teams_game_with_mock_controllers -v
-
-.PHONY: test-teams-clean
-test-teams-clean:
-	@echo "Running Teams integration test with fresh venv (no permission issues)..."
+	@echo "Running Teams integration test (fresh venv)..."
 	@rm -rf .venv-test 2>/dev/null || true
 	@UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_teams_game_with_mock_controllers -v
 
@@ -240,8 +227,9 @@ test-teams-docker: ci-build-test
 
 .PHONY: test-random-teams
 test-random-teams:
-	@echo "Running Random Teams integration test..."
-	@uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_random_teams_game_with_mock_controllers -v
+	@echo "Running Random Teams integration test (fresh venv)..."
+	@rm -rf .venv-test 2>/dev/null || true
+	@UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_random_teams_game_with_mock_controllers -v
 
 .PHONY: test-random-teams-docker
 test-random-teams-docker: ci-build-test
@@ -264,17 +252,14 @@ test-help:
 	@echo "Testing Make Targets"
 	@echo "===================="
 	@echo ""
-	@echo "Run Tests (Local):"
+	@echo "Run Tests (Local - Recommended):"
 	@echo "  make test                - Run all integration tests"
-	@echo "  make test-mock           - Run all mock environment tests"
 	@echo "  make test-mock-pause     - Run with pause before teardown (for Jaeger)"
-	@echo "  make test-mock-pause-clean - Run with pause using fresh venv (recommended)"
 	@echo "  make test-ffa            - Run FFA integration test only"
 	@echo "  make test-teams          - Run Teams integration test only"
-	@echo "  make test-teams-clean    - Run Teams with fresh venv (no permission issues)"
 	@echo "  make test-random-teams   - Run Random Teams integration test only"
 	@echo ""
-	@echo "Run Tests (Docker - Recommended):"
+	@echo "Run Tests (Docker):"
 	@echo "  make test-docker             - Run all tests in Docker container"
 	@echo "  make test-mock-pause-docker  - Run with pause in Docker (for Jaeger)"
 	@echo "  make test-ffa-docker         - Run FFA test in Docker"
@@ -288,7 +273,7 @@ test-help:
 	@echo "  make ci-build-test    - Build test runner Docker image"
 	@echo ""
 	@echo "Notes:"
-	@echo "  - '*-clean' targets use fresh venv - no permission issues"
-	@echo "  - '*-docker' targets require Docker but may have TTY issues with pause mode"
-	@echo "  - For Jaeger inspection, use: make test-mock-pause-clean"
-	@echo "  - Local tests require: uv installed and .venv owned by current user"
+	@echo "  - Local tests use fresh venv (.venv-test) - no permission issues"
+	@echo "  - Docker tests may have TTY issues with pause mode - use local for Jaeger"
+	@echo "  - For Jaeger inspection: make test-mock-pause"
+	@echo "  - Requirements: uv installed (local tests) or Docker (Docker tests)"

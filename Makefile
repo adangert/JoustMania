@@ -179,6 +179,14 @@ test-mock-pause:
 	@echo "Note: Tests will pause before teardown. Press Enter in test output to continue."
 	@PAUSE_BEFORE_TEARDOWN=1 uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v -s
 
+.PHONY: test-mock-pause-clean
+test-mock-pause-clean:
+	@echo "Running integration tests with pause using fresh venv (for Jaeger inspection)..."
+	@echo "Note: Tests will pause before teardown. Press Enter to continue."
+	@echo ""
+	@rm -rf .venv-test 2>/dev/null || true
+	@PAUSE_BEFORE_TEARDOWN=1 UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v -s
+
 .PHONY: test-mock-pause-docker
 test-mock-pause-docker: ci-build-test
 	@echo "Running integration tests in Docker with pause (for Jaeger inspection)..."
@@ -257,13 +265,14 @@ test-help:
 	@echo "===================="
 	@echo ""
 	@echo "Run Tests (Local):"
-	@echo "  make test             - Run all integration tests"
-	@echo "  make test-mock        - Run all mock environment tests"
-	@echo "  make test-mock-pause  - Run tests with pause before teardown (for Jaeger)"
-	@echo "  make test-ffa         - Run FFA integration test only"
-	@echo "  make test-teams       - Run Teams integration test only"
-	@echo "  make test-teams-clean - Run Teams with fresh venv (no permission issues)"
-	@echo "  make test-random-teams - Run Random Teams integration test only"
+	@echo "  make test                - Run all integration tests"
+	@echo "  make test-mock           - Run all mock environment tests"
+	@echo "  make test-mock-pause     - Run with pause before teardown (for Jaeger)"
+	@echo "  make test-mock-pause-clean - Run with pause using fresh venv (recommended)"
+	@echo "  make test-ffa            - Run FFA integration test only"
+	@echo "  make test-teams          - Run Teams integration test only"
+	@echo "  make test-teams-clean    - Run Teams with fresh venv (no permission issues)"
+	@echo "  make test-random-teams   - Run Random Teams integration test only"
 	@echo ""
 	@echo "Run Tests (Docker - Recommended):"
 	@echo "  make test-docker             - Run all tests in Docker container"
@@ -279,6 +288,7 @@ test-help:
 	@echo "  make ci-build-test    - Build test runner Docker image"
 	@echo ""
 	@echo "Notes:"
-	@echo "  - Docker tests avoid .venv permission issues"
-	@echo "  - Docker tests use testcontainers for isolation"
+	@echo "  - '*-clean' targets use fresh venv - no permission issues"
+	@echo "  - '*-docker' targets require Docker but may have TTY issues with pause mode"
+	@echo "  - For Jaeger inspection, use: make test-mock-pause-clean"
 	@echo "  - Local tests require: uv installed and .venv owned by current user"

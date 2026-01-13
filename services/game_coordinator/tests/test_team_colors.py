@@ -122,9 +122,7 @@ class TestTeamsGameBaseInit:
         assert len(teams_game.team_colors) == 2
         assert teams_game.team_colors == TEAM_COLORS[:2]
 
-    def test_multiple_teams(
-        self, mock_controller_client, mock_settings_client, mock_event_publisher
-    ):
+    def test_multiple_teams(self, mock_controller_client, mock_settings_client, mock_event_publisher):
         """Should support up to 8 teams."""
         for num_teams in range(2, 9):
             game = MockTeamsGame(
@@ -232,9 +230,7 @@ class TestSetTeamColors:
         }
 
         # Simulate error
-        teams_game.controller_manager_client.SetControllerColor.side_effect = Exception(
-            "gRPC error"
-        )
+        teams_game.controller_manager_client.SetControllerColor.side_effect = Exception("gRPC error")
 
         # Should not raise, just log error
         await teams_game._set_team_colors(pulse_effect=False, duration_ms=0)

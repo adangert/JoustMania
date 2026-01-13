@@ -21,10 +21,7 @@ def get_hci_dict():
     for hci in hcis:
         proxy2 = get_adapter_proxy(hci)
         interfaces = get_node_interfaces(proxy2)
-        if (
-            "org.freedesktop.DBus.Properties" not in interfaces
-            or "org.bluez.Adapter1" not in interfaces
-        ):
+        if "org.freedesktop.DBus.Properties" not in interfaces or "org.bluez.Adapter1" not in interfaces:
             continue
         addr = get_adapter_attrib(proxy2, "Address")
         hci_dict[hci] = str(addr)

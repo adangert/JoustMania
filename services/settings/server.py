@@ -81,6 +81,7 @@ class Sensitivity(Enum):
     FAST = 3
     FASTEST = 4
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -311,11 +312,7 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
                     return False, f"Value {value} above maximum {schema['max']}"
 
             # Check allowed values (for str)
-            if (
-                expected_type is str
-                and "allowed_values" in schema
-                and value not in schema["allowed_values"]
-            ):
+            if expected_type is str and "allowed_values" in schema and value not in schema["allowed_values"]:
                 span.set_attribute("validation.result", "invalid")
                 span.set_attribute("validation.reason", "not_allowed")
                 return (
@@ -325,9 +322,7 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
 
             # Check list items (for list)
             if expected_type is list and key == "random_modes":
-                valid_games = [
-                    g.name for g in Games if g != Games.JoustTeams and g != Games.Random
-                ]
+                valid_games = [g.name for g in Games if g != Games.JoustTeams and g != Games.Random]
                 for item in value:
                     if item not in valid_games:
                         span.set_attribute("validation.result", "invalid")
@@ -413,21 +408,15 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
 
             value = self.settings[key]
 
-            return settings_pb2.GetSettingResponse(
-                key=key, value=str(value), success=True, error=""
-            )
+            return settings_pb2.GetSettingResponse(key=key, value=str(value), success=True, error="")
 
         except Exception as e:
             logger.error(f"GetSetting error: {e}", exc_info=True)
-            return settings_pb2.GetSettingResponse(
-                key=request.key, value="", success=False, error=str(e)
-            )
+            return settings_pb2.GetSettingResponse(key=request.key, value="", success=False, error=str(e))
 
     async def UpdateSetting(self, request, context):
         """Update a setting (Phase 34: async for publish_change)."""
-        logger.info(
-            f"UpdateSetting called: key={request.key}, value={request.value}, source={request.source}"
-        )
+        logger.info(f"UpdateSetting called: key={request.key}, value={request.value}, source={request.source}")
 
         try:
             key = request.key
@@ -463,9 +452,7 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
             # Validate
             valid, error = self.validate_setting_value(key, value)
             if not valid:
-                return settings_pb2.UpdateSettingResponse(
-                    success=False, error=error, old_value="", new_value=""
-                )
+                return settings_pb2.UpdateSettingResponse(success=False, error=error, old_value="", new_value="")
 
             # Update
             old_value = self.settings[key]
@@ -485,9 +472,7 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
 
         except Exception as e:
             logger.error(f"UpdateSetting error: {e}", exc_info=True)
-            return settings_pb2.UpdateSettingResponse(
-                success=False, error=str(e), old_value="", new_value=""
-            )
+            return settings_pb2.UpdateSettingResponse(success=False, error=str(e), old_value="", new_value="")
 
     async def SubscribeToChanges(self, request, context):
         """
@@ -557,9 +542,7 @@ async def serve(port: int = 50051, metrics_port: int = 8000):
         while True:
             try:
                 # Phase 34: Run blocking psutil calls in thread pool
-                cpu_percent = await loop.run_in_executor(
-                    None, lambda: process.cpu_percent(interval=None)
-                )
+                cpu_percent = await loop.run_in_executor(None, lambda: process.cpu_percent(interval=None))
                 mem_info = await loop.run_in_executor(None, lambda: process.memory_info())
                 thread_count = await loop.run_in_executor(None, process.num_threads)
 

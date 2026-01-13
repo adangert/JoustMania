@@ -293,9 +293,7 @@ class MenuProcess(Process):
         logger.info("Menu process shutdown complete")
 
 
-def send_command(
-    command_queue, response_queue, command: str, params: dict = None, timeout: float = 1.0
-) -> dict:
+def send_command(command_queue, response_queue, command: str, params: dict = None, timeout: float = 1.0) -> dict:
     """
     Helper function to send command to Menu process and wait for response.
 

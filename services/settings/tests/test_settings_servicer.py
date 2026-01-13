@@ -332,17 +332,13 @@ class TestSettingsServicerRPCs:
     def test_update_setting_bool_parsing(self, servicer, mock_context):
         """Test UpdateSetting RPC parses boolean strings correctly."""
         # Test 'true'
-        request = settings_pb2.UpdateSettingRequest(
-            key="play_instructions", value="true", source="test"
-        )
+        request = settings_pb2.UpdateSettingRequest(key="play_instructions", value="true", source="test")
         response = servicer.UpdateSetting(request, mock_context)
         assert response.success is True
         assert servicer.settings["play_instructions"] is True
 
         # Test 'false'
-        request = settings_pb2.UpdateSettingRequest(
-            key="play_instructions", value="false", source="test"
-        )
+        request = settings_pb2.UpdateSettingRequest(key="play_instructions", value="false", source="test")
         response = servicer.UpdateSetting(request, mock_context)
         assert response.success is True
         assert servicer.settings["play_instructions"] is False

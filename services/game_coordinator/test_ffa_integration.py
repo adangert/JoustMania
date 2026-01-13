@@ -74,9 +74,7 @@ class MockControllerManagerService:
 
     def GetReadyControllers(self, request):
         """Mock GetReadyControllers RPC."""
-        return controller_manager_pb2.GetReadyControllersResponse(
-            controllers=self.controllers, success=True, error=""
-        )
+        return controller_manager_pb2.GetReadyControllersResponse(controllers=self.controllers, success=True, error="")
 
     async def StreamControllerStates(self, request):
         """

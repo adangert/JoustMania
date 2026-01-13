@@ -224,9 +224,7 @@ class PerformanceBenchmark(unittest.TestCase):
 
         # Should be close to 500 updates/sec per controller
         # (FakeMove.poll() alternates, so 50% success rate at 1000Hz)
-        self.assertGreater(
-            updates_per_controller, 400, "Should achieve 400+ updates/sec per controller"
-        )
+        self.assertGreater(updates_per_controller, 400, "Should achieve 400+ updates/sec per controller")
 
     def test_memory_footprint(self):
         """

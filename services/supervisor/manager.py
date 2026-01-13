@@ -330,9 +330,7 @@ class ProcessSupervisor:
             return
 
         self.running = True
-        self.monitor_thread = threading.Thread(
-            target=self.monitor_loop, name="ProcessMonitor", daemon=True
-        )
+        self.monitor_thread = threading.Thread(target=self.monitor_loop, name="ProcessMonitor", daemon=True)
         self.monitor_thread.start()
         logger.info("Health monitoring started")
 

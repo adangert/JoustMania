@@ -23,9 +23,7 @@ games_dir = os.path.join(test_dir, "games")
 sys.path.insert(0, project_root)
 
 # Import random_teams directly without triggering package initialization
-spec = importlib.util.spec_from_file_location(
-    "random_teams", os.path.join(games_dir, "random_teams.py")
-)
+spec = importlib.util.spec_from_file_location("random_teams", os.path.join(games_dir, "random_teams.py"))
 random_teams = importlib.util.module_from_spec(spec)
 sys.modules["random_teams"] = random_teams
 spec.loader.exec_module(random_teams)
@@ -75,9 +73,7 @@ class MockControllerManagerService:
 
     def GetReadyControllers(self, request):
         """Mock GetReadyControllers RPC."""
-        return controller_manager_pb2.GetReadyControllersResponse(
-            controllers=self.controllers, success=True, error=""
-        )
+        return controller_manager_pb2.GetReadyControllersResponse(controllers=self.controllers, success=True, error="")
 
     async def StreamControllerStates(self, request):
         """
@@ -239,9 +235,7 @@ def event_collector():
 
 
 @pytest.mark.asyncio
-async def test_random_teams_game_full_lifecycle(
-    mock_controller_manager, mock_settings, event_collector
-):
+async def test_random_teams_game_full_lifecycle(mock_controller_manager, mock_settings, event_collector):
     """
     Test full Random Teams game lifecycle:
     - Game starts with 4 players
@@ -326,9 +320,7 @@ async def test_random_teams_game_full_lifecycle(
 
 
 @pytest.mark.asyncio
-async def test_random_teams_assignment_is_random(
-    mock_controller_manager, mock_settings, event_collector
-):
+async def test_random_teams_assignment_is_random(mock_controller_manager, mock_settings, event_collector):
     """
     Test that team assignments are actually random.
 
@@ -351,9 +343,7 @@ async def test_random_teams_assignment_is_random(
         await game._initialize_players()
 
         # Get team assignment as a tuple (hashable)
-        assignment = tuple(
-            sorted([(serial, player.team) for serial, player in game.players.items()])
-        )
+        assignment = tuple(sorted([(serial, player.team) for serial, player in game.players.items()]))
 
         assignments_seen.add(assignment)
 
@@ -363,15 +353,11 @@ async def test_random_teams_assignment_is_random(
         len(assignments_seen) >= 2
     ), f"Expected different random assignments, got same assignment {len(assignments_seen)} times"
 
-    print(
-        f"✅ Random assignment test passed! Saw {len(assignments_seen)} different team configurations"
-    )
+    print(f"✅ Random assignment test passed! Saw {len(assignments_seen)} different team configurations")
 
 
 @pytest.mark.asyncio
-async def test_random_teams_game_settings_loaded(
-    mock_controller_manager, mock_settings, event_collector
-):
+async def test_random_teams_game_settings_loaded(mock_controller_manager, mock_settings, event_collector):
     """Test that game loads settings from Settings service."""
     # Customize settings
     mock_settings.settings["sensitivity"] = "FAST"

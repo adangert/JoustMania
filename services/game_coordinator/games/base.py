@@ -437,9 +437,7 @@ class BaseGameMode(ABC):
 
                 # Safety check: timeout if game runs too long
                 if (time.time() - loop_start_time) > max_game_duration:
-                    logger.error(
-                        f"Game exceeded maximum duration of {max_game_duration}s, forcing end"
-                    )
+                    logger.error(f"Game exceeded maximum duration of {max_game_duration}s, forcing end")
                     break
 
                 # Process each controller's gameplay data
@@ -452,9 +450,7 @@ class BaseGameMode(ABC):
                 if current_alive_serials != last_alive_serials:
                     # Send filter update to server
                     filter_msg = controller_manager_pb2.GameplayStreamControl(
-                        filter_update=controller_manager_pb2.FilterUpdate(
-                            serials=list(current_alive_serials)
-                        )
+                        filter_update=controller_manager_pb2.FilterUpdate(serials=list(current_alive_serials))
                     )
                     await self.gameplay_stream.write(filter_msg)
 
@@ -473,9 +469,7 @@ class BaseGameMode(ABC):
                 # Check win condition
                 if self._check_win_condition():
                     # Keep game running for 1 second to clearly show winner in traces
-                    logger.info(
-                        "Win condition met, keeping game active for 1 second to show winner"
-                    )
+                    logger.info("Win condition met, keeping game active for 1 second to show winner")
                     await asyncio.sleep(1.0)
                     break
 
@@ -492,9 +486,7 @@ class BaseGameMode(ABC):
                 iteration_latency_ms = (iteration_end - last_iteration_time) * 1000
 
                 metrics.game_loop_iterations_total.labels(mode=self.get_game_name()).inc()
-                metrics.game_loop_latency_ms.labels(mode=self.get_game_name()).observe(
-                    iteration_latency_ms
-                )
+                metrics.game_loop_latency_ms.labels(mode=self.get_game_name()).observe(iteration_latency_ms)
 
                 # Calculate actual Hz every 10 iterations
                 if loop_iterations % 10 == 0:
@@ -695,9 +687,7 @@ class BaseGameMode(ABC):
             # Phase 4: Game starts
             self.state = GameState.RUNNING
             self.start_time = time.time()
-            self.event_publisher(
-                "game_started", {"game_id": self.game_id, "player_count": len(self.players)}
-            )
+            self.event_publisher("game_started", {"game_id": self.game_id, "player_count": len(self.players)})
 
             # Phase 5: Gameplay
             with tracer.start_as_current_span("gameplay_phase"):

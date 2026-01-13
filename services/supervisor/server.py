@@ -159,9 +159,7 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
 
         # Start times
         self.start_time = time.time()
-        self.process_start_times: dict[str, float] = dict.fromkeys(
-            self.processes.keys(), self.start_time
-        )
+        self.process_start_times: dict[str, float] = dict.fromkeys(self.processes.keys(), self.start_time)
 
         # Event streaming
         self.event_subscribers: dict[str, queue.Queue] = {}
@@ -230,9 +228,7 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
                 info = self.processes[request.name]
                 process_info = self._build_process_info(info)
 
-                return supervisor_pb2.GetProcessStatusResponse(
-                    info=process_info, success=True, error=""
-                )
+                return supervisor_pb2.GetProcessStatusResponse(info=process_info, success=True, error="")
 
             except Exception as e:
                 span.record_exception(e)
@@ -248,17 +244,13 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
 
                 span.set_attribute("processes.count", len(processes))
 
-                return supervisor_pb2.GetAllProcessStatusResponse(
-                    processes=processes, success=True, error=""
-                )
+                return supervisor_pb2.GetAllProcessStatusResponse(processes=processes, success=True, error="")
 
             except Exception as e:
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 logger.error(f"GetAllProcessStatus error: {e}", exc_info=True)
-                return supervisor_pb2.GetAllProcessStatusResponse(
-                    processes=[], success=False, error=str(e)
-                )
+                return supervisor_pb2.GetAllProcessStatusResponse(processes=[], success=False, error=str(e))
 
     def RestartProcess(self, request, context):
         """Restart a failed process."""
@@ -299,16 +291,8 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
         with tracer.start_as_current_span("GetHealthSummary") as span:
             try:
                 total = len(self.processes)
-                running = sum(
-                    1
-                    for p in self.processes.values()
-                    if p["status"] == supervisor_pb2.ProcessStatus.RUNNING
-                )
-                failed = sum(
-                    1
-                    for p in self.processes.values()
-                    if p["status"] == supervisor_pb2.ProcessStatus.FAILED
-                )
+                running = sum(1 for p in self.processes.values() if p["status"] == supervisor_pb2.ProcessStatus.RUNNING)
+                failed = sum(1 for p in self.processes.values() if p["status"] == supervisor_pb2.ProcessStatus.FAILED)
 
                 unhealthy = [
                     self._build_process_info(info)
@@ -364,9 +348,7 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
                     # Build current status
                     processes = [self._build_process_info(info) for info in self.processes.values()]
 
-                    update = supervisor_pb2.ProcessStatusUpdate(
-                        processes=processes, timestamp=int(time.time() * 1000)
-                    )
+                    update = supervisor_pb2.ProcessStatusUpdate(processes=processes, timestamp=int(time.time() * 1000))
 
                     yield update
 
@@ -496,9 +478,7 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
                 players = []
                 for i, controller in enumerate(controllers_response.controllers):
                     players.append(
-                        game_coordinator_pb2.Player(
-                            serial=controller.serial, team=i % 2, alive=True, score=0
-                        )
+                        game_coordinator_pb2.Player(serial=controller.serial, team=i % 2, alive=True, score=0)
                     )
 
                 span.set_attribute("player.count", len(players))
@@ -569,9 +549,7 @@ async def serve(port=50055, metrics_port=8000):
         while True:
             try:
                 # Phase 34: Run blocking psutil calls in thread pool
-                cpu_percent = await loop.run_in_executor(
-                    None, lambda: process.cpu_percent(interval=None)
-                )
+                cpu_percent = await loop.run_in_executor(None, lambda: process.cpu_percent(interval=None))
                 mem_info = await loop.run_in_executor(None, lambda: process.memory_info())
                 thread_count = await loop.run_in_executor(None, process.num_threads)
 
@@ -596,9 +574,7 @@ async def serve(port=50055, metrics_port=8000):
     health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
 
     # Mark the Supervisor service as SERVING
-    await health_servicer.set(
-        "supervisor.SupervisorService", health_pb2.HealthCheckResponse.SERVING
-    )
+    await health_servicer.set("supervisor.SupervisorService", health_pb2.HealthCheckResponse.SERVING)
     await health_servicer.set("", health_pb2.HealthCheckResponse.SERVING)  # Overall health
 
     # Bind to port

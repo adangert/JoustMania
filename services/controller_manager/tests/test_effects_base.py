@@ -38,9 +38,10 @@ class TestEffectFlash:
     @pytest.mark.asyncio
     async def test_flash_toggles_on_off(self, effects):
         """Flash effect should toggle between color and black."""
-        with patch(
-            "services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock
-        ), patch("services.controller_manager.effects_base.time.time") as mock_time:
+        with (
+            patch("services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock),
+            patch("services.controller_manager.effects_base.time.time") as mock_time,
+        ):
             # Simulate 0.5 seconds passing (500ms duration)
             mock_time.side_effect = [0.0, 0.0, 0.1, 0.1, 0.2, 0.2, 0.3, 0.3, 0.4, 0.4, 0.5, 0.6]
 
@@ -61,9 +62,10 @@ class TestEffectFlash:
     @pytest.mark.asyncio
     async def test_flash_speed_controls_frequency(self, effects):
         """Higher speed should mean faster flashing."""
-        with patch(
-            "services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock
-        ) as mock_sleep, patch("services.controller_manager.effects_base.time.time") as mock_time:
+        with (
+            patch("services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+            patch("services.controller_manager.effects_base.time.time") as mock_time,
+        ):
             # Allow a few iterations before ending
             mock_time.side_effect = [0.0, 0.0, 0.01, 0.01, 0.02, 0.02, 0.2]
 
@@ -77,9 +79,7 @@ class TestEffectFlash:
     @pytest.mark.asyncio
     async def test_flash_cancellation_restores_color(self, effects):
         """Cancelling flash should restore final color."""
-        with patch(
-            "services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock
-        ) as mock_sleep:
+        with patch("services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             mock_sleep.side_effect = asyncio.CancelledError()
 
             with pytest.raises(asyncio.CancelledError):
@@ -95,9 +95,10 @@ class TestEffectPulse:
     @pytest.mark.asyncio
     async def test_pulse_uses_sine_wave(self, effects):
         """Pulse should use sine wave for smooth breathing."""
-        with patch(
-            "services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock
-        ), patch("services.controller_manager.effects_base.time.time") as mock_time:
+        with (
+            patch("services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock),
+            patch("services.controller_manager.effects_base.time.time") as mock_time,
+        ):
             # Simulate one full cycle at speed=1 (1 Hz = 1 second cycle)
             # Need enough time points to see variation
             times = [
@@ -139,9 +140,10 @@ class TestEffectPulse:
     @pytest.mark.asyncio
     async def test_pulse_restores_full_brightness(self, effects):
         """Pulse should restore full color at end."""
-        with patch(
-            "services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock
-        ), patch("services.controller_manager.effects_base.time.time") as mock_time:
+        with (
+            patch("services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock),
+            patch("services.controller_manager.effects_base.time.time") as mock_time,
+        ):
             mock_time.side_effect = [0.0, 0.0, 1.0]
 
             await effects._effect_pulse("test", (128, 64, 32), duration_ms=100, speed=5)
@@ -152,9 +154,10 @@ class TestEffectPulse:
     @pytest.mark.asyncio
     async def test_pulse_speed_controls_cycle_duration(self, effects):
         """Higher speed should mean faster pulse cycles."""
-        with patch(
-            "services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock
-        ) as mock_sleep, patch("services.controller_manager.effects_base.time.time") as mock_time:
+        with (
+            patch("services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+            patch("services.controller_manager.effects_base.time.time") as mock_time,
+        ):
             # Allow a few iterations - need enough time values
             mock_time.side_effect = [
                 0.0,
@@ -184,9 +187,10 @@ class TestEffectRainbow:
     @pytest.mark.asyncio
     async def test_rainbow_cycles_through_hues(self, effects):
         """Rainbow should cycle through HSV color space."""
-        with patch(
-            "services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock
-        ), patch("services.controller_manager.effects_base.time.time") as mock_time:
+        with (
+            patch("services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock),
+            patch("services.controller_manager.effects_base.time.time") as mock_time,
+        ):
             # Simulate one full cycle at speed=1
             times = [0.0, 0.0, 0.25, 0.5, 0.75, 1.0, 1.1]
             mock_time.side_effect = times
@@ -205,9 +209,10 @@ class TestEffectRainbow:
     @pytest.mark.asyncio
     async def test_rainbow_produces_varying_colors(self, effects):
         """Rainbow should produce multiple different colors over time."""
-        with patch(
-            "services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock
-        ), patch("services.controller_manager.effects_base.time.time") as mock_time:
+        with (
+            patch("services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock),
+            patch("services.controller_manager.effects_base.time.time") as mock_time,
+        ):
             # Simulate progression through time for color changes
             times = [0.0, 0.0, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1]
             mock_time.side_effect = times
@@ -234,9 +239,7 @@ class TestEffectFadeOut:
     @pytest.mark.asyncio
     async def test_fade_out_decreases_brightness(self, effects):
         """Fade out should progressively decrease brightness."""
-        with patch(
-            "services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock
-        ):
+        with patch("services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock):
             await effects._effect_fade_out("test", (255, 255, 255), duration_ms=200)
 
             colors = [call[1] for call in effects.color_calls[:-1]]  # Exclude final black
@@ -249,9 +252,7 @@ class TestEffectFadeOut:
     @pytest.mark.asyncio
     async def test_fade_out_ends_at_black(self, effects):
         """Fade out should end at black (0, 0, 0)."""
-        with patch(
-            "services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock
-        ):
+        with patch("services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock):
             await effects._effect_fade_out("test", (100, 200, 150), duration_ms=100)
 
             # Final color should be black
@@ -260,9 +261,7 @@ class TestEffectFadeOut:
     @pytest.mark.asyncio
     async def test_fade_out_preserves_color_ratio(self, effects):
         """Fade out should maintain RGB ratios during fade."""
-        with patch(
-            "services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock
-        ):
+        with patch("services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock):
             await effects._effect_fade_out("test", (255, 128, 64), duration_ms=200)
 
             colors = [call[1] for call in effects.color_calls[:-1]]  # Exclude final black
@@ -280,9 +279,7 @@ class TestEffectFadeIn:
     @pytest.mark.asyncio
     async def test_fade_in_increases_brightness(self, effects):
         """Fade in should progressively increase brightness."""
-        with patch(
-            "services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock
-        ):
+        with patch("services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock):
             await effects._effect_fade_in("test", (255, 255, 255), duration_ms=200)
 
             colors = [call[1] for call in effects.color_calls[:-1]]  # Exclude final restore
@@ -295,9 +292,7 @@ class TestEffectFadeIn:
     @pytest.mark.asyncio
     async def test_fade_in_ends_at_target_color(self, effects):
         """Fade in should end at target color."""
-        with patch(
-            "services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock
-        ):
+        with patch("services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock):
             await effects._effect_fade_in("test", (200, 100, 50), duration_ms=100)
 
             # Final color should be target color
@@ -306,9 +301,7 @@ class TestEffectFadeIn:
     @pytest.mark.asyncio
     async def test_fade_in_starts_from_black(self, effects):
         """Fade in should start from black or near-black."""
-        with patch(
-            "services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock
-        ):
+        with patch("services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock):
             await effects._effect_fade_in("test", (255, 128, 64), duration_ms=200)
 
             # First color should be very dim
@@ -322,15 +315,14 @@ class TestEffectManagement:
     @pytest.mark.asyncio
     async def test_active_effects_tracking(self, effects):
         """Active effects should be tracked in dict."""
-        with patch(
-            "services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock
-        ), patch("services.controller_manager.effects_base.time.time") as mock_time:
+        with (
+            patch("services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock),
+            patch("services.controller_manager.effects_base.time.time") as mock_time,
+        ):
             mock_time.side_effect = [0.0, 0.0, 1.0]
 
             # Create task
-            task = asyncio.create_task(
-                effects._effect_flash("test_serial", (255, 0, 0), duration_ms=100, speed=5)
-            )
+            task = asyncio.create_task(effects._effect_flash("test_serial", (255, 0, 0), duration_ms=100, speed=5))
             effects.active_effects["test_serial"] = task
 
             await task
@@ -342,9 +334,7 @@ class TestEffectManagement:
     async def test_cancel_controller_effect(self, effects):
         """cancel_controller_effect should stop active effect."""
         # Start long-running effect (10 seconds)
-        task = asyncio.create_task(
-            effects._effect_pulse("test", (255, 0, 0), duration_ms=10000, speed=1)
-        )
+        task = asyncio.create_task(effects._effect_pulse("test", (255, 0, 0), duration_ms=10000, speed=1))
         effects.active_effects["test"] = task
 
         # Give it a moment to start
@@ -373,9 +363,10 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_zero_duration_flash(self, effects):
         """Flash with 0ms duration should complete immediately."""
-        with patch(
-            "services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock
-        ), patch("services.controller_manager.effects_base.time.time") as mock_time:
+        with (
+            patch("services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock),
+            patch("services.controller_manager.effects_base.time.time") as mock_time,
+        ):
             mock_time.side_effect = [0.0, 1.0]  # Time already passed
 
             await effects._effect_flash("test", (255, 0, 0), duration_ms=0, speed=5)
@@ -386,9 +377,10 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_very_fast_speed(self, effects):
         """Very high speed values should work."""
-        with patch(
-            "services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock
-        ) as mock_sleep, patch("services.controller_manager.effects_base.time.time") as mock_time:
+        with (
+            patch("services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+            patch("services.controller_manager.effects_base.time.time") as mock_time,
+        ):
             mock_time.side_effect = [0.0, 0.0, 1.0]
 
             await effects._effect_flash("test", (255, 0, 0), duration_ms=100, speed=100)
@@ -400,9 +392,10 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_zero_speed_uses_minimum(self, effects):
         """Speed=0 should be treated as speed=1 (max() protection)."""
-        with patch(
-            "services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock
-        ) as mock_sleep, patch("services.controller_manager.effects_base.time.time") as mock_time:
+        with (
+            patch("services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+            patch("services.controller_manager.effects_base.time.time") as mock_time,
+        ):
             mock_time.side_effect = [0.0, 0.0, 1.0]
 
             await effects._effect_flash("test", (255, 0, 0), duration_ms=100, speed=0)
@@ -414,9 +407,10 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_effect_with_zero_color_values(self, effects):
         """Effects should handle (0, 0, 0) color input."""
-        with patch(
-            "services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock
-        ), patch("services.controller_manager.effects_base.time.time") as mock_time:
+        with (
+            patch("services.controller_manager.effects_base.asyncio.sleep", new_callable=AsyncMock),
+            patch("services.controller_manager.effects_base.time.time") as mock_time,
+        ):
             mock_time.side_effect = [0.0, 0.0, 1.0]
 
             await effects._effect_pulse("test", (0, 0, 0), duration_ms=100, speed=5)

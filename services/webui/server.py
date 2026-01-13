@@ -115,9 +115,7 @@ class SettingsForm(Form):
         choices=[(2, "2"), (3, "3"), (4, "4"), (5, "5"), (6, "6")],
         coerce=int,
     )
-    force_all_start = BooleanField(
-        "When force starting, start with all controllers (not just ready ones)"
-    )
+    force_all_start = BooleanField("When force starting, start with all controllers (not just ready ones)")
     nonstop_time_limit = IntegerField(
         "Nonstop Joust time limit in seconds (0 = no limit)",
         default=0,
@@ -164,9 +162,7 @@ class GrpcClients:
 
         # Service addresses from environment or defaults
         self.settings_addr = os.getenv("SETTINGS_SERVICE", "settings:50051")
-        self.controller_mgr_addr = os.getenv(
-            "CONTROLLER_MANAGER_SERVICE", "controller-manager:50052"
-        )
+        self.controller_mgr_addr = os.getenv("CONTROLLER_MANAGER_SERVICE", "controller-manager:50052")
         self.menu_addr = os.getenv("MENU_SERVICE", "menu:50054")
         self.supervisor_addr = os.getenv("SUPERVISOR_SERVICE", "supervisor:50055")
 
@@ -192,9 +188,7 @@ class GrpcClients:
 
         # ControllerManager service
         self.controller_channel = grpc.insecure_channel(self.controller_mgr_addr)
-        self.controller_stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
-            self.controller_channel
-        )
+        self.controller_stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
 
         # Menu service
         self.menu_channel = grpc.insecure_channel(self.menu_addr)
@@ -233,9 +227,7 @@ class WebUI:
 
         # Register routes
         self.app.add_url_rule("/", "index", self.index)
-        self.app.add_url_rule(
-            "/changemodestr", "change_mode_str", self.change_mode_str, methods=["POST"]
-        )
+        self.app.add_url_rule("/changemodestr", "change_mode_str", self.change_mode_str, methods=["POST"])
         self.app.add_url_rule("/startgame", "start_game", self.start_game)
         self.app.add_url_rule("/killgame", "kill_game", self.kill_game)
         self.app.add_url_rule("/updateStatus", "update", self.update)
@@ -314,9 +306,7 @@ class WebUI:
         """Start a game."""
         with tracer.start_as_current_span("start_game"):
             try:
-                req = menu_pb2.ProcessInputRequest(
-                    input_type="web_command", data={"command": "startgame"}
-                )
+                req = menu_pb2.ProcessInputRequest(input_type="web_command", data={"command": "startgame"})
                 response = self.grpc.menu_stub.ProcessInput(req, timeout=2.0)
 
                 if response.success:
@@ -331,9 +321,7 @@ class WebUI:
         """Kill current game."""
         with tracer.start_as_current_span("kill_game"):
             try:
-                req = menu_pb2.ProcessInputRequest(
-                    input_type="web_command", data={"command": "killgame"}
-                )
+                req = menu_pb2.ProcessInputRequest(input_type="web_command", data={"command": "killgame"})
                 response = self.grpc.menu_stub.ProcessInput(req, timeout=2.0)
 
                 if response.success:
@@ -485,9 +473,7 @@ class WebUI:
                     )
 
                     span.set_attribute("settings.loaded", True)
-                    return render_template(
-                        "settings.html", form=settings_form, settings=current_settings
-                    )
+                    return render_template("settings.html", form=settings_form, settings=current_settings)
                 logger.error(f"GetSettings failed: {response.error}")
                 # Return default form
                 return render_template("settings.html", form=SettingsForm(), settings={})

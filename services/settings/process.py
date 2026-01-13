@@ -250,19 +250,15 @@ class SettingsProcess(Process):
                 return False, f"Value {value} above maximum {schema['max']}"
 
         # Check allowed values (for str)
-        if (
-            expected_type is str
-            and "allowed_values" in schema
-            and value not in schema["allowed_values"]
-        ):
+        if expected_type is str and "allowed_values" in schema and value not in schema["allowed_values"]:
             return False, f"Value '{value}' not in allowed values: {schema['allowed_values']}"
 
         # Check list items (for list)
         if expected_type is list and key == "random_modes":
-                valid_games = [g.name for g in Games if g != Games.JoustTeams and g != Games.Random]
-                for item in value:
-                    if item not in valid_games:
-                        return False, f"Invalid game mode in random_modes: {item}"
+            valid_games = [g.name for g in Games if g != Games.JoustTeams and g != Games.Random]
+            for item in value:
+                if item not in valid_games:
+                    return False, f"Invalid game mode in random_modes: {item}"
 
         return True, ""
 
@@ -441,9 +437,7 @@ class SettingsProcess(Process):
         logger.info("Settings process shutdown complete")
 
 
-def send_command(
-    command_queue, response_queue, command: str, params: dict = None, timeout: float = 1.0
-) -> dict:
+def send_command(command_queue, response_queue, command: str, params: dict = None, timeout: float = 1.0) -> dict:
     """
     Helper function to send command to Settings process and wait for response.
 

@@ -124,10 +124,7 @@ class AudioManager:
                 channel = pygame.mixer.find_channel(priority == 3)
                 if channel:
                     channel.play(sound)
-                    logger.info(
-                        f"Playing sound: {file_path} "
-                        f"(volume={adjusted_volume:.2f}, priority={priority})"
-                    )
+                    logger.info(f"Playing sound: {file_path} " f"(volume={adjusted_volume:.2f}, priority={priority})")
                     span.add_event("sound_played")
                     return True
                 logger.warning(f"No available channel for sound: {file_path}")
@@ -138,9 +135,7 @@ class AudioManager:
                 span.record_exception(e)
                 return False
 
-    def play_music(
-        self, file_pattern: str, loop: bool = True, tempo: float = 1.0, priority: int = 1
-    ) -> str | None:
+    def play_music(self, file_pattern: str, loop: bool = True, tempo: float = 1.0, priority: int = 1) -> str | None:
         """
         Play background music (looping).
 
@@ -192,10 +187,7 @@ class AudioManager:
                     self.current_tempo = tempo
                     self.is_playing = True
 
-                    logger.info(
-                        f"Playing music: {selected_file} "
-                        f"(track_id={track_id}, tempo={tempo}, loop={loop})"
-                    )
+                    logger.info(f"Playing music: {selected_file} " f"(track_id={track_id}, tempo={tempo}, loop={loop})")
                     span.add_event("music_started", {"track_id": track_id})
 
                     return track_id
@@ -244,9 +236,7 @@ class AudioManager:
                 span.record_exception(e)
                 return False
 
-    def change_tempo(
-        self, track_id: str, new_tempo: float, transition_duration: float = 1.0
-    ) -> bool:
+    def change_tempo(self, track_id: str, new_tempo: float, transition_duration: float = 1.0) -> bool:
         """
         Change music tempo (real-time speed adjustment).
 
@@ -305,11 +295,7 @@ class AudioManager:
             Dictionary with current status
         """
         with self.music_lock:
-            is_busy = (
-                self.is_playing
-                if self.mock_mode
-                else (self.is_playing and pygame.mixer.music.get_busy())
-            )
+            is_busy = self.is_playing if self.mock_mode else (self.is_playing and pygame.mixer.music.get_busy())
             return {
                 "current_track_id": self.current_music_track or "",
                 "current_track_file": self.current_music_file or "",
@@ -337,9 +323,7 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
                 file_path=request.file_path, volume=request.volume or 1.0, priority=request.priority
             )
 
-            return audio_pb2.PlaySoundResponse(
-                success=success, error="" if success else "Failed to play sound"
-            )
+            return audio_pb2.PlaySoundResponse(success=success, error="" if success else "Failed to play sound")
 
     def PlayMusic(self, request, context):
         """Play background music."""
@@ -355,18 +339,14 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
 
             if track_id:
                 return audio_pb2.PlayMusicResponse(track_id=track_id, success=True, error="")
-            return audio_pb2.PlayMusicResponse(
-                track_id="", success=False, error="Failed to play music"
-            )
+            return audio_pb2.PlayMusicResponse(track_id="", success=False, error="Failed to play music")
 
     def StopMusic(self, request, context):
         """Stop music track."""
         with tracer.start_as_current_span("StopMusic_RPC"):
             success = self.audio_manager.stop_music(request.track_id)
 
-            return audio_pb2.StopMusicResponse(
-                success=success, error="" if success else "Failed to stop music"
-            )
+            return audio_pb2.StopMusicResponse(success=success, error="" if success else "Failed to stop music")
 
     def ChangeTempo(self, request, context):
         """Change music tempo."""
@@ -377,18 +357,14 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
                 transition_duration=request.transition_duration or 1.0,
             )
 
-            return audio_pb2.ChangeTempoResponse(
-                success=success, error="" if success else "Failed to change tempo"
-            )
+            return audio_pb2.ChangeTempoResponse(success=success, error="" if success else "Failed to change tempo")
 
     def SetVolume(self, request, context):
         """Set master volume."""
         with tracer.start_as_current_span("SetVolume_RPC"):
             success = self.audio_manager.set_volume(request.volume)
 
-            return audio_pb2.SetVolumeResponse(
-                success=success, error="" if success else "Failed to set volume"
-            )
+            return audio_pb2.SetVolumeResponse(success=success, error="" if success else "Failed to set volume")
 
     def GetStatus(self, request, context):
         """Get current playback status."""
@@ -427,9 +403,7 @@ async def serve(metrics_port=8000):
         while True:
             try:
                 # Phase 34: Run blocking psutil calls in thread pool
-                cpu_percent = await loop.run_in_executor(
-                    None, lambda: process.cpu_percent(interval=None)
-                )
+                cpu_percent = await loop.run_in_executor(None, lambda: process.cpu_percent(interval=None))
                 mem_info = await loop.run_in_executor(None, lambda: process.memory_info())
                 thread_count = await loop.run_in_executor(None, process.num_threads)
 

@@ -151,14 +151,10 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
         try:
             # ControllerManager client (async for streaming)
-            controller_manager_address = (
-                f"{self.controller_manager_host}:{self.controller_manager_port}"
-            )
+            controller_manager_address = f"{self.controller_manager_host}:{self.controller_manager_port}"
             self.controller_manager_channel = create_channel(controller_manager_address)
-            self.controller_manager_client = (
-                controller_manager_pb2_grpc.ControllerManagerServiceStub(
-                    self.controller_manager_channel
-                )
+            self.controller_manager_client = controller_manager_pb2_grpc.ControllerManagerServiceStub(
+                self.controller_manager_channel
             )
             logger.info(f"Connected to ControllerManager at {controller_manager_address}")
 
@@ -237,22 +233,16 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
                 # Start game in background thread (with async support)
                 self.game_running = True
-                self.game_thread = threading.Thread(
-                    target=self._run_game_loop_threaded, daemon=True
-                )
+                self.game_thread = threading.Thread(target=self._run_game_loop_threaded, daemon=True)
                 self.game_thread.start()
 
                 logger.info(f"Started game: {self.game_name} with {len(self.players)} players")
 
-                return game_coordinator_pb2.StartGameResponse(
-                    success=True, error="", game_id=self.game_id
-                )
+                return game_coordinator_pb2.StartGameResponse(success=True, error="", game_id=self.game_id)
 
             except Exception as e:
                 logger.error(f"StartGame error: {e}", exc_info=True)
-                return game_coordinator_pb2.StartGameResponse(
-                    success=False, error=str(e), game_id=""
-                )
+                return game_coordinator_pb2.StartGameResponse(success=False, error=str(e), game_id="")
 
     def _run_game_loop_threaded(self):
         """Run the game loop in background thread (creates async event loop)."""
@@ -436,10 +426,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         with tracer.start_as_current_span("GetGameStatus") as span:
             try:
                 elapsed = 0
-                if (
-                    self.game_start_time
-                    and self.game_state == game_coordinator_pb2.GameState.RUNNING
-                ):
+                if self.game_start_time and self.game_state == game_coordinator_pb2.GameState.RUNNING:
                     elapsed = int(time.time() - self.game_start_time)
 
                 span.set_attribute("game.state", self.game_state)
@@ -489,9 +476,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 game_coordinator_pb2.GameState.STARTING,
                 game_coordinator_pb2.GameState.RUNNING,
             ]:
-                return game_coordinator_pb2.ForceEndGameResponse(
-                    success=False, error="No game in progress"
-                )
+                return game_coordinator_pb2.ForceEndGameResponse(success=False, error="No game in progress")
 
             # Stop game loop
             self.game_running = False
@@ -641,9 +626,7 @@ async def serve(port=50053, metrics_port=8000):
         while True:
             try:
                 # Phase 34: Run blocking psutil calls in thread pool
-                cpu_percent = await loop.run_in_executor(
-                    None, lambda: process.cpu_percent(interval=None)
-                )
+                cpu_percent = await loop.run_in_executor(None, lambda: process.cpu_percent(interval=None))
                 mem_info = await loop.run_in_executor(None, lambda: process.memory_info())
                 thread_count = await loop.run_in_executor(None, process.num_threads)
 
@@ -668,9 +651,7 @@ async def serve(port=50053, metrics_port=8000):
     health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
 
     # Mark the GameCoordinator service as SERVING
-    await health_servicer.set(
-        "game_coordinator.GameCoordinatorService", health_pb2.HealthCheckResponse.SERVING
-    )
+    await health_servicer.set("game_coordinator.GameCoordinatorService", health_pb2.HealthCheckResponse.SERVING)
     await health_servicer.set("", health_pb2.HealthCheckResponse.SERVING)  # Overall health
 
     # Bind to port

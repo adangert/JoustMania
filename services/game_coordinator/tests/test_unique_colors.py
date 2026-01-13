@@ -129,8 +129,7 @@ class TestFFAUniqueColors:
         """Should handle many players with distinct colors."""
         # Create 8 players
         ffa_game.players = {
-            f"p{i}": Player(serial=f"p{i}", team=0, alive=True, color=(255, 255, 255))
-            for i in range(8)
+            f"p{i}": Player(serial=f"p{i}", team=0, alive=True, color=(255, 255, 255)) for i in range(8)
         }
 
         await ffa_game._set_ffa_colors()

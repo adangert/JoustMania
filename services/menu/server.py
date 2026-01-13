@@ -96,12 +96,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         # Controller button monitoring (Phase 21)
         self.button_monitor_task = None
         self.button_monitor_running = False
-        self.controller_button_states: dict[
-            str, dict[str, bool]
-        ] = {}  # {serial: {trigger: bool, move: bool, ...}}
-        self.last_button_press_time: dict[
-            str, dict[str, float]
-        ] = {}  # {serial: {button: timestamp}}
+        self.controller_button_states: dict[str, dict[str, bool]] = {}  # {serial: {trigger: bool, move: bool, ...}}
+        self.last_button_press_time: dict[str, dict[str, float]] = {}  # {serial: {button: timestamp}}
 
         # Lobby state feedback (Phase 39)
         self.ready_controllers: set[str] = set()  # Controllers with trigger pressed (ready)
@@ -137,9 +133,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
         self.controller_channel = create_channel(f"{controller_host}:{controller_port}")
         self.settings_channel = create_channel(f"{settings_host}:{settings_port}")
-        self.game_coordinator_channel = create_channel(
-            f"{game_coordinator_host}:{game_coordinator_port}"
-        )
+        self.game_coordinator_channel = create_channel(f"{game_coordinator_host}:{game_coordinator_port}")
 
         logger.info("Menu service initialized with persistent gRPC channels")
 
@@ -245,23 +239,15 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     if button == "trigger":
                         # Game requested
                         self.state = menu_pb2.MenuState.GAME_STARTING
-                        await self._publish_event(
-                            "game_requested", {"game_name": self.current_selection}
-                        )
+                        await self._publish_event("game_requested", {"game_name": self.current_selection})
                         logger.info(f"Game requested: {self.current_selection}")
 
                     elif button == "select":
                         # Move to next game (includes NonstopJoust - Phase 22 prep)
                         games = ["JoustFFA", "JoustTeams", "Tournament", "Werewolf", "NonstopJoust"]
-                        current_index = (
-                            games.index(self.current_selection)
-                            if self.current_selection in games
-                            else 0
-                        )
+                        current_index = games.index(self.current_selection) if self.current_selection in games else 0
                         self.current_selection = games[(current_index + 1) % len(games)]
-                        await self._publish_event(
-                            "selection_changed", {"game_name": self.current_selection}
-                        )
+                        await self._publish_event("selection_changed", {"game_name": self.current_selection})
                         logger.info(f"Selection changed to: {self.current_selection}")
 
                 elif input_type == "web_command":
@@ -327,9 +313,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         with tracer.start_as_current_span("publish_menu_event") as span:
             span.set_attribute("event.type", event_type)
 
-            event = menu_pb2.MenuEvent(
-                event_type=event_type, data=data, timestamp=int(time.time() * 1000)
-            )
+            event = menu_pb2.MenuEvent(event_type=event_type, data=data, timestamp=int(time.time() * 1000))
 
             async with self.event_lock:  # Phase 34: async lock
                 subscriber_count = len(self.event_subscribers)
@@ -379,9 +363,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 )
 
                 # Use persistent channel (Phase 26)
-                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
-                    self.controller_channel
-                )
+                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
 
                 logger.info("Button monitor connected to Controller Manager")
 
@@ -569,9 +551,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             logger.info(f"Controller {serial} ready ({self.ready_controller_count} total)")
 
             # Auto-start: If all connected controllers are ready (and at least 2), trigger game start
-            if len(self.ready_controllers) >= 2 and len(self.ready_controllers) == len(
-                self.connected_controllers
-            ):
+            if len(self.ready_controllers) >= 2 and len(self.ready_controllers) == len(self.connected_controllers):
                 logger.info("All controllers ready - auto-starting game!")
                 await self._handle_trigger_press(serial)
 
@@ -590,9 +570,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         try:
             if target_state == "ready":
                 # Bright version (100% brightness)
-                color = controller_manager_pb2.RGB(
-                    r=base_color[0], g=base_color[1], b=base_color[2]
-                )
+                color = controller_manager_pb2.RGB(r=base_color[0], g=base_color[1], b=base_color[2])
             else:
                 # Dim version (~50% brightness)
                 color = controller_manager_pb2.RGB(
@@ -613,9 +591,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             self.controller_lobby_state[serial] = target_state
             self.last_lobby_feedback_update[serial] = current_time
 
-            logger.debug(
-                f"Controller {serial} lobby state: {target_state} (game: {self.current_selection})"
-            )
+            logger.debug(f"Controller {serial} lobby state: {target_state} (game: {self.current_selection})")
 
         except Exception as e:
             logger.error(f"Failed to update lobby feedback for {serial}: {e}")
@@ -668,9 +644,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
             # Game list includes NonstopJoust (Phase 22 prep)
             games = ["JoustFFA", "JoustTeams", "Tournament", "Werewolf", "NonstopJoust"]
-            current_index = (
-                games.index(self.current_selection) if self.current_selection in games else 0
-            )
+            current_index = games.index(self.current_selection) if self.current_selection in games else 0
             self.current_selection = games[(current_index + 1) % len(games)]
 
             span.set_attribute("game.name", self.current_selection)
@@ -732,9 +706,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
             try:
                 # Use persistent channel (Phase 26)
-                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
-                    self.controller_channel
-                )
+                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
 
                 # Play flash effect in white
                 effect_request = controller_manager_pb2.PlayControllerEffectRequest(
@@ -783,9 +755,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     )
 
                     try:
-                        stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
-                            self.controller_channel
-                        )
+                        stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
 
                         # Get base color for current game mode
                         base_color = self.GAME_MODE_COLORS.get(
@@ -796,9 +766,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         # Determine if controller was ready before entering admin mode
                         if serial in self.ready_controllers:
                             # Bright version (ready)
-                            color = controller_manager_pb2.RGB(
-                                r=base_color[0], g=base_color[1], b=base_color[2]
-                            )
+                            color = controller_manager_pb2.RGB(r=base_color[0], g=base_color[1], b=base_color[2])
                         else:
                             # Dim version (connected but not ready)
                             color = controller_manager_pb2.RGB(
@@ -822,18 +790,14 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         logger.info(f"Restored lobby color for {serial} after exiting admin mode")
 
                     except Exception as e:
-                        logger.error(
-                            f"Error restoring lobby color after admin mode: {e}", exc_info=True
-                        )
+                        logger.error(f"Error restoring lobby color after admin mode: {e}", exc_info=True)
 
                 self.admin_mode_active = False
                 self.admin_mode_controller = None
                 self.admin_mode_entry_time = 0
                 span.add_event("admin_mode_exited")
 
-    async def _process_admin_commands(
-        self, controller, prev_state: dict[str, bool], current_time: float
-    ):
+    async def _process_admin_commands(self, controller, prev_state: dict[str, bool], current_time: float):
         """
         Process admin mode commands (Phase 23).
 
@@ -907,7 +871,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             and not prev_state["ps"]
             and self._should_process_button(controller.serial, "ps", current_time)
         ):
-                await self._exit_admin_mode()
+            await self._exit_admin_mode()
 
     async def _handle_admin_sensitivity(self, serial: str):
         """
@@ -959,9 +923,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 color = sensitivity_colors[int(new_value)]
 
                 # Use persistent controller channel for visual feedback
-                controller_stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
-                    self.controller_channel
-                )
+                controller_stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
 
                 # Show color pulse
                 effect_request = controller_manager_pb2.PlayControllerEffectRequest(
@@ -1012,9 +974,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
             try:
                 # Use persistent channel (Phase 26)
-                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
-                    self.controller_channel
-                )
+                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
 
                 # Get all controllers to show battery levels
                 controllers_request = controller_manager_pb2.GetControllersRequest()
@@ -1091,9 +1051,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     color = controller_manager_pb2.RGB(r=255, g=0, b=0)  # Red - disabled
 
                 # Use persistent controller channel for visual feedback
-                controller_stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
-                    self.controller_channel
-                )
+                controller_stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
 
                 # Show color pulse
                 effect_request = controller_manager_pb2.PlayControllerEffectRequest(
@@ -1109,9 +1067,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     "instructions_toggled",
                     {"old_value": current, "new_value": new_value, "enabled": new_value == "true"},
                 )
-                logger.info(
-                    f"Instructions toggled by admin controller {serial}: {current} → {new_value}"
-                )
+                logger.info(f"Instructions toggled by admin controller {serial}: {current} → {new_value}")
 
             except Exception as e:
                 logger.error(f"Error toggling instructions: {e}", exc_info=True)
@@ -1129,9 +1085,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             span.set_attribute("controller.serial", serial)
 
             # Cycle to next option
-            self.admin_current_option = (self.admin_current_option + 1) % len(
-                self.admin_option_names
-            )
+            self.admin_current_option = (self.admin_current_option + 1) % len(self.admin_option_names)
             option_name = self.admin_option_names[self.admin_current_option]
             option_color = self.admin_option_colors[self.admin_current_option]
 
@@ -1144,16 +1098,12 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
             try:
                 # Use persistent channel (Phase 26)
-                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
-                    self.controller_channel
-                )
+                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
 
                 # Show option color for 1 second
                 color_request = controller_manager_pb2.SetControllerColorRequest(
                     serial=serial,
-                    color=controller_manager_pb2.RGB(
-                        r=option_color[0], g=option_color[1], b=option_color[2]
-                    ),
+                    color=controller_manager_pb2.RGB(r=option_color[0], g=option_color[1], b=option_color[2]),
                     duration_ms=1000,
                 )
                 await stub.SetControllerColor(color_request)
@@ -1204,9 +1154,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     # Toggle: true ↔ false
                     # Validate boolean
                     if current_value not in ["true", "false"]:
-                        logger.warning(
-                            f"Invalid force_all_start value {current_value}, resetting to false"
-                        )
+                        logger.warning(f"Invalid force_all_start value {current_value}, resetting to false")
                         current_value = "false"
                     new_value = "true" if current_value == "false" else "false"
                 else:
@@ -1267,9 +1215,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     # Toggle: true ↔ false
                     # Validate boolean
                     if current_value not in ["true", "false"]:
-                        logger.warning(
-                            f"Invalid force_all_start value {current_value}, resetting to false"
-                        )
+                        logger.warning(f"Invalid force_all_start value {current_value}, resetting to false")
                         current_value = "false"
                     new_value = "false" if current_value == "true" else "true"
                 else:
@@ -1365,9 +1311,7 @@ async def serve(port=50054, metrics_port=8000):
         while True:
             try:
                 # Phase 34: Run blocking psutil calls in thread pool
-                cpu_percent = await loop.run_in_executor(
-                    None, lambda: process.cpu_percent(interval=None)
-                )
+                cpu_percent = await loop.run_in_executor(None, lambda: process.cpu_percent(interval=None))
                 mem_info = await loop.run_in_executor(None, lambda: process.memory_info())
                 thread_count = await loop.run_in_executor(None, process.num_threads)
 

@@ -120,9 +120,7 @@ class TestSettingsIntegration:
     def test_update_setting(self, grpc_stub):
         """Test UpdateSetting RPC over network."""
         # Update setting
-        update_request = settings_pb2.UpdateSettingRequest(
-            key="sensitivity", value="4", source="integration_test"
-        )
+        update_request = settings_pb2.UpdateSettingRequest(key="sensitivity", value="4", source="integration_test")
         update_response = grpc_stub.UpdateSetting(update_request, timeout=5.0)
 
         assert update_response.success is True
@@ -171,9 +169,7 @@ class TestSettingsIntegration:
         time.sleep(0.5)
 
         # Trigger a change
-        update_request = settings_pb2.UpdateSettingRequest(
-            key="sensitivity", value="2", source="integration_test"
-        )
+        update_request = settings_pb2.UpdateSettingRequest(key="sensitivity", value="2", source="integration_test")
         grpc_stub.UpdateSetting(update_request, timeout=5.0)
 
         # Wait for event
@@ -219,9 +215,7 @@ class TestSettingsIntegration:
         port, servicer = grpc_server
 
         # Update setting
-        request = settings_pb2.UpdateSettingRequest(
-            key="current_game", value="Werewolf", source="persistence_test"
-        )
+        request = settings_pb2.UpdateSettingRequest(key="current_game", value="Werewolf", source="persistence_test")
         response = grpc_stub.UpdateSetting(request, timeout=5.0)
         assert response.success is True
 
@@ -234,9 +228,7 @@ class TestSettingsIntegration:
     def test_error_handling(self, grpc_stub):
         """Test error handling in RPC calls."""
         # Unknown setting
-        request = settings_pb2.UpdateSettingRequest(
-            key="nonexistent", value="value", source="error_test"
-        )
+        request = settings_pb2.UpdateSettingRequest(key="nonexistent", value="value", source="error_test")
         response = grpc_stub.UpdateSetting(request, timeout=5.0)
 
         # Should return error, not raise exception
@@ -295,9 +287,7 @@ class TestSettingsLoadTest:
 
         for i in range(20):
             value = i % 5  # Cycle through valid values 0-4
-            request = settings_pb2.UpdateSettingRequest(
-                key="sensitivity", value=str(value), source="load_test"
-            )
+            request = settings_pb2.UpdateSettingRequest(key="sensitivity", value=str(value), source="load_test")
             try:
                 response = grpc_stub.UpdateSetting(request, timeout=5.0)
                 if response.success:

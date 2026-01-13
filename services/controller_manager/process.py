@@ -229,10 +229,7 @@ class ControllerManagerProcess(Process):
                 # If not already tracked, pair it
                 if move_serial not in self.tracked_moves:
                     # Check if USB connected, pair if so
-                    if (
-                        move.connection_type == psmove.Conn_USB
-                        and move_serial not in self.paired_moves
-                    ):
+                    if move.connection_type == psmove.Conn_USB and move_serial not in self.paired_moves:
                         logger.info(f"Pairing USB controller: {move_serial}")
                         self.pair_usb_move(move)
 
@@ -528,9 +525,7 @@ class ControllerManagerProcess(Process):
         return {"status": "success", "data": {"reset_count": len(self.tracked_moves)}}
 
 
-def send_command(
-    command_queue, response_queue, command: str, params: dict = None, timeout: float = 1.0
-) -> dict:
+def send_command(command_queue, response_queue, command: str, params: dict = None, timeout: float = 1.0) -> dict:
     """
     Helper function to send command to ControllerManager and wait for response.
 

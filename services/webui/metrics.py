@@ -14,9 +14,7 @@ process_memory_mb = Gauge("process_memory_mb", "Process memory usage in MB")
 process_threads = Gauge("process_threads", "Number of active threads")
 
 # gRPC metrics
-grpc_requests_total = Counter(
-    "grpc_requests_total", "Total gRPC requests received", ["method", "status"]
-)
+grpc_requests_total = Counter("grpc_requests_total", "Total gRPC requests received", ["method", "status"])
 
 grpc_request_duration_seconds = Histogram(
     "grpc_request_duration_seconds",

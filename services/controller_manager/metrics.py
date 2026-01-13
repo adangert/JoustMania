@@ -7,9 +7,7 @@ Tracks controller health, input latency, stream performance, and cache efficienc
 from prometheus_client import Counter, Gauge, Histogram
 
 # Controller health metrics
-controller_battery_level = Gauge(
-    "controller_battery_level", "Controller battery level (0-5)", ["serial"]
-)
+controller_battery_level = Gauge("controller_battery_level", "Controller battery level (0-5)", ["serial"])
 
 controller_connected = Gauge(
     "controller_connected", "Controller connection status (0=disconnected, 1=connected)", ["serial"]
@@ -19,9 +17,7 @@ controller_disconnect_total = Counter(
     "controller_disconnect_total", "Total number of controller disconnects", ["serial"]
 )
 
-controller_reconnect_total = Counter(
-    "controller_reconnect_total", "Total number of controller reconnects", ["serial"]
-)
+controller_reconnect_total = Counter("controller_reconnect_total", "Total number of controller reconnects", ["serial"])
 
 # Connection strength metrics (Phase 48)
 controller_rssi_dbm = Gauge(
@@ -46,9 +42,7 @@ controller_input_lag_seconds = Histogram(
     buckets=[0.001, 0.005, 0.010, 0.016, 0.020, 0.030, 0.050, 0.100, 0.200],
 )
 
-controller_state_update_hz = Gauge(
-    "controller_state_update_hz", "Controller state update frequency", ["serial"]
-)
+controller_state_update_hz = Gauge("controller_state_update_hz", "Controller state update frequency", ["serial"])
 
 # Stream metrics
 active_streams = Gauge("controller_streams_active", "Number of active controller state streams")
@@ -66,9 +60,7 @@ button_events_total = Counter(
 )
 
 # Cache metrics (Phase 18 validation)
-state_cache_hits_total = Counter(
-    "controller_state_cache_hits_total", "Number of state cache hits (no rebuild needed)"
-)
+state_cache_hits_total = Counter("controller_state_cache_hits_total", "Number of state cache hits (no rebuild needed)")
 
 state_cache_misses_total = Counter(
     "controller_state_cache_misses_total", "Number of state cache misses (rebuild required)"
@@ -88,9 +80,7 @@ process_memory_mb = Gauge("process_memory_mb", "Process memory usage in MB")
 process_threads = Gauge("process_threads", "Number of active threads")
 
 # gRPC metrics
-grpc_requests_total = Counter(
-    "grpc_requests_total", "Total gRPC requests received", ["method", "status"]
-)
+grpc_requests_total = Counter("grpc_requests_total", "Total gRPC requests received", ["method", "status"])
 
 grpc_request_duration_seconds = Histogram(
     "grpc_request_duration_seconds",

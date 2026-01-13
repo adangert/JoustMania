@@ -138,13 +138,9 @@ class RandomTeamsGame(TeamsGameBase):
 
             player = Player(serial=controller.serial, team=team_num, alive=True, color=team_color)
             self.players[controller.serial] = player
-            logger.debug(
-                f"Added player: {controller.serial} to team {team_num} ({self.team_colors[team_num]['name']})"
-            )
+            logger.debug(f"Added player: {controller.serial} to team {team_num} ({self.team_colors[team_num]['name']})")
 
-        logger.info(
-            f"Initialized {len(self.players)} players across {self.num_teams} teams (random assignment)"
-        )
+        logger.info(f"Initialized {len(self.players)} players across {self.num_teams} teams (random assignment)")
 
         # Publish event with team assignments
         self.event_publisher(

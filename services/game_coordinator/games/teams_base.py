@@ -98,9 +98,7 @@ class TeamsGameBase(BaseGameMode):
 
         # Initialize team objects
         for i in range(num_teams):
-            self.teams[i] = Team(
-                team_num=i, name=self.team_colors[i]["name"], color=self.team_colors[i]["rgb"]
-            )
+            self.teams[i] = Team(team_num=i, name=self.team_colors[i]["name"], color=self.team_colors[i]["rgb"])
 
         logger.info(f"{self.get_game_name()} game initialized with {num_teams} teams")
 
@@ -200,9 +198,7 @@ class TeamsGameBase(BaseGameMode):
                         controller_manager_pb2.PlayControllerEffectRequest(
                             serial=serial,
                             effect=controller_manager_pb2.ControllerEffect.EFFECT_PULSE,
-                            color=controller_manager_pb2.RGB(
-                                r=team_color[0], g=team_color[1], b=team_color[2]
-                            ),
+                            color=controller_manager_pb2.RGB(r=team_color[0], g=team_color[1], b=team_color[2]),
                             duration_ms=duration_ms,
                             speed=3,  # Medium pulse speed
                         )
@@ -215,19 +211,14 @@ class TeamsGameBase(BaseGameMode):
                     await self.controller_client.SetControllerColor(
                         controller_manager_pb2.SetControllerColorRequest(
                             serial=serial,
-                            color=controller_manager_pb2.RGB(
-                                r=team_color[0], g=team_color[1], b=team_color[2]
-                            ),
+                            color=controller_manager_pb2.RGB(r=team_color[0], g=team_color[1], b=team_color[2]),
                             duration_ms=duration_ms,
                         )
                     )
-                    logger.debug(
-                        f"Set {serial} to team {player.team} ({self.team_colors[player.team]['name']}) color"
-                    )
+                    logger.debug(f"Set {serial} to team {player.team} ({self.team_colors[player.team]['name']}) color")
 
             logger.info(
-                f"Set team colors for {len(self.players)} players "
-                f"({'pulsing' if pulse_effect else 'persistent'})"
+                f"Set team colors for {len(self.players)} players " f"({'pulsing' if pulse_effect else 'persistent'})"
             )
 
         except Exception as e:
@@ -332,9 +323,7 @@ class TeamsGameBase(BaseGameMode):
                 team_name = self.team_colors[winning_team]["name"]
 
                 # Get winning players
-                winners = [
-                    p.serial for p in self.players.values() if p.alive and p.team == winning_team
-                ]
+                winners = [p.serial for p in self.players.values() if p.alive and p.team == winning_team]
 
                 logger.info(f"Team {winning_team} ({team_name}) wins with {len(winners)} players!")
 

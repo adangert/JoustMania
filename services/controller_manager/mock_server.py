@@ -78,9 +78,7 @@ class MockController:
         )
 
 
-class MockControllerManagerService(
-    controller_manager_pb2_grpc.ControllerManagerServiceServicer, ControllerEffectsBase
-):
+class MockControllerManagerService(controller_manager_pb2_grpc.ControllerManagerServiceServicer, ControllerEffectsBase):
     """Mock ControllerManager implementing same interface as real one.
 
     Phase 40: Inherits from ControllerEffectsBase for shared effect logic.
@@ -127,16 +125,11 @@ class MockControllerManagerService(
                     else:
                         controllers.append(controller.to_proto())
                         # Clear death hold if expired
-                        if (
-                            controller.death_hold_until > 0
-                            and controller.death_hold_until <= current_time
-                        ):
+                        if controller.death_hold_until > 0 and controller.death_hold_until <= current_time:
                             controller.death_accel = None
                             controller.death_hold_until = 0.0
 
-                yield ControllerStateUpdate(
-                    controllers=controllers, timestamp=int(time.time() * 1000)
-                )
+                yield ControllerStateUpdate(controllers=controllers, timestamp=int(time.time() * 1000))
 
                 await asyncio.sleep(interval)
         except asyncio.CancelledError:
@@ -182,15 +175,10 @@ class MockControllerManagerService(
                     else:
                         accel = controller.accel
                         # Clear death hold if expired
-                        if (
-                            controller.death_hold_until > 0
-                            and controller.death_hold_until <= current_time
-                        ):
+                        if controller.death_hold_until > 0 and controller.death_hold_until <= current_time:
                             controller.death_accel = None
                             controller.death_hold_until = 0.0
-                            logger.debug(
-                                f"Death hold expired for {controller.serial}, reverting to normal accel"
-                            )
+                            logger.debug(f"Death hold expired for {controller.serial}, reverting to normal accel")
 
                     gd = GameplayData(
                         serial=controller.serial,
@@ -204,9 +192,7 @@ class MockControllerManagerService(
                     )
                     gameplay_data.append(gd)
 
-                yield GameplayDataUpdate(
-                    controllers=gameplay_data, timestamp=int(time.time() * 1000)
-                )
+                yield GameplayDataUpdate(controllers=gameplay_data, timestamp=int(time.time() * 1000))
 
                 await asyncio.sleep(interval)
         except asyncio.CancelledError:
@@ -239,9 +225,7 @@ class MockControllerManagerService(
                     if control_msg.HasField("config"):
                         # Initial configuration
                         current_hz = control_msg.config.update_frequency_hz
-                        current_filter = (
-                            set(control_msg.config.serials) if control_msg.config.serials else None
-                        )
+                        current_filter = set(control_msg.config.serials) if control_msg.config.serials else None
                         logger.info(
                             f"[mock] ✅ Stream configured: {current_hz}Hz, "
                             f"filter={len(current_filter) if current_filter else 'all'} controllers"
@@ -253,9 +237,7 @@ class MockControllerManagerService(
                     elif control_msg.HasField("filter_update"):
                         # Mid-stream filter update
                         new_filter = (
-                            set(control_msg.filter_update.serials)
-                            if control_msg.filter_update.serials
-                            else None
+                            set(control_msg.filter_update.serials) if control_msg.filter_update.serials else None
                         )
                         if new_filter != current_filter:
                             logger.info(
@@ -321,10 +303,7 @@ class MockControllerManagerService(
                     else:
                         accel = controller.accel
                         # Clear death hold if expired
-                        if (
-                            controller.death_hold_until > 0
-                            and controller.death_hold_until <= current_time
-                        ):
+                        if controller.death_hold_until > 0 and controller.death_hold_until <= current_time:
                             controller.death_accel = None
                             controller.death_hold_until = 0.0
 
@@ -341,13 +320,9 @@ class MockControllerManagerService(
                     gameplay_data.append(gd)
 
                 if iteration == 1:
-                    logger.info(
-                        f"[mock] ✅ Yielding first update with {len(gameplay_data)} controllers"
-                    )
+                    logger.info(f"[mock] ✅ Yielding first update with {len(gameplay_data)} controllers")
 
-                yield GameplayDataUpdate(
-                    controllers=gameplay_data, timestamp=int(time.time() * 1000)
-                )
+                yield GameplayDataUpdate(controllers=gameplay_data, timestamp=int(time.time() * 1000))
 
                 if iteration % 30 == 0:  # Log every 30 iterations (~1 second at 30Hz)
                     logger.debug(f"[mock] Yielded update #{iteration}")
@@ -395,9 +370,7 @@ class MockControllerManagerService(
 
         target_serials = [request.serial] if request.serial else list(self.controllers.keys())
 
-        logger.debug(
-            f"SetControllerVibration: intensity={request.intensity}, targets={len(target_serials)}"
-        )
+        logger.debug(f"SetControllerVibration: intensity={request.intensity}, targets={len(target_serials)}")
         return SetControllerVibrationResponse(success=True, error="")
 
     async def PlayControllerEffect(self, request, context):
@@ -486,9 +459,7 @@ class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControll
         controller.death_accel = death_vector
         controller.death_hold_until = time.time() + 2.0
 
-        logger.info(
-            f"Simulated death for {request.serial}: magnitude={accel_mag:.2f}, holding for 2.0s"
-        )
+        logger.info(f"Simulated death for {request.serial}: magnitude={accel_mag:.2f}, holding for 2.0s")
 
         return DeathResponse(success=True, accel_magnitude=accel_mag)
 
@@ -560,12 +531,8 @@ class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControll
 
             if request.enabled:
                 # Start new background task
-                self.auto_end_task = asyncio.create_task(
-                    self._auto_end_game(request.duration_seconds)
-                )
-                logger.info(
-                    f"[mock] Auto game end enabled: will kill players after {request.duration_seconds}s"
-                )
+                self.auto_end_task = asyncio.create_task(self._auto_end_game(request.duration_seconds))
+                logger.info(f"[mock] Auto game end enabled: will kill players after {request.duration_seconds}s")
                 return AutoGameEndResponse(success=True, error="")
             logger.info("[mock] Auto game end disabled")
             return AutoGameEndResponse(success=True, error="")
@@ -647,9 +614,7 @@ async def serve():
 
     # Main server (standard ControllerManager interface)
     main_server = grpc.aio.server(futures.ThreadPoolExecutor(max_workers=10))
-    controller_manager_pb2_grpc.add_ControllerManagerServiceServicer_to_server(
-        controller_manager, main_server
-    )
+    controller_manager_pb2_grpc.add_ControllerManagerServiceServicer_to_server(controller_manager, main_server)
 
     # Add health checking service
     health_servicer = health.aio.HealthServicer()
@@ -659,9 +624,7 @@ async def serve():
 
     # Control server (mock control interface)
     control_server = grpc.aio.server(futures.ThreadPoolExecutor(max_workers=10))
-    controller_manager_mock_pb2_grpc.add_MockControllerServiceServicer_to_server(
-        control_service, control_server
-    )
+    controller_manager_mock_pb2_grpc.add_MockControllerServiceServicer_to_server(control_service, control_server)
     control_server.add_insecure_port(f"[::]:{control_port}")
 
     logger.info("Starting Mock ControllerManager:")
@@ -673,9 +636,7 @@ async def serve():
     await control_server.start()
 
     # Mark the ControllerManager service as SERVING
-    await health_servicer.set(
-        "controller_manager.ControllerManagerService", health_pb2.HealthCheckResponse.SERVING
-    )
+    await health_servicer.set("controller_manager.ControllerManagerService", health_pb2.HealthCheckResponse.SERVING)
     await health_servicer.set("", health_pb2.HealthCheckResponse.SERVING)  # Overall health
 
     logger.info("Mock ControllerManager servers started")

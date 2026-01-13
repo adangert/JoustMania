@@ -41,9 +41,7 @@ class ControllerEffectsBase(ABC):
         """
         pass
 
-    async def _effect_flash(
-        self, serial: str, color: tuple[int, int, int], duration_ms: int, speed: int
-    ):
+    async def _effect_flash(self, serial: str, color: tuple[int, int, int], duration_ms: int, speed: int):
         """FLASH effect: rapid on/off blinking (Phase 31).
 
         Args:
@@ -68,9 +66,7 @@ class ControllerEffectsBase(ABC):
             # Restore color at end
             self._set_led_color(serial, color)
 
-    async def _effect_pulse(
-        self, serial: str, color: tuple[int, int, int], duration_ms: int, speed: int
-    ):
+    async def _effect_pulse(self, serial: str, color: tuple[int, int, int], duration_ms: int, speed: int):
         """PULSE effect: smooth breathing/fade (Phase 31).
 
         Uses sine wave for smooth brightness transitions.

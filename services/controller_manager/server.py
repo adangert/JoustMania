@@ -114,9 +114,7 @@ class MessagePool:
             self.pool.append(msg)
 
 
-class ControllerManagerServicer(
-    controller_manager_pb2_grpc.ControllerManagerServiceServicer, ControllerEffectsBase
-):
+class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerServiceServicer, ControllerEffectsBase):
     """
     ControllerManager gRPC servicer.
 
@@ -157,9 +155,7 @@ class ControllerManagerServicer(
         self.state_cache: dict[str, dict] = {}
 
         # Protobuf object pools (Phase 18 - Task 3)
-        self.controller_state_pool = MessagePool(
-            controller_manager_pb2.ControllerState, pool_size=10
-        )
+        self.controller_state_pool = MessagePool(controller_manager_pb2.ControllerState, pool_size=10)
         self.vector3_pool = MessagePool(controller_manager_pb2.Vector3, pool_size=20)
 
         # Controller effects (Phase 31 / Phase 40)
@@ -235,10 +231,7 @@ class ControllerManagerServicer(
                         logger.info(f"Discovered new controller: {serial}")
 
                         # Pair if USB
-                        if (
-                            move.connection_type == psmove.Conn_USB
-                            and serial not in self.paired_serials
-                        ):
+                        if move.connection_type == psmove.Conn_USB and serial not in self.paired_serials:
                             with tracer.start_as_current_span("pair_controller"):
                                 self._pair_controller(move, serial)
 
@@ -314,16 +307,12 @@ class ControllerManagerServicer(
                 count = len(self.tracked_controllers)
                 span.set_attribute("controller.count", count)
 
-                return controller_manager_pb2.GetControllerCountResponse(
-                    count=count, success=True, error=""
-                )
+                return controller_manager_pb2.GetControllerCountResponse(count=count, success=True, error="")
             except Exception as e:
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 logger.error(f"GetControllerCount error: {e}", exc_info=True)
-                return controller_manager_pb2.GetControllerCountResponse(
-                    count=0, success=False, error=str(e)
-                )
+                return controller_manager_pb2.GetControllerCountResponse(count=0, success=False, error=str(e))
 
     def GetReadyControllers(self, request, context):
         """Get all ready controllers."""
@@ -344,17 +333,14 @@ class ControllerManagerServicer(
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 logger.error(f"GetReadyControllers error: {e}", exc_info=True)
-                return controller_manager_pb2.GetReadyControllersResponse(
-                    controllers=[], success=False, error=str(e)
-                )
+                return controller_manager_pb2.GetReadyControllersResponse(controllers=[], success=False, error=str(e))
 
     def GetControllers(self, request, context):
         """Get all controllers."""
         with tracer.start_as_current_span("GetControllers") as span:
             try:
                 all_controllers = [
-                    self._build_or_get_cached_state(serial, info)
-                    for serial, info in self.tracked_controllers.items()
+                    self._build_or_get_cached_state(serial, info) for serial, info in self.tracked_controllers.items()
                 ]
 
                 span.set_attribute("controller.total_count", len(all_controllers))
@@ -366,9 +352,7 @@ class ControllerManagerServicer(
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 logger.error(f"GetControllers error: {e}", exc_info=True)
-                return controller_manager_pb2.GetControllersResponse(
-                    controllers=[], success=False, error=str(e)
-                )
+                return controller_manager_pb2.GetControllersResponse(controllers=[], success=False, error=str(e))
 
     async def StreamControllerStates(self, request, context):
         """Stream controller states in real-time (async)."""
@@ -596,26 +580,18 @@ class ControllerManagerServicer(
                         if control_msg.HasField("config"):
                             # Initial configuration
                             current_hz = control_msg.config.update_frequency_hz
-                            current_filter = (
-                                set(control_msg.config.serials)
-                                if control_msg.config.serials
-                                else None
-                            )
+                            current_filter = set(control_msg.config.serials) if control_msg.config.serials else None
                             logger.info(
                                 f"[{subscriber_id}] Stream configured: {current_hz}Hz, "
                                 f"filter={len(current_filter) if current_filter else 'all'} controllers"
                             )
                             span.set_attribute("update_frequency_hz", current_hz)
-                            span.set_attribute(
-                                "initial_filter_count", len(current_filter) if current_filter else 0
-                            )
+                            span.set_attribute("initial_filter_count", len(current_filter) if current_filter else 0)
 
                         elif control_msg.HasField("filter_update"):
                             # Mid-stream filter update
                             new_filter = (
-                                set(control_msg.filter_update.serials)
-                                if control_msg.filter_update.serials
-                                else None
+                                set(control_msg.filter_update.serials) if control_msg.filter_update.serials else None
                             )
 
                             if new_filter != current_filter:
@@ -623,8 +599,7 @@ class ControllerManagerServicer(
                                 new_count = len(new_filter) if new_filter else 0
 
                                 logger.info(
-                                    f"[{subscriber_id}] Filter updated: "
-                                    f"{old_count} → {new_count} controllers"
+                                    f"[{subscriber_id}] Filter updated: " f"{old_count} → {new_count} controllers"
                                 )
 
                                 current_filter = new_filter
@@ -645,9 +620,7 @@ class ControllerManagerServicer(
 
                             # Apply to target serial or all controllers (broadcast)
                             serials_to_update = (
-                                [target_serial]
-                                if target_serial
-                                else list(self.tracked_controllers.keys())
+                                [target_serial] if target_serial else list(self.tracked_controllers.keys())
                             )
 
                             for serial in serials_to_update:
@@ -672,9 +645,7 @@ class ControllerManagerServicer(
 
                             # Apply to target serial or all controllers (broadcast)
                             serials_to_update = (
-                                [target_serial]
-                                if target_serial
-                                else list(self.tracked_controllers.keys())
+                                [target_serial] if target_serial else list(self.tracked_controllers.keys())
                             )
 
                             color_rgb = (
@@ -706,16 +677,12 @@ class ControllerManagerServicer(
 
                             # Apply to target serial or all controllers (broadcast)
                             serials_to_update = (
-                                [target_serial]
-                                if target_serial
-                                else list(self.tracked_controllers.keys())
+                                [target_serial] if target_serial else list(self.tracked_controllers.keys())
                             )
 
                             for serial in serials_to_update:
                                 if serial in self.tracked_controllers:
-                                    await self._set_vibration_internal(
-                                        serial, cmd.intensity, cmd.duration_ms
-                                    )
+                                    await self._set_vibration_internal(serial, cmd.intensity, cmd.duration_ms)
 
                             logger.debug(
                                 f"[{subscriber_id}] Vibration command: "
@@ -733,9 +700,7 @@ class ControllerManagerServicer(
 
                             # Apply to target serial or all controllers (broadcast)
                             serials_to_update = (
-                                [target_serial]
-                                if target_serial
-                                else list(self.tracked_controllers.keys())
+                                [target_serial] if target_serial else list(self.tracked_controllers.keys())
                             )
 
                             for serial in serials_to_update:
@@ -762,9 +727,7 @@ class ControllerManagerServicer(
                             metrics.stream_commands_total.labels(command_type="combined").inc()
 
                 except Exception as e:
-                    logger.error(
-                        f"[{subscriber_id}] Error reading client updates: {e}", exc_info=True
-                    )
+                    logger.error(f"[{subscriber_id}] Error reading client updates: {e}", exc_info=True)
 
             # Start background task to read client updates
             update_task = asyncio.create_task(read_client_updates())
@@ -809,9 +772,7 @@ class ControllerManagerServicer(
 
                         # Track stream update
                         if gameplay_data:
-                            metrics.stream_updates_total.labels(
-                                stream_type="gameplay_data_dynamic"
-                            ).inc()
+                            metrics.stream_updates_total.labels(stream_type="gameplay_data_dynamic").inc()
                             # Track number of controllers streamed per frame (Phase 45)
                             metrics.streamed_controllers.observe(len(gameplay_data))
 
@@ -841,19 +802,13 @@ class ControllerManagerServicer(
                 # In production, this would trigger USB pairing
                 # For now, return mock response
                 serial = "mock_serial_12345"
-                span.add_event(
-                    "controller_paired", {"serial": serial, "color_index": request.color_index}
-                )
-                return controller_manager_pb2.PairControllerResponse(
-                    success=True, error="", serial=serial
-                )
+                span.add_event("controller_paired", {"serial": serial, "color_index": request.color_index})
+                return controller_manager_pb2.PairControllerResponse(success=True, error="", serial=serial)
             except Exception as e:
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 logger.error(f"PairController error: {e}", exc_info=True)
-                return controller_manager_pb2.PairControllerResponse(
-                    success=False, error=str(e), serial=""
-                )
+                return controller_manager_pb2.PairControllerResponse(success=False, error=str(e), serial="")
 
     async def RemoveController(self, request, context):
         """Remove a controller (Phase 34: async for effect_lock)."""
@@ -924,9 +879,7 @@ class ControllerManagerServicer(
                     return controller_manager_pb2.SetControllerColorResponse(success=True, error="")
 
                 # Determine which controllers to update
-                serials = (
-                    [request.serial] if request.serial else list(self.tracked_controllers.keys())
-                )
+                serials = [request.serial] if request.serial else list(self.tracked_controllers.keys())
 
                 controllers_updated = 0
                 for serial in serials:
@@ -947,9 +900,7 @@ class ControllerManagerServicer(
             except Exception as e:
                 span.record_exception(e)
                 logger.error(f"SetControllerColor error: {e}", exc_info=True)
-                return controller_manager_pb2.SetControllerColorResponse(
-                    success=False, error=str(e)
-                )
+                return controller_manager_pb2.SetControllerColorResponse(success=False, error=str(e))
 
     def SetControllerVibration(self, request, context):
         """Set vibration on controller(s) - Phase 19 feedback feature."""
@@ -964,14 +915,10 @@ class ControllerManagerServicer(
                         f"SetControllerVibration (mock): {request.serial or 'all'} "
                         f"intensity={request.intensity} duration={request.duration_ms}ms"
                     )
-                    return controller_manager_pb2.SetControllerVibrationResponse(
-                        success=True, error=""
-                    )
+                    return controller_manager_pb2.SetControllerVibrationResponse(success=True, error="")
 
                 # Determine which controllers to update
-                serials = (
-                    [request.serial] if request.serial else list(self.tracked_controllers.keys())
-                )
+                serials = [request.serial] if request.serial else list(self.tracked_controllers.keys())
 
                 controllers_updated = 0
                 for serial in serials:
@@ -981,9 +928,7 @@ class ControllerManagerServicer(
                         if move:
                             move.set_rumble(request.intensity)
                             controllers_updated += 1
-                            logger.debug(
-                                f"Set vibration on {serial}: intensity={request.intensity}"
-                            )
+                            logger.debug(f"Set vibration on {serial}: intensity={request.intensity}")
 
                 # TODO: Handle duration_ms by resetting rumble after timeout
                 # For now, vibration stays at intensity until explicitly changed
@@ -994,9 +939,7 @@ class ControllerManagerServicer(
             except Exception as e:
                 span.record_exception(e)
                 logger.error(f"SetControllerVibration error: {e}", exc_info=True)
-                return controller_manager_pb2.SetControllerVibrationResponse(
-                    success=False, error=str(e)
-                )
+                return controller_manager_pb2.SetControllerVibrationResponse(success=False, error=str(e))
 
     async def PlayControllerEffect(self, request, context):
         """Play visual effect on controller(s) - Phase 31/40 implementation.
@@ -1013,24 +956,14 @@ class ControllerManagerServicer(
 
             try:
                 if not PSMOVE_AVAILABLE:
-                    logger.info(
-                        f"PlayControllerEffect (mock): {request.serial or 'all'} effect={effect_name}"
-                    )
-                    return controller_manager_pb2.PlayControllerEffectResponse(
-                        success=True, error=""
-                    )
+                    logger.info(f"PlayControllerEffect (mock): {request.serial or 'all'} effect={effect_name}")
+                    return controller_manager_pb2.PlayControllerEffectResponse(success=True, error="")
 
                 # Determine which controllers to update
-                serials = (
-                    [request.serial] if request.serial else list(self.tracked_controllers.keys())
-                )
+                serials = [request.serial] if request.serial else list(self.tracked_controllers.keys())
 
                 # Color as tuple for effect methods
-                color = (
-                    (request.color.r, request.color.g, request.color.b)
-                    if request.color
-                    else (255, 255, 255)
-                )
+                color = (request.color.r, request.color.g, request.color.b) if request.color else (255, 255, 255)
                 duration_ms = request.duration_ms or 1000  # Default 1 second
                 speed = request.speed or 5  # Default medium speed
 
@@ -1053,16 +986,12 @@ class ControllerManagerServicer(
                         self._set_led_color(serial, color)
 
                     elif request.effect == controller_manager_pb2.EFFECT_FLASH:
-                        task = asyncio.create_task(
-                            self._effect_flash(serial, color, duration_ms, speed)
-                        )
+                        task = asyncio.create_task(self._effect_flash(serial, color, duration_ms, speed))
                         async with self.effect_lock:  # Phase 34: async lock
                             self.active_effects[serial] = task
 
                     elif request.effect == controller_manager_pb2.EFFECT_PULSE:
-                        task = asyncio.create_task(
-                            self._effect_pulse(serial, color, duration_ms, speed)
-                        )
+                        task = asyncio.create_task(self._effect_pulse(serial, color, duration_ms, speed))
                         async with self.effect_lock:  # Phase 34: async lock
                             self.active_effects[serial] = task
 
@@ -1072,9 +1001,7 @@ class ControllerManagerServicer(
                             self.active_effects[serial] = task
 
                     elif request.effect == controller_manager_pb2.EFFECT_FADE_OUT:
-                        task = asyncio.create_task(
-                            self._effect_fade_out(serial, color, duration_ms)
-                        )
+                        task = asyncio.create_task(self._effect_fade_out(serial, color, duration_ms))
                         async with self.effect_lock:  # Phase 34: async lock
                             self.active_effects[serial] = task
 
@@ -1090,24 +1017,18 @@ class ControllerManagerServicer(
                     controllers_updated += 1
 
                 span.set_attribute("controllers_updated", controllers_updated)
-                logger.info(
-                    f"PlayControllerEffect: {effect_name} on {controllers_updated} controller(s)"
-                )
+                logger.info(f"PlayControllerEffect: {effect_name} on {controllers_updated} controller(s)")
 
                 return controller_manager_pb2.PlayControllerEffectResponse(success=True, error="")
 
             except Exception as e:
                 span.record_exception(e)
                 logger.error(f"PlayControllerEffect error: {e}", exc_info=True)
-                return controller_manager_pb2.PlayControllerEffectResponse(
-                    success=False, error=str(e)
-                )
+                return controller_manager_pb2.PlayControllerEffectResponse(success=False, error=str(e))
 
     # Phase 46: Internal feedback methods (called from both unary RPCs and stream)
 
-    async def _set_controller_color_internal(
-        self, serial: str, color_rgb: tuple[int, int, int]
-    ) -> bool:
+    async def _set_controller_color_internal(self, serial: str, color_rgb: tuple[int, int, int]) -> bool:
         """
         Internal method to set controller color (Phase 46).
 
@@ -1189,16 +1110,12 @@ class ControllerManagerServicer(
                 self._set_led_color(serial, color_rgb)
 
             elif effect == controller_manager_pb2.EFFECT_FLASH:
-                task = asyncio.create_task(
-                    self._effect_flash(serial, color_rgb, duration_ms, speed)
-                )
+                task = asyncio.create_task(self._effect_flash(serial, color_rgb, duration_ms, speed))
                 async with self.effect_lock:
                     self.active_effects[serial] = task
 
             elif effect == controller_manager_pb2.EFFECT_PULSE:
-                task = asyncio.create_task(
-                    self._effect_pulse(serial, color_rgb, duration_ms, speed)
-                )
+                task = asyncio.create_task(self._effect_pulse(serial, color_rgb, duration_ms, speed))
                 async with self.effect_lock:
                     self.active_effects[serial] = task
 
@@ -1245,9 +1162,7 @@ class ControllerManagerServicer(
         """
         try:
             if not PSMOVE_AVAILABLE:
-                logger.debug(
-                    f"_set_vibration_internal (mock): {serial} intensity={intensity} duration={duration_ms}ms"
-                )
+                logger.debug(f"_set_vibration_internal (mock): {serial} intensity={intensity} duration={duration_ms}ms")
                 return True
 
             if serial not in self.tracked_controllers:
@@ -1520,8 +1435,8 @@ class ControllerManagerServicer(
         if state:
             snapshot = state.get_snapshot()
             # Hash all fields that can change during gameplay
-            accel = snapshot.get('accel', {})
-            gyro = snapshot.get('gyro', {})
+            accel = snapshot.get("accel", {})
+            gyro = snapshot.get("gyro", {})
             return (
                 f"{info.get('battery', 0)}|"
                 f"{snapshot.get('trigger', False)}|{snapshot.get('move', False)}|"
@@ -1535,9 +1450,7 @@ class ControllerManagerServicer(
         # No state available, return hash based on info only
         return f"{info.get('battery', 0)}|{info.get('ready', False)}|{info.get('team', 0)}"
 
-    def _build_or_get_cached_state(
-        self, serial: str, info: dict
-    ) -> controller_manager_pb2.ControllerState:
+    def _build_or_get_cached_state(self, serial: str, info: dict) -> controller_manager_pb2.ControllerState:
         """Return cached state if unchanged, rebuild if dirty (Phase 18 - Task 1)."""
         # Calculate current snapshot hash
         current_hash = self._snapshot_hash(serial, info)
@@ -1562,9 +1475,7 @@ class ControllerManagerServicer(
 
         return new_state
 
-    def _build_controller_state_message(
-        self, serial: str, info: dict
-    ) -> controller_manager_pb2.ControllerState:
+    def _build_controller_state_message(self, serial: str, info: dict) -> controller_manager_pb2.ControllerState:
         """Build a ControllerState protobuf message (Phase 18: Use pooled objects)."""
         # Get state snapshot if available
         state = self.controller_states.get(serial)
@@ -1704,9 +1615,7 @@ class ControllerManagerServicer(
             if current_pressed != prev_pressed:
                 # State changed - create event
                 action = (
-                    controller_manager_pb2.ACTION_PRESS
-                    if current_pressed
-                    else controller_manager_pb2.ACTION_RELEASE
+                    controller_manager_pb2.ACTION_PRESS if current_pressed else controller_manager_pb2.ACTION_RELEASE
                 )
                 button_type = button_type_map[button_name]
 
@@ -1716,17 +1625,13 @@ class ControllerManagerServicer(
                     button=button_type,
                     action=action,
                     battery=info.get("battery", 0),
-                    color=controller_manager_pb2.RGB(
-                        r=0, g=0, b=255
-                    ),  # Default color, could get from info
+                    color=controller_manager_pb2.RGB(r=0, g=0, b=255),  # Default color, could get from info
                 )
                 events.append(event)
 
                 # Track button event (Phase 38)
                 action_str = "press" if current_pressed else "release"
-                metrics.button_events_total.labels(
-                    serial=serial, button=button_name, action=action_str
-                ).inc()
+                metrics.button_events_total.labels(serial=serial, button=button_name, action=action_str).inc()
 
                 # Update tracked state
                 prev_states[button_name] = current_pressed
@@ -1780,9 +1685,7 @@ async def serve(port=50052, metrics_port=8000):
         while True:
             try:
                 # Phase 34: Run blocking psutil calls in thread pool
-                cpu_percent = await loop.run_in_executor(
-                    None, lambda: process.cpu_percent(interval=None)
-                )
+                cpu_percent = await loop.run_in_executor(None, lambda: process.cpu_percent(interval=None))
                 mem_info = await loop.run_in_executor(None, lambda: process.memory_info())
                 thread_count = await loop.run_in_executor(None, process.num_threads)
 
@@ -1800,18 +1703,14 @@ async def serve(port=50052, metrics_port=8000):
 
     # Add servicer
     controller_servicer = ControllerManagerServicer()
-    controller_manager_pb2_grpc.add_ControllerManagerServiceServicer_to_server(
-        controller_servicer, server
-    )
+    controller_manager_pb2_grpc.add_ControllerManagerServiceServicer_to_server(controller_servicer, server)
 
     # Add health checking service
     health_servicer = health.aio.HealthServicer()
     health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
 
     # Mark the ControllerManager service as SERVING
-    await health_servicer.set(
-        "controller_manager.ControllerManagerService", health_pb2.HealthCheckResponse.SERVING
-    )
+    await health_servicer.set("controller_manager.ControllerManagerService", health_pb2.HealthCheckResponse.SERVING)
     await health_servicer.set("", health_pb2.HealthCheckResponse.SERVING)  # Overall health
 
     # Bind to port

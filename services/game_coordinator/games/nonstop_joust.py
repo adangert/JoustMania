@@ -118,9 +118,7 @@ class NonstopJoustGame(BaseGameMode):
             controllers: List of controller protobuf messages from GetReadyControllers
         """
         for controller in controllers:
-            player = NonstopPlayer(
-                serial=controller.serial, team=0, alive=True, color=(255, 255, 255)
-            )
+            player = NonstopPlayer(serial=controller.serial, team=0, alive=True, color=(255, 255, 255))
             self.players[controller.serial] = player
             logger.debug(f"Added player: {controller.serial}")
 
@@ -199,9 +197,7 @@ class NonstopJoustGame(BaseGameMode):
         player.current_streak = 0
         player.respawn_timer = RESPAWN_DURATION
 
-        logger.info(
-            f"Player died: {serial} (kills: {player.kills}, deaths: {player.deaths}, score: {player.score})"
-        )
+        logger.info(f"Player died: {serial} (kills: {player.kills}, deaths: {player.deaths}, score: {player.score})")
 
         # Add death event to player's lifecycle span (DON'T end span)
         if player.span:
@@ -284,9 +280,7 @@ class NonstopJoustGame(BaseGameMode):
                 if current_alive_serials != last_alive_serials:
                     # Send filter update to server
                     filter_msg = controller_manager_pb2.GameplayStreamControl(
-                        filter_update=controller_manager_pb2.FilterUpdate(
-                            serials=list(current_alive_serials)
-                        )
+                        filter_update=controller_manager_pb2.FilterUpdate(serials=list(current_alive_serials))
                     )
                     await self.gameplay_stream.write(filter_msg)
 
@@ -507,9 +501,7 @@ class NonstopJoustGame(BaseGameMode):
         winner = max(self.players.values(), key=lambda p: (p.score, -p.deaths), default=None)
 
         if winner:
-            logger.info(
-                f"Winner: {winner.serial} with score {winner.score} (K:{winner.kills} D:{winner.deaths})"
-            )
+            logger.info(f"Winner: {winner.serial} with score {winner.score} (K:{winner.kills} D:{winner.deaths})")
 
             # Show rainbow effect on winner's controller
             rainbow_request = controller_manager_pb2.PlayControllerEffectRequest(

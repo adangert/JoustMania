@@ -31,13 +31,10 @@ def play(device, f):
     periodsize = 1024 * 2
 
     print(
-        f"{f.getnchannels()} channels, {f.getframerate()} sampling rate, "
-        f"format {format}, periodsize {periodsize}\n"
+        f"{f.getnchannels()} channels, {f.getframerate()} sampling rate, " f"format {format}, periodsize {periodsize}\n"
     )
 
-    device = alsaaudio.PCM(
-        channels=2, rate=f.getframerate(), format=format, periodsize=periodsize, device=device
-    )
+    device = alsaaudio.PCM(channels=2, rate=f.getframerate(), format=format, periodsize=periodsize, device=device)
 
     data = ReadSamples(f, periodsize)
     while data:

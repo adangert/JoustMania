@@ -19,9 +19,7 @@ game_duration_seconds = Gauge("game_duration_seconds", "Duration of current game
 
 games_started_total = Counter("games_started_total", "Total number of games started", ["mode"])
 
-games_completed_total = Counter(
-    "games_completed_total", "Total number of games completed", ["mode"]
-)
+games_completed_total = Counter("games_completed_total", "Total number of games completed", ["mode"])
 
 # Player metrics
 active_players = Gauge("game_active_players", "Number of players currently in game")
@@ -32,9 +30,7 @@ player_deaths_total = Counter("game_player_deaths_total", "Total player deaths",
 
 player_kills_total = Counter("game_player_kills_total", "Total player kills", ["mode", "serial"])
 
-player_respawns_total = Counter(
-    "game_player_respawns_total", "Total player respawns (Nonstop Joust only)", ["serial"]
-)
+player_respawns_total = Counter("game_player_respawns_total", "Total player respawns (Nonstop Joust only)", ["serial"])
 
 # Game performance metrics
 frame_time_seconds = Histogram(
@@ -81,9 +77,7 @@ process_memory_mb = Gauge("process_memory_mb", "Process memory usage in MB")
 process_threads = Gauge("process_threads", "Number of active threads")
 
 # gRPC metrics
-grpc_requests_total = Counter(
-    "grpc_requests_total", "Total gRPC requests received", ["method", "status"]
-)
+grpc_requests_total = Counter("grpc_requests_total", "Total gRPC requests received", ["method", "status"])
 
 grpc_request_duration_seconds = Histogram(
     "grpc_request_duration_seconds",
@@ -107,9 +101,7 @@ config_changes_total = Counter(
     ["parameter"],  # 'update_frequency_hz', 'sensitivity_mode', etc.
 )
 
-game_loop_iterations_total = Counter(
-    "game_loop_iterations_total", "Total number of game loop iterations", ["mode"]
-)
+game_loop_iterations_total = Counter("game_loop_iterations_total", "Total number of game loop iterations", ["mode"])
 
 game_loop_latency_ms = Histogram(
     "game_loop_latency_ms",
@@ -119,9 +111,7 @@ game_loop_latency_ms = Histogram(
 )
 
 # Adaptive controller filtering metrics (Phase 45)
-filtered_controllers = Gauge(
-    "game_filtered_controllers", "Number of controllers currently filtered out (dead players)"
-)
+filtered_controllers = Gauge("game_filtered_controllers", "Number of controllers currently filtered out (dead players)")
 
 filter_updates_total = Counter(
     "game_filter_updates_total",
@@ -129,6 +119,4 @@ filter_updates_total = Counter(
     ["game_mode"],  # Track per game mode
 )
 
-active_controllers = Gauge(
-    "game_active_controllers", "Number of controllers currently being monitored (alive players)"
-)
+active_controllers = Gauge("game_active_controllers", "Number of controllers currently being monitored (alive players)")

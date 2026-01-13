@@ -62,7 +62,7 @@ lint: ci-build-tools
 .PHONY: format
 format: ci-build-tools
 	@echo "Formatting code with ruff..."
-	@docker run --rm -v "$(PWD):/workspace" -w /workspace joustmania/ci-lint:latest ruff format .
+	@docker run --rm -v "$(PWD):/workspace" -w /workspace -e RUFF_CACHE_DIR=/tmp/ruff-cache joustmania/ci-lint:latest ruff format .
 	@echo "✓ Code formatted"
 
 .PHONY: format-check

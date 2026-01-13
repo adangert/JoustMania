@@ -10,6 +10,7 @@ echo "Running ruff linting..."
 docker run --rm \
     -v "$PROJECT_ROOT:/workspace:ro" \
     -w /workspace \
+    -e RUFF_CACHE_DIR=/tmp/ruff-cache \
     joustmania/ci-lint:latest \
     ruff check . --output-format=github
 

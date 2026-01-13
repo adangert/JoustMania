@@ -43,13 +43,13 @@ class MockBackend(ControllerBackend):
         """Initialize mock controllers."""
         try:
             for i in range(self.num_controllers):
-                serial = f"MOCK{i:04d}"
+                serial = f"mock_controller_{i}"  # Match old mock_server.py format
 
                 self.controllers[serial] = {
                     "serial": serial,
                     "battery": 5,  # Full battery (0-5)
                     "trigger": 0,
-                    "move_button": False,
+                    "move_button": True,  # Start with Move pressed (ready for tests)
                     "trigger_button": False,
                     "ps_button": False,
                     "select_button": False,

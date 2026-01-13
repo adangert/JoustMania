@@ -292,6 +292,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         if "battery" in state:
                             self.tracked_controllers[serial]["battery"] = state["battery"]
 
+                        # Phase 57: Update ready flag when Move button is pressed
+                        if state.get("move_button", False) and not self.tracked_controllers[serial]["ready"]:
+                            self.tracked_controllers[serial]["ready"] = True
+                            logger.info(f"Controller {serial} marked as ready (Move button pressed)")
+
                 except Exception as e:
                     logger.debug(f"Error updating state for {serial}: {e}")
 
@@ -1005,10 +1010,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             span.set_attribute("speed", request.speed)
 
             try:
-                if not PSMOVE_AVAILABLE:
-                    logger.info(f"PlayControllerEffect (mock): {request.serial or 'all'} effect={effect_name}")
-                    return controller_manager_pb2.PlayControllerEffectResponse(success=True, error="")
-
                 # Determine which controllers to update
                 serials = [request.serial] if request.serial else list(self.tracked_controllers.keys())
 
@@ -1133,11 +1134,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             True if successful, False otherwise
         """
         try:
-            if not PSMOVE_AVAILABLE:
-                effect_name = controller_manager_pb2.ControllerEffect.Name(effect)
-                logger.debug(f"_play_effect_internal (mock): {serial} effect={effect_name}")
-                return True
-
             if serial not in self.tracked_controllers:
                 logger.warning(f"Controller {serial} not found for effect")
                 return False
@@ -1244,13 +1240,13 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             logger.error(f"Error setting LED color on {serial}: {e}", exc_info=True)
 
     def _check_battery_levels(self):
-        """Check battery levels and warn about low batteries (Phase 39 - Task 4).
+        """
+        Check battery levels and warn about low batteries (Phase 39 - Task 4, Phase 57).
 
         Called every 30 seconds from discovery loop.
         Warns when battery level is <= 1 (out of 5), which is <20%.
+        Battery info comes from backend state updates.
         """
-        if not PSMOVE_AVAILABLE:
-            return
 
         current_time = time.time()
 
@@ -1273,7 +1269,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 logger.error(f"Error checking battery for {serial}: {e}")
 
     def _warn_low_battery(self, serial: str, battery_level: int):
-        """Warn player about low battery with red pulse (Phase 39 - Task 4).
+        """
+        Warn player about low battery with red pulse (Phase 39 - Task 4, Phase 57).
 
         Args:
             serial: Controller serial number
@@ -1281,28 +1278,24 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         """
         logger.warning(f"Controller {serial} has low battery: {battery_level}/5 (<20%)")
 
-        if not PSMOVE_AVAILABLE:
-            return
-
         try:
-            # Get controller move object
-            info = self.tracked_controllers.get(serial)
-            if not info:
+            # Check controller is tracked
+            if serial not in self.tracked_controllers:
                 return
 
-            move = info.get("move")
-            if not move:
-                return
+            # Phase 57: Use backend for LED control (sync wrapper)
+            import asyncio
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
 
             # Pulse red 3 times (overrides current color temporarily)
             # This is a synchronous warning that briefly interrupts current state
             for _ in range(3):
-                move.set_leds(255, 0, 0)  # Bright red
-                move.update_leds()
+                loop.run_until_complete(self.backend.set_led_color(serial, 255, 0, 0))  # Bright red
                 time.sleep(0.3)
 
-                move.set_leds(100, 0, 0)  # Dim red
-                move.update_leds()
+                loop.run_until_complete(self.backend.set_led_color(serial, 100, 0, 0))  # Dim red
                 time.sleep(0.3)
 
             # Note: Current game/menu state will restore color on next update
@@ -1313,54 +1306,37 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
     def _check_rssi_levels(self):
         """
-        Check RSSI (signal strength) for all Bluetooth controllers (Phase 48).
+        Check RSSI (signal strength) for all Bluetooth controllers (Phase 48, Phase 57).
 
         Updates controller_rssi dict and warns about weak signals.
         Only checks Bluetooth-connected controllers (USB returns 0).
+        Uses backend.get_rssi() if available (BluetoothBackend only).
         """
-        if not PSMOVE_AVAILABLE:
+        # Phase 57: Use backend.get_rssi() if available (BluetoothBackend only)
+        if not hasattr(self.backend, 'get_rssi'):
+            # Backend doesn't support RSSI (WindowsBackend, MockBackend)
             return
 
         try:
             with tracer.start_as_current_span("check_rssi_levels") as span:
-                # Import bluetooth module
-                try:
-                    from . import bluetooth
-                except ImportError:
-                    logger.warning("Bluetooth module not available, skipping RSSI check")
-                    return
+                import asyncio
 
-                # Get HCI adapters
-                try:
-                    hci_dict = bluetooth.get_hci_dict()
-                except Exception as e:
-                    logger.debug(f"Could not get HCI adapters: {e}")
-                    return
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
 
-                for hci in hci_dict:
-                    # Get RSSI for all devices on this adapter
-                    rssi_values = bluetooth.get_all_device_rssi_values(hci)
+                checked_count = 0
 
-                    # Update RSSI for each controller
-                    for serial, info in self.controllers.items():
-                        # Skip if we don't have BT address mapping
-                        if serial not in self.controller_bt_addresses:
-                            # Try to discover BT address if not yet mapped
-                            move_num = info.get("move_num")
-                            if move_num is not None and move_num in self.moves:
-                                self._discover_bt_address(serial, hci)
-                            continue
+                # Check RSSI for each tracked controller
+                for serial in list(self.tracked_controllers.keys()):
+                    try:
+                        # Get RSSI from backend (returns None if not available)
+                        rssi = loop.run_until_complete(self.backend.get_rssi(serial))
 
-                        bt_address = self.controller_bt_addresses[serial]
-
-                        if bt_address in rssi_values:
-                            rssi = rssi_values[bt_address]
+                        if rssi is not None:
                             self.controller_rssi[serial] = rssi
-
-                            # Update metric
                             metrics.controller_rssi_dbm.labels(serial=serial).set(rssi)
-
                             span.set_attribute(f"controller.{serial}.rssi", rssi)
+                            checked_count += 1
 
                             # Warn if signal is weak
                             if rssi < self.weak_signal_threshold:
@@ -1370,7 +1346,10 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             self.controller_rssi[serial] = 0
                             metrics.controller_rssi_dbm.labels(serial=serial).set(0)
 
-                span.set_attribute("rssi.checked_controllers", len(self.controller_rssi))
+                    except Exception as e:
+                        logger.debug(f"Could not get RSSI for {serial}: {e}")
+
+                span.set_attribute("rssi.checked_controllers", checked_count)
 
         except Exception as e:
             logger.error(f"Error checking RSSI levels: {e}", exc_info=True)
@@ -1420,13 +1399,12 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         Displays orange pulse to indicate weak connection.
         Only warns once every 60 seconds per controller to avoid spam.
 
+        Phase 57: Uses backend abstraction for LED control.
+
         Args:
             serial: Controller serial number
             rssi: Current RSSI in dBm
         """
-        if not PSMOVE_AVAILABLE:
-            return
-
         current_time = time.time()
         last_warning = self.last_rssi_warning.get(serial, 0)
 
@@ -1437,26 +1415,19 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         logger.warning(f"Controller {serial} has weak signal: {rssi} dBm")
 
         try:
-            # Get controller info
-            info = self.controllers.get(serial)
-            if not info:
-                return
+            # Display orange pulse (3 times, 200ms on/off) using backend
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
 
-            move_num = info.get("move_num")
-            move = self.moves.get(move_num)
-
-            if not move:
-                return
-
-            # Display orange pulse (3 times, 200ms on/off)
             for _ in range(3):
-                move.set_leds(255, 165, 0)  # Orange
-                move.update_leds()
+                loop.run_until_complete(self.backend.set_led_color(serial, 255, 165, 0))  # Orange
                 time.sleep(0.2)
 
-                move.set_leds(50, 30, 0)  # Dim orange
-                move.update_leds()
+                loop.run_until_complete(self.backend.set_led_color(serial, 50, 30, 0))  # Dim orange
                 time.sleep(0.2)
+
+            loop.close()
 
             # Note: Current game/menu state will restore color on next update
             self.last_rssi_warning[serial] = current_time
@@ -1477,21 +1448,23 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         )
 
     def _snapshot_hash(self, serial: str, info: dict) -> str:
-        """Create a hash of controller hardware snapshot (Phase 18 - Task 1)."""
-        # Get state snapshot if available
-        state = self.controller_states.get(serial)
+        """
+        Create a hash of controller hardware snapshot (Phase 18 - Task 1).
+        Phase 57: state is now a dict from backend (no get_snapshot() method).
+        """
+        # Get state snapshot if available (Phase 57: already a dict from backend)
+        state_dict = self.controller_states.get(serial)
 
-        if state:
-            snapshot = state.get_snapshot()
+        if state_dict:
             # Hash all fields that can change during gameplay
-            accel = snapshot.get("accel", {})
-            gyro = snapshot.get("gyro", {})
+            accel = state_dict.get("accel", {})
+            gyro = state_dict.get("gyro", {})
             return (
                 f"{info.get('battery', 0)}|"
-                f"{snapshot.get('trigger', False)}|{snapshot.get('move', False)}|"
-                f"{snapshot.get('cross', False)}|{snapshot.get('circle', False)}|"
-                f"{snapshot.get('square', False)}|{snapshot.get('triangle', False)}|"
-                f"{snapshot.get('ps', False)}|"
+                f"{state_dict.get('trigger_button', False)}|{state_dict.get('move_button', False)}|"
+                f"{state_dict.get('cross_button', False)}|{state_dict.get('circle_button', False)}|"
+                f"{state_dict.get('square_button', False)}|{state_dict.get('triangle_button', False)}|"
+                f"{state_dict.get('ps_button', False)}|"
                 f"{accel.get('x', 0):.2f},{accel.get('y', 0):.2f},{accel.get('z', 0):.2f}|"
                 f"{gyro.get('x', 0):.2f},{gyro.get('y', 0):.2f},{gyro.get('z', 0):.2f}|"
                 f"{info.get('ready', False)}|{info.get('team', 0)}"
@@ -1775,12 +1748,31 @@ async def serve(port=50052, metrics_port=8000):
 
     logger.info(f"ControllerManager server listening on port {port}")
 
+    # Phase 57: If using mock backend, start MockControllerService on port 50062
+    mock_server = None
+    if controller_servicer.backend.__class__.__name__ == "MockBackend":
+        from services.controller_manager.mock_control_service import MockControllerService
+        from proto import controller_manager_mock_pb2_grpc
+
+        mock_server = grpc.aio.server()
+        mock_servicer = MockControllerService(controller_servicer.backend)
+        controller_manager_mock_pb2_grpc.add_MockControllerServiceServicer_to_server(mock_servicer, mock_server)
+
+        mock_port = 50062
+        mock_server.add_insecure_port(f"[::]:{mock_port}")
+        await mock_server.start()
+        logger.info(f"MockControllerService listening on port {mock_port}")
+
     try:
         await server.wait_for_termination()
     except KeyboardInterrupt:
         logger.info("Shutting down ControllerManager server...")
         controller_servicer.shutdown()
         await server.stop(grace=5)
+
+        # Stop mock server if running
+        if mock_server:
+            await mock_server.stop(grace=5)
 
 
 if __name__ == "__main__":

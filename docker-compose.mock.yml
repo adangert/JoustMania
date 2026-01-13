@@ -308,7 +308,7 @@ services:
     environment:
       - OTEL_SERVICE_NAME=audio-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-      - AUDIO_BACKEND=mock  # No actual audio output in mock mode
+      - MOCK_MODE=true  # No actual audio output in mock mode
     depends_on:
       otel-collector:
         condition: service_started

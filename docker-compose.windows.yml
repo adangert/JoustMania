@@ -1,0 +1,44 @@
+# Docker Compose configuration for Windows/WSL development
+#
+# This file configures services to connect to a controller manager
+# running natively on Windows (outside Docker).
+#
+# Usage:
+#   1. Start controller manager on Windows:
+#      cd services/controller_manager
+#      pip install -r requirements-windows.txt
+#      python server.py --host 0.0.0.0 --port 50051
+#
+#   2. Start services in WSL:
+#      docker-compose -f docker-compose.yml -f docker-compose.windows.yml up
+#
+# Phase 57: Windows Controller Backend for Development
+
+version: '3.8'
+
+services:
+  # Game Coordinator - connects to Windows controller manager
+  game_coordinator:
+    environment:
+      - CONTROLLER_MANAGER_HOST=host.docker.internal  # Windows host
+      - CONTROLLER_MANAGER_PORT=50051
+
+  # Menu - connects to Windows controller manager
+  menu:
+    environment:
+      - CONTROLLER_MANAGER_HOST=host.docker.internal  # Windows host
+      - CONTROLLER_MANAGER_PORT=50051
+
+  # Supervisor - monitors Windows controller manager
+  supervisor:
+    environment:
+      - CONTROLLER_MANAGER_HOST=host.docker.internal  # Windows host
+      - CONTROLLER_MANAGER_PORT=50051
+
+  # Web UI - proxies to Windows controller manager
+  webui:
+    environment:
+      - CONTROLLER_MANAGER_SERVICE=host.docker.internal:50051  # Windows host
+
+  # NOTE: controller-manager service is NOT started in Docker
+  # It runs natively on Windows with real PS Move controllers

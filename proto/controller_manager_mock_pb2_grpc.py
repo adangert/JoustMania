@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from proto import controller_manager_mock_pb2 as proto_dot_controller__manager__mock__pb2
+from proto import controller_manager_mock_pb2 as controller__manager__mock__pb2
 
 GRPC_GENERATED_VERSION = '1.76.0'
 GRPC_VERSION = grpc.__version__
@@ -18,7 +18,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + ' but the generated code in proto/controller_manager_mock_pb2_grpc.py depends on'
+        + ' but the generated code in controller_manager_mock_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -37,38 +37,38 @@ class MockControllerServiceStub(object):
         """
         self.SimulateMovement = channel.unary_unary(
                 '/controller_manager_mock.MockControllerService/SimulateMovement',
-                request_serializer=proto_dot_controller__manager__mock__pb2.MovementRequest.SerializeToString,
-                response_deserializer=proto_dot_controller__manager__mock__pb2.MovementResponse.FromString,
+                request_serializer=controller__manager__mock__pb2.MovementRequest.SerializeToString,
+                response_deserializer=controller__manager__mock__pb2.MovementResponse.FromString,
                 _registered_method=True)
         self.SimulateDeath = channel.unary_unary(
                 '/controller_manager_mock.MockControllerService/SimulateDeath',
-                request_serializer=proto_dot_controller__manager__mock__pb2.DeathRequest.SerializeToString,
-                response_deserializer=proto_dot_controller__manager__mock__pb2.DeathResponse.FromString,
+                request_serializer=controller__manager__mock__pb2.DeathRequest.SerializeToString,
+                response_deserializer=controller__manager__mock__pb2.DeathResponse.FromString,
                 _registered_method=True)
         self.SimulateButton = channel.unary_unary(
                 '/controller_manager_mock.MockControllerService/SimulateButton',
-                request_serializer=proto_dot_controller__manager__mock__pb2.ButtonRequest.SerializeToString,
-                response_deserializer=proto_dot_controller__manager__mock__pb2.ButtonResponse.FromString,
+                request_serializer=controller__manager__mock__pb2.ButtonRequest.SerializeToString,
+                response_deserializer=controller__manager__mock__pb2.ButtonResponse.FromString,
                 _registered_method=True)
         self.SetColor = channel.unary_unary(
                 '/controller_manager_mock.MockControllerService/SetColor',
-                request_serializer=proto_dot_controller__manager__mock__pb2.ColorRequest.SerializeToString,
-                response_deserializer=proto_dot_controller__manager__mock__pb2.ColorResponse.FromString,
+                request_serializer=controller__manager__mock__pb2.ColorRequest.SerializeToString,
+                response_deserializer=controller__manager__mock__pb2.ColorResponse.FromString,
                 _registered_method=True)
         self.ResetController = channel.unary_unary(
                 '/controller_manager_mock.MockControllerService/ResetController',
-                request_serializer=proto_dot_controller__manager__mock__pb2.ResetRequest.SerializeToString,
-                response_deserializer=proto_dot_controller__manager__mock__pb2.ResetResponse.FromString,
+                request_serializer=controller__manager__mock__pb2.ResetRequest.SerializeToString,
+                response_deserializer=controller__manager__mock__pb2.ResetResponse.FromString,
                 _registered_method=True)
         self.ListMockControllers = channel.unary_unary(
                 '/controller_manager_mock.MockControllerService/ListMockControllers',
-                request_serializer=proto_dot_controller__manager__mock__pb2.ListRequest.SerializeToString,
-                response_deserializer=proto_dot_controller__manager__mock__pb2.ListResponse.FromString,
+                request_serializer=controller__manager__mock__pb2.ListRequest.SerializeToString,
+                response_deserializer=controller__manager__mock__pb2.ListResponse.FromString,
                 _registered_method=True)
         self.SetAutoGameEnd = channel.unary_unary(
                 '/controller_manager_mock.MockControllerService/SetAutoGameEnd',
-                request_serializer=proto_dot_controller__manager__mock__pb2.AutoGameEndRequest.SerializeToString,
-                response_deserializer=proto_dot_controller__manager__mock__pb2.AutoGameEndResponse.FromString,
+                request_serializer=controller__manager__mock__pb2.AutoGameEndRequest.SerializeToString,
+                response_deserializer=controller__manager__mock__pb2.AutoGameEndResponse.FromString,
                 _registered_method=True)
 
 
@@ -130,38 +130,38 @@ def add_MockControllerServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'SimulateMovement': grpc.unary_unary_rpc_method_handler(
                     servicer.SimulateMovement,
-                    request_deserializer=proto_dot_controller__manager__mock__pb2.MovementRequest.FromString,
-                    response_serializer=proto_dot_controller__manager__mock__pb2.MovementResponse.SerializeToString,
+                    request_deserializer=controller__manager__mock__pb2.MovementRequest.FromString,
+                    response_serializer=controller__manager__mock__pb2.MovementResponse.SerializeToString,
             ),
             'SimulateDeath': grpc.unary_unary_rpc_method_handler(
                     servicer.SimulateDeath,
-                    request_deserializer=proto_dot_controller__manager__mock__pb2.DeathRequest.FromString,
-                    response_serializer=proto_dot_controller__manager__mock__pb2.DeathResponse.SerializeToString,
+                    request_deserializer=controller__manager__mock__pb2.DeathRequest.FromString,
+                    response_serializer=controller__manager__mock__pb2.DeathResponse.SerializeToString,
             ),
             'SimulateButton': grpc.unary_unary_rpc_method_handler(
                     servicer.SimulateButton,
-                    request_deserializer=proto_dot_controller__manager__mock__pb2.ButtonRequest.FromString,
-                    response_serializer=proto_dot_controller__manager__mock__pb2.ButtonResponse.SerializeToString,
+                    request_deserializer=controller__manager__mock__pb2.ButtonRequest.FromString,
+                    response_serializer=controller__manager__mock__pb2.ButtonResponse.SerializeToString,
             ),
             'SetColor': grpc.unary_unary_rpc_method_handler(
                     servicer.SetColor,
-                    request_deserializer=proto_dot_controller__manager__mock__pb2.ColorRequest.FromString,
-                    response_serializer=proto_dot_controller__manager__mock__pb2.ColorResponse.SerializeToString,
+                    request_deserializer=controller__manager__mock__pb2.ColorRequest.FromString,
+                    response_serializer=controller__manager__mock__pb2.ColorResponse.SerializeToString,
             ),
             'ResetController': grpc.unary_unary_rpc_method_handler(
                     servicer.ResetController,
-                    request_deserializer=proto_dot_controller__manager__mock__pb2.ResetRequest.FromString,
-                    response_serializer=proto_dot_controller__manager__mock__pb2.ResetResponse.SerializeToString,
+                    request_deserializer=controller__manager__mock__pb2.ResetRequest.FromString,
+                    response_serializer=controller__manager__mock__pb2.ResetResponse.SerializeToString,
             ),
             'ListMockControllers': grpc.unary_unary_rpc_method_handler(
                     servicer.ListMockControllers,
-                    request_deserializer=proto_dot_controller__manager__mock__pb2.ListRequest.FromString,
-                    response_serializer=proto_dot_controller__manager__mock__pb2.ListResponse.SerializeToString,
+                    request_deserializer=controller__manager__mock__pb2.ListRequest.FromString,
+                    response_serializer=controller__manager__mock__pb2.ListResponse.SerializeToString,
             ),
             'SetAutoGameEnd': grpc.unary_unary_rpc_method_handler(
                     servicer.SetAutoGameEnd,
-                    request_deserializer=proto_dot_controller__manager__mock__pb2.AutoGameEndRequest.FromString,
-                    response_serializer=proto_dot_controller__manager__mock__pb2.AutoGameEndResponse.SerializeToString,
+                    request_deserializer=controller__manager__mock__pb2.AutoGameEndRequest.FromString,
+                    response_serializer=controller__manager__mock__pb2.AutoGameEndResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -190,8 +190,8 @@ class MockControllerService(object):
             request,
             target,
             '/controller_manager_mock.MockControllerService/SimulateMovement',
-            proto_dot_controller__manager__mock__pb2.MovementRequest.SerializeToString,
-            proto_dot_controller__manager__mock__pb2.MovementResponse.FromString,
+            controller__manager__mock__pb2.MovementRequest.SerializeToString,
+            controller__manager__mock__pb2.MovementResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -217,8 +217,8 @@ class MockControllerService(object):
             request,
             target,
             '/controller_manager_mock.MockControllerService/SimulateDeath',
-            proto_dot_controller__manager__mock__pb2.DeathRequest.SerializeToString,
-            proto_dot_controller__manager__mock__pb2.DeathResponse.FromString,
+            controller__manager__mock__pb2.DeathRequest.SerializeToString,
+            controller__manager__mock__pb2.DeathResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -244,8 +244,8 @@ class MockControllerService(object):
             request,
             target,
             '/controller_manager_mock.MockControllerService/SimulateButton',
-            proto_dot_controller__manager__mock__pb2.ButtonRequest.SerializeToString,
-            proto_dot_controller__manager__mock__pb2.ButtonResponse.FromString,
+            controller__manager__mock__pb2.ButtonRequest.SerializeToString,
+            controller__manager__mock__pb2.ButtonResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -271,8 +271,8 @@ class MockControllerService(object):
             request,
             target,
             '/controller_manager_mock.MockControllerService/SetColor',
-            proto_dot_controller__manager__mock__pb2.ColorRequest.SerializeToString,
-            proto_dot_controller__manager__mock__pb2.ColorResponse.FromString,
+            controller__manager__mock__pb2.ColorRequest.SerializeToString,
+            controller__manager__mock__pb2.ColorResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -298,8 +298,8 @@ class MockControllerService(object):
             request,
             target,
             '/controller_manager_mock.MockControllerService/ResetController',
-            proto_dot_controller__manager__mock__pb2.ResetRequest.SerializeToString,
-            proto_dot_controller__manager__mock__pb2.ResetResponse.FromString,
+            controller__manager__mock__pb2.ResetRequest.SerializeToString,
+            controller__manager__mock__pb2.ResetResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -325,8 +325,8 @@ class MockControllerService(object):
             request,
             target,
             '/controller_manager_mock.MockControllerService/ListMockControllers',
-            proto_dot_controller__manager__mock__pb2.ListRequest.SerializeToString,
-            proto_dot_controller__manager__mock__pb2.ListResponse.FromString,
+            controller__manager__mock__pb2.ListRequest.SerializeToString,
+            controller__manager__mock__pb2.ListResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -352,8 +352,8 @@ class MockControllerService(object):
             request,
             target,
             '/controller_manager_mock.MockControllerService/SetAutoGameEnd',
-            proto_dot_controller__manager__mock__pb2.AutoGameEndRequest.SerializeToString,
-            proto_dot_controller__manager__mock__pb2.AutoGameEndResponse.FromString,
+            controller__manager__mock__pb2.AutoGameEndRequest.SerializeToString,
+            controller__manager__mock__pb2.AutoGameEndResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -373,3 +373,151 @@ class TestControllerDisconnection:
         assert not menu_servicer.admin_mode_active
         assert menu_servicer.admin_mode_controller is None
         assert menu_servicer.admin_mode_entry_time == 0
+
+
+class TestProcessInput:
+    """Test ProcessInput RPC (Phase 59)."""
+
+    @pytest.mark.asyncio
+    async def test_button_press_trigger_starts_game(self, menu_servicer):
+        """Trigger button press should start game."""
+        menu_servicer.state = menu_pb2.MenuState.RUNNING
+        menu_servicer.current_selection = "JoustFFA"
+
+        request = menu_pb2.ProcessInputRequest(
+            input_type="button_press",
+            data={"button": "trigger"}
+        )
+        context = MagicMock()
+
+        response = await menu_servicer.ProcessInput(request, context)
+
+        assert response.success
+        assert menu_servicer.state == menu_pb2.MenuState.GAME_STARTING
+
+    @pytest.mark.asyncio
+    async def test_button_press_select_cycles_game(self, menu_servicer):
+        """Select button press should cycle game mode."""
+        menu_servicer.state = menu_pb2.MenuState.RUNNING
+        menu_servicer.current_selection = "JoustFFA"
+
+        request = menu_pb2.ProcessInputRequest(
+            input_type="button_press",
+            data={"button": "select"}
+        )
+        context = MagicMock()
+
+        response = await menu_servicer.ProcessInput(request, context)
+
+        assert response.success
+        assert menu_servicer.current_selection == "JoustTeams"
+
+    @pytest.mark.asyncio
+    async def test_web_command_start_game(self, menu_servicer):
+        """Web command should start game."""
+        menu_servicer.state = menu_pb2.MenuState.RUNNING
+
+        request = menu_pb2.ProcessInputRequest(
+            input_type="web_command",
+            data={"command": "start_game"}
+        )
+        context = MagicMock()
+
+        response = await menu_servicer.ProcessInput(request, context)
+
+        assert response.success
+        assert menu_servicer.state == menu_pb2.MenuState.GAME_STARTING
+
+    @pytest.mark.asyncio
+    async def test_web_command_select_game(self, menu_servicer):
+        """Web command should select specific game mode."""
+        menu_servicer.state = menu_pb2.MenuState.RUNNING
+        menu_servicer.current_selection = "JoustFFA"
+
+        request = menu_pb2.ProcessInputRequest(
+            input_type="web_command",
+            data={"command": "select_game", "game_name": "Tournament"}
+        )
+        context = MagicMock()
+
+        response = await menu_servicer.ProcessInput(request, context)
+
+        assert response.success
+        assert menu_servicer.current_selection == "Tournament"
+
+    @pytest.mark.asyncio
+    async def test_web_command_select_invalid_game(self, menu_servicer):
+        """Web command with invalid game should not change selection."""
+        menu_servicer.state = menu_pb2.MenuState.RUNNING
+        menu_servicer.current_selection = "JoustFFA"
+
+        request = menu_pb2.ProcessInputRequest(
+            input_type="web_command",
+            data={"command": "select_game", "game_name": "InvalidGame"}
+        )
+        context = MagicMock()
+
+        response = await menu_servicer.ProcessInput(request, context)
+
+        assert response.success  # Still succeeds, just logs warning
+        assert menu_servicer.current_selection == "JoustFFA"  # Unchanged
+
+    @pytest.mark.asyncio
+    async def test_reset_menu_cancels_game_start(self, menu_servicer):
+        """Reset menu should cancel GAME_STARTING state."""
+        menu_servicer.state = menu_pb2.MenuState.GAME_STARTING
+
+        request = menu_pb2.ProcessInputRequest(
+            input_type="reset_menu",
+            data={}
+        )
+        context = MagicMock()
+
+        response = await menu_servicer.ProcessInput(request, context)
+
+        assert response.success
+        assert menu_servicer.state == menu_pb2.MenuState.RUNNING
+
+
+class TestGameModesConstant:
+    """Test GAME_MODES constant (Phase 59)."""
+
+    def test_game_modes_constant_exists(self, menu_servicer):
+        """GAME_MODES constant should exist."""
+        assert hasattr(menu_servicer, 'GAME_MODES')
+        assert len(menu_servicer.GAME_MODES) == 5
+
+    def test_all_game_modes_have_colors(self, menu_servicer):
+        """All game modes in constant should have colors defined."""
+        for mode in menu_servicer.GAME_MODES:
+            assert mode in menu_servicer.GAME_MODE_COLORS
+
+    def test_game_modes_order(self, menu_servicer):
+        """Game modes should be in expected order."""
+        expected = ["JoustFFA", "JoustTeams", "Tournament", "Werewolf", "NonstopJoust"]
+        assert menu_servicer.GAME_MODES == expected
+
+
+class TestAdminModeTimeout:
+    """Test admin mode timeout (Phase 58)."""
+
+    @pytest.mark.asyncio
+    async def test_admin_mode_times_out(self, menu_servicer):
+        """Admin mode should exit after 60 seconds."""
+        menu_servicer.admin_mode_active = True
+        menu_servicer.admin_mode_controller = "test_serial"
+        menu_servicer.admin_mode_entry_time = 0  # Set to epoch (will be > 60s ago)
+
+        # Create mock controller state
+        controller = MockControllerState("test_serial")
+
+        menu_servicer.controller_button_states["test_serial"] = {
+            "trigger": False, "move": False, "cross": False,
+            "circle": False, "square": False, "triangle": False, "ps": False
+        }
+        menu_servicer.last_button_press_time["test_serial"] = {}
+
+        await menu_servicer._process_button_state(controller)
+
+        assert not menu_servicer.admin_mode_active
+        assert menu_servicer.admin_mode_controller is None

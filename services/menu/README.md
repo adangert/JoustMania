@@ -71,6 +71,7 @@ rpc ProcessInput(ProcessInputRequest) returns (ProcessInputResponse);
 | `button_press` | `{button: "trigger"}` | Start game with current selection |
 | `button_press` | `{button: "select"}` | Cycle to next game mode |
 | `web_command` | `{command: "start_game"}` | Start game from web UI |
+| `web_command` | `{command: "select_game", game_name: "..."}` | Select specific game mode |
 | `reset_menu` | `{}` | Cancel GAME_STARTING state, return to RUNNING |
 
 ### StreamMenuEvents
@@ -173,6 +174,13 @@ Prometheus metrics are exposed at `http://localhost:8000/metrics`.
 | `menu_button_frames_processed_total` | Counter | - | Controller state frames processed |
 | `menu_button_presses_total` | Counter | button, action | Button presses detected |
 | `menu_lobby_updates_total` | Counter | - | LED updates sent |
+
+### Stream Metrics
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `menu_stream_connections_active` | Gauge | - | Active StreamMenuEvents connections |
+| `menu_stream_events_published_total` | Counter | event_type | Events published to subscribers |
 
 ### System Metrics
 

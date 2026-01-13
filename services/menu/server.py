@@ -1,13 +1,14 @@
 """
 Menu gRPC Server for JoustMania
 
-Manages menu UI and user interactions as a gRPC service:
-- Start/stop menu
-- Process input (button presses, web commands)
-- Track menu state
-- Stream menu events
+Manages the game selection menu and lobby experience:
+- Game mode selection and cycling
+- Controller lobby state (connected/ready)
+- LED feedback based on game mode and player state
+- Admin mode for in-game configuration
+- Real-time event streaming for UI updates
 
-This replaces the Queue-based IPC with gRPC (Phase 8a).
+See services/menu/README.md for full documentation.
 """
 
 import asyncio
@@ -261,10 +262,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         logger.info(f"Game requested: {self.current_selection}")
 
                     elif button == "select":
-                        # Move to next game (includes NonstopJoust - Phase 22 prep)
-                        games = ["JoustFFA", "JoustTeams", "Tournament", "Werewolf", "NonstopJoust"]
-                        current_index = games.index(self.current_selection) if self.current_selection in games else 0
-                        self.current_selection = games[(current_index + 1) % len(games)]
+                        # Move to next game (Phase 59: use GAME_MODES constant)
+                        current_index = self.GAME_MODES.index(self.current_selection) if self.current_selection in self.GAME_MODES else 0
+                        self.current_selection = self.GAME_MODES[(current_index + 1) % len(self.GAME_MODES)]
                         await self._publish_event("selection_changed", {"game_name": self.current_selection})
                         logger.info(f"Selection changed to: {self.current_selection}")
 
@@ -277,6 +277,21 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         await self._publish_event(
                             "game_requested", {"game_name": self.current_selection, "source": "web"}
                         )
+
+                    # Phase 59: Add select_game command for web UI
+                    elif command == "select_game":
+                        game_name = data.get("game_name", "")
+                        if game_name in self.GAME_MODES:
+                            self.current_selection = game_name
+                            await self._publish_event(
+                                "selection_changed", {"game_name": game_name, "source": "web"}
+                            )
+                            # Clear lobby state to trigger color update on next frame
+                            self.controller_lobby_state.clear()
+                            self.last_lobby_feedback_update.clear()
+                            logger.info(f"Game selected via web: {game_name}")
+                        else:
+                            logger.warning(f"Unknown game mode requested via web: {game_name}")
 
                 # Phase 58: Handle menu reset (recover from GAME_STARTING if game fails to start)
                 elif input_type == "reset_menu":
@@ -301,8 +316,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         """
         Stream menu events in real-time (async).
         Phase 34: Converted to asyncio.Queue.
+        Phase 59: Added connection metrics.
         """
         subscriber_id = f"menu_events_{time.time()}"
+        metrics.stream_connections_active.inc()  # Phase 59: Track active connections
 
         with tracer.start_as_current_span("StreamMenuEvents") as span:
             span.set_attribute("subscriber.id", subscriber_id)
@@ -335,10 +352,13 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     if subscriber_id in self.event_subscribers:
                         del self.event_subscribers[subscriber_id]
 
+                metrics.stream_connections_active.dec()  # Phase 59: Decrement on disconnect
                 logger.info(f"Menu event subscriber disconnected: {subscriber_id}")
 
     async def _publish_event(self, event_type: str, data: dict[str, str]):
-        """Publish an event to all subscribers (Phase 34: async)."""
+        """Publish an event to all subscribers (Phase 34: async, Phase 59: metrics)."""
+        metrics.stream_events_published_total.labels(event_type=event_type).inc()  # Phase 59
+
         with tracer.start_as_current_span("publish_menu_event") as span:
             span.set_attribute("event.type", event_type)
 
@@ -547,6 +567,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         prev_state["triangle"] = controller.triangle_pressed
         prev_state["ps"] = controller.ps_pressed
 
+    # Game modes available in the menu (Phase 59: single source of truth)
+    GAME_MODES = ["JoustFFA", "JoustTeams", "Tournament", "Werewolf", "NonstopJoust"]
+
     # Game mode lobby colors (Phase 39)
     # Each game mode has a distinct color in the lobby
     GAME_MODE_COLORS = {
@@ -636,10 +659,34 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             self.ready_controller_count = len(self.ready_controllers)
             logger.info(f"Controller {serial} ready ({self.ready_controller_count} total)")
 
-            # Auto-start: If all connected controllers are ready (and at least 2), trigger game start
-            if len(self.ready_controllers) >= 2 and len(self.ready_controllers) == len(self.connected_controllers):
-                logger.info("All controllers ready - auto-starting game!")
-                await self._handle_trigger_press(serial)
+            # Phase 59: Auto-start logic respects force_all_start setting
+            if len(self.ready_controllers) >= 2:
+                should_auto_start = False
+                all_ready = len(self.ready_controllers) == len(self.connected_controllers)
+
+                if all_ready:
+                    # All controllers ready - always auto-start
+                    should_auto_start = True
+                    logger.info("All controllers ready - auto-starting game!")
+                else:
+                    # Not all ready - check force_all_start setting
+                    try:
+                        from proto import settings_pb2, settings_pb2_grpc
+                        settings_stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
+                        response = await settings_stub.GetSetting(
+                            settings_pb2.GetSettingRequest(key="force_all_start")
+                        )
+                        force_all = response.value == "true"
+
+                        if not force_all:
+                            # Don't require all controllers - auto-start with 2+ ready
+                            should_auto_start = True
+                            logger.info(f"{len(self.ready_controllers)} controllers ready (force_all_start=false) - auto-starting!")
+                    except Exception as e:
+                        logger.warning(f"Could not check force_all_start setting: {e}, waiting for all controllers")
+
+                if should_auto_start:
+                    await self._handle_trigger_press(serial)
 
         elif target_state == "connected" and serial in self.ready_controllers:
             self.ready_controllers.remove(serial)
@@ -732,10 +779,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         with tracer.start_as_current_span("handle_select_press") as span:
             span.set_attribute("controller.serial", serial)
 
-            # Game list includes NonstopJoust (Phase 22 prep)
-            games = ["JoustFFA", "JoustTeams", "Tournament", "Werewolf", "NonstopJoust"]
-            current_index = games.index(self.current_selection) if self.current_selection in games else 0
-            self.current_selection = games[(current_index + 1) % len(games)]
+            # Phase 59: Use GAME_MODES constant
+            current_index = self.GAME_MODES.index(self.current_selection) if self.current_selection in self.GAME_MODES else 0
+            self.current_selection = self.GAME_MODES[(current_index + 1) % len(self.GAME_MODES)]
 
             span.set_attribute("game.name", self.current_selection)
 
@@ -1196,6 +1242,22 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 )
                 await stub.SetControllerColor(color_request)
 
+                # Phase 59: Schedule restore to white after option color finishes
+                async def restore_white():
+                    await asyncio.sleep(1.1)  # Wait for option color to finish
+                    if self.admin_mode_active and serial == self.admin_mode_controller:
+                        try:
+                            white_request = controller_manager_pb2.SetControllerColorRequest(
+                                serial=serial,
+                                color=controller_manager_pb2.RGB(r=255, g=255, b=255),
+                                duration_ms=0,  # Persistent white
+                            )
+                            await stub.SetControllerColor(white_request)
+                        except Exception as e:
+                            logger.debug(f"Could not restore white LED: {e}")
+
+                asyncio.create_task(restore_white())
+
                 span.add_event(
                     "admin_option_changed",
                     {"option": option_name, "option_index": self.admin_current_option},
@@ -1410,7 +1472,10 @@ async def serve(port=50054, metrics_port=8000):
                 logger.error(f"Error collecting system metrics: {e}")
             await asyncio.sleep(10.0)
 
-    asyncio.create_task(collect_system_metrics())
+    # Phase 59: Track background tasks for cleanup
+    background_tasks = []
+    metrics_task = asyncio.create_task(collect_system_metrics())
+    background_tasks.append(metrics_task)
 
     # Create server
     server = grpc.aio.server()
@@ -1441,6 +1506,14 @@ async def serve(port=50054, metrics_port=8000):
         await server.wait_for_termination()
     except KeyboardInterrupt:
         logger.info("Shutting down Menu server...")
+
+        # Phase 59: Cancel background tasks
+        for task in background_tasks:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+        logger.info("Background tasks cancelled")
+
         await menu_servicer.stop_button_monitor()
         await menu_servicer.shutdown()  # Phase 26: Close persistent channels
         await server.stop(grace=5)

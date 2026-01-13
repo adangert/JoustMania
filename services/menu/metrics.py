@@ -39,3 +39,15 @@ lobby_updates_total = Counter(
     "menu_lobby_updates_total",
     "Total number of lobby feedback updates sent",
 )
+
+# Stream metrics (Phase 59)
+stream_connections_active = Gauge(
+    "menu_stream_connections_active",
+    "Number of active StreamMenuEvents connections",
+)
+
+stream_events_published_total = Counter(
+    "menu_stream_events_published_total",
+    "Total events published to stream subscribers",
+    ["event_type"],
+)

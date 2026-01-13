@@ -723,7 +723,7 @@ class BaseGameMode(ABC):
             context = otel_context.get_current()
 
         return tracer.start_span(
-            f"player_{serial}_lifecycle",
+            "player_lifecycle",  # Consistent name for all players (OpenTelemetry best practice)
             context=context,
             attributes={
                 "player.serial": serial,

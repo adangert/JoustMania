@@ -1,9 +1,15 @@
 version: '3.8'
 
 # Environment Variables (can be set in shell or .env file):
+# - CONTROLLER_BACKEND: Controller backend type (bluetooth, mock, windows) [default: bluetooth]
+# - MOCK_CONTROLLER_COUNT: Number of mock controllers when CONTROLLER_BACKEND=mock [default: 4]
+# - AUDIO_MOCK_MODE: Disable audio output for testing [default: false]
 # - LOG_LEVEL: Logging level for all services (DEBUG, INFO, WARNING, ERROR) [default: INFO]
-# - OTEL_EXPORTER_OTLP_ENDPOINT: OpenTelemetry endpoint [default: http://otel-collector:4317]
-# - OTEL_SERVICE_NAME: Overridden per-service below
+#
+# For local development without hardware, create a docker-compose.override.yml or use:
+#   CONTROLLER_BACKEND=mock docker-compose up
+#
+# Or copy .env.mock to .env for persistent mock mode.
 
 services:
   # Redis for pub/sub messaging
@@ -109,9 +115,7 @@ services:
       context: .
       dockerfile: services/controller_manager/Dockerfile
     container_name: joustmania-controller-manager
-    privileged: true  # Required for Bluetooth + USB access
-    # FIXED: Use bridge network instead of host mode for proper DNS resolution
-    # Bluetooth/USB still work via privileged mode + device mounts
+    privileged: true  # Required for Bluetooth + USB access (ignored in mock mode)
     networks:
       - joustmania
     volumes:
@@ -121,8 +125,10 @@ services:
     # Ports exposed only within Docker network (no host binding)
     expose:
       - "50052"  # gRPC service
-      - "8000"   # Prometheus metrics (Phase 38)
+      - "8000"   # Prometheus metrics
     environment:
+      - CONTROLLER_BACKEND=${CONTROLLER_BACKEND:-bluetooth}
+      - MOCK_CONTROLLER_COUNT=${MOCK_CONTROLLER_COUNT:-4}
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
       - OTEL_SERVICE_NAME=controller-manager-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
@@ -312,7 +318,7 @@ services:
       context: .
       dockerfile: services/audio/Dockerfile
     container_name: joustmania-audio
-    privileged: true  # Required for audio device access
+    privileged: true  # Required for audio device access (ignored in mock mode)
     devices:
       - /dev/snd:/dev/snd  # Audio hardware
     volumes:
@@ -320,8 +326,9 @@ services:
     # Ports exposed only within Docker network (no host binding)
     expose:
       - "50056"  # gRPC service
-      - "8000"   # Prometheus metrics (Phase 38)
+      - "8000"   # Prometheus metrics
     environment:
+      - MOCK_MODE=${AUDIO_MOCK_MODE:-false}
       - OTEL_SERVICE_NAME=audio-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:

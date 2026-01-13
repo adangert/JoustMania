@@ -75,25 +75,26 @@ python --version
 # Windows PowerShell
 cd C:\path\to\JoustMania
 
-# Create virtual environment (optional but recommended)
-python -m venv venv-windows
-.\venv-windows\Scripts\activate
+# Install uv if not already installed
+# See: https://docs.astral.sh/uv/getting-started/installation/
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-# Install Windows dependencies
-pip install -r services/controller_manager/requirements-windows.txt
+# Sync dependencies (uv handles platform-specific deps automatically)
+# This installs psmoveapi on Windows, dbus-python on Linux
+uv sync --package joustmania-controller-manager
 
-# Install proto package
-pip install -e proto/
+# Verify installation
+uv run --package joustmania-controller-manager python -c "import psmove; print('psmoveapi OK')"
 ```
 
 ### 4. Test Controller Detection
 
 ```powershell
 # Windows PowerShell
-cd services/controller_manager
+cd C:\path\to\JoustMania
 
-# Test psmoveapi
-python -c "import psmove; print(f'Found {psmove.count_connected()} controllers')"
+# Test psmoveapi via uv
+uv run --package joustmania-controller-manager python -c "import psmove; print(f'Found {psmove.count_connected()} controllers')"
 
 # Should show: Found N controllers (where N = your paired controllers)
 ```
@@ -130,14 +131,11 @@ docker-compose config | grep CONTROLLER_MANAGER_HOST
 # Windows PowerShell
 cd C:\path\to\JoustMania
 
-# Activate venv if using
-.\venv-windows\Scripts\activate
-
-# Set environment for backend selection (optional)
+# Set environment for backend selection (optional - auto-detects Windows)
 $env:CONTROLLER_BACKEND = "windows"
 
-# Start controller manager
-python -m services.controller_manager.server --host 0.0.0.0 --port 50051
+# Start controller manager via uv
+uv run --package joustmania-controller-manager python -m services.controller_manager.server --host 0.0.0.0 --port 50051
 
 # You should see:
 # INFO: WindowsBackend initialized
@@ -172,8 +170,7 @@ docker-compose up
 ```powershell
 # Terminal 1 (Windows) - Controller Manager
 cd C:\path\to\JoustMania
-.\venv-windows\Scripts\activate
-python -m services.controller_manager.server --host 0.0.0.0 --port 50051
+uv run --package joustmania-controller-manager python -m services.controller_manager.server --host 0.0.0.0 --port 50051
 ```
 
 ```bash
@@ -191,7 +188,7 @@ docker-compose up audio menu settings supervisor  # Exclude game_coordinator
 # In another WSL terminal
 cd ~/JoustMania
 export CONTROLLER_MANAGER_HOST=host.docker.internal:50051
-python services/game_coordinator/server.py
+uv run --package joustmania-game-coordinator python services/game_coordinator/server.py
 ```
 
 ### Test with Mock Controllers
@@ -202,7 +199,7 @@ If controllers are low battery or unavailable:
 # Windows - Use mock backend
 $env:CONTROLLER_BACKEND = "mock"
 $env:MOCK_CONTROLLER_COUNT = "4"
-python -m services.controller_manager.server --host 0.0.0.0 --port 50051
+uv run --package joustmania-controller-manager python -m services.controller_manager.server --host 0.0.0.0 --port 50051
 ```
 
 ## Troubleshooting
@@ -214,7 +211,7 @@ python -m services.controller_manager.server --host 0.0.0.0 --port 50051
 # Should see "Motion Controller" listed as Connected
 
 # Test psmoveapi directly
-python -c "import psmove; print(f'Found {psmove.count_connected()} controllers'); [print(f'  - {psmove.PSMove(i).get_serial()}') for i in range(psmove.count_connected())]"
+uv run --package joustmania-controller-manager python -c "import psmove; print(f'Found {psmove.count_connected()} controllers'); [print(f'  - {psmove.PSMove(i).get_serial()}') for i in range(psmove.count_connected())]"
 ```
 
 ### WSL Can't Connect to Windows Service
@@ -239,11 +236,11 @@ New-NetFirewallRule -DisplayName "Python gRPC Server" -Direction Inbound -Progra
 ### Import Errors
 
 ```powershell
-# Ensure proto package is installed
-pip install -e proto/
+# Re-sync workspace dependencies
+uv sync
 
 # Verify imports work
-python -c "from proto import controller_manager_pb2; print('OK')"
+uv run --package joustmania-controller-manager python -c "from proto import controller_manager_pb2; print('OK')"
 ```
 
 ### Controllers Work But No LED/Rumble

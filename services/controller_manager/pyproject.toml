@@ -9,7 +9,12 @@ dependencies = [
 
     # Core dependencies
     "pyyaml>=6.0",
-    "dbus-python>=1.2.0",
+
+    # Platform-specific PS Move dependencies
+    # Linux: dbus-python for BlueZ Bluetooth stack
+    "dbus-python>=1.2.0; sys_platform == 'linux'",
+    # Windows: psmoveapi for Windows Bluetooth
+    "psmoveapi>=4.0.12; sys_platform == 'win32'",
 
     # gRPC
     "grpcio>=1.70.0",

@@ -139,9 +139,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
     async def StartMenu(self, request, context):
         """Start the menu (Phase 34: async for _publish_event)."""
+        start_time = time.time()
         with tracer.start_as_current_span("StartMenu") as span:
             try:
                 if self.state == menu_pb2.MenuState.RUNNING:
+                    metrics.grpc_requests_total.labels(method="StartMenu", status="already_running").inc()
                     return menu_pb2.StartMenuResponse(success=False, error="Menu already running")
 
                 self.state = menu_pb2.MenuState.RUNNING
@@ -154,6 +156,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 logger.info("Menu started")
 
                 span.set_attribute("menu.state", "RUNNING")
+                metrics.grpc_requests_total.labels(method="StartMenu", status="ok").inc()
 
                 return menu_pb2.StartMenuResponse(success=True, error="")
 
@@ -161,13 +164,18 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 logger.error(f"StartMenu error: {e}", exc_info=True)
+                metrics.grpc_requests_total.labels(method="StartMenu", status="error").inc()
                 return menu_pb2.StartMenuResponse(success=False, error=str(e))
+            finally:
+                metrics.grpc_request_duration_seconds.labels(method="StartMenu").observe(time.time() - start_time)
 
     async def StopMenu(self, request, context):
         """Stop the menu (Phase 34: async for _publish_event)."""
+        start_time = time.time()
         with tracer.start_as_current_span("StopMenu") as span:
             try:
                 if self.state == menu_pb2.MenuState.STOPPED:
+                    metrics.grpc_requests_total.labels(method="StopMenu", status="already_stopped").inc()
                     return menu_pb2.StopMenuResponse(success=False, error="Menu already stopped")
 
                 self.state = menu_pb2.MenuState.STOPPED
@@ -185,6 +193,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 logger.info("Menu stopped")
 
                 span.set_attribute("menu.state", "STOPPED")
+                metrics.grpc_requests_total.labels(method="StopMenu", status="ok").inc()
 
                 return menu_pb2.StopMenuResponse(success=True, error="")
 
@@ -192,15 +201,20 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 logger.error(f"StopMenu error: {e}", exc_info=True)
+                metrics.grpc_requests_total.labels(method="StopMenu", status="error").inc()
                 return menu_pb2.StopMenuResponse(success=False, error=str(e))
+            finally:
+                metrics.grpc_request_duration_seconds.labels(method="StopMenu").observe(time.time() - start_time)
 
-    def GetMenuStatus(self, request, context):
-        """Get current menu status."""
+    async def GetMenuStatus(self, request, context):
+        """Get current menu status (Phase 58: converted to async for consistency)."""
+        start_time = time.time()
         with tracer.start_as_current_span("GetMenuStatus") as span:
             try:
                 span.set_attribute("menu.state", self.state)
                 span.set_attribute("menu.selection", self.current_selection)
                 span.set_attribute("menu.ready_controllers", self.ready_controller_count)
+                metrics.grpc_requests_total.labels(method="GetMenuStatus", status="ok").inc()
 
                 return menu_pb2.GetMenuStatusResponse(
                     state=self.state,
@@ -214,6 +228,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 logger.error(f"GetMenuStatus error: {e}", exc_info=True)
+                metrics.grpc_requests_total.labels(method="GetMenuStatus", status="error").inc()
                 return menu_pb2.GetMenuStatusResponse(
                     state=menu_pb2.MenuState.STOPPED,
                     current_selection="",
@@ -221,9 +236,12 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     success=False,
                     error=str(e),
                 )
+            finally:
+                metrics.grpc_request_duration_seconds.labels(method="GetMenuStatus").observe(time.time() - start_time)
 
     async def ProcessInput(self, request, context):
         """Process menu input (Phase 34: async for _publish_event)."""
+        start_time = time.time()
         with tracer.start_as_current_span("ProcessInput") as span:
             span.set_attribute("input.type", request.input_type)
 
@@ -260,13 +278,24 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                             "game_requested", {"game_name": self.current_selection, "source": "web"}
                         )
 
+                # Phase 58: Handle menu reset (recover from GAME_STARTING if game fails to start)
+                elif input_type == "reset_menu":
+                    if self.state == menu_pb2.MenuState.GAME_STARTING:
+                        self.state = menu_pb2.MenuState.RUNNING
+                        await self._publish_event("game_start_cancelled", {})
+                        logger.info("Menu reset to RUNNING state (game start cancelled)")
+
+                metrics.grpc_requests_total.labels(method="ProcessInput", status="ok").inc()
                 return menu_pb2.ProcessInputResponse(success=True, error="")
 
             except Exception as e:
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 logger.error(f"ProcessInput error: {e}", exc_info=True)
+                metrics.grpc_requests_total.labels(method="ProcessInput", status="error").inc()
                 return menu_pb2.ProcessInputResponse(success=False, error=str(e))
+            finally:
+                metrics.grpc_request_duration_seconds.labels(method="ProcessInput").observe(time.time() - start_time)
 
     async def StreamMenuEvents(self, request, context):
         """
@@ -352,50 +381,94 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         await self.game_coordinator_channel.close()
         logger.info("Menu service gRPC channels closed")
 
+    async def _handle_controller_disconnect(self, serial: str):
+        """
+        Clean up state for a disconnected controller (Phase 58).
+
+        Args:
+            serial: Controller serial number
+        """
+        self.connected_controllers.discard(serial)
+        self.ready_controllers.discard(serial)
+        self.controller_button_states.pop(serial, None)
+        self.last_button_press_time.pop(serial, None)
+        self.controller_lobby_state.pop(serial, None)
+        self.last_lobby_feedback_update.pop(serial, None)
+
+        # Update ready count
+        self.ready_controller_count = len(self.ready_controllers)
+
+        # If admin mode controller disconnected, exit admin mode
+        if self.admin_mode_active and serial == self.admin_mode_controller:
+            logger.info(f"Admin mode controller {serial} disconnected, exiting admin mode")
+            self.admin_mode_active = False
+            self.admin_mode_controller = None
+            self.admin_mode_entry_time = 0
+
+        logger.info(f"Controller {serial} disconnected, state cleaned up")
+
     async def _button_monitor_loop(self):
         """
         Monitor controller buttons and trigger menu actions (Phase 21).
 
         Phase 56: Event-driven spans - Creates spans only for user button actions (trigger press,
         move press, admin mode), not for routine frame processing. Metrics track polling operations.
+        Phase 58: Added automatic reconnection with exponential backoff.
         """
-        try:
-            # Import controller_manager protobuf
-            from proto import (
-                controller_manager_pb2,
-                controller_manager_pb2_grpc,
-            )
+        # Import controller_manager protobuf
+        from proto import (
+            controller_manager_pb2,
+            controller_manager_pb2_grpc,
+        )
 
-            # Use persistent channel (Phase 26)
-            stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
+        retry_delay = 1.0
+        max_retry_delay = 30.0
 
-            logger.info("Button monitor connected to Controller Manager")
+        while self.button_monitor_running:
+            try:
+                # Use persistent channel (Phase 26)
+                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
 
-            # Stream controller states at 30Hz (enough for button detection)
-            stream_request = controller_manager_pb2.StreamRequest(update_frequency_hz=30)
+                logger.info("Button monitor connected to Controller Manager")
+                retry_delay = 1.0  # Reset delay on successful connection
 
-            async for update in stub.StreamControllerStates(stream_request):
+                # Stream controller states at 30Hz (enough for button detection)
+                stream_request = controller_manager_pb2.StreamRequest(update_frequency_hz=30)
+
+                async for update in stub.StreamControllerStates(stream_request):
+                    if not self.button_monitor_running:
+                        return
+
+                    # Track frame processing via metrics (no span for routine polling)
+                    metrics.button_frames_processed_total.inc()
+
+                    # Phase 58: Detect disconnected controllers
+                    current_serials = {c.serial for c in update.controllers}
+                    disconnected = self.connected_controllers - current_serials
+                    for serial in disconnected:
+                        await self._handle_controller_disconnect(serial)
+
+                    # Only process buttons when menu is running
+                    if self.state == menu_pb2.MenuState.RUNNING:
+                        for controller in update.controllers:
+                            await self._process_button_state(controller)
+                            # Phase 39: Update lobby feedback for this controller
+                            await self._update_lobby_feedback(controller, stub)
+                            metrics.lobby_updates_total.inc()
+
+                # Stream ended normally (server closed connection)
+                if self.button_monitor_running:
+                    logger.warning("Controller state stream ended, reconnecting...")
+
+            except asyncio.CancelledError:
+                logger.info("Button monitor task cancelled")
+                raise
+            except Exception as e:
                 if not self.button_monitor_running:
-                    break
-
-                # Track frame processing via metrics (no span for routine polling)
-                metrics.button_frames_processed_total.inc()
-
-                # Only process buttons when menu is running
-                if self.state == menu_pb2.MenuState.RUNNING:
-                    for controller in update.controllers:
-                        await self._process_button_state(controller)
-                        # Phase 39: Update lobby feedback for this controller
-                        await self._update_lobby_feedback(controller, stub)
-                        metrics.lobby_updates_total.inc()
-
-            # Phase 26: Don't close persistent channel here
-
-        except asyncio.CancelledError:
-            logger.info("Button monitor task cancelled")
-            raise
-        except Exception as e:
-            logger.error(f"Button monitor error: {e}", exc_info=True)
+                    return
+                logger.error(f"Button monitor error: {e}, reconnecting in {retry_delay:.1f}s")
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, max_retry_delay)
 
     async def _process_button_state(self, controller):
         """
@@ -432,6 +505,12 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
         # Phase 23: Process admin mode commands if active
         if self.admin_mode_active and serial == self.admin_mode_controller:
+            # Phase 58: Check for admin mode timeout (60 seconds)
+            if current_time - self.admin_mode_entry_time > 60:
+                logger.info("Admin mode timed out after 60 seconds")
+                await self._exit_admin_mode()
+                return
+
             await self._process_admin_commands(controller, prev_state, current_time)
             # Update all button states
             prev_state["trigger"] = controller.trigger_pressed
@@ -539,7 +618,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             target_state = "ready"
         else:
             # No trigger press event → maintain current state
-            self.controller_lobby_state.get(serial, "connected")
             # Once ready, stay ready (don't go back to connected when releasing trigger)
             target_state = "ready" if serial in self.ready_controllers else "connected"
 
@@ -899,10 +977,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         with tracer.start_as_current_span("admin_sensitivity") as span:
             span.set_attribute("controller.serial", serial)
 
-            from proto import settings_pb2, settings_pb2_grpc
-            from services.controller_manager import (
+            from proto import (
                 controller_manager_pb2,
                 controller_manager_pb2_grpc,
+                settings_pb2,
+                settings_pb2_grpc,
             )
 
             try:
@@ -981,10 +1060,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         with tracer.start_as_current_span("admin_battery") as span:
             span.set_attribute("controller.serial", serial)
 
-            from services.controller_manager import (
-                controller_manager_pb2,
-                controller_manager_pb2_grpc,
-            )
+            from proto import controller_manager_pb2, controller_manager_pb2_grpc
 
             try:
                 # Use persistent channel (Phase 26)
@@ -1034,10 +1110,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         with tracer.start_as_current_span("admin_instructions") as span:
             span.set_attribute("controller.serial", serial)
 
-            from proto import settings_pb2, settings_pb2_grpc
-            from services.controller_manager import (
+            from proto import (
                 controller_manager_pb2,
                 controller_manager_pb2_grpc,
+                settings_pb2,
+                settings_pb2_grpc,
             )
 
             try:
@@ -1105,10 +1182,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
             span.set_attribute("admin.option", option_name)
 
-            from services.controller_manager import (
-                controller_manager_pb2,
-                controller_manager_pb2_grpc,
-            )
+            from proto import controller_manager_pb2, controller_manager_pb2_grpc
 
             try:
                 # Use persistent channel (Phase 26)

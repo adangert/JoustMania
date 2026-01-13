@@ -306,7 +306,8 @@ class TestReadyControllerTracking:
 
         assert menu_servicer.ready_controller_count == initial_count + 1
 
-    def test_stop_menu_clears_lobby_state(self, menu_servicer):
+    @pytest.mark.asyncio
+    async def test_stop_menu_clears_lobby_state(self, menu_servicer):
         """Stopping menu should clear all lobby state."""
         # Set up some state
         menu_servicer.ready_controllers.add("test1")
@@ -314,12 +315,61 @@ class TestReadyControllerTracking:
         menu_servicer.controller_lobby_state["test1"] = "ready"
         menu_servicer.last_lobby_feedback_update["test1"] = 123.0
 
-        # Stop menu
+        # Stop menu (Phase 58: now async)
         context = MagicMock()
-        menu_servicer.StopMenu(None, context)
+        await menu_servicer.StopMenu(None, context)
 
         assert len(menu_servicer.ready_controllers) == 0
         assert len(menu_servicer.connected_controllers) == 0
         assert len(menu_servicer.controller_lobby_state) == 0
         assert len(menu_servicer.last_lobby_feedback_update) == 0
         assert menu_servicer.ready_controller_count == 0
+
+
+class TestControllerDisconnection:
+    """Test controller disconnection handling (Phase 58)."""
+
+    @pytest.mark.asyncio
+    async def test_disconnect_clears_state(self, menu_servicer):
+        """Disconnected controllers should have state cleared."""
+        serial = "test_disconnect_1"
+
+        # Set up connected controller state
+        menu_servicer.connected_controllers.add(serial)
+        menu_servicer.ready_controllers.add(serial)
+        menu_servicer.controller_button_states[serial] = {"trigger": True}
+        menu_servicer.last_button_press_time[serial] = {"trigger": 123.0}
+        menu_servicer.controller_lobby_state[serial] = "ready"
+        menu_servicer.last_lobby_feedback_update[serial] = 123.0
+        menu_servicer.ready_controller_count = 1
+
+        # Simulate disconnection
+        await menu_servicer._handle_controller_disconnect(serial)
+
+        # Verify all state cleared
+        assert serial not in menu_servicer.connected_controllers
+        assert serial not in menu_servicer.ready_controllers
+        assert serial not in menu_servicer.controller_button_states
+        assert serial not in menu_servicer.last_button_press_time
+        assert serial not in menu_servicer.controller_lobby_state
+        assert serial not in menu_servicer.last_lobby_feedback_update
+        assert menu_servicer.ready_controller_count == 0
+
+    @pytest.mark.asyncio
+    async def test_admin_mode_exits_on_disconnect(self, menu_servicer):
+        """Admin mode should exit when admin controller disconnects."""
+        serial = "test_admin_disconnect"
+
+        # Enter admin mode
+        menu_servicer.admin_mode_active = True
+        menu_servicer.admin_mode_controller = serial
+        menu_servicer.admin_mode_entry_time = 123.0
+        menu_servicer.connected_controllers.add(serial)
+
+        # Simulate disconnection
+        await menu_servicer._handle_controller_disconnect(serial)
+
+        # Verify admin mode exited
+        assert not menu_servicer.admin_mode_active
+        assert menu_servicer.admin_mode_controller is None
+        assert menu_servicer.admin_mode_entry_time == 0

@@ -130,7 +130,7 @@ class TeamsGameBase(BaseGameMode):
         # Using trace.use_span() to register team spans with SDK for export
         for team_num, team in self.teams.items():
             team_span = tracer.start_span(
-                f"team_{team_num}_{team.name}_lifecycle",
+                "team_lifecycle",  # Consistent name for all teams (OpenTelemetry best practice)
                 context=game_context,
                 attributes={
                     "team.number": team_num,
@@ -152,7 +152,7 @@ class TeamsGameBase(BaseGameMode):
                     from opentelemetry import context as otel_context
 
                     player_span = tracer.start_span(
-                        f"player_{serial}_lifecycle",
+                        "player_lifecycle",  # Consistent name for all players (OpenTelemetry best practice)
                         context=otel_context.get_current(),  # Gets team context (registered!)
                         attributes={
                             "player.serial": serial,

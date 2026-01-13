@@ -152,3 +152,18 @@ class ControllerBackend(ABC):
         - Release hardware resources
         """
         pass
+
+    async def get_rssi(self, serial: str) -> Optional[int]:
+        """
+        Get RSSI (signal strength) for a Bluetooth controller.
+
+        This is optional - only BluetoothBackend implements meaningful RSSI.
+        Other backends return None by default.
+
+        Args:
+            serial: Controller serial number
+
+        Returns:
+            RSSI in dBm (-100 to 0), or None if not available/supported
+        """
+        return None

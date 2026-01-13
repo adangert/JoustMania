@@ -12,8 +12,8 @@ from services.controller_manager.backend import ControllerBackend
 # Import Linux-specific dependencies
 try:
     import psmove
-    from controller_state import ControllerState
-    import pair as pair_module
+    from lib.controller_state import ControllerState
+    from services.controller_manager.pairing import Pair as PairModule
     from services.controller_manager import bluetooth
 
     LINUX_DEPS_AVAILABLE = True
@@ -119,13 +119,28 @@ class BluetoothBackend(ControllerBackend):
         return controllers
 
     async def connect_controller(self, address: str) -> bool:
-        """Connect/pair a controller."""
+        """
+        Connect/pair a controller.
+
+        Note: For PS Move, pairing requires USB connection. The controller must be
+        connected via USB first, then this method will pair it to Bluetooth.
+        """
         try:
-            # For PS Move, pairing is done via the pair module
-            pair_module.pair_move(address)
-            self.paired_serials.append(address)
-            logger.info(f"Paired controller {address}")
-            return True
+            # Find USB-connected controller to pair
+            for i in range(psmove.count_connected()):
+                move = psmove.PSMove(i)
+                if move.connection_type == psmove.Conn_USB:
+                    serial = move.get_serial()
+                    if serial and (serial == address or serial.upper() == address.upper()):
+                        # Use Pair class to pair the move controller
+                        pair_helper = PairModule()
+                        pair_helper.pair_move(move)
+                        self.paired_serials.append(serial)
+                        logger.info(f"Paired controller {serial} via USB")
+                        return True
+
+            logger.warning(f"Controller {address} not found connected via USB for pairing")
+            return False
 
         except Exception as e:
             logger.error(f"Error connecting controller {address}: {e}", exc_info=True)
@@ -174,13 +189,20 @@ class BluetoothBackend(ControllerBackend):
             # Get battery
             battery = move.get_battery()
 
-            # Build state dict
+            # Build state dict with all button states
             return {
                 "serial": serial,
                 "battery": battery,
                 "trigger": trigger,
                 "move_button": bool(buttons & psmove.Btn_MOVE),
                 "trigger_button": bool(buttons & psmove.Btn_T),
+                "ps_button": bool(buttons & psmove.Btn_PS),
+                "cross": bool(buttons & psmove.Btn_CROSS),
+                "circle": bool(buttons & psmove.Btn_CIRCLE),
+                "square": bool(buttons & psmove.Btn_SQUARE),
+                "triangle": bool(buttons & psmove.Btn_TRIANGLE),
+                "select_button": bool(buttons & psmove.Btn_SELECT),
+                "start_button": bool(buttons & psmove.Btn_START),
                 "accel": {"x": ax, "y": ay, "z": az},
                 "gyro": {"x": gx, "y": gy, "z": gz},
                 "temperature": move.get_temperature(),

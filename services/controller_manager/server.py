@@ -178,6 +178,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
         # Vibration duration timers - tracks active vibration timers per controller
         self.vibration_timers: dict[str, threading.Timer] = {}
+        # Vibration duration tasks - tracks active asyncio tasks for vibration stop (Phase 57 async migration)
+        self.vibration_tasks: dict[str, asyncio.Task] = {}
+
+        # Shared event loop for discovery thread (avoids creating new loop per call)
+        self._discovery_loop_handle: asyncio.AbstractEventLoop | None = None
 
         # Discovery thread
         self.running = True
@@ -187,6 +192,17 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
         logger.info("ControllerManager initialized")
 
+    def _run_in_discovery_loop(self, coro):
+        """
+        Run an async coroutine in the discovery thread's event loop.
+
+        This avoids creating a new event loop for each backend call.
+        Must only be called from the discovery thread.
+        """
+        if self._discovery_loop_handle is None:
+            raise RuntimeError("Discovery loop not initialized")
+        return self._discovery_loop_handle.run_until_complete(coro)
+
     def _discovery_loop(self):
         """
         Background thread for controller discovery and battery monitoring.
@@ -195,20 +211,21 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         not for routine polling. Metrics track polling operations.
         Phase 57: Uses backend abstraction for platform independence.
         """
-        # Initialize backend (async call in sync thread - use asyncio.run)
-        try:
-            import asyncio
+        import asyncio
 
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                self.backend_initialized = loop.run_until_complete(self.backend.initialize())
-                if not self.backend_initialized:
-                    logger.error("Backend initialization failed - discovery loop will not run")
-                    return
-                logger.info("Backend initialized successfully")
-            finally:
-                loop.close()
+        # Create a single event loop for this thread and reuse it
+        self._discovery_loop_handle = asyncio.new_event_loop()
+        asyncio.set_event_loop(self._discovery_loop_handle)
+
+        try:
+            # Initialize backend
+            self.backend_initialized = self._discovery_loop_handle.run_until_complete(
+                self.backend.initialize()
+            )
+            if not self.backend_initialized:
+                logger.error("Backend initialization failed - discovery loop will not run")
+                return
+            logger.info("Backend initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize backend: {e}", exc_info=True)
             return
@@ -282,44 +299,37 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         Update states for all tracked controllers from backend (Phase 57).
 
         Called frequently (~60 Hz) to keep states fresh for streaming.
+        Uses shared discovery loop event loop for efficiency.
         """
         if not self.backend_initialized:
             return
 
         try:
-            import asyncio
+            # Get list of serials under lock, then iterate
+            with self.state_lock:
+                serials = list(self.tracked_controllers.keys())
 
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            for serial in serials:
+                try:
+                    # Get fresh state from backend using shared event loop
+                    state = self._run_in_discovery_loop(self.backend.get_controller_state(serial))
+                    if state:
+                        # Update stored state under lock
+                        with self.state_lock:
+                            if serial in self.tracked_controllers:  # Re-check after acquiring lock
+                                self.controller_states[serial] = state
 
-            try:
-                # Get list of serials under lock, then iterate
-                with self.state_lock:
-                    serials = list(self.tracked_controllers.keys())
+                                # Update battery in tracked_controllers info
+                                if "battery" in state:
+                                    self.tracked_controllers[serial]["battery"] = state["battery"]
 
-                for serial in serials:
-                    try:
-                        # Get fresh state from backend (outside lock to avoid blocking)
-                        state = loop.run_until_complete(self.backend.get_controller_state(serial))
-                        if state:
-                            # Update stored state under lock
-                            with self.state_lock:
-                                if serial in self.tracked_controllers:  # Re-check after acquiring lock
-                                    self.controller_states[serial] = state
+                                # Phase 57: Update ready flag when Move button is pressed
+                                if state.get("move_button", False) and not self.tracked_controllers[serial]["ready"]:
+                                    self.tracked_controllers[serial]["ready"] = True
+                                    logger.info(f"Controller {serial} marked as ready (Move button pressed)")
 
-                                    # Update battery in tracked_controllers info
-                                    if "battery" in state:
-                                        self.tracked_controllers[serial]["battery"] = state["battery"]
-
-                                    # Phase 57: Update ready flag when Move button is pressed
-                                    if state.get("move_button", False) and not self.tracked_controllers[serial]["ready"]:
-                                        self.tracked_controllers[serial]["ready"] = True
-                                        logger.info(f"Controller {serial} marked as ready (Move button pressed)")
-
-                    except Exception as e:
-                        logger.debug(f"Error updating state for {serial}: {e}")
-            finally:
-                loop.close()
+                except Exception as e:
+                    logger.debug(f"Error updating state for {serial}: {e}")
 
         except Exception as e:
             logger.error(f"Error updating controller states: {e}", exc_info=True)
@@ -329,17 +339,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         Spawn a tracking process for a controller.
 
         Phase 57: Simplified to use backend for state tracking.
+        Uses shared discovery loop event loop for efficiency.
         """
         try:
-            # Get initial state from backend
-            import asyncio
-
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                state = loop.run_until_complete(self.backend.get_controller_state(serial))
-            finally:
-                loop.close()
+            # Get initial state from backend using shared event loop
+            state = self._run_in_discovery_loop(self.backend.get_controller_state(serial))
 
             if not state:
                 logger.error(f"Failed to get initial state for controller {serial}")
@@ -881,57 +885,50 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                 logger.info(f"Dynamic gameplay subscriber disconnected: {subscriber_id}")
 
-    def PairController(self, request, context):
-        """Pair a new controller via backend."""
+    async def PairController(self, request, context):
+        """Pair a new controller via backend (async)."""
         with tracer.start_as_current_span("PairController") as span:
             span.set_attribute("color_index", request.color_index)
 
             try:
-                import asyncio
+                # Scan for available controllers
+                available = await self.backend.scan_controllers()
 
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+                if not available:
+                    span.add_event("no_controllers_found")
+                    return controller_manager_pb2.PairControllerResponse(
+                        success=False, error="No controllers found. Put controller in pairing mode.", serial=""
+                    )
 
-                try:
-                    # Scan for available controllers
-                    available = loop.run_until_complete(self.backend.scan_controllers())
-
-                    if not available:
-                        span.add_event("no_controllers_found")
-                        return controller_manager_pb2.PairControllerResponse(
-                            success=False, error="No controllers found. Put controller in pairing mode.", serial=""
-                        )
-
-                    # Filter out already-tracked controllers
+                # Filter out already-tracked controllers
+                with self.state_lock:
                     new_controllers = [
                         c for c in available
                         if c.get("serial") not in self.tracked_controllers
                     ]
 
-                    if not new_controllers:
-                        span.add_event("all_controllers_already_paired")
-                        return controller_manager_pb2.PairControllerResponse(
-                            success=False, error="All discovered controllers are already paired.", serial=""
-                        )
+                if not new_controllers:
+                    span.add_event("all_controllers_already_paired")
+                    return controller_manager_pb2.PairControllerResponse(
+                        success=False, error="All discovered controllers are already paired.", serial=""
+                    )
 
-                    # Connect to first available controller
-                    controller = new_controllers[0]
-                    address = controller.get("address", controller.get("serial"))
+                # Connect to first available controller
+                controller = new_controllers[0]
+                address = controller.get("address", controller.get("serial"))
 
-                    success = loop.run_until_complete(self.backend.connect_controller(address))
+                success = await self.backend.connect_controller(address)
 
-                    if success:
-                        serial = controller.get("serial", address)
-                        span.add_event("controller_paired", {"serial": serial, "color_index": request.color_index})
-                        logger.info(f"Paired new controller: {serial}")
-                        return controller_manager_pb2.PairControllerResponse(success=True, error="", serial=serial)
-                    else:
-                        span.add_event("connection_failed", {"address": address})
-                        return controller_manager_pb2.PairControllerResponse(
-                            success=False, error=f"Failed to connect to controller at {address}", serial=""
-                        )
-                finally:
-                    loop.close()
+                if success:
+                    serial = controller.get("serial", address)
+                    span.add_event("controller_paired", {"serial": serial, "color_index": request.color_index})
+                    logger.info(f"Paired new controller: {serial}")
+                    return controller_manager_pb2.PairControllerResponse(success=True, error="", serial=serial)
+                else:
+                    span.add_event("connection_failed", {"address": address})
+                    return controller_manager_pb2.PairControllerResponse(
+                        success=False, error=f"Failed to connect to controller at {address}", serial=""
+                    )
 
             except Exception as e:
                 span.record_exception(e)
@@ -947,7 +944,12 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             try:
                 serial = request.serial
 
-                if serial in self.tracked_controllers:
+                with self.state_lock:
+                    if serial not in self.tracked_controllers:
+                        return controller_manager_pb2.RemoveControllerResponse(
+                            success=False, error=f"Controller {serial} not found"
+                        )
+
                     # Stop process if running
                     if serial in self.controller_processes:
                         proc = self.controller_processes[serial]
@@ -955,6 +957,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             proc.terminate()
                             proc.join(timeout=2.0)
                         del self.controller_processes[serial]
+
+                    # Cancel any active vibration timer
+                    if serial in self.vibration_timers:
+                        self.vibration_timers[serial].cancel()
+                        del self.vibration_timers[serial]
 
                     # Remove from tracking
                     del self.tracked_controllers[serial]
@@ -966,24 +973,25 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     if serial in self.state_cache:
                         del self.state_cache[serial]
 
-                    # Cancel any active effects (Phase 31, Phase 34: async lock)
-                    async with self.effect_lock:
-                        if serial in self.active_effects:
-                            self.active_effects[serial].cancel()
-                            del self.active_effects[serial]
+                    # Clean up button states
+                    if serial in self.button_states:
+                        del self.button_states[serial]
 
-                    # Update metrics (Phase 38)
-                    metrics.active_controllers.dec()
-                    metrics.controller_connected.labels(serial=serial).set(0)
-                    metrics.controller_disconnect_total.labels(serial=serial).inc()
+                # Cancel any active effects (Phase 31, Phase 34: async lock - outside state_lock)
+                async with self.effect_lock:
+                    if serial in self.active_effects:
+                        self.active_effects[serial].cancel()
+                        del self.active_effects[serial]
 
-                    span.add_event("controller_removed", {"serial": serial})
-                    logger.info(f"Removed controller {serial}")
+                # Update metrics (Phase 38)
+                metrics.active_controllers.dec()
+                metrics.controller_connected.labels(serial=serial).set(0)
+                metrics.controller_disconnect_total.labels(serial=serial).inc()
 
-                    return controller_manager_pb2.RemoveControllerResponse(success=True, error="")
-                return controller_manager_pb2.RemoveControllerResponse(
-                    success=False, error=f"Controller {serial} not found"
-                )
+                span.add_event("controller_removed", {"serial": serial})
+                logger.info(f"Removed controller {serial}")
+
+                return controller_manager_pb2.RemoveControllerResponse(success=True, error="")
 
             except Exception as e:
                 span.record_exception(e)
@@ -991,8 +999,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 logger.error(f"RemoveController error: {e}", exc_info=True)
                 return controller_manager_pb2.RemoveControllerResponse(success=False, error=str(e))
 
-    def SetControllerColor(self, request, context):
-        """Set LED color on controller(s) - Phase 19 feedback feature, Phase 57 backend."""
+    async def SetControllerColor(self, request, context):
+        """Set LED color on controller(s) - Phase 19 feedback feature, Phase 57 backend (async)."""
         with tracer.start_as_current_span("SetControllerColor") as span:
             span.set_attribute("serial", request.serial or "all")
             span.set_attribute("color.r", request.color.r)
@@ -1000,30 +1008,40 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             span.set_attribute("color.b", request.color.b)
 
             try:
-                # Determine which controllers to update
-                serials = [request.serial] if request.serial else list(self.tracked_controllers.keys())
+                # Determine which controllers to update (under lock)
+                with self.state_lock:
+                    serials = [request.serial] if request.serial else list(self.tracked_controllers.keys())
 
                 controllers_updated = 0
-                # Phase 57: Use backend (sync wrapper for async backend)
-                import asyncio
+                controllers_failed = 0
 
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    for serial in serials:
-                        if serial in self.tracked_controllers:
-                            success = loop.run_until_complete(
-                                self.backend.set_led_color(serial, request.color.r, request.color.g, request.color.b)
+                for serial in serials:
+                    with self.state_lock:
+                        controller_exists = serial in self.tracked_controllers
+                    if controller_exists:
+                        success = await self.backend.set_led_color(
+                            serial, request.color.r, request.color.g, request.color.b
+                        )
+                        if success:
+                            controllers_updated += 1
+                            logger.debug(
+                                f"Set color on {serial}: RGB({request.color.r},{request.color.g},{request.color.b})"
                             )
-                            if success:
-                                controllers_updated += 1
-                                logger.debug(
-                                    f"Set color on {serial}: RGB({request.color.r},{request.color.g},{request.color.b})"
-                                )
-                finally:
-                    loop.close()
+                        else:
+                            controllers_failed += 1
 
                 span.set_attribute("controllers_updated", controllers_updated)
+                span.set_attribute("controllers_failed", controllers_failed)
+
+                # Return success only if at least one controller was updated and none failed
+                if controllers_failed > 0:
+                    return controller_manager_pb2.SetControllerColorResponse(
+                        success=False, error=f"Failed to set color on {controllers_failed} controller(s)"
+                    )
+                if controllers_updated == 0 and len(serials) > 0:
+                    return controller_manager_pb2.SetControllerColorResponse(
+                        success=False, error="No controllers found to update"
+                    )
                 return controller_manager_pb2.SetControllerColorResponse(success=True, error="")
 
             except Exception as e:
@@ -1031,8 +1049,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 logger.error(f"SetControllerColor error: {e}", exc_info=True)
                 return controller_manager_pb2.SetControllerColorResponse(success=False, error=str(e))
 
-    def SetControllerVibration(self, request, context):
-        """Set vibration on controller(s) - Phase 19 feedback feature, Phase 57 backend."""
+    async def SetControllerVibration(self, request, context):
+        """Set vibration on controller(s) - Phase 19 feedback feature, Phase 57 async."""
         with tracer.start_as_current_span("SetControllerVibration") as span:
             span.set_attribute("serial", request.serial or "all")
             span.set_attribute("intensity", request.intensity)
@@ -1044,40 +1062,42 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     serials = [request.serial] if request.serial else list(self.tracked_controllers.keys())
 
                 controllers_updated = 0
-                # Phase 57: Use backend (sync wrapper for async backend)
-                import asyncio
+                controllers_failed = 0
 
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    for serial in serials:
-                        with self.state_lock:
-                            controller_exists = serial in self.tracked_controllers
-                        if controller_exists:
-                            # Cancel any existing vibration timer for this controller
-                            if serial in self.vibration_timers:
-                                self.vibration_timers[serial].cancel()
-                                del self.vibration_timers[serial]
+                for serial in serials:
+                    with self.state_lock:
+                        controller_exists = serial in self.tracked_controllers
+                        if not controller_exists:
+                            continue
 
-                            success = loop.run_until_complete(self.backend.set_rumble(serial, request.intensity))
-                            if success:
-                                controllers_updated += 1
-                                logger.debug(f"Set vibration on {serial}: intensity={request.intensity}")
+                        # Cancel any existing vibration timer for this controller (under lock)
+                        if serial in self.vibration_timers:
+                            self.vibration_timers[serial].cancel()
+                            del self.vibration_timers[serial]
 
-                                # Schedule vibration stop if duration is specified
-                                if request.duration_ms > 0 and request.intensity > 0:
-                                    timer = threading.Timer(
-                                        request.duration_ms / 1000.0,
-                                        self._stop_vibration,
-                                        args=[serial]
-                                    )
-                                    timer.daemon = True
-                                    timer.start()
-                                    self.vibration_timers[serial] = timer
-                finally:
-                    loop.close()
+                    success = await self.backend.set_rumble(serial, request.intensity)
+                    if success:
+                        controllers_updated += 1
+                        logger.debug(f"Set vibration on {serial}: intensity={request.intensity}")
+
+                        # Schedule vibration stop if duration is specified (using asyncio task)
+                        if request.duration_ms > 0 and request.intensity > 0:
+                            await self._schedule_vibration_stop(serial, request.duration_ms)
+                    else:
+                        controllers_failed += 1
 
                 span.set_attribute("controllers_updated", controllers_updated)
+                span.set_attribute("controllers_failed", controllers_failed)
+
+                # Return success only if at least one controller was updated and none failed
+                if controllers_failed > 0:
+                    return controller_manager_pb2.SetControllerVibrationResponse(
+                        success=False, error=f"Failed to set vibration on {controllers_failed} controller(s)"
+                    )
+                if controllers_updated == 0 and len(serials) > 0:
+                    return controller_manager_pb2.SetControllerVibrationResponse(
+                        success=False, error="No controllers found to update"
+                    )
                 return controller_manager_pb2.SetControllerVibrationResponse(success=True, error="")
 
             except Exception as e:
@@ -1085,25 +1105,28 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 logger.error(f"SetControllerVibration error: {e}", exc_info=True)
                 return controller_manager_pb2.SetControllerVibrationResponse(success=False, error=str(e))
 
-    def _stop_vibration(self, serial: str):
-        """Stop vibration on a controller after duration expires."""
-        try:
-            import asyncio
+    async def _schedule_vibration_stop(self, serial: str, duration_ms: int):
+        """Schedule vibration to stop after duration using asyncio task (Phase 57 async migration)."""
+        # Cancel existing task for this controller
+        if serial in self.vibration_tasks:
+            self.vibration_tasks[serial].cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self.vibration_tasks[serial]
 
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                loop.run_until_complete(self.backend.set_rumble(serial, 0))
-                logger.debug(f"Vibration stopped on {serial} (duration expired)")
-            finally:
-                loop.close()
+        async def stop_after_delay():
+            await asyncio.sleep(duration_ms / 1000.0)
+            with self.state_lock:
+                # Clean up task tracking
+                if serial in self.vibration_tasks:
+                    del self.vibration_tasks[serial]
+                # Skip if controller was removed
+                if serial not in self.tracked_controllers:
+                    logger.debug(f"Vibration task expired for removed controller {serial}")
+                    return
+            await self.backend.set_rumble(serial, 0)
+            logger.debug(f"Vibration stopped on {serial} (duration expired)")
 
-            # Remove timer from tracking
-            if serial in self.vibration_timers:
-                del self.vibration_timers[serial]
-
-        except Exception as e:
-            logger.error(f"Error stopping vibration on {serial}: {e}")
+        self.vibration_tasks[serial] = asyncio.create_task(stop_after_delay())
 
     async def PlayControllerEffect(self, request, context):
         """Play visual effect on controller(s) - Phase 31/40 implementation.
@@ -1143,7 +1166,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     # Start the appropriate effect (methods inherited from ControllerEffectsBase - Phase 40)
                     if request.effect == controller_manager_pb2.EFFECT_NONE:
                         # Solid color (no animation)
-                        self._set_led_color(serial, color)
+                        await self._set_led_color(serial, color)
 
                     elif request.effect == controller_manager_pb2.EFFECT_FLASH:
                         task = asyncio.create_task(self._effect_flash(serial, color, duration_ms, speed))
@@ -1257,7 +1280,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
             # Start the appropriate effect
             if effect == controller_manager_pb2.EFFECT_NONE:
-                self._set_led_color(serial, color_rgb)
+                await self._set_led_color(serial, color_rgb)
 
             elif effect == controller_manager_pb2.EFFECT_FLASH:
                 task = asyncio.create_task(self._effect_flash(serial, color_rgb, duration_ms, speed))
@@ -1343,26 +1366,19 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         except Exception as e:
             logger.error(f"Error in delayed vibration stop for {serial}: {e}")
 
-    def _set_led_color(self, serial: str, color: tuple[int, int, int]):
+    async def _set_led_color(self, serial: str, color: tuple[int, int, int]):
         """
-        Helper to set LED color on a controller (Phase 31, Phase 57).
+        Helper to set LED color on a controller (Phase 31, Phase 57, async).
 
-        Note: This is a sync wrapper - use _set_controller_color_internal for async.
+        Called from effect methods which are all async.
         """
         if serial not in self.tracked_controllers:
             return
 
-        # Convert to async call
-        import asyncio
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         try:
-            loop.run_until_complete(self.backend.set_led_color(serial, color[0], color[1], color[2]))
+            await self.backend.set_led_color(serial, color[0], color[1], color[2])
         except Exception as e:
             logger.error(f"Error setting LED color on {serial}: {e}", exc_info=True)
-        finally:
-            loop.close()
 
     def _check_battery_levels(self):
         """
@@ -1397,6 +1413,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         """
         Warn player about low battery with red pulse (Phase 39 - Task 4, Phase 57).
 
+        Uses shared discovery loop event loop for efficiency.
+
         Args:
             serial: Controller serial number
             battery_level: Current battery level (0-5)
@@ -1407,19 +1425,14 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         if serial not in self.tracked_controllers:
             return
 
-        # Phase 57: Use backend for LED control (sync wrapper)
-        import asyncio
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         try:
             # Pulse red 3 times (overrides current color temporarily)
             # This is a synchronous warning that briefly interrupts current state
             for _ in range(3):
-                loop.run_until_complete(self.backend.set_led_color(serial, 255, 0, 0))  # Bright red
+                self._run_in_discovery_loop(self.backend.set_led_color(serial, 255, 0, 0))  # Bright red
                 time.sleep(0.3)
 
-                loop.run_until_complete(self.backend.set_led_color(serial, 100, 0, 0))  # Dim red
+                self._run_in_discovery_loop(self.backend.set_led_color(serial, 100, 0, 0))  # Dim red
                 time.sleep(0.3)
 
             # Note: Current game/menu state will restore color on next update
@@ -1427,8 +1440,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
         except Exception as e:
             logger.error(f"Failed to display low battery warning for {serial}: {e}")
-        finally:
-            loop.close()
 
     def _check_rssi_levels(self):
         """
@@ -1437,20 +1448,17 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         Updates controller_rssi dict and warns about weak signals.
         Only checks Bluetooth-connected controllers (USB returns 0).
         Non-Bluetooth backends return None for RSSI (handled gracefully).
+        Uses shared discovery loop event loop for efficiency.
         """
         with tracer.start_as_current_span("check_rssi_levels") as span:
-            import asyncio
-
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
             try:
                 checked_count = 0
 
                 # Check RSSI for each tracked controller
                 for serial in list(self.tracked_controllers.keys()):
                     try:
-                        # Get RSSI from backend (returns None if not available)
-                        rssi = loop.run_until_complete(self.backend.get_rssi(serial))
+                        # Get RSSI from backend using shared event loop
+                        rssi = self._run_in_discovery_loop(self.backend.get_rssi(serial))
 
                         if rssi is not None:
                             self.controller_rssi[serial] = rssi
@@ -1473,8 +1481,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
             except Exception as e:
                 logger.error(f"Error checking RSSI levels: {e}", exc_info=True)
-            finally:
-                loop.close()
 
     def _discover_bt_address(self, serial: str, hci: str):
         """
@@ -1521,7 +1527,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         Displays orange pulse to indicate weak connection.
         Only warns once every 60 seconds per controller to avoid spam.
 
-        Phase 57: Uses backend abstraction for LED control.
+        Phase 57: Uses backend abstraction and _run_in_discovery_loop for efficiency.
 
         Args:
             serial: Controller serial number
@@ -1537,15 +1543,12 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         logger.warning(f"Controller {serial} has weak signal: {rssi} dBm")
 
         # Display orange pulse (3 times, 200ms on/off) using backend
-        import asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         try:
             for _ in range(3):
-                loop.run_until_complete(self.backend.set_led_color(serial, 255, 165, 0))  # Orange
+                self._run_in_discovery_loop(self.backend.set_led_color(serial, 255, 165, 0))  # Orange
                 time.sleep(0.2)
 
-                loop.run_until_complete(self.backend.set_led_color(serial, 50, 30, 0))  # Dim orange
+                self._run_in_discovery_loop(self.backend.set_led_color(serial, 50, 30, 0))  # Dim orange
                 time.sleep(0.2)
 
             # Note: Current game/menu state will restore color on next update
@@ -1555,8 +1558,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
         except Exception as e:
             logger.error(f"Failed to display weak signal warning for {serial}: {e}")
-        finally:
-            loop.close()
 
     # Effect methods (_effect_flash, _effect_pulse, etc.) inherited from ControllerEffectsBase (Phase 40)
 

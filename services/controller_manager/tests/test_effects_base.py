@@ -21,8 +21,8 @@ class TestEffectsImplementation(ControllerEffectsBase):
         super().__init__()
         self.color_calls = []  # Track all _set_led_color calls: [(serial, color), ...]
 
-    def _set_led_color(self, serial: str, color: tuple[int, int, int]):
-        """Record color changes for verification."""
+    async def _set_led_color(self, serial: str, color: tuple[int, int, int]):
+        """Record color changes for verification (async)."""
         self.color_calls.append((serial, color))
 
 

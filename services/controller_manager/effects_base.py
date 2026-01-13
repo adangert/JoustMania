@@ -30,8 +30,8 @@ class ControllerEffectsBase(ABC):
         self.active_effects: dict[str, asyncio.Task] = {}
 
     @abstractmethod
-    def _set_led_color(self, serial: str, color: tuple[int, int, int]):
-        """Set LED color on a controller.
+    async def _set_led_color(self, serial: str, color: tuple[int, int, int]):
+        """Set LED color on a controller (async).
 
         Args:
             serial: Controller serial number
@@ -55,16 +55,16 @@ class ControllerEffectsBase(ABC):
 
         try:
             while time.time() < end_time:
-                self._set_led_color(serial, color)
+                await self._set_led_color(serial, color)
                 await asyncio.sleep(interval / 2)
-                self._set_led_color(serial, (0, 0, 0))  # Off
+                await self._set_led_color(serial, (0, 0, 0))  # Off
                 await asyncio.sleep(interval / 2)
         except asyncio.CancelledError:
             logger.debug(f"FLASH effect cancelled for {serial}")
             raise
         finally:
             # Restore color at end
-            self._set_led_color(serial, color)
+            await self._set_led_color(serial, color)
 
     async def _effect_pulse(self, serial: str, color: tuple[int, int, int], duration_ms: int, speed: int):
         """PULSE effect: smooth breathing/fade (Phase 31).
@@ -89,14 +89,14 @@ class ControllerEffectsBase(ABC):
                 brightness = (math.sin(2 * math.pi * elapsed / cycle_duration) + 1) / 2
 
                 scaled_color = tuple(int(c * brightness) for c in color)
-                self._set_led_color(serial, scaled_color)
+                await self._set_led_color(serial, scaled_color)
                 await asyncio.sleep(interval)
         except asyncio.CancelledError:
             logger.debug(f"PULSE effect cancelled for {serial}")
             raise
         finally:
             # Restore full brightness at end
-            self._set_led_color(serial, color)
+            await self._set_led_color(serial, color)
 
     async def _effect_rainbow(self, serial: str, duration_ms: int, speed: int):
         """RAINBOW effect: cycle through color spectrum (Phase 31).
@@ -121,7 +121,7 @@ class ControllerEffectsBase(ABC):
 
                 rgb = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
                 color = tuple(int(c * 255) for c in rgb)
-                self._set_led_color(serial, color)
+                await self._set_led_color(serial, color)
                 await asyncio.sleep(interval)
         except asyncio.CancelledError:
             logger.debug(f"RAINBOW effect cancelled for {serial}")
@@ -143,14 +143,14 @@ class ControllerEffectsBase(ABC):
             for step in range(steps):
                 brightness = 1.0 - (step / steps)
                 scaled_color = tuple(int(c * brightness) for c in color)
-                self._set_led_color(serial, scaled_color)
+                await self._set_led_color(serial, scaled_color)
                 await asyncio.sleep(interval)
         except asyncio.CancelledError:
             logger.debug(f"FADE_OUT effect cancelled for {serial}")
             raise
         finally:
             # End at black
-            self._set_led_color(serial, (0, 0, 0))
+            await self._set_led_color(serial, (0, 0, 0))
 
     async def _effect_fade_in(self, serial: str, color: tuple[int, int, int], duration_ms: int):
         """FADE_IN effect: linear fade from black to color (Phase 31).
@@ -168,14 +168,14 @@ class ControllerEffectsBase(ABC):
             for step in range(steps + 1):
                 brightness = step / steps
                 scaled_color = tuple(int(c * brightness) for c in color)
-                self._set_led_color(serial, scaled_color)
+                await self._set_led_color(serial, scaled_color)
                 await asyncio.sleep(interval)
         except asyncio.CancelledError:
             logger.debug(f"FADE_IN effect cancelled for {serial}")
             raise
         finally:
             # End at full brightness
-            self._set_led_color(serial, color)
+            await self._set_led_color(serial, color)
 
     def cancel_controller_effect(self, serial: str):
         """Cancel any active effect on a controller.

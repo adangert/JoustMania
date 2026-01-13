@@ -338,8 +338,8 @@ class MockControllerManagerService(controller_manager_pb2_grpc.ControllerManager
             with contextlib.suppress(asyncio.CancelledError):
                 await update_task
 
-    def _set_led_color(self, serial: str, color: tuple[int, int, int]):
-        """Helper to set LED color on a mock controller (Phase 31 / Phase 40 override)."""
+    async def _set_led_color(self, serial: str, color: tuple[int, int, int]):
+        """Helper to set LED color on a mock controller (Phase 31 / Phase 40 override, async)."""
         controller = self.controllers.get(serial)
         if controller:
             controller.color = RGB(r=color[0], g=color[1], b=color[2])

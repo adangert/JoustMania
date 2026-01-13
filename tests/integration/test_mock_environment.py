@@ -65,14 +65,24 @@ async def get_ready_players(docker_compose):
     return players
 
 
-async def wait_for_game_end(game_client, timeout=10):
-    """Wait for game to reach ENDED state."""
+async def wait_for_game_state(game_client, target_state, timeout=10):
+    """Wait for game to reach a specific state."""
     for _ in range(timeout * 10):  # Check every 0.1 seconds
         status = await game_client.GetGameStatus(game_coordinator_pb2.GetGameStatusRequest())
-        if status.state == game_coordinator_pb2.GameState.ENDED:
+        if status.state == target_state:
             return
         await asyncio.sleep(0.1)
-    raise TimeoutError(f"Game did not end within {timeout} seconds")
+    raise TimeoutError(f"Game did not reach state {target_state} within {timeout} seconds")
+
+
+async def wait_for_game_running(game_client, timeout=15):
+    """Wait for game to reach RUNNING state (after countdown)."""
+    await wait_for_game_state(game_client, game_coordinator_pb2.GameState.RUNNING, timeout)
+
+
+async def wait_for_game_end(game_client, timeout=10):
+    """Wait for game to reach ENDED state."""
+    await wait_for_game_state(game_client, game_coordinator_pb2.GameState.ENDED, timeout)
 
 
 @pytest.fixture(scope="module")
@@ -106,6 +116,40 @@ def docker_compose():
         input()
 
     compose.stop()
+
+
+@pytest.fixture(autouse=True)
+async def ensure_game_stopped(docker_compose):
+    """Ensure no game is running before and after each test.
+
+    This fixture runs automatically for every test to prevent
+    'Game already in progress' errors between tests.
+    """
+    async def force_end_game():
+        """Force end any running game."""
+        try:
+            host = docker_compose.get_service_host("game-coordinator", 50053)
+            port = docker_compose.get_service_port("game-coordinator", 50053)
+            channel = grpc.aio.insecure_channel(f"{host}:{port}")
+            client = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(channel)
+
+            # Try to force end any running game
+            await client.ForceEndGame(game_coordinator_pb2.ForceEndGameRequest())
+
+            # Wait a moment for cleanup
+            await asyncio.sleep(0.5)
+
+            await channel.close()
+        except Exception:
+            pass  # Ignore errors (no game running, service not ready, etc.)
+
+    # Before test: ensure no game is running
+    await force_end_game()
+
+    yield
+
+    # After test: cleanup any game that was started
+    await force_end_game()
 
 
 @pytest.mark.asyncio
@@ -249,8 +293,8 @@ async def test_teams_game_with_mock_controllers(docker_compose):
     assert start_response.success
     assert start_response.game_id != ""
 
-    # Wait for game to start
-    await asyncio.sleep(2)
+    # Wait for game to reach RUNNING state (after team colors + countdown)
+    await wait_for_game_running(game_client)
 
     # Simulate deaths on one team (controllers 0 and 2 should be on same team)
     await mock_client.SimulateDeath(
@@ -563,12 +607,8 @@ async def test_staggered_player_deaths(docker_compose, game_mode):
 
     print(f"\n=== Starting {game_mode} game with staggered deaths ===")
 
-    # Wait for game to fully start (initialization + color phases + countdown)
-    # FFA: 1s colors + 3s countdown = 4s
-    # Teams: 2s colors + 3s countdown = 5s
-    # Random Teams: 5s team formation + 3s countdown = 8s
-    # Wait 9 seconds to be safe for all modes (covers Random Teams + buffer)
-    await asyncio.sleep(9)
+    # Wait for game to reach RUNNING state (handles all modes: FFA, Teams, Random Teams)
+    await wait_for_game_running(game_client)
 
     # Simulate deaths at different times to create varied span lengths
     # For team games, kill players from different teams to avoid early game end

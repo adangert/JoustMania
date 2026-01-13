@@ -48,6 +48,7 @@ class RandomTeamsGame(TeamsGameBase):
         audio_client=None,
         game_id: str = "",
         num_teams: int = 2,
+        initial_players: list | None = None,
     ):
         """
         Initialize Random Teams game.
@@ -62,6 +63,7 @@ class RandomTeamsGame(TeamsGameBase):
             audio_client: gRPC stub for Audio service (Phase 29)
             game_id: Unique identifier for this game instance
             num_teams: Number of teams (default 2)
+            initial_players: Optional list of Player protobuf messages from StartGame RPC
         """
         # Call parent init first
         super().__init__(
@@ -71,6 +73,7 @@ class RandomTeamsGame(TeamsGameBase):
             audio_client=audio_client,
             game_id=game_id,
             num_teams=num_teams,
+            initial_players=initial_players,
         )
 
     def get_game_name(self) -> str:

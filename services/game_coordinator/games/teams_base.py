@@ -70,6 +70,7 @@ class TeamsGameBase(BaseGameMode):
         audio_client=None,
         game_id: str = "",
         num_teams: int = 2,
+        initial_players: list | None = None,
     ):
         """
         Initialize team-based game mode.
@@ -81,6 +82,7 @@ class TeamsGameBase(BaseGameMode):
             audio_client: gRPC stub for Audio service (Phase 29)
             game_id: Unique identifier for this game instance
             num_teams: Number of teams (default 2)
+            initial_players: Optional list of Player protobuf messages from StartGame RPC
         """
         super().__init__(
             controller_manager_client=controller_manager_client,
@@ -88,6 +90,7 @@ class TeamsGameBase(BaseGameMode):
             event_publisher=event_publisher,
             audio_client=audio_client,
             game_id=game_id,
+            initial_players=initial_players,
         )
 
         self.num_teams = num_teams

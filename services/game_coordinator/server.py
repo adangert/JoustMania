@@ -126,6 +126,10 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         self.game_thread: threading.Thread | None = None
         self.game_running = False
 
+        # Phase 56: Thread-safe state access lock
+        # Protects: game_state, current_game, players, event_subscribers
+        self._state_lock = threading.Lock()
+
         # Initialize gRPC clients for other services
         # Store gRPC service addresses (channels will be created in game loop's event loop)
         self.controller_manager_host = os.getenv("CONTROLLER_MANAGER_HOST", "controller-manager")
@@ -179,6 +183,32 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
             self.settings_client = None
             self.audio_client = None
 
+    async def _cleanup_channels(self):
+        """Close any open gRPC channels (Phase 56: centralized cleanup)."""
+        if self.controller_manager_channel:
+            try:
+                await self.controller_manager_channel.close()
+            except Exception as e:
+                logger.warning(f"Error closing controller_manager channel: {e}")
+            self.controller_manager_channel = None
+            self.controller_manager_client = None
+
+        if self.settings_channel:
+            try:
+                await self.settings_channel.close()
+            except Exception as e:
+                logger.warning(f"Error closing settings channel: {e}")
+            self.settings_channel = None
+            self.settings_client = None
+
+        if self.audio_channel:
+            try:
+                await self.audio_channel.close()
+            except Exception as e:
+                logger.warning(f"Error closing audio channel: {e}")
+            self.audio_channel = None
+            self.audio_client = None
+
     def StartGame(self, request, context):
         """Start a new game (creates span for RPC, game span will link with FOLLOWS_FROM)."""
         # Create StartGame span - short-lived, returns immediately
@@ -188,33 +218,35 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
             start_span.set_attribute("player.count", len(request.players))
 
             try:
-                # Check if game already running
-                if self.game_state in [
-                    game_coordinator_pb2.GameState.STARTING,
-                    game_coordinator_pb2.GameState.RUNNING,
-                ]:
-                    return game_coordinator_pb2.StartGameResponse(
-                        success=False, error="Game already in progress", game_id=""
-                    )
+                # Phase 56: Thread-safe state check and transition
+                with self._state_lock:
+                    # Check if game already running
+                    if self.game_state in [
+                        game_coordinator_pb2.GameState.STARTING,
+                        game_coordinator_pb2.GameState.RUNNING,
+                    ]:
+                        return game_coordinator_pb2.StartGameResponse(
+                            success=False, error="Game already in progress", game_id=""
+                        )
 
-                # Validate player count
-                if len(request.players) < 2:
-                    return game_coordinator_pb2.StartGameResponse(
-                        success=False, error="Need at least 2 players", game_id=""
-                    )
+                    # Validate player count
+                    if len(request.players) < 2:
+                        return game_coordinator_pb2.StartGameResponse(
+                            success=False, error="Need at least 2 players", game_id=""
+                        )
 
-                # Store game configuration
-                self.game_name = request.game_name
-                self.players = list(request.players)
-                self.settings = dict(request.settings)
-                self.game_id = f"game_{int(time.time())}"
-                self.game_start_time = time.time()
+                    # Store game configuration
+                    self.game_name = request.game_name
+                    self.players = list(request.players)
+                    self.settings = dict(request.settings)
+                    self.game_id = f"game_{int(time.time())}"
+                    self.game_start_time = time.time()
 
-                # Capture span context for FOLLOWS_FROM link in background thread
-                self.start_game_span_context = start_span.get_span_context()
+                    # Capture span context for FOLLOWS_FROM link in background thread
+                    self.start_game_span_context = start_span.get_span_context()
 
-                # Update state
-                self.game_state = game_coordinator_pb2.GameState.STARTING
+                    # Update state
+                    self.game_state = game_coordinator_pb2.GameState.STARTING
 
                 # Update metrics (Phase 38)
                 metrics.active_game.set(1)
@@ -284,8 +316,12 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 if not self.controller_manager_client or not self.settings_client:
                     error_msg = "gRPC clients not initialized - ControllerManager and Settings services must be running"
                     logger.error(error_msg)
-                    self.game_state = game_coordinator_pb2.GameState.ENDED
+                    # Phase 56: Thread-safe state transition
+                    with self._state_lock:
+                        self.game_state = game_coordinator_pb2.GameState.ENDED
                     self._publish_event("game_error", {"error": error_msg})
+                    # Phase 56: Cleanup any partially initialized channels
+                    await self._cleanup_channels()
                     return
 
                 # Determine game mode and instantiate appropriate game
@@ -367,10 +403,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 elif self.game_name.lower() in ["nonstop", "nonstop joust", "nonstopjoust"]:
                     logger.info("Starting Nonstop Joust game")
 
-                    # Get time limit from settings (0 = unlimited)
-                    int(self.settings.get("nonstop_time_limit", "0"))
-
-                    # Create Nonstop Joust game instance
+                    # Create Nonstop Joust game instance (fetches settings internally)
                     game = nonstop_joust.NonstopJoustGame(
                         controller_manager_client=self.controller_manager_client,
                         settings_client=self.settings_client,
@@ -391,16 +424,22 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 else:
                     error_msg = f"Game mode '{self.game_name}' not implemented yet"
                     logger.error(error_msg)
-                    self.game_state = game_coordinator_pb2.GameState.ENDED
+                    # Phase 56: Thread-safe state transition
+                    with self._state_lock:
+                        self.game_state = game_coordinator_pb2.GameState.ENDED
                     self._publish_event("game_error", {"error": error_msg})
 
             except Exception as e:
                 logger.error(f"Game loop error: {e}", exc_info=True)
-                self.game_state = game_coordinator_pb2.GameState.ENDED
+                # Phase 56: Thread-safe state transition
+                with self._state_lock:
+                    self.game_state = game_coordinator_pb2.GameState.ENDED
                 self._publish_event("game_error", {"error": str(e)})
             finally:
-                self.game_running = False
-                self.current_game = None
+                # Phase 56: Thread-safe state cleanup
+                with self._state_lock:
+                    self.game_running = False
+                    self.current_game = None
 
                 # Update metrics (Phase 38)
                 metrics.active_game.set(0)
@@ -412,11 +451,8 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     duration = time.time() - self.game_start_time
                     metrics.game_duration_seconds.set(duration)
 
-                # Close async gRPC channels
-                if self.controller_manager_channel:
-                    await self.controller_manager_channel.close()
-                if self.settings_channel:
-                    await self.settings_channel.close()
+                # Phase 56: Use helper for channel cleanup
+                await self._cleanup_channels()
                 logger.info("Closed gRPC channels")
 
                 # game_session span will automatically end here
@@ -425,19 +461,27 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         """Get current game status."""
         with tracer.start_as_current_span("GetGameStatus") as span:
             try:
-                elapsed = 0
-                if self.game_start_time and self.game_state == game_coordinator_pb2.GameState.RUNNING:
-                    elapsed = int(time.time() - self.game_start_time)
+                # Phase 56: Thread-safe state snapshot
+                with self._state_lock:
+                    current_state = self.game_state
+                    current_game = self.current_game
+                    game_name = self.game_name
+                    players_initial = list(self.players)  # Copy
+                    start_time = self.game_start_time
 
-                span.set_attribute("game.state", self.game_state)
+                elapsed = 0
+                if start_time and current_state == game_coordinator_pb2.GameState.RUNNING:
+                    elapsed = int(time.time() - start_time)
+
+                span.set_attribute("game.state", current_state)
                 span.set_attribute("game.elapsed_seconds", elapsed)
 
                 # Get live player data from current game if running
-                players_status = self.players  # Default to initial state
-                if self.current_game and hasattr(self.current_game, "players"):
+                players_status = players_initial  # Default to initial state
+                if current_game and hasattr(current_game, "players"):
                     # Convert game's player dict to protobuf Player list with live state
                     players_status = []
-                    for serial, player in self.current_game.players.items():
+                    for serial, player in current_game.players.items():
                         players_status.append(
                             game_coordinator_pb2.Player(
                                 serial=serial,
@@ -447,8 +491,8 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                         )
 
                 return game_coordinator_pb2.GetGameStatusResponse(
-                    state=self.game_state,
-                    game_name=self.game_name,
+                    state=current_state,
+                    game_name=game_name,
                     players=players_status,
                     elapsed_seconds=elapsed,
                     success=True,
@@ -468,34 +512,41 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     error=str(e),
                 )
 
-    def ForceEndGame(self, request, context):
-        """Force end the current game."""
+    async def ForceEndGame(self, request, context):
+        """Force end the current game (Phase 56: async to avoid blocking)."""
         # Note: Don't create a span here - the game_session span encompasses the game lifecycle
         try:
-            if self.game_state not in [
-                game_coordinator_pb2.GameState.STARTING,
-                game_coordinator_pb2.GameState.RUNNING,
-            ]:
-                return game_coordinator_pb2.ForceEndGameResponse(success=False, error="No game in progress")
+            # Phase 56: Thread-safe state check and update
+            with self._state_lock:
+                if self.game_state not in [
+                    game_coordinator_pb2.GameState.STARTING,
+                    game_coordinator_pb2.GameState.RUNNING,
+                ]:
+                    return game_coordinator_pb2.ForceEndGameResponse(success=False, error="No game in progress")
 
-            # Stop game loop
-            self.game_running = False
+                # Stop game loop
+                self.game_running = False
+                current_game = self.current_game
+                game_thread = self.game_thread
+                game_id = self.game_id
 
             # Call force_end on current game if it exists
-            if self.current_game and hasattr(self.current_game, "force_end"):
-                self.current_game.force_end()
+            if current_game and hasattr(current_game, "force_end"):
+                current_game.force_end()
 
-            # Wait for thread to finish
-            if self.game_thread and self.game_thread.is_alive():
-                self.game_thread.join(timeout=5.0)
+            # Phase 56: Wait for thread in executor to avoid blocking gRPC server
+            if game_thread and game_thread.is_alive():
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(None, lambda: game_thread.join(timeout=5.0))
 
-            # Update state
-            self.game_state = game_coordinator_pb2.GameState.ENDED
+            # Phase 56: Thread-safe state transition
+            with self._state_lock:
+                self.game_state = game_coordinator_pb2.GameState.ENDED
 
             # Publish event
             self._publish_event(
                 "game_force_ended",
-                {"reason": request.reason, "game_id": self.game_id or "unknown"},
+                {"reason": request.reason, "game_id": game_id or "unknown"},
             )
 
             logger.info(f"Force ended game: {request.reason}")
@@ -544,25 +595,30 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 logger.info(f"Event subscriber disconnected: {subscriber_id}")
 
     def _publish_event(self, event_type: str, data: dict[str, str]):
-        """Publish an event to all subscribers."""
+        """Publish an event to all subscribers (Phase 56: thread-safe)."""
+        # Phase 56: Thread-safe state transition and subscriber snapshot
+        with self._state_lock:
+            # Sync server game_state with game mode lifecycle events
+            if event_type == "game_started":
+                self.game_state = game_coordinator_pb2.GameState.RUNNING
+                logger.info("Game state transitioned to RUNNING")
+            elif event_type in ["game_ended", "game_error"]:
+                self.game_state = game_coordinator_pb2.GameState.ENDED
+                logger.info("Game state transitioned to ENDED")
+
+            # Snapshot subscribers to avoid dict modification during iteration
+            subscribers_snapshot = dict(self.event_subscribers)
+
         # Add as span event instead of creating child span
         current_span = trace.get_current_span()
         if current_span.is_recording():
             # Add event with attributes
             attributes = {
                 "event.type": event_type,
-                "subscribers.count": len(self.event_subscribers),
+                "subscribers.count": len(subscribers_snapshot),
                 **{k: str(v) for k, v in data.items()},
             }
             current_span.add_event(event_type, attributes=attributes)
-
-        # Sync server game_state with game mode lifecycle events
-        if event_type == "game_started":
-            self.game_state = game_coordinator_pb2.GameState.RUNNING
-            logger.info("Game state transitioned to RUNNING")
-        elif event_type in ["game_ended", "game_error"]:
-            self.game_state = game_coordinator_pb2.GameState.ENDED
-            logger.info("Game state transitioned to ENDED")
 
         # Convert all values to strings (protobuf map<string, string> requirement)
         string_data = {k: str(v) for k, v in data.items()}
@@ -571,8 +627,8 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
             event_type=event_type, data=string_data, timestamp=int(time.time() * 1000)
         )
 
-        # Phase 34: put_nowait() is thread-safe, no lock needed for publishing
-        for sub_id, event_queue in self.event_subscribers.items():
+        # Phase 56: Iterate snapshot (outside lock) - put_nowait() is thread-safe for Queue
+        for sub_id, event_queue in subscribers_snapshot.items():
             try:
                 event_queue.put_nowait(event)
                 logger.debug(f"Published {event_type} to subscriber {sub_id}")
@@ -582,23 +638,22 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 logger.error(f"Error publishing to subscriber {sub_id}: {e}")
 
     async def shutdown(self):
-        """Shutdown the game coordinator (Phase 34: async for proper cleanup)."""
+        """Shutdown the game coordinator (Phase 34: async, Phase 56: thread-safe)."""
         logger.info("Shutting down GameCoordinator...")
-        self.game_running = False
+
+        # Phase 56: Thread-safe state access
+        with self._state_lock:
+            self.game_running = False
+            game_thread = self.game_thread
 
         # Phase 34: Run thread.join() in executor to avoid blocking event loop
-        if self.game_thread and self.game_thread.is_alive():
+        if game_thread and game_thread.is_alive():
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, lambda: self.game_thread.join(timeout=5.0))
+            await loop.run_in_executor(None, lambda: game_thread.join(timeout=5.0))
 
-        # Close gRPC channels (Phase 26 - Part 2, Phase 34: async close)
+        # Phase 56: Use centralized channel cleanup
         logger.info("Closing gRPC channels...")
-        if hasattr(self, "controller_manager_channel") and self.controller_manager_channel:
-            await self.controller_manager_channel.close()
-        if hasattr(self, "settings_channel") and self.settings_channel:
-            await self.settings_channel.close()
-        if hasattr(self, "audio_channel") and self.audio_channel:  # Phase 29
-            await self.audio_channel.close()
+        await self._cleanup_channels()
 
 
 async def serve(port=50053, metrics_port=8000):

@@ -458,8 +458,9 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
             old_value = self.settings[key]
             self.settings[key] = value
 
-            # Save to file
-            self.save_settings()
+            # Save to file (run in executor to avoid blocking event loop)
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, self.save_settings)
 
             # Publish change event (Phase 34: await async call)
             await self.publish_change(key, old_value, value, source)

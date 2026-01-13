@@ -213,6 +213,12 @@ test-teams:
 	@echo "Running Teams integration test..."
 	@uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_teams_game_with_mock_controllers -v
 
+.PHONY: test-teams-clean
+test-teams-clean:
+	@echo "Running Teams integration test with fresh venv (no permission issues)..."
+	@rm -rf .venv-test 2>/dev/null || true
+	@UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_teams_game_with_mock_controllers -v
+
 .PHONY: test-teams-docker
 test-teams-docker: ci-build-test
 	@echo "Running Teams integration test in Docker..."
@@ -256,6 +262,7 @@ test-help:
 	@echo "  make test-mock-pause  - Run tests with pause before teardown (for Jaeger)"
 	@echo "  make test-ffa         - Run FFA integration test only"
 	@echo "  make test-teams       - Run Teams integration test only"
+	@echo "  make test-teams-clean - Run Teams with fresh venv (no permission issues)"
 	@echo "  make test-random-teams - Run Random Teams integration test only"
 	@echo ""
 	@echo "Run Tests (Docker - Recommended):"

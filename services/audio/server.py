@@ -125,7 +125,8 @@ class AudioManager:
                 if channel:
                     channel.play(sound)
                     logger.info(
-                        f"Playing sound: {file_path} (volume={adjusted_volume:.2f}, priority={priority})"
+                        f"Playing sound: {file_path} "
+                        f"(volume={adjusted_volume:.2f}, priority={priority})"
                     )
                     span.add_event("sound_played")
                     return True
@@ -192,7 +193,8 @@ class AudioManager:
                     self.is_playing = True
 
                     logger.info(
-                        f"Playing music: {selected_file} (track_id={track_id}, tempo={tempo}, loop={loop})"
+                        f"Playing music: {selected_file} "
+                        f"(track_id={track_id}, tempo={tempo}, loop={loop})"
                     )
                     span.add_event("music_started", {"track_id": track_id})
 

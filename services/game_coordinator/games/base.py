@@ -372,7 +372,6 @@ class BaseGameMode(ABC):
 
         try:
             from proto import controller_manager_pb2
-            from opentelemetry import context as otel_context
 
             # Create player lifecycle spans (subclass-specific: flat vs hierarchical)
             # Pass None to use current active span context (we're inside gameplay_phase)

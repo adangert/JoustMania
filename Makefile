@@ -11,6 +11,11 @@ help:
 	@echo "  make docker-start    - Start Docker services"
 	@echo "  make docker-stop     - Stop Docker services"
 	@echo ""
+	@echo "Testing Targets:"
+	@echo "  make test-help       - Show all testing targets"
+	@echo "  make test            - Run integration tests"
+	@echo "  make test-teams      - Run Teams test with Jaeger inspection"
+	@echo ""
 	@echo "CI/CD Targets:"
 	@echo "  make ci-help         - Show all CI/CD targets"
 	@echo "  make ci-all          - Run all CI checks"
@@ -136,3 +141,63 @@ ci-help:
 	@echo ""
 	@echo "Setup:"
 	@echo "  make ci-build-tools  - Build CI tooling images"
+
+# ============================================================================
+# Testing Targets
+# ============================================================================
+
+.PHONY: test
+test:
+	@echo "Running integration tests with mock environment..."
+	@uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v
+
+.PHONY: test-mock
+test-mock:
+	@echo "Running integration tests with mock environment..."
+	@uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v
+
+.PHONY: test-mock-pause
+test-mock-pause:
+	@echo "Running integration tests with pause (for Jaeger inspection)..."
+	@echo "Note: Tests will pause before teardown. Press Enter in test output to continue."
+	@PAUSE_BEFORE_TEARDOWN=1 uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v -s
+
+.PHONY: test-ffa
+test-ffa:
+	@echo "Running FFA integration test..."
+	@uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_ffa_game_with_mock_controllers -v
+
+.PHONY: test-teams
+test-teams:
+	@echo "Running Teams integration test..."
+	@uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_teams_game_with_mock_controllers -v
+
+.PHONY: test-random-teams
+test-random-teams:
+	@echo "Running Random Teams integration test..."
+	@uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_random_teams_game_with_mock_controllers -v
+
+.PHONY: test-watch
+test-watch:
+	@echo "Running tests in watch mode (re-runs on file changes)..."
+	@uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v --looponfail
+
+.PHONY: test-help
+test-help:
+	@echo "Testing Make Targets"
+	@echo "===================="
+	@echo ""
+	@echo "Run Tests:"
+	@echo "  make test             - Run all integration tests"
+	@echo "  make test-mock        - Run all mock environment tests"
+	@echo "  make test-mock-pause  - Run tests with pause before teardown (for Jaeger)"
+	@echo ""
+	@echo "Run Specific Game Mode:"
+	@echo "  make test-ffa          - Run FFA integration test only"
+	@echo "  make test-teams        - Run Teams integration test only"
+	@echo "  make test-random-teams - Run Random Teams integration test only"
+	@echo ""
+	@echo "Development:"
+	@echo "  make test-watch       - Run tests in watch mode (re-runs on changes)"
+	@echo ""
+	@echo "Note: All tests use uv to manage dependencies and run in isolated environments."

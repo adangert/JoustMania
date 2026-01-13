@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, master, dev-refactor]
+  push:
+    branches: [main, master, dev-refactor]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint Python Code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build lint tooling image
+        run: docker build -t joustmania/ci-lint:latest tools/ci-lint/
+
+      - name: Run linting
+        run: bash scripts/ci/lint.sh
+
+      - name: Check formatting
+        run: bash scripts/ci/format-check.sh
+
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build lint tooling image
+        run: docker build -t joustmania/ci-lint:latest tools/ci-lint/
+
+      - name: Run type checking
+        run: bash scripts/ci/typecheck.sh
+
+  lint-dockerfiles:
+    name: Lint Dockerfiles
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build hadolint tooling image
+        run: docker build -t joustmania/ci-hadolint:latest tools/ci-hadolint/
+
+      - name: Lint Dockerfiles
+        run: bash scripts/ci/lint-dockerfiles.sh
+
+  validate-protos:
+    name: Validate Proto Files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build proto tooling image
+        run: docker build -t joustmania/ci-proto:latest tools/ci-proto/
+
+      - name: Validate protos
+        run: bash scripts/ci/validate-protos.sh
+
+  validate-packages:
+    name: Validate Python Packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build proto tooling image
+        run: docker build -t joustmania/ci-proto:latest tools/ci-proto/
+
+      - name: Validate packages
+        run: bash scripts/ci/validate-packages.sh
+
+  docker-build:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - controller_manager
+          - game_coordinator
+          - settings
+          - supervisor
+          - menu
+          - audio
+          - webui
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build service
+        run: bash scripts/ci/build-service.sh ${{ matrix.service }}

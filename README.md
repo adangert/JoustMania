@@ -1,5 +1,9 @@
 # JoustMania - Cloud-Native Edition
 
+[![CI](https://github.com/YOUR_USERNAME/JoustMania/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/JoustMania/actions/workflows/ci.yml)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
+[![Dev Container](https://img.shields.io/badge/Dev_Container-Ready-blue?logo=visualstudiocode)](https://code.visualstudio.com/docs/devcontainers/containers)
+
 **Microservices-based Motion Gaming Platform for PlayStation Move Controllers**
 
 ---
@@ -18,6 +22,36 @@ This version focuses on:
 - ✅ **Production-Ready Patterns** - Health checks, graceful shutdown, structured logging
 
 **Use Case:** This fork serves as an **observability demonstration** and **reference architecture** for cloud-native Python microservices. It's ideal for learning distributed systems, gRPC, and OpenTelemetry.
+
+---
+
+## Developer Quick Start
+
+### Option 1: Dev Container (One-Click Setup)
+
+1. Install [VS Code](https://code.visualstudio.com/) and the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+2. Clone and open: `code .`
+3. Click "Reopen in Container" when prompted
+4. Start developing! All tools pre-configured.
+
+### Option 2: Local Development
+
+```bash
+# Clone repository
+git clone https://github.com/YOUR_USERNAME/JoustMania.git
+cd JoustMania
+
+# Build CI tooling
+make ci-build-tools
+
+# Run quality checks
+make ci-quick
+
+# Format code
+make format
+```
+
+**See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for full development guide.**
 
 ---
 

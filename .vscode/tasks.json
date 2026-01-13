@@ -1,0 +1,66 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Lint Code",
+      "type": "shell",
+      "command": "bash scripts/ci/lint.sh",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Format Code",
+      "type": "shell",
+      "command": "ruff format .",
+      "group": "none",
+      "presentation": {
+        "reveal": "silent"
+      }
+    },
+    {
+      "label": "Type Check",
+      "type": "shell",
+      "command": "bash scripts/ci/typecheck.sh",
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Generate Protos",
+      "type": "shell",
+      "command": "make protos",
+      "group": "build",
+      "presentation": {
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "Build All Services",
+      "type": "shell",
+      "command": "bash scripts/ci/build-all.sh",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Run All CI Checks",
+      "type": "shell",
+      "command": "bash scripts/ci/lint.sh && bash scripts/ci/format-check.sh && bash scripts/ci/typecheck.sh && bash scripts/ci/lint-dockerfiles.sh",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    }
+  ]
+}

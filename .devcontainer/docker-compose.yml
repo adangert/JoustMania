@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  dev:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+
+    volumes:
+      - ..:/workspace:cached
+      - /var/run/docker.sock:/var/run/docker.sock  # Docker-in-Docker
+
+    # Keep container running
+    command: sleep infinity
+
+    environment:
+      - PYTHONPATH=/workspace
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+
+    # Network with other services for integration testing
+    networks:
+      - joustmania
+
+networks:
+  joustmania:
+    name: joustmania_default
+    external: true

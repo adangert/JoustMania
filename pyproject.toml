@@ -97,3 +97,21 @@ ignore = [
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+# mypy - Type checking configuration (Phase 55)
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Start permissive
+check_untyped_defs = true      # Check even untyped functions
+ignore_missing_imports = true  # Many libraries lack stubs
+
+# Per-module configuration
+[[tool.mypy.overrides]]
+module = "proto.*"
+ignore_errors = true  # Generated code
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false

@@ -273,27 +273,203 @@ await self._game_loop()  # Non-blocking
 
 ## Observability
 
-All games are fully instrumented with OpenTelemetry.
+All games are fully instrumented with OpenTelemetry distributed tracing.
 
-**View traces:**
+### Viewing Traces
+
+**Start Jaeger UI:**
 ```bash
-# Start Jaeger UI
 docker-compose up jaeger
 
 # Open browser
-http://localhost:16686
+open http://localhost:16686
 
-# Search for: game.id="ffa_*"
+# Search for traces:
+# - Service: game-coordinator-service
+# - Operation: Free-For-All, Teams, Random Teams
 ```
 
-**Trace spans:**
-- `ffa_run` - Full game execution
-- `ffa_load_settings` - Settings fetch
-- `ffa_initialize_players` - Player setup
-- `ffa_countdown` - Countdown phase
-- `ffa_game_loop` - Main game loop
-- `ffa_kill_player` - Death event
-- `ffa_end_game` - Game cleanup
+### Expected Span Structure by Game Mode
+
+All game modes follow a consistent span hierarchy. The root span is created in `server.py` with a FOLLOWS_FROM link to the `StartGame` RPC span.
+
+#### FFA (Free-For-All) - Flat Hierarchy
+
+```
+Free-For-All (game span)
+├── initialization_phase
+│   ├── load_settings
+│   └── initialize_players
+├── ffa_colors_phase (player colors shown)
+├── countdown_phase
+├── gameplay_phase
+│   ├── player_<serial1>_lifecycle
+│   │   ├── death_warning (event)
+│   │   └── player_death (event) → span ends
+│   ├── player_<serial2>_lifecycle
+│   │   └── victory (event) → span ends (winner)
+│   └── player_<serial3>_lifecycle
+│       └── player_death (event) → span ends
+└── teardown_phase
+    └── end_game_impl
+```
+
+**Key Characteristics:**
+- **Flat player hierarchy**: Player spans are direct children of `gameplay_phase`
+- **Player span duration**: Spans start when game begins, end when player dies or game ends
+- **Death events**: Each player span includes `death_warning` events (if applicable) and `player_death` or `victory` events
+
+#### Teams - 2-Level Hierarchy
+
+```
+Teams (game span)
+├── initialization_phase
+│   ├── load_settings
+│   └── initialize_players (with team assignment)
+├── countdown_phase
+├── gameplay_phase
+│   ├── team_0_Pink_lifecycle
+│   │   ├── player_<serial1>_lifecycle
+│   │   │   ├── death_warning (event)
+│   │   │   └── player_death (event) → span ends
+│   │   ├── player_<serial2>_lifecycle
+│   │   │   └── player_death (event) → span ends
+│   │   └── team_eliminated (event) → team span ends
+│   ├── team_1_Magenta_lifecycle
+│   │   ├── player_<serial3>_lifecycle
+│   │   │   └── player_survived (event) → span ends
+│   │   └── player_<serial4>_lifecycle
+│   │       └── player_survived (event) → span ends
+│   └── team_victory (event) → team span ends
+└── teardown_phase
+    └── end_game_impl
+```
+
+**Key Characteristics:**
+- **Hierarchical structure**: `gameplay_phase` → `team_*_lifecycle` → `player_*_lifecycle`
+- **Team spans**: One span per team, ends when team is eliminated or game ends
+- **Player spans**: Nested under their team span, end when player dies or game ends
+- **Team events**: `team_eliminated` when last player dies, `team_victory` for winning team
+
+#### Random Teams - 2-Level Hierarchy with Team Formation
+
+```
+Random Teams (game span)
+├── initialization_phase
+│   ├── load_settings
+│   └── initialize_players (with random team assignment)
+├── team_formation_phase (5 seconds showing team colors)
+├── countdown_phase
+├── gameplay_phase
+│   ├── team_0_<Color>_lifecycle
+│   │   ├── player_<serial1>_lifecycle
+│   │   │   └── player_death (event) → span ends
+│   │   └── player_<serial2>_lifecycle
+│   │       └── player_death (event) → span ends
+│   │   └── team_eliminated (event) → team span ends
+│   └── team_1_<Color>_lifecycle
+│       ├── player_<serial3>_lifecycle
+│       │   └── player_survived (event) → span ends
+│       └── player_<serial4>_lifecycle
+│           └── player_survived (event) → span ends
+│       └── team_victory (event) → team span ends
+└── teardown_phase
+    └── end_game_impl
+```
+
+**Key Characteristics:**
+- **Additional phase**: `team_formation_phase` (unique to Random Teams)
+- **Random colors**: Team colors are shuffled each game
+- **Same hierarchy as Teams**: 2-level hierarchy (team → player)
+
+### Span Attributes
+
+**Game Span Attributes:**
+- `game.name` - Game mode name (e.g., "Free-For-All", "Teams")
+- `game.id` - Unique game instance ID
+- `player.count` - Number of players
+
+**Phase Span Attributes:**
+- `game.id` - Links to game span
+- `game.mode` - Game mode name
+- `player_count` - Number of players (initialization phase)
+
+**Team Span Attributes (Teams/Random Teams only):**
+- `team.number` - Team number (0-7)
+- `team.name` - Team color name (e.g., "Pink", "Magenta")
+- `team.color` - RGB tuple (e.g., "(255, 108, 108)")
+- `game.mode` - Game mode name
+
+**Player Span Attributes:**
+- `player.serial` - Controller serial number
+- `player.team` - Team number (0 for FFA)
+- `player.team_name` - Team color name (Teams/Random Teams)
+- `player.color` - Player LED color RGB tuple
+- `game.mode` - Game mode name
+
+**Player Span Events:**
+- `death_warning` - Acceleration exceeded warning threshold
+  - Attributes: `accel_magnitude`, `threshold`
+- `player_death` - Player died
+  - Attributes: `accel_magnitude`, `threshold`, `alive_count`, `team_eliminated` (Teams only)
+- `victory` / `player_survived` - Player survived until game end
+  - Attributes: `game_duration`, `winner`
+
+### Implementation Notes
+
+**Span Registration with OpenTelemetry SDK:**
+
+For Teams and Random Teams, team and player spans are created using `trace.use_span()` to properly register them with the OpenTelemetry SDK for export:
+
+```python
+# Create team span and register with SDK
+team_span = tracer.start_span("team_0_Pink_lifecycle", context=gameplay_context, ...)
+
+# Register with SDK using trace.use_span()
+with trace.use_span(team_span, end_on_exit=False):
+    team.span = team_span  # Store for manual .end() later
+
+    # Create player spans while team is current
+    for player in team_players:
+        player_span = tracer.start_span("player_*_lifecycle",
+                                        context=otel_context.get_current(), ...)
+```
+
+This ensures:
+- Team spans are properly tracked by the SDK export pipeline
+- Player spans are created as children of team spans
+- All spans appear in Jaeger traces with correct hierarchy
+
+**Why `trace.use_span()` is necessary:**
+- `tracer.start_span()` creates a span but doesn't make it "current"
+- `trace.set_span_in_context()` creates a NEW context that isn't registered with the SDK
+- `trace.use_span()` makes the span current AND registers it with the SDK for export
+
+### Troubleshooting Missing Spans
+
+If spans don't appear in Jaeger:
+
+1. **Check OTLP Collector logs:**
+   ```bash
+   docker-compose logs otel-collector | grep error
+   ```
+
+2. **Check Jaeger import:**
+   ```bash
+   docker-compose logs jaeger | grep error
+   ```
+
+3. **Verify span creation in game-coordinator logs:**
+   ```bash
+   docker-compose logs game-coordinator | grep span
+   ```
+
+4. **Query Jaeger API:**
+   ```bash
+   curl "http://localhost:16686/api/traces?service=game-coordinator-service&operation=Teams&lookback=5m&limit=1"
+   ```
+
+5. **Check that `trace.use_span()` is used for hierarchical spans** (Teams/Random Teams)
 
 ## Legacy Files
 

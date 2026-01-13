@@ -492,7 +492,7 @@ class ControllerManagerProcess(Process):
             },
         }
 
-    def handle_pair_controller(self, params: dict) -> dict:
+    def handle_pair_controller(self, _params: dict) -> dict:
         """Pair a new controller (triggered by IPC)."""
         # This will be handled by periodic discovery
         # Just acknowledge the request

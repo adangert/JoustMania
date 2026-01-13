@@ -105,14 +105,16 @@ ignore = [
 "__init__.py" = ["F401"]  # Unused imports OK in __init__
 
 # gRPC service methods MUST use PascalCase per protobuf convention
-"services/*/server.py" = ["N802"]
-"services/*/mock_server.py" = ["N802", "ASYNC110"]  # Mock servers use sleep in loops
+# context parameter required by gRPC but often unused
+"services/*/server.py" = ["N802", "ARG002"]
+"services/*/mock_server.py" = ["N802", "ASYNC110", "ARG002"]  # Mock servers use sleep in loops
 
 # Integration tests need to modify sys.path before imports and mock gRPC methods (PascalCase)
-"services/game_coordinator/test_*_integration.py" = ["E402", "N802"]
+"services/game_coordinator/test_*_integration.py" = ["E402", "N802", "ARG001", "ARG002"]
+"services/game_coordinator/tests/*.py" = ["ARG002"]  # Test fixtures
 
 # Legacy audio module uses PascalCase functions
-"services/audio/piaudio.py" = ["N802", "N806", "SIM115", "E722"]
+"services/audio/piaudio.py" = ["N802", "N806", "SIM115", "E722", "ARG002"]
 "services/audio/playwav.py" = ["N802"]
 
 [tool.ruff.format]

@@ -158,7 +158,7 @@ class MenuProcess(Process):
         except Exception as e:
             logger.error(f"Error processing commands: {e}", exc_info=True)
 
-    def handle_start_menu(self, params: dict) -> dict:
+    def handle_start_menu(self, _params: dict) -> dict:
         """Handle start_menu command."""
         if self.menu_running:
             return {"status": "error", "error": "Menu already running"}
@@ -179,7 +179,7 @@ class MenuProcess(Process):
 
         return {"status": "success", "data": {"menu_running": True}}
 
-    def handle_stop_menu(self, params: dict) -> dict:
+    def handle_stop_menu(self, _params: dict) -> dict:
         """Handle stop_menu command."""
         if not self.menu_running:
             return {"status": "error", "error": "Menu not running"}

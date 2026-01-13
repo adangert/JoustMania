@@ -124,6 +124,8 @@ class TeamsGameBase(BaseGameMode):
 
             game_context = otel_context.get_current()
 
+        logger.info(f"[SPAN DEBUG] Creating team/player spans, game_context type: {type(game_context)}")
+
         # Create team lifecycle spans first
         for team_num, team in self.teams.items():
             team_span = tracer.start_span(
@@ -137,7 +139,13 @@ class TeamsGameBase(BaseGameMode):
                 },
             )
             team.span = team_span
-            logger.debug(f"Started lifecycle span for team {team_num} ({team.name})")
+            span_ctx = team_span.get_span_context()
+            logger.info(
+                f"[SPAN DEBUG] Created team {team_num} span - "
+                f"trace_id: {format(span_ctx.trace_id, '032x')}, "
+                f"span_id: {format(span_ctx.span_id, '016x')}, "
+                f"is_valid: {span_ctx.is_valid}"
+            )
 
         # Create player lifecycle spans as children of their team spans
         for serial, player in self.players.items():
@@ -158,7 +166,13 @@ class TeamsGameBase(BaseGameMode):
                 },
             )
             player.span = player_span
-            logger.debug(f"Started lifecycle span for player {serial} (Team {team.name})")
+            span_ctx = player_span.get_span_context()
+            logger.info(
+                f"[SPAN DEBUG] Created player {serial} span - "
+                f"team: {team.name}, "
+                f"span_id: {format(span_ctx.span_id, '016x')}, "
+                f"is_valid: {span_ctx.is_valid}"
+            )
 
     async def _set_team_colors(self, pulse_effect: bool = False, duration_ms: int = 0):
         """

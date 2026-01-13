@@ -372,9 +372,19 @@ class BaseGameMode(ABC):
 
         try:
             from proto import controller_manager_pb2
+            from opentelemetry import context as otel_context
 
             # Create player lifecycle spans (subclass-specific: flat vs hierarchical)
             # Pass None to use current active span context (we're inside gameplay_phase)
+            logger.info("[SPAN DEBUG] About to create player/team spans from gameplay_phase context")
+            current_span = trace.get_current_span()
+            if current_span:
+                span_ctx = current_span.get_span_context()
+                logger.info(
+                    f"[SPAN DEBUG] Current span before _create_player_spans: "
+                    f"trace_id: {format(span_ctx.trace_id, '032x')}, "
+                    f"span_id: {format(span_ctx.span_id, '016x')}"
+                )
             self._create_player_spans(None)
 
             # Get runtime config (Phase 43: Dynamic Hz adjustment)

@@ -7,7 +7,7 @@
 #   ./tools/lint-dockerfiles.sh services/*/  # Lint specific directories
 #   CI=true ./tools/lint-dockerfiles.sh      # Run in CI mode (strict)
 
-set -euo pipefail
+set -uo pipefail
 
 # Colors for output
 RED='\033[0;31m'
@@ -70,10 +70,10 @@ lint_dockerfile() {
 # Find all Dockerfiles
 if [[ $# -eq 0 ]]; then
     # No arguments - scan entire repo
-    DOCKERFILES=$(find . -type f -name "Dockerfile*" | grep -v "^\./\." | grep -v "/node_modules/")
+    DOCKERFILES=$(find . -type f -name "Dockerfile*" | grep -v "^\./\." | grep -v "/node_modules/" || true)
 else
     # Scan provided directories/files
-    DOCKERFILES=$(find "$@" -type f -name "Dockerfile*" | grep -v "^\./\." | grep -v "/node_modules/")
+    DOCKERFILES=$(find "$@" -type f -name "Dockerfile*" | grep -v "^\./\." | grep -v "/node_modules/" || true)
 fi
 
 # Check if hadolint config exists

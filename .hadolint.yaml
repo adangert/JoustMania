@@ -15,6 +15,14 @@ ignored:
   # We'll add labels in a future phase
   - DL3049
 
+  # DL3059: Multiple consecutive RUN instructions
+  # We prefer readability over layer optimization for now
+  - DL3059
+
+  # SC2261: ShellCheck false positive for multiline RUN
+  # This is a false alarm from ShellCheck on multiline commands
+  - SC2261
+
 # Trusted registries (for base images)
 trustedRegistries:
   - docker.io

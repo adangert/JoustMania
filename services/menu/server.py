@@ -983,7 +983,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     },
                 )
                 logger.info(
-                    f"Sensitivity changed by admin controller {serial}: {current} → {new_value} ({sensitivity_names[int(new_value)]})"
+                    f"Sensitivity changed by admin controller {serial}: {current} → {new_value} "
+                    f"({sensitivity_names[int(new_value)]})"
                 )
 
             except Exception as e:

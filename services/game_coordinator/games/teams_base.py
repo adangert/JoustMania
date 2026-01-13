@@ -113,7 +113,8 @@ class TeamsGameBase(BaseGameMode):
         Create hierarchical team → player lifecycle spans.
 
         Team spans are created first, then player spans are created as children
-        of their respective team spans.
+        of their respective team spans using trace.use_span() to register them
+        with the OpenTelemetry SDK for proper export.
 
         Args:
             game_context: Parent span context for proper hierarchy
@@ -126,7 +127,8 @@ class TeamsGameBase(BaseGameMode):
 
         logger.info(f"[SPAN DEBUG] Creating team/player spans, game_context type: {type(game_context)}")
 
-        # Create team lifecycle spans first
+        # Create team lifecycle spans and their player children
+        # Using trace.use_span() to register team spans with SDK for export
         for team_num, team in self.teams.items():
             team_span = tracer.start_span(
                 f"team_{team_num}_{team.name}_lifecycle",
@@ -138,7 +140,7 @@ class TeamsGameBase(BaseGameMode):
                     "game.mode": self.get_game_name(),
                 },
             )
-            team.span = team_span
+
             span_ctx = team_span.get_span_context()
             logger.info(
                 f"[SPAN DEBUG] Created team {team_num} span - "
@@ -147,32 +149,36 @@ class TeamsGameBase(BaseGameMode):
                 f"is_valid: {span_ctx.is_valid}"
             )
 
-        # Create player lifecycle spans as children of their team spans
-        for serial, player in self.players.items():
-            team = self.teams[player.team]
+            # FIX: Use trace.use_span() to register team span with SDK
+            # end_on_exit=False prevents automatic span ending (we end manually)
+            with trace.use_span(team_span, end_on_exit=False):
+                team.span = team_span  # Store reference for manual .end() later
 
-            # Create player span as child of team span using context
-            ctx = trace.set_span_in_context(team.span)
+                # Create player spans while team span is current (registered with SDK)
+                team_players = [(s, p) for s, p in self.players.items() if p.team == team_num]
+                for serial, player in team_players:
+                    # Get current context (now the registered team span)
+                    from opentelemetry import context as otel_context
 
-            player_span = tracer.start_span(
-                f"player_{serial}_lifecycle",
-                context=ctx,
-                attributes={
-                    "player.serial": serial,
-                    "player.team": player.team,
-                    "player.team_name": team.name,
-                    "player.color": str(player.color),
-                    "game.mode": self.get_game_name(),
-                },
-            )
-            player.span = player_span
-            span_ctx = player_span.get_span_context()
-            logger.info(
-                f"[SPAN DEBUG] Created player {serial} span - "
-                f"team: {team.name}, "
-                f"span_id: {format(span_ctx.span_id, '016x')}, "
-                f"is_valid: {span_ctx.is_valid}"
-            )
+                    player_span = tracer.start_span(
+                        f"player_{serial}_lifecycle",
+                        context=otel_context.get_current(),  # Gets team context (registered!)
+                        attributes={
+                            "player.serial": serial,
+                            "player.team": player.team,
+                            "player.team_name": team.name,
+                            "player.color": str(player.color),
+                            "game.mode": self.get_game_name(),
+                        },
+                    )
+                    player.span = player_span
+                    span_ctx = player_span.get_span_context()
+                    logger.info(
+                        f"[SPAN DEBUG] Created player {serial} span - "
+                        f"team: {team.name}, "
+                        f"span_id: {format(span_ctx.span_id, '016x')}, "
+                        f"is_valid: {span_ctx.is_valid}"
+                    )
 
     async def _set_team_colors(self, pulse_effect: bool = False, duration_ms: int = 0):
         """

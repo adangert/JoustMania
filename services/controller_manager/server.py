@@ -918,7 +918,8 @@ class ControllerManagerServicer(
             try:
                 if not PSMOVE_AVAILABLE:
                     logger.info(
-                        f"SetControllerColor (mock): {request.serial or 'all'} -> RGB({request.color.r},{request.color.g},{request.color.b})"
+                        f"SetControllerColor (mock): {request.serial or 'all'} -> "
+                        f"RGB({request.color.r},{request.color.g},{request.color.b})"
                     )
                     return controller_manager_pb2.SetControllerColorResponse(success=True, error="")
 
@@ -960,7 +961,8 @@ class ControllerManagerServicer(
             try:
                 if not PSMOVE_AVAILABLE:
                     logger.info(
-                        f"SetControllerVibration (mock): {request.serial or 'all'} intensity={request.intensity} duration={request.duration_ms}ms"
+                        f"SetControllerVibration (mock): {request.serial or 'all'} "
+                        f"intensity={request.intensity} duration={request.duration_ms}ms"
                     )
                     return controller_manager_pb2.SetControllerVibrationResponse(
                         success=True, error=""
@@ -1505,7 +1507,10 @@ class ControllerManagerServicer(
     def _controller_state_hash(self, state: controller_manager_pb2.ControllerState) -> str:
         """Create a hash of controller state for delta comparison (Phase 26 - Part 3)."""
         # Simple hash based on key fields that change during gameplay
-        return f"{state.battery}|{state.trigger_pressed}|{state.move_pressed}|{state.ready}|{state.team}|{state.color.r},{state.color.g},{state.color.b}"
+        return (
+            f"{state.battery}|{state.trigger_pressed}|{state.move_pressed}|{state.ready}|"
+            f"{state.team}|{state.color.r},{state.color.g},{state.color.b}"
+        )
 
     def _snapshot_hash(self, serial: str, info: dict) -> str:
         """Create a hash of controller hardware snapshot (Phase 18 - Task 1)."""
@@ -1515,14 +1520,16 @@ class ControllerManagerServicer(
         if state:
             snapshot = state.get_snapshot()
             # Hash all fields that can change during gameplay
+            accel = snapshot.get('accel', {})
+            gyro = snapshot.get('gyro', {})
             return (
                 f"{info.get('battery', 0)}|"
                 f"{snapshot.get('trigger', False)}|{snapshot.get('move', False)}|"
                 f"{snapshot.get('cross', False)}|{snapshot.get('circle', False)}|"
                 f"{snapshot.get('square', False)}|{snapshot.get('triangle', False)}|"
                 f"{snapshot.get('ps', False)}|"
-                f"{snapshot.get('accel', {}).get('x', 0):.2f},{snapshot.get('accel', {}).get('y', 0):.2f},{snapshot.get('accel', {}).get('z', 0):.2f}|"
-                f"{snapshot.get('gyro', {}).get('x', 0):.2f},{snapshot.get('gyro', {}).get('y', 0):.2f},{snapshot.get('gyro', {}).get('z', 0):.2f}|"
+                f"{accel.get('x', 0):.2f},{accel.get('y', 0):.2f},{accel.get('z', 0):.2f}|"
+                f"{gyro.get('x', 0):.2f},{gyro.get('y', 0):.2f},{gyro.get('z', 0):.2f}|"
                 f"{info.get('ready', False)}|{info.get('team', 0)}"
             )
         # No state available, return hash based on info only

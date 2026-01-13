@@ -422,7 +422,8 @@ class WebUI:
         """Background process for shutdown."""
         sleep(2)
         os.system(
-            "sudo kill -3 $(ps aux | grep '[p]iparty' | awk '{print $2}') ; sudo supervisorctl stop joustmania ; sudo shutdown -H now "
+            "sudo kill -3 $(ps aux | grep '[p]iparty' | awk '{print $2}') ; "
+            "sudo supervisorctl stop joustmania ; sudo shutdown -H now "
         )
 
     def shutdown_lastscreen(self):
@@ -443,7 +444,8 @@ class WebUI:
         """Background process for reboot."""
         sleep(2)
         os.system(
-            " sudo kill -3 $(ps aux | grep '[p]iparty' | awk '{print $2}') ; sudo supervisorctl stop joustmania ; sudo reboot now "
+            " sudo kill -3 $(ps aux | grep '[p]iparty' | awk '{print $2}') ; "
+            "sudo supervisorctl stop joustmania ; sudo reboot now "
         )
 
     def settings(self):

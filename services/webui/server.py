@@ -472,7 +472,7 @@ class WebUI:
                     else:
                         random_modes_list = random_modes_value
 
-                    settingsForm = SettingsForm(
+                    settings_form = SettingsForm(
                         sensitivity=int(current_settings.get("sensitivity", 2)),
                         instructions=current_settings.get("instructions", "true") == "true",
                         num_teams=int(current_settings.get("num_teams", 2)),
@@ -484,7 +484,7 @@ class WebUI:
 
                     span.set_attribute("settings.loaded", True)
                     return render_template(
-                        "settings.html", form=settingsForm, settings=current_settings
+                        "settings.html", form=settings_form, settings=current_settings
                     )
                 logger.error(f"GetSettings failed: {response.error}")
                 # Return default form

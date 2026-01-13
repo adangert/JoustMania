@@ -52,18 +52,9 @@ from services.game_coordinator.games import ffa, nonstop_joust, random_teams, te
 
 # Legacy game imports (optional for testing)
 try:
-    from games import (
-        fight_club,
-        joust_ffa,
-        joust_random_teams,
-        joust_teams,
-        swapper,
-        tournament,
-        traitor,
-    )
-    from piaudio import Audio, Music
-
-    from common import Games
+    # Import legacy modules to test availability
+    import games  # noqa: F401
+    import piaudio  # noqa: F401
 
     GAMES_AVAILABLE = True
 except ImportError:

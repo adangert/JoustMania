@@ -11,6 +11,7 @@ This is part of the microservices refactoring to separate concerns.
 """
 
 import logging
+import queue
 import time
 from multiprocessing import Array, Process, Value
 
@@ -561,7 +562,7 @@ def send_command(
             response = response_queue.get(timeout=0.1)
             if response.get("request_id") == request_id:
                 return response
-        except:
+        except queue.Empty:
             continue
 
     # Timeout

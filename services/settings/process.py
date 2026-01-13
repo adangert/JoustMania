@@ -14,6 +14,7 @@ import contextlib
 import fnmatch
 import logging
 import os
+import queue
 import time
 import uuid
 from multiprocessing import Process
@@ -242,19 +243,19 @@ class SettingsProcess(Process):
             return False, f"Expected {expected_type.__name__}, got {type(value).__name__}"
 
         # Check range (for int)
-        if expected_type == int:
+        if expected_type is int:
             if "min" in schema and value < schema["min"]:
                 return False, f"Value {value} below minimum {schema['min']}"
             if "max" in schema and value > schema["max"]:
                 return False, f"Value {value} above maximum {schema['max']}"
 
         # Check allowed values (for str)
-        if expected_type == str:
+        if expected_type is str:
             if "allowed_values" in schema and value not in schema["allowed_values"]:
                 return False, f"Value '{value}' not in allowed values: {schema['allowed_values']}"
 
         # Check list items (for list)
-        if expected_type == list:
+        if expected_type is list:
             # Validate random_modes specifically
             if key == "random_modes":
                 valid_games = [g.name for g in Games if g != Games.JoustTeams and g != Games.Random]
@@ -473,7 +474,7 @@ def send_command(
             response = response_queue.get(timeout=0.1)
             if response.get("request_id") == request_id:
                 return response
-        except:
+        except queue.Empty:
             continue
 
     # Timeout

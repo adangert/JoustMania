@@ -47,14 +47,11 @@ from services.controller_manager.effects_base import ControllerEffectsBase
 
 # PS Move imports (optional for testing)
 try:
-    from multiprocessing import Array, Process, Value
+    from multiprocessing import Process
 
-    import controller_process
     import pair as pair_module
     import psmove
     from controller_state import ControllerState
-
-    import common
 
     PSMOVE_AVAILABLE = True
 except ImportError:
@@ -238,10 +235,12 @@ class ControllerManagerServicer(
                         logger.info(f"Discovered new controller: {serial}")
 
                         # Pair if USB
-                        if move.connection_type == psmove.Conn_USB:
-                            if serial not in self.paired_serials:
-                                with tracer.start_as_current_span("pair_controller"):
-                                    self._pair_controller(move, serial)
+                        if (
+                            move.connection_type == psmove.Conn_USB
+                            and serial not in self.paired_serials
+                        ):
+                            with tracer.start_as_current_span("pair_controller"):
+                                self._pair_controller(move, serial)
 
                         # Spawn tracking process
                         with tracer.start_as_current_span("spawn_controller_process"):

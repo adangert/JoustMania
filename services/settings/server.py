@@ -81,9 +81,6 @@ class Sensitivity(Enum):
     FAST = 3
     FASTEST = 4
 
-
-from sys import platform
-
 logger = logging.getLogger(__name__)
 
 
@@ -255,7 +252,7 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
                 os.replace(temp_file, self.settings_file)
 
                 # Set permissions
-                if platform == "linux" or platform == "linux2":
+                if sys.platform == "linux" or sys.platform == "linux2":
                     os.chmod(self.settings_file, 0o666)
 
                 span.set_attribute("settings.file", self.settings_file)
@@ -303,7 +300,7 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
                 return False, f"Expected {expected_type.__name__}, got {type(value).__name__}"
 
             # Check range (for int)
-            if expected_type == int:
+            if expected_type is int:
                 if "min" in schema and value < schema["min"]:
                     span.set_attribute("validation.result", "invalid")
                     span.set_attribute("validation.reason", "below_min")
@@ -314,7 +311,7 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
                     return False, f"Value {value} above maximum {schema['max']}"
 
             # Check allowed values (for str)
-            if expected_type == str:
+            if expected_type is str:
                 if "allowed_values" in schema and value not in schema["allowed_values"]:
                     span.set_attribute("validation.result", "invalid")
                     span.set_attribute("validation.reason", "not_allowed")
@@ -324,7 +321,7 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
                     )
 
             # Check list items (for list)
-            if expected_type == list and key == "random_modes":
+            if expected_type is list and key == "random_modes":
                 valid_games = [
                     g.name for g in Games if g != Games.JoustTeams and g != Games.Random
                 ]
@@ -445,11 +442,11 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
             expected_type = schema["type"]
 
             try:
-                if expected_type == bool:
+                if expected_type is bool:
                     value = value_str.lower() in ("true", "1", "yes")
-                elif expected_type == int:
+                elif expected_type is int:
                     value = int(value_str)
-                elif expected_type == list:
+                elif expected_type is list:
                     import ast
 
                     value = ast.literal_eval(value_str)

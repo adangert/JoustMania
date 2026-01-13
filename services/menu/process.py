@@ -12,6 +12,7 @@ This is part of the microservices refactoring (Phase 5).
 """
 
 import logging
+import queue
 import time
 import uuid
 from multiprocessing import Process
@@ -326,7 +327,7 @@ def send_command(
             response = response_queue.get(timeout=0.1)
             if response.get("request_id") == request_id:
                 return response
-        except:
+        except queue.Empty:
             continue
 
     # Timeout

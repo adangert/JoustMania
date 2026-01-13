@@ -72,6 +72,7 @@ exclude = [
     "proto/*_pb2.py",
     "proto/*_pb2_grpc.py",
     "scripts/testing",  # Testing scripts
+    "tools",  # Utility scripts
     "services/game_coordinator/games/legacy_archived",  # Legacy archived games
 ]
 
@@ -106,8 +107,12 @@ ignore = [
 "services/*/server.py" = ["N802"]
 "services/*/mock_server.py" = ["N802"]
 
-# Integration tests need to modify sys.path before imports
-"services/game_coordinator/test_*_integration.py" = ["E402"]
+# Integration tests need to modify sys.path before imports and mock gRPC methods (PascalCase)
+"services/game_coordinator/test_*_integration.py" = ["E402", "N802"]
+
+# Legacy audio module uses PascalCase functions
+"services/audio/piaudio.py" = ["N802", "N806", "SIM115", "E722"]
+"services/audio/playwav.py" = ["N802"]
 
 [tool.ruff.format]
 quote-style = "double"

@@ -97,10 +97,11 @@ services:
       start_period: 10s
 
   # Mock Controller Manager Service (REPLACES real controller-manager)
+  # Phase 57: Uses unified backend system with CONTROLLER_BACKEND environment variable
   mock-controller-manager:
     build:
       context: .
-      dockerfile: services/controller_manager/Dockerfile.mock
+      dockerfile: services/controller_manager/Dockerfile
     container_name: joustmania-mock-controller-manager
     # Ports mapped dynamically for integration testing (allows parallel test runs)
     ports:
@@ -109,8 +110,8 @@ services:
     environment:
       - OTEL_SERVICE_NAME=controller-manager-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - CONTROLLER_BACKEND=mock  # Phase 57: Use mock backend (no psmove/dbus dependencies)
       - MOCK_CONTROLLER_COUNT=4  # CONFIGURABLE: Number of mock controllers
-      - MOCK_MODE=true
     depends_on:
       otel-collector:
         condition: service_started
@@ -307,7 +308,7 @@ services:
     environment:
       - OTEL_SERVICE_NAME=audio-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-      - MOCK_MODE=true  # No actual audio output in mock mode
+      - AUDIO_BACKEND=mock  # No actual audio output in mock mode
     depends_on:
       otel-collector:
         condition: service_started

@@ -454,14 +454,20 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             return
 
         # Normal menu mode: Detect trigger press (False → True) - starts game
-        if controller.trigger_pressed and not prev_state["trigger"]:
-            if self._should_process_button(serial, "trigger", current_time):
-                await self._handle_trigger_press(serial)
+        if (
+            controller.trigger_pressed
+            and not prev_state["trigger"]
+            and self._should_process_button(serial, "trigger", current_time)
+        ):
+            await self._handle_trigger_press(serial)
 
         # Normal menu mode: Detect move press (False → True) - cycles through games (SELECT)
-        if controller.move_pressed and not prev_state["move"]:
-            if self._should_process_button(serial, "move", current_time):
-                await self._handle_select_press(serial)
+        if (
+            controller.move_pressed
+            and not prev_state["move"]
+            and self._should_process_button(serial, "move", current_time)
+        ):
+            await self._handle_select_press(serial)
 
         # Update all button states
         prev_state["trigger"] = controller.trigger_pressed
@@ -848,38 +854,59 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             current_time: Current timestamp
         """
         # MOVE button: Cycle through admin options
-        if controller.move_pressed and not prev_state["move"]:
-            if self._should_process_button(controller.serial, "move", current_time):
-                await self._handle_admin_cycle_option(controller.serial)
+        if (
+            controller.move_pressed
+            and not prev_state["move"]
+            and self._should_process_button(controller.serial, "move", current_time)
+        ):
+            await self._handle_admin_cycle_option(controller.serial)
 
         # TRIGGER button: Increase current setting value
-        if controller.trigger_pressed and not prev_state["trigger"]:
-            if self._should_process_button(controller.serial, "trigger", current_time):
-                await self._handle_admin_increase_value(controller.serial)
+        if (
+            controller.trigger_pressed
+            and not prev_state["trigger"]
+            and self._should_process_button(controller.serial, "trigger", current_time)
+        ):
+            await self._handle_admin_increase_value(controller.serial)
 
         # CROSS button: Decrease current setting value
-        if controller.cross_pressed and not prev_state["cross"]:
-            if self._should_process_button(controller.serial, "cross", current_time):
-                await self._handle_admin_decrease_value(controller.serial)
+        if (
+            controller.cross_pressed
+            and not prev_state["cross"]
+            and self._should_process_button(controller.serial, "cross", current_time)
+        ):
+            await self._handle_admin_decrease_value(controller.serial)
 
         # Circle button: Cycle sensitivity (quick access)
-        if controller.circle_pressed and not prev_state["circle"]:
-            if self._should_process_button(controller.serial, "circle", current_time):
-                await self._handle_admin_sensitivity(controller.serial)
+        if (
+            controller.circle_pressed
+            and not prev_state["circle"]
+            and self._should_process_button(controller.serial, "circle", current_time)
+        ):
+            await self._handle_admin_sensitivity(controller.serial)
 
         # Triangle button: Show battery levels (quick access)
-        if controller.triangle_pressed and not prev_state["triangle"]:
-            if self._should_process_button(controller.serial, "triangle", current_time):
-                await self._handle_admin_battery(controller.serial)
+        if (
+            controller.triangle_pressed
+            and not prev_state["triangle"]
+            and self._should_process_button(controller.serial, "triangle", current_time)
+        ):
+            await self._handle_admin_battery(controller.serial)
 
         # Square button: Toggle instructions (quick access)
-        if controller.square_pressed and not prev_state["square"]:
-            if self._should_process_button(controller.serial, "square", current_time):
-                await self._handle_admin_instructions(controller.serial)
+        if (
+            controller.square_pressed
+            and not prev_state["square"]
+            and self._should_process_button(controller.serial, "square", current_time)
+        ):
+            await self._handle_admin_instructions(controller.serial)
 
         # PlayStation button: Exit admin mode
-        if controller.ps_pressed and not prev_state["ps"]:
-            if self._should_process_button(controller.serial, "ps", current_time):
+        if (
+            controller.ps_pressed
+            and not prev_state["ps"]
+            and self._should_process_button(controller.serial, "ps", current_time)
+        ):
                 await self._exit_admin_mode()
 
     async def _handle_admin_sensitivity(self, serial: str):

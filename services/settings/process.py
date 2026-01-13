@@ -250,14 +250,15 @@ class SettingsProcess(Process):
                 return False, f"Value {value} above maximum {schema['max']}"
 
         # Check allowed values (for str)
-        if expected_type is str:
-            if "allowed_values" in schema and value not in schema["allowed_values"]:
-                return False, f"Value '{value}' not in allowed values: {schema['allowed_values']}"
+        if (
+            expected_type is str
+            and "allowed_values" in schema
+            and value not in schema["allowed_values"]
+        ):
+            return False, f"Value '{value}' not in allowed values: {schema['allowed_values']}"
 
         # Check list items (for list)
-        if expected_type is list:
-            # Validate random_modes specifically
-            if key == "random_modes":
+        if expected_type is list and key == "random_modes":
                 valid_games = [g.name for g in Games if g != Games.JoustTeams and g != Games.Random]
                 for item in value:
                     if item not in valid_games:

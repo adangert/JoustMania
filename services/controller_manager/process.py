@@ -229,10 +229,12 @@ class ControllerManagerProcess(Process):
                 # If not already tracked, pair it
                 if move_serial not in self.tracked_moves:
                     # Check if USB connected, pair if so
-                    if move.connection_type == psmove.Conn_USB:
-                        if move_serial not in self.paired_moves:
-                            logger.info(f"Pairing USB controller: {move_serial}")
-                            self.pair_usb_move(move)
+                    if (
+                        move.connection_type == psmove.Conn_USB
+                        and move_serial not in self.paired_moves
+                    ):
+                        logger.info(f"Pairing USB controller: {move_serial}")
+                        self.pair_usb_move(move)
 
                     # Spawn tracking process
                     logger.info(f"Spawning process for controller: {move_serial}")

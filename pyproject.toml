@@ -73,6 +73,7 @@ exclude = [
     "proto/*_pb2_grpc.py",
     "scripts/testing",  # Testing scripts
     "tools",  # Utility scripts
+    "tests/integration",  # Integration tests
     "services/game_coordinator/games/legacy_archived",  # Legacy archived games
 ]
 
@@ -105,7 +106,7 @@ ignore = [
 
 # gRPC service methods MUST use PascalCase per protobuf convention
 "services/*/server.py" = ["N802"]
-"services/*/mock_server.py" = ["N802"]
+"services/*/mock_server.py" = ["N802", "ASYNC110"]  # Mock servers use sleep in loops
 
 # Integration tests need to modify sys.path before imports and mock gRPC methods (PascalCase)
 "services/game_coordinator/test_*_integration.py" = ["E402", "N802"]

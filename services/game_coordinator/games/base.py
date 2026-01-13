@@ -732,7 +732,7 @@ class BaseGameMode(ABC):
 
             context = otel_context.get_current()
 
-        span = tracer.start_span(
+        return tracer.start_span(
             f"player_{serial}_lifecycle",
             context=context,
             attributes={
@@ -742,7 +742,6 @@ class BaseGameMode(ABC):
                 "game.mode": self.get_game_name(),
             },
         )
-        return span
 
     async def _play_sound(self, sound_path: str, priority: int = 2):
         """

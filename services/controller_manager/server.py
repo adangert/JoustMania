@@ -1538,12 +1538,10 @@ class ControllerManagerServicer(
         # Get cache entry for this controller
         cache_entry = self.state_cache.get(serial)
 
-        if cache_entry:
-            # Check if state changed
-            if cache_entry["snapshot_hash"] == current_hash:
-                # State unchanged, return cached protobuf message (Phase 38: Track cache hit)
-                metrics.state_cache_hits_total.inc()
-                return cache_entry["cached_state"]
+        if cache_entry and cache_entry["snapshot_hash"] == current_hash:
+            # State unchanged, return cached protobuf message (Phase 38: Track cache hit)
+            metrics.state_cache_hits_total.inc()
+            return cache_entry["cached_state"]
 
         # State changed or not cached yet - rebuild (Phase 38: Track cache miss)
         metrics.state_cache_misses_total.inc()

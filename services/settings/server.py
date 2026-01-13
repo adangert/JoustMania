@@ -311,14 +311,17 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
                     return False, f"Value {value} above maximum {schema['max']}"
 
             # Check allowed values (for str)
-            if expected_type is str:
-                if "allowed_values" in schema and value not in schema["allowed_values"]:
-                    span.set_attribute("validation.result", "invalid")
-                    span.set_attribute("validation.reason", "not_allowed")
-                    return (
-                        False,
-                        f"Value '{value}' not in allowed values: {schema['allowed_values']}",
-                    )
+            if (
+                expected_type is str
+                and "allowed_values" in schema
+                and value not in schema["allowed_values"]
+            ):
+                span.set_attribute("validation.result", "invalid")
+                span.set_attribute("validation.reason", "not_allowed")
+                return (
+                    False,
+                    f"Value '{value}' not in allowed values: {schema['allowed_values']}",
+                )
 
             # Check list items (for list)
             if expected_type is list and key == "random_modes":

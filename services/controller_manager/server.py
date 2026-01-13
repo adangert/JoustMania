@@ -45,18 +45,8 @@ from proto import controller_manager_pb2, controller_manager_pb2_grpc
 from services.controller_manager import metrics
 from services.controller_manager.effects_base import ControllerEffectsBase
 
-# PS Move imports (optional for testing)
-try:
-    from multiprocessing import Process
-
-    import pair as pair_module
-    import psmove
-    from controller_state import ControllerState
-
-    PSMOVE_AVAILABLE = True
-except ImportError:
-    PSMOVE_AVAILABLE = False
-    logging.warning("psmove not available - controller manager will run in mock mode")
+# Phase 57: Backend abstraction for platform independence
+from services.controller_manager.backend_factory import create_backend
 
 logger = logging.getLogger(__name__)
 
@@ -130,9 +120,13 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
     def __init__(self):
         """Initialize controller manager."""
         ControllerEffectsBase.__init__(self)  # Initialize effects base class
+
+        # Phase 57: Initialize backend (platform-agnostic)
+        self.backend = create_backend()
+        logger.info(f"Using controller backend: {self.backend.__class__.__name__}")
+
         self.tracked_controllers: dict[str, dict] = {}  # serial -> controller info
-        self.controller_states: dict[str, ControllerState] = {}  # serial -> state
-        self.controller_processes: dict[str, Process] = {}  # serial -> process
+        self.controller_states: dict[str, dict] = {}  # serial -> state dict from backend
         self.paired_serials: list[str] = []
 
         # Streaming subscribers (Phase 34: async queue and lock)
@@ -178,6 +172,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
         # Discovery thread
         self.running = True
+        self.backend_initialized = False  # Phase 57: Track backend init status
         self.discovery_thread = threading.Thread(target=self._discovery_loop, daemon=True)
         self.discovery_thread.start()
 
@@ -189,16 +184,34 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
         Phase 56: Event-driven spans - Only creates spans for actual events (controller connected),
         not for routine polling. Metrics track polling operations.
+        Phase 57: Uses backend abstraction for platform independence.
         """
+        # Initialize backend (async call in sync thread - use asyncio.run)
+        try:
+            import asyncio
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            self.backend_initialized = loop.run_until_complete(self.backend.initialize())
+            if not self.backend_initialized:
+                logger.error("Backend initialization failed - discovery loop will not run")
+                return
+            logger.info("Backend initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize backend: {e}", exc_info=True)
+            return
+
         while self.running:
             try:
                 current_time = time.time()
 
                 # Check for new controllers every second (metrics, no span)
                 with metrics.discovery_check_duration_seconds.time():
-                    if PSMOVE_AVAILABLE:
-                        self._check_for_new_controllers()
+                    self._check_for_new_controllers()
                     metrics.discovery_checks_total.inc()
+
+                # Phase 57: Update controller states from backend
+                self._update_controller_states()
 
                 # Check battery levels every 30 seconds (Phase 39 - Task 4)
                 if current_time - self.last_battery_check >= 30.0:
@@ -214,7 +227,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         metrics.rssi_checks_total.inc()
                     self.last_rssi_check = current_time
 
-                time.sleep(1.0)  # Check every second
+                time.sleep(0.016)  # ~60 Hz polling for smooth state updates
 
             except Exception as e:
                 logger.error(f"Discovery loop error: {e}", exc_info=True)
@@ -226,78 +239,104 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
         Phase 56: Event-driven spans - Only creates spans when NEW controllers are discovered.
         Routine checks are tracked via metrics only (no spans).
+        Phase 57: Uses backend abstraction instead of direct psmove.
         """
-        if not PSMOVE_AVAILABLE:
+        if not self.backend_initialized:
             return
 
         try:
-            count = psmove.count_connected()
+            # Get list of connected controllers from backend
+            connected_serials = self.backend.get_connected_controllers()
 
-            for move_num in range(count):
-                move = psmove.PSMove(move_num)
-                serial = move.get_serial()
-
+            for serial in connected_serials:
                 if serial not in self.tracked_controllers:
                     # New controller found - create event span
                     with tracer.start_as_current_span("controller_connected") as span:
                         span.set_attribute("controller.serial", serial)
-                        span.set_attribute("controller.connection_type", str(move.connection_type))
-                        span.set_attribute("psmove.count_total", count)
+                        span.set_attribute("controller.count_total", len(connected_serials))
 
                         logger.info(f"Discovered new controller: {serial}")
-
-                        # Pair if USB
-                        if move.connection_type == psmove.Conn_USB and serial not in self.paired_serials:
-                            with tracer.start_as_current_span("pair_controller") as pair_span:
-                                pair_span.set_attribute("controller.serial", serial)
-                                self._pair_controller(move, serial)
 
                         # Spawn tracking process
                         with tracer.start_as_current_span("spawn_controller_process") as spawn_span:
                             spawn_span.set_attribute("controller.serial", serial)
-                            self._spawn_controller_process(move, serial, move_num)
+                            self._spawn_controller_process(serial)
 
         except Exception as e:
             logger.error(f"Error discovering controllers: {e}", exc_info=True)
 
-    def _pair_controller(self, move, serial: str):
-        """Pair a controller via Bluetooth."""
+    def _update_controller_states(self):
+        """
+        Update states for all tracked controllers from backend (Phase 57).
+
+        Called frequently (~60 Hz) to keep states fresh for streaming.
+        """
+        if not self.backend_initialized:
+            return
+
         try:
-            pair_module.pair_move(serial)
-            self.paired_serials.append(serial)
-            logger.info(f"Paired controller {serial}")
+            import asyncio
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+            for serial in list(self.tracked_controllers.keys()):
+                try:
+                    # Get fresh state from backend
+                    state = loop.run_until_complete(self.backend.get_controller_state(serial))
+                    if state:
+                        # Update stored state
+                        self.controller_states[serial] = state
+
+                        # Update battery in tracked_controllers info
+                        if "battery" in state:
+                            self.tracked_controllers[serial]["battery"] = state["battery"]
+
+                except Exception as e:
+                    logger.debug(f"Error updating state for {serial}: {e}")
+
         except Exception as e:
-            logger.error(f"Error pairing controller {serial}: {e}", exc_info=True)
+            logger.error(f"Error updating controller states: {e}", exc_info=True)
 
-    def _spawn_controller_process(self, move, serial: str, move_num: int):
-        """Spawn a tracking process for a controller."""
+    def _spawn_controller_process(self, serial: str):
+        """
+        Spawn a tracking process for a controller.
+
+        Phase 57: Simplified to use backend for state tracking.
+        """
         try:
-            # Get battery level
-            battery = move.get_battery() if PSMOVE_AVAILABLE else 5
+            # Get initial state from backend
+            import asyncio
 
-            # Create controller state
-            controller_state = ControllerState()
-            self.controller_states[serial] = controller_state
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            state = loop.run_until_complete(self.backend.get_controller_state(serial))
+
+            if not state:
+                logger.error(f"Failed to get initial state for controller {serial}")
+                return
+
+            battery = state.get("battery", 5)
 
             # Track controller
             self.tracked_controllers[serial] = {
                 "serial": serial,
-                "move_num": move_num,
                 "battery": battery,
                 "ready": False,
                 "team": 0,
                 "connected_at": time.time(),
-                "move": move,  # Store move object for feedback operations
             }
+
+            # Store initial state
+            self.controller_states[serial] = state
 
             # Add attributes to current span (this is called within "spawn_controller_process" span)
             current_span = trace.get_current_span()
             current_span.set_attribute("controller.serial", serial)
-            current_span.set_attribute("controller.move_num", move_num)
             current_span.set_attribute("controller.battery", battery)
             current_span.add_event(
                 "controller_added_to_tracking",
-                {"serial": serial, "move_num": move_num, "battery": battery},
+                {"serial": serial, "battery": battery},
             )
 
             logger.info(f"Spawned tracking for controller {serial}")
@@ -879,7 +918,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 return controller_manager_pb2.RemoveControllerResponse(success=False, error=str(e))
 
     def SetControllerColor(self, request, context):
-        """Set LED color on controller(s) - Phase 19 feedback feature."""
+        """Set LED color on controller(s) - Phase 19 feedback feature, Phase 57 backend."""
         with tracer.start_as_current_span("SetControllerColor") as span:
             span.set_attribute("serial", request.serial or "all")
             span.set_attribute("color.r", request.color.r)
@@ -887,24 +926,22 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             span.set_attribute("color.b", request.color.b)
 
             try:
-                if not PSMOVE_AVAILABLE:
-                    logger.info(
-                        f"SetControllerColor (mock): {request.serial or 'all'} -> "
-                        f"RGB({request.color.r},{request.color.g},{request.color.b})"
-                    )
-                    return controller_manager_pb2.SetControllerColorResponse(success=True, error="")
-
                 # Determine which controllers to update
                 serials = [request.serial] if request.serial else list(self.tracked_controllers.keys())
 
                 controllers_updated = 0
+                # Phase 57: Use backend (sync wrapper for async backend)
+                import asyncio
+
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
                 for serial in serials:
                     if serial in self.tracked_controllers:
-                        info = self.tracked_controllers[serial]
-                        move = info.get("move")
-                        if move:
-                            move.set_leds(request.color.r, request.color.g, request.color.b)
-                            move.update_leds()
+                        success = loop.run_until_complete(
+                            self.backend.set_led_color(serial, request.color.r, request.color.g, request.color.b)
+                        )
+                        if success:
                             controllers_updated += 1
                             logger.debug(
                                 f"Set color on {serial}: RGB({request.color.r},{request.color.g},{request.color.b})"
@@ -919,30 +956,27 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 return controller_manager_pb2.SetControllerColorResponse(success=False, error=str(e))
 
     def SetControllerVibration(self, request, context):
-        """Set vibration on controller(s) - Phase 19 feedback feature."""
+        """Set vibration on controller(s) - Phase 19 feedback feature, Phase 57 backend."""
         with tracer.start_as_current_span("SetControllerVibration") as span:
             span.set_attribute("serial", request.serial or "all")
             span.set_attribute("intensity", request.intensity)
             span.set_attribute("duration_ms", request.duration_ms)
 
             try:
-                if not PSMOVE_AVAILABLE:
-                    logger.info(
-                        f"SetControllerVibration (mock): {request.serial or 'all'} "
-                        f"intensity={request.intensity} duration={request.duration_ms}ms"
-                    )
-                    return controller_manager_pb2.SetControllerVibrationResponse(success=True, error="")
-
                 # Determine which controllers to update
                 serials = [request.serial] if request.serial else list(self.tracked_controllers.keys())
 
                 controllers_updated = 0
+                # Phase 57: Use backend (sync wrapper for async backend)
+                import asyncio
+
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
                 for serial in serials:
                     if serial in self.tracked_controllers:
-                        info = self.tracked_controllers[serial]
-                        move = info.get("move")
-                        if move:
-                            move.set_rumble(request.intensity)
+                        success = loop.run_until_complete(self.backend.set_rumble(serial, request.intensity))
+                        if success:
                             controllers_updated += 1
                             logger.debug(f"Set vibration on {serial}: intensity={request.intensity}")
 
@@ -1046,9 +1080,10 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
     async def _set_controller_color_internal(self, serial: str, color_rgb: tuple[int, int, int]) -> bool:
         """
-        Internal method to set controller color (Phase 46).
+        Internal method to set controller color (Phase 46, Phase 57).
 
         Can be called from both SetControllerColor RPC and stream-based ColorCommand.
+        Uses backend abstraction for platform independence.
 
         Args:
             serial: Controller serial number
@@ -1058,23 +1093,17 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             True if successful, False otherwise
         """
         try:
-            if not PSMOVE_AVAILABLE:
-                logger.debug(f"_set_controller_color_internal (mock): {serial} -> RGB{color_rgb}")
-                return True
-
             if serial not in self.tracked_controllers:
                 logger.warning(f"Controller {serial} not found for color change")
                 return False
 
-            info = self.tracked_controllers[serial]
-            move = info.get("move")
-            if move:
-                move.set_leds(color_rgb[0], color_rgb[1], color_rgb[2])
-                move.update_leds()
+            # Phase 57: Use backend abstraction
+            success = await self.backend.set_led_color(serial, color_rgb[0], color_rgb[1], color_rgb[2])
+            if success:
                 logger.debug(f"Set color on {serial}: RGB{color_rgb}")
-                return True
-            logger.warning(f"No move object for controller {serial}")
-            return False
+            else:
+                logger.warning(f"Failed to set color on {serial}")
+            return success
 
         except Exception as e:
             logger.error(f"Error setting color on {serial}: {e}", exc_info=True)
@@ -1164,9 +1193,10 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
     async def _set_vibration_internal(self, serial: str, intensity: int, duration_ms: int) -> bool:
         """
-        Internal method to set controller vibration (Phase 46).
+        Internal method to set controller vibration (Phase 46, Phase 57).
 
         Can be called from both SetControllerVibration RPC and stream-based VibrationCommand.
+        Uses backend abstraction for platform independence.
 
         Args:
             serial: Controller serial number
@@ -1177,38 +1207,41 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             True if successful, False otherwise
         """
         try:
-            if not PSMOVE_AVAILABLE:
-                logger.debug(f"_set_vibration_internal (mock): {serial} intensity={intensity} duration={duration_ms}ms")
-                return True
-
             if serial not in self.tracked_controllers:
                 logger.warning(f"Controller {serial} not found for vibration")
                 return False
 
-            info = self.tracked_controllers[serial]
-            move = info.get("move")
-            if move:
-                move.set_rumble(intensity)
+            # Phase 57: Use backend abstraction
+            success = await self.backend.set_rumble(serial, intensity)
+            if success:
                 logger.debug(f"Set vibration on {serial}: intensity={intensity}")
                 # TODO: Handle duration_ms by resetting rumble after timeout
-                return True
-            logger.warning(f"No move object for controller {serial}")
-            return False
+            else:
+                logger.warning(f"Failed to set vibration on {serial}")
+            return success
 
         except Exception as e:
             logger.error(f"Error setting vibration on {serial}: {e}", exc_info=True)
             return False
 
     def _set_led_color(self, serial: str, color: tuple[int, int, int]):
-        """Helper to set LED color on a controller (Phase 31)."""
+        """
+        Helper to set LED color on a controller (Phase 31, Phase 57).
+
+        Note: This is a sync wrapper - use _set_controller_color_internal for async.
+        """
         if serial not in self.tracked_controllers:
             return
 
-        info = self.tracked_controllers[serial]
-        move = info.get("move")
-        if move and PSMOVE_AVAILABLE:
-            move.set_leds(color[0], color[1], color[2])
-            move.update_leds()
+        # Convert to async call
+        import asyncio
+
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(self.backend.set_led_color(serial, color[0], color[1], color[2]))
+        except Exception as e:
+            logger.error(f"Error setting LED color on {serial}: {e}", exc_info=True)
 
     def _check_battery_levels(self):
         """Check battery levels and warn about low batteries (Phase 39 - Task 4).
@@ -1492,21 +1525,25 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         return new_state
 
     def _build_controller_state_message(self, serial: str, info: dict) -> controller_manager_pb2.ControllerState:
-        """Build a ControllerState protobuf message (Phase 18: Use pooled objects)."""
-        # Get state snapshot if available
-        state = self.controller_states.get(serial)
+        """
+        Build a ControllerState protobuf message (Phase 18: Use pooled objects).
 
-        if state:
-            snapshot = state.get_snapshot()
-            trigger_pressed = snapshot.get("trigger", False)
-            move_pressed = snapshot.get("move", False)
-            cross_pressed = snapshot.get("cross", False)
-            circle_pressed = snapshot.get("circle", False)
-            square_pressed = snapshot.get("square", False)
-            triangle_pressed = snapshot.get("triangle", False)
-            ps_pressed = snapshot.get("ps", False)
-            accel = snapshot.get("accel", {"x": 0, "y": 0, "z": 0})
-            gyro = snapshot.get("gyro", {"x": 0, "y": 0, "z": 0})
+        Phase 57: Updated to use backend state dict instead of ControllerState object.
+        """
+        # Get state dict from backend if available
+        state_dict = self.controller_states.get(serial)
+
+        if state_dict:
+            # Phase 57: State is now a dict from backend, not ControllerState object
+            trigger_pressed = state_dict.get("trigger_button", False)
+            move_pressed = state_dict.get("move_button", False)
+            cross_pressed = state_dict.get("cross", False)
+            circle_pressed = state_dict.get("circle", False)
+            square_pressed = state_dict.get("square", False)
+            triangle_pressed = state_dict.get("triangle", False)
+            ps_pressed = state_dict.get("ps_button", False)
+            accel = state_dict.get("accel", {"x": 0, "y": 0, "z": 0})
+            gyro = state_dict.get("gyro", {"x": 0, "y": 0, "z": 0})
         else:
             trigger_pressed = False
             move_pressed = False

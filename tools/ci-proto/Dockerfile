@@ -1,8 +1,13 @@
 FROM python:3.11-slim
 
-# Install system dependencies
+# Install system dependencies (including build tools for packages with C extensions)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
+    build-essential \
+    pkg-config \
+    libasound2-dev \
+    libdbus-1-dev \
+    libglib2.0-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv

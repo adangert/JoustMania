@@ -14,9 +14,9 @@ docker run --rm \
     joustmania/ci-proto:latest \
     bash proto/generate_proto.sh
 
-# Check for uncommitted changes
+# Check for uncommitted changes (exclude bytecode - it's non-deterministic)
 cd "$PROJECT_ROOT"
-if ! git diff --exit-code proto/; then
+if ! git diff --exit-code -- proto ':(exclude)proto/__pycache__'; then
     echo "❌ Proto files are out of sync! Run 'make protos' and commit changes."
     exit 1
 fi

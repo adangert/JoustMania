@@ -54,7 +54,7 @@ class PerformanceBenchmark(unittest.TestCase):
         start = time.time()
 
         for _ in range(iterations):
-            snapshot = state.get_snapshot()
+            state.get_snapshot()
 
         elapsed = time.time() - start
         avg_latency_ms = (elapsed / iterations) * 1000
@@ -288,9 +288,9 @@ class ComparisonBenchmark(unittest.TestCase):
             # Simulate old blocking pattern
             if fake.poll():
                 ax, ay, az = fake.get_accelerometer_frame(None)
-                buttons = fake.get_buttons()
-                trigger = fake.get_trigger()
-                battery = fake.get_battery()
+                fake.get_buttons()
+                fake.get_trigger()
+                fake.get_battery()
             time.sleep(0.01)  # Old 100Hz rate
 
         elapsed = time.time() - start
@@ -322,9 +322,9 @@ class ComparisonBenchmark(unittest.TestCase):
             # New non-blocking pattern
             snapshot = state.get_snapshot()
             ax, ay, az = snapshot["accelerometer"]
-            buttons = snapshot["buttons"]
-            trigger = snapshot["trigger"]
-            battery = snapshot["battery"]
+            snapshot["buttons"]
+            snapshot["trigger"]
+            snapshot["battery"]
             time.sleep(0.01)  # Same 100Hz rate
 
         elapsed = time.time() - start

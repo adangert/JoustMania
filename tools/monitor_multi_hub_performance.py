@@ -96,33 +96,34 @@ class MultiHubPerformanceMonitor:
 
     def get_hub_stats(self):
         """Calculate per-hub statistics."""
-        hub_stats = defaultdict(lambda: {
-            'controllers': [],
-            'total_updates': 0,
-            'avg_gap_ms': 0,
-            'max_gap_ms': 0,
-            'missing_updates': 0
-        })
+        hub_stats = defaultdict(
+            lambda: {
+                "controllers": [],
+                "total_updates": 0,
+                "avg_gap_ms": 0,
+                "max_gap_ms": 0,
+                "missing_updates": 0,
+            }
+        )
 
         for serial, hub_name in self.hub_assignments.items():
-            hub_stats[hub_name]['controllers'].append(serial)
-            hub_stats[hub_name]['total_updates'] += self.controller_updates.get(serial, 0)
+            hub_stats[hub_name]["controllers"].append(serial)
+            hub_stats[hub_name]["total_updates"] += self.controller_updates.get(serial, 0)
 
             if serial in self.controller_gaps and self.controller_gaps[serial]:
                 gaps = self.controller_gaps[serial]
-                hub_stats[hub_name]['avg_gap_ms'] += sum(gaps) / len(gaps)
-                hub_stats[hub_name]['max_gap_ms'] = max(
-                    hub_stats[hub_name]['max_gap_ms'],
-                    max(gaps)
+                hub_stats[hub_name]["avg_gap_ms"] += sum(gaps) / len(gaps)
+                hub_stats[hub_name]["max_gap_ms"] = max(
+                    hub_stats[hub_name]["max_gap_ms"], max(gaps)
                 )
 
                 # Count missing updates (gaps >100ms)
-                hub_stats[hub_name]['missing_updates'] += sum(1 for g in gaps if g > 100)
+                hub_stats[hub_name]["missing_updates"] += sum(1 for g in gaps if g > 100)
 
         # Average the avg_gap_ms across controllers
         for hub_name, stats in hub_stats.items():
-            if stats['controllers']:
-                stats['avg_gap_ms'] /= len(stats['controllers'])
+            if stats["controllers"]:
+                stats["avg_gap_ms"] /= len(stats["controllers"])
 
         return hub_stats
 
@@ -131,22 +132,27 @@ class MultiHubPerformanceMonitor:
         controllers_seen = len(self.controller_updates)
         updates_per_sec = self.total_updates / elapsed if elapsed > 0 else 0
 
-        avg_cpu = sum(self.cpu_samples[-10:]) / len(self.cpu_samples[-10:]) if self.cpu_samples else 0
+        avg_cpu = (
+            sum(self.cpu_samples[-10:]) / len(self.cpu_samples[-10:]) if self.cpu_samples else 0
+        )
 
-        print(f"[{int(elapsed):3d}s] "
-              f"Controllers: {controllers_seen:2d} | "
-              f"Updates/s: {updates_per_sec:6.1f} | "
-              f"CPU: {avg_cpu:5.1f}% | "
-              f"Avg Interval: {sum(self.update_intervals[-30:]) / len(self.update_intervals[-30:]):.1f}ms"
-              if self.update_intervals else "[Waiting...]")
+        print(
+            f"[{int(elapsed):3d}s] "
+            f"Controllers: {controllers_seen:2d} | "
+            f"Updates/s: {updates_per_sec:6.1f} | "
+            f"CPU: {avg_cpu:5.1f}% | "
+            f"Avg Interval: {sum(self.update_intervals[-30:]) / len(self.update_intervals[-30:]):.1f}ms"
+            if self.update_intervals
+            else "[Waiting...]"
+        )
 
     def print_summary(self):
         """Print comprehensive performance summary."""
         elapsed = time.time() - self.start_time
 
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("📊 MULTI-HUB PERFORMANCE SUMMARY")
-        print("="*70)
+        print("=" * 70)
 
         # Overall metrics
         print("\n⏱️  OVERALL PERFORMANCE:")
@@ -159,7 +165,9 @@ class MultiHubPerformanceMonitor:
             avg_interval = sum(self.update_intervals) / len(self.update_intervals)
             max_interval = max(self.update_intervals)
             min_interval = min(self.update_intervals)
-            print(f"   Update interval: {avg_interval:.1f}ms avg (min: {min_interval:.1f}ms, max: {max_interval:.1f}ms)")
+            print(
+                f"   Update interval: {avg_interval:.1f}ms avg (min: {min_interval:.1f}ms, max: {max_interval:.1f}ms)"
+            )
 
         # System metrics
         if self.cpu_samples:
@@ -183,7 +191,7 @@ class MultiHubPerformanceMonitor:
             print(f"      Avg gap: {stats['avg_gap_ms']:.1f}ms")
             print(f"      Max gap: {stats['max_gap_ms']:.1f}ms")
 
-            if stats['missing_updates'] > 0:
+            if stats["missing_updates"] > 0:
                 print(f"      ⚠️  Missing updates (>100ms): {stats['missing_updates']}")
             else:
                 print("      ✅ No missing updates")
@@ -208,8 +216,8 @@ class MultiHubPerformanceMonitor:
         # Health assessment
         print("\n🏥 HEALTH ASSESSMENT:")
 
-        total_missing = sum(stats['missing_updates'] for stats in hub_stats.values())
-        max_gap_overall = max(stats['max_gap_ms'] for stats in hub_stats.values())
+        total_missing = sum(stats["missing_updates"] for stats in hub_stats.values())
+        max_gap_overall = max(stats["max_gap_ms"] for stats in hub_stats.values())
 
         if total_missing == 0 and max_gap_overall < 100:
             print("   ✅ EXCELLENT - All hubs performing optimally")
@@ -273,6 +281,7 @@ async def monitor_performance(frequency_hz: int, duration_sec: int):
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
     finally:
         await channel.close()
@@ -281,9 +290,9 @@ async def monitor_performance(frequency_hz: int, duration_sec: int):
 
 async def main():
     print("🎮 JoustMania Multi-Hub Performance Monitor")
-    print("="*70)
+    print("=" * 70)
     print("For 25-controller setup with multiple powered USB 2.0 hubs")
-    print("="*70 + "\n")
+    print("=" * 70 + "\n")
 
     # Monitor at current 30Hz setting
     await monitor_performance(frequency_hz=30, duration_sec=120)

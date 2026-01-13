@@ -74,8 +74,7 @@ def win_audio_loop(fname, ratio, stop_proc):
                 final[:, 0] = reshapel
                 final[:, 1] = reshaper
 
-                out_data = final.flatten().astype(numpy.int16).tostring()
-                return out_data
+                return final.flatten().astype(numpy.int16).tostring()
 
             # read data
             data = f.readframes(chunk)
@@ -121,7 +120,7 @@ def audio_loop(fname, ratio, stop_proc):
         if stop_proc.value == 1:
             pass
         elif fname["song"] != "":
-            if song_loaded == False:
+            if song_loaded is False:
                 try:
                     random_song = random.choice(glob.glob(fname["song"]))
                     segment = AudioSegment.from_file(random_song)

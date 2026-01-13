@@ -15,8 +15,7 @@ class TestProtoMessages:
         from proto import controller_manager_pb2
 
         config = controller_manager_pb2.GameplayStreamConfig(
-            update_frequency_hz=30,
-            serials=["controller_1", "controller_2", "controller_3"]
+            update_frequency_hz=30, serials=["controller_1", "controller_2", "controller_3"]
         )
 
         assert config.update_frequency_hz == 30
@@ -29,7 +28,7 @@ class TestProtoMessages:
 
         config = controller_manager_pb2.GameplayStreamConfig(
             update_frequency_hz=60,
-            serials=[]  # Empty = all controllers
+            serials=[],  # Empty = all controllers
         )
 
         assert config.update_frequency_hz == 60
@@ -51,13 +50,10 @@ class TestProtoMessages:
         from proto import controller_manager_pb2
 
         config = controller_manager_pb2.GameplayStreamConfig(
-            update_frequency_hz=30,
-            serials=["controller_1"]
+            update_frequency_hz=30, serials=["controller_1"]
         )
 
-        control_msg = controller_manager_pb2.GameplayStreamControl(
-            config=config
-        )
+        control_msg = controller_manager_pb2.GameplayStreamControl(config=config)
 
         assert control_msg.HasField("config")
         assert not control_msg.HasField("filter_update")
@@ -71,9 +67,7 @@ class TestProtoMessages:
             serials=["controller_1", "controller_2"]
         )
 
-        control_msg = controller_manager_pb2.GameplayStreamControl(
-            filter_update=filter_update
-        )
+        control_msg = controller_manager_pb2.GameplayStreamControl(filter_update=filter_update)
 
         assert control_msg.HasField("filter_update")
         assert not control_msg.HasField("config")
@@ -85,10 +79,7 @@ class TestProtoMessages:
 
         # Set config first
         control_msg = controller_manager_pb2.GameplayStreamControl(
-            config=controller_manager_pb2.GameplayStreamConfig(
-                update_frequency_hz=30,
-                serials=[]
-            )
+            config=controller_manager_pb2.GameplayStreamConfig(update_frequency_hz=30, serials=[])
         )
 
         assert control_msg.HasField("config")
@@ -110,9 +101,9 @@ class TestMetrics:
         from services.game_coordinator import metrics
 
         # Check Phase 45 metrics exist
-        assert hasattr(metrics, 'filtered_controllers')
-        assert hasattr(metrics, 'filter_updates_total')
-        assert hasattr(metrics, 'active_controllers')
+        assert hasattr(metrics, "filtered_controllers")
+        assert hasattr(metrics, "filter_updates_total")
+        assert hasattr(metrics, "active_controllers")
 
         # Check metrics are the correct type
         from prometheus_client import Counter, Gauge
@@ -126,7 +117,7 @@ class TestMetrics:
         from services.controller_manager import metrics
 
         # Check Phase 45 metric exists
-        assert hasattr(metrics, 'streamed_controllers')
+        assert hasattr(metrics, "streamed_controllers")
 
         # Check metric is the correct type
         from prometheus_client import Histogram

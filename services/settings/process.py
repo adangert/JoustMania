@@ -10,6 +10,7 @@ Manages settings as a separate process:
 This is part of the microservices refactoring (Phase 3).
 """
 
+import contextlib
 import fnmatch
 import logging
 import os
@@ -432,10 +433,8 @@ class SettingsProcess(Process):
         logger.info("Shutting down Settings process")
 
         # Final save
-        try:
+        with contextlib.suppress(Exception):
             self.save_settings()
-        except:
-            pass
 
         logger.info("Settings process shutdown complete")
 

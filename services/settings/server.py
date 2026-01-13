@@ -324,16 +324,15 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
                     )
 
             # Check list items (for list)
-            if expected_type == list:
-                if key == "random_modes":
-                    valid_games = [
-                        g.name for g in Games if g != Games.JoustTeams and g != Games.Random
-                    ]
-                    for item in value:
-                        if item not in valid_games:
-                            span.set_attribute("validation.result", "invalid")
-                            span.set_attribute("validation.reason", "invalid_list_item")
-                            return False, f"Invalid game mode: {item}"
+            if expected_type == list and key == "random_modes":
+                valid_games = [
+                    g.name for g in Games if g != Games.JoustTeams and g != Games.Random
+                ]
+                for item in value:
+                    if item not in valid_games:
+                        span.set_attribute("validation.result", "invalid")
+                        span.set_attribute("validation.reason", "invalid_list_item")
+                        return False, f"Invalid game mode: {item}"
 
             span.set_attribute("validation.result", "valid")
             return True, ""
@@ -539,7 +538,7 @@ async def serve(port: int = 50051, metrics_port: int = 8000):
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
     logging.basicConfig(
         level=getattr(logging, log_level, logging.INFO),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
     # Start Prometheus metrics HTTP server (Phase 38)
@@ -561,12 +560,8 @@ async def serve(port: int = 50051, metrics_port: int = 8000):
                 cpu_percent = await loop.run_in_executor(
                     None, lambda: process.cpu_percent(interval=None)
                 )
-                mem_info = await loop.run_in_executor(
-                    None, lambda: process.memory_info()
-                )
-                thread_count = await loop.run_in_executor(
-                    None, process.num_threads
-                )
+                mem_info = await loop.run_in_executor(None, lambda: process.memory_info())
+                thread_count = await loop.run_in_executor(None, process.num_threads)
 
                 metrics.process_cpu_percent.set(cpu_percent)
                 metrics.process_memory_mb.set(mem_info.rss / 1024 / 1024)

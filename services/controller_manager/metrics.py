@@ -8,136 +8,107 @@ from prometheus_client import Counter, Gauge, Histogram
 
 # Controller health metrics
 controller_battery_level = Gauge(
-    'controller_battery_level',
-    'Controller battery level (0-5)',
-    ['serial']
+    "controller_battery_level", "Controller battery level (0-5)", ["serial"]
 )
 
 controller_connected = Gauge(
-    'controller_connected',
-    'Controller connection status (0=disconnected, 1=connected)',
-    ['serial']
+    "controller_connected", "Controller connection status (0=disconnected, 1=connected)", ["serial"]
 )
 
 controller_disconnect_total = Counter(
-    'controller_disconnect_total',
-    'Total number of controller disconnects',
-    ['serial']
+    "controller_disconnect_total", "Total number of controller disconnects", ["serial"]
 )
 
 controller_reconnect_total = Counter(
-    'controller_reconnect_total',
-    'Total number of controller reconnects',
-    ['serial']
+    "controller_reconnect_total", "Total number of controller reconnects", ["serial"]
 )
 
 # Connection strength metrics (Phase 48)
 controller_rssi_dbm = Gauge(
-    'controller_rssi_dbm',
-    'Controller Bluetooth signal strength in dBm (-100 to 0, 0 = USB/unavailable)',
-    ['serial']
+    "controller_rssi_dbm",
+    "Controller Bluetooth signal strength in dBm (-100 to 0, 0 = USB/unavailable)",
+    ["serial"],
 )
 
 controller_weak_signal_warnings_total = Counter(
-    'controller_weak_signal_warnings_total',
-    'Total number of weak signal warnings displayed',
-    ['serial']
+    "controller_weak_signal_warnings_total",
+    "Total number of weak signal warnings displayed",
+    ["serial"],
 )
 
-active_controllers = Gauge(
-    'active_controllers_total',
-    'Number of currently active controllers'
-)
+active_controllers = Gauge("active_controllers_total", "Number of currently active controllers")
 
 # Input latency metrics
 controller_input_lag_seconds = Histogram(
-    'controller_input_lag_seconds',
-    'Time from button press to gRPC transmission',
-    ['serial'],
-    buckets=[0.001, 0.005, 0.010, 0.016, 0.020, 0.030, 0.050, 0.100, 0.200]
+    "controller_input_lag_seconds",
+    "Time from button press to gRPC transmission",
+    ["serial"],
+    buckets=[0.001, 0.005, 0.010, 0.016, 0.020, 0.030, 0.050, 0.100, 0.200],
 )
 
 controller_state_update_hz = Gauge(
-    'controller_state_update_hz',
-    'Controller state update frequency',
-    ['serial']
+    "controller_state_update_hz", "Controller state update frequency", ["serial"]
 )
 
 # Stream metrics
-active_streams = Gauge(
-    'controller_streams_active',
-    'Number of active controller state streams'
-)
+active_streams = Gauge("controller_streams_active", "Number of active controller state streams")
 
 stream_updates_total = Counter(
-    'controller_stream_updates_total',
-    'Total controller state updates sent',
-    ['stream_type']  # 'legacy', 'button_events', 'gameplay_data'
+    "controller_stream_updates_total",
+    "Total controller state updates sent",
+    ["stream_type"],  # 'legacy', 'button_events', 'gameplay_data'
 )
 
 button_events_total = Counter(
-    'controller_button_events_total',
-    'Total button events generated',
-    ['serial', 'button', 'action']  # action: 'press' or 'release'
+    "controller_button_events_total",
+    "Total button events generated",
+    ["serial", "button", "action"],  # action: 'press' or 'release'
 )
 
 # Cache metrics (Phase 18 validation)
 state_cache_hits_total = Counter(
-    'controller_state_cache_hits_total',
-    'Number of state cache hits (no rebuild needed)'
+    "controller_state_cache_hits_total", "Number of state cache hits (no rebuild needed)"
 )
 
 state_cache_misses_total = Counter(
-    'controller_state_cache_misses_total',
-    'Number of state cache misses (rebuild required)'
+    "controller_state_cache_misses_total", "Number of state cache misses (rebuild required)"
 )
 
 object_pool_utilization = Gauge(
-    'controller_object_pool_utilization',
-    'Object pool utilization percentage',
-    ['pool_type']  # 'controller_state' or 'vector3'
+    "controller_object_pool_utilization",
+    "Object pool utilization percentage",
+    ["pool_type"],  # 'controller_state' or 'vector3'
 )
 
 # System metrics
-process_cpu_percent = Gauge(
-    'process_cpu_percent',
-    'Process CPU usage percentage'
-)
+process_cpu_percent = Gauge("process_cpu_percent", "Process CPU usage percentage")
 
-process_memory_mb = Gauge(
-    'process_memory_mb',
-    'Process memory usage in MB'
-)
+process_memory_mb = Gauge("process_memory_mb", "Process memory usage in MB")
 
-process_threads = Gauge(
-    'process_threads',
-    'Number of active threads'
-)
+process_threads = Gauge("process_threads", "Number of active threads")
 
 # gRPC metrics
 grpc_requests_total = Counter(
-    'grpc_requests_total',
-    'Total gRPC requests received',
-    ['method', 'status']
+    "grpc_requests_total", "Total gRPC requests received", ["method", "status"]
 )
 
 grpc_request_duration_seconds = Histogram(
-    'grpc_request_duration_seconds',
-    'gRPC request duration',
-    ['method'],
-    buckets=[0.001, 0.005, 0.010, 0.025, 0.050, 0.100, 0.250, 0.500, 1.0]
+    "grpc_request_duration_seconds",
+    "gRPC request duration",
+    ["method"],
+    buckets=[0.001, 0.005, 0.010, 0.025, 0.050, 0.100, 0.250, 0.500, 1.0],
 )
 
 # Adaptive controller filtering metrics (Phase 45)
 streamed_controllers = Histogram(
-    'controller_streamed_per_frame',
-    'Number of controllers streamed per frame',
-    buckets=[1, 2, 5, 10, 15, 20, 25, 30]
+    "controller_streamed_per_frame",
+    "Number of controllers streamed per frame",
+    buckets=[1, 2, 5, 10, 15, 20, 25, 30],
 )
 
 # Stream-based feedback commands (Phase 46)
 stream_commands_total = Counter(
-    'controller_stream_commands_total',
-    'Total feedback commands received via stream',
-    ['command_type']  # 'color', 'effect', 'vibration'
+    "controller_stream_commands_total",
+    "Total feedback commands received via stream",
+    ["command_type"],  # 'color', 'effect', 'vibration'
 )

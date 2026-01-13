@@ -251,7 +251,7 @@ class TestSettingsIntegration:
         request = settings_pb2.GetSettingsRequest()
 
         try:
-            response = stub.GetSettings(request, timeout=0.001)  # 1ms timeout
+            stub.GetSettings(request, timeout=0.001)  # 1ms timeout
             # May or may not timeout depending on system speed
         except grpc.RpcError as e:
             # Timeout is acceptable
@@ -277,7 +277,7 @@ class TestSettingsLoadTest:
         """Test handling many sequential requests."""
         success_count = 0
 
-        for i in range(100):
+        for _i in range(100):
             request = settings_pb2.GetSettingRequest(key="sensitivity")
             try:
                 response = grpc_stub.GetSetting(request, timeout=5.0)

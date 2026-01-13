@@ -34,6 +34,8 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+import contextlib
+
 import psutil
 
 # Prometheus metrics (Phase 38)
@@ -95,7 +97,7 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
     def __init__(self):
         """Initialize supervisor."""
         # gRPC channel options for better performance and reliability
-        channel_options = [
+        [
             # Keep-alive settings to detect dead connections
             ("grpc.keepalive_time_ms", 30000),  # Send keepalive ping every 30s
             ("grpc.keepalive_timeout_ms", 5000),  # Wait 5s for keepalive ack
@@ -157,7 +159,9 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
 
         # Start times
         self.start_time = time.time()
-        self.process_start_times: dict[str, float] = dict.fromkeys(self.processes.keys(), self.start_time)
+        self.process_start_times: dict[str, float] = dict.fromkeys(
+            self.processes.keys(), self.start_time
+        )
 
         # Event streaming
         self.event_subscribers: dict[str, queue.Queue] = {}
@@ -493,10 +497,7 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
                 for i, controller in enumerate(controllers_response.controllers):
                     players.append(
                         game_coordinator_pb2.Player(
-                            serial=controller.serial,
-                            team=i % 2,
-                            alive=True,
-                            score=0
+                            serial=controller.serial, team=i % 2, alive=True, score=0
                         )
                     )
 
@@ -505,10 +506,7 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
                 # Call game coordinator to start game
                 # This will create a FOLLOWS_FROM link to this span
                 start_response = await self.game_coordinator_stub.StartGame(
-                    game_coordinator_pb2.StartGameRequest(
-                        game_name=game_name,
-                        players=players
-                    )
+                    game_coordinator_pb2.StartGameRequest(game_name=game_name, players=players)
                 )
 
                 if start_response.success:
@@ -532,10 +530,8 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
         # Cancel menu event listener task
         if self.menu_event_task:
             self.menu_event_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self.menu_event_task
-            except asyncio.CancelledError:
-                pass
 
         # Close gRPC channels
         if self.menu_channel:
@@ -554,7 +550,7 @@ async def serve(port=50055, metrics_port=8000):
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
     logging.basicConfig(
         level=getattr(logging, log_level, logging.INFO),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
     # Start Prometheus metrics HTTP server (Phase 38)
@@ -576,12 +572,8 @@ async def serve(port=50055, metrics_port=8000):
                 cpu_percent = await loop.run_in_executor(
                     None, lambda: process.cpu_percent(interval=None)
                 )
-                mem_info = await loop.run_in_executor(
-                    None, lambda: process.memory_info()
-                )
-                thread_count = await loop.run_in_executor(
-                    None, process.num_threads
-                )
+                mem_info = await loop.run_in_executor(None, lambda: process.memory_info())
+                thread_count = await loop.run_in_executor(None, process.num_threads)
 
                 metrics.process_cpu_percent.set(cpu_percent)
                 metrics.process_memory_mb.set(mem_info.rss / 1024 / 1024)

@@ -19,8 +19,7 @@ while not exit:
     exit = True
     for move in moves:
         print(
-            "Move %s connected via %s"
-            % (move.get_serial(), ["Bluetooth", "USB"][move.connection_type])
+            "Move {} connected via {}".format(move.get_serial(), ["Bluetooth", "USB"][move.connection_type])
         )
         move.poll()
         print("Temperature is %d" % move.get_temperature())

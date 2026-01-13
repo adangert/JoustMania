@@ -92,6 +92,7 @@ def start_discovery(hci):
                 pass
             else:
                 raise e
+    return None
 
 
 def stop_discovery(hci):
@@ -106,6 +107,7 @@ def stop_discovery(hci):
                 pass
             else:
                 raise e
+    return None
 
 
 def remove_device(hci, dev):

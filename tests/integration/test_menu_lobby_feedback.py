@@ -68,9 +68,7 @@ async def test_lobby_feedback_connection_flash(docker_compose):
 
         # Add a mock controller
         await mock_client.AddMockController(
-            controller_manager_mock_pb2.AddMockControllerRequest(
-                serial="lobby_test_1", battery=5
-            )
+            controller_manager_mock_pb2.AddMockControllerRequest(serial="lobby_test_1", battery=5)
         )
 
         # Wait for green flash to be processed
@@ -109,9 +107,7 @@ async def test_lobby_feedback_ready_state(docker_compose):
 
         # Add controller
         await mock_client.AddMockController(
-            controller_manager_mock_pb2.AddMockControllerRequest(
-                serial="lobby_test_2", battery=5
-            )
+            controller_manager_mock_pb2.AddMockControllerRequest(serial="lobby_test_2", battery=5)
         )
 
         # Wait for initial connection
@@ -172,9 +168,7 @@ async def test_lobby_feedback_game_mode_colors(docker_compose):
 
         # Add controller
         await mock_client.AddMockController(
-            controller_manager_mock_pb2.AddMockControllerRequest(
-                serial="lobby_test_3", battery=5
-            )
+            controller_manager_mock_pb2.AddMockControllerRequest(serial="lobby_test_3", battery=5)
         )
 
         # Wait for connection

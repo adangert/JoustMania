@@ -195,10 +195,7 @@ async def test_ffa_game_with_mock_controllers(docker_compose):
 
     # Enable auto game end: kill players after 12 seconds (3s countdown + 9s gameplay)
     auto_end_response = await mock_client.SetAutoGameEnd(
-        controller_manager_mock_pb2.AutoGameEndRequest(
-            duration_seconds=12.0,
-            enabled=True
-        )
+        controller_manager_mock_pb2.AutoGameEndRequest(duration_seconds=12.0, enabled=True)
     )
     assert auto_end_response.success
 
@@ -364,7 +361,7 @@ async def test_multiple_games_sequence(docker_compose):
     players = await get_ready_players(docker_compose)
 
     # Run 3 games in sequence
-    for i in range(3):
+    for _i in range(3):
         # Start game
         start_response = await game_client.StartGame(
             game_coordinator_pb2.StartGameRequest(game_name="FFA", players=players)
@@ -519,6 +516,7 @@ async def test_controller_effects(docker_compose):
 
     await channel.close()
 
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "game_mode",
@@ -562,7 +560,6 @@ async def test_staggered_player_deaths(docker_compose, game_mode):
         game_coordinator_pb2.StartGameRequest(game_name=game_mode, players=players)
     )
     assert start_response.success
-    game_id = start_response.game_id
 
     print(f"\n=== Starting {game_mode} game with staggered deaths ===")
 
@@ -605,9 +602,7 @@ async def test_staggered_player_deaths(docker_compose, game_mode):
     await wait_for_game_end(game_client, timeout=15)
 
     # Check game status
-    status_response = await game_client.GetGameStatus(
-        game_coordinator_pb2.GetGameStatusRequest()
-    )
+    status_response = await game_client.GetGameStatus(game_coordinator_pb2.GetGameStatusRequest())
     # Game should have ended automatically
     # FFA: when only 1 player remains
     # Teams/Random Teams: when only 1 team remains

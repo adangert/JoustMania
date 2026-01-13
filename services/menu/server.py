@@ -32,6 +32,8 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+import contextlib
+
 import psutil
 
 # Prometheus metrics (Phase 38)
@@ -135,7 +137,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
         self.controller_channel = create_channel(f"{controller_host}:{controller_port}")
         self.settings_channel = create_channel(f"{settings_host}:{settings_port}")
-        self.game_coordinator_channel = create_channel(f"{game_coordinator_host}:{game_coordinator_port}")
+        self.game_coordinator_channel = create_channel(
+            f"{game_coordinator_host}:{game_coordinator_port}"
+        )
 
         logger.info("Menu service initialized with persistent gRPC channels")
 
@@ -241,7 +245,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     if button == "trigger":
                         # Game requested
                         self.state = menu_pb2.MenuState.GAME_STARTING
-                        await self._publish_event("game_requested", {"game_name": self.current_selection})
+                        await self._publish_event(
+                            "game_requested", {"game_name": self.current_selection}
+                        )
                         logger.info(f"Game requested: {self.current_selection}")
 
                     elif button == "select":
@@ -350,10 +356,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.button_monitor_running = False
         if self.button_monitor_task:
             self.button_monitor_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self.button_monitor_task
-            except asyncio.CancelledError:
-                pass
             logger.info("Controller button monitor stopped")
 
     async def shutdown(self):
@@ -471,11 +475,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
     # Game mode lobby colors (Phase 39)
     # Each game mode has a distinct color in the lobby
     GAME_MODE_COLORS = {
-        "JoustFFA": (255, 140, 0),      # Orange - FFA
-        "JoustTeams": (0, 100, 255),    # Blue - Team play
-        "Tournament": (150, 0, 255),    # Purple - Competitive
-        "Werewolf": (0, 255, 100),      # Green - Mysterious
-        "NonstopJoust": (255, 50, 120), # Pink - Intense/energetic
+        "JoustFFA": (255, 140, 0),  # Orange - FFA
+        "JoustTeams": (0, 100, 255),  # Blue - Team play
+        "Tournament": (150, 0, 255),  # Purple - Competitive
+        "Werewolf": (0, 255, 100),  # Green - Mysterious
+        "NonstopJoust": (255, 50, 120),  # Pink - Intense/energetic
     }
 
     async def _update_lobby_feedback(self, controller, stub):
@@ -511,7 +515,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     controller_manager_pb2.SetControllerColorRequest(
                         serial=serial,
                         color=controller_manager_pb2.RGB(r=0, g=255, b=0),
-                        duration_ms=300
+                        duration_ms=300,
                     )
                 )
                 logger.info(f"Controller {serial} connected - green flash")
@@ -539,12 +543,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             target_state = "ready"
         else:
             # No trigger press event → maintain current state
-            current_state = self.controller_lobby_state.get(serial, "connected")
+            self.controller_lobby_state.get(serial, "connected")
             # Once ready, stay ready (don't go back to connected when releasing trigger)
-            if serial in self.ready_controllers:
-                target_state = "ready"
-            else:
-                target_state = "connected"
+            target_state = "ready" if serial in self.ready_controllers else "connected"
 
         # Only update if state changed (avoid redundant SetControllerColor calls)
         if target_state == self.controller_lobby_state.get(serial, "unknown"):
@@ -562,8 +563,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             logger.info(f"Controller {serial} ready ({self.ready_controller_count} total)")
 
             # Auto-start: If all connected controllers are ready (and at least 2), trigger game start
-            if (len(self.ready_controllers) >= 2 and
-                len(self.ready_controllers) == len(self.connected_controllers)):
+            if len(self.ready_controllers) >= 2 and len(self.ready_controllers) == len(
+                self.connected_controllers
+            ):
                 logger.info("All controllers ready - auto-starting game!")
                 await self._handle_trigger_press(serial)
 
@@ -575,27 +577,29 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         # Get base color for current game mode
         base_color = self.GAME_MODE_COLORS.get(
             self.current_selection,
-            (255, 140, 0)  # Default to orange if game mode not found
+            (255, 140, 0),  # Default to orange if game mode not found
         )
 
         # Set LED color based on state
         try:
             if target_state == "ready":
                 # Bright version (100% brightness)
-                color = controller_manager_pb2.RGB(r=base_color[0], g=base_color[1], b=base_color[2])
+                color = controller_manager_pb2.RGB(
+                    r=base_color[0], g=base_color[1], b=base_color[2]
+                )
             else:
                 # Dim version (~50% brightness)
                 color = controller_manager_pb2.RGB(
                     r=int(base_color[0] * 0.5),
                     g=int(base_color[1] * 0.5),
-                    b=int(base_color[2] * 0.5)
+                    b=int(base_color[2] * 0.5),
                 )
 
             await stub.SetControllerColor(
                 controller_manager_pb2.SetControllerColorRequest(
                     serial=serial,
                     color=color,
-                    duration_ms=0  # Persistent until changed
+                    duration_ms=0,  # Persistent until changed
                 )
             )
 
@@ -603,7 +607,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             self.controller_lobby_state[serial] = target_state
             self.last_lobby_feedback_update[serial] = current_time
 
-            logger.debug(f"Controller {serial} lobby state: {target_state} (game: {self.current_selection})")
+            logger.debug(
+                f"Controller {serial} lobby state: {target_state} (game: {self.current_selection})"
+            )
 
         except Exception as e:
             logger.error(f"Failed to update lobby feedback for {serial}: {e}")
@@ -740,7 +746,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 color_request = controller_manager_pb2.SetControllerColorRequest(
                     serial=serial,
                     color=controller_manager_pb2.RGB(r=255, g=255, b=255),
-                    duration_ms=0  # Persistent white
+                    duration_ms=0,  # Persistent white
                 )
                 await stub.SetControllerColor(color_request)
 
@@ -778,30 +784,28 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         # Get base color for current game mode
                         base_color = self.GAME_MODE_COLORS.get(
                             self.current_selection,
-                            (255, 140, 0)  # Default to orange
+                            (255, 140, 0),  # Default to orange
                         )
 
                         # Determine if controller was ready before entering admin mode
                         if serial in self.ready_controllers:
                             # Bright version (ready)
                             color = controller_manager_pb2.RGB(
-                                r=base_color[0],
-                                g=base_color[1],
-                                b=base_color[2]
+                                r=base_color[0], g=base_color[1], b=base_color[2]
                             )
                         else:
                             # Dim version (connected but not ready)
                             color = controller_manager_pb2.RGB(
                                 r=int(base_color[0] * 0.5),
                                 g=int(base_color[1] * 0.5),
-                                b=int(base_color[2] * 0.5)
+                                b=int(base_color[2] * 0.5),
                             )
 
                         # Restore lobby color
                         color_request = controller_manager_pb2.SetControllerColorRequest(
                             serial=serial,
                             color=color,
-                            duration_ms=0  # Persistent
+                            duration_ms=0,  # Persistent
                         )
                         await stub.SetControllerColor(color_request)
 
@@ -812,7 +816,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         logger.info(f"Restored lobby color for {serial} after exiting admin mode")
 
                     except Exception as e:
-                        logger.error(f"Error restoring lobby color after admin mode: {e}", exc_info=True)
+                        logger.error(
+                            f"Error restoring lobby color after admin mode: {e}", exc_info=True
+                        )
 
                 self.admin_mode_active = False
                 self.admin_mode_controller = None
@@ -913,17 +919,15 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
                 # Update setting
                 update_request = settings_pb2.UpdateSettingRequest(
-                    key="sensitivity",
-                    value=new_value,
-                    source="admin_mode"
+                    key="sensitivity", value=new_value, source="admin_mode"
                 )
                 await settings_stub.UpdateSetting(update_request)
 
                 # Visual feedback: Color by sensitivity level
                 sensitivity_colors = [
-                    (0, 0, 255),    # Slow: Blue
-                    (0, 255, 0),    # Medium: Green
-                    (255, 0, 0)     # Fast: Red
+                    (0, 0, 255),  # Slow: Blue
+                    (0, 255, 0),  # Medium: Green
+                    (255, 0, 0),  # Fast: Red
                 ]
                 color = sensitivity_colors[int(new_value)]
 
@@ -943,12 +947,17 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 await controller_stub.PlayControllerEffect(effect_request)
 
                 sensitivity_names = ["Slow", "Medium", "Fast"]
-                span.add_event("sensitivity_changed", {
-                    "old_value": current,
-                    "new_value": new_value,
-                    "sensitivity_name": sensitivity_names[int(new_value)]
-                })
-                logger.info(f"Sensitivity changed by admin controller {serial}: {current} → {new_value} ({sensitivity_names[int(new_value)]})")
+                span.add_event(
+                    "sensitivity_changed",
+                    {
+                        "old_value": current,
+                        "new_value": new_value,
+                        "sensitivity_name": sensitivity_names[int(new_value)],
+                    },
+                )
+                logger.info(
+                    f"Sensitivity changed by admin controller {serial}: {current} → {new_value} ({sensitivity_names[int(new_value)]})"
+                )
 
             except Exception as e:
                 logger.error(f"Error changing sensitivity: {e}", exc_info=True)
@@ -1043,9 +1052,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
                 # Update setting
                 update_request = settings_pb2.UpdateSettingRequest(
-                    key="instructions",
-                    value=new_value,
-                    source="admin_mode"
+                    key="instructions", value=new_value, source="admin_mode"
                 )
                 await settings_stub.UpdateSetting(update_request)
 
@@ -1070,12 +1077,13 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 )
                 await controller_stub.PlayControllerEffect(effect_request)
 
-                span.add_event("instructions_toggled", {
-                    "old_value": current,
-                    "new_value": new_value,
-                    "enabled": new_value == "true"
-                })
-                logger.info(f"Instructions toggled by admin controller {serial}: {current} → {new_value}")
+                span.add_event(
+                    "instructions_toggled",
+                    {"old_value": current, "new_value": new_value, "enabled": new_value == "true"},
+                )
+                logger.info(
+                    f"Instructions toggled by admin controller {serial}: {current} → {new_value}"
+                )
 
             except Exception as e:
                 logger.error(f"Error toggling instructions: {e}", exc_info=True)
@@ -1168,7 +1176,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     # Toggle: true ↔ false
                     # Validate boolean
                     if current_value not in ["true", "false"]:
-                        logger.warning(f"Invalid force_all_start value {current_value}, resetting to false")
+                        logger.warning(
+                            f"Invalid force_all_start value {current_value}, resetting to false"
+                        )
                         current_value = "false"
                     new_value = "true" if current_value == "false" else "false"
                 else:
@@ -1229,7 +1239,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     # Toggle: true ↔ false
                     # Validate boolean
                     if current_value not in ["true", "false"]:
-                        logger.warning(f"Invalid force_all_start value {current_value}, resetting to false")
+                        logger.warning(
+                            f"Invalid force_all_start value {current_value}, resetting to false"
+                        )
                         current_value = "false"
                     new_value = "false" if current_value == "true" else "true"
                 else:
@@ -1269,9 +1281,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
         try:
             # Use persistent channel (Phase 26)
-            stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
-                self.controller_channel
-            )
+            stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
 
             if option_name == "num_teams":
                 # Flash white N times (where N = team count)
@@ -1308,7 +1318,7 @@ async def serve(port=50054, metrics_port=8000):
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
     logging.basicConfig(
         level=getattr(logging, log_level, logging.INFO),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
     # Start Prometheus metrics HTTP server (Phase 38)
@@ -1330,12 +1340,8 @@ async def serve(port=50054, metrics_port=8000):
                 cpu_percent = await loop.run_in_executor(
                     None, lambda: process.cpu_percent(interval=None)
                 )
-                mem_info = await loop.run_in_executor(
-                    None, lambda: process.memory_info()
-                )
-                thread_count = await loop.run_in_executor(
-                    None, process.num_threads
-                )
+                mem_info = await loop.run_in_executor(None, lambda: process.memory_info())
+                thread_count = await loop.run_in_executor(None, process.num_threads)
 
                 metrics.process_cpu_percent.set(cpu_percent)
                 metrics.process_memory_mb.set(mem_info.rss / 1024 / 1024)

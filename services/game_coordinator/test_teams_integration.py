@@ -164,7 +164,7 @@ class MockControllerManagerService:
                     team=controller.team,
                     color=controller.color,
                     accel=controller.accel,
-                    gyro=controller.gyro
+                    gyro=controller.gyro,
                 )
                 gameplay_data_list.append(gd)
 
@@ -305,7 +305,7 @@ async def test_teams_game_with_three_teams(mock_settings, event_collector):
         """Stream with Team 1 controllers dying."""
         start_time = time.time()
 
-        for i in range(200):  # Run for ~3.3 seconds
+        for _i in range(200):  # Run for ~3.3 seconds
             elapsed = time.time() - start_time
 
             for idx, controller in enumerate(mock_cm.controllers):
@@ -378,7 +378,7 @@ async def test_teams_game_settings_loaded(mock_controller_manager, mock_settings
 
     # Verify settings were loaded
     assert game.sensitivity == teams.Sensitivity.FAST
-    assert game.play_audio == True
+    assert game.play_audio is True
 
     print("✅ Teams settings loading test passed!")
 
@@ -422,7 +422,7 @@ async def test_teams_game_force_end(mock_settings, event_collector):
         pytest.fail("Game did not end after force_end() was called")
 
     # Verify game stopped
-    assert game.running == False
+    assert game.running is False
 
     print("✅ Teams force end test passed!")
 

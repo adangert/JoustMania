@@ -59,7 +59,7 @@ from services.webui import metrics
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
     level=getattr(logging, log_level, logging.INFO),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -125,7 +125,7 @@ class SettingsForm(Form):
     mode_options = [game for game in Games if game not in [Games.Random, Games.JoustTeams]]
     random_modes = MultiCheckboxField(
         "Random Modes (for future Random game mode)",
-        choices=[(game.name, game.pretty_name) for game in mode_options]
+        choices=[(game.name, game.pretty_name) for game in mode_options],
     )
     menu_voice = SelectField(
         "Menu voice pack (for future multi-language support)",
@@ -145,7 +145,7 @@ class GrpcClients:
 
     def __init__(self):
         # gRPC channel options for better performance and reliability
-        channel_options = [
+        [
             # Keep-alive settings to detect dead connections
             ("grpc.keepalive_time_ms", 30000),  # Send keepalive ping every 30s
             ("grpc.keepalive_timeout_ms", 5000),  # Wait 5s for keepalive ack
@@ -394,7 +394,7 @@ class WebUI:
                     battery_status={},
                     rssi_display={},
                     rssi_classes={},
-                    levels=Opts.battery_levels_dict()
+                    levels=Opts.battery_levels_dict(),
                 )
 
             except grpc.RpcError as e:
@@ -404,7 +404,7 @@ class WebUI:
                     battery_status={},
                     rssi_display={},
                     rssi_classes={},
-                    levels=Opts.battery_levels_dict()
+                    levels=Opts.battery_levels_dict(),
                 )
 
     def power(self):
@@ -467,6 +467,7 @@ class WebUI:
                     random_modes_value = current_settings.get("random_modes", "[]")
                     if isinstance(random_modes_value, str):
                         import yaml
+
                         random_modes_list = yaml.safe_load(random_modes_value)
                     else:
                         random_modes_list = random_modes_value
@@ -552,6 +553,7 @@ def serve(metrics_port=8000):
     def collect_system_metrics():
         """Background thread to collect system metrics every 10 seconds."""
         import time
+
         process = psutil.Process()
         while True:
             try:

@@ -38,23 +38,21 @@ def mock_event_publisher():
 @pytest.fixture
 def ffa_game(mock_controller_client, mock_settings_client, mock_event_publisher):
     """Create FFAGame instance."""
-    game = FFAGame(
+    return FFAGame(
         controller_manager_client=mock_controller_client,
         settings_client=mock_settings_client,
         event_publisher=mock_event_publisher,
     )
-    return game
 
 
 @pytest.fixture
 def nonstop_game(mock_controller_client, mock_settings_client, mock_event_publisher):
     """Create NonstopJoustGame instance."""
-    game = NonstopJoustGame(
+    return NonstopJoustGame(
         controller_manager_client=mock_controller_client,
         settings_client=mock_settings_client,
         event_publisher=mock_event_publisher,
     )
-    return game
 
 
 class TestFFAUniqueColors:
@@ -265,14 +263,14 @@ class TestColorGeneration:
         # Convert to HSV and check hue distribution
         hues = []
         for r, g, b in colors:
-            h, s, v = colorsys.rgb_to_hsv(r/255, g/255, b/255)
+            h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
             hues.append(h)
 
         # Hues should be roughly evenly spaced
         # For 4 colors: 0, 0.25, 0.5, 0.75
         expected_spacing = 1.0 / 4
         for i in range(len(hues) - 1):
-            actual_spacing = hues[i+1] - hues[i]
+            actual_spacing = hues[i + 1] - hues[i]
             # Allow some tolerance
             assert abs(actual_spacing - expected_spacing) < 0.1
 

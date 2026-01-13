@@ -40,7 +40,7 @@ from services.audio import metrics
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
     level=getattr(logging, log_level, logging.INFO),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -234,9 +234,7 @@ class AudioManager:
                         logger.info(f"Stopped music track: {track_id}")
                         span.add_event("music_stopped")
                         return True
-                    logger.warning(
-                        f"Track ID mismatch: {track_id} != {self.current_music_track}"
-                    )
+                    logger.warning(f"Track ID mismatch: {track_id} != {self.current_music_track}")
                     return False
 
             except Exception as e:
@@ -430,12 +428,8 @@ async def serve(metrics_port=8000):
                 cpu_percent = await loop.run_in_executor(
                     None, lambda: process.cpu_percent(interval=None)
                 )
-                mem_info = await loop.run_in_executor(
-                    None, lambda: process.memory_info()
-                )
-                thread_count = await loop.run_in_executor(
-                    None, process.num_threads
-                )
+                mem_info = await loop.run_in_executor(None, lambda: process.memory_info())
+                thread_count = await loop.run_in_executor(None, process.num_threads)
 
                 metrics.process_cpu_percent.set(cpu_percent)
                 metrics.process_memory_mb.set(mem_info.rss / 1024 / 1024)

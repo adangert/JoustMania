@@ -17,7 +17,7 @@ def Main():
             try:
                 ratio = float(line)
             except ValueError:
-                print("invalid value: %s" % line)
+                print(f"invalid value: {line}")
             await music.transition_ratio(ratio)
             print("OK.")
 

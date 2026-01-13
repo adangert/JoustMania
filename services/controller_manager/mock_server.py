@@ -9,6 +9,7 @@ Provides:
 """
 
 import asyncio
+import contextlib
 import logging
 import os
 import time
@@ -78,8 +79,7 @@ class MockController:
 
 
 class MockControllerManagerService(
-    controller_manager_pb2_grpc.ControllerManagerServiceServicer,
-    ControllerEffectsBase
+    controller_manager_pb2_grpc.ControllerManagerServiceServicer, ControllerEffectsBase
 ):
     """Mock ControllerManager implementing same interface as real one.
 
@@ -127,11 +127,16 @@ class MockControllerManagerService(
                     else:
                         controllers.append(controller.to_proto())
                         # Clear death hold if expired
-                        if controller.death_hold_until > 0 and controller.death_hold_until <= current_time:
+                        if (
+                            controller.death_hold_until > 0
+                            and controller.death_hold_until <= current_time
+                        ):
                             controller.death_accel = None
                             controller.death_hold_until = 0.0
 
-                yield ControllerStateUpdate(controllers=controllers, timestamp=int(time.time() * 1000))
+                yield ControllerStateUpdate(
+                    controllers=controllers, timestamp=int(time.time() * 1000)
+                )
 
                 await asyncio.sleep(interval)
         except asyncio.CancelledError:
@@ -177,10 +182,15 @@ class MockControllerManagerService(
                     else:
                         accel = controller.accel
                         # Clear death hold if expired
-                        if controller.death_hold_until > 0 and controller.death_hold_until <= current_time:
+                        if (
+                            controller.death_hold_until > 0
+                            and controller.death_hold_until <= current_time
+                        ):
                             controller.death_accel = None
                             controller.death_hold_until = 0.0
-                            logger.debug(f"Death hold expired for {controller.serial}, reverting to normal accel")
+                            logger.debug(
+                                f"Death hold expired for {controller.serial}, reverting to normal accel"
+                            )
 
                     gd = GameplayData(
                         serial=controller.serial,
@@ -190,13 +200,12 @@ class MockControllerManagerService(
                         team=controller.team,
                         color=controller.color,
                         accel=accel,
-                        gyro=controller.gyro
+                        gyro=controller.gyro,
                     )
                     gameplay_data.append(gd)
 
                 yield GameplayDataUpdate(
-                    controllers=gameplay_data,
-                    timestamp=int(time.time() * 1000)
+                    controllers=gameplay_data, timestamp=int(time.time() * 1000)
                 )
 
                 await asyncio.sleep(interval)
@@ -231,9 +240,7 @@ class MockControllerManagerService(
                         # Initial configuration
                         current_hz = control_msg.config.update_frequency_hz
                         current_filter = (
-                            set(control_msg.config.serials)
-                            if control_msg.config.serials
-                            else None
+                            set(control_msg.config.serials) if control_msg.config.serials else None
                         )
                         logger.info(
                             f"[mock] ✅ Stream configured: {current_hz}Hz, "
@@ -261,7 +268,7 @@ class MockControllerManagerService(
                         # Process color command (Phase 46)
                         cmd = control_msg.color_command
                         target_serial = cmd.serial if cmd.serial else None
-                        for serial in self.controllers.keys():
+                        for serial in self.controllers:
                             if target_serial is None or serial == target_serial:
                                 self._set_led_color(serial, (cmd.color.r, cmd.color.g, cmd.color.b))
                         logger.debug(f"[mock] Color command: serial={cmd.serial or 'all'}")
@@ -270,7 +277,7 @@ class MockControllerManagerService(
                         # Process combined color + vibration (Phase 46)
                         cmd = control_msg.combined_feedback
                         target_serial = cmd.serial if cmd.serial else None
-                        for serial in self.controllers.keys():
+                        for serial in self.controllers:
                             if target_serial is None or serial == target_serial:
                                 self._set_led_color(serial, (cmd.color.r, cmd.color.g, cmd.color.b))
                         logger.debug(
@@ -314,7 +321,10 @@ class MockControllerManagerService(
                     else:
                         accel = controller.accel
                         # Clear death hold if expired
-                        if controller.death_hold_until > 0 and controller.death_hold_until <= current_time:
+                        if (
+                            controller.death_hold_until > 0
+                            and controller.death_hold_until <= current_time
+                        ):
                             controller.death_accel = None
                             controller.death_hold_until = 0.0
 
@@ -326,16 +336,17 @@ class MockControllerManagerService(
                         team=controller.team,
                         color=controller.color,
                         accel=accel,
-                        gyro=controller.gyro
+                        gyro=controller.gyro,
                     )
                     gameplay_data.append(gd)
 
                 if iteration == 1:
-                    logger.info(f"[mock] ✅ Yielding first update with {len(gameplay_data)} controllers")
+                    logger.info(
+                        f"[mock] ✅ Yielding first update with {len(gameplay_data)} controllers"
+                    )
 
                 yield GameplayDataUpdate(
-                    controllers=gameplay_data,
-                    timestamp=int(time.time() * 1000)
+                    controllers=gameplay_data, timestamp=int(time.time() * 1000)
                 )
 
                 if iteration % 30 == 0:  # Log every 30 iterations (~1 second at 30Hz)
@@ -349,10 +360,8 @@ class MockControllerManagerService(
         finally:
             # Cleanup
             update_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await update_task
-            except asyncio.CancelledError:
-                pass
 
     def _set_led_color(self, serial: str, color: tuple[int, int, int]):
         """Helper to set LED color on a mock controller (Phase 31 / Phase 40 override)."""
@@ -367,10 +376,7 @@ class MockControllerManagerService(
         from proto.controller_manager_pb2 import SetControllerColorResponse
 
         # Determine target controllers
-        if request.serial:
-            target_serials = [request.serial]
-        else:
-            target_serials = list(self.controllers.keys())
+        target_serials = [request.serial] if request.serial else list(self.controllers.keys())
 
         color = (request.color.r, request.color.g, request.color.b)
 
@@ -387,12 +393,11 @@ class MockControllerManagerService(
         # Mock implementation - we don't actually vibrate in mock mode
         # but we acknowledge the request
 
-        if request.serial:
-            target_serials = [request.serial]
-        else:
-            target_serials = list(self.controllers.keys())
+        target_serials = [request.serial] if request.serial else list(self.controllers.keys())
 
-        logger.debug(f"SetControllerVibration: intensity={request.intensity}, targets={len(target_serials)}")
+        logger.debug(
+            f"SetControllerVibration: intensity={request.intensity}, targets={len(target_serials)}"
+        )
         return SetControllerVibrationResponse(success=True, error="")
 
     async def PlayControllerEffect(self, request, context):
@@ -403,10 +408,7 @@ class MockControllerManagerService(
         from proto import controller_manager_pb2
 
         # Determine target controllers
-        if request.serial:
-            target_serials = [request.serial]
-        else:
-            target_serials = list(self.controllers.keys())
+        target_serials = [request.serial] if request.serial else list(self.controllers.keys())
 
         color = (request.color.r, request.color.g, request.color.b)
         duration_ms = request.duration_ms
@@ -419,10 +421,8 @@ class MockControllerManagerService(
             # Cancel any existing effect
             if serial in self.active_effects:
                 self.active_effects[serial].cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await self.active_effects[serial]
-                except asyncio.CancelledError:
-                    pass
                 del self.active_effects[serial]
 
             # Start the appropriate effect (methods inherited from ControllerEffectsBase)
@@ -486,7 +486,9 @@ class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControll
         controller.death_accel = death_vector
         controller.death_hold_until = time.time() + 2.0
 
-        logger.info(f"Simulated death for {request.serial}: magnitude={accel_mag:.2f}, holding for 2.0s")
+        logger.info(
+            f"Simulated death for {request.serial}: magnitude={accel_mag:.2f}, holding for 2.0s"
+        )
 
         return DeathResponse(success=True, accel_magnitude=accel_mag)
 
@@ -552,10 +554,8 @@ class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControll
             # Cancel existing task if any
             if self.auto_end_task and not self.auto_end_task.done():
                 self.auto_end_task.cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await self.auto_end_task
-                except asyncio.CancelledError:
-                    pass
                 self.auto_end_task = None
 
             if request.enabled:
@@ -563,7 +563,9 @@ class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControll
                 self.auto_end_task = asyncio.create_task(
                     self._auto_end_game(request.duration_seconds)
                 )
-                logger.info(f"[mock] Auto game end enabled: will kill players after {request.duration_seconds}s")
+                logger.info(
+                    f"[mock] Auto game end enabled: will kill players after {request.duration_seconds}s"
+                )
                 return AutoGameEndResponse(success=True, error="")
             logger.info("[mock] Auto game end disabled")
             return AutoGameEndResponse(success=True, error="")

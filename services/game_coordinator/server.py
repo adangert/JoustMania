@@ -169,9 +169,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     self.controller_manager_channel
                 )
             )
-            logger.info(
-                f"Connected to ControllerManager at {controller_manager_address}"
-            )
+            logger.info(f"Connected to ControllerManager at {controller_manager_address}")
 
             # Settings client (async)
             settings_address = f"{self.settings_host}:{self.settings_port}"
@@ -181,6 +179,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
             # Audio client (async) - Phase 29
             from proto import audio_pb2_grpc
+
             audio_address = f"{self.audio_host}:{self.audio_port}"
             self.audio_channel = create_channel(audio_address)
             self.audio_client = audio_pb2_grpc.AudioServiceStub(self.audio_channel)
@@ -288,7 +287,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
         # Create FOLLOWS_FROM link to the StartGame RPC span
         links = []
-        if hasattr(self, 'start_game_span_context') and self.start_game_span_context:
+        if hasattr(self, "start_game_span_context") and self.start_game_span_context:
             # Link shows: "This game span FOLLOWS_FROM the StartGame RPC span"
             links.append(Link(self.start_game_span_context))
 
@@ -388,7 +387,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     logger.info("Starting Nonstop Joust game")
 
                     # Get time limit from settings (0 = unlimited)
-                    time_limit = int(self.settings.get("nonstop_time_limit", "0"))
+                    int(self.settings.get("nonstop_time_limit", "0"))
 
                     # Create Nonstop Joust game instance
                     game = nonstop_joust.NonstopJoustGame(
@@ -457,15 +456,17 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
                 # Get live player data from current game if running
                 players_status = self.players  # Default to initial state
-                if self.current_game and hasattr(self.current_game, 'players'):
+                if self.current_game and hasattr(self.current_game, "players"):
                     # Convert game's player dict to protobuf Player list with live state
                     players_status = []
                     for serial, player in self.current_game.players.items():
-                        players_status.append(game_coordinator_pb2.Player(
-                            serial=serial,
-                            team=player.team,
-                            alive=player.alive,
-                        ))
+                        players_status.append(
+                            game_coordinator_pb2.Player(
+                                serial=serial,
+                                team=player.team,
+                                alive=player.alive,
+                            )
+                        )
 
                 return game_coordinator_pb2.GetGameStatusResponse(
                     state=self.game_state,
@@ -575,7 +576,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
             attributes = {
                 "event.type": event_type,
                 "subscribers.count": len(self.event_subscribers),
-                **{k: str(v) for k, v in data.items()}
+                **{k: str(v) for k, v in data.items()},
             }
             current_span.add_event(event_type, attributes=attributes)
 
@@ -616,11 +617,11 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
         # Close gRPC channels (Phase 26 - Part 2, Phase 34: async close)
         logger.info("Closing gRPC channels...")
-        if hasattr(self, 'controller_manager_channel') and self.controller_manager_channel:
+        if hasattr(self, "controller_manager_channel") and self.controller_manager_channel:
             await self.controller_manager_channel.close()
-        if hasattr(self, 'settings_channel') and self.settings_channel:
+        if hasattr(self, "settings_channel") and self.settings_channel:
             await self.settings_channel.close()
-        if hasattr(self, 'audio_channel') and self.audio_channel:  # Phase 29
+        if hasattr(self, "audio_channel") and self.audio_channel:  # Phase 29
             await self.audio_channel.close()
 
 
@@ -630,7 +631,7 @@ async def serve(port=50053, metrics_port=8000):
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
     logging.basicConfig(
         level=getattr(logging, log_level, logging.INFO),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
     # Start Prometheus metrics HTTP server (Phase 38)
@@ -652,12 +653,8 @@ async def serve(port=50053, metrics_port=8000):
                 cpu_percent = await loop.run_in_executor(
                     None, lambda: process.cpu_percent(interval=None)
                 )
-                mem_info = await loop.run_in_executor(
-                    None, lambda: process.memory_info()
-                )
-                thread_count = await loop.run_in_executor(
-                    None, process.num_threads
-                )
+                mem_info = await loop.run_in_executor(None, lambda: process.memory_info())
+                thread_count = await loop.run_in_executor(None, process.num_threads)
 
                 metrics.process_cpu_percent.set(cpu_percent)
                 metrics.process_memory_mb.set(mem_info.rss / 1024 / 1024)

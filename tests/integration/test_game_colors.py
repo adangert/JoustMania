@@ -91,9 +91,7 @@ async def test_ffa_unique_player_colors(docker_compose):
         colors_assigned = []
         for i in range(3):
             state = await mock_client.GetMockControllerState(
-                controller_manager_mock_pb2.GetMockControllerStateRequest(
-                    serial=f"ffa_player_{i}"
-                )
+                controller_manager_mock_pb2.GetMockControllerStateRequest(serial=f"ffa_player_{i}")
             )
             color = (state.color.r, state.color.g, state.color.b)
             colors_assigned.append(color)
@@ -159,9 +157,7 @@ async def test_teams_team_colors(docker_compose):
         colors = {}
         for i in range(4):
             state = await mock_client.GetMockControllerState(
-                controller_manager_mock_pb2.GetMockControllerStateRequest(
-                    serial=f"team_player_{i}"
-                )
+                controller_manager_mock_pb2.GetMockControllerStateRequest(serial=f"team_player_{i}")
             )
             colors[f"team_player_{i}"] = (state.color.r, state.color.g, state.color.b)
 
@@ -225,14 +221,10 @@ async def test_nonstop_unique_colors(docker_compose):
 
         # Get colors
         color1_state = await mock_client.GetMockControllerState(
-            controller_manager_mock_pb2.GetMockControllerStateRequest(
-                serial="nonstop_player_0"
-            )
+            controller_manager_mock_pb2.GetMockControllerStateRequest(serial="nonstop_player_0")
         )
         color2_state = await mock_client.GetMockControllerState(
-            controller_manager_mock_pb2.GetMockControllerStateRequest(
-                serial="nonstop_player_1"
-            )
+            controller_manager_mock_pb2.GetMockControllerStateRequest(serial="nonstop_player_1")
         )
 
         color1 = (color1_state.color.r, color1_state.color.g, color1_state.color.b)
@@ -357,9 +349,7 @@ async def test_color_persistence_during_game(docker_compose):
 
         # Capture initial colors
         state1 = await mock_client.GetMockControllerState(
-            controller_manager_mock_pb2.GetMockControllerStateRequest(
-                serial="persist_player_0"
-            )
+            controller_manager_mock_pb2.GetMockControllerStateRequest(serial="persist_player_0")
         )
         initial_color = (state1.color.r, state1.color.g, state1.color.b)
 
@@ -368,9 +358,7 @@ async def test_color_persistence_during_game(docker_compose):
 
         # Check color again - should be same (persistent)
         state2 = await mock_client.GetMockControllerState(
-            controller_manager_mock_pb2.GetMockControllerStateRequest(
-                serial="persist_player_0"
-            )
+            controller_manager_mock_pb2.GetMockControllerStateRequest(serial="persist_player_0")
         )
         current_color = (state2.color.r, state2.color.g, state2.color.b)
 

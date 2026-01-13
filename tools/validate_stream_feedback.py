@@ -32,66 +32,76 @@ def check_proto_messages():
 
         # Test ColorCommand
         color_cmd = controller_manager_pb2.ColorCommand(
-            serial="test_1",
-            color=controller_manager_pb2.RGB(r=255, g=0, b=0)
+            serial="test_1", color=controller_manager_pb2.RGB(r=255, g=0, b=0)
         )
-        print(f"✓ ColorCommand created: serial={color_cmd.serial}, color=RGB({color_cmd.color.r},{color_cmd.color.g},{color_cmd.color.b})")
+        print(
+            f"✓ ColorCommand created: serial={color_cmd.serial}, color=RGB({color_cmd.color.r},{color_cmd.color.g},{color_cmd.color.b})"
+        )
 
         # Test EffectCommand
         effect_cmd = controller_manager_pb2.EffectCommand(
             serial="test_1",
             effect=controller_manager_pb2.EFFECT_FLASH,
             color=controller_manager_pb2.RGB(r=0, g=255, b=0),
-            duration_ms=1000
+            duration_ms=1000,
         )
-        print(f"✓ EffectCommand created: serial={effect_cmd.serial}, effect={effect_cmd.effect}, duration={effect_cmd.duration_ms}ms")
+        print(
+            f"✓ EffectCommand created: serial={effect_cmd.serial}, effect={effect_cmd.effect}, duration={effect_cmd.duration_ms}ms"
+        )
 
         # Test VibrationCommand
         vib_cmd = controller_manager_pb2.VibrationCommand(
-            serial="test_1",
-            intensity=200,
-            duration_ms=500
+            serial="test_1", intensity=200, duration_ms=500
         )
-        print(f"✓ VibrationCommand created: serial={vib_cmd.serial}, intensity={vib_cmd.intensity}, duration={vib_cmd.duration_ms}ms")
+        print(
+            f"✓ VibrationCommand created: serial={vib_cmd.serial}, intensity={vib_cmd.intensity}, duration={vib_cmd.duration_ms}ms"
+        )
 
         # Test GameplayStreamControl with ColorCommand
         control_color = controller_manager_pb2.GameplayStreamControl(color_command=color_cmd)
-        print(f"✓ GameplayStreamControl with color_command: HasField={control_color.HasField('color_command')}")
+        print(
+            f"✓ GameplayStreamControl with color_command: HasField={control_color.HasField('color_command')}"
+        )
 
         # Test GameplayStreamControl with EffectCommand
         control_effect = controller_manager_pb2.GameplayStreamControl(effect_command=effect_cmd)
-        print(f"✓ GameplayStreamControl with effect_command: HasField={control_effect.HasField('effect_command')}")
+        print(
+            f"✓ GameplayStreamControl with effect_command: HasField={control_effect.HasField('effect_command')}"
+        )
 
         # Test GameplayStreamControl with VibrationCommand
         control_vib = controller_manager_pb2.GameplayStreamControl(vibration_command=vib_cmd)
-        print(f"✓ GameplayStreamControl with vibration_command: HasField={control_vib.HasField('vibration_command')}")
+        print(
+            f"✓ GameplayStreamControl with vibration_command: HasField={control_vib.HasField('vibration_command')}"
+        )
 
         # Test CombinedFeedback
         combined = controller_manager_pb2.CombinedFeedback(
             serial="test_1",
             color=controller_manager_pb2.RGB(r=255, g=0, b=0),
             vibration_intensity=255,
-            vibration_duration_ms=500
+            vibration_duration_ms=500,
         )
-        print(f"✓ CombinedFeedback created: serial={combined.serial}, rgb=({combined.color.r},{combined.color.g},{combined.color.b}), vib={combined.vibration_intensity}@{combined.vibration_duration_ms}ms")
+        print(
+            f"✓ CombinedFeedback created: serial={combined.serial}, rgb=({combined.color.r},{combined.color.g},{combined.color.b}), vib={combined.vibration_intensity}@{combined.vibration_duration_ms}ms"
+        )
 
         # Test GameplayStreamControl with CombinedFeedback
         control_combined = controller_manager_pb2.GameplayStreamControl(combined_feedback=combined)
-        print(f"✓ GameplayStreamControl with combined_feedback: HasField={control_combined.HasField('combined_feedback')}")
+        print(
+            f"✓ GameplayStreamControl with combined_feedback: HasField={control_combined.HasField('combined_feedback')}"
+        )
 
         # Test oneof behavior
         control_msg = controller_manager_pb2.GameplayStreamControl(
-            config=controller_manager_pb2.GameplayStreamConfig(
-                update_frequency_hz=30,
-                serials=[]
-            )
+            config=controller_manager_pb2.GameplayStreamConfig(update_frequency_hz=30, serials=[])
         )
-        assert control_msg.HasField('config')
+        assert control_msg.HasField("config")
 
         # Setting color_command should clear config (oneof)
         control_msg.color_command.CopyFrom(color_cmd)
-        assert control_msg.HasField('color_command')
-        assert not control_msg.HasField('config')
+        assert control_msg.HasField("color_command")
+        assert not control_msg.HasField("config")
         print("✓ oneof behavior works correctly (only one field active)")
 
         print("\n✅ All proto messages validated successfully\n")
@@ -100,6 +110,7 @@ def check_proto_messages():
     except Exception as e:
         print(f"\n❌ Proto message validation failed: {e}\n")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -116,14 +127,14 @@ def check_metrics():
         from services.controller_manager import metrics
 
         # Phase 46 metric
-        assert hasattr(metrics, 'stream_commands_total')
+        assert hasattr(metrics, "stream_commands_total")
         assert isinstance(metrics.stream_commands_total, Counter)
         print("✓ Controller Manager: stream_commands_total (Counter)")
 
         # Test metric can be updated
-        metrics.stream_commands_total.labels(command_type='color').inc()
-        metrics.stream_commands_total.labels(command_type='effect').inc()
-        metrics.stream_commands_total.labels(command_type='vibration').inc()
+        metrics.stream_commands_total.labels(command_type="color").inc()
+        metrics.stream_commands_total.labels(command_type="effect").inc()
+        metrics.stream_commands_total.labels(command_type="vibration").inc()
         print("✓ stream_commands_total metric can be updated without errors")
 
         print("\n✅ All metrics validated successfully\n")
@@ -132,6 +143,7 @@ def check_metrics():
     except Exception as e:
         print(f"\n❌ Metrics validation failed: {e}\n")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -148,19 +160,19 @@ def check_server_implementation():
         from services.controller_manager.server import ControllerManagerServicer
 
         # Check _set_controller_color_internal exists and is async
-        assert hasattr(ControllerManagerServicer, '_set_controller_color_internal')
+        assert hasattr(ControllerManagerServicer, "_set_controller_color_internal")
         method = ControllerManagerServicer._set_controller_color_internal
         assert inspect.iscoroutinefunction(method)
         print("✓ _set_controller_color_internal method exists and is async")
 
         # Check _play_effect_internal exists and is async
-        assert hasattr(ControllerManagerServicer, '_play_effect_internal')
+        assert hasattr(ControllerManagerServicer, "_play_effect_internal")
         method = ControllerManagerServicer._play_effect_internal
         assert inspect.iscoroutinefunction(method)
         print("✓ _play_effect_internal method exists and is async")
 
         # Check _set_vibration_internal exists and is async
-        assert hasattr(ControllerManagerServicer, '_set_vibration_internal')
+        assert hasattr(ControllerManagerServicer, "_set_vibration_internal")
         method = ControllerManagerServicer._set_vibration_internal
         assert inspect.iscoroutinefunction(method)
         print("✓ _set_vibration_internal method exists and is async")
@@ -171,6 +183,7 @@ def check_server_implementation():
     except Exception as e:
         print(f"\n❌ Server internal methods validation failed: {e}\n")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -183,27 +196,27 @@ def check_client_implementation():
 
     try:
         # Check base game mode
-        with open('services/game_coordinator/games/base.py') as f:
+        with open("services/game_coordinator/games/base.py") as f:
             base_content = f.read()
 
-        assert 'self.gameplay_stream' in base_content
+        assert "self.gameplay_stream" in base_content
         print("✓ base.py uses self.gameplay_stream")
 
-        assert 'combined_feedback' in base_content
+        assert "combined_feedback" in base_content
         print("✓ base.py creates CombinedFeedback messages (atomic color+vibration)")
 
         # Check that it uses stream-based feedback commands
-        assert 'GameplayStreamControl' in base_content
+        assert "GameplayStreamControl" in base_content
         print("✓ base.py creates GameplayStreamControl messages")
 
-        assert 'if self.gameplay_stream:' in base_content
+        assert "if self.gameplay_stream:" in base_content
         print("✓ base.py checks for active stream before sending commands")
 
         # Check nonstop joust
-        with open('services/game_coordinator/games/nonstop_joust.py') as f:
+        with open("services/game_coordinator/games/nonstop_joust.py") as f:
             nonstop_content = f.read()
 
-        assert 'self.gameplay_stream' in nonstop_content
+        assert "self.gameplay_stream" in nonstop_content
         print("✓ nonstop_joust.py uses self.gameplay_stream")
 
         print("\n✅ Client implementation validated successfully\n")
@@ -212,6 +225,7 @@ def check_client_implementation():
     except Exception as e:
         print(f"\n❌ Client implementation validation failed: {e}\n")
         import traceback
+
         traceback.print_exc()
         return False
 

@@ -393,9 +393,7 @@ class TeamsGameBase(BaseGameMode):
                 player.span.add_event(
                     "player_survived",
                     attributes={
-                        "game_duration": time.time() - self.start_time
-                        if self.start_time
-                        else 0,
+                        "game_duration": time.time() - self.start_time if self.start_time else 0,
                         "winner": is_winner,
                         "team": player.team,
                     },
@@ -411,9 +409,7 @@ class TeamsGameBase(BaseGameMode):
                 team.span.add_event(
                     "team_victory" if is_winning_team else "team_survived",
                     attributes={
-                        "game_duration": time.time() - self.start_time
-                        if self.start_time
-                        else 0,
+                        "game_duration": time.time() - self.start_time if self.start_time else 0,
                         "winner": is_winning_team,
                     },
                 )

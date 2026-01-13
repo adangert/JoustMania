@@ -205,9 +205,7 @@ class FFAGame(BaseGameMode):
                 player.span.add_event(
                     "victory",
                     attributes={
-                        "game_duration": time.time() - self.start_time
-                        if self.start_time
-                        else 0,
+                        "game_duration": time.time() - self.start_time if self.start_time else 0,
                         "winner": serial == winner_serial,
                     },
                 )

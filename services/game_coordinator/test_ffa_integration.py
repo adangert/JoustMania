@@ -158,7 +158,7 @@ class MockControllerManagerService:
                     team=controller.team,
                     color=controller.color,
                     accel=controller.accel,
-                    gyro=controller.gyro
+                    gyro=controller.gyro,
                 )
                 gameplay_data_list.append(gd)
 
@@ -352,7 +352,7 @@ async def test_ffa_game_settings_loaded(mock_controller_manager, mock_settings, 
 
     # Verify settings were loaded
     assert game.sensitivity == ffa.Sensitivity.FAST
-    assert game.play_audio == True
+    assert game.play_audio is True
 
     print("✅ Settings loading test passed!")
 
@@ -395,7 +395,7 @@ async def test_ffa_game_force_end(mock_settings, event_collector):
         pytest.fail("Game did not end after force_end() was called")
 
     # Verify game stopped
-    assert game.running == False
+    assert game.running is False
 
     print("✅ Force end test passed!")
 

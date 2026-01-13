@@ -32,28 +32,31 @@ def check_proto_messages():
 
         # Test GameplayStreamConfig
         config = controller_manager_pb2.GameplayStreamConfig(
-            update_frequency_hz=30,
-            serials=["test_1", "test_2"]
+            update_frequency_hz=30, serials=["test_1", "test_2"]
         )
-        print(f"✓ GameplayStreamConfig created: {config.update_frequency_hz}Hz, {len(config.serials)} serials")
+        print(
+            f"✓ GameplayStreamConfig created: {config.update_frequency_hz}Hz, {len(config.serials)} serials"
+        )
 
         # Test FilterUpdate
-        filter_update = controller_manager_pb2.FilterUpdate(
-            serials=["test_1"]
-        )
+        filter_update = controller_manager_pb2.FilterUpdate(serials=["test_1"])
         print(f"✓ FilterUpdate created: {len(filter_update.serials)} serials")
 
         # Test GameplayStreamControl with config
         control_config = controller_manager_pb2.GameplayStreamControl(config=config)
-        print(f"✓ GameplayStreamControl with config: HasField('config')={control_config.HasField('config')}")
+        print(
+            f"✓ GameplayStreamControl with config: HasField('config')={control_config.HasField('config')}"
+        )
 
         # Test GameplayStreamControl with filter_update
         control_filter = controller_manager_pb2.GameplayStreamControl(filter_update=filter_update)
-        print(f"✓ GameplayStreamControl with filter_update: HasField('filter_update')={control_filter.HasField('filter_update')}")
+        print(
+            f"✓ GameplayStreamControl with filter_update: HasField('filter_update')={control_filter.HasField('filter_update')}"
+        )
 
         # Test oneof behavior
-        assert control_config.HasField('config') and not control_config.HasField('filter_update')
-        assert control_filter.HasField('filter_update') and not control_filter.HasField('config')
+        assert control_config.HasField("config") and not control_config.HasField("filter_update")
+        assert control_filter.HasField("filter_update") and not control_filter.HasField("config")
         print("✓ oneof behavior works correctly (mutually exclusive fields)")
 
         print("\n✅ All proto messages validated successfully\n")
@@ -75,12 +78,12 @@ def check_grpc_methods():
 
         # Check servicer has the method
         servicer_class = controller_manager_pb2_grpc.ControllerManagerServiceServicer
-        assert hasattr(servicer_class, 'StreamGameplayDataDynamic')
+        assert hasattr(servicer_class, "StreamGameplayDataDynamic")
         print("✓ Server servicer has StreamGameplayDataDynamic method")
 
         # Check stub has the method
         stub_class = controller_manager_pb2_grpc.ControllerManagerServiceStub
-        assert hasattr(stub_class, 'StreamGameplayDataDynamic')
+        assert hasattr(stub_class, "StreamGameplayDataDynamic")
         print("✓ Client stub has StreamGameplayDataDynamic method")
 
         print("\n✅ All gRPC methods validated successfully\n")
@@ -104,20 +107,20 @@ def check_metrics():
         from services.game_coordinator import metrics as gc_metrics
 
         # Game Coordinator metrics
-        assert hasattr(gc_metrics, 'filtered_controllers')
+        assert hasattr(gc_metrics, "filtered_controllers")
         assert isinstance(gc_metrics.filtered_controllers, Gauge)
         print("✓ Game Coordinator: filtered_controllers (Gauge)")
 
-        assert hasattr(gc_metrics, 'filter_updates_total')
+        assert hasattr(gc_metrics, "filter_updates_total")
         assert isinstance(gc_metrics.filter_updates_total, Counter)
         print("✓ Game Coordinator: filter_updates_total (Counter)")
 
-        assert hasattr(gc_metrics, 'active_controllers')
+        assert hasattr(gc_metrics, "active_controllers")
         assert isinstance(gc_metrics.active_controllers, Gauge)
         print("✓ Game Coordinator: active_controllers (Gauge)")
 
         # Controller Manager metrics
-        assert hasattr(cm_metrics, 'streamed_controllers')
+        assert hasattr(cm_metrics, "streamed_controllers")
         assert isinstance(cm_metrics.streamed_controllers, Histogram)
         print("✓ Controller Manager: streamed_controllers (Histogram)")
 
@@ -134,6 +137,7 @@ def check_metrics():
     except Exception as e:
         print(f"\n❌ Metrics validation failed: {e}\n")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -145,12 +149,12 @@ def check_filtering_calculations():
     print("=" * 60)
 
     test_cases = [
-        (25, 25, 0, 0.0),    # Start: No filtering
-        (25, 20, 5, 20.0),   # Early: 20% reduction
+        (25, 25, 0, 0.0),  # Start: No filtering
+        (25, 20, 5, 20.0),  # Early: 20% reduction
         (25, 10, 15, 60.0),  # Mid: 60% reduction
-        (25, 5, 20, 80.0),   # Late: 80% reduction
-        (25, 2, 23, 92.0),   # Final: 92% reduction
-        (25, 1, 24, 96.0),   # Winner: 96% reduction
+        (25, 5, 20, 80.0),  # Late: 80% reduction
+        (25, 2, 23, 92.0),  # Final: 92% reduction
+        (25, 1, 24, 96.0),  # Winner: 96% reduction
     ]
 
     all_passed = True
@@ -159,9 +163,13 @@ def check_filtering_calculations():
         percent = (filtered / total) * 100 if total > 0 else 0
 
         if filtered == expected_filtered and percent == expected_percent:
-            print(f"✓ {total} total, {alive} alive → {filtered} filtered ({percent:.1f}% reduction)")
+            print(
+                f"✓ {total} total, {alive} alive → {filtered} filtered ({percent:.1f}% reduction)"
+            )
         else:
-            print(f"✗ {total} total, {alive} alive → Expected {expected_filtered} filtered, got {filtered}")
+            print(
+                f"✗ {total} total, {alive} alive → Expected {expected_filtered} filtered, got {filtered}"
+            )
             all_passed = False
 
     if all_passed:
@@ -182,11 +190,12 @@ def check_server_implementation():
         from services.controller_manager.server import ControllerManagerServicer
 
         # Check method exists
-        assert hasattr(ControllerManagerServicer, 'StreamGameplayDataDynamic')
+        assert hasattr(ControllerManagerServicer, "StreamGameplayDataDynamic")
         print("✓ ControllerManagerServicer has StreamGameplayDataDynamic method")
 
         # Check it's async
         import inspect
+
         method = ControllerManagerServicer.StreamGameplayDataDynamic
         assert inspect.iscoroutinefunction(method)
         print("✓ StreamGameplayDataDynamic is an async method")
@@ -207,23 +216,23 @@ def check_client_implementation():
 
     try:
         # Check base game mode
-        with open('services/game_coordinator/games/base.py') as f:
+        with open("services/game_coordinator/games/base.py") as f:
             base_content = f.read()
 
-        assert 'StreamGameplayDataDynamic' in base_content
+        assert "StreamGameplayDataDynamic" in base_content
         print("✓ base.py uses StreamGameplayDataDynamic")
 
-        assert 'GameplayStreamControl' in base_content
+        assert "GameplayStreamControl" in base_content
         print("✓ base.py creates GameplayStreamControl messages")
 
-        assert 'filter_update' in base_content
+        assert "filter_update" in base_content
         print("✓ base.py sends filter updates")
 
         # Check nonstop joust
-        with open('services/game_coordinator/games/nonstop_joust.py') as f:
+        with open("services/game_coordinator/games/nonstop_joust.py") as f:
             nonstop_content = f.read()
 
-        assert 'StreamGameplayDataDynamic' in nonstop_content
+        assert "StreamGameplayDataDynamic" in nonstop_content
         print("✓ nonstop_joust.py uses StreamGameplayDataDynamic")
 
         print("\n✅ Client implementation validated successfully\n")

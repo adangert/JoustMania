@@ -62,13 +62,12 @@ def mock_event_publisher():
 @pytest.fixture
 def teams_game(mock_controller_client, mock_settings_client, mock_event_publisher):
     """Create MockTeamsGame instance."""
-    game = MockTeamsGame(
+    return MockTeamsGame(
         controller_manager_client=mock_controller_client,
         settings_client=mock_settings_client,
         event_publisher=mock_event_publisher,
         num_teams=2,
     )
-    return game
 
 
 class TestTeamColorPalette:
@@ -93,7 +92,16 @@ class TestTeamColorPalette:
 
     def test_team_color_names(self):
         """Team colors should have expected names."""
-        expected_names = ["Pink", "Magenta", "Orange", "Yellow", "Green", "Turquoise", "Blue", "Purple"]
+        expected_names = [
+            "Pink",
+            "Magenta",
+            "Orange",
+            "Yellow",
+            "Green",
+            "Turquoise",
+            "Blue",
+            "Purple",
+        ]
         actual_names = [color["name"] for color in TEAM_COLORS]
         assert actual_names == expected_names
 
@@ -114,7 +122,9 @@ class TestTeamsGameBaseInit:
         assert len(teams_game.team_colors) == 2
         assert teams_game.team_colors == TEAM_COLORS[:2]
 
-    def test_multiple_teams(self, mock_controller_client, mock_settings_client, mock_event_publisher):
+    def test_multiple_teams(
+        self, mock_controller_client, mock_settings_client, mock_event_publisher
+    ):
         """Should support up to 8 teams."""
         for num_teams in range(2, 9):
             game = MockTeamsGame(
@@ -181,7 +191,9 @@ class TestSetTeamColors:
         assert request.speed == 3  # Medium pulse speed
 
     @pytest.mark.asyncio
-    async def test_set_team_colors_multiple_teams(self, mock_controller_client, mock_settings_client, mock_event_publisher):
+    async def test_set_team_colors_multiple_teams(
+        self, mock_controller_client, mock_settings_client, mock_event_publisher
+    ):
         """Should handle multiple teams correctly."""
         game = MockTeamsGame(
             controller_manager_client=mock_controller_client,
@@ -220,7 +232,9 @@ class TestSetTeamColors:
         }
 
         # Simulate error
-        teams_game.controller_manager_client.SetControllerColor.side_effect = Exception("gRPC error")
+        teams_game.controller_manager_client.SetControllerColor.side_effect = Exception(
+            "gRPC error"
+        )
 
         # Should not raise, just log error
         await teams_game._set_team_colors(pulse_effect=False, duration_ms=0)
@@ -282,6 +296,7 @@ class TestTeamColorAssignment:
     @pytest.mark.asyncio
     async def test_players_get_team_colors(self, teams_game):
         """Players should be assigned their team's color."""
+
         class MockController:
             def __init__(self, serial):
                 self.serial = serial

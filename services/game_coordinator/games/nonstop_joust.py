@@ -240,6 +240,7 @@ class NonstopJoustGame(BaseGameMode):
 
             # Get runtime config (Phase 43: Dynamic Hz adjustment like base class)
             from services.game_coordinator.runtime_config import get_config_manager
+
             config = get_config_manager().get_config()
             update_frequency_hz = config.update_frequency_hz
 
@@ -258,7 +259,7 @@ class NonstopJoustGame(BaseGameMode):
             await self.gameplay_stream.write(initial_config)
 
             # Track current alive set for detecting changes (Phase 45)
-            last_alive_serials = set(p.serial for p in self.players.values() if p.alive)
+            last_alive_serials = {p.serial for p in self.players.values() if p.alive}
             logger.info(f"Initial alive players: {len(last_alive_serials)}")
 
             # Store Hz for respawn timer calculations
@@ -278,9 +279,7 @@ class NonstopJoustGame(BaseGameMode):
 
                 # Check if alive players changed (Phase 45 - dynamic filtering)
                 # Note: Nonstop has frequent changes due to respawns
-                current_alive_serials = set(
-                    p.serial for p in self.players.values() if p.alive
-                )
+                current_alive_serials = {p.serial for p in self.players.values() if p.alive}
 
                 if current_alive_serials != last_alive_serials:
                     # Send filter update to server
@@ -298,6 +297,7 @@ class NonstopJoustGame(BaseGameMode):
 
                     # Emit filter metrics (Phase 45)
                     from services.game_coordinator import metrics
+
                     metrics.filter_updates_total.labels(game_mode=self.get_game_name()).inc()
                     metrics.active_controllers.set(len(current_alive_serials))
                     metrics.filtered_controllers.set(len(self.players) - len(current_alive_serials))
@@ -325,7 +325,7 @@ class NonstopJoustGame(BaseGameMode):
         current_time = time.time()
 
         # Use current update frequency (Phase 43: dynamic from runtime config)
-        update_frequency = getattr(self, '_current_update_frequency', 30)
+        update_frequency = getattr(self, "_current_update_frequency", 30)
 
         for serial, player in self.players.items():
             # Handle respawn countdown
@@ -543,9 +543,7 @@ class NonstopJoustGame(BaseGameMode):
                         "score": player.score,
                         "kills": player.kills,
                         "deaths": player.deaths,
-                        "game_duration": time.time() - self.start_time
-                        if self.start_time
-                        else 0,
+                        "game_duration": time.time() - self.start_time if self.start_time else 0,
                     },
                 )
                 player.span.set_status(Status(StatusCode.OK))

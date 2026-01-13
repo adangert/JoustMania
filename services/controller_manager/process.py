@@ -462,7 +462,7 @@ class ControllerManagerProcess(Process):
         Args:
             params: {'force_all': bool}
         """
-        force_all = params.get("force_all", False)
+        params.get("force_all", False)
         ready_serials = []
 
         for move_serial, menu_opts in self.menu_opts.items():
@@ -513,7 +513,7 @@ class ControllerManagerProcess(Process):
 
     def handle_reset_state(self) -> dict:
         """Reset all controller game state."""
-        for move_serial in self.tracked_moves.keys():
+        for move_serial in self.tracked_moves:
             # Reset game options to 0
             for i in range(len(self.game_opts[move_serial])):
                 self.game_opts[move_serial][i] = 0

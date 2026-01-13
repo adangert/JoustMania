@@ -111,8 +111,10 @@ class LiveDashboard:
         print("=" * 80)
         print("🎮 JOUSTMANIA LIVE PERFORMANCE DASHBOARD (Phase 43)".center(80))
         print("=" * 80)
-        print(f"⏱️  Runtime: {int(elapsed)}s | Updates: {self.total_updates} | "
-              f"Timestamp: {datetime.now().strftime('%H:%M:%S')}")
+        print(
+            f"⏱️  Runtime: {int(elapsed)}s | Updates: {self.total_updates} | "
+            f"Timestamp: {datetime.now().strftime('%H:%M:%S')}"
+        )
         print()
 
         # Core metrics (big numbers)
@@ -122,7 +124,9 @@ class LiveDashboard:
         print(f"  Latency:      {self.current_latency:6.1f} ms (avg interval)")
         print(f"  Controllers:  {self.current_controllers:3d}")
         print(f"  CPU Usage:    {self.cpu_usage[-1] if self.cpu_usage else 0:6.1f}%")
-        print(f"  Bandwidth:    {self.total_bytes / elapsed / 1024 if elapsed > 0 else 0:6.2f} KB/s")
+        print(
+            f"  Bandwidth:    {self.total_bytes / elapsed / 1024 if elapsed > 0 else 0:6.2f} KB/s"
+        )
         print()
 
         # Hub breakdown
@@ -150,7 +154,9 @@ class LiveDashboard:
         print("-" * 80)
 
         # Latency status
-        avg_latency = sum(self.update_intervals) / len(self.update_intervals) if self.update_intervals else 0
+        avg_latency = (
+            sum(self.update_intervals) / len(self.update_intervals) if self.update_intervals else 0
+        )
         if avg_latency < 40:
             latency_status = "✅ EXCELLENT (<40ms)"
         elif avg_latency < 60:
@@ -249,6 +255,7 @@ async def run_dashboard(frequency_hz: int, duration_sec: int = 300):
     except Exception as e:
         print(f"\n\n❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
     finally:
         await channel.close()
@@ -260,7 +267,9 @@ def main():
 
     parser = argparse.ArgumentParser(description="JoustMania Live Performance Dashboard")
     parser.add_argument("--hz", type=int, default=30, help="Streaming frequency (default: 30)")
-    parser.add_argument("--duration", type=int, default=300, help="Duration in seconds (default: 300)")
+    parser.add_argument(
+        "--duration", type=int, default=300, help="Duration in seconds (default: 300)"
+    )
 
     args = parser.parse_args()
 

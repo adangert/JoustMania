@@ -337,7 +337,7 @@ class BaseGameMode(ABC):
             (0, 255, 0),  # Green (1 second)
         ]
 
-        for i, (r, g, b) in enumerate(countdown_colors):
+        for _i, (r, g, b) in enumerate(countdown_colors):
             if not self.running:
                 logger.info("Countdown interrupted by force_end")
                 return
@@ -403,7 +403,7 @@ class BaseGameMode(ABC):
             logger.info("Initial config sent successfully")
 
             # Track current alive set for detecting changes
-            last_alive_serials = set(p.serial for p in self.players.values() if p.alive)
+            last_alive_serials = {p.serial for p in self.players.values() if p.alive}
             logger.info(f"Initial alive players: {len(last_alive_serials)}")
 
             # Track loop timing for actual Hz calculation (Phase 43)
@@ -420,7 +420,7 @@ class BaseGameMode(ABC):
                 if loop_iterations == 0:
                     logger.info("✅ Received first gameplay update from stream!")
 
-                iteration_start = time.time()
+                time.time()
 
                 if not self.running:
                     logger.info("Game running=False, breaking loop")
@@ -428,7 +428,9 @@ class BaseGameMode(ABC):
 
                 # Safety check: timeout if game runs too long
                 if (time.time() - loop_start_time) > MAX_GAME_DURATION:
-                    logger.error(f"Game exceeded maximum duration of {MAX_GAME_DURATION}s, forcing end")
+                    logger.error(
+                        f"Game exceeded maximum duration of {MAX_GAME_DURATION}s, forcing end"
+                    )
                     break
 
                 # Process each controller's gameplay data
@@ -436,9 +438,7 @@ class BaseGameMode(ABC):
                     await self._process_controller_state(gameplay_data)
 
                 # Check if alive players changed (Phase 45 - dynamic filtering)
-                current_alive_serials = set(
-                    p.serial for p in self.players.values() if p.alive
-                )
+                current_alive_serials = {p.serial for p in self.players.values() if p.alive}
 
                 if current_alive_serials != last_alive_serials:
                     # Send filter update to server
@@ -464,14 +464,18 @@ class BaseGameMode(ABC):
                 # Check win condition
                 if self._check_win_condition():
                     # Keep game running for 1 second to clearly show winner in traces
-                    logger.info("Win condition met, keeping game active for 1 second to show winner")
+                    logger.info(
+                        "Win condition met, keeping game active for 1 second to show winner"
+                    )
                     await asyncio.sleep(1.0)
                     break
 
                 # Check if config changed (Phase 43: Live Hz adjustment)
                 current_hz = get_config_manager().get_config().update_frequency_hz
                 if current_hz != update_frequency_hz:
-                    logger.info(f"Update frequency changed: {update_frequency_hz}Hz → {current_hz}Hz (will apply on next game)")
+                    logger.info(
+                        f"Update frequency changed: {update_frequency_hz}Hz → {current_hz}Hz (will apply on next game)"
+                    )
 
                 # Emit metrics (Phase 43)
                 loop_iterations += 1
@@ -479,7 +483,9 @@ class BaseGameMode(ABC):
                 iteration_latency_ms = (iteration_end - last_iteration_time) * 1000
 
                 metrics.game_loop_iterations_total.labels(mode=self.get_game_name()).inc()
-                metrics.game_loop_latency_ms.labels(mode=self.get_game_name()).observe(iteration_latency_ms)
+                metrics.game_loop_latency_ms.labels(mode=self.get_game_name()).observe(
+                    iteration_latency_ms
+                )
 
                 # Calculate actual Hz every 10 iterations
                 if loop_iterations % 10 == 0:
@@ -603,7 +609,7 @@ class BaseGameMode(ABC):
                     serial=serial,
                     color=controller_manager_pb2.RGB(r=255, g=0, b=0),  # Red
                     vibration_intensity=255,  # Maximum vibration
-                    vibration_duration_ms=500  # Half second
+                    vibration_duration_ms=500,  # Half second
                 )
             )
             await self.gameplay_stream.write(combined_feedback)
@@ -760,11 +766,7 @@ class BaseGameMode(ABC):
             # Prepend assets path
             full_path = f"assets/{sound_path}"
 
-            request = audio_pb2.PlaySoundRequest(
-                file_path=full_path,
-                volume=1.0,
-                priority=priority
-            )
+            request = audio_pb2.PlaySoundRequest(file_path=full_path, volume=1.0, priority=priority)
 
             # Fire-and-forget - don't wait for response
             await self.audio_client.PlaySound(request)

@@ -26,9 +26,13 @@ from proto import (
 
 @pytest.fixture(scope="module")
 def docker_compose():
-    """Fixture to start docker-compose mock environment."""
+    """Fixture to start docker-compose mock environment.
+
+    Uses docker-compose.yml with docker-compose.override.yml which enables
+    mock mode (no hardware required).
+    """
     compose = DockerCompose(
-        context=".", compose_file_name="docker-compose.mock.yml", pull=False, build=True
+        context=".", compose_file_name="docker-compose.yml", pull=False, build=True
     )
 
     compose.start()
@@ -49,8 +53,8 @@ async def test_ffa_unique_player_colors(docker_compose):
     # Get service endpoints
     gc_host = docker_compose.get_service_host("game-coordinator", 50053)
     gc_port = docker_compose.get_service_port("game-coordinator", 50053)
-    mock_host = docker_compose.get_service_host("mock-controller-manager", 50062)
-    mock_port = docker_compose.get_service_port("mock-controller-manager", 50062)
+    mock_host = docker_compose.get_service_host("controller-manager", 50062)
+    mock_port = docker_compose.get_service_port("controller-manager", 50062)
 
     gc_channel = grpc.aio.insecure_channel(f"{gc_host}:{gc_port}")
     mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
@@ -116,8 +120,8 @@ async def test_teams_team_colors(docker_compose):
     """Test Teams mode assigns team colors correctly."""
     gc_host = docker_compose.get_service_host("game-coordinator", 50053)
     gc_port = docker_compose.get_service_port("game-coordinator", 50053)
-    mock_host = docker_compose.get_service_host("mock-controller-manager", 50062)
-    mock_port = docker_compose.get_service_port("mock-controller-manager", 50062)
+    mock_host = docker_compose.get_service_host("controller-manager", 50062)
+    mock_port = docker_compose.get_service_port("controller-manager", 50062)
 
     gc_channel = grpc.aio.insecure_channel(f"{gc_host}:{gc_port}")
     mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
@@ -182,8 +186,8 @@ async def test_nonstop_unique_colors(docker_compose):
     """Test Nonstop Joust assigns unique colors."""
     gc_host = docker_compose.get_service_host("game-coordinator", 50053)
     gc_port = docker_compose.get_service_port("game-coordinator", 50053)
-    mock_host = docker_compose.get_service_host("mock-controller-manager", 50062)
-    mock_port = docker_compose.get_service_port("mock-controller-manager", 50062)
+    mock_host = docker_compose.get_service_host("controller-manager", 50062)
+    mock_port = docker_compose.get_service_port("controller-manager", 50062)
 
     gc_channel = grpc.aio.insecure_channel(f"{gc_host}:{gc_port}")
     mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
@@ -246,8 +250,8 @@ async def test_random_teams_color_pulse(docker_compose):
     """Test Random Teams shows pulsing team colors during formation."""
     gc_host = docker_compose.get_service_host("game-coordinator", 50053)
     gc_port = docker_compose.get_service_port("game-coordinator", 50053)
-    mock_host = docker_compose.get_service_host("mock-controller-manager", 50062)
-    mock_port = docker_compose.get_service_port("mock-controller-manager", 50062)
+    mock_host = docker_compose.get_service_host("controller-manager", 50062)
+    mock_port = docker_compose.get_service_port("controller-manager", 50062)
 
     gc_channel = grpc.aio.insecure_channel(f"{gc_host}:{gc_port}")
     mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
@@ -311,8 +315,8 @@ async def test_color_persistence_during_game(docker_compose):
     """Test colors persist throughout game phase."""
     gc_host = docker_compose.get_service_host("game-coordinator", 50053)
     gc_port = docker_compose.get_service_port("game-coordinator", 50053)
-    mock_host = docker_compose.get_service_host("mock-controller-manager", 50062)
-    mock_port = docker_compose.get_service_port("mock-controller-manager", 50062)
+    mock_host = docker_compose.get_service_host("controller-manager", 50062)
+    mock_port = docker_compose.get_service_port("controller-manager", 50062)
 
     gc_channel = grpc.aio.insecure_channel(f"{gc_host}:{gc_port}")
     mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")

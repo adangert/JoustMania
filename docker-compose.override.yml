@@ -14,6 +14,10 @@ services:
     privileged: false  # No hardware access needed in mock mode
     volumes: []        # Remove DBus mount
     devices: []        # Remove USB devices
+    expose:
+      - "50062"  # Mock control API (for integration tests)
+    ports:
+      - "50062:50062"  # Expose mock control API to host for testing
     environment:
       - CONTROLLER_BACKEND=mock
       - MOCK_CONTROLLER_COUNT=${MOCK_CONTROLLER_COUNT:-4}

@@ -344,8 +344,8 @@ Test and develop JoustMania **without PS Move controllers or Bluetooth hardware*
 ### Quick Start with Mock
 
 ```bash
-# Start all services with mock hardware
-docker-compose -f docker-compose.mock.yml up
+# Start all services with mock hardware (uses docker-compose.override.yml automatically)
+docker-compose up
 
 # Simulate a game with 4 mock controllers
 python scripts/testing/simulate_game.py --mode FFA --controllers 4 --duration 30

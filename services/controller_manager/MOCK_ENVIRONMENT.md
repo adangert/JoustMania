@@ -39,12 +39,17 @@ MockControllerManager (mock_server.py)
 
 ### 1. Start Mock Environment
 
+Mock mode is enabled automatically when `docker-compose.override.yml` is present (default for development).
+
 ```bash
-# Start all services with mock hardware
-docker-compose -f docker-compose.mock.yml up
+# Start all services with mock hardware (uses override file automatically)
+docker-compose up
 
 # Or in detached mode
-docker-compose -f docker-compose.mock.yml up -d
+docker-compose up -d
+
+# For production mode without mock (skip override file)
+docker-compose -f docker-compose.yml up
 ```
 
 ### 2. Run a Game Simulation
@@ -79,8 +84,8 @@ You should see complete end-to-end traces showing:
 Set the number of mock controllers via environment variable:
 
 ```yaml
-# docker-compose.mock.yml
-mock-controller-manager:
+# docker-compose.override.yml
+controller-manager:
   environment:
     - MOCK_CONTROLLER_COUNT=8  # Change from default 4 to 8 controllers
 ```
@@ -88,7 +93,7 @@ mock-controller-manager:
 Or via command line:
 
 ```bash
-MOCK_CONTROLLER_COUNT=8 docker-compose -f docker-compose.mock.yml up
+MOCK_CONTROLLER_COUNT=8 docker-compose up
 ```
 
 ### Mock Controller Properties
@@ -226,7 +231,7 @@ When using `PAUSE_BEFORE_TEARDOWN=1`:
 - Press ENTER when done to tear down
 
 These tests:
-- Start docker-compose.mock.yml using testcontainers
+- Start docker-compose.yml with override file using testcontainers
 - Connect to all services via gRPC
 - Run full game simulations
 - Verify controller control API
@@ -375,19 +380,19 @@ Mock controllers include special attributes:
 
 **Check container logs:**
 ```bash
-docker-compose -f docker-compose.mock.yml logs mock-controller-manager
+docker-compose logs controller-manager
 ```
 
 **Check health:**
 ```bash
-docker-compose -f docker-compose.mock.yml ps
+docker-compose ps
 ```
 
 ### Controller Count Mismatch
 
 **Verify environment variable:**
 ```bash
-docker-compose -f docker-compose.mock.yml config | grep MOCK_CONTROLLER_COUNT
+docker-compose config | grep MOCK_CONTROLLER_COUNT
 ```
 
 **Check via control API:**
@@ -400,12 +405,12 @@ grpcurl -plaintext localhost:50062 \
 
 **Check OTLP collector:**
 ```bash
-docker-compose -f docker-compose.mock.yml logs otel-collector
+docker-compose logs otel-collector
 ```
 
-**Verify mock controller manager telemetry:**
+**Verify controller manager telemetry:**
 ```bash
-docker-compose -f docker-compose.mock.yml logs mock-controller-manager | grep "OpenTelemetry"
+docker-compose logs controller-manager | grep "OpenTelemetry"
 ```
 
 Should see:
@@ -418,7 +423,7 @@ OpenTelemetry initialized for mock controller manager
 **Verify services are ready:**
 ```bash
 # Wait for all services to be healthy
-docker-compose -f docker-compose.mock.yml ps
+docker-compose ps
 
 # Test game coordinator connection
 grpcurl -plaintext localhost:50053 \
@@ -427,7 +432,7 @@ grpcurl -plaintext localhost:50053 \
 
 **Check game coordinator logs:**
 ```bash
-docker-compose -f docker-compose.mock.yml logs game-coordinator
+docker-compose logs game-coordinator
 ```
 
 ## Performance
@@ -448,10 +453,10 @@ Mock environment can simulate large player counts:
 
 ```bash
 # 16 players
-MOCK_CONTROLLER_COUNT=16 docker-compose -f docker-compose.mock.yml up
+MOCK_CONTROLLER_COUNT=16 docker-compose up
 
 # 100 players (stress test)
-MOCK_CONTROLLER_COUNT=100 docker-compose -f docker-compose.mock.yml up
+MOCK_CONTROLLER_COUNT=100 docker-compose up
 ```
 
 ## CI/CD Integration

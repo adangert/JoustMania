@@ -123,20 +123,27 @@ The integration tests cover:
 
 Tests use `testcontainers-python` to:
 
-1. Start `docker-compose.mock.yml` environment
+1. Start `docker-compose.yml` environment
 2. Wait for all services to be healthy
 3. Run test scenarios via gRPC
 4. Tear down environment (or pause for inspection)
 
 ### Test Fixture
 
+The tests use `docker-compose.yml` which automatically includes `docker-compose.override.yml`
+when present. The override file enables mock mode (no hardware required).
+
 ```python
 @pytest.fixture(scope="module")
 def docker_compose():
-    """Fixture to start docker-compose mock environment."""
+    """Fixture to start docker-compose mock environment.
+
+    Uses docker-compose.yml with docker-compose.override.yml which enables
+    mock mode (no hardware required).
+    """
     compose = DockerCompose(
         context=".",
-        compose_file_name="docker-compose.mock.yml",
+        compose_file_name="docker-compose.yml",
         pull=False,
         build=True
     )
@@ -202,7 +209,7 @@ Error: Cannot connect to the Docker daemon
 Error: bind: address already in use
 ```
 
-**Solution:** Stop other JoustMania instances or change ports in docker-compose.mock.yml
+**Solution:** Stop other JoustMania instances or change ports in docker-compose.yml
 
 ### Services Not Ready
 
@@ -213,7 +220,7 @@ ERROR: Connection refused
 **Solution:** Increase wait time in test fixture or check service logs:
 
 ```bash
-docker-compose -f docker-compose.mock.yml logs
+docker-compose -f docker-compose.yml logs
 ```
 
 ### Import Errors

@@ -29,9 +29,13 @@ from proto import (
 
 @pytest.fixture(scope="module")
 def docker_compose():
-    """Fixture to start docker-compose mock environment."""
+    """Fixture to start docker-compose mock environment.
+
+    Uses docker-compose.yml with docker-compose.override.yml which enables
+    mock mode (no hardware required).
+    """
     compose = DockerCompose(
-        context=".", compose_file_name="docker-compose.mock.yml", pull=False, build=True
+        context=".", compose_file_name="docker-compose.yml", pull=False, build=True
     )
 
     compose.start()
@@ -52,8 +56,8 @@ async def test_lobby_feedback_connection_flash(docker_compose):
     # Get service endpoints
     menu_host = docker_compose.get_service_host("menu", 50054)
     menu_port = docker_compose.get_service_port("menu", 50054)
-    mock_host = docker_compose.get_service_host("mock-controller-manager", 50062)
-    mock_port = docker_compose.get_service_port("mock-controller-manager", 50062)
+    mock_host = docker_compose.get_service_host("controller-manager", 50062)
+    mock_port = docker_compose.get_service_port("controller-manager", 50062)
 
     # Connect to services
     menu_channel = grpc.aio.insecure_channel(f"{menu_host}:{menu_port}")
@@ -92,8 +96,8 @@ async def test_lobby_feedback_ready_state(docker_compose):
     """Test trigger press marks controller as ready with bright color."""
     menu_host = docker_compose.get_service_host("menu", 50054)
     menu_port = docker_compose.get_service_port("menu", 50054)
-    mock_host = docker_compose.get_service_host("mock-controller-manager", 50062)
-    mock_port = docker_compose.get_service_port("mock-controller-manager", 50062)
+    mock_host = docker_compose.get_service_host("controller-manager", 50062)
+    mock_port = docker_compose.get_service_port("controller-manager", 50062)
 
     menu_channel = grpc.aio.insecure_channel(f"{menu_host}:{menu_port}")
     mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
@@ -153,8 +157,8 @@ async def test_lobby_feedback_game_mode_colors(docker_compose):
     """Test that game mode selection changes controller colors."""
     menu_host = docker_compose.get_service_host("menu", 50054)
     menu_port = docker_compose.get_service_port("menu", 50054)
-    mock_host = docker_compose.get_service_host("mock-controller-manager", 50062)
-    mock_port = docker_compose.get_service_port("mock-controller-manager", 50062)
+    mock_host = docker_compose.get_service_host("controller-manager", 50062)
+    mock_port = docker_compose.get_service_port("controller-manager", 50062)
 
     menu_channel = grpc.aio.insecure_channel(f"{menu_host}:{menu_port}")
     mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
@@ -213,8 +217,8 @@ async def test_admin_mode_white_led(docker_compose):
     """Test that admin mode shows white LED."""
     menu_host = docker_compose.get_service_host("menu", 50054)
     menu_port = docker_compose.get_service_port("menu", 50054)
-    mock_host = docker_compose.get_service_host("mock-controller-manager", 50062)
-    mock_port = docker_compose.get_service_port("mock-controller-manager", 50062)
+    mock_host = docker_compose.get_service_host("controller-manager", 50062)
+    mock_port = docker_compose.get_service_port("controller-manager", 50062)
 
     menu_channel = grpc.aio.insecure_channel(f"{menu_host}:{menu_port}")
     mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
@@ -295,8 +299,8 @@ async def test_multiple_controllers_lobby_feedback(docker_compose):
     """Test lobby feedback with multiple controllers."""
     menu_host = docker_compose.get_service_host("menu", 50054)
     menu_port = docker_compose.get_service_port("menu", 50054)
-    mock_host = docker_compose.get_service_host("mock-controller-manager", 50062)
-    mock_port = docker_compose.get_service_port("mock-controller-manager", 50062)
+    mock_host = docker_compose.get_service_host("controller-manager", 50062)
+    mock_port = docker_compose.get_service_port("controller-manager", 50062)
 
     menu_channel = grpc.aio.insecure_channel(f"{menu_host}:{menu_port}")
     mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")

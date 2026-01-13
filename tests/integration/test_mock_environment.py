@@ -1,8 +1,9 @@
 """
 Integration tests using testcontainers with mock environment.
 
-These tests spin up the entire JoustMania stack using docker-compose.mock.yml
-and run end-to-end game simulations without requiring physical hardware.
+These tests spin up the entire JoustMania stack using docker-compose.yml with
+docker-compose.override.yml (mock mode) and run end-to-end game simulations
+without requiring physical hardware.
 
 Usage:
     # Run tests normally (auto-teardown) - using uv script
@@ -48,8 +49,8 @@ from proto import (
 
 async def get_ready_players(docker_compose):
     """Helper function to get ready controllers and convert them to players."""
-    host = docker_compose.get_service_host("mock-controller-manager", 50052)
-    port = docker_compose.get_service_port("mock-controller-manager", 50052)
+    host = docker_compose.get_service_host("controller-manager", 50052)
+    port = docker_compose.get_service_port("controller-manager", 50052)
     channel = grpc.aio.insecure_channel(f"{host}:{port}")
     client = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
 
@@ -87,9 +88,13 @@ async def wait_for_game_end(game_client, timeout=10):
 
 @pytest.fixture(scope="module")
 def docker_compose():
-    """Fixture to start docker-compose mock environment."""
+    """Fixture to start docker-compose mock environment.
+
+    Uses docker-compose.yml with docker-compose.override.yml which enables
+    mock mode (no hardware required).
+    """
     compose = DockerCompose(
-        context=".", compose_file_name="docker-compose.mock.yml", pull=False, build=True
+        context=".", compose_file_name="docker-compose.yml", pull=False, build=True
     )
 
     compose.start()
@@ -156,8 +161,8 @@ async def ensure_game_stopped(docker_compose):
 async def test_mock_controller_manager_connection(docker_compose):
     """Test that we can connect to mock controller manager."""
     # Get dynamically assigned port for controller manager
-    host = docker_compose.get_service_host("mock-controller-manager", 50052)
-    port = docker_compose.get_service_port("mock-controller-manager", 50052)
+    host = docker_compose.get_service_host("controller-manager", 50052)
+    port = docker_compose.get_service_port("controller-manager", 50052)
 
     channel = grpc.aio.insecure_channel(f"{host}:{port}")
     client = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
@@ -182,8 +187,8 @@ async def test_mock_controller_manager_connection(docker_compose):
 async def test_mock_controller_control_api(docker_compose):
     """Test that we can control mock controllers via control API."""
     # Get dynamically assigned port for mock control API
-    host = docker_compose.get_service_host("mock-controller-manager", 50062)
-    port = docker_compose.get_service_port("mock-controller-manager", 50062)
+    host = docker_compose.get_service_host("controller-manager", 50062)
+    port = docker_compose.get_service_port("controller-manager", 50062)
 
     channel = grpc.aio.insecure_channel(f"{host}:{port}")
     client = controller_manager_mock_pb2_grpc.MockControllerServiceStub(channel)
@@ -232,8 +237,8 @@ async def test_ffa_game_with_mock_controllers(docker_compose):
     game_client = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(game_channel)
 
     # Connect to mock controller control
-    mock_host = docker_compose.get_service_host("mock-controller-manager", 50062)
-    mock_port = docker_compose.get_service_port("mock-controller-manager", 50062)
+    mock_host = docker_compose.get_service_host("controller-manager", 50062)
+    mock_port = docker_compose.get_service_port("controller-manager", 50062)
     mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
     mock_client = controller_manager_mock_pb2_grpc.MockControllerServiceStub(mock_channel)
 
@@ -277,8 +282,8 @@ async def test_teams_game_with_mock_controllers(docker_compose):
     game_client = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(game_channel)
 
     # Connect to mock controller control
-    mock_host = docker_compose.get_service_host("mock-controller-manager", 50062)
-    mock_port = docker_compose.get_service_port("mock-controller-manager", 50062)
+    mock_host = docker_compose.get_service_host("controller-manager", 50062)
+    mock_port = docker_compose.get_service_port("controller-manager", 50062)
     mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
     mock_client = controller_manager_mock_pb2_grpc.MockControllerServiceStub(mock_channel)
 
@@ -323,8 +328,8 @@ async def test_controller_state_streaming(docker_compose):
     """Test streaming controller states from mock controller manager."""
 
     # Get dynamically assigned port for controller manager
-    host = docker_compose.get_service_host("mock-controller-manager", 50052)
-    port = docker_compose.get_service_port("mock-controller-manager", 50052)
+    host = docker_compose.get_service_host("controller-manager", 50052)
+    port = docker_compose.get_service_port("controller-manager", 50052)
 
     channel = grpc.aio.insecure_channel(f"{host}:{port}")
     client = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
@@ -396,8 +401,8 @@ async def test_multiple_games_sequence(docker_compose):
     game_client = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(game_channel)
 
     # Connect to mock controller control
-    mock_host = docker_compose.get_service_host("mock-controller-manager", 50062)
-    mock_port = docker_compose.get_service_port("mock-controller-manager", 50062)
+    mock_host = docker_compose.get_service_host("controller-manager", 50062)
+    mock_port = docker_compose.get_service_port("controller-manager", 50062)
     mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
     mock_client = controller_manager_mock_pb2_grpc.MockControllerServiceStub(mock_channel)
 
@@ -440,8 +445,8 @@ async def test_controller_effects(docker_compose):
     """Test controller visual effects (FLASH, PULSE, RAINBOW, FADE) - Phase 31."""
 
     # Get dynamically assigned port for controller manager
-    host = docker_compose.get_service_host("mock-controller-manager", 50052)
-    port = docker_compose.get_service_port("mock-controller-manager", 50052)
+    host = docker_compose.get_service_host("controller-manager", 50052)
+    port = docker_compose.get_service_port("controller-manager", 50052)
 
     channel = grpc.aio.insecure_channel(f"{host}:{port}")
     client = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
@@ -590,8 +595,8 @@ async def test_staggered_player_deaths(docker_compose, game_mode):
     game_client = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(game_channel)
 
     # Connect to mock controller control
-    mock_host = docker_compose.get_service_host("mock-controller-manager", 50062)
-    mock_port = docker_compose.get_service_port("mock-controller-manager", 50062)
+    mock_host = docker_compose.get_service_host("controller-manager", 50062)
+    mock_port = docker_compose.get_service_port("controller-manager", 50062)
     mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
     mock_client = controller_manager_mock_pb2_grpc.MockControllerServiceStub(mock_channel)
 

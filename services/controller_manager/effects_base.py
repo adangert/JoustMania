@@ -14,7 +14,6 @@ import logging
 import math
 import time
 from abc import ABC, abstractmethod
-from typing import Dict
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +27,7 @@ class ControllerEffectsBase(ABC):
     def __init__(self):
         """Initialize effect tracking."""
         # Track active effect tasks per controller: {serial: asyncio.Task}
-        self.active_effects: Dict[str, asyncio.Task] = {}
+        self.active_effects: dict[str, asyncio.Task] = {}
 
     @abstractmethod
     def _set_led_color(self, serial: str, color: tuple[int, int, int]):

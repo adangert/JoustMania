@@ -13,11 +13,9 @@ This replaces the Queue-based IPC from Phase 3 with gRPC (Phase 8a).
 import asyncio
 import logging
 import os
-import queue
 
 # Import protobuf directly (not through __init__.py to avoid psmove dependency)
 import sys
-import threading
 import time
 from typing import Any
 
@@ -40,11 +38,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 # So we'll define a minimal version here for server-only use
 from enum import Enum
 
-from proto import settings_pb2, settings_pb2_grpc
+import psutil
 
 # Prometheus metrics (Phase 38)
 from prometheus_client import start_http_server
-import psutil
+
+from proto import settings_pb2, settings_pb2_grpc
 from services.settings import metrics
 
 
@@ -516,7 +515,7 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
                     # Wait for event with timeout (Phase 34: async wait)
                     event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
                     yield event
-                except asyncio.TimeoutError:  # Phase 34: asyncio exception
+                except TimeoutError:  # Phase 34: asyncio exception
                     # No event, continue (keeps connection alive)
                     continue
 

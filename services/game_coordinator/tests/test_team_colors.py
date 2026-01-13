@@ -4,8 +4,7 @@ Unit tests for team color assignment (Phase 39 - Task 3).
 Tests team color functionality in TeamsGameBase and subclasses.
 """
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 

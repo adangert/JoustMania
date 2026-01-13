@@ -4,8 +4,7 @@ Unit tests for unique color assignment in FFA and Nonstop Joust (Phase 39 - Task
 Tests unique color generation and assignment for non-team game modes.
 """
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -257,8 +256,9 @@ class TestColorGeneration:
     @pytest.mark.asyncio
     async def test_color_hue_separation(self, ffa_game):
         """Colors should have maximum hue separation."""
-        from lib.colors import generate_colors
         import colorsys
+
+        from lib.colors import generate_colors
 
         colors = generate_colors(4)
 

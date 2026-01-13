@@ -16,9 +16,9 @@ Usage:
 """
 
 import asyncio
-import time
-import sys
 import os
+import sys
+import time
 from collections import deque
 from datetime import datetime
 
@@ -222,7 +222,7 @@ async def run_dashboard(frequency_hz: int, duration_sec: int = 300):
     dashboard = LiveDashboard(max_history=60)
 
     print(f"🚀 Starting live dashboard at {frequency_hz}Hz...")
-    print(f"   Connect to game coordinator and start a game to see metrics\n")
+    print("   Connect to game coordinator and start a game to see metrics\n")
 
     start_time = time.time()
     last_render = 0

@@ -11,11 +11,11 @@ import psmove
 # TODO: Replace with AudioClient when implementing real audio integration
 from opentelemetry import metrics, trace
 from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
+from utils import colors
+from utils.colors import Colors
 
 from core import common
 from lib.types import Status
-from utils import colors
-from utils.colors import Colors
 
 tracer = trace.get_tracer("joustmania.tracer")
 meter = metrics.get_meter("joustmania.meter")
@@ -160,7 +160,7 @@ class Game:
         if not self.random_teams:
             players_per_team = (len(self.move_serials) // num_teams) + 1
             team_num = [x for x in range(num_teams)] * players_per_team
-            for num, move in zip(team_num, self.move_serials):
+            for num, move in zip(team_num, self.move_serials, strict=False):
                 self.teams[move] = num
         else:
             team_pick = list(range(num_teams))
@@ -414,7 +414,7 @@ class Game:
         while not (self.command_queue.empty()):
             package = self.command_queue.get()
             command = package["command"]
-        if not (package == None):
+        if package != None:
             if command == "killgame":
                 self.kill_game()
 

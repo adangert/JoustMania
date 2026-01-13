@@ -13,13 +13,12 @@ This replaces the Queue-based IPC with gRPC (Phase 8a).
 import asyncio
 import logging
 import os
-import queue
-from collections import deque
 
 # Import protobuf
 import sys
 import threading
 import time
+from collections import deque
 
 import grpc
 import grpc.aio
@@ -35,23 +34,25 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from proto import controller_manager_pb2, controller_manager_pb2_grpc
-from services.controller_manager.effects_base import ControllerEffectsBase
+import psutil
 
 # Prometheus metrics (Phase 38)
 from prometheus_client import start_http_server
-import psutil
+
+from proto import controller_manager_pb2, controller_manager_pb2_grpc
 from services.controller_manager import metrics
+from services.controller_manager.effects_base import ControllerEffectsBase
 
 # PS Move imports (optional for testing)
 try:
     from multiprocessing import Array, Process, Value
 
-    import common
     import controller_process
     import pair as pair_module
     import psmove
     from controller_state import ControllerState
+
+    import common
 
     PSMOVE_AVAILABLE = True
 except ImportError:
@@ -474,7 +475,7 @@ class ControllerManagerServicer(
                             yield event
                             # Track stream update (Phase 38)
                             metrics.stream_updates_total.labels(stream_type='button_events').inc()
-                        except asyncio.TimeoutError:  # Phase 34: asyncio exception
+                        except TimeoutError:  # Phase 34: asyncio exception
                             # No events, continue loop to check cancellation
                             continue
 
@@ -1108,9 +1109,8 @@ class ControllerManagerServicer(
                 move.update_leds()
                 logger.debug(f"Set color on {serial}: RGB{color_rgb}")
                 return True
-            else:
-                logger.warning(f"No move object for controller {serial}")
-                return False
+            logger.warning(f"No move object for controller {serial}")
+            return False
 
         except Exception as e:
             logger.error(f"Error setting color on {serial}: {e}", exc_info=True)
@@ -1234,9 +1234,8 @@ class ControllerManagerServicer(
                 logger.debug(f"Set vibration on {serial}: intensity={intensity}")
                 # TODO: Handle duration_ms by resetting rumble after timeout
                 return True
-            else:
-                logger.warning(f"No move object for controller {serial}")
-                return False
+            logger.warning(f"No move object for controller {serial}")
+            return False
 
         except Exception as e:
             logger.error(f"Error setting vibration on {serial}: {e}", exc_info=True)
@@ -1501,9 +1500,8 @@ class ControllerManagerServicer(
                 f"{snapshot.get('gyro', {}).get('x', 0):.2f},{snapshot.get('gyro', {}).get('y', 0):.2f},{snapshot.get('gyro', {}).get('z', 0):.2f}|"
                 f"{info.get('ready', False)}|{info.get('team', 0)}"
             )
-        else:
-            # No state available, return hash based on info only
-            return f"{info.get('battery', 0)}|{info.get('ready', False)}|{info.get('team', 0)}"
+        # No state available, return hash based on info only
+        return f"{info.get('battery', 0)}|{info.get('ready', False)}|{info.get('team', 0)}"
 
     def _build_or_get_cached_state(
         self, serial: str, info: dict
@@ -1707,7 +1705,7 @@ class ControllerManagerServicer(
                     try:
                         subscriber_queue.put_nowait(event)
                     except asyncio.QueueFull:  # Phase 34: asyncio exception
-                        logger.warning(f"Button event queue full for subscriber")
+                        logger.warning("Button event queue full for subscriber")
 
     def shutdown(self):
         """Shutdown the controller manager."""

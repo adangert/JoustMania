@@ -37,10 +37,10 @@ from testcontainers.compose import DockerCompose
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 from proto import (
-    controller_manager_pb2,
-    controller_manager_pb2_grpc,
     controller_manager_mock_pb2,
     controller_manager_mock_pb2_grpc,
+    controller_manager_pb2,
+    controller_manager_pb2_grpc,
     game_coordinator_pb2,
     game_coordinator_pb2_grpc,
 )
@@ -613,10 +613,10 @@ async def test_staggered_player_deaths(docker_compose, game_mode):
     # Teams/Random Teams: when only 1 team remains
     assert status_response.state == game_coordinator_pb2.GameState.ENDED
 
-    print(f"  Game ended with player 3 as winner")
-    print(f"  Check Jaeger UI: http://localhost:16686")
+    print("  Game ended with player 3 as winner")
+    print("  Check Jaeger UI: http://localhost:16686")
     print(f"  Search for: {game_mode.replace(' ', '-')}")
-    print(f"  Look for varied player/team span lengths!")
+    print("  Look for varied player/team span lengths!")
 
     # Cleanup
     await game_channel.close()

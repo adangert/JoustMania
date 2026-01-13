@@ -65,6 +65,16 @@ members = [
 line-length = 100
 target-version = "py311"
 
+# Exclude legacy code and generated files from linting
+exclude = [
+    "legacy",
+    "Archive",
+    "proto/*_pb2.py",
+    "proto/*_pb2_grpc.py",
+    "scripts/testing",  # Testing scripts
+    "services/game_coordinator/games/legacy_archived",  # Legacy archived games
+]
+
 # Enable specific rule sets
 [tool.ruff.lint]
 select = [
@@ -84,7 +94,20 @@ select = [
 ]
 
 ignore = [
-    "ANN401",  # Allow Any types initially
+    # Type annotations - gradually adopting
+    "ANN001",  # Missing type annotation for function argument
+    "ANN201",  # Missing return type annotation for public function
+    "ANN202",  # Missing return type annotation for private function
+    "ANN204",  # Missing return type annotation for special method
+    "ANN206",  # Missing return type annotation for classmethod
+    "ANN401",  # Allow Any types
+
+    # Complexity rules - relax for now
+    "ARG002",  # Unused method argument (common in overrides)
+    "ARG003",  # Unused class method argument
+
+    # Line length - some legacy code exceeds 100
+    "E501",    # Line too long (will fix gradually)
 ]
 
 # Per-file ignore rules

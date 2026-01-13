@@ -21,7 +21,7 @@ class FreeForAll:
     ## Note, the "Player" objects should probably get created (and assigned colors) by the core game code, not here.
     def __init__(self, controllers, music):
         players = [Player(move) for move in controllers]
-        for player, color in zip(players, common.PLAYER_COLORS):
+        for player, color in zip(players, common.PLAYER_COLORS, strict=False):
             player.set_player_color(color)
         self.players = PlayerCollection(players)
         self.music = music

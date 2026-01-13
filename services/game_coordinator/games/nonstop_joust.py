@@ -13,7 +13,6 @@ Phase 36b: Refactored to extend BaseGameMode, eliminating ~450 lines of duplicat
 
 import asyncio
 import logging
-import math
 import time
 from dataclasses import dataclass
 
@@ -436,8 +435,8 @@ class NonstopJoustGame(BaseGameMode):
         Each player gets a distinct color so they can be identified during gameplay.
         Uses HSV color generation for maximum distinction.
         """
-        from proto import controller_manager_pb2
         from lib.colors import generate_colors
+        from proto import controller_manager_pb2
 
         logger.info("Setting unique Nonstop colors...")
 
@@ -491,9 +490,10 @@ class NonstopJoustGame(BaseGameMode):
 
     async def _end_game_impl(self):
         """Handle game ending with scoring calculation."""
+        from opentelemetry.trace import Status, StatusCode
+
         from proto import controller_manager_pb2
         from services.game_coordinator.games.base import GameState
-        from opentelemetry.trace import Status, StatusCode
 
         logger.info("Ending game...")
         self.state = GameState.ENDING

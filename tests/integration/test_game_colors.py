@@ -19,12 +19,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 from proto import (
     controller_manager_mock_pb2,
     controller_manager_mock_pb2_grpc,
-    controller_manager_pb2,
-    controller_manager_pb2_grpc,
     game_coordinator_pb2,
     game_coordinator_pb2_grpc,
-    menu_pb2,
-    menu_pb2_grpc,
 )
 
 

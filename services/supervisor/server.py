@@ -34,11 +34,21 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from proto import supervisor_pb2, supervisor_pb2_grpc
+import psutil
 
 # Prometheus metrics (Phase 38)
 from prometheus_client import start_http_server
-import psutil
+
+from proto import (
+    controller_manager_pb2,
+    controller_manager_pb2_grpc,
+    game_coordinator_pb2,
+    game_coordinator_pb2_grpc,
+    menu_pb2,
+    menu_pb2_grpc,
+    supervisor_pb2,
+    supervisor_pb2_grpc,
+)
 from services.supervisor import metrics
 
 logger = logging.getLogger(__name__)
@@ -152,6 +162,18 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
         # Event streaming
         self.event_subscribers: dict[str, queue.Queue] = {}
         self.event_lock = threading.Lock()
+
+        # gRPC clients for orchestration (game lifecycle)
+        self.menu_channel = None
+        self.menu_stub = None
+        self.game_coordinator_channel = None
+        self.game_coordinator_stub = None
+        self.controller_manager_channel = None
+        self.controller_manager_stub = None
+
+        # Orchestration state
+        self.menu_event_task = None
+        self.orchestration_running = False
 
         # Health monitoring thread
         self.running = True
@@ -365,10 +387,164 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
             last_health_check_ago=info["last_health_check_ago"],
         )
 
-    def shutdown(self):
+    # ========================================================================
+    # Game Orchestration - Subscribe to Menu Events and Start Games
+    # ========================================================================
+
+    async def _init_grpc_clients(self):
+        """Initialize gRPC clients for orchestration."""
+        try:
+            # Menu service
+            self.menu_channel = grpc.aio.insecure_channel("menu:50054")
+            self.menu_stub = menu_pb2_grpc.MenuServiceStub(self.menu_channel)
+            logger.info("Connected to Menu service for orchestration")
+
+            # Game Coordinator service
+            self.game_coordinator_channel = grpc.aio.insecure_channel("game-coordinator:50053")
+            self.game_coordinator_stub = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(
+                self.game_coordinator_channel
+            )
+            logger.info("Connected to Game Coordinator service for orchestration")
+
+            # Controller Manager service
+            self.controller_manager_channel = grpc.aio.insecure_channel("controller-manager:50052")
+            self.controller_manager_stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
+                self.controller_manager_channel
+            )
+            logger.info("Connected to Controller Manager service for orchestration")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize orchestration gRPC clients: {e}", exc_info=True)
+            raise
+
+    async def start_orchestration(self):
+        """Start game orchestration - subscribe to menu events."""
+        if self.orchestration_running:
+            logger.warning("Orchestration already running")
+            return
+
+        try:
+            # Initialize gRPC clients
+            await self._init_grpc_clients()
+
+            # Start menu event listener
+            self.orchestration_running = True
+            self.menu_event_task = asyncio.create_task(self._menu_event_listener())
+            logger.info("Game orchestration started")
+
+        except Exception as e:
+            logger.error(f"Failed to start orchestration: {e}", exc_info=True)
+            self.orchestration_running = False
+
+    async def _menu_event_listener(self):
+        """Listen to menu events and orchestrate game lifecycle."""
+        try:
+            # Subscribe to menu events
+            request = menu_pb2.StreamMenuEventsRequest()
+
+            logger.info("Subscribing to menu events...")
+
+            async for event in self.menu_stub.StreamMenuEvents(request):
+                with tracer.start_as_current_span("handle_menu_event") as span:
+                    span.set_attribute("event.type", event.event_type)
+                    logger.info(f"Received menu event: {event.event_type}")
+
+                    # Handle game_requested event
+                    if event.event_type == "game_requested":
+                        await self._handle_game_requested(event)
+
+        except grpc.aio.AioRpcError as e:
+            if e.code() == grpc.StatusCode.CANCELLED:
+                logger.info("Menu event stream cancelled")
+            else:
+                logger.error(f"Menu event stream error: {e}", exc_info=True)
+        except Exception as e:
+            logger.error(f"Error in menu event listener: {e}", exc_info=True)
+        finally:
+            self.orchestration_running = False
+            logger.info("Menu event listener stopped")
+
+    async def _handle_game_requested(self, event: menu_pb2.MenuEvent):
+        """
+        Handle game_requested event from menu - start the game.
+
+        This creates the trace link: Menu Event → Supervisor → StartGame → Game
+        """
+        with tracer.start_as_current_span("orchestrate_game_start") as span:
+            try:
+                game_name = event.data.get("game_name", "JoustFFA")
+                span.set_attribute("game.name", game_name)
+
+                logger.info(f"Orchestrating game start: {game_name}")
+
+                # Get ready controllers from controller manager
+                controllers_response = await self.controller_manager_stub.GetReadyControllers(
+                    controller_manager_pb2.GetReadyControllersRequest()
+                )
+
+                if not controllers_response.success:
+                    logger.error(f"Failed to get ready controllers: {controllers_response.error}")
+                    return
+
+                logger.info(f"Got {len(controllers_response.controllers)} ready controllers")
+
+                # Convert controllers to players
+                players = []
+                for i, controller in enumerate(controllers_response.controllers):
+                    players.append(
+                        game_coordinator_pb2.Player(
+                            serial=controller.serial,
+                            team=i % 2,
+                            alive=True,
+                            score=0
+                        )
+                    )
+
+                span.set_attribute("player.count", len(players))
+
+                # Call game coordinator to start game
+                # This will create a FOLLOWS_FROM link to this span
+                start_response = await self.game_coordinator_stub.StartGame(
+                    game_coordinator_pb2.StartGameRequest(
+                        game_name=game_name,
+                        players=players
+                    )
+                )
+
+                if start_response.success:
+                    logger.info(f"Game started successfully: {start_response.game_id}")
+                    span.set_attribute("game.id", start_response.game_id)
+                else:
+                    logger.error(f"Failed to start game: {start_response.error}")
+                    span.set_attribute("error", start_response.error)
+
+            except Exception as e:
+                logger.error(f"Error handling game_requested: {e}", exc_info=True)
+                span.record_exception(e)
+                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+
+    async def shutdown(self):
         """Shutdown the supervisor."""
         logger.info("Shutting down Supervisor...")
         self.running = False
+        self.orchestration_running = False
+
+        # Cancel menu event listener task
+        if self.menu_event_task:
+            self.menu_event_task.cancel()
+            try:
+                await self.menu_event_task
+            except asyncio.CancelledError:
+                pass
+
+        # Close gRPC channels
+        if self.menu_channel:
+            await self.menu_channel.close()
+        if self.game_coordinator_channel:
+            await self.game_coordinator_channel.close()
+        if self.controller_manager_channel:
+            await self.controller_manager_channel.close()
+
         self.health_thread.join(timeout=5.0)
 
 
@@ -440,11 +616,14 @@ async def serve(port=50055, metrics_port=8000):
     logger.info(f"Starting Supervisor gRPC server on port {port}")
     await server.start()
 
+    # Start orchestration - subscribe to menu events and coordinate game lifecycle
+    await supervisor_servicer.start_orchestration()
+
     try:
         await server.wait_for_termination()
     except KeyboardInterrupt:
         logger.info("Shutting down Supervisor server...")
-        supervisor_servicer.shutdown()
+        await supervisor_servicer.shutdown()
         await server.stop(grace=5)
 
 

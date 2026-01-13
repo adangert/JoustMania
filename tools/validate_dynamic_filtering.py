@@ -14,8 +14,8 @@ What it checks:
 4. Basic filtering calculations are correct
 """
 
-import sys
 import os
+import sys
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -98,9 +98,10 @@ def check_metrics():
     print("=" * 60)
 
     try:
-        from services.game_coordinator import metrics as gc_metrics
+        from prometheus_client import Counter, Gauge, Histogram
+
         from services.controller_manager import metrics as cm_metrics
-        from prometheus_client import Gauge, Counter, Histogram
+        from services.game_coordinator import metrics as gc_metrics
 
         # Game Coordinator metrics
         assert hasattr(gc_metrics, 'filtered_controllers')
@@ -186,7 +187,7 @@ def check_server_implementation():
 
         # Check it's async
         import inspect
-        method = getattr(ControllerManagerServicer, 'StreamGameplayDataDynamic')
+        method = ControllerManagerServicer.StreamGameplayDataDynamic
         assert inspect.iscoroutinefunction(method)
         print("✓ StreamGameplayDataDynamic is an async method")
 
@@ -206,7 +207,7 @@ def check_client_implementation():
 
     try:
         # Check base game mode
-        with open('services/game_coordinator/games/base.py', 'r') as f:
+        with open('services/game_coordinator/games/base.py') as f:
             base_content = f.read()
 
         assert 'StreamGameplayDataDynamic' in base_content
@@ -219,7 +220,7 @@ def check_client_implementation():
         print("✓ base.py sends filter updates")
 
         # Check nonstop joust
-        with open('services/game_coordinator/games/nonstop_joust.py', 'r') as f:
+        with open('services/game_coordinator/games/nonstop_joust.py') as f:
             nonstop_content = f.read()
 
         assert 'StreamGameplayDataDynamic' in nonstop_content
@@ -266,10 +267,9 @@ def main():
         print("\n✅ ALL VALIDATIONS PASSED!\n")
         print("Phase 45 implementation is ready for testing.\n")
         return 0
-    else:
-        print("\n❌ SOME VALIDATIONS FAILED\n")
-        print("Please review the errors above and fix the issues.\n")
-        return 1
+    print("\n❌ SOME VALIDATIONS FAILED\n")
+    print("Please review the errors above and fix the issues.\n")
+    return 1
 
 
 if __name__ == "__main__":

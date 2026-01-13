@@ -13,11 +13,9 @@ This replaces the Queue-based IPC with gRPC (Phase 8a).
 import asyncio
 import logging
 import os
-import queue
 
 # Import protobuf
 import sys
-import threading
 import time
 
 import grpc
@@ -34,11 +32,12 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from proto import menu_pb2, menu_pb2_grpc
+import psutil
 
 # Prometheus metrics (Phase 38)
 from prometheus_client import start_http_server
-import psutil
+
+from proto import menu_pb2, menu_pb2_grpc
 from services.menu import metrics
 
 logger = logging.getLogger(__name__)
@@ -302,7 +301,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
                         yield event
 
-                    except asyncio.TimeoutError:  # Phase 34: asyncio exception
+                    except TimeoutError:  # Phase 34: asyncio exception
                         # Keep connection alive
                         continue
                     except Exception as e:
@@ -536,9 +535,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 # Already ready → pressing trigger starts game (handled by _process_button_state)
                 # Don't update lobby feedback, let game start happen
                 return
-            else:
-                # Not ready → mark as ready
-                target_state = "ready"
+            # Not ready → mark as ready
+            target_state = "ready"
         else:
             # No trigger press event → maintain current state
             current_state = self.controller_lobby_state.get(serial, "connected")
@@ -562,6 +560,13 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             self.ready_controllers.add(serial)
             self.ready_controller_count = len(self.ready_controllers)
             logger.info(f"Controller {serial} ready ({self.ready_controller_count} total)")
+
+            # Auto-start: If all connected controllers are ready (and at least 2), trigger game start
+            if (len(self.ready_controllers) >= 2 and
+                len(self.ready_controllers) == len(self.connected_controllers)):
+                logger.info("All controllers ready - auto-starting game!")
+                await self._handle_trigger_press(serial)
+
         elif target_state == "connected" and serial in self.ready_controllers:
             self.ready_controllers.remove(serial)
             self.ready_controller_count = len(self.ready_controllers)
@@ -883,11 +888,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         with tracer.start_as_current_span("admin_sensitivity") as span:
             span.set_attribute("controller.serial", serial)
 
+            from proto import settings_pb2, settings_pb2_grpc
             from services.controller_manager import (
                 controller_manager_pb2,
                 controller_manager_pb2_grpc,
             )
-            from proto import settings_pb2, settings_pb2_grpc
 
             try:
                 # Use persistent channels (Phase 26)
@@ -1018,11 +1023,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         with tracer.start_as_current_span("admin_instructions") as span:
             span.set_attribute("controller.serial", serial)
 
+            from proto import settings_pb2, settings_pb2_grpc
             from services.controller_manager import (
                 controller_manager_pb2,
                 controller_manager_pb2_grpc,
             )
-            from proto import settings_pb2, settings_pb2_grpc
 
             try:
                 # Use persistent channels (Phase 26)

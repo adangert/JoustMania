@@ -19,8 +19,9 @@ else:
     import pyaudio
 from multiprocessing import Manager, Process, Value
 
-import common
 from pydub import AudioSegment
+
+import common
 
 # The min and max timeframe in seconds for
 # the speed change to trigger, randomly selected

@@ -14,8 +14,8 @@ What it checks:
 4. Client stream handling is implemented
 """
 
-import sys
 import os
+import sys
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -111,8 +111,9 @@ def check_metrics():
     print("=" * 60)
 
     try:
-        from services.controller_manager import metrics
         from prometheus_client import Counter
+
+        from services.controller_manager import metrics
 
         # Phase 46 metric
         assert hasattr(metrics, 'stream_commands_total')
@@ -142,24 +143,25 @@ def check_server_implementation():
     print("=" * 60)
 
     try:
-        from services.controller_manager.server import ControllerManagerServicer
         import inspect
+
+        from services.controller_manager.server import ControllerManagerServicer
 
         # Check _set_controller_color_internal exists and is async
         assert hasattr(ControllerManagerServicer, '_set_controller_color_internal')
-        method = getattr(ControllerManagerServicer, '_set_controller_color_internal')
+        method = ControllerManagerServicer._set_controller_color_internal
         assert inspect.iscoroutinefunction(method)
         print("✓ _set_controller_color_internal method exists and is async")
 
         # Check _play_effect_internal exists and is async
         assert hasattr(ControllerManagerServicer, '_play_effect_internal')
-        method = getattr(ControllerManagerServicer, '_play_effect_internal')
+        method = ControllerManagerServicer._play_effect_internal
         assert inspect.iscoroutinefunction(method)
         print("✓ _play_effect_internal method exists and is async")
 
         # Check _set_vibration_internal exists and is async
         assert hasattr(ControllerManagerServicer, '_set_vibration_internal')
-        method = getattr(ControllerManagerServicer, '_set_vibration_internal')
+        method = ControllerManagerServicer._set_vibration_internal
         assert inspect.iscoroutinefunction(method)
         print("✓ _set_vibration_internal method exists and is async")
 
@@ -181,7 +183,7 @@ def check_client_implementation():
 
     try:
         # Check base game mode
-        with open('services/game_coordinator/games/base.py', 'r') as f:
+        with open('services/game_coordinator/games/base.py') as f:
             base_content = f.read()
 
         assert 'self.gameplay_stream' in base_content
@@ -198,7 +200,7 @@ def check_client_implementation():
         print("✓ base.py checks for active stream before sending commands")
 
         # Check nonstop joust
-        with open('services/game_coordinator/games/nonstop_joust.py', 'r') as f:
+        with open('services/game_coordinator/games/nonstop_joust.py') as f:
             nonstop_content = f.read()
 
         assert 'self.gameplay_stream' in nonstop_content
@@ -245,10 +247,9 @@ def main():
         print("\n✅ ALL VALIDATIONS PASSED!\n")
         print("Phase 46 implementation is ready for testing.\n")
         return 0
-    else:
-        print("\n❌ SOME VALIDATIONS FAILED\n")
-        print("Please review the errors above and fix the issues.\n")
-        return 1
+    print("\n❌ SOME VALIDATIONS FAILED\n")
+    print("Please review the errors above and fix the issues.\n")
+    return 1
 
 
 if __name__ == "__main__":

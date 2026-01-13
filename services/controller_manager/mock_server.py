@@ -15,8 +15,15 @@ import time
 from concurrent import futures
 
 import grpc
+from grpc_health.v1 import health, health_pb2, health_pb2_grpc
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.grpc import GrpcInstrumentorServer
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
 from proto import controller_manager_mock_pb2_grpc, controller_manager_pb2_grpc
-from services.controller_manager.effects_base import ControllerEffectsBase
 from proto.controller_manager_mock_pb2 import (
     ButtonResponse,
     ColorResponse,
@@ -33,13 +40,7 @@ from proto.controller_manager_pb2 import (
     PlayControllerEffectResponse,
     Vector3,
 )
-from grpc_health.v1 import health, health_pb2, health_pb2_grpc
-from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.grpc import GrpcInstrumentorServer
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from services.controller_manager.effects_base import ControllerEffectsBase
 
 logger = logging.getLogger(__name__)
 
@@ -289,7 +290,7 @@ class MockControllerManagerService(
             try:
                 await asyncio.wait_for(config_received.wait(), timeout=10.0)
                 logger.info("[mock] ✅ Initial configuration received, starting data stream")
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.error("[mock] ❌ Timeout waiting for initial config (10s), aborting stream")
                 return
 
@@ -564,9 +565,8 @@ class MockControllerControlService(controller_manager_mock_pb2_grpc.MockControll
                 )
                 logger.info(f"[mock] Auto game end enabled: will kill players after {request.duration_seconds}s")
                 return AutoGameEndResponse(success=True, error="")
-            else:
-                logger.info("[mock] Auto game end disabled")
-                return AutoGameEndResponse(success=True, error="")
+            logger.info("[mock] Auto game end disabled")
+            return AutoGameEndResponse(success=True, error="")
 
         except Exception as e:
             logger.error(f"[mock] Error setting auto game end: {e}", exc_info=True)

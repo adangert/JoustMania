@@ -18,17 +18,15 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Any
+from typing import Any
 
 from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
 
-from services.game_coordinator.runtime_config import get_config_manager
 from services.game_coordinator import metrics
+from services.game_coordinator.runtime_config import get_config_manager
 
 tracer = trace.get_tracer(__name__)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)  # Force INFO level for game logs
 
 # Game constants (Phase 43: Now uses runtime config for dynamic adjustment)
 UPDATE_FREQUENCY = 30  # Hz - default, overridden by runtime config
@@ -112,8 +110,9 @@ class BaseGameMode(ABC):
         controller_manager_client: Any,  # controller_manager_pb2_grpc.ControllerManagerServiceStub
         settings_client: Any,  # settings_pb2_grpc.SettingsServiceStub
         event_publisher: Callable[[str, dict[str, str]], None],
-        audio_client: Optional[Any] = None,  # audio_pb2_grpc.AudioServiceStub
+        audio_client: Any | None = None,  # audio_pb2_grpc.AudioServiceStub
         game_id: str = "",
+        initial_players: list | None = None,  # List of Player protobuf messages
     ) -> None:
         """
         Initialize base game mode (Phase 33 - added type hints).
@@ -123,6 +122,7 @@ class BaseGameMode(ABC):
             settings_client: gRPC stub for Settings service
             event_publisher: Callback function to publish game events (event_type, data)
             audio_client: gRPC stub for Audio service (Phase 29)
+            initial_players: Optional list of Player protobuf messages from StartGame RPC
             game_id: Unique identifier for this game instance
         """
         self.controller_client = controller_manager_client
@@ -139,6 +139,7 @@ class BaseGameMode(ABC):
         # Game state
         self.state = GameState.IDLE
         self.players: dict[str, Player] = {}
+        self.initial_players = initial_players  # Players from StartGame RPC
         self.start_time = None
         self.running = False
         self.gameplay_stream = None  # Phase 46: Bidirectional stream for feedback commands
@@ -282,28 +283,41 @@ class BaseGameMode(ABC):
         try:
             from proto import controller_manager_pb2
 
-            response = await self.controller_client.GetReadyControllers(
-                controller_manager_pb2.GetReadyControllersRequest()
-            )
+            # If initial_players were provided (from StartGame RPC), use them
+            if self.initial_players:
+                # Convert protobuf Player messages to controller-like objects for _initialize_players_impl
+                # _initialize_players_impl expects controllers with .serial attribute
+                class ControllerStub:
+                    def __init__(self, serial):
+                        self.serial = serial
 
-            if response.success:
-                # Call subclass-specific initialization
-                await self._initialize_players_impl(list(response.controllers))
+                controllers = [ControllerStub(p.serial) for p in self.initial_players]
+                await self._initialize_players_impl(controllers)
 
-                logger.info(f"Initialized {len(self.players)} players")
-
-                # Publish event
-                self.event_publisher(
-                    "players_initialized",
-                    {
-                        "player_count": len(self.players),
-                        "serials": list(self.players.keys()),
-                    },
+                logger.info(f"Initialized {len(self.players)} players from StartGame RPC")
+            else:
+                # Fall back to querying controller manager
+                response = await self.controller_client.GetReadyControllers(
+                    controller_manager_pb2.GetReadyControllersRequest()
                 )
 
-            else:
-                logger.error(f"Failed to get controllers: {response.error}")
-                raise RuntimeError(f"Failed to get controllers: {response.error}")
+                if response.success:
+                    # Call subclass-specific initialization
+                    await self._initialize_players_impl(list(response.controllers))
+
+                    logger.info(f"Initialized {len(self.players)} players from controller manager")
+                else:
+                    logger.error(f"Failed to get controllers: {response.error}")
+                    raise RuntimeError(f"Failed to get controllers: {response.error}")
+
+            # Publish event
+            self.event_publisher(
+                "players_initialized",
+                {
+                    "player_count": len(self.players),
+                    "serials": list(self.players.keys()),
+                },
+            )
 
         except Exception as e:
             logger.error(f"Error initializing players: {e}", exc_info=True)
@@ -618,89 +632,75 @@ class BaseGameMode(ABC):
     # Template Method - Orchestrates entire game lifecycle with spans
     # ========================================================================
 
-    async def run(self, game_context=None):
+    async def run(self):
         """
         Main entry point to run the game (Template Method).
 
         Orchestrates all game phases with consistent span hierarchy:
-        1. Game session span (human-readable name)
-        2. initialization_phase
-        3. Additional phases (e.g., team_formation)
-        4. countdown_phase
-        5. gameplay_phase
-        6. teardown_phase
+        1. initialization_phase
+        2. Additional phases (e.g., team_formation)
+        3. countdown_phase
+        4. gameplay_phase
+        5. teardown_phase
 
-        Args:
-            game_context: Parent span context for proper hierarchy
+        Phase spans are automatically children of the current game span.
         """
-        # Create main game span with human-readable name
-        span_name = get_game_display_name(self.get_game_name())
+        try:
+            # State transitions
+            self.state = GameState.STARTING
+            self.running = True  # Set early to allow force_end during countdown
+            self.event_publisher("game_starting", {"game_id": self.game_id})
 
-        print(f"[GAME] 🎮 Starting game.run() for {span_name}, context={game_context}", flush=True)
-        logger.info(f"🎮 Starting game.run() for {span_name}, context={game_context}")
+            # Phase 1: Initialization
+            with tracer.start_as_current_span("initialization_phase") as init_span:
+                init_span.set_attribute("game.id", self.game_id)
+                init_span.set_attribute("game.mode", self.get_game_name())
 
-        with tracer.start_as_current_span(span_name, context=game_context) as game_span:
-            print(f"[GAME] ✅ Game span created: {span_name}, span_id={game_span.get_span_context().span_id}", flush=True)
-            logger.info(f"✅ Game span created: {span_name}, span_id={game_span.get_span_context().span_id}")
-            game_span.set_attribute("game.id", self.game_id)
-            game_span.set_attribute("game.mode", self.get_game_name())
+                # Load settings
+                await self._load_settings()
 
-            try:
-                # State transitions
-                self.state = GameState.STARTING
-                self.running = True  # Set early to allow force_end during countdown
-                self.event_publisher("game_starting", {"game_id": self.game_id})
+                # Initialize players
+                await self._initialize_players()
 
-                # Phase 1: Initialization
-                with tracer.start_as_current_span("initialization_phase") as init_span:
-                    init_span.set_attribute("game.id", self.game_id)
-                    init_span.set_attribute("game.mode", self.get_game_name())
+                # Validate player count
+                if len(self.players) < 2:
+                    raise ValueError(f"Need at least 2 players, got {len(self.players)}")
 
-                    # Load settings
-                    await self._load_settings()
+                init_span.set_attribute("player_count", len(self.players))
 
-                    # Initialize players
-                    await self._initialize_players()
+            # Phase 2+: Additional phases (e.g., team_formation for Random Teams)
+            for phase in self._get_additional_phases():
+                with tracer.start_as_current_span(phase.name):
+                    await phase.execute()
 
-                    # Validate player count
-                    if len(self.players) < 2:
-                        raise ValueError(f"Need at least 2 players, got {len(self.players)}")
+            # Phase 3: Countdown
+            with tracer.start_as_current_span("countdown_phase"):
+                await self._countdown()
 
-                    init_span.set_attribute("player_count", len(self.players))
+            # Phase 4: Game starts
+            self.state = GameState.RUNNING
+            self.start_time = time.time()
+            self.event_publisher(
+                "game_started", {"game_id": self.game_id, "player_count": len(self.players)}
+            )
 
-                # Phase 2+: Additional phases (e.g., team_formation for Random Teams)
-                for phase in self._get_additional_phases():
-                    with tracer.start_as_current_span(phase.name):
-                        await phase.execute()
+            # Phase 5: Gameplay
+            with tracer.start_as_current_span("gameplay_phase"):
+                await self._game_loop()
 
-                # Phase 3: Countdown
-                with tracer.start_as_current_span("countdown_phase"):
-                    await self._countdown()
+            # Phase 6: Teardown
+            with tracer.start_as_current_span("teardown_phase"):
+                await self._end_game_impl()
 
-                # Phase 4: Game starts
-                self.state = GameState.RUNNING
-                self.start_time = time.time()
-                self.event_publisher(
-                    "game_started", {"game_id": self.game_id, "player_count": len(self.players)}
-                )
+        except Exception as e:
+            logger.error(f"{self.get_game_name()} game error: {e}", exc_info=True)
+            self.state = GameState.ENDED
+            self.event_publisher("game_error", {"game_id": self.game_id, "error": str(e)})
+            raise
 
-                # Phase 5: Gameplay
-                with tracer.start_as_current_span("gameplay_phase"):
-                    await self._game_loop()
-
-                # Phase 6: Teardown
-                with tracer.start_as_current_span("teardown_phase"):
-                    await self._end_game_impl()
-
-            except Exception as e:
-                logger.error(f"{self.get_game_name()} game error: {e}", exc_info=True)
-                self.state = GameState.ENDED
-                self.event_publisher("game_error", {"game_id": self.game_id, "error": str(e)})
-                raise
-
-            finally:
-                self.running = False
-                logger.info(f"{self.get_game_name()} game finished: {self.game_id}")
+        finally:
+            self.running = False
+            logger.info(f"{self.get_game_name()} game finished: {self.game_id}")
 
     # ========================================================================
     # Helper Methods - Span creation utilities

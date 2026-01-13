@@ -115,7 +115,7 @@ class TestMetrics:
         assert hasattr(metrics, 'active_controllers')
 
         # Check metrics are the correct type
-        from prometheus_client import Gauge, Counter
+        from prometheus_client import Counter, Gauge
 
         assert isinstance(metrics.filtered_controllers, Gauge)
         assert isinstance(metrics.filter_updates_total, Counter)
@@ -135,8 +135,8 @@ class TestMetrics:
 
     def test_metrics_can_be_updated(self):
         """Test that metrics can be updated without errors."""
-        from services.game_coordinator import metrics as gc_metrics
         from services.controller_manager import metrics as cm_metrics
+        from services.game_coordinator import metrics as gc_metrics
 
         # Game coordinator metrics
         gc_metrics.active_controllers.set(10)

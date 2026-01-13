@@ -190,7 +190,7 @@ class PerformanceBenchmark(unittest.TestCase):
                 fake.set_accelerometer(1.0, 2.0, 3.0)
 
             while not kill_flag.value:
-                for state, fake in zip(states, fakes):
+                for state, fake in zip(states, fakes, strict=False):
                     if state.update(fake):
                         update_count.value += 1
                 time.sleep(0.001)

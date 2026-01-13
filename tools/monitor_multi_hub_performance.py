@@ -12,14 +12,13 @@ Run during gameplay to validate distributed hub setup.
 """
 
 import asyncio
+import os
+import sys
 import time
-import psutil
 from collections import defaultdict
-from datetime import datetime
 
 import grpc
-import sys
-import os
+import psutil
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
 
@@ -150,7 +149,7 @@ class MultiHubPerformanceMonitor:
         print("="*70)
 
         # Overall metrics
-        print(f"\n⏱️  OVERALL PERFORMANCE:")
+        print("\n⏱️  OVERALL PERFORMANCE:")
         print(f"   Duration: {elapsed:.1f}s")
         print(f"   Total updates: {self.total_updates}")
         print(f"   Average update rate: {self.total_updates / elapsed:.1f} updates/sec")
@@ -166,7 +165,7 @@ class MultiHubPerformanceMonitor:
         if self.cpu_samples:
             avg_cpu = sum(self.cpu_samples) / len(self.cpu_samples)
             max_cpu = max(self.cpu_samples)
-            print(f"\n💻 SYSTEM LOAD:")
+            print("\n💻 SYSTEM LOAD:")
             print(f"   CPU: {avg_cpu:.1f}% avg, {max_cpu:.1f}% max")
 
         if self.memory_samples:
@@ -175,7 +174,7 @@ class MultiHubPerformanceMonitor:
 
         # Per-hub breakdown
         hub_stats = self.get_hub_stats()
-        print(f"\n🔌 PER-HUB BREAKDOWN:")
+        print("\n🔌 PER-HUB BREAKDOWN:")
 
         for hub_name, stats in sorted(hub_stats.items()):
             print(f"\n   {hub_name}:")
@@ -187,10 +186,10 @@ class MultiHubPerformanceMonitor:
             if stats['missing_updates'] > 0:
                 print(f"      ⚠️  Missing updates (>100ms): {stats['missing_updates']}")
             else:
-                print(f"      ✅ No missing updates")
+                print("      ✅ No missing updates")
 
         # Per-controller details (top 5 worst)
-        print(f"\n🎮 CONTROLLER DETAILS (Top 5 highest gaps):")
+        print("\n🎮 CONTROLLER DETAILS (Top 5 highest gaps):")
 
         controller_avg_gaps = {}
         for serial, gaps in self.controller_gaps.items():
@@ -207,7 +206,7 @@ class MultiHubPerformanceMonitor:
             print(f"      Updates: {updates}, Avg gap: {avg_gap:.1f}ms, Max gap: {max_gap:.1f}ms")
 
         # Health assessment
-        print(f"\n🏥 HEALTH ASSESSMENT:")
+        print("\n🏥 HEALTH ASSESSMENT:")
 
         total_missing = sum(stats['missing_updates'] for stats in hub_stats.values())
         max_gap_overall = max(stats['max_gap_ms'] for stats in hub_stats.values())
@@ -222,7 +221,7 @@ class MultiHubPerformanceMonitor:
             print("   🔴 POOR - Significant gaps, investigate USB hub setup")
 
         # Recommendations
-        print(f"\n💡 RECOMMENDATIONS:")
+        print("\n💡 RECOMMENDATIONS:")
 
         if max_gap_overall > 150:
             print("   ⚠️  High latency detected - check USB hub connections")
@@ -236,7 +235,7 @@ class MultiHubPerformanceMonitor:
         # Bandwidth estimation
         bytes_per_update = 60  # Approximate size of GameplayData
         bandwidth = (self.total_updates * bytes_per_update) / elapsed / 1024  # KB/s
-        print(f"\n📡 BANDWIDTH:")
+        print("\n📡 BANDWIDTH:")
         print(f"   Estimated: {bandwidth:.2f} KB/s")
         print(f"   Per hub: {bandwidth / len(hub_stats):.2f} KB/s avg")
 
@@ -250,7 +249,7 @@ async def monitor_performance(frequency_hz: int, duration_sec: int):
     monitor = MultiHubPerformanceMonitor()
 
     print(f"🔍 Monitoring multi-hub performance at {frequency_hz}Hz for {duration_sec} seconds")
-    print(f"   Press Ctrl+C to stop early\n")
+    print("   Press Ctrl+C to stop early\n")
 
     start_time = time.time()
     last_print = 0

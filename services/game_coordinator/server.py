@@ -13,7 +13,6 @@ This replaces the Queue-based IPC with gRPC (Phase 8a).
 import asyncio
 import logging
 import os
-import queue
 
 # Import protobuf
 import sys
@@ -34,6 +33,11 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+import psutil
+
+# Prometheus metrics (Phase 38)
+from prometheus_client import start_http_server
+
 from lib.types import get_game_display_name
 from proto import (
     controller_manager_pb2_grpc,
@@ -41,10 +45,6 @@ from proto import (
     game_coordinator_pb2_grpc,
     settings_pb2_grpc,
 )
-
-# Prometheus metrics (Phase 38)
-from prometheus_client import start_http_server
-import psutil
 from services.game_coordinator import metrics
 
 # Modern game imports (gRPC-based)
@@ -52,7 +52,6 @@ from services.game_coordinator.games import ffa, nonstop_joust, random_teams, te
 
 # Legacy game imports (optional for testing)
 try:
-    from common import Games
     from games import (
         fight_club,
         joust_ffa,
@@ -63,6 +62,8 @@ try:
         traitor,
     )
     from piaudio import Audio, Music
+
+    from common import Games
 
     GAMES_AVAILABLE = True
 except ImportError:
@@ -193,11 +194,12 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
             self.audio_client = None
 
     def StartGame(self, request, context):
-        """Start a new game (captures parent context for tracing)."""
-        # Manually create span for this RPC (gRPC auto-instrumentation doesn't work for non-async methods)
-        with tracer.start_as_current_span("StartGame") as span:
-            span.set_attribute("game.name", request.game_name)
-            span.set_attribute("player.count", len(request.players))
+        """Start a new game (creates span for RPC, game span will link with FOLLOWS_FROM)."""
+        # Create StartGame span - short-lived, returns immediately
+        # The actual game span (in background thread) will link to this with FOLLOWS_FROM
+        with tracer.start_as_current_span("StartGame") as start_span:
+            start_span.set_attribute("game.name", request.game_name)
+            start_span.set_attribute("player.count", len(request.players))
 
             try:
                 # Check if game already running
@@ -215,16 +217,15 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                         success=False, error="Need at least 2 players", game_id=""
                     )
 
-                # Capture current trace context for propagation to background thread
-                # This links the game span to the menu operation that started it
-                self.parent_context = trace.get_current_span().get_span_context()
-
                 # Store game configuration
                 self.game_name = request.game_name
                 self.players = list(request.players)
                 self.settings = dict(request.settings)
                 self.game_id = f"game_{int(time.time())}"
                 self.game_start_time = time.time()
+
+                # Capture span context for FOLLOWS_FROM link in background thread
+                self.start_game_span_context = start_span.get_span_context()
 
                 # Update state
                 self.game_state = game_coordinator_pb2.GameState.STARTING
@@ -277,150 +278,159 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
     async def _run_game_loop_async(self):
         """Run the async game loop."""
+        from opentelemetry.trace import Link
+
         # Initialize async gRPC clients in this event loop
         await self._init_grpc_clients_async()
 
-        # Create parent context from captured span context (links to menu operation)
-        parent_context = None
-        if hasattr(self, 'parent_context') and self.parent_context:
-            from opentelemetry.context import Context
-            from opentelemetry.trace import SpanContext
+        # Get the display name for the game span
+        game_span_name = get_game_display_name(self.game_name)
 
-            # Create a proper context with the parent span
-            parent_context = trace.set_span_in_context(
-                trace.NonRecordingSpan(self.parent_context)
-            )
+        # Create FOLLOWS_FROM link to the StartGame RPC span
+        links = []
+        if hasattr(self, 'start_game_span_context') and self.start_game_span_context:
+            # Link shows: "This game span FOLLOWS_FROM the StartGame RPC span"
+            links.append(Link(self.start_game_span_context))
 
-        try:
-            # Check if gRPC clients are available
-            if not self.controller_manager_client or not self.settings_client:
-                error_msg = "gRPC clients not initialized - ControllerManager and Settings services must be running"
-                logger.error(error_msg)
+        # Create the game span - this will be the root span for the entire game
+        # The FOLLOWS_FROM link connects it to the StartGame RPC span
+        with tracer.start_as_current_span(game_span_name, links=links) as game_span:
+            game_span.set_attribute("game.name", self.game_name)
+            game_span.set_attribute("game.id", self.game_id)
+            game_span.set_attribute("player.count", len(self.players))
+
+            try:
+                # Check if gRPC clients are available
+                if not self.controller_manager_client or not self.settings_client:
+                    error_msg = "gRPC clients not initialized - ControllerManager and Settings services must be running"
+                    logger.error(error_msg)
+                    self.game_state = game_coordinator_pb2.GameState.ENDED
+                    self._publish_event("game_error", {"error": error_msg})
+                    return
+
+                # Determine game mode and instantiate appropriate game
+                if self.game_name.lower() in ["ffa", "free-for-all", "joust free-for-all"]:
+                    logger.info("Starting FFA game")
+
+                    # Create FFA game instance
+                    game = ffa.FFAGame(
+                        controller_manager_client=self.controller_manager_client,
+                        settings_client=self.settings_client,
+                        event_publisher=self._publish_event,
+                        audio_client=self.audio_client,  # Phase 29
+                        game_id=self.game_id,
+                        initial_players=self.players,  # Pass players from StartGame RPC
+                    )
+
+                    # Store reference
+                    self.current_game = game
+
+                    # Run the game - phase spans will automatically be children of current game span
+                    await game.run()
+
+                    logger.info("FFA game completed")
+
+                elif self.game_name.lower() in ["teams", "joust teams"]:
+                    logger.info("Starting Teams game")
+
+                    # Get number of teams from settings (default 2)
+                    num_teams = int(self.settings.get("num_teams", "2"))
+
+                    # Create Teams game instance
+                    game = teams.SimpleTeamsGame(
+                        controller_manager_client=self.controller_manager_client,
+                        settings_client=self.settings_client,
+                        event_publisher=self._publish_event,
+                        audio_client=self.audio_client,  # Phase 29
+                        game_id=self.game_id,
+                        num_teams=num_teams,
+                        initial_players=self.players,  # Pass players from StartGame RPC
+                    )
+
+                    # Store reference
+                    self.current_game = game
+
+                    # Run the game - phase spans will automatically be children of current game span
+                    await game.run()
+
+                    logger.info("Teams game completed")
+
+                elif self.game_name.lower() in [
+                    "random teams",
+                    "joust random teams",
+                    "random_teams",
+                ]:
+                    logger.info("Starting Random Teams game")
+
+                    # Get number of teams from settings (default 2)
+                    num_teams = int(self.settings.get("num_teams", "2"))
+
+                    # Create Random Teams game instance
+                    game = random_teams.RandomTeamsGame(
+                        controller_manager_client=self.controller_manager_client,
+                        settings_client=self.settings_client,
+                        event_publisher=self._publish_event,
+                        audio_client=self.audio_client,  # Phase 29
+                        game_id=self.game_id,
+                        num_teams=num_teams,
+                        initial_players=self.players,  # Pass players from StartGame RPC
+                    )
+
+                    # Store reference
+                    self.current_game = game
+
+                    # Run the game - phase spans will automatically be children of current game span
+                    await game.run()
+
+                    logger.info("Random Teams game completed")
+
+                elif self.game_name.lower() in ["nonstop", "nonstop joust", "nonstopjoust"]:
+                    logger.info("Starting Nonstop Joust game")
+
+                    # Get time limit from settings (0 = unlimited)
+                    time_limit = int(self.settings.get("nonstop_time_limit", "0"))
+
+                    # Create Nonstop Joust game instance
+                    game = nonstop_joust.NonstopJoustGame(
+                        controller_manager_client=self.controller_manager_client,
+                        settings_client=self.settings_client,
+                        event_publisher=self._publish_event,
+                        audio_client=self.audio_client,  # Phase 29
+                        game_id=self.game_id,
+                        initial_players=self.players,  # Pass players from StartGame RPC
+                    )
+
+                    # Store reference
+                    self.current_game = game
+
+                    # Run the game - phase spans will automatically be children of current game span
+                    await game.run()
+
+                    logger.info("Nonstop Joust game completed")
+
+                else:
+                    error_msg = f"Game mode '{self.game_name}' not implemented yet"
+                    logger.error(error_msg)
+                    self.game_state = game_coordinator_pb2.GameState.ENDED
+                    self._publish_event("game_error", {"error": error_msg})
+
+            except Exception as e:
+                logger.error(f"Game loop error: {e}", exc_info=True)
                 self.game_state = game_coordinator_pb2.GameState.ENDED
-                self._publish_event("game_error", {"error": error_msg})
-                return
+                self._publish_event("game_error", {"error": str(e)})
+            finally:
+                self.game_running = False
+                self.current_game = None
 
-            # Determine game mode and instantiate appropriate game
-            if self.game_name.lower() in ["ffa", "free-for-all", "joust free-for-all"]:
-                logger.info("Starting FFA game")
-
-                # Create FFA game instance
-                game = ffa.FFAGame(
-                    controller_manager_client=self.controller_manager_client,
-                    settings_client=self.settings_client,
-                    event_publisher=self._publish_event,
-                    audio_client=self.audio_client,  # Phase 29
-                    game_id=self.game_id,
-                )
-
-                # Store reference
-                self.current_game = game
-
-                # Run the game (async) with parent context from StartGame RPC
-                print(f"[SERVER] About to call game.run() with context={parent_context}", flush=True)
-                logger.info(f"About to call game.run() with context={parent_context}")
-                await game.run(game_context=parent_context)
-                print("[SERVER] game.run() completed", flush=True)
-                logger.info("FFA game completed")
-
-            elif self.game_name.lower() in ["teams", "joust teams"]:
-                logger.info("Starting Teams game")
-
-                # Get number of teams from settings (default 2)
-                num_teams = int(self.settings.get("num_teams", "2"))
-
-                # Create Teams game instance
-                game = teams.SimpleTeamsGame(
-                    controller_manager_client=self.controller_manager_client,
-                    settings_client=self.settings_client,
-                    event_publisher=self._publish_event,
-                    audio_client=self.audio_client,  # Phase 29
-                    game_id=self.game_id,
-                    num_teams=num_teams,
-                )
-
-                # Store reference
-                self.current_game = game
-
-                # Run the game (async) with parent context from StartGame RPC
-                await game.run(game_context=parent_context)
-
-                logger.info("Teams game completed")
-
-            elif self.game_name.lower() in [
-                "random teams",
-                "joust random teams",
-                "random_teams",
-            ]:
-                logger.info("Starting Random Teams game")
-
-                # Get number of teams from settings (default 2)
-                num_teams = int(self.settings.get("num_teams", "2"))
-
-                # Create Random Teams game instance
-                game = random_teams.RandomTeamsGame(
-                    controller_manager_client=self.controller_manager_client,
-                    settings_client=self.settings_client,
-                    event_publisher=self._publish_event,
-                    audio_client=self.audio_client,  # Phase 29
-                    game_id=self.game_id,
-                    num_teams=num_teams,
-                )
-
-                # Store reference
-                self.current_game = game
-
-                # Run the game (async) with parent context from StartGame RPC
-                await game.run(game_context=parent_context)
-
-                logger.info("Random Teams game completed")
-
-            elif self.game_name.lower() in ["nonstop", "nonstop joust", "nonstopjoust"]:
-                logger.info("Starting Nonstop Joust game")
-
-                # Get time limit from settings (0 = unlimited)
-                time_limit = int(self.settings.get("nonstop_time_limit", "0"))
-
-                # Create Nonstop Joust game instance
-                game = nonstop_joust.NonstopJoustGame(
-                    controller_manager_client=self.controller_manager_client,
-                    settings_client=self.settings_client,
-                    event_publisher=self._publish_event,
-                    audio_client=self.audio_client,  # Phase 29
-                    game_id=self.game_id,
-                )
-
-                # Store reference
-                self.current_game = game
-
-                # Run the game (async) with parent context from StartGame RPC
-                await game.run(game_context=parent_context)
-
-                logger.info("Nonstop Joust game completed")
-
-            else:
-                error_msg = f"Game mode '{self.game_name}' not implemented yet"
-                logger.error(error_msg)
-                self.game_state = game_coordinator_pb2.GameState.ENDED
-                self._publish_event("game_error", {"error": error_msg})
-
-        except Exception as e:
-            logger.error(f"Game loop error: {e}", exc_info=True)
-            self.game_state = game_coordinator_pb2.GameState.ENDED
-            self._publish_event("game_error", {"error": str(e)})
-        finally:
-            self.game_running = False
-            self.current_game = None
-
-            # Update metrics (Phase 38)
-            metrics.active_game.set(0)
-            metrics.active_players.set(0)
-            metrics.players_alive.set(0)
-            if self.game_name:
-                metrics.games_completed_total.labels(mode=self.game_name).inc()
-            if self.game_start_time:
-                duration = time.time() - self.game_start_time
-                metrics.game_duration_seconds.set(duration)
+                # Update metrics (Phase 38)
+                metrics.active_game.set(0)
+                metrics.active_players.set(0)
+                metrics.players_alive.set(0)
+                if self.game_name:
+                    metrics.games_completed_total.labels(mode=self.game_name).inc()
+                if self.game_start_time:
+                    duration = time.time() - self.game_start_time
+                    metrics.game_duration_seconds.set(duration)
 
                 # Close async gRPC channels
                 if self.controller_manager_channel:
@@ -541,7 +551,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                         event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
                         yield event
 
-                    except asyncio.TimeoutError:  # Phase 34: asyncio exception
+                    except TimeoutError:  # Phase 34: asyncio exception
                         # No event, continue (timeout keeps connection alive)
                         continue
                     except Exception as e:

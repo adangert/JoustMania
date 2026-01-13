@@ -9,7 +9,6 @@ Phase 44 will add OpenFeature integration for dynamic flag-based configuration.
 
 import logging
 from dataclasses import dataclass
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +68,7 @@ class RuntimeConfigManager:
 
 
 # Global singleton instance
-_global_config_manager: Optional[RuntimeConfigManager] = None
+_global_config_manager: RuntimeConfigManager | None = None
 
 
 def get_config_manager() -> RuntimeConfigManager:

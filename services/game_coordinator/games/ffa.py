@@ -134,8 +134,8 @@ class FFAGame(BaseGameMode):
         Each player gets a distinct color so they can be identified during gameplay.
         Uses HSV color generation for maximum distinction.
         """
-        from proto import controller_manager_pb2
         from lib.colors import generate_colors
+        from proto import controller_manager_pb2
 
         logger.info("Setting unique FFA colors...")
 

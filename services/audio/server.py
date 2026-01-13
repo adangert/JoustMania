@@ -17,6 +17,7 @@ import uuid
 
 import grpc
 import grpc.aio
+import psutil
 import pygame
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
@@ -28,12 +29,11 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-# Import protobuf definitions
-from proto import audio_pb2, audio_pb2_grpc
-
 # Prometheus metrics (Phase 38)
 from prometheus_client import start_http_server
-import psutil
+
+# Import protobuf definitions
+from proto import audio_pb2, audio_pb2_grpc
 from services.audio import metrics
 
 # Configure logging with environment variable support

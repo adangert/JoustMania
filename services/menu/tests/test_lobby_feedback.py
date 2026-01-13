@@ -8,7 +8,6 @@ Tests controller LED feedback in the lobby:
 - First connection green flash
 """
 
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

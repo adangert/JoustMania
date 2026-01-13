@@ -132,9 +132,13 @@ class MockBackend(ControllerBackend):
             controller["trigger"] = max(0, controller["trigger"] - 10)
 
         # Add slight noise to accelerometer (simulates hand shake)
-        controller["accel"]["x"] = random.gauss(0.0, 0.1)
-        controller["accel"]["y"] = random.gauss(0.0, 0.1)
-        controller["accel"]["z"] = random.gauss(1.0, 0.1)  # ~1g gravity
+        # BUT: Don't overwrite if acceleration was explicitly set high (e.g., death simulation)
+        accel = controller["accel"]
+        accel_mag = (accel["x"]**2 + accel["y"]**2 + accel["z"]**2) ** 0.5
+        if accel_mag < 2.0:  # Only add noise if not in "death" state
+            controller["accel"]["x"] = random.gauss(0.0, 0.1)
+            controller["accel"]["y"] = random.gauss(0.0, 0.1)
+            controller["accel"]["z"] = random.gauss(1.0, 0.1)  # ~1g gravity
 
         # Add slight noise to gyroscope
         controller["gyro"]["x"] = random.gauss(0.0, 0.5)

@@ -123,8 +123,6 @@ class TeamsGameBase(BaseGameMode):
 
             game_context = otel_context.get_current()
 
-        logger.info(f"[SPAN DEBUG] Creating team/player spans, game_context type: {type(game_context)}")
-
         # Create team lifecycle spans and their player children
         # Using trace.use_span() to register team spans with SDK for export
         for team_num, team in self.teams.items():
@@ -137,14 +135,6 @@ class TeamsGameBase(BaseGameMode):
                     "team.color": str(team.color),
                     "game.mode": self.get_game_name(),
                 },
-            )
-
-            span_ctx = team_span.get_span_context()
-            logger.info(
-                f"[SPAN DEBUG] Created team {team_num} span - "
-                f"trace_id: {format(span_ctx.trace_id, '032x')}, "
-                f"span_id: {format(span_ctx.span_id, '016x')}, "
-                f"is_valid: {span_ctx.is_valid}"
             )
 
             # FIX: Use trace.use_span() to register team span with SDK
@@ -170,13 +160,6 @@ class TeamsGameBase(BaseGameMode):
                         },
                     )
                     player.span = player_span
-                    span_ctx = player_span.get_span_context()
-                    logger.info(
-                        f"[SPAN DEBUG] Created player {serial} span - "
-                        f"team: {team.name}, "
-                        f"span_id: {format(span_ctx.span_id, '016x')}, "
-                        f"is_valid: {span_ctx.is_valid}"
-                    )
 
     async def _set_team_colors(self, pulse_effect: bool = False, duration_ms: int = 0):
         """

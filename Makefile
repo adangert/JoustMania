@@ -12,9 +12,9 @@ help:
 	@echo "  make docker-stop     - Stop Docker services"
 	@echo ""
 	@echo "Testing Targets:"
-	@echo "  make test-help       - Show all testing targets"
-	@echo "  make test            - Run integration tests"
-	@echo "  make test-teams      - Run Teams test with Jaeger inspection"
+	@echo "  make test-help         - Show all testing targets"
+	@echo "  make test-docker       - Run integration tests in Docker (recommended)"
+	@echo "  make test-teams-docker - Run Teams test in Docker"
 	@echo ""
 	@echo "CI/CD Targets:"
 	@echo "  make ci-help         - Show all CI/CD targets"
@@ -146,10 +146,27 @@ ci-help:
 # Testing Targets
 # ============================================================================
 
+.PHONY: ci-build-test
+ci-build-test:
+	@echo "Building test runner image..."
+	@docker build -t joustmania/ci-test:latest tools/ci-test/
+	@echo "✓ Test runner image built"
+
 .PHONY: test
 test:
 	@echo "Running integration tests with mock environment..."
 	@uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v
+
+.PHONY: test-docker
+test-docker: ci-build-test
+	@echo "Running integration tests in Docker..."
+	@docker run --rm \
+		-v "$(PWD):/workspace" \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-w /workspace \
+		-e DOCKER_HOST=unix:///var/run/docker.sock \
+		joustmania/ci-test:latest \
+		uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v
 
 .PHONY: test-mock
 test-mock:
@@ -162,20 +179,66 @@ test-mock-pause:
 	@echo "Note: Tests will pause before teardown. Press Enter in test output to continue."
 	@PAUSE_BEFORE_TEARDOWN=1 uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v -s
 
+.PHONY: test-mock-pause-docker
+test-mock-pause-docker: ci-build-test
+	@echo "Running integration tests in Docker with pause (for Jaeger inspection)..."
+	@echo "Note: Tests will pause before teardown. Press Enter in test output to continue."
+	@docker run --rm -it \
+		-v "$(PWD):/workspace" \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-w /workspace \
+		-e DOCKER_HOST=unix:///var/run/docker.sock \
+		-e PAUSE_BEFORE_TEARDOWN=1 \
+		joustmania/ci-test:latest \
+		uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v -s
+
 .PHONY: test-ffa
 test-ffa:
 	@echo "Running FFA integration test..."
 	@uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_ffa_game_with_mock_controllers -v
+
+.PHONY: test-ffa-docker
+test-ffa-docker: ci-build-test
+	@echo "Running FFA integration test in Docker..."
+	@docker run --rm \
+		-v "$(PWD):/workspace" \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-w /workspace \
+		-e DOCKER_HOST=unix:///var/run/docker.sock \
+		joustmania/ci-test:latest \
+		uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_ffa_game_with_mock_controllers -v
 
 .PHONY: test-teams
 test-teams:
 	@echo "Running Teams integration test..."
 	@uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_teams_game_with_mock_controllers -v
 
+.PHONY: test-teams-docker
+test-teams-docker: ci-build-test
+	@echo "Running Teams integration test in Docker..."
+	@docker run --rm \
+		-v "$(PWD):/workspace" \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-w /workspace \
+		-e DOCKER_HOST=unix:///var/run/docker.sock \
+		joustmania/ci-test:latest \
+		uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_teams_game_with_mock_controllers -v
+
 .PHONY: test-random-teams
 test-random-teams:
 	@echo "Running Random Teams integration test..."
 	@uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_random_teams_game_with_mock_controllers -v
+
+.PHONY: test-random-teams-docker
+test-random-teams-docker: ci-build-test
+	@echo "Running Random Teams integration test in Docker..."
+	@docker run --rm \
+		-v "$(PWD):/workspace" \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-w /workspace \
+		-e DOCKER_HOST=unix:///var/run/docker.sock \
+		joustmania/ci-test:latest \
+		uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_random_teams_game_with_mock_controllers -v
 
 .PHONY: test-watch
 test-watch:
@@ -187,17 +250,28 @@ test-help:
 	@echo "Testing Make Targets"
 	@echo "===================="
 	@echo ""
-	@echo "Run Tests:"
+	@echo "Run Tests (Local):"
 	@echo "  make test             - Run all integration tests"
 	@echo "  make test-mock        - Run all mock environment tests"
 	@echo "  make test-mock-pause  - Run tests with pause before teardown (for Jaeger)"
-	@echo ""
-	@echo "Run Specific Game Mode:"
-	@echo "  make test-ffa          - Run FFA integration test only"
-	@echo "  make test-teams        - Run Teams integration test only"
+	@echo "  make test-ffa         - Run FFA integration test only"
+	@echo "  make test-teams       - Run Teams integration test only"
 	@echo "  make test-random-teams - Run Random Teams integration test only"
+	@echo ""
+	@echo "Run Tests (Docker - Recommended):"
+	@echo "  make test-docker             - Run all tests in Docker container"
+	@echo "  make test-mock-pause-docker  - Run with pause in Docker (for Jaeger)"
+	@echo "  make test-ffa-docker         - Run FFA test in Docker"
+	@echo "  make test-teams-docker       - Run Teams test in Docker"
+	@echo "  make test-random-teams-docker - Run Random Teams test in Docker"
 	@echo ""
 	@echo "Development:"
 	@echo "  make test-watch       - Run tests in watch mode (re-runs on changes)"
 	@echo ""
-	@echo "Note: All tests use uv to manage dependencies and run in isolated environments."
+	@echo "Setup:"
+	@echo "  make ci-build-test    - Build test runner Docker image"
+	@echo ""
+	@echo "Notes:"
+	@echo "  - Docker tests avoid .venv permission issues"
+	@echo "  - Docker tests use testcontainers for isolation"
+	@echo "  - Local tests require: uv installed and .venv owned by current user"

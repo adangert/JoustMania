@@ -220,7 +220,7 @@ class WebUI:
             template_folder="/app/services/webui/templates",
             static_folder="/app/services/webui/static",
         )
-        self.app.secret_key = "MAGFest is a donut"
+        self.app.secret_key = os.getenv("FLASK_SECRET_KEY", "MAGFest is a donut")
 
         # Initialize gRPC clients
         self.grpc = GrpcClients()

@@ -250,7 +250,8 @@ class MultiHubPerformanceMonitor:
 
 async def monitor_performance(frequency_hz: int, duration_sec: int):
     """Monitor multi-hub performance."""
-    channel = grpc.aio.insecure_channel("localhost:50051")
+    grpc_host = os.getenv("CONTROLLER_MANAGER_HOST", "localhost:50052")
+    channel = grpc.aio.insecure_channel(grpc_host)
     stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
 
     request = controller_manager_pb2.GameplayStreamRequest(update_frequency_hz=frequency_hz)

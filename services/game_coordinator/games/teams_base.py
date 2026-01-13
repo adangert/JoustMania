@@ -137,29 +137,22 @@ class TeamsGameBase(BaseGameMode):
                 },
             )
 
-            # FIX: Use trace.use_span() to register team span with SDK
+            # Use trace.use_span() to register team span with SDK for proper export
             # end_on_exit=False prevents automatic span ending (we end manually)
             with trace.use_span(team_span, end_on_exit=False):
                 team.span = team_span  # Store reference for manual .end() later
 
                 # Create player spans while team span is current (registered with SDK)
+                # Using the base class helper ensures consistent span creation pattern with FFA
                 team_players = [(s, p) for s, p in self.players.items() if p.team == team_num]
                 for serial, player in team_players:
-                    # Get current context (now the registered team span)
-                    from opentelemetry import context as otel_context
-
-                    player_span = tracer.start_span(
-                        f"player_{serial}_lifecycle",
-                        context=otel_context.get_current(),  # Gets team context (registered!)
-                        attributes={
-                            "player.serial": serial,
-                            "player.team": player.team,
-                            "player.team_name": team.name,
-                            "player.color": str(player.color),
-                            "game.mode": self.get_game_name(),
-                        },
-                    )
-                    player.span = player_span
+                    # Use base class helper (same pattern as FFA) for reliable span export
+                    # Passing None uses current context (the registered team span)
+                    player.span = self._create_player_lifecycle_span(serial, None)
+                    # Add team-specific attributes to the span
+                    if player.span:
+                        player.span.set_attribute("player.team_name", team.name)
+                    logger.debug(f"Created lifecycle span for player {serial} in team {team.name}")
 
     async def _set_team_colors(self, pulse_effect: bool = False, duration_ms: int = 0):
         """

@@ -2,11 +2,9 @@
 # Build stage
 FROM python:3.11-slim AS builder
 
-# Install build dependencies (including libasound for pyalsaaudio)
+# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
-    g++ \
-    libasound2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -32,11 +30,6 @@ RUN uv pip install --system -e .
 
 # Runtime stage
 FROM python:3.11-slim
-
-# Install runtime dependencies (including libasound for pyalsaaudio)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libasound2 \
-    && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app

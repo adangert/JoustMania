@@ -392,7 +392,6 @@ source = { editable = "services/audio" }
 dependencies = [
     { name = "grpcio" },
     { name = "grpcio-health-checking" },
-    { name = "grpcio-tools" },
     { name = "joustmania-proto" },
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-exporter-otlp" },
@@ -406,7 +405,6 @@ dependencies = [
 requires-dist = [
     { name = "grpcio", specifier = ">=1.70.0" },
     { name = "grpcio-health-checking", specifier = ">=1.70.0" },
-    { name = "grpcio-tools", specifier = ">=1.70.0" },
     { name = "joustmania-proto", editable = "proto" },
     { name = "opentelemetry-distro", specifier = ">=0.49b0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.28.0" },
@@ -421,7 +419,7 @@ name = "joustmania-controller-manager"
 version = "1.0.0"
 source = { editable = "services/controller_manager" }
 dependencies = [
-    { name = "dbus-python" },
+    { name = "dbus-python", marker = "sys_platform == 'linux'" },
     { name = "grpcio" },
     { name = "grpcio-health-checking" },
     { name = "joustmania-proto" },
@@ -436,7 +434,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "dbus-python", specifier = ">=1.2.0" },
+    { name = "dbus-python", marker = "sys_platform == 'linux'", specifier = ">=1.2.0" },
     { name = "grpcio", specifier = ">=1.70.0" },
     { name = "grpcio-health-checking", specifier = ">=1.70.0" },
     { name = "joustmania-proto", editable = "proto" },
@@ -456,37 +454,26 @@ source = { editable = "services/game_coordinator" }
 dependencies = [
     { name = "grpcio" },
     { name = "grpcio-health-checking" },
-    { name = "grpcio-tools" },
     { name = "joustmania-proto" },
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-instrumentation-grpc" },
     { name = "prometheus-client" },
     { name = "psutil" },
-    { name = "pyalsaaudio" },
-    { name = "pydub" },
-    { name = "pygame" },
     { name = "pyyaml" },
-    { name = "redis" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "audioop-lts", marker = "python_full_version >= '3.13'", specifier = ">=0.2.0" },
     { name = "grpcio", specifier = ">=1.70.0" },
     { name = "grpcio-health-checking", specifier = ">=1.70.0" },
-    { name = "grpcio-tools", specifier = ">=1.70.0" },
     { name = "joustmania-proto", editable = "proto" },
     { name = "opentelemetry-distro", specifier = ">=0.49b0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.28.0" },
     { name = "opentelemetry-instrumentation-grpc", specifier = ">=0.49b0" },
     { name = "prometheus-client", specifier = ">=0.19.0" },
     { name = "psutil", specifier = ">=5.9.0" },
-    { name = "pyalsaaudio", specifier = ">=0.9.0" },
-    { name = "pydub", specifier = ">=0.25.0" },
-    { name = "pygame", specifier = ">=2.0.0" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "redis", specifier = ">=5.0.0" },
 ]
 
 [[package]]
@@ -519,18 +506,13 @@ source = { editable = "services/menu" }
 dependencies = [
     { name = "grpcio" },
     { name = "grpcio-health-checking" },
-    { name = "grpcio-tools" },
     { name = "joustmania-proto" },
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-instrumentation-grpc" },
     { name = "prometheus-client" },
     { name = "psutil" },
-    { name = "pyalsaaudio" },
-    { name = "pydub" },
-    { name = "pygame" },
     { name = "pyyaml" },
-    { name = "redis" },
 ]
 
 [package.optional-dependencies]
@@ -541,23 +523,17 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "audioop-lts", marker = "python_full_version >= '3.13'", specifier = ">=0.2.0" },
     { name = "grpcio", specifier = ">=1.70.0" },
     { name = "grpcio-health-checking", specifier = ">=1.70.0" },
-    { name = "grpcio-tools", specifier = ">=1.70.0" },
     { name = "joustmania-proto", editable = "proto" },
     { name = "opentelemetry-distro", specifier = ">=0.49b0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.28.0" },
     { name = "opentelemetry-instrumentation-grpc", specifier = ">=0.49b0" },
     { name = "prometheus-client", specifier = ">=0.19.0" },
     { name = "psutil", specifier = ">=5.9.0" },
-    { name = "pyalsaaudio", specifier = ">=0.9.0" },
-    { name = "pydub", specifier = ">=0.25.0" },
-    { name = "pygame", specifier = ">=2.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.21.0" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "redis", specifier = ">=5.0.0" },
 ]
 provides-extras = ["dev"]
 
@@ -592,7 +568,6 @@ dependencies = [
     { name = "prometheus-client" },
     { name = "psutil" },
     { name = "pyyaml" },
-    { name = "redis" },
 ]
 
 [package.optional-dependencies]
@@ -616,7 +591,6 @@ requires-dist = [
     { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=0.21.0" },
     { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=4.1.0" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "redis", specifier = ">=5.0.0" },
 ]
 provides-extras = ["test"]
 
@@ -627,7 +601,6 @@ source = { editable = "services/supervisor" }
 dependencies = [
     { name = "grpcio" },
     { name = "grpcio-health-checking" },
-    { name = "grpcio-tools" },
     { name = "joustmania-proto" },
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-exporter-otlp" },
@@ -640,7 +613,6 @@ dependencies = [
 requires-dist = [
     { name = "grpcio", specifier = ">=1.70.0" },
     { name = "grpcio-health-checking", specifier = ">=1.70.0" },
-    { name = "grpcio-tools", specifier = ">=1.70.0" },
     { name = "joustmania-proto", editable = "proto" },
     { name = "opentelemetry-distro", specifier = ">=0.49b0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.28.0" },

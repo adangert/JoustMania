@@ -94,28 +94,13 @@ select = [
 ]
 
 ignore = [
-    # Type annotations - gradually adopting
-    "ANN001",  # Missing type annotation for function argument
-    "ANN201",  # Missing return type annotation for public function
-    "ANN202",  # Missing return type annotation for private function
-    "ANN204",  # Missing return type annotation for special method
-    "ANN206",  # Missing return type annotation for classmethod
-    "ANN401",  # Allow Any types
-
-    # Complexity rules - relax for now
-    "ARG002",  # Unused method argument (common in overrides)
-    "ARG003",  # Unused class method argument
-
-    # Line length - some legacy code exceeds 100
-    "E501",    # Line too long (will fix gradually)
+    # Type annotations - will add gradually via ty (already configured)
+    "ANN",
 ]
 
 # Per-file ignore rules
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]  # Unused imports OK in __init__
-"tests/**/*.py" = ["ANN"]  # No type hints required in tests initially
-"legacy/**/*.py" = ["ANN", "N", "ARG"]  # Relax rules for legacy code
-"Archive/**/*.py" = ["ANN", "N", "ARG"]  # Relax rules for archived code
 
 [tool.ruff.format]
 quote-style = "double"

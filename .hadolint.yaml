@@ -1,0 +1,48 @@
+# Hadolint configuration for JoustMania Dockerfiles
+# https://github.com/hadolint/hadolint
+
+# Rules to ignore
+ignored:
+  # DL3008: Pin versions in apt-get install
+  # We use debian stable and prefer latest security updates
+  - DL3008
+
+  # DL3013: Pin versions in pip install
+  # We already pin major packages, type stubs can float
+  - DL3013
+
+  # DL3049: Missing labels
+  # We'll add labels in a future phase
+  - DL3049
+
+# Trusted registries (for base images)
+trustedRegistries:
+  - docker.io
+  - gcr.io
+  - ghcr.io
+
+# Failure threshold
+# error, warning, info, style, ignore, none
+failure-threshold: warning
+
+# Override specific rules
+override:
+  # DL3006: Always tag the version of an image explicitly
+  # Keep this enabled - we want explicit python:3.11-slim tags
+  error:
+    - DL3006
+
+  # DL3018: Pin versions in apk add
+  # Keep this as warning (we don't use alpine currently)
+  warning:
+    - DL3018
+
+# Label schema (optional for now)
+# We can enable this later for production images
+# label-schema:
+#   author: text
+#   version: semver
+
+# Strict mode for CI
+# Set via --strict flag or failure-threshold: error
+strict-labels: false

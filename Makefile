@@ -119,7 +119,7 @@ ci-help:
 	@echo "  make lint              - Run Python linting (ruff)"
 	@echo "  make format            - Format code with ruff"
 	@echo "  make format-check      - Check code formatting"
-	@echo "  make typecheck         - Run type checking (mypy)"
+	@echo "  make typecheck         - Run type checking (ty)"
 	@echo "  make lint-dockerfiles  - Lint all Dockerfiles"
 	@echo ""
 	@echo "Validation:"

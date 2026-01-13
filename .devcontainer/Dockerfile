@@ -22,9 +22,7 @@ RUN pip install --no-cache-dir uv==0.5.11
 # Install development tools
 RUN pip install --no-cache-dir \
     ruff==0.8.4 \
-    mypy==1.13.0 \
-    types-PyYAML \
-    types-requests \
+    ty==0.0.11 \
     ipython \
     ipdb
 

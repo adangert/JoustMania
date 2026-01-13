@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Run mypy type checking in Docker container
+# Run ty type checking in Docker container
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-echo "Running mypy type checking..."
+echo "Running ty type checking..."
 
 # Array of services to check
 SERVICES=(
@@ -27,7 +27,7 @@ for service in "${SERVICES[@]}"; do
         -v "$PROJECT_ROOT:/workspace:ro" \
         -w /workspace \
         joustmania/ci-lint:latest \
-        mypy "services/$service" --check-untyped-defs --ignore-missing-imports \
+        ty check "services/$service" \
         || FAILED=1
 done
 

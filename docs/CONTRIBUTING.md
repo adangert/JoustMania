@@ -79,7 +79,7 @@ The dev container includes:
 All pull requests must pass CI checks before merging:
 
 1. **Python Linting** - Code must pass `ruff check` and `ruff format --check`
-2. **Type Checking** - Mypy type checking (currently warnings only)
+2. **Type Checking** - Ty type checking (currently warnings only)
 3. **Dockerfile Linting** - All Dockerfiles must pass hadolint validation
 4. **Proto Validation** - Proto files must be up-to-date (run `make protos`)
 5. **Docker Builds** - All 7 services must build successfully
@@ -179,10 +179,11 @@ Run `make format` to auto-fix most issues.
 
 ### Type Hints
 
-We use **mypy** for type checking:
+We use **ty** (Astral type checker) for type checking:
 - Gradually adopting type hints across the codebase
 - Currently in warning-only mode
 - New code should include type hints where possible
+- Configured in `pyproject.toml` under `[tool.ty]`
 
 ### Dockerfiles
 

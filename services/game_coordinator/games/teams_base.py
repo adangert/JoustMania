@@ -118,10 +118,17 @@ class TeamsGameBase(BaseGameMode):
         Args:
             game_context: Parent span context for proper hierarchy
         """
+        # Get current context if not provided
+        if game_context is None:
+            from opentelemetry import context as otel_context
+
+            game_context = otel_context.get_current()
+
         # Create team lifecycle spans first
         for team_num, team in self.teams.items():
             team_span = tracer.start_span(
                 f"team_{team_num}_{team.name}_lifecycle",
+                context=game_context,
                 attributes={
                     "team.number": team_num,
                     "team.name": team.name,

@@ -412,7 +412,7 @@ class BaseGameMode(ABC):
             last_iteration_time = loop_start_time
 
             # Safety timeout: maximum 5 minutes per game
-            MAX_GAME_DURATION = 300  # seconds
+            max_game_duration = 300  # seconds
 
             # Stream gameplay data and process game logic
             logger.info("Starting gameplay data stream loop, waiting for first update...")
@@ -427,9 +427,9 @@ class BaseGameMode(ABC):
                     break
 
                 # Safety check: timeout if game runs too long
-                if (time.time() - loop_start_time) > MAX_GAME_DURATION:
+                if (time.time() - loop_start_time) > max_game_duration:
                     logger.error(
-                        f"Game exceeded maximum duration of {MAX_GAME_DURATION}s, forcing end"
+                        f"Game exceeded maximum duration of {max_game_duration}s, forcing end"
                     )
                     break
 
@@ -725,28 +725,23 @@ class BaseGameMode(ABC):
         """
         player = self.players[serial]
 
-        # If context is provided, use it; otherwise let tracer use current active span
-        if context is not None:
-            span = tracer.start_span(
-                f"player_{serial}_lifecycle",
-                context=context,
-                attributes={
-                    "player.serial": serial,
-                    "player.team": player.team,
-                    "player.color": str(player.color),
-                    "game.mode": self.get_game_name(),
-                },
-            )
-        else:
-            span = tracer.start_span(
-                f"player_{serial}_lifecycle",
-                attributes={
-                    "player.serial": serial,
-                    "player.team": player.team,
-                    "player.color": str(player.color),
-                    "game.mode": self.get_game_name(),
-                },
-            )
+        # If context is provided, use it; otherwise use current active span context
+        if context is None:
+            # Get current context from active span
+            from opentelemetry import context as otel_context
+
+            context = otel_context.get_current()
+
+        span = tracer.start_span(
+            f"player_{serial}_lifecycle",
+            context=context,
+            attributes={
+                "player.serial": serial,
+                "player.team": player.team,
+                "player.color": str(player.color),
+                "game.mode": self.get_game_name(),
+            },
+        )
         return span
 
     async def _play_sound(self, sound_path: str, priority: int = 2):

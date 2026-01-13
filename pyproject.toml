@@ -24,7 +24,7 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["core", "utils"]
+packages = ["lib"]
 
 [build-system]
 requires = ["setuptools>=45", "wheel"]
@@ -101,6 +101,13 @@ ignore = [
 # Per-file ignore rules
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]  # Unused imports OK in __init__
+
+# gRPC service methods MUST use PascalCase per protobuf convention
+"services/*/server.py" = ["N802"]
+"services/*/mock_server.py" = ["N802"]
+
+# Integration tests need to modify sys.path before imports
+"services/game_coordinator/test_*_integration.py" = ["E402"]
 
 [tool.ruff.format]
 quote-style = "double"

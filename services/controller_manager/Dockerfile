@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libbluetooth-dev \
     libusb-dev \
     libusb-1.0-0-dev \
+    libdbus-1-dev \
     swig \
     && rm -rf /var/lib/apt/lists/*
 

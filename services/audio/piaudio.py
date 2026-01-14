@@ -6,20 +6,19 @@ import os
 import random
 import time
 import wave
+from multiprocessing import Manager, Process, Value
 from sys import platform
 
 import numpy
 import psutil
 import pygame
 import scipy.signal as signal
+from pydub import AudioSegment
 
 if platform == "linux" or platform == "linux2":
     import alsaaudio
 else:
     import pyaudio
-from multiprocessing import Manager, Process, Value
-
-from pydub import AudioSegment
 
 import common
 

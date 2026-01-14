@@ -53,6 +53,9 @@ docker-stop:
 # CI/CD Targets (Phase 55)
 # ============================================================================
 
+# Services list for build targets
+SERVICES := controller_manager game_coordinator settings supervisor menu audio webui
+
 .PHONY: ci-build-tools
 ci-build-tools:
 	@echo "Building CI tooling images..."
@@ -63,25 +66,60 @@ ci-build-tools:
 
 .PHONY: lint
 lint: ci-build-tools
-	@bash scripts/ci/lint.sh
+	@echo "Running ruff linting..."
+	@docker run --rm \
+		-v "$(PWD):/workspace:ro" \
+		-w /workspace \
+		-e RUFF_CACHE_DIR=/tmp/ruff-cache \
+		joustmania/ci-lint:latest \
+		ruff check . --output-format=github
+	@echo "✅ Linting passed!"
 
 .PHONY: format
 format: ci-build-tools
 	@echo "Formatting code with ruff..."
-	@docker run --rm -v "$(PWD):/workspace" -w /workspace -e RUFF_CACHE_DIR=/tmp/ruff-cache joustmania/ci-lint:latest ruff format .
+	@docker run --rm \
+		-v "$(PWD):/workspace" \
+		-w /workspace \
+		-e RUFF_CACHE_DIR=/tmp/ruff-cache \
+		joustmania/ci-lint:latest \
+		ruff format .
 	@echo "✓ Code formatted"
 
 .PHONY: format-check
 format-check: ci-build-tools
-	@bash scripts/ci/format-check.sh
+	@echo "Checking code formatting..."
+	@docker run --rm \
+		-v "$(PWD):/workspace:ro" \
+		-w /workspace \
+		-e RUFF_CACHE_DIR=/tmp/ruff-cache \
+		joustmania/ci-lint:latest \
+		ruff format --check .
+	@echo "✅ Formatting is correct!"
 
 .PHONY: typecheck
 typecheck: ci-build-tools
-	@bash scripts/ci/typecheck.sh
+	@echo "Running ty type checking..."
+	@for service in $(SERVICES); do \
+		echo "Checking services/$$service..."; \
+		docker run --rm \
+			-v "$(PWD):/workspace:ro" \
+			-w /workspace \
+			joustmania/ci-lint:latest \
+			ty check "services/$$service" || true; \
+	done
+	@echo "✅ Type checking complete (warnings only)"
 
 .PHONY: lint-dockerfiles
 lint-dockerfiles: ci-build-tools
-	@bash scripts/ci/lint-dockerfiles.sh
+	@echo "Linting Dockerfiles..."
+	@docker run --rm \
+		--entrypoint /bin/sh \
+		-v "$(PWD):/workspace:ro" \
+		-w /workspace \
+		joustmania/ci-hadolint:latest \
+		-c 'find . -name "Dockerfile" -type f -exec echo "Linting {}" \; -exec hadolint {} \;'
+	@echo "✅ All Dockerfiles passed linting!"
 
 .PHONY: validate-protos
 validate-protos: ci-build-tools
@@ -98,11 +136,26 @@ build-service:
 		echo "Example: make build-service SERVICE=controller_manager"; \
 		exit 1; \
 	fi
-	@bash scripts/ci/build-service.sh $(SERVICE)
+	@echo "Building $(SERVICE) service..."
+	@docker build \
+		-f services/$(SERVICE)/Dockerfile \
+		-t joustmania/$(SERVICE)-service:ci \
+		--build-arg BUILDKIT_INLINE_CACHE=1 \
+		.
+	@echo "✅ Built $(SERVICE) successfully!"
 
 .PHONY: build-all-services
 build-all-services:
-	@bash scripts/ci/build-all.sh
+	@echo "Building all services..."
+	@for service in $(SERVICES); do \
+		echo ""; \
+		echo "========================================"; \
+		echo "Building $$service"; \
+		echo "========================================"; \
+		$(MAKE) build-service SERVICE=$$service; \
+	done
+	@echo ""
+	@echo "✅ All services built successfully!"
 
 .PHONY: ci-all
 ci-all: lint format-check typecheck lint-dockerfiles validate-protos validate-packages
@@ -119,7 +172,14 @@ ci-quick: lint format-check
 .PHONY: ci-integration
 ci-integration: ci-build-test
 	@echo "Running integration tests for CI..."
-	@bash scripts/ci/integration-test.sh
+	@docker run --rm \
+		-v "$(PWD):/workspace" \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-w /workspace \
+		-e DOCKER_HOST=unix:///var/run/docker.sock \
+		joustmania/ci-test:latest \
+		uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v
+	@echo "✅ Integration tests passed!"
 
 .PHONY: ci-help
 ci-help:

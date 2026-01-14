@@ -3,11 +3,11 @@ from sys import platform
 
 import psmove
 
-print(platform)
 if platform == "linux" or platform == "linux2":
-    import jm_dbus
+    from services.controller_manager import bluetooth as jm_dbus
 elif platform == "windows" or platform == "win32":
-    import win_jm_dbus as jm_dbus
+    # Windows pairing is handled by OS, not used here
+    jm_dbus = None
 
 
 class Pair:

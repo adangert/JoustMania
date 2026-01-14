@@ -9,16 +9,12 @@ Part of Phase 9 (Architecture Cleanup).
 
 import logging
 import os
-import threading
 from multiprocessing import Process
 from time import sleep
 
 import grpc
-from lib.system_metrics import start_system_metrics_collector_thread
 import yaml
 from flask import Flask, flash, redirect, render_template, request, url_for
-
-# OpenTelemetry instrumentation
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
@@ -26,8 +22,6 @@ from opentelemetry.instrumentation.grpc import GrpcInstrumentorClient
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-
-# Prometheus metrics (Phase 38)
 from prometheus_client import start_http_server
 from wtforms import (
     BooleanField,
@@ -39,11 +33,8 @@ from wtforms import (
 )
 
 from lib import colors
-
-# Import core modules (use types to avoid psmove dependency)
+from lib.system_metrics import start_system_metrics_collector_thread
 from lib.types import Games, Opts
-
-# Import protobuf definitions
 from proto import (
     controller_manager_pb2,
     controller_manager_pb2_grpc,

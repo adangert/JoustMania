@@ -17,22 +17,17 @@ import uuid
 
 import grpc
 import grpc.aio
-from lib.system_metrics import start_system_metrics_collector
 import pygame
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc
-
-# OpenTelemetry instrumentation
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.grpc import GrpcInstrumentorServer
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-
-# Prometheus metrics (Phase 38)
 from prometheus_client import start_http_server
 
-# Import protobuf definitions
+from lib.system_metrics import start_system_metrics_collector
 from proto import audio_pb2, audio_pb2_grpc
 from services.audio import metrics
 

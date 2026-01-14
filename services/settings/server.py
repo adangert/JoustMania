@@ -33,11 +33,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 # So we'll define a minimal version here for server-only use
 from enum import Enum
 
-from lib.system_metrics import start_system_metrics_collector
-
-# Prometheus metrics (Phase 38)
 from prometheus_client import start_http_server
 
+from lib.system_metrics import start_system_metrics_collector
 from lib.telemetry import init_telemetry
 from proto import settings_pb2, settings_pb2_grpc
 from services.settings import metrics

@@ -80,8 +80,8 @@ services:
     volumes:
       # D-Bus socket for BlueZ communication
       - /var/run/dbus:/var/run/dbus:ro
-      # Bluetooth device access
-      - /var/lib/bluetooth:/var/lib/bluetooth:ro
+      # Bluetooth device access (read-write for pairing)
+      - /var/lib/bluetooth:/var/lib/bluetooth
       # USB device access for controller pairing
       - /dev/bus/usb:/dev/bus/usb
       - /run/udev:/run/udev:ro

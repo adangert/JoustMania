@@ -1,6 +1,48 @@
 # Multi-stage build for JoustMania Controller Manager Service
-# Build stage
-FROM python:3.11-slim AS builder
+#
+# Includes PS Move API built from source for real controller support.
+# Build time: ~10-15 minutes on first build (psmoveapi compilation)
+
+# =============================================================================
+# Stage 1: Build PS Move API from source
+# =============================================================================
+FROM python:3.11-slim AS psmove-builder
+
+# Install psmoveapi build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    git \
+    pkg-config \
+    libudev-dev \
+    libbluetooth-dev \
+    libusb-dev \
+    libusb-1.0-0-dev \
+    swig \
+    && rm -rf /var/lib/apt/lists/*
+
+# Clone and build psmoveapi (tested commit)
+WORKDIR /build
+RUN git clone --recursive https://github.com/thp/psmoveapi.git && \
+    cd psmoveapi && \
+    git checkout 8a1f8d035e9c82c5c134d848d9fbb4dd37a34b58
+
+WORKDIR /build/psmoveapi/build
+RUN cmake .. \
+    -DPSMOVE_BUILD_CSHARP_BINDINGS:BOOL=OFF \
+    -DPSMOVE_BUILD_EXAMPLES:BOOL=OFF \
+    -DPSMOVE_BUILD_JAVA_BINDINGS:BOOL=OFF \
+    -DPSMOVE_BUILD_OPENGL_EXAMPLES:BOOL=OFF \
+    -DPSMOVE_BUILD_PROCESSING_BINDINGS:BOOL=OFF \
+    -DPSMOVE_BUILD_TESTS:BOOL=OFF \
+    -DPSMOVE_BUILD_TRACKER:BOOL=OFF \
+    -DPSMOVE_USE_PSEYE:BOOL=OFF && \
+    make -j$(nproc)
+
+# =============================================================================
+# Stage 2: Build Python dependencies
+# =============================================================================
+FROM python:3.11-slim AS python-builder
 
 # Install build dependencies (including bluetooth libraries for PS Move)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -33,7 +75,9 @@ RUN pip install --no-cache-dir uv==0.5.11
 WORKDIR /app/services/controller_manager
 RUN uv pip install --system -e .
 
-# Runtime stage
+# =============================================================================
+# Stage 3: Runtime image
+# =============================================================================
 FROM python:3.11-slim
 
 # Install runtime dependencies (bluetooth for PS Move controllers)
@@ -47,12 +91,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set working directory
 WORKDIR /app
 
-# Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# Copy installed packages from python-builder
+COPY --from=python-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=python-builder /usr/local/bin /usr/local/bin
+
+# Copy psmove Python bindings from psmove-builder
+COPY --from=psmove-builder /build/psmoveapi/build/psmove.py /usr/local/lib/python3.11/site-packages/
+COPY --from=psmove-builder /build/psmoveapi/build/_psmove.so /usr/local/lib/python3.11/site-packages/
 
 # Copy application code
-COPY --from=builder /app/pyproject.toml /app/
+COPY --from=python-builder /app/pyproject.toml /app/
 COPY proto/ /app/proto/
 COPY lib/ /app/lib/
 COPY services/controller_manager/ /app/services/controller_manager/

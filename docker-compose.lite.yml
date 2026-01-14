@@ -61,11 +61,13 @@ services:
       start_period: 10s
 
   # Controller Manager Service
+  # Requires privileged access for Bluetooth/USB controller communication
   controller-manager:
     build:
       context: .
       dockerfile: services/controller_manager/Dockerfile
     container_name: joustmania-controller-manager
+    privileged: true
     networks:
       - joustmania
     expose:
@@ -75,6 +77,11 @@ services:
       - MOCK_CONTROLLER_COUNT=${MOCK_CONTROLLER_COUNT:-4}
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
       - OTEL_SDK_DISABLED=true
+    volumes:
+      # D-Bus socket for BlueZ communication
+      - /var/run/dbus:/var/run/dbus:ro
+      # Bluetooth device access
+      - /var/lib/bluetooth:/var/lib/bluetooth:ro
     depends_on:
       redis:
         condition: service_healthy

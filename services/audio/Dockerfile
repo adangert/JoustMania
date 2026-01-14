@@ -32,6 +32,14 @@ RUN uv pip install --system -e .
 # Runtime stage
 FROM python:3.11-slim
 
+# Install runtime dependencies for pygame/SDL audio
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libglib2.0-0 \
+    libsdl2-2.0-0 \
+    libsdl2-mixer-2.0-0 \
+    libasound2 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Set working directory
 WORKDIR /app
 

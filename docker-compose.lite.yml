@@ -251,6 +251,8 @@ services:
     container_name: joustmania-audio
     volumes:
       - ./services/audio/assets:/app/services/audio/assets:ro
+    devices:
+      - /dev/snd:/dev/snd
     expose:
       - "50056"
     environment:
@@ -259,6 +261,8 @@ services:
     networks:
       - joustmania
     restart: unless-stopped
+    group_add:
+      - audio
     deploy:
       resources:
         limits:

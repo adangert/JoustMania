@@ -107,4 +107,4 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Run integration tests
-        run: uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v
+        run: make test

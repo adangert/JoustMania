@@ -87,6 +87,8 @@ services:
       - /run/udev:/run/udev:ro
       # Full /dev access for hidraw (PS Move uses hidraw for USB)
       - /dev:/dev
+      # Socket for bluetooth restart requests to host helper
+      - /var/run/joustmania:/var/run/joustmania
     depends_on:
       redis:
         condition: service_healthy

@@ -72,11 +72,36 @@ class Pair:
             if self.check_if_not_paired(move.get_serial().upper()):
                 move.pair_custom(self.get_lowest_bt_device())
             # Restart bluetooth service to recognize new controller
-            # This may fail in Docker (no systemd) - that's OK, host manages bluetooth
-            try:
-                subprocess.run(["systemctl", "restart", "bluetooth"], check=False, timeout=5)
-            except FileNotFoundError:
-                # No systemctl in container - host bluetooth handles this
-                pass
-            except Exception:
-                pass
+            self._restart_bluetooth()
+
+    def _restart_bluetooth(self):
+        """
+        Restart bluetooth service - tries multiple methods.
+
+        1. Unix socket (Docker -> host helper)
+        2. systemctl (native Linux)
+        """
+        # Method 1: Try Unix socket (for Docker containers)
+        socket_path = "/var/run/joustmania/bluetooth.sock"
+        try:
+            import socket
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            sock.settimeout(2)
+            sock.connect(socket_path)
+            sock.sendall(b"restart")
+            sock.close()
+            print("[PAIRING] Sent bluetooth restart request via socket")
+            return
+        except FileNotFoundError:
+            pass  # Socket doesn't exist, try next method
+        except Exception as e:
+            print(f"[PAIRING] Socket failed: {e}")
+
+        # Method 2: Try systemctl directly (native Linux)
+        try:
+            subprocess.run(["systemctl", "restart", "bluetooth"], check=False, timeout=5)
+            print("[PAIRING] Restarted bluetooth via systemctl")
+        except FileNotFoundError:
+            print("[PAIRING] No systemctl available - restart bluetooth manually on host")
+        except Exception:
+            pass

@@ -71,6 +71,12 @@ class Pair:
             self.pre_existing_devices()
             if self.check_if_not_paired(move.get_serial().upper()):
                 move.pair_custom(self.get_lowest_bt_device())
-            # in order to add the new controller to the bluetooth service, restart
-            # Otherwise it will not be recognized
-            subprocess.run(["sudo", "systemctl", "restart", "bluetooth"], check=False)
+            # Restart bluetooth service to recognize new controller
+            # This may fail in Docker (no systemd) - that's OK, host manages bluetooth
+            try:
+                subprocess.run(["systemctl", "restart", "bluetooth"], check=False, timeout=5)
+            except FileNotFoundError:
+                # No systemctl in container - host bluetooth handles this
+                pass
+            except Exception:
+                pass

@@ -40,18 +40,17 @@ def create_backend() -> ControllerBackend:
             num_controllers = int(os.getenv("MOCK_CONTROLLER_COUNT", "4"))
             return MockBackend(num_controllers)
 
-        elif forced_backend == "bluetooth":
+        if forced_backend == "bluetooth":
             from services.controller_manager.bluetooth_backend import BluetoothBackend
 
             return BluetoothBackend()
 
-        elif forced_backend == "windows":
+        if forced_backend == "windows":
             from services.controller_manager.windows_backend import WindowsBackend
 
             return WindowsBackend()
 
-        else:
-            raise RuntimeError(f"Unknown backend: {forced_backend}")
+        raise RuntimeError(f"Unknown backend: {forced_backend}")
 
     # Check for mock mode (environment variable)
     if os.getenv("MOCK_CONTROLLERS", "").lower() == "true":

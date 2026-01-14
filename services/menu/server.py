@@ -272,7 +272,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
                     elif button == "select":
                         # Move to next game (Phase 59: use GAME_MODES constant)
-                        current_index = self.GAME_MODES.index(self.current_selection) if self.current_selection in self.GAME_MODES else 0
+                        if self.current_selection in self.GAME_MODES:
+                            current_index = self.GAME_MODES.index(self.current_selection)
+                        else:
+                            current_index = 0
                         self.current_selection = self.GAME_MODES[(current_index + 1) % len(self.GAME_MODES)]
                         await self._publish_event("selection_changed", {"game_name": self.current_selection})
                         logger.info(f"Selection changed to: {self.current_selection}")
@@ -761,7 +764,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         if not force_all:
                             # Don't require all controllers - auto-start with 2+ ready
                             should_auto_start = True
-                            logger.info(f"{len(self.ready_controllers)} controllers ready (force_all_start=false) - auto-starting!")
+                            logger.info(
+                                f"{len(self.ready_controllers)} ready (force_all_start=false) - auto-starting!"
+                            )
                     except Exception as e:
                         logger.warning(f"Could not check force_all_start setting: {e}, waiting for all controllers")
 
@@ -860,7 +865,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             span.set_attribute("controller.serial", serial)
 
             # Phase 59: Use GAME_MODES constant
-            current_index = self.GAME_MODES.index(self.current_selection) if self.current_selection in self.GAME_MODES else 0
+            if self.current_selection in self.GAME_MODES:
+                current_index = self.GAME_MODES.index(self.current_selection)
+            else:
+                current_index = 0
             self.current_selection = self.GAME_MODES[(current_index + 1) % len(self.GAME_MODES)]
 
             span.set_attribute("game.name", self.current_selection)

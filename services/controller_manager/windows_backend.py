@@ -6,7 +6,6 @@ Designed for development/debugging on Windows with WSL.
 """
 
 import logging
-from typing import Dict, List, Optional
 
 from services.controller_manager.backend import ControllerBackend
 
@@ -39,8 +38,8 @@ class WindowsBackend(ControllerBackend):
                 "See: https://github.com/thp/psmoveapi"
             )
 
-        self.controllers: Dict[str, psmove.PSMove] = {}  # serial -> PSMove object
-        self.move_indices: Dict[str, int] = {}  # serial -> psmove index
+        self.controllers: dict[str, psmove.PSMove] = {}  # serial -> PSMove object
+        self.move_indices: dict[str, int] = {}  # serial -> psmove index
         self.running = False
 
         logger.info("WindowsBackend initialized")
@@ -91,7 +90,7 @@ class WindowsBackend(ControllerBackend):
             logger.error(f"Failed to initialize Windows backend: {e}", exc_info=True)
             return False
 
-    async def scan_controllers(self) -> List[Dict]:
+    async def scan_controllers(self) -> list[dict]:
         """
         Return already connected controllers.
 
@@ -99,7 +98,7 @@ class WindowsBackend(ControllerBackend):
         """
         controllers = []
 
-        for serial in self.controllers.keys():
+        for serial in self.controllers:
             controllers.append(
                 {"address": serial, "serial": serial, "name": f"PS Move {serial[-4:]}", "paired": True}
             )
@@ -142,7 +141,7 @@ class WindowsBackend(ControllerBackend):
 
         return False
 
-    async def get_controller_state(self, serial: str) -> Optional[Dict]:
+    async def get_controller_state(self, serial: str) -> dict | None:
         """Get current controller state."""
         move = self.controllers.get(serial)
         if not move:
@@ -238,7 +237,7 @@ class WindowsBackend(ControllerBackend):
             logger.error(f"Error setting rumble {serial}: {e}", exc_info=True)
             return False
 
-    def get_connected_controllers(self) -> List[str]:
+    def get_connected_controllers(self) -> list[str]:
         """Get list of connected controller serials."""
         return list(self.controllers.keys())
 

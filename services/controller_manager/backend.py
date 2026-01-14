@@ -7,7 +7,6 @@ controller access while maintaining a consistent API.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional
 
 
 class ControllerBackend(ABC):
@@ -36,7 +35,7 @@ class ControllerBackend(ABC):
         pass
 
     @abstractmethod
-    async def scan_controllers(self) -> List[Dict]:
+    async def scan_controllers(self) -> list[dict]:
         """
         Scan for available controllers.
 
@@ -76,7 +75,7 @@ class ControllerBackend(ABC):
         pass
 
     @abstractmethod
-    async def get_controller_state(self, serial: str) -> Optional[Dict]:
+    async def get_controller_state(self, serial: str) -> dict | None:
         """
         Get current state of a controller.
 
@@ -131,7 +130,7 @@ class ControllerBackend(ABC):
         pass
 
     @abstractmethod
-    def get_connected_controllers(self) -> List[str]:
+    def get_connected_controllers(self) -> list[str]:
         """
         Get list of connected controller serials.
 
@@ -153,7 +152,7 @@ class ControllerBackend(ABC):
         """
         pass
 
-    async def get_rssi(self, serial: str) -> Optional[int]:
+    async def get_rssi(self, serial: str) -> int | None:  # noqa: ARG002
         """
         Get RSSI (signal strength) for a Bluetooth controller.
 

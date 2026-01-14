@@ -495,7 +495,7 @@ class TestGameModesConstant:
     def test_game_modes_order(self, menu_servicer):
         """Game modes should be in expected order."""
         expected = ["JoustFFA", "JoustTeams", "Tournament", "Werewolf", "NonstopJoust"]
-        assert menu_servicer.GAME_MODES == expected
+        assert expected == menu_servicer.GAME_MODES
 
 
 class TestAdminModeTimeout:

@@ -5,16 +5,16 @@ Uses psmove library + BlueZ/DBus for controller access on Raspberry Pi/Linux.
 """
 
 import logging
-from typing import Dict, List, Optional
 
 from services.controller_manager.backend import ControllerBackend
 
 # Import Linux-specific dependencies
 try:
     import psmove
+
     from lib.controller_state import ControllerState
-    from services.controller_manager.pairing import Pair as PairModule
     from services.controller_manager import bluetooth
+    from services.controller_manager.pairing import Pair as PairModule
 
     LINUX_DEPS_AVAILABLE = True
 except ImportError:
@@ -40,9 +40,9 @@ class BluetoothBackend(ControllerBackend):
                 "Linux dependencies not available. Install: psmove, dbus-python, controller_state, pair"
             )
 
-        self.controllers: Dict[str, psmove.PSMove] = {}  # serial -> PSMove object
-        self.controller_states: Dict[str, ControllerState] = {}  # serial -> ControllerState
-        self.paired_serials: List[str] = []
+        self.controllers: dict[str, psmove.PSMove] = {}  # serial -> PSMove object
+        self.controller_states: dict[str, ControllerState] = {}  # serial -> ControllerState
+        self.paired_serials: list[str] = []
         self.hci = "hci0"  # Default Bluetooth adapter
         self.running = False
 
@@ -82,7 +82,7 @@ class BluetoothBackend(ControllerBackend):
             logger.error(f"Failed to initialize Bluetooth backend: {e}", exc_info=True)
             return False
 
-    async def scan_controllers(self) -> List[Dict]:
+    async def scan_controllers(self) -> list[dict]:
         """Scan for available controllers."""
         controllers = []
 
@@ -162,7 +162,7 @@ class BluetoothBackend(ControllerBackend):
             logger.error(f"Error disconnecting controller {serial}: {e}", exc_info=True)
             return False
 
-    async def get_controller_state(self, serial: str) -> Optional[Dict]:
+    async def get_controller_state(self, serial: str) -> dict | None:
         """Get current controller state."""
         move = self.controllers.get(serial)
         if not move:
@@ -242,11 +242,11 @@ class BluetoothBackend(ControllerBackend):
             logger.error(f"Error setting rumble {serial}: {e}", exc_info=True)
             return False
 
-    def get_connected_controllers(self) -> List[str]:
+    def get_connected_controllers(self) -> list[str]:
         """Get list of connected controller serials."""
         return list(self.controllers.keys())
 
-    async def get_rssi(self, serial: str) -> Optional[int]:
+    async def get_rssi(self, serial: str) -> int | None:
         """
         Get RSSI (signal strength) for a controller.
 
@@ -264,8 +264,7 @@ class BluetoothBackend(ControllerBackend):
             devices = bluetooth.get_attached_addresses(self.hci)
             for address in devices:
                 if address.replace(":", "") == serial:
-                    rssi = bluetooth.get_device_rssi(self.hci, address)
-                    return rssi
+                    return bluetooth.get_device_rssi(self.hci, address)
 
             return None
 
@@ -277,7 +276,7 @@ class BluetoothBackend(ControllerBackend):
         logger.info("Shutting down Bluetooth backend")
 
         # Turn off all LEDs
-        for serial, move in self.controllers.items():
+        for _serial, move in self.controllers.items():
             try:
                 move.set_leds(0, 0, 0)
                 move.update_leds()

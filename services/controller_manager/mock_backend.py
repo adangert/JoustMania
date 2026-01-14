@@ -8,7 +8,6 @@ Useful for CI/CD, development without controllers, and automated testing.
 import logging
 import random
 import time
-from typing import Dict, List, Optional
 
 from services.controller_manager.backend import ControllerBackend
 
@@ -34,13 +33,13 @@ class MockBackend(ControllerBackend):
             num_controllers: Number of mock controllers to create (default: 4)
         """
         self.num_controllers = num_controllers
-        self.controllers: Dict[str, Dict] = {}
+        self.controllers: dict[str, dict] = {}
         self.running = False
 
         # Auto game end settings (set via MockControllerService.SetAutoGameEnd)
         self.auto_game_end_enabled = False
         self.auto_game_end_duration = 0.0
-        self.auto_game_end_start_time: Optional[float] = None
+        self.auto_game_end_start_time: float | None = None
         self.auto_game_end_triggered = False
 
         logger.info(f"MockBackend initialized with {num_controllers} controllers")
@@ -85,7 +84,7 @@ class MockBackend(ControllerBackend):
             logger.error(f"Failed to initialize mock backend: {e}", exc_info=True)
             return False
 
-    async def scan_controllers(self) -> List[Dict]:
+    async def scan_controllers(self) -> list[dict]:
         """Return all mock controllers."""
         return [
             {"address": serial, "serial": serial, "name": f"Mock Controller {i+1}", "paired": True}
@@ -110,7 +109,7 @@ class MockBackend(ControllerBackend):
 
         return False
 
-    async def get_controller_state(self, serial: str) -> Optional[Dict]:
+    async def get_controller_state(self, serial: str) -> dict | None:
         """
         Get mock controller state.
 
@@ -209,11 +208,11 @@ class MockBackend(ControllerBackend):
         logger.debug(f"Mock: Set rumble {serial} to {intensity}")
         return True
 
-    def get_connected_controllers(self) -> List[str]:
+    def get_connected_controllers(self) -> list[str]:
         """Get list of mock controller serials."""
         return list(self.controllers.keys())
 
-    async def add_controller(self, serial: Optional[str] = None) -> str:
+    async def add_controller(self, serial: str | None = None) -> str:
         """
         Add a new mock controller dynamically.
 

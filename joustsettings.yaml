@@ -1,0 +1,15 @@
+# JoustMania Default Settings
+# This file is created automatically with default values.
+# Modify settings through the WebUI or gRPC API.
+
+force_all_start: false
+instructions: true
+menu_voice: ivy
+nonstop_time_limit: 0
+num_teams: 2
+random_modes:
+  - JoustFFA
+  - JoustRandomTeams
+  - Werewolf
+  - Nonstop
+sensitivity: 2

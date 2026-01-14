@@ -9,19 +9,13 @@ on:
 
 jobs:
   lint:
-    name: Lint Python Code
+    name: Lint & Format Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build lint tooling image
-        run: docker build -t joustmania/ci-lint:latest tools/ci-lint/
-
-      - name: Run linting
-        run: bash scripts/ci/lint.sh
-
-      - name: Check formatting
-        run: bash scripts/ci/format-check.sh
+      - name: Run linting and format check
+        run: make ci-quick
 
   typecheck:
     name: Type Check
@@ -29,11 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build lint tooling image
-        run: docker build -t joustmania/ci-lint:latest tools/ci-lint/
-
       - name: Run type checking
-        run: bash scripts/ci/typecheck.sh
+        run: make typecheck
 
   lint-dockerfiles:
     name: Lint Dockerfiles
@@ -41,11 +32,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build hadolint tooling image
-        run: docker build -t joustmania/ci-hadolint:latest tools/ci-hadolint/
-
       - name: Lint Dockerfiles
-        run: bash scripts/ci/lint-dockerfiles.sh
+        run: make lint-dockerfiles
 
   validate-protos:
     name: Validate Proto Files
@@ -53,11 +41,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build proto tooling image
-        run: docker build -t joustmania/ci-proto:latest tools/ci-proto/
-
       - name: Validate protos
-        run: bash scripts/ci/validate-protos.sh
+        run: make validate-protos
 
   validate-packages:
     name: Validate Python Packages
@@ -65,11 +50,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build proto tooling image
-        run: docker build -t joustmania/ci-proto:latest tools/ci-proto/
-
       - name: Validate packages
-        run: bash scripts/ci/validate-packages.sh
+        run: make validate-packages
 
   docker-build:
     name: Build ${{ matrix.service }}
@@ -92,7 +74,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build service
-        run: bash scripts/ci/build-service.sh ${{ matrix.service }}
+        run: make build-service SERVICE=${{ matrix.service }}
 
   integration-test:
     name: Integration Tests

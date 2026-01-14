@@ -28,24 +28,19 @@ from opentelemetry import trace
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-import psutil
-
 # Prometheus metrics (Phase 38)
 from prometheus_client import start_http_server
 
+from lib.system_metrics import start_system_metrics_collector
 from lib.telemetry import init_telemetry
 from lib.types import get_game_display_name
-from proto import (
-    controller_manager_pb2_grpc,
-    game_coordinator_pb2,
-    game_coordinator_pb2_grpc,
-    settings_pb2_grpc,
-)
+from proto import game_coordinator_pb2, game_coordinator_pb2_grpc
 from services.game_coordinator import metrics
 
-# Game factory and event bus
+# Game factory, event bus, and client manager
 from services.game_coordinator.event_bus import EventBus
 from services.game_coordinator.game_factory import GameFactory
+from services.game_coordinator.grpc_clients import GrpcClientManager
 
 # Legacy game imports (optional for testing)
 try:
@@ -100,22 +95,8 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         self.game_thread: threading.Thread | None = None
         self.game_running = False
 
-        # Initialize gRPC clients for other services
-        # Store gRPC service addresses (channels will be created in game loop's event loop)
-        self.controller_manager_host = os.getenv("CONTROLLER_MANAGER_HOST", "controller-manager")
-        self.controller_manager_port = os.getenv("CONTROLLER_MANAGER_PORT", "50052")
-        self.settings_host = os.getenv("SETTINGS_HOST", "settings")
-        self.settings_port = os.getenv("SETTINGS_PORT", "50051")
-        self.audio_host = os.getenv("AUDIO_HOST", "audio")  # Phase 29
-        self.audio_port = os.getenv("AUDIO_PORT", "50054")  # Phase 29
-
-        # These will be set to None initially and created in the game loop
-        self.controller_manager_channel = None
-        self.controller_manager_client = None
-        self.settings_channel = None
-        self.settings_client = None
-        self.audio_channel = None
-        self.audio_client = None  # Phase 29: Audio integration
+        # gRPC client manager (Phase 61: extracted from server.py)
+        self.clients = GrpcClientManager()
 
         logger.info("GameCoordinator initialized")
 
@@ -132,66 +113,6 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         elif event_type in ["game_ended", "game_error"]:
             self.game_state = game_coordinator_pb2.GameState.ENDED
             logger.info("Game state transitioned to ENDED")
-
-    async def _init_grpc_clients_async(self):
-        """Initialize async gRPC clients (Phase 33 - using shared gRPC utilities)."""
-        from lib.grpc_utils import create_channel
-
-        try:
-            # ControllerManager client (async for streaming)
-            controller_manager_address = f"{self.controller_manager_host}:{self.controller_manager_port}"
-            self.controller_manager_channel = create_channel(controller_manager_address)
-            self.controller_manager_client = controller_manager_pb2_grpc.ControllerManagerServiceStub(
-                self.controller_manager_channel
-            )
-            logger.info(f"Connected to ControllerManager at {controller_manager_address}")
-
-            # Settings client (async)
-            settings_address = f"{self.settings_host}:{self.settings_port}"
-            self.settings_channel = create_channel(settings_address)
-            self.settings_client = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
-            logger.info(f"Connected to Settings at {settings_address}")
-
-            # Audio client (async) - Phase 29
-            from proto import audio_pb2_grpc
-
-            audio_address = f"{self.audio_host}:{self.audio_port}"
-            self.audio_channel = create_channel(audio_address)
-            self.audio_client = audio_pb2_grpc.AudioServiceStub(self.audio_channel)
-            logger.info(f"Connected to Audio at {audio_address}")
-
-        except Exception as e:
-            logger.error(f"Failed to initialize gRPC clients: {e}")
-            # Create None clients for graceful degradation
-            self.controller_manager_client = None
-            self.settings_client = None
-            self.audio_client = None
-
-    async def _cleanup_channels(self):
-        """Close any open gRPC channels (Phase 56: centralized cleanup)."""
-        if self.controller_manager_channel:
-            try:
-                await self.controller_manager_channel.close()
-            except Exception as e:
-                logger.warning(f"Error closing controller_manager channel: {e}")
-            self.controller_manager_channel = None
-            self.controller_manager_client = None
-
-        if self.settings_channel:
-            try:
-                await self.settings_channel.close()
-            except Exception as e:
-                logger.warning(f"Error closing settings channel: {e}")
-            self.settings_channel = None
-            self.settings_client = None
-
-        if self.audio_channel:
-            try:
-                await self.audio_channel.close()
-            except Exception as e:
-                logger.warning(f"Error closing audio channel: {e}")
-            self.audio_channel = None
-            self.audio_client = None
 
     def StartGame(self, request, context):
         """Start a new game (creates span for RPC, game span will link with FOLLOWS_FROM)."""
@@ -277,7 +198,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         from opentelemetry.trace import Link
 
         # Initialize async gRPC clients in this event loop
-        await self._init_grpc_clients_async()
+        await self.clients.connect()
 
         # Get the display name for the game span
         game_span_name = get_game_display_name(self.game_name)
@@ -297,7 +218,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
             try:
                 # Check if gRPC clients are available
-                if not self.controller_manager_client or not self.settings_client:
+                if not self.clients.is_connected:
                     error_msg = "gRPC clients not initialized - ControllerManager and Settings services must be running"
                     logger.error(error_msg)
                     # Phase 56: Thread-safe state transition
@@ -305,17 +226,17 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                         self.game_state = game_coordinator_pb2.GameState.ENDED
                     self.event_bus.publish("game_error", {"error": error_msg})
                     # Phase 56: Cleanup any partially initialized channels
-                    await self._cleanup_channels()
+                    await self.clients.close()
                     return
 
                 # Create game instance using factory
                 try:
                     game = GameFactory.create_game(
                         game_name=self.game_name,
-                        controller_manager_client=self.controller_manager_client,
-                        settings_client=self.settings_client,
+                        controller_manager_client=self.clients.controller_manager,
+                        settings_client=self.clients.settings,
                         event_publisher=self.event_bus.publish,
-                        audio_client=self.audio_client,
+                        audio_client=self.clients.audio,
                         game_id=self.game_id,
                         initial_players=self.players,
                         game_settings=self.settings,
@@ -327,7 +248,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     with self._state_lock:
                         self.game_state = game_coordinator_pb2.GameState.ENDED
                     self.event_bus.publish("game_error", {"error": error_msg})
-                    await self._cleanup_channels()
+                    await self.clients.close()
                     return
 
                 # Store reference and run game
@@ -358,7 +279,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     metrics.game_duration_seconds.set(duration)
 
                 # Phase 56: Use helper for channel cleanup
-                await self._cleanup_channels()
+                await self.clients.close()
                 logger.info("Closed gRPC channels")
 
                 # game_session span will automatically end here
@@ -507,7 +428,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
         # Phase 56: Use centralized channel cleanup
         logger.info("Closing gRPC channels...")
-        await self._cleanup_channels()
+        await self.clients.close()
 
 
 async def serve(port=50053, metrics_port=8000):
@@ -523,30 +444,12 @@ async def serve(port=50053, metrics_port=8000):
     start_http_server(metrics_port)
     logger.info(f"Prometheus metrics available at http://0.0.0.0:{metrics_port}/metrics")
 
-    # Start system metrics collection task (Phase 38)
-    async def collect_system_metrics():
-        """
-        Background task to collect system metrics every 10 seconds.
-        Phase 34: Run psutil calls in thread pool to avoid blocking event loop.
-        """
-        process = psutil.Process()
-        loop = asyncio.get_event_loop()
-
-        while True:
-            try:
-                # Phase 34: Run blocking psutil calls in thread pool
-                cpu_percent = await loop.run_in_executor(None, lambda: process.cpu_percent(interval=None))
-                mem_info = await loop.run_in_executor(None, lambda: process.memory_info())
-                thread_count = await loop.run_in_executor(None, process.num_threads)
-
-                metrics.process_cpu_percent.set(cpu_percent)
-                metrics.process_memory_mb.set(mem_info.rss / 1024 / 1024)
-                metrics.process_threads.set(thread_count)
-            except Exception as e:
-                logger.error(f"Error collecting system metrics: {e}")
-            await asyncio.sleep(10.0)
-
-    asyncio.create_task(collect_system_metrics())
+    # Start system metrics collection (Phase 61: extracted to lib/system_metrics.py)
+    start_system_metrics_collector(
+        cpu_gauge=metrics.process_cpu_percent,
+        memory_gauge=metrics.process_memory_mb,
+        threads_gauge=metrics.process_threads,
+    )
 
     # Create async server
     server = grpc.aio.server()

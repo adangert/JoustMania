@@ -14,7 +14,7 @@ from multiprocessing import Process
 from time import sleep
 
 import grpc
-import psutil
+from lib.system_metrics import start_system_metrics_collector_thread
 import yaml
 from flask import Flask, flash, redirect, render_template, request, url_for
 
@@ -537,23 +537,12 @@ def serve(metrics_port=8000):
     start_http_server(metrics_port)
     logger.info(f"Prometheus metrics available at http://0.0.0.0:{metrics_port}/metrics")
 
-    # Start system metrics collection thread (Phase 38)
-    def collect_system_metrics():
-        """Background thread to collect system metrics every 10 seconds."""
-        import time
-
-        process = psutil.Process()
-        while True:
-            try:
-                metrics.process_cpu_percent.set(process.cpu_percent(interval=None))
-                metrics.process_memory_mb.set(process.memory_info().rss / 1024 / 1024)
-                metrics.process_threads.set(process.num_threads())
-            except Exception as e:
-                logger.error(f"Error collecting system metrics: {e}")
-            time.sleep(10.0)
-
-    metrics_thread = threading.Thread(target=collect_system_metrics, daemon=True)
-    metrics_thread.start()
+    # Start system metrics collection (Phase 61: extracted to lib/system_metrics.py)
+    start_system_metrics_collector_thread(
+        cpu_gauge=metrics.process_cpu_percent,
+        memory_gauge=metrics.process_memory_mb,
+        threads_gauge=metrics.process_threads,
+    )
 
     webui = WebUI()
 

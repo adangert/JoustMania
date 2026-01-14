@@ -33,7 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 # So we'll define a minimal version here for server-only use
 from enum import Enum
 
-import psutil
+from lib.system_metrics import start_system_metrics_collector
 
 # Prometheus metrics (Phase 38)
 from prometheus_client import start_http_server
@@ -489,30 +489,12 @@ async def serve(port: int = 50051, metrics_port: int = 8000):
     start_http_server(metrics_port)
     logger.info(f"Prometheus metrics available at http://0.0.0.0:{metrics_port}/metrics")
 
-    # Start system metrics collection task (Phase 38)
-    async def collect_system_metrics():
-        """
-        Background task to collect system metrics every 10 seconds.
-        Phase 34: Run psutil calls in thread pool to avoid blocking event loop.
-        """
-        process = psutil.Process()
-        loop = asyncio.get_event_loop()
-
-        while True:
-            try:
-                # Phase 34: Run blocking psutil calls in thread pool
-                cpu_percent = await loop.run_in_executor(None, lambda: process.cpu_percent(interval=None))
-                mem_info = await loop.run_in_executor(None, lambda: process.memory_info())
-                thread_count = await loop.run_in_executor(None, process.num_threads)
-
-                metrics.process_cpu_percent.set(cpu_percent)
-                metrics.process_memory_mb.set(mem_info.rss / 1024 / 1024)
-                metrics.process_threads.set(thread_count)
-            except Exception as e:
-                logger.error(f"Error collecting system metrics: {e}")
-            await asyncio.sleep(10.0)
-
-    asyncio.create_task(collect_system_metrics())
+    # Start system metrics collection (Phase 61: extracted to lib/system_metrics.py)
+    start_system_metrics_collector(
+        cpu_gauge=metrics.process_cpu_percent,
+        memory_gauge=metrics.process_memory_mb,
+        threads_gauge=metrics.process_threads,
+    )
 
     # Create server
     server = grpc.aio.server()

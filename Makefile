@@ -116,6 +116,11 @@ ci-quick: lint format-check
 	@echo ""
 	@echo "✅ Quick CI checks passed!"
 
+.PHONY: ci-integration
+ci-integration: ci-build-test
+	@echo "Running integration tests for CI..."
+	@bash scripts/ci/integration-test.sh
+
 .PHONY: ci-help
 ci-help:
 	@echo "CI/CD Make Targets"
@@ -132,12 +137,15 @@ ci-help:
 	@echo "  make validate-protos   - Validate proto generation"
 	@echo "  make validate-packages - Validate Python packages"
 	@echo ""
+	@echo "Testing:"
+	@echo "  make ci-integration    - Run integration tests in CI"
+	@echo ""
 	@echo "Building:"
 	@echo "  make build-service SERVICE=<name>  - Build single service"
 	@echo "  make build-all-services            - Build all services"
 	@echo ""
 	@echo "Combined:"
-	@echo "  make ci-all    - Run all CI checks"
+	@echo "  make ci-all    - Run all CI checks (no integration tests)"
 	@echo "  make ci-quick  - Run quick checks (lint + format)"
 	@echo ""
 	@echo "Setup:"

@@ -93,3 +93,15 @@ jobs:
 
       - name: Build service
         run: bash scripts/ci/build-service.sh ${{ matrix.service }}
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Run integration tests
+        run: bash scripts/ci/integration-test.sh

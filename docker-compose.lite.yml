@@ -82,6 +82,9 @@ services:
       - /var/run/dbus:/var/run/dbus:ro
       # Bluetooth device access
       - /var/lib/bluetooth:/var/lib/bluetooth:ro
+      # USB device access for controller pairing
+      - /dev/bus/usb:/dev/bus/usb
+      - /run/udev:/run/udev:ro
     depends_on:
       redis:
         condition: service_healthy

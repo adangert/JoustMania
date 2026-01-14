@@ -38,6 +38,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsdl2-2.0-0 \
     libsdl2-mixer-2.0-0 \
     libasound2 \
+    alsa-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

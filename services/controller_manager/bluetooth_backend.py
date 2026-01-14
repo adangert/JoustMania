@@ -240,7 +240,47 @@ class BluetoothBackend(ControllerBackend):
             return False
 
     def get_connected_controllers(self) -> list[str]:
-        """Get list of connected controller serials."""
+        """
+        Get list of connected controller serials.
+
+        Rescans for new USB/Bluetooth controllers each call to detect
+        newly plugged-in devices.
+        """
+        try:
+            # Rescan for controllers (detects newly plugged USB devices)
+            count = psmove.count_connected()
+
+            for move_num in range(count):
+                move = psmove.PSMove(move_num)
+                if move is None:
+                    continue
+
+                try:
+                    serial = move.get_serial()
+                    if serial and serial not in self.controllers:
+                        # New controller detected
+                        self.controllers[serial] = move
+                        self.controller_states[serial] = ControllerState()
+                        logger.info(f"New controller detected: {serial}")
+
+                        # Auto-pair if USB connected
+                        if move.connection_type == psmove.Conn_USB:
+                            logger.info(f"Auto-pairing USB controller: {serial}")
+                            try:
+                                from services.controller_manager.pairing import Pair
+                                pair_helper = Pair()
+                                pair_helper.pair_move(move)
+                                self.paired_serials.append(serial)
+                                logger.info(f"Paired controller {serial}")
+                            except Exception as e:
+                                logger.error(f"Failed to pair {serial}: {e}")
+                except Exception as e:
+                    logger.debug(f"Error reading controller {move_num}: {e}")
+                    continue
+
+        except Exception as e:
+            logger.error(f"Error scanning controllers: {e}")
+
         return list(self.controllers.keys())
 
     async def get_rssi(self, serial: str) -> int | None:

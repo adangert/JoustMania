@@ -77,9 +77,7 @@ class ControllerMonitoring:
                     # Check if we've warned recently (avoid spam)
                     last_warning = self.last_battery_warning.get(serial, 0)
                     if current_time - last_warning >= 30.0:  # Warn every 30 seconds
-                        self._warn_low_battery(
-                            serial, battery, tracked_controllers, backend, run_in_discovery_loop
-                        )
+                        self._warn_low_battery(serial, battery, tracked_controllers, backend, run_in_discovery_loop)
                         self.last_battery_warning[serial] = current_time
 
             except Exception as e:

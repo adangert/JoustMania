@@ -86,9 +86,7 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
         try:
             serial = request.serial
             if serial not in self.backend.controllers:
-                return controller_manager_mock_pb2.ButtonResponse(
-                    success=False, error=f"Controller {serial} not found"
-                )
+                return controller_manager_mock_pb2.ButtonResponse(success=False, error=f"Controller {serial} not found")
 
             # Map proto button enum to backend state keys
             button_map = {
@@ -119,9 +117,7 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
         try:
             serial = request.serial
             if serial not in self.backend.controllers:
-                return controller_manager_mock_pb2.ColorResponse(
-                    success=False, error=f"Controller {serial} not found"
-                )
+                return controller_manager_mock_pb2.ColorResponse(success=False, error=f"Controller {serial} not found")
 
             self.backend.controllers[serial]["led"] = {"r": request.r, "g": request.g, "b": request.b}
 
@@ -137,9 +133,7 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
         try:
             serial = request.serial
             if serial not in self.backend.controllers:
-                return controller_manager_mock_pb2.ResetResponse(
-                    success=False, error=f"Controller {serial} not found"
-                )
+                return controller_manager_mock_pb2.ResetResponse(success=False, error=f"Controller {serial} not found")
 
             # Reset to idle
             controller = self.backend.controllers[serial]

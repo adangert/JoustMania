@@ -268,9 +268,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         game_name = data.get("game_name", "")
                         if game_name in self.GAME_MODES:
                             self.current_selection = game_name
-                            await self._publish_event(
-                                "selection_changed", {"game_name": game_name, "source": "web"}
-                            )
+                            await self._publish_event("selection_changed", {"game_name": game_name, "source": "web"})
                             # Phase 60: Play game mode voice announcement
                             voice_file = self.GAME_MODE_VOICE.get(game_name)
                             if voice_file:
@@ -728,18 +726,15 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     # Not all ready - check force_all_start setting
                     try:
                         from proto import settings_pb2, settings_pb2_grpc
+
                         settings_stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
-                        response = await settings_stub.GetSetting(
-                            settings_pb2.GetSettingRequest(key="force_all_start")
-                        )
+                        response = await settings_stub.GetSetting(settings_pb2.GetSettingRequest(key="force_all_start"))
                         force_all = response.value == "true"
 
                         if not force_all:
                             # Don't require all controllers - auto-start with 2+ ready
                             should_auto_start = True
-                            logger.info(
-                                f"{len(self.ready_controllers)} ready (force_all_start=false) - auto-starting!"
-                            )
+                            logger.info(f"{len(self.ready_controllers)} ready (force_all_start=false) - auto-starting!")
                     except Exception as e:
                         logger.warning(f"Could not check force_all_start setting: {e}, waiting for all controllers")
 

@@ -90,6 +90,4 @@ def create_backend() -> ControllerBackend:
             raise RuntimeError("Bluetooth backend not available") from e
 
     else:
-        raise RuntimeError(
-            f"Unsupported platform: {system}. Set CONTROLLER_BACKEND=mock to use mock controllers."
-        )
+        raise RuntimeError(f"Unsupported platform: {system}. Set CONTROLLER_BACKEND=mock to use mock controllers.")

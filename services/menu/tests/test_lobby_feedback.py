@@ -384,10 +384,7 @@ class TestProcessInput:
         menu_servicer.state = menu_pb2.MenuState.RUNNING
         menu_servicer.current_selection = "JoustFFA"
 
-        request = menu_pb2.ProcessInputRequest(
-            input_type="button_press",
-            data={"button": "trigger"}
-        )
+        request = menu_pb2.ProcessInputRequest(input_type="button_press", data={"button": "trigger"})
         context = MagicMock()
 
         response = await menu_servicer.ProcessInput(request, context)
@@ -401,10 +398,7 @@ class TestProcessInput:
         menu_servicer.state = menu_pb2.MenuState.RUNNING
         menu_servicer.current_selection = "JoustFFA"
 
-        request = menu_pb2.ProcessInputRequest(
-            input_type="button_press",
-            data={"button": "select"}
-        )
+        request = menu_pb2.ProcessInputRequest(input_type="button_press", data={"button": "select"})
         context = MagicMock()
 
         response = await menu_servicer.ProcessInput(request, context)
@@ -417,10 +411,7 @@ class TestProcessInput:
         """Web command should start game."""
         menu_servicer.state = menu_pb2.MenuState.RUNNING
 
-        request = menu_pb2.ProcessInputRequest(
-            input_type="web_command",
-            data={"command": "start_game"}
-        )
+        request = menu_pb2.ProcessInputRequest(input_type="web_command", data={"command": "start_game"})
         context = MagicMock()
 
         response = await menu_servicer.ProcessInput(request, context)
@@ -435,8 +426,7 @@ class TestProcessInput:
         menu_servicer.current_selection = "JoustFFA"
 
         request = menu_pb2.ProcessInputRequest(
-            input_type="web_command",
-            data={"command": "select_game", "game_name": "Tournament"}
+            input_type="web_command", data={"command": "select_game", "game_name": "Tournament"}
         )
         context = MagicMock()
 
@@ -452,8 +442,7 @@ class TestProcessInput:
         menu_servicer.current_selection = "JoustFFA"
 
         request = menu_pb2.ProcessInputRequest(
-            input_type="web_command",
-            data={"command": "select_game", "game_name": "InvalidGame"}
+            input_type="web_command", data={"command": "select_game", "game_name": "InvalidGame"}
         )
         context = MagicMock()
 
@@ -467,10 +456,7 @@ class TestProcessInput:
         """Reset menu should cancel GAME_STARTING state."""
         menu_servicer.state = menu_pb2.MenuState.GAME_STARTING
 
-        request = menu_pb2.ProcessInputRequest(
-            input_type="reset_menu",
-            data={}
-        )
+        request = menu_pb2.ProcessInputRequest(input_type="reset_menu", data={})
         context = MagicMock()
 
         response = await menu_servicer.ProcessInput(request, context)
@@ -484,7 +470,7 @@ class TestGameModesConstant:
 
     def test_game_modes_constant_exists(self, menu_servicer):
         """GAME_MODES constant should exist."""
-        assert hasattr(menu_servicer, 'GAME_MODES')
+        assert hasattr(menu_servicer, "GAME_MODES")
         assert len(menu_servicer.GAME_MODES) == 5
 
     def test_all_game_modes_have_colors(self, menu_servicer):
@@ -512,8 +498,13 @@ class TestAdminModeTimeout:
         controller = MockControllerState("test_serial")
 
         menu_servicer.controller_button_states["test_serial"] = {
-            "trigger": False, "move": False, "cross": False,
-            "circle": False, "square": False, "triangle": False, "ps": False
+            "trigger": False,
+            "move": False,
+            "cross": False,
+            "circle": False,
+            "square": False,
+            "triangle": False,
+            "ps": False,
         }
         menu_servicer.last_button_press_time["test_serial"] = {}
 

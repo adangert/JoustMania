@@ -43,8 +43,8 @@ from proto import (
 )
 from services.game_coordinator import metrics
 
-# Modern game imports (gRPC-based)
-from services.game_coordinator.games import ffa, nonstop_joust, random_teams, teams
+# Game factory for creating game instances
+from services.game_coordinator.game_factory import GameFactory
 
 # Legacy game imports (optional for testing)
 try:
@@ -294,110 +294,32 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     await self._cleanup_channels()
                     return
 
-                # Determine game mode and instantiate appropriate game
-                if self.game_name.lower() in ["ffa", "free-for-all", "joust free-for-all"]:
-                    logger.info("Starting FFA game")
-
-                    # Create FFA game instance
-                    game = ffa.FFAGame(
+                # Create game instance using factory
+                try:
+                    game = GameFactory.create_game(
+                        game_name=self.game_name,
                         controller_manager_client=self.controller_manager_client,
                         settings_client=self.settings_client,
                         event_publisher=self._publish_event,
-                        audio_client=self.audio_client,  # Phase 29
+                        audio_client=self.audio_client,
                         game_id=self.game_id,
-                        initial_players=self.players,  # Pass players from StartGame RPC
+                        initial_players=self.players,
+                        game_settings=self.settings,
                     )
-
-                    # Store reference
-                    self.current_game = game
-
-                    # Run the game - phase spans will automatically be children of current game span
-                    await game.run()
-
-                    logger.info("FFA game completed")
-
-                elif self.game_name.lower() in ["teams", "joust teams"]:
-                    logger.info("Starting Teams game")
-
-                    # Get number of teams from settings (default 2)
-                    num_teams = int(self.settings.get("num_teams", "2"))
-
-                    # Create Teams game instance
-                    game = teams.SimpleTeamsGame(
-                        controller_manager_client=self.controller_manager_client,
-                        settings_client=self.settings_client,
-                        event_publisher=self._publish_event,
-                        audio_client=self.audio_client,  # Phase 29
-                        game_id=self.game_id,
-                        num_teams=num_teams,
-                        initial_players=self.players,  # Pass players from StartGame RPC
-                    )
-
-                    # Store reference
-                    self.current_game = game
-
-                    # Run the game - phase spans will automatically be children of current game span
-                    await game.run()
-
-                    logger.info("Teams game completed")
-
-                elif self.game_name.lower() in [
-                    "random teams",
-                    "joust random teams",
-                    "random_teams",
-                ]:
-                    logger.info("Starting Random Teams game")
-
-                    # Get number of teams from settings (default 2)
-                    num_teams = int(self.settings.get("num_teams", "2"))
-
-                    # Create Random Teams game instance
-                    game = random_teams.RandomTeamsGame(
-                        controller_manager_client=self.controller_manager_client,
-                        settings_client=self.settings_client,
-                        event_publisher=self._publish_event,
-                        audio_client=self.audio_client,  # Phase 29
-                        game_id=self.game_id,
-                        num_teams=num_teams,
-                        initial_players=self.players,  # Pass players from StartGame RPC
-                    )
-
-                    # Store reference
-                    self.current_game = game
-
-                    # Run the game - phase spans will automatically be children of current game span
-                    await game.run()
-
-                    logger.info("Random Teams game completed")
-
-                elif self.game_name.lower() in ["nonstop", "nonstop joust", "nonstopjoust"]:
-                    logger.info("Starting Nonstop Joust game")
-
-                    # Create Nonstop Joust game instance (fetches settings internally)
-                    game = nonstop_joust.NonstopJoustGame(
-                        controller_manager_client=self.controller_manager_client,
-                        settings_client=self.settings_client,
-                        event_publisher=self._publish_event,
-                        audio_client=self.audio_client,  # Phase 29
-                        game_id=self.game_id,
-                        initial_players=self.players,  # Pass players from StartGame RPC
-                    )
-
-                    # Store reference
-                    self.current_game = game
-
-                    # Run the game - phase spans will automatically be children of current game span
-                    await game.run()
-
-                    logger.info("Nonstop Joust game completed")
-
-                else:
-                    error_msg = f"Game mode '{self.game_name}' not implemented yet"
+                except ValueError as e:
+                    # Unknown game mode
+                    error_msg = str(e)
                     logger.error(error_msg)
-                    # Phase 56: Thread-safe state transition
                     with self._state_lock:
                         self.game_state = game_coordinator_pb2.GameState.ENDED
                     self._publish_event("game_error", {"error": error_msg})
+                    await self._cleanup_channels()
+                    return
+
+                # Store reference and run game
+                self.current_game = game
+                await game.run()
+                logger.info(f"{self.game_name} game completed")
 
             except Exception as e:
                 logger.error(f"Game loop error: {e}", exc_info=True)

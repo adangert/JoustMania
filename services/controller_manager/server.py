@@ -162,9 +162,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
         try:
             # Initialize backend
-            self.backend_initialized = self._discovery_loop_handle.run_until_complete(
-                self.backend.initialize()
-            )
+            self.backend_initialized = self._discovery_loop_handle.run_until_complete(self.backend.initialize())
             if not self.backend_initialized:
                 logger.error("Backend initialization failed - discovery loop will not run")
                 return
@@ -854,10 +852,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                 # Filter out already-tracked controllers
                 with self.state_lock:
-                    new_controllers = [
-                        c for c in available
-                        if c.get("serial") not in self.tracked_controllers
-                    ]
+                    new_controllers = [c for c in available if c.get("serial") not in self.tracked_controllers]
 
                 if not new_controllers:
                     span.add_event("all_controllers_already_paired")

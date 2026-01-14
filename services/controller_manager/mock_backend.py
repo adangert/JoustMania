@@ -127,9 +127,7 @@ class MockBackend(ControllerBackend):
 
         # Simulate random button presses (10% chance per second)
         if random.random() < 0.1 * time_since_update:
-            button = random.choice(
-                ["move_button", "trigger_button", "triangle", "circle", "cross", "square"]
-            )
+            button = random.choice(["move_button", "trigger_button", "triangle", "circle", "cross", "square"])
             controller[button] = not controller[button]
 
         # Simulate trigger movement (occasionally)

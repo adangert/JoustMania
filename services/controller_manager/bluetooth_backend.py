@@ -36,9 +36,7 @@ class BluetoothBackend(ControllerBackend):
 
     def __init__(self):
         if not LINUX_DEPS_AVAILABLE:
-            raise RuntimeError(
-                "Linux dependencies not available. Install: psmove, dbus-python, controller_state, pair"
-            )
+            raise RuntimeError("Linux dependencies not available. Install: psmove, dbus-python, controller_state, pair")
 
         self.controllers: dict[str, psmove.PSMove] = {}  # serial -> PSMove object
         self.controller_states: dict[str, ControllerState] = {}  # serial -> ControllerState
@@ -71,8 +69,7 @@ class BluetoothBackend(ControllerBackend):
                 self.controllers[serial] = move
                 self.controller_states[serial] = ControllerState()
                 logger.info(
-                    f"Controller {serial}: "
-                    f"{'USB' if move.connection_type == psmove.Conn_USB else 'Bluetooth'}"
+                    f"Controller {serial}: " f"{'USB' if move.connection_type == psmove.Conn_USB else 'Bluetooth'}"
                 )
 
             self.running = True

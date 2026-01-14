@@ -1,15 +1,15 @@
 version: '3.8'
 
+# JoustMania Docker Compose Configuration
+#
+# Base config defaults to mock mode (no hardware required).
+# For production with real hardware, use: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+#
 # Environment Variables (can be set in shell or .env file):
-# - CONTROLLER_BACKEND: Controller backend type (bluetooth, mock, windows) [default: bluetooth]
+# - CONTROLLER_BACKEND: Controller backend type (bluetooth, mock, windows) [default: mock]
 # - MOCK_CONTROLLER_COUNT: Number of mock controllers when CONTROLLER_BACKEND=mock [default: 4]
-# - AUDIO_MOCK_MODE: Disable audio output for testing [default: false]
+# - AUDIO_MOCK_MODE: Disable audio output for testing [default: true]
 # - LOG_LEVEL: Logging level for all services (DEBUG, INFO, WARNING, ERROR) [default: INFO]
-#
-# For local development without hardware, create a docker-compose.override.yml or use:
-#   CONTROLLER_BACKEND=mock docker-compose up
-#
-# Or copy .env.mock to .env for persistent mock mode.
 
 services:
   # Redis for pub/sub messaging
@@ -115,19 +115,16 @@ services:
       context: .
       dockerfile: services/controller_manager/Dockerfile
     container_name: joustmania-controller-manager
-    privileged: true  # Required for Bluetooth + USB access (ignored in mock mode)
+    # Hardware access configured via docker-compose.prod.yml for production
+    # Base config is mock-friendly (no privileged, devices, or dbus)
     networks:
       - joustmania
-    volumes:
-      - /var/run/dbus:/var/run/dbus  # DBus for Bluetooth pairing
-    devices:
-      - /dev/bus/usb:/dev/bus/usb  # USB devices for PS Move
     # Ports exposed only within Docker network (no host binding)
     expose:
       - "50052"  # gRPC service
       - "8000"   # Prometheus metrics
     environment:
-      - CONTROLLER_BACKEND=${CONTROLLER_BACKEND:-bluetooth}
+      - CONTROLLER_BACKEND=${CONTROLLER_BACKEND:-mock}
       - MOCK_CONTROLLER_COUNT=${MOCK_CONTROLLER_COUNT:-4}
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
       - OTEL_SERVICE_NAME=controller-manager-service
@@ -202,6 +199,9 @@ services:
     environment:
       - OTEL_SERVICE_NAME=menu-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      # Phase 60: Audio service connection
+      - AUDIO_HOST=audio
+      - AUDIO_PORT=50056
     depends_on:
       otel-collector:
         condition: service_started
@@ -210,6 +210,8 @@ services:
       settings:
         condition: service_healthy
       controller-manager:
+        condition: service_healthy
+      audio:
         condition: service_healthy
     networks:
       - joustmania
@@ -318,9 +320,8 @@ services:
       context: .
       dockerfile: services/audio/Dockerfile
     container_name: joustmania-audio
-    privileged: true  # Required for audio device access (ignored in mock mode)
-    devices:
-      - /dev/snd:/dev/snd  # Audio hardware
+    # Hardware access configured via docker-compose.prod.yml for production
+    # Base config is mock-friendly (no privileged or devices)
     volumes:
       - ./services/audio/assets:/app/services/audio/assets:ro  # Audio files (read-only)
     # Ports exposed only within Docker network (no host binding)
@@ -328,7 +329,7 @@ services:
       - "50056"  # gRPC service
       - "8000"   # Prometheus metrics
     environment:
-      - MOCK_MODE=${AUDIO_MOCK_MODE:-false}
+      - MOCK_MODE=${AUDIO_MOCK_MODE:-true}
       - OTEL_SERVICE_NAME=audio-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:

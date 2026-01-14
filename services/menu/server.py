@@ -131,10 +131,16 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         settings_port = os.getenv("SETTINGS_PORT", "50051")
         game_coordinator_host = os.getenv("GAME_COORDINATOR_HOST", "game-coordinator")
         game_coordinator_port = os.getenv("GAME_COORDINATOR_PORT", "50053")
+        audio_host = os.getenv("AUDIO_HOST", "audio")
+        audio_port = os.getenv("AUDIO_PORT", "50056")
 
         self.controller_channel = create_channel(f"{controller_host}:{controller_port}")
         self.settings_channel = create_channel(f"{settings_host}:{settings_port}")
         self.game_coordinator_channel = create_channel(f"{game_coordinator_host}:{game_coordinator_port}")
+        self.audio_channel = create_channel(f"{audio_host}:{audio_port}")
+
+        # Phase 60: Voice actor setting (aaron or ivy)
+        self.voice_actor = "aaron"
 
         logger.info("Menu service initialized with persistent gRPC channels")
 
@@ -150,6 +156,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 self.state = menu_pb2.MenuState.RUNNING
                 self.current_selection = "JoustFFA"
                 self.ready_controller_count = 0
+
+                # Phase 60: Load voice actor preference
+                await self._load_voice_actor_setting()
 
                 # Publish menu_started event (Phase 34: await)
                 await self._publish_event("menu_started", {})
@@ -286,6 +295,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                             await self._publish_event(
                                 "selection_changed", {"game_name": game_name, "source": "web"}
                             )
+                            # Phase 60: Play game mode voice announcement
+                            voice_file = self.GAME_MODE_VOICE.get(game_name)
+                            if voice_file:
+                                await self._play_voice(voice_file)
                             # Clear lobby state to trigger color update on next frame
                             self.controller_lobby_state.clear()
                             self.last_lobby_feedback_update.clear()
@@ -394,12 +407,66 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             logger.info("Controller button monitor stopped")
 
     async def shutdown(self):
-        """Cleanup resources on shutdown (Phase 26)."""
+        """Cleanup resources on shutdown (Phase 26, Phase 60)."""
         logger.info("Shutting down Menu service, closing gRPC channels...")
         await self.controller_channel.close()
         await self.settings_channel.close()
         await self.game_coordinator_channel.close()
+        await self.audio_channel.close()
         logger.info("Menu service gRPC channels closed")
+
+    # Phase 60: Audio feedback helpers
+    async def _play_sound(self, file_path: str, volume: float = 0.8):
+        """
+        Play a sound effect via the audio service (fire-and-forget).
+
+        Args:
+            file_path: Path to audio file (relative to /app/services/audio/assets/)
+            volume: Volume level 0.0-1.0
+        """
+        try:
+            from proto import audio_pb2, audio_pb2_grpc
+
+            stub = audio_pb2_grpc.AudioServiceStub(self.audio_channel)
+            await stub.PlaySound(
+                audio_pb2.PlaySoundRequest(
+                    file_path=f"/app/services/audio/assets/{file_path}",
+                    volume=volume,
+                    priority=audio_pb2.AudioPriority.HIGH,
+                )
+            )
+            logger.debug(f"Played sound: {file_path}")
+        except Exception as e:
+            logger.debug(f"Could not play sound {file_path}: {e}")
+
+    async def _play_voice(self, voice_file: str, volume: float = 0.9):
+        """
+        Play a voice announcement.
+
+        Args:
+            voice_file: Voice file name (without path, e.g., "instructions_on.wav")
+            volume: Volume level 0.0-1.0
+        """
+        await self._play_sound(f"Menu/vox/{self.voice_actor}/{voice_file}", volume)
+
+    async def _load_voice_actor_setting(self):
+        """
+        Load voice actor preference from settings service (Phase 60).
+
+        Updates self.voice_actor to "aaron" or "ivy".
+        """
+        try:
+            from proto import settings_pb2, settings_pb2_grpc
+
+            stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
+            response = await stub.GetSetting(settings_pb2.GetSettingRequest(key="voice_actor"))
+            if response.value in ("aaron", "ivy"):
+                self.voice_actor = response.value
+                logger.info(f"Voice actor set to: {self.voice_actor}")
+            else:
+                logger.debug(f"Voice actor setting not found or invalid, using default: {self.voice_actor}")
+        except Exception as e:
+            logger.debug(f"Could not load voice actor setting: {e}, using default: {self.voice_actor}")
 
     async def _handle_controller_disconnect(self, serial: str):
         """
@@ -570,6 +637,15 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
     # Game modes available in the menu (Phase 59: single source of truth)
     GAME_MODES = ["JoustFFA", "JoustTeams", "Tournament", "Werewolf", "NonstopJoust"]
 
+    # Game mode voice announcements (Phase 60)
+    GAME_MODE_VOICE = {
+        "JoustFFA": "menu Joust FFA.wav",
+        "JoustTeams": "menu Joust Teams.wav",
+        "Tournament": "menu Tournament.wav",
+        "Werewolf": "menu Werewolves.wav",
+        "NonstopJoust": "menu NonStopJoust.wav",
+    }
+
     # Game mode lobby colors (Phase 39)
     # Each game mode has a distinct color in the lobby
     GAME_MODE_COLORS = {
@@ -616,6 +692,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         duration_ms=300,
                     )
                 )
+                # Phase 60: Play connection sound
+                await self._play_sound("Joust/sounds/join.wav", volume=0.6)
                 logger.info(f"Controller {serial} connected - green flash")
             except Exception as e:
                 logger.error(f"Failed to send connection flash for {serial}: {e}")
@@ -657,6 +735,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         if target_state == "ready" and serial not in self.ready_controllers:
             self.ready_controllers.add(serial)
             self.ready_controller_count = len(self.ready_controllers)
+            # Phase 60: Play ready sound
+            await self._play_sound("Joust/sounds/beep_loud.wav", volume=0.5)
             logger.info(f"Controller {serial} ready ({self.ready_controller_count} total)")
 
             # Phase 59: Auto-start logic respects force_all_start setting
@@ -790,6 +870,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 {"game_name": self.current_selection, "source": "controller", "serial": serial},
             )
             logger.info(f"Selection changed via controller {serial}: {self.current_selection}")
+
+            # Phase 60: Play game mode voice announcement
+            voice_file = self.GAME_MODE_VOICE.get(self.current_selection)
+            if voice_file:
+                await self._play_voice(voice_file)
 
             # Phase 39: Force lobby color update for all controllers to reflect new game mode
             # Clear the state so colors update on next _update_lobby_feedback call
@@ -1075,6 +1160,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 await controller_stub.PlayControllerEffect(effect_request)
 
                 sensitivity_names = ["Slow", "Medium", "Fast"]
+
+                # Phase 60: Play sensitivity voice announcement
+                sensitivity_sounds = ["slow_sensitivity.wav", "mid_sensitivity.wav", "fast_sensitivity.wav"]
+                await self._play_sound(f"Menu/sounds/{sensitivity_sounds[int(new_value)]}")
+
                 span.add_event(
                     "sensitivity_changed",
                     {
@@ -1199,6 +1289,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     speed=5,
                 )
                 await controller_stub.PlayControllerEffect(effect_request)
+
+                # Phase 60: Play instructions toggle voice announcement
+                voice_file = "instructions_on.wav" if new_value == "true" else "instructions_off.wav"
+                await self._play_voice(voice_file)
 
                 span.add_event(
                     "instructions_toggled",

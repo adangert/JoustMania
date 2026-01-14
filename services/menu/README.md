@@ -95,7 +95,9 @@ rpc StreamMenuEvents(StreamMenuEventsRequest) returns (stream MenuEvent);
 
 ## Lobby Feedback
 
-Controllers receive LED feedback based on their state and the selected game mode:
+Controllers receive LED feedback based on their state and the selected game mode.
+
+> **Full Reference:** See [docs/led-feedback.md](../../docs/led-feedback.md) for comprehensive LED state documentation including admin mode visual feedback.
 
 ### Game Mode Colors
 
@@ -114,7 +116,7 @@ Controllers receive LED feedback based on their state and the selected game mode
 | Just Connected | Green flash (300ms), then dim game color |
 | Connected (not ready) | Dim game color (~50% brightness) |
 | Ready (trigger pressed) | Bright game color (100% brightness) |
-| Admin Mode | White |
+| Admin Mode | White (see full reference for details) |
 
 ### Auto-Start
 
@@ -139,6 +141,18 @@ Enter admin mode by pressing all 4 face buttons (Cross + Circle + Square + Trian
 ### Timeout
 
 Admin mode automatically exits after 60 seconds of inactivity.
+
+### Admin Mode LED Feedback
+
+| Action | LED Response |
+|--------|--------------|
+| Enter admin mode | White flash 3x, then persistent white |
+| Cycle option (Move) | Option color 1s (blue=teams, purple=force_all), then white |
+| Change sensitivity | Blue/Green/Red pulse (slow/medium/fast) |
+| Show battery | Green/Yellow/Red per controller (2s) |
+| Toggle instructions | Green/Red pulse (on/off) |
+| Change team count | White flash N times |
+| Change force_all_start | Green/Red (true/false) |
 
 ## Configuration
 

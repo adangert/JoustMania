@@ -18,7 +18,6 @@ import os
 import sys
 import threading
 import time
-from collections import deque
 from typing import Any
 
 import grpc
@@ -44,12 +43,12 @@ from prometheus_client import start_http_server
 
 from proto import controller_manager_pb2, controller_manager_pb2_grpc
 from services.controller_manager import metrics
-from services.controller_manager.effects_base import ControllerEffectsBase
-from services.controller_manager.message_pool import MessagePool
-from services.controller_manager.monitoring import ControllerMonitoring
 
 # Phase 57: Backend abstraction for platform independence
 from services.controller_manager.backend_factory import create_backend
+from services.controller_manager.effects_base import ControllerEffectsBase
+from services.controller_manager.message_pool import MessagePool
+from services.controller_manager.monitoring import ControllerMonitoring
 
 logger = logging.getLogger(__name__)
 
@@ -214,18 +213,26 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 self._update_controller_states()
 
                 # Check battery levels every 30 seconds (Phase 39 - Task 4)
-                if current_time - self.last_battery_check >= 30.0:
+                if current_time - self.monitoring.last_battery_check >= 30.0:
                     with metrics.battery_check_duration_seconds.time():
-                        self._check_battery_levels()
+                        self.monitoring.check_battery_levels(
+                            self.tracked_controllers,
+                            self.backend,
+                            self._run_in_discovery_loop,
+                        )
                         metrics.battery_checks_total.inc()
-                    self.last_battery_check = current_time
+                    self.monitoring.last_battery_check = current_time
 
                 # Check RSSI every 10 seconds (Phase 48)
-                if current_time - self.last_rssi_check >= self.rssi_check_interval:
+                if current_time - self.monitoring.last_rssi_check >= self.monitoring.rssi_check_interval:
                     with metrics.rssi_check_duration_seconds.time():
-                        self._check_rssi_levels()
+                        self.monitoring.check_rssi_levels(
+                            self.tracked_controllers,
+                            self.backend,
+                            self._run_in_discovery_loop,
+                        )
                         metrics.rssi_checks_total.inc()
-                    self.last_rssi_check = current_time
+                    self.monitoring.last_rssi_check = current_time
 
                 time.sleep(0.016)  # ~60 Hz polling for smooth state updates
 
@@ -403,7 +410,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             try:
                 with self.state_lock:
                     all_controllers = [
-                        self._build_or_get_cached_state(serial, info) for serial, info in self.tracked_controllers.items()
+                        self._build_or_get_cached_state(serial, info)
+                        for serial, info in self.tracked_controllers.items()
                     ]
 
                 span.set_attribute("controller.total_count", len(all_controllers))
@@ -895,11 +903,10 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     span.add_event("controller_paired", {"serial": serial, "color_index": request.color_index})
                     logger.info(f"Paired new controller: {serial}")
                     return controller_manager_pb2.PairControllerResponse(success=True, error="", serial=serial)
-                else:
-                    span.add_event("connection_failed", {"address": address})
-                    return controller_manager_pb2.PairControllerResponse(
-                        success=False, error=f"Failed to connect to controller at {address}", serial=""
-                    )
+                span.add_event("connection_failed", {"address": address})
+                return controller_manager_pb2.PairControllerResponse(
+                    success=False, error=f"Failed to connect to controller at {address}", serial=""
+                )
 
             except Exception as e:
                 span.record_exception(e)
@@ -1351,184 +1358,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         except Exception as e:
             logger.error(f"Error setting LED color on {serial}: {e}", exc_info=True)
 
-    def _check_battery_levels(self):
-        """
-        Check battery levels and warn about low batteries (Phase 39 - Task 4, Phase 57).
-
-        Called every 30 seconds from discovery loop.
-        Warns when battery level is <= 1 (out of 5), which is <20%.
-        Battery info comes from backend state updates.
-        """
-
-        current_time = time.time()
-
-        for serial, info in list(self.tracked_controllers.items()):
-            try:
-                battery = info.get("battery", 5)  # Default to full if unknown
-
-                # Update battery metric (Phase 38)
-                metrics.controller_battery_level.labels(serial=serial).set(battery)
-
-                # Warn if battery is critically low (0 or 1 out of 5 = <20%)
-                if battery <= self.low_battery_threshold:
-                    # Check if we've warned recently (avoid spam)
-                    last_warning = self.last_battery_warning.get(serial, 0)
-                    if current_time - last_warning >= 30.0:  # Warn every 30 seconds
-                        self._warn_low_battery(serial, battery)
-                        self.last_battery_warning[serial] = current_time
-
-            except Exception as e:
-                logger.error(f"Error checking battery for {serial}: {e}")
-
-    def _warn_low_battery(self, serial: str, battery_level: int):
-        """
-        Warn player about low battery with red pulse (Phase 39 - Task 4, Phase 57).
-
-        Uses shared discovery loop event loop for efficiency.
-
-        Args:
-            serial: Controller serial number
-            battery_level: Current battery level (0-5)
-        """
-        logger.warning(f"Controller {serial} has low battery: {battery_level}/5 (<20%)")
-
-        # Check controller is tracked
-        if serial not in self.tracked_controllers:
-            return
-
-        try:
-            # Pulse red 3 times (overrides current color temporarily)
-            # This is a synchronous warning that briefly interrupts current state
-            for _ in range(3):
-                self._run_in_discovery_loop(self.backend.set_led_color(serial, 255, 0, 0))  # Bright red
-                time.sleep(0.3)
-
-                self._run_in_discovery_loop(self.backend.set_led_color(serial, 100, 0, 0))  # Dim red
-                time.sleep(0.3)
-
-            # Note: Current game/menu state will restore color on next update
-            logger.info(f"Low battery warning displayed for {serial}")
-
-        except Exception as e:
-            logger.error(f"Failed to display low battery warning for {serial}: {e}")
-
-    def _check_rssi_levels(self):
-        """
-        Check RSSI (signal strength) for all Bluetooth controllers (Phase 48, Phase 57).
-
-        Updates controller_rssi dict and warns about weak signals.
-        Only checks Bluetooth-connected controllers (USB returns 0).
-        Non-Bluetooth backends return None for RSSI (handled gracefully).
-        Uses shared discovery loop event loop for efficiency.
-        """
-        with tracer.start_as_current_span("check_rssi_levels") as span:
-            try:
-                checked_count = 0
-
-                # Check RSSI for each tracked controller
-                for serial in list(self.tracked_controllers.keys()):
-                    try:
-                        # Get RSSI from backend using shared event loop
-                        rssi = self._run_in_discovery_loop(self.backend.get_rssi(serial))
-
-                        if rssi is not None:
-                            self.controller_rssi[serial] = rssi
-                            metrics.controller_rssi_dbm.labels(serial=serial).set(rssi)
-                            span.set_attribute(f"controller.{serial}.rssi", rssi)
-                            checked_count += 1
-
-                            # Warn if signal is weak
-                            if rssi < self.weak_signal_threshold:
-                                self._warn_weak_signal(serial, rssi)
-                        else:
-                            # No RSSI available (USB or disconnected)
-                            self.controller_rssi[serial] = 0
-                            metrics.controller_rssi_dbm.labels(serial=serial).set(0)
-
-                    except Exception as e:
-                        logger.debug(f"Could not get RSSI for {serial}: {e}")
-
-                span.set_attribute("rssi.checked_controllers", checked_count)
-
-            except Exception as e:
-                logger.error(f"Error checking RSSI levels: {e}", exc_info=True)
-
-    def _discover_bt_address(self, serial: str, hci: str):
-        """
-        Try to discover the Bluetooth MAC address for a controller (Phase 48).
-
-        This is done by correlating with BlueZ's list of connected devices.
-        PS Move controllers typically show as "Motion Controller" in device name.
-
-        Args:
-            serial: Controller serial number
-            hci: HCI adapter name
-        """
-        try:
-            from . import bluetooth
-
-            devices = bluetooth.get_attached_addresses(hci)
-
-            for device_addr in devices:
-                try:
-                    device_path = device_addr.replace(":", "_")
-                    proxy = bluetooth.get_device_proxy(hci, f"dev_{device_path}")
-                    device_name = bluetooth.get_device_attrib(proxy, "Name")
-
-                    # PS Move controllers have "Motion Controller" in their name
-                    if device_name and "Motion Controller" in str(device_name):
-                        # Check if this device is connected (has RSSI)
-                        rssi = bluetooth.get_device_rssi(hci, device_addr)
-                        if rssi is not None:
-                            # Assume this is our controller
-                            self.controller_bt_addresses[serial] = device_addr
-                            logger.info(f"Mapped controller {serial} to BT address {device_addr}")
-                            return
-                except Exception:
-                    # Skip devices we can't query
-                    continue
-
-        except Exception as e:
-            logger.debug(f"Error discovering BT address for {serial}: {e}")
-
-    def _warn_weak_signal(self, serial: str, rssi: int):
-        """
-        Warn player about weak Bluetooth signal (Phase 48).
-
-        Displays orange pulse to indicate weak connection.
-        Only warns once every 60 seconds per controller to avoid spam.
-
-        Phase 57: Uses backend abstraction and _run_in_discovery_loop for efficiency.
-
-        Args:
-            serial: Controller serial number
-            rssi: Current RSSI in dBm
-        """
-        current_time = time.time()
-        last_warning = self.last_rssi_warning.get(serial, 0)
-
-        # Warn at most once per minute
-        if current_time - last_warning < 60.0:
-            return
-
-        logger.warning(f"Controller {serial} has weak signal: {rssi} dBm")
-
-        # Display orange pulse (3 times, 200ms on/off) using backend
-        try:
-            for _ in range(3):
-                self._run_in_discovery_loop(self.backend.set_led_color(serial, 255, 165, 0))  # Orange
-                time.sleep(0.2)
-
-                self._run_in_discovery_loop(self.backend.set_led_color(serial, 50, 30, 0))  # Dim orange
-                time.sleep(0.2)
-
-            # Note: Current game/menu state will restore color on next update
-            self.last_rssi_warning[serial] = current_time
-            metrics.controller_weak_signal_warnings_total.labels(serial=serial).inc()
-            logger.info(f"Weak signal warning displayed for {serial}")
-
-        except Exception as e:
-            logger.error(f"Failed to display weak signal warning for {serial}: {e}")
+    # Monitoring methods (battery, RSSI) moved to monitoring.py
 
     # Effect methods (_effect_flash, _effect_pulse, etc.) inherited from ControllerEffectsBase (Phase 40)
 
@@ -1651,7 +1481,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         controller_state.square_pressed = square_pressed
         controller_state.triangle_pressed = triangle_pressed
         controller_state.ps_pressed = ps_pressed
-        controller_state.rssi = self.controller_rssi.get(serial, 0)  # Phase 48
+        controller_state.rssi = self.monitoring.get_rssi(serial)  # Phase 48
 
         # Return pooled Vector3 objects (ControllerState made copies with CopyFrom)
         self.vector3_pool.return_msg(accel_vec)
@@ -1849,8 +1679,8 @@ async def serve(port=50052, metrics_port=8000):
     # Phase 57: If using mock backend, start MockControllerService on port 50062
     mock_server = None
     if controller_servicer.backend.__class__.__name__ == "MockBackend":
-        from services.controller_manager.mock_control_service import MockControllerService
         from proto import controller_manager_mock_pb2_grpc
+        from services.controller_manager.mock_control_service import MockControllerService
 
         mock_server = grpc.aio.server()
         mock_servicer = MockControllerService(controller_servicer.backend)

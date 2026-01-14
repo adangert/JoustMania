@@ -6,7 +6,8 @@ Extracted from server.py to reduce file size.
 
 import logging
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from opentelemetry import trace
 
@@ -217,7 +218,7 @@ class ControllerMonitoring:
         self,
         serial: str,
         rssi: int,
-        tracked_controllers: dict[str, dict],
+        tracked_controllers: dict[str, dict],  # noqa: ARG002
         backend: Any,
         run_in_discovery_loop: Callable,
     ):

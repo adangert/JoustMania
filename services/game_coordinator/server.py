@@ -23,13 +23,8 @@ import grpc
 import grpc.aio
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
-# OpenTelemetry imports
+# OpenTelemetry (trace API for span operations)
 from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.grpc import GrpcInstrumentorClient, GrpcInstrumentorServer
-from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION, Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -38,6 +33,7 @@ import psutil
 # Prometheus metrics (Phase 38)
 from prometheus_client import start_http_server
 
+from lib.telemetry import init_telemetry
 from lib.types import get_game_display_name
 from proto import (
     controller_manager_pb2_grpc,
@@ -64,34 +60,8 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-# Initialize OpenTelemetry
-def init_telemetry():
-    """Initialize OpenTelemetry with OTLP exporter."""
-    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
-    service_name = os.getenv("OTEL_SERVICE_NAME", "game-coordinator-service")
-
-    resource = Resource(
-        attributes={
-            SERVICE_NAME: service_name,
-            SERVICE_VERSION: "1.0.0",
-            "service.namespace": "joustmania",
-        }
-    )
-
-    provider = TracerProvider(resource=resource)
-    otlp_exporter = OTLPSpanExporter(endpoint=otlp_endpoint, insecure=True)
-    provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
-    trace.set_tracer_provider(provider)
-
-    # Instrument both server and client-side gRPC calls
-    GrpcInstrumentorServer().instrument()
-    GrpcInstrumentorClient().instrument()
-
-    logger.info(f"OpenTelemetry initialized: {service_name} -> {otlp_endpoint}")
-    return trace.get_tracer(__name__)
-
-
-tracer = init_telemetry()
+# Initialize OpenTelemetry (game coordinator calls other services, so instrument client too)
+tracer = init_telemetry(instrument_grpc_client=True)
 
 
 class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceServicer):

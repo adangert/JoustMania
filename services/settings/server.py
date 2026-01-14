@@ -24,15 +24,12 @@ import grpc.aio
 import yaml
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
-# OpenTelemetry imports
+# OpenTelemetry (trace API for span operations)
 from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.grpc import GrpcInstrumentorServer
-from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION, Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from lib.telemetry import init_telemetry
 
 # We need Games enum for validation, but don't want psmove dependency
 # So we'll define a minimal version here for server-only use
@@ -86,44 +83,6 @@ logger = logging.getLogger(__name__)
 
 
 # Initialize OpenTelemetry
-def init_telemetry():
-    """Initialize OpenTelemetry with OTLP exporter."""
-    # Get configuration from environment
-    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
-    service_name = os.getenv("OTEL_SERVICE_NAME", "settings-service")
-
-    # Create resource with service info
-    resource = Resource(
-        attributes={
-            SERVICE_NAME: service_name,
-            SERVICE_VERSION: "1.0.0",
-            "service.namespace": "joustmania",
-        }
-    )
-
-    # Create tracer provider
-    provider = TracerProvider(resource=resource)
-
-    # Create OTLP exporter
-    otlp_exporter = OTLPSpanExporter(
-        endpoint=otlp_endpoint,
-        insecure=True,  # Use insecure for local development
-    )
-
-    # Add span processor
-    provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
-
-    # Set as global tracer provider
-    trace.set_tracer_provider(provider)
-
-    # Instrument gRPC server automatically
-    GrpcInstrumentorServer().instrument()
-
-    logger.info(f"OpenTelemetry initialized: {service_name} -> {otlp_endpoint}")
-    return trace.get_tracer(__name__)
-
-
-# Global tracer instance
 tracer = init_telemetry()
 
 # Settings schema with validation rules (Phase 32 - cleaned up)

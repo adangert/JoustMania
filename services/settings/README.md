@@ -4,25 +4,84 @@
 
 ## Overview
 
-See [main project documentation](../../README.md) and [architecture docs](../../docs/ARCHITECTURE.md) for complete details.
+The Settings Service provides centralized configuration management for all JoustMania services. It stores game settings, sensitivity configurations, and other runtime parameters that need to be shared across services.
 
 ## Quick Reference
 
-- **Port:** Check docker-compose.yml
-- **Purpose:** TODO - Add service description
-- **gRPC API:** See `settings.proto`
+| Property | Value |
+|----------|-------|
+| **Port** | 50051 |
+| **Proto** | `proto/settings.proto` |
+| **Container** | `joustmania-settings` |
 
-## Testing
+## gRPC API
+
+### GetSettings
+Retrieves all settings as key-value pairs.
 
 ```bash
-# Test with grpcurl
-grpcurl -plaintext localhost:<PORT> list
+grpcurl -plaintext localhost:50051 joustmania.settings.SettingsService/GetSettings
+```
+
+### GetSetting
+Retrieves a specific setting by key.
+
+```bash
+grpcurl -plaintext -d '{"key": "sensitivity"}' \
+  localhost:50051 joustmania.settings.SettingsService/GetSetting
+```
+
+### UpdateSetting
+Updates a setting value.
+
+```bash
+grpcurl -plaintext -d '{"key": "sensitivity", "value": "fast", "source": "admin"}' \
+  localhost:50051 joustmania.settings.SettingsService/UpdateSetting
+```
+
+### SubscribeToChanges
+Streams setting change events (server-side streaming).
+
+```bash
+grpcurl -plaintext -d '{"keys": ["sensitivity"]}' \
+  localhost:50051 joustmania.settings.SettingsService/SubscribeToChanges
+```
+
+## Common Settings
+
+| Key | Values | Description |
+|-----|--------|-------------|
+| `sensitivity` | `slow`, `medium`, `fast` | Motion sensitivity threshold |
+| `instructions` | `true`, `false` | Whether to show game instructions |
+| `teams` | `2`, `3`, `4` | Number of teams for team games |
+| `game_mode` | Game mode name | Currently selected game mode |
+
+## Architecture
+
+```
+┌─────────────────┐
+│  Settings       │◄──── GetSettings/UpdateSetting
+│  Service        │
+│  (port 50051)   │────► SettingChangeEvent (stream)
+└────────┬────────┘
+         │
+         ▼
+    Redis (persistence)
 ```
 
 ## Development
 
-See [DEVELOPMENT.md](../../docs/DEVELOPMENT.md) for development workflow.
+```bash
+# Run locally
+cd services/settings
+python server.py
 
----
+# Run tests
+pytest tests/
+```
 
-**Note:** This README will be expanded with comprehensive API documentation, examples, and configuration details in a future phase.
+## See Also
+
+- [Architecture](../../docs/ARCHITECTURE.md) - System architecture
+- [Proto Definition](../../proto/settings.proto) - Full API specification
+- [Development Guide](../../docs/DEVELOPMENT.md) - Development workflow

@@ -88,7 +88,7 @@ open http://localhost:3000
 
 ```bash
 # Terminal 1: Start JoustMania services
-cd /home/simon/JoustMania
+cd /path/to/JoustMania  # Replace with your JoustMania directory
 docker-compose up
 
 # Terminal 2: Start live dashboard

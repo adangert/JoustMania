@@ -31,7 +31,7 @@ The dev container includes:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/JoustMania.git
+   git clone https://github.com/WatchMeJoustMyFlags/JoustMania.git
    cd JoustMania
    ```
 
@@ -302,8 +302,8 @@ chore: Regenerate proto files
 ## Getting Help
 
 - **Documentation**: Check `/docs` directory
-- **Issues**: [GitHub Issues](https://github.com/YOUR_USERNAME/JoustMania/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/YOUR_USERNAME/JoustMania/discussions)
+- **Issues**: [GitHub Issues](https://github.com/WatchMeJoustMyFlags/JoustMania/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/WatchMeJoustMyFlags/JoustMania/discussions)
 
 ## Resources
 

@@ -289,6 +289,6 @@ services:
 
 ## See Also
 
-- [Phase 57 Planning Document](../../planning/phases/in-progress/phase-57-windows-controller-backend.md)
+- [Phase 57 Planning Document](../../planning/phases/completed/phase-57-windows-controller-backend.md)
 - [Windows Development Setup](../development/windows-setup.md)
 - [ControllerBackend Interface](../../services/controller_manager/backend.py)

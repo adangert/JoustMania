@@ -285,7 +285,7 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 scripts/testing/run_tests.sh
 
 # Run specific test file
-PYTHONPATH=/home/simon/JoustMania python -m pytest testing/test_controller_state.py
+PYTHONPATH=$(pwd) python -m pytest testing/test_controller_state.py
 
 # Run with coverage
 pytest --cov=core --cov=services testing/

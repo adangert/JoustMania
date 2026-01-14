@@ -7,7 +7,7 @@ This guide helps diagnose and resolve PS Move controller connectivity issues in 
 ### Checking Signal Strength (RSSI)
 
 **Via WebUI:**
-1. Navigate to http://localhost:5000/battery
+1. Navigate to http://localhost/battery
 2. Check the "Signal" column for each controller
 3. Colors indicate quality:
    - **Green** = Excellent/Good (-55 dBm or better)
@@ -326,7 +326,7 @@ A: Controllers work fine while charging via USB (wired mode, RSSI = 0). When unp
 - **Proto Schema:** `proto/controller_manager.proto` (rssi field)
 - **Bluetooth Module:** `services/controller_manager/bluetooth.py`
 - **Metrics:** http://localhost:8000/metrics (Prometheus endpoint)
-- **WebUI:** http://localhost:5000/battery (Signal strength display)
+- **WebUI:** http://localhost/battery (Signal strength display)
 
 ## Getting Help
 

@@ -1,6 +1,8 @@
-# Controller LED Feedback Reference
+# Controller LED Feedback Reference (Menu System)
 
-This document describes all LED color states a controller can display in the JoustMania menu system.
+> **See Also:** [controller-feedback.md](./controller-feedback.md) for comprehensive LED documentation including game states, team colors, and troubleshooting. This document focuses specifically on menu/lobby LED behavior and audio integration.
+
+This document describes LED color states in the JoustMania menu system.
 
 ## Overview
 
@@ -213,7 +215,7 @@ Shows the new toggle state:
 
 ## Audio Feedback
 
-> **Note:** Audio feedback is planned in [Phase 60](../planning/phases/planned/phase-60-menu-audio-feedback.md).
+> **Note:** Audio feedback was implemented in [Phase 60](../planning/phases/completed/phase-60-menu-audio-feedback.md).
 
 For headless operation, voice announcements will complement LED feedback:
 - Game mode selection announcements
@@ -225,4 +227,4 @@ For headless operation, voice announcements will complement LED feedback:
 
 - [Menu Service README](../services/menu/README.md) - API documentation
 - [Controller Manager](../services/controller_manager/README.md) - LED control API
-- [Phase 60: Menu Audio Feedback](../planning/phases/planned/phase-60-menu-audio-feedback.md) - Planned audio integration
+- [Phase 60: Menu Audio Feedback](../planning/phases/completed/phase-60-menu-audio-feedback.md) - Audio feedback implementation

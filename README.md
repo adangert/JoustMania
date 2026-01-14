@@ -1,6 +1,6 @@
 # JoustMania - Cloud-Native Edition
 
-[![CI](https://github.com/YOUR_USERNAME/JoustMania/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/JoustMania/actions/workflows/ci.yml)
+[![CI](https://github.com/WatchMeJoustMyFlags/JoustMania/actions/workflows/ci.yml/badge.svg)](https://github.com/WatchMeJoustMyFlags/JoustMania/actions/workflows/ci.yml)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
 [![Dev Container](https://img.shields.io/badge/Dev_Container-Ready-blue?logo=visualstudiocode)](https://code.visualstudio.com/docs/devcontainers/containers)
 
@@ -38,7 +38,7 @@ This version focuses on:
 
 ```bash
 # Clone repository
-git clone https://github.com/YOUR_USERNAME/JoustMania.git
+git clone https://github.com/WatchMeJoustMyFlags/JoustMania.git
 cd JoustMania
 
 # Build CI tooling
@@ -410,7 +410,7 @@ See [tests/integration/README.md](tests/integration/README.md) for details.
 
 For complete mock environment documentation, see:
 - **[MOCK_ENVIRONMENT.md](services/controller_manager/MOCK_ENVIRONMENT.md)** - Full mock environment guide
-- **[Phase 14 Plan](planning/PHASE_14_MOCK_HARDWARE.md)** - Implementation details
+- **[Phase 14 Plan](planning/archive/PHASE_14_MOCK_HARDWARE.md)** - Implementation details
 
 ---
 
@@ -501,7 +501,7 @@ This project is a fork of the [original JoustMania](https://github.com/adangert/
 - **Purpose:** Demonstrate modern cloud-native patterns and observability
 - **Focus:** Microservices architecture, distributed tracing, container orchestration
 - **Use Case:** Learning platform for gRPC, OpenTelemetry, and distributed systems
-- **Status:** Active development - Phases 9-11 complete (architecture cleanup, documentation)
+- **Status:** Active development - Phase 61 complete (comprehensive platform with full observability)
 
 **Credit:** All game mechanics and original design by Adam Engert. This fork focuses on infrastructure and observability.
 
@@ -509,28 +509,33 @@ This project is a fork of the [original JoustMania](https://github.com/adangert/
 
 ## Roadmap
 
-### Completed (Phases 1-14)
+### Completed (Phases 1-61)
 
-- ✅ State-based controller architecture
-- ✅ 7 microservices with gRPC
-- ✅ OpenTelemetry instrumentation
-- ✅ Docker Compose deployment
-- ✅ Architecture cleanup (Phases 9-10)
-- ✅ Comprehensive documentation (Phase 11)
-- ✅ Game modes refactoring (Phase 13)
-- ✅ Mock hardware environment (Phase 14)
+**Infrastructure & Architecture:**
+- ✅ 7 microservices with gRPC communication
+- ✅ OpenTelemetry distributed tracing
+- ✅ Docker Compose deployment with mock hardware support
+- ✅ Prometheus metrics and Jaeger tracing
+- ✅ GitHub Actions CI/CD pipeline (Phase 55)
 
-### In Progress
+**Controller Management:**
+- ✅ Cross-platform backend abstraction (Phase 57)
+- ✅ Battery and RSSI signal monitoring (Phases 39, 48)
+- ✅ LED effects system (flash, pulse, rainbow, fade)
+- ✅ Mock controller environment for testing
 
-- 🔄 **Phase 12:** Dependency updates (Jaeger v2, Python 3.12)
+**Game Features:**
+- ✅ 12+ game modes with full tracing
+- ✅ Menu/lobby LED feedback system (Phase 39)
+- ✅ Audio feedback for headless operation (Phase 60)
+- ✅ Game coordinator refactoring (Phase 61)
 
 ### Future
 
 - Kubernetes deployment (Helm charts)
-- Advanced observability (custom metrics, dashboards)
 - Multi-game support (concurrent games)
 - Replay system
-- Authentication & authorization
+- Web-based controller visualization
 
 ---
 

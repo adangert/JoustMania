@@ -1,5 +1,7 @@
 # Controller LED Feedback Reference
 
+> **Primary LED Documentation** - This is the comprehensive reference for all controller LED states in JoustMania, covering menu/lobby, gameplay, teams, and troubleshooting.
+
 JoustMania provides comprehensive visual feedback through PS Move controller LEDs to help players understand game state, connection status, team assignments, and more.
 
 ## Table of Contents
@@ -242,7 +244,7 @@ Unique player colors generated using `utils.colors.generate_colors()`:
 ## Related Documentation
 
 - [Architecture](../planning/ARCHITECTURE_ANALYSIS.md) - System architecture
-- [Phase 39 Implementation](../planning/phases/in-progress/phase-39-menu-lobby-controller-feedback.md) - Implementation details
+- [Phase 39 Implementation](../planning/phases/completed/phase-39-menu-lobby-controller-feedback.md) - Implementation details
 - [Controller Manager](../services/controller_manager/README.md) - Controller service documentation
 - [Menu Service](../services/menu/README.md) - Menu service documentation
 

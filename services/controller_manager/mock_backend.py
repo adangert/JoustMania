@@ -37,6 +37,12 @@ class MockBackend(ControllerBackend):
         self.controllers: Dict[str, Dict] = {}
         self.running = False
 
+        # Auto game end settings (set via MockControllerService.SetAutoGameEnd)
+        self.auto_game_end_enabled = False
+        self.auto_game_end_duration = 0.0
+        self.auto_game_end_start_time: Optional[float] = None
+        self.auto_game_end_triggered = False
+
         logger.info(f"MockBackend initialized with {num_controllers} controllers")
 
     async def initialize(self) -> bool:
@@ -65,6 +71,9 @@ class MockBackend(ControllerBackend):
                     "rumble": 0,
                     "connected_at": time.time(),
                     "last_update": time.time(),
+                    # Death simulation state (holds high accel until timestamp)
+                    "death_accel": None,  # {"x": ..., "y": ..., "z": ...} or None
+                    "death_hold_until": 0.0,  # Timestamp until which to hold death accel
                 }
 
                 logger.info(f"Created mock controller: {serial}")
@@ -131,11 +140,18 @@ class MockBackend(ControllerBackend):
             # Drift back to zero
             controller["trigger"] = max(0, controller["trigger"] - 10)
 
-        # Add slight noise to accelerometer (simulates hand shake)
-        # BUT: Don't overwrite if acceleration was explicitly set high (e.g., death simulation)
-        accel = controller["accel"]
-        accel_mag = (accel["x"]**2 + accel["y"]**2 + accel["z"]**2) ** 0.5
-        if accel_mag < 2.0:  # Only add noise if not in "death" state
+        # Check if we're holding death acceleration
+        death_accel = None
+        if controller["death_hold_until"] > current_time and controller["death_accel"]:
+            # Use death acceleration (don't add noise)
+            death_accel = controller["death_accel"]
+        else:
+            # Clear expired death hold
+            if controller["death_hold_until"] > 0 and controller["death_hold_until"] <= current_time:
+                controller["death_accel"] = None
+                controller["death_hold_until"] = 0.0
+
+            # Add slight noise to accelerometer (simulates hand shake)
             controller["accel"]["x"] = random.gauss(0.0, 0.1)
             controller["accel"]["y"] = random.gauss(0.0, 0.1)
             controller["accel"]["z"] = random.gauss(1.0, 0.1)  # ~1g gravity
@@ -153,7 +169,7 @@ class MockBackend(ControllerBackend):
         # Update timestamp
         controller["last_update"] = current_time
 
-        # Return state
+        # Return state (use death_accel if holding, otherwise normal accel)
         return {
             "serial": serial,
             "battery": controller["battery"],
@@ -167,7 +183,7 @@ class MockBackend(ControllerBackend):
             "circle": controller["circle"],
             "cross": controller["cross"],
             "square": controller["square"],
-            "accel": controller["accel"].copy(),
+            "accel": death_accel.copy() if death_accel else controller["accel"].copy(),
             "gyro": controller["gyro"].copy(),
             "temperature": controller["temperature"],
             "connection_type": "mock",

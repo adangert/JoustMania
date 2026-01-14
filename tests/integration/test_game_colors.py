@@ -32,7 +32,10 @@ def docker_compose():
     mock mode (no hardware required).
     """
     compose = DockerCompose(
-        context=".", compose_file_name="docker-compose.yml", pull=False, build=True
+        context=".",
+        compose_file_name=["docker-compose.yml", "docker-compose.override.yml"],
+        pull=False,
+        build=True,
     )
 
     compose.start()

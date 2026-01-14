@@ -45,6 +45,8 @@ from prometheus_client import start_http_server
 from proto import controller_manager_pb2, controller_manager_pb2_grpc
 from services.controller_manager import metrics
 from services.controller_manager.effects_base import ControllerEffectsBase
+from services.controller_manager.message_pool import MessagePool
+from services.controller_manager.monitoring import ControllerMonitoring
 
 # Phase 57: Backend abstraction for platform independence
 from services.controller_manager.backend_factory import create_backend
@@ -78,31 +80,6 @@ def init_telemetry():
 
 
 tracer = init_telemetry()
-
-
-class MessagePool:
-    """Pool of reusable protobuf messages (Phase 18 - Task 3)."""
-
-    def __init__(self, message_class, pool_size=10):
-        """Initialize message pool with pre-allocated messages."""
-        self.pool = deque([message_class() for _ in range(pool_size)])
-        self.message_class = message_class
-        self.lock = threading.Lock()
-
-    def get(self):
-        """Get a message from pool or create new if empty."""
-        with self.lock:
-            if self.pool:
-                msg = self.pool.popleft()
-                msg.Clear()
-                return msg
-        # Pool empty, create new message
-        return self.message_class()
-
-    def return_msg(self, msg):
-        """Return message to pool for reuse."""
-        with self.lock:
-            self.pool.append(msg)
 
 
 class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerServiceServicer, ControllerEffectsBase):
@@ -163,18 +140,12 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Phase 34: Use async lock since effects are managed from async gRPC methods
         self.effect_lock = asyncio.Lock()
 
-        # Battery monitoring (Phase 39 - Task 4)
-        self.last_battery_warning: dict[str, float] = {}  # {serial: timestamp of last warning}
-        self.low_battery_threshold = 1  # Battery level 0 or 1 (out of 5) = <20%
-        self.last_battery_check = 0.0  # Timestamp of last battery check
-
-        # RSSI monitoring (Phase 48)
-        self.controller_rssi: dict[str, int] = {}  # {serial: rssi_dbm}
-        self.controller_bt_addresses: dict[str, str] = {}  # {serial: bluetooth_address}
-        self.last_rssi_check = 0.0
-        self.rssi_check_interval = 10.0  # Check RSSI every 10 seconds
-        self.weak_signal_threshold = -80  # Warn if RSSI < -80 dBm
-        self.last_rssi_warning: dict[str, float] = {}  # {serial: timestamp}
+        # Monitoring (battery and RSSI) - Phase 39, Phase 48, extracted to monitoring.py
+        self.monitoring = ControllerMonitoring(
+            low_battery_threshold=1,
+            rssi_check_interval=10.0,
+            weak_signal_threshold=-80,
+        )
 
         # Vibration duration timers - tracks active vibration timers per controller
         self.vibration_timers: dict[str, threading.Timer] = {}

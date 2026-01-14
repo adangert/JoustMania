@@ -5,10 +5,16 @@ Provides control RPCs for simulating controller behavior during tests.
 Only active when using MockBackend (Phase 57).
 """
 
+import asyncio
+import contextlib
 import logging
-from typing import Optional
+import time
+from typing import TYPE_CHECKING
 
 from proto import controller_manager_mock_pb2, controller_manager_mock_pb2_grpc
+
+if TYPE_CHECKING:
+    from services.controller_manager.mock_backend import MockBackend
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +22,7 @@ logger = logging.getLogger(__name__)
 class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServiceServicer):
     """Service for controlling mock controllers during integration tests."""
 
-    def __init__(self, backend):
+    def __init__(self, backend: "MockBackend"):
         """
         Initialize mock control service.
 
@@ -24,6 +30,7 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
             backend: MockBackend instance to control
         """
         self.backend = backend
+        self.auto_end_task: asyncio.Task | None = None  # Background task for auto-ending games
         logger.info("MockControllerService initialized")
 
     def SimulateMovement(self, request, context):
@@ -52,18 +59,22 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
             return controller_manager_mock_pb2.MovementResponse(success=False, error=str(e))
 
     def SimulateDeath(self, request, context):
-        """Simulate death by setting high acceleration."""
+        """Simulate death by setting high acceleration and holding it for 2 seconds."""
         try:
             serial = request.serial
             if serial not in self.backend.controllers:
                 return controller_manager_mock_pb2.DeathResponse(success=False, accel_magnitude=0.0)
 
-            # Set very high acceleration (death threshold is typically 4g)
-            death_accel = 10.0  # 10g acceleration
-            self.backend.controllers[serial]["accel"] = {"x": 0.0, "y": death_accel, "z": 0.0}
+            # Set death-level acceleration (matches mock_server.py)
+            death_accel = {"x": 5.0, "y": 3.0, "z": 4.0}
+            accel_mag = (5.0**2 + 3.0**2 + 4.0**2) ** 0.5  # ~7.07g
 
-            logger.info(f"Mock: Simulated death for {serial} with {death_accel}g acceleration")
-            return controller_manager_mock_pb2.DeathResponse(success=True, accel_magnitude=death_accel)
+            # Hold death acceleration for 2 seconds to ensure game loop catches it
+            self.backend.controllers[serial]["death_accel"] = death_accel
+            self.backend.controllers[serial]["death_hold_until"] = time.time() + 2.0
+
+            logger.info(f"Mock: Simulated death for {serial} with {accel_mag:.2f}g acceleration, holding for 2.0s")
+            return controller_manager_mock_pb2.DeathResponse(success=True, accel_magnitude=accel_mag)
 
         except Exception as e:
             logger.error(f"SimulateDeath error: {e}")
@@ -142,6 +153,9 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
             controller["square"] = False
             controller["accel"] = {"x": 0.0, "y": 0.0, "z": 1.0}  # At rest
             controller["gyro"] = {"x": 0.0, "y": 0.0, "z": 0.0}
+            # Clear death state
+            controller["death_accel"] = None
+            controller["death_hold_until"] = 0.0
 
             logger.info(f"Mock: Reset {serial} to idle state")
             return controller_manager_mock_pb2.ResetResponse(success=True, error="")
@@ -160,7 +174,7 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
             logger.error(f"ListMockControllers error: {e}")
             return controller_manager_mock_pb2.ListResponse(serials=[], count=0)
 
-    def SetAutoGameEnd(self, request, context):
+    async def SetAutoGameEnd(self, request, context):
         """
         Enable/disable auto game end feature.
 
@@ -168,16 +182,56 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
         after the specified duration.
         """
         try:
-            # Store settings in backend
-            self.backend.auto_game_end_enabled = request.enabled
-            self.backend.auto_game_end_duration = request.duration_seconds
+            # Cancel existing task if any
+            if self.auto_end_task and not self.auto_end_task.done():
+                self.auto_end_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self.auto_end_task
+                self.auto_end_task = None
 
-            logger.info(
-                f"Mock: Auto game end {'enabled' if request.enabled else 'disabled'} "
-                f"(duration: {request.duration_seconds}s)"
-            )
+            if request.enabled:
+                # Start new background task
+                self.auto_end_task = asyncio.create_task(self._auto_end_game(request.duration_seconds))
+                logger.info(f"Mock: Auto game end enabled: will kill players after {request.duration_seconds}s")
+                return controller_manager_mock_pb2.AutoGameEndResponse(success=True, error="")
+
+            logger.info("Mock: Auto game end disabled")
             return controller_manager_mock_pb2.AutoGameEndResponse(success=True, error="")
 
         except Exception as e:
             logger.error(f"SetAutoGameEnd error: {e}")
             return controller_manager_mock_pb2.AutoGameEndResponse(success=False, error=str(e))
+
+    async def _auto_end_game(self, duration: float):
+        """Background task to auto-end game after duration."""
+        try:
+            logger.info(f"Mock: Waiting {duration}s before auto-ending game...")
+            await asyncio.sleep(duration)
+
+            # Kill all but one player (leave winner)
+            serials = list(self.backend.controllers.keys())
+            if len(serials) > 1:
+                # Leave the last player alive (winner)
+                players_to_kill = serials[:-1]
+                logger.info(
+                    f"Mock: Auto-ending game: killing {len(players_to_kill)} players, "
+                    f"leaving {serials[-1]} alive as winner"
+                )
+
+                for serial in players_to_kill:
+                    # Simulate death by directly setting controller state
+                    controller = self.backend.controllers.get(serial)
+                    if controller:
+                        # Set death-level acceleration (same as SimulateDeath)
+                        controller["death_accel"] = {"x": 5.0, "y": 3.0, "z": 4.0}
+                        controller["death_hold_until"] = time.time() + 2.0
+                        logger.info(f"Mock: Auto-killed player {serial}")
+                    await asyncio.sleep(0.3)  # Stagger deaths for better trace visualization
+
+            logger.info("Mock: Auto game end complete")
+
+        except asyncio.CancelledError:
+            logger.info("Mock: Auto game end cancelled")
+            raise
+        except Exception as e:
+            logger.error(f"Mock: Error in auto game end: {e}", exc_info=True)

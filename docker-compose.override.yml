@@ -1,34 +1,35 @@
 # Local Development Override
 #
-# This file is automatically loaded by docker-compose and overrides
-# settings for local development without hardware (mock mode).
+# This file is automatically loaded by docker-compose and adds
+# development-friendly settings (port exposures for testing tools).
 #
-# To use production mode instead:
-#   docker-compose -f docker-compose.yml up
-#
-# Or delete/rename this file.
+# Base config (docker-compose.yml) already defaults to mock mode.
 
 services:
-  # Controller Manager - Mock mode (no Bluetooth/USB needed)
+  # Controller Manager - Expose ports for testing
   controller-manager:
-    privileged: false  # No hardware access needed in mock mode
-    volumes: []        # Remove DBus mount
-    devices: []        # Remove USB devices
     expose:
       - "50062"  # Mock control API (for integration tests)
     ports:
-      - "50062:50062"  # Expose mock control API to host for testing
-    environment:
-      - CONTROLLER_BACKEND=mock
-      - MOCK_CONTROLLER_COUNT=${MOCK_CONTROLLER_COUNT:-4}
-      - OTEL_SERVICE_NAME=controller-manager-service
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - "50052:50052"  # Main gRPC port
+      - "50062:50062"  # Mock control API
 
-  # Audio Service - Mock mode (no audio hardware needed)
+  # Game Coordinator - Expose ports for testing
+  game-coordinator:
+    ports:
+      - "50053:50053"  # Main gRPC port
+
+  # Menu - Expose ports for testing
+  menu:
+    ports:
+      - "50054:50054"  # Main gRPC port
+
+  # Settings - Expose ports for testing
+  settings:
+    ports:
+      - "50055:50055"  # Main gRPC port
+
+  # Audio - Expose ports for testing
   audio:
-    privileged: false  # No hardware access needed in mock mode
-    devices: []        # Remove audio devices
-    environment:
-      - MOCK_MODE=true
-      - OTEL_SERVICE_NAME=audio-service
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    ports:
+      - "50056:50056"  # Main gRPC port

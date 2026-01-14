@@ -43,7 +43,8 @@ from proto import (
 )
 from services.game_coordinator import metrics
 
-# Game factory for creating game instances
+# Game factory and event bus
+from services.game_coordinator.event_bus import EventBus
 from services.game_coordinator.game_factory import GameFactory
 
 # Legacy game imports (optional for testing)
@@ -85,9 +86,12 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         self.game_start_time = None
         self.game_id = None
 
-        # Event streaming (Phase 34: async queue and lock)
-        self.event_subscribers: dict[str, asyncio.Queue] = {}
-        self.event_lock = asyncio.Lock()
+        # Phase 56: Thread-safe state access lock
+        # Protects: game_state, current_game, players
+        self._state_lock = threading.Lock()
+
+        # Event bus for pub/sub (Phase 61: extracted from server.py)
+        self.event_bus = EventBus(state_sync_callback=self._on_event_state_sync)
 
         # Random game history
         self.random_history: list[str] = []
@@ -95,10 +99,6 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         # Mock game thread
         self.game_thread: threading.Thread | None = None
         self.game_running = False
-
-        # Phase 56: Thread-safe state access lock
-        # Protects: game_state, current_game, players, event_subscribers
-        self._state_lock = threading.Lock()
 
         # Initialize gRPC clients for other services
         # Store gRPC service addresses (channels will be created in game loop's event loop)
@@ -118,6 +118,20 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         self.audio_client = None  # Phase 29: Audio integration
 
         logger.info("GameCoordinator initialized")
+
+    def _on_event_state_sync(self, event_type: str):
+        """
+        Callback for EventBus to sync game state on lifecycle events.
+
+        Called by EventBus.publish() while holding state lock.
+        Updates game_state based on event type.
+        """
+        if event_type == "game_started":
+            self.game_state = game_coordinator_pb2.GameState.RUNNING
+            logger.info("Game state transitioned to RUNNING")
+        elif event_type in ["game_ended", "game_error"]:
+            self.game_state = game_coordinator_pb2.GameState.ENDED
+            logger.info("Game state transitioned to ENDED")
 
     async def _init_grpc_clients_async(self):
         """Initialize async gRPC clients (Phase 33 - using shared gRPC utilities)."""
@@ -224,7 +238,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 metrics.active_players.set(len(self.players))
 
                 # Publish game_start event
-                self._publish_event(
+                self.event_bus.publish(
                     "game_start",
                     {
                         "game_name": self.game_name,
@@ -289,7 +303,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     # Phase 56: Thread-safe state transition
                     with self._state_lock:
                         self.game_state = game_coordinator_pb2.GameState.ENDED
-                    self._publish_event("game_error", {"error": error_msg})
+                    self.event_bus.publish("game_error", {"error": error_msg})
                     # Phase 56: Cleanup any partially initialized channels
                     await self._cleanup_channels()
                     return
@@ -300,7 +314,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                         game_name=self.game_name,
                         controller_manager_client=self.controller_manager_client,
                         settings_client=self.settings_client,
-                        event_publisher=self._publish_event,
+                        event_publisher=self.event_bus.publish,
                         audio_client=self.audio_client,
                         game_id=self.game_id,
                         initial_players=self.players,
@@ -312,7 +326,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                     logger.error(error_msg)
                     with self._state_lock:
                         self.game_state = game_coordinator_pb2.GameState.ENDED
-                    self._publish_event("game_error", {"error": error_msg})
+                    self.event_bus.publish("game_error", {"error": error_msg})
                     await self._cleanup_channels()
                     return
 
@@ -326,7 +340,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 # Phase 56: Thread-safe state transition
                 with self._state_lock:
                     self.game_state = game_coordinator_pb2.GameState.ENDED
-                self._publish_event("game_error", {"error": str(e)})
+                self.event_bus.publish("game_error", {"error": str(e)})
             finally:
                 # Phase 56: Thread-safe state cleanup
                 with self._state_lock:
@@ -436,7 +450,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 self.game_state = game_coordinator_pb2.GameState.ENDED
 
             # Publish event
-            self._publish_event(
+            self.event_bus.publish(
                 "game_force_ended",
                 {"reason": request.reason, "game_id": game_id or "unknown"},
             )
@@ -456,22 +470,17 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         with tracer.start_as_current_span("StreamGameEvents") as span:
             span.set_attribute("subscriber.id", subscriber_id)
 
-            # Create queue for this subscriber (Phase 34: asyncio.Queue)
-            event_queue = asyncio.Queue(maxsize=100)
-
-            async with self.event_lock:  # Phase 34: async lock
-                self.event_subscribers[subscriber_id] = event_queue
-
-            logger.info(f"New event subscriber: {subscriber_id}")
+            # Subscribe to event bus (Phase 61: extracted to EventBus)
+            event_queue = await self.event_bus.subscribe(subscriber_id)
 
             try:
                 while not context.cancelled():
                     try:
-                        # Phase 34: async wait with timeout
+                        # Async wait with timeout
                         event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
                         yield event
 
-                    except TimeoutError:  # Phase 34: asyncio exception
+                    except TimeoutError:
                         # No event, continue (timeout keeps connection alive)
                         continue
                     except Exception as e:
@@ -479,55 +488,8 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                         break
 
             finally:
-                # Cleanup (Phase 34: async lock)
-                async with self.event_lock:
-                    if subscriber_id in self.event_subscribers:
-                        del self.event_subscribers[subscriber_id]
-
-                logger.info(f"Event subscriber disconnected: {subscriber_id}")
-
-    def _publish_event(self, event_type: str, data: dict[str, str]):
-        """Publish an event to all subscribers (Phase 56: thread-safe)."""
-        # Phase 56: Thread-safe state transition and subscriber snapshot
-        with self._state_lock:
-            # Sync server game_state with game mode lifecycle events
-            if event_type == "game_started":
-                self.game_state = game_coordinator_pb2.GameState.RUNNING
-                logger.info("Game state transitioned to RUNNING")
-            elif event_type in ["game_ended", "game_error"]:
-                self.game_state = game_coordinator_pb2.GameState.ENDED
-                logger.info("Game state transitioned to ENDED")
-
-            # Snapshot subscribers to avoid dict modification during iteration
-            subscribers_snapshot = dict(self.event_subscribers)
-
-        # Add as span event instead of creating child span
-        current_span = trace.get_current_span()
-        if current_span.is_recording():
-            # Add event with attributes
-            attributes = {
-                "event.type": event_type,
-                "subscribers.count": len(subscribers_snapshot),
-                **{k: str(v) for k, v in data.items()},
-            }
-            current_span.add_event(event_type, attributes=attributes)
-
-        # Convert all values to strings (protobuf map<string, string> requirement)
-        string_data = {k: str(v) for k, v in data.items()}
-
-        event = game_coordinator_pb2.GameEvent(
-            event_type=event_type, data=string_data, timestamp=int(time.time() * 1000)
-        )
-
-        # Phase 56: Iterate snapshot (outside lock) - put_nowait() is thread-safe for Queue
-        for sub_id, event_queue in subscribers_snapshot.items():
-            try:
-                event_queue.put_nowait(event)
-                logger.debug(f"Published {event_type} to subscriber {sub_id}")
-            except asyncio.QueueFull:  # Phase 34: asyncio exception
-                logger.warning(f"Subscriber {sub_id} queue full, skipping event")
-            except Exception as e:
-                logger.error(f"Error publishing to subscriber {sub_id}: {e}")
+                # Cleanup via EventBus
+                await self.event_bus.unsubscribe(subscriber_id)
 
     async def shutdown(self):
         """Shutdown the game coordinator (Phase 34: async, Phase 56: thread-safe)."""

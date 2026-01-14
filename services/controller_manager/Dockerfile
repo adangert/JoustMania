@@ -102,6 +102,11 @@ COPY --from=python-builder /usr/local/bin /usr/local/bin
 # Copy psmove Python bindings from psmove-builder
 COPY --from=psmove-builder /build/psmoveapi/build/psmove.py /usr/local/lib/python3.11/site-packages/
 COPY --from=psmove-builder /build/psmoveapi/build/_psmove.so /usr/local/lib/python3.11/site-packages/
+# Copy the shared library that _psmove.so depends on
+COPY --from=psmove-builder /build/psmoveapi/build/libpsmoveapi.so /usr/local/lib/
+
+# Update library cache so _psmove.so can find libpsmoveapi.so
+RUN ldconfig
 
 # Copy application code
 COPY --from=python-builder /app/pyproject.toml /app/

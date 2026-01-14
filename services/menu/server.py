@@ -30,13 +30,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 import contextlib
 
-from lib.telemetry import init_telemetry
-
 import psutil
 
 # Prometheus metrics (Phase 38)
 from prometheus_client import start_http_server
 
+from lib.telemetry import init_telemetry
 from proto import menu_pb2, menu_pb2_grpc
 from services.menu import metrics
 

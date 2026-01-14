@@ -29,8 +29,6 @@ from opentelemetry import trace
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from lib.telemetry import init_telemetry
-
 # We need Games enum for validation, but don't want psmove dependency
 # So we'll define a minimal version here for server-only use
 from enum import Enum
@@ -40,6 +38,7 @@ import psutil
 # Prometheus metrics (Phase 38)
 from prometheus_client import start_http_server
 
+from lib.telemetry import init_telemetry
 from proto import settings_pb2, settings_pb2_grpc
 from services.settings import metrics
 

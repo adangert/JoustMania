@@ -117,6 +117,13 @@ ignore = [
 "services/audio/piaudio.py" = ["N802", "N806", "SIM115", "E722", "ARG002"]
 "services/audio/playwav.py" = ["N802"]
 
+# Legacy process module
+"services/controller_manager/process.py" = ["I001"]  # Complex conditional imports
+
+[tool.ruff.lint.isort]
+# Define first-party packages for proper import sorting
+known-first-party = ["core", "lib", "proto", "services", "common", "games", "piaudio"]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"

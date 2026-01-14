@@ -136,3 +136,16 @@ rssi_check_duration_seconds = Histogram(
     "Duration of RSSI checks",
     buckets=[0.001, 0.005, 0.010, 0.025, 0.050, 0.100],
 )
+
+# Parallel polling metrics (Phase 62)
+poll_batch_duration_seconds = Histogram(
+    "controller_poll_batch_duration_seconds",
+    "Duration to poll all controllers in parallel",
+    buckets=[0.001, 0.003, 0.005, 0.010, 0.016, 0.025, 0.050, 0.100],
+)
+
+poll_batch_size = Histogram(
+    "controller_poll_batch_size",
+    "Number of controllers polled per batch",
+    buckets=[1, 2, 4, 8, 12, 16, 20, 24],
+)

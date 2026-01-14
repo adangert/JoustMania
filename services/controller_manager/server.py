@@ -242,7 +242,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
     def _update_controller_states(self):
         """
-        Update states for all tracked controllers from backend (Phase 57).
+        Update states for all tracked controllers from backend.
+
+        Phase 62: Uses parallel polling with asyncio.gather() to read all
+        controllers concurrently. This reduces latency from O(n × latency)
+        to O(latency), enabling support for large player counts.
 
         Called frequently (~60 Hz) to keep states fresh for streaming.
         Uses shared discovery loop event loop for efficiency.
@@ -251,31 +255,55 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             return
 
         try:
-            # Get list of serials under lock, then iterate
+            # Get list of serials under lock
             with self.state_lock:
                 serials = list(self.tracked_controllers.keys())
 
-            for serial in serials:
-                try:
-                    # Get fresh state from backend using shared event loop
-                    state = self._run_in_discovery_loop(self.backend.get_controller_state(serial))
-                    if state:
-                        # Update stored state under lock
-                        with self.state_lock:
-                            if serial in self.tracked_controllers:  # Re-check after acquiring lock
-                                self.controller_states[serial] = state
+            if not serials:
+                return
 
-                                # Update battery in tracked_controllers info
-                                if "battery" in state:
-                                    self.tracked_controllers[serial]["battery"] = state["battery"]
+            # Phase 62: Parallel polling - read all controllers concurrently
+            start_time = time.time()
 
-                                # Phase 57: Update ready flag when Move button is pressed
-                                if state.get("move_button", False) and not self.tracked_controllers[serial]["ready"]:
-                                    self.tracked_controllers[serial]["ready"] = True
-                                    logger.info(f"Controller {serial} marked as ready (Move button pressed)")
+            async def get_all_states():
+                """Gather all controller states in parallel."""
+                coros = [self.backend.get_controller_state(serial) for serial in serials]
+                return await asyncio.gather(*coros, return_exceptions=True)
 
-                except Exception as e:
-                    logger.debug(f"Error updating state for {serial}: {e}")
+            # Single blocking call for ALL controllers (instead of one per controller)
+            results = self._run_in_discovery_loop(get_all_states())
+
+            # Record metrics
+            poll_duration = time.time() - start_time
+            metrics.poll_batch_duration_seconds.observe(poll_duration)
+            metrics.poll_batch_size.observe(len(serials))
+
+            # Process all results under a single lock acquisition
+            with self.state_lock:
+                for serial, state in zip(serials, results):
+                    # Skip if controller was removed during polling
+                    if serial not in self.tracked_controllers:
+                        continue
+
+                    # Handle exceptions from individual controller reads
+                    if isinstance(state, Exception):
+                        logger.debug(f"Error updating state for {serial}: {state}")
+                        continue
+
+                    if not state:
+                        continue
+
+                    # Update stored state
+                    self.controller_states[serial] = state
+
+                    # Update battery in tracked_controllers info
+                    if "battery" in state:
+                        self.tracked_controllers[serial]["battery"] = state["battery"]
+
+                    # Phase 57: Update ready flag when Move button is pressed
+                    if state.get("move_button", False) and not self.tracked_controllers[serial]["ready"]:
+                        self.tracked_controllers[serial]["ready"] = True
+                        logger.info(f"Controller {serial} marked as ready (Move button pressed)")
 
         except Exception as e:
             logger.error(f"Error updating controller states: {e}", exc_info=True)

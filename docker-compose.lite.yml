@@ -1,0 +1,271 @@
+# JoustMania Lite Configuration - Raspberry Pi Optimized
+#
+# Excludes observability stack (Jaeger, Prometheus, Grafana, OTEL Collector)
+# for minimal resource usage on constrained devices.
+#
+# Usage: docker-compose -f docker-compose.lite.yml up
+#
+# Memory savings: ~768MB compared to full stack
+# Recommended for: Raspberry Pi 5, production deployments without monitoring
+
+services:
+  # Redis for pub/sub messaging (lightweight)
+  redis:
+    image: redis:7.4-alpine
+    container_name: joustmania-redis
+    expose:
+      - "6379"
+    networks:
+      - joustmania
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 32M
+
+  # Settings Service
+  settings:
+    build:
+      context: .
+      dockerfile: services/settings/Dockerfile
+    container_name: joustmania-settings
+    expose:
+      - "50051"
+    environment:
+      - OTEL_SDK_DISABLED=true
+    volumes:
+      - ./joustsettings.yaml:/app/joustsettings.yaml
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - joustmania
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 32M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50051'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Controller Manager Service
+  controller-manager:
+    build:
+      context: .
+      dockerfile: services/controller_manager/Dockerfile
+    container_name: joustmania-controller-manager
+    networks:
+      - joustmania
+    expose:
+      - "50052"
+    environment:
+      - CONTROLLER_BACKEND=${CONTROLLER_BACKEND:-bluetooth}
+      - MOCK_CONTROLLER_COUNT=${MOCK_CONTROLLER_COUNT:-4}
+      - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
+      - OTEL_SDK_DISABLED=true
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+        reservations:
+          memory: 96M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50052'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Game Coordinator Service
+  game-coordinator:
+    build:
+      context: .
+      dockerfile: services/game_coordinator/Dockerfile
+    container_name: joustmania-game-coordinator
+    expose:
+      - "50053"
+    environment:
+      - OTEL_SDK_DISABLED=true
+    depends_on:
+      redis:
+        condition: service_healthy
+      settings:
+        condition: service_healthy
+      controller-manager:
+        condition: service_healthy
+    networks:
+      - joustmania
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50053'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Menu Service
+  menu:
+    build:
+      context: .
+      dockerfile: services/menu/Dockerfile
+    container_name: joustmania-menu
+    expose:
+      - "50054"
+    environment:
+      - OTEL_SDK_DISABLED=true
+      - AUDIO_HOST=audio
+      - AUDIO_PORT=50056
+    depends_on:
+      redis:
+        condition: service_healthy
+      settings:
+        condition: service_healthy
+      controller-manager:
+        condition: service_healthy
+      audio:
+        condition: service_healthy
+    networks:
+      - joustmania
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+        reservations:
+          memory: 48M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50054'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Supervisor Service
+  supervisor:
+    build:
+      context: .
+      dockerfile: services/supervisor/Dockerfile
+    container_name: joustmania-supervisor
+    expose:
+      - "50055"
+    environment:
+      - OTEL_SDK_DISABLED=true
+    depends_on:
+      settings:
+        condition: service_healthy
+      controller-manager:
+        condition: service_healthy
+      game-coordinator:
+        condition: service_healthy
+      menu:
+        condition: service_healthy
+    networks:
+      - joustmania
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 32M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50055'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Web UI Service
+  webui:
+    build:
+      context: .
+      dockerfile: services/webui/Dockerfile
+    container_name: joustmania-webui
+    ports:
+      - "80:80"
+    environment:
+      - OTEL_SDK_DISABLED=true
+      - SETTINGS_SERVICE=settings:50051
+      - CONTROLLER_MANAGER_SERVICE=controller-manager:50052
+      - MENU_SERVICE=menu:50054
+      - SUPERVISOR_SERVICE=supervisor:50055
+    depends_on:
+      settings:
+        condition: service_healthy
+      controller-manager:
+        condition: service_healthy
+      menu:
+        condition: service_healthy
+      supervisor:
+        condition: service_healthy
+    networks:
+      - joustmania
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+        reservations:
+          memory: 48M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:80/health', timeout=2); exit(0)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Audio Service
+  audio:
+    build:
+      context: .
+      dockerfile: services/audio/Dockerfile
+    container_name: joustmania-audio
+    volumes:
+      - ./services/audio/assets:/app/services/audio/assets:ro
+    expose:
+      - "50056"
+    environment:
+      - MOCK_MODE=${AUDIO_MOCK_MODE:-false}
+      - OTEL_SDK_DISABLED=true
+    networks:
+      - joustmania
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 192M
+        reservations:
+          memory: 96M
+    healthcheck:
+      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50056'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  joustmania:
+    driver: bridge
+    name: joustmania-network

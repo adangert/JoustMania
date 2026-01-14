@@ -249,6 +249,7 @@ services:
       context: .
       dockerfile: services/audio/Dockerfile
     container_name: joustmania-audio
+    privileged: true
     volumes:
       - ./services/audio/assets:/app/services/audio/assets:ro
       # ALSA configuration from host

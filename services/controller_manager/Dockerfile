@@ -8,7 +8,7 @@
 # =============================================================================
 FROM python:3.11-slim AS psmove-builder
 
-# Install psmoveapi build dependencies
+# Install psmoveapi build dependencies (including Python dev for SWIG bindings)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libusb-1.0-0-dev \
     libdbus-1-dev \
     swig \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Clone and build psmoveapi (tested commit)
@@ -38,7 +39,9 @@ RUN cmake .. \
     -DPSMOVE_BUILD_TESTS:BOOL=OFF \
     -DPSMOVE_BUILD_TRACKER:BOOL=OFF \
     -DPSMOVE_USE_PSEYE:BOOL=OFF && \
-    make -j$(nproc)
+    make -j$(nproc) && \
+    echo "=== Build output files ===" && \
+    find /build/psmoveapi/build -name "*.so" -o -name "*psmove*.py" | head -20
 
 # =============================================================================
 # Stage 2: Build Python dependencies

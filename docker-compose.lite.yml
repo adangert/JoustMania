@@ -85,6 +85,8 @@ services:
       # USB device access for controller pairing
       - /dev/bus/usb:/dev/bus/usb
       - /run/udev:/run/udev:ro
+      # Full /dev access for hidraw (PS Move uses hidraw for USB)
+      - /dev:/dev
     depends_on:
       redis:
         condition: service_healthy

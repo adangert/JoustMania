@@ -585,10 +585,12 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             return
 
         # Normal menu mode: Detect trigger press (False → True) - starts game
+        # Requires at least 2 ready controllers to start
         if (
             controller.trigger_pressed
             and not prev_state["trigger"]
             and self._should_process_button(serial, "trigger", current_time)
+            and len(self.ready_controllers) >= 2
         ):
             await self._handle_trigger_press(serial)
 

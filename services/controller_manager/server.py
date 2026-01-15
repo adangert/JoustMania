@@ -187,14 +187,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 # Phase 57: Update controller states from backend
                 self._update_controller_states()
 
-                # Check battery levels every 30 seconds (Phase 39 - Task 4)
+                # Check battery levels every 30 seconds (Phase 39 - Task 4, Phase 70)
+                # Note: Battery display/warnings moved to menu service (Phase 70)
                 if current_time - self.monitoring.last_battery_check >= 30.0:
                     with metrics.battery_check_duration_seconds.time():
-                        self.monitoring.check_battery_levels(
-                            self.tracked_controllers,
-                            self.backend,
-                            self._run_in_discovery_loop,
-                        )
+                        self.monitoring.check_battery_levels(self.tracked_controllers)
                         metrics.battery_checks_total.inc()
                     self.monitoring.last_battery_check = current_time
 
@@ -302,6 +299,12 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                     # Update stored state
                     self.controller_states[serial] = state
+
+                    # Debug: Log button states every poll cycle
+                    move_btn = state.get(ButtonKey.MOVE, False)
+                    trigger_btn = state.get(ButtonKey.TRIGGER, False)
+                    if move_btn or trigger_btn:
+                        logger.debug(f"Button state {serial}: move={move_btn}, trigger={trigger_btn}")
 
                     # Update battery in tracked_controllers info
                     if StateKey.BATTERY in state:
@@ -1583,6 +1586,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 # Track button event (Phase 38)
                 action_str = "press" if current_pressed else "release"
                 metrics.button_events_total.labels(serial=serial, button=button_name, action=action_str).inc()
+                logger.info(f"Button transition: {serial} {button_name} {action_str}")
 
                 # Update tracked state (dict is mutable, so this updates button_states)
                 with self.state_lock:

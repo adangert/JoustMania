@@ -752,14 +752,17 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         # Set LED color based on state
         try:
             if target_state == "ready":
-                # Bright version (100% brightness)
+                # Bright version (100% brightness) - ready state is always full brightness
                 color = controller_manager_pb2.RGB(r=base_color[0], g=base_color[1], b=base_color[2])
             else:
-                # Dim version (~50% brightness)
+                # Dim version with battery-based brightness (Phase 70)
+                # Battery level 0-5 maps to brightness 15-50%
+                battery = controller.battery if controller.battery >= 0 else 5
+                dim_factor = self._get_battery_dim_factor(battery)
                 color = controller_manager_pb2.RGB(
-                    r=int(base_color[0] * 0.5),
-                    g=int(base_color[1] * 0.5),
-                    b=int(base_color[2] * 0.5),
+                    r=int(base_color[0] * dim_factor),
+                    g=int(base_color[1] * dim_factor),
+                    b=int(base_color[2] * dim_factor),
                 )
 
             await stub.SetControllerColor(
@@ -779,6 +782,36 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         except Exception as e:
             logger.error(f"Failed to update lobby feedback for {serial}: {e}")
 
+    def _get_battery_dim_factor(self, battery_level: int) -> float:
+        """
+        Get LED dim factor based on battery level (Phase 70).
+
+        Lower battery = dimmer LED when not ready.
+        This provides subtle visual feedback about battery status.
+
+        Args:
+            battery_level: Battery level 0-5
+
+        Returns:
+            Dim factor (0.15 to 0.50)
+        """
+        # Battery level 0-5 maps to brightness 15-50%
+        # 5 (100%) -> 0.50
+        # 4 (80%)  -> 0.45
+        # 3 (60%)  -> 0.40
+        # 2 (40%)  -> 0.30
+        # 1 (20%)  -> 0.20
+        # 0 (crit) -> 0.15
+        dim_factors = {
+            5: 0.50,
+            4: 0.45,
+            3: 0.40,
+            2: 0.30,
+            1: 0.20,
+            0: 0.15,
+        }
+        return dim_factors.get(battery_level, 0.50)
+
     def _should_process_button(self, serial: str, button: str, current_time: float) -> bool:
         """
         Check if button press should be processed (debouncing).
@@ -797,6 +830,57 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.last_button_press_time[serial][button] = current_time
         return True
 
+    async def _check_low_battery_warning(self):
+        """
+        Check for low battery controllers and warn before game starts (Phase 70).
+
+        Flashes red on controllers with battery <= 2 (40%) as a warning.
+        Does not block game start - just provides visual feedback.
+        """
+        low_battery_threshold = 2  # 40% or below
+        low_battery_controllers = []
+
+        try:
+            from proto import controller_manager_pb2, controller_manager_pb2_grpc
+
+            stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.cm_channel)
+
+            # Get all controller states
+            response = await stub.GetControllers(controller_manager_pb2.GetControllersRequest())
+
+            for ctrl in response.controllers:
+                if ctrl.battery <= low_battery_threshold:
+                    low_battery_controllers.append((ctrl.serial, ctrl.battery))
+
+            # Flash warning on low battery controllers
+            for serial, battery in low_battery_controllers:
+                logger.warning(f"Controller {serial} has low battery ({battery}/5) before game start")
+                # Quick red flash (2x) to warn player
+                for _ in range(2):
+                    await stub.SetControllerColor(
+                        controller_manager_pb2.SetControllerColorRequest(
+                            serial=serial,
+                            color=controller_manager_pb2.RGB(r=255, g=0, b=0),
+                            duration_ms=150,
+                        )
+                    )
+                    await asyncio.sleep(0.15)
+                    await stub.SetControllerColor(
+                        controller_manager_pb2.SetControllerColorRequest(
+                            serial=serial,
+                            color=controller_manager_pb2.RGB(r=50, g=0, b=0),
+                            duration_ms=150,
+                        )
+                    )
+                    await asyncio.sleep(0.15)
+
+            if low_battery_controllers:
+                # Play warning sound
+                await self._play_sound("Joust/sounds/beep_quiet.wav", volume=0.3)
+
+        except Exception as e:
+            logger.error(f"Error checking battery levels: {e}")
+
     async def _handle_trigger_press(self, serial: str):
         """
         Handle trigger button press - start game (Phase 21).
@@ -809,6 +893,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         with tracer.start_as_current_span("handle_trigger_press") as span:
             span.set_attribute("controller.serial", serial)
             span.set_attribute("game.name", self.current_selection)
+
+            # Phase 70: Check for low battery controllers before starting
+            await self._check_low_battery_warning()
 
             self.state = menu_pb2.MenuState.GAME_STARTING
             await self._publish_event(  # Phase 34: await

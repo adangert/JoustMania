@@ -49,22 +49,15 @@ class ControllerMonitoring:
     def check_battery_levels(
         self,
         tracked_controllers: dict[str, dict],
-        backend: Any,
-        run_in_discovery_loop: Callable,
     ):
-        """Check battery levels and warn about low batteries (Phase 39, Phase 57).
+        """Update battery level metrics for all controllers.
 
         Called every 30 seconds from discovery loop.
-        Warns when battery level is <= threshold (default 1 out of 5, which is <20%).
-        Battery info comes from backend state updates.
+        Battery display/warnings are handled by the menu service (Phase 70).
 
         Args:
             tracked_controllers: Dict of serial → controller info
-            backend: Backend instance for LED control
-            run_in_discovery_loop: Callable to run async code in discovery loop
         """
-        current_time = time.time()
-
         for serial, info in list(tracked_controllers.items()):
             try:
                 battery = info.get("battery", 5)  # Default to full if unknown
@@ -72,56 +65,8 @@ class ControllerMonitoring:
                 # Update battery metric (Phase 38)
                 metrics.controller_battery_level.labels(serial=serial).set(battery)
 
-                # Warn if battery is critically low (0 or 1 out of 5 = <20%)
-                if battery <= self.low_battery_threshold:
-                    # Check if we've warned recently (avoid spam)
-                    last_warning = self.last_battery_warning.get(serial, 0)
-                    if current_time - last_warning >= 30.0:  # Warn every 30 seconds
-                        self._warn_low_battery(serial, battery, tracked_controllers, backend, run_in_discovery_loop)
-                        self.last_battery_warning[serial] = current_time
-
             except Exception as e:
                 logger.error(f"Error checking battery for {serial}: {e}")
-
-    def _warn_low_battery(
-        self,
-        serial: str,
-        battery_level: int,
-        tracked_controllers: dict[str, dict],
-        backend: Any,
-        run_in_discovery_loop: Callable,
-    ):
-        """Warn player about low battery with red pulse (Phase 39, Phase 57).
-
-        Uses shared discovery loop event loop for efficiency.
-
-        Args:
-            serial: Controller serial number
-            battery_level: Current battery level (0-5)
-            tracked_controllers: Dict of serial → controller info
-            backend: Backend instance for LED control
-            run_in_discovery_loop: Callable to run async code in discovery loop
-        """
-        logger.warning(f"Controller {serial} has low battery: {battery_level}/5 (<20%)")
-
-        # Check controller is tracked
-        if serial not in tracked_controllers:
-            return
-
-        try:
-            # Pulse red 3 times (overrides current color temporarily)
-            for _ in range(3):
-                run_in_discovery_loop(backend.set_led_color(serial, 255, 0, 0))  # Bright red
-                time.sleep(0.3)
-
-                run_in_discovery_loop(backend.set_led_color(serial, 100, 0, 0))  # Dim red
-                time.sleep(0.3)
-
-            # Note: Current game/menu state will restore color on next update
-            logger.info(f"Low battery warning displayed for {serial}")
-
-        except Exception as e:
-            logger.error(f"Failed to display low battery warning for {serial}: {e}")
 
     def check_rssi_levels(
         self,

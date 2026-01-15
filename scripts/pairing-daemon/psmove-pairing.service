@@ -1,0 +1,22 @@
+[Unit]
+Description=PS Move Controller Pairing Daemon
+Documentation=https://github.com/adangert/JoustMania
+After=bluetooth.service
+Requires=bluetooth.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/psmove-pairing-daemon.sh
+Restart=always
+RestartSec=10
+
+# Environment
+Environment=POLL_INTERVAL=30
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=psmove-pairing
+
+[Install]
+WantedBy=multi-user.target

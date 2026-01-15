@@ -61,7 +61,8 @@ services:
       start_period: 10s
 
   # Controller Manager Service
-  # Requires privileged access for Bluetooth/USB controller communication
+  # Requires access to Bluetooth via D-Bus for controller communication
+  # Note: Controller pairing is handled by host psmove-pairing daemon
   controller-manager:
     build:
       context: .
@@ -80,15 +81,8 @@ services:
     volumes:
       # D-Bus socket for BlueZ communication
       - /var/run/dbus:/var/run/dbus:ro
-      # Bluetooth device access (read-write for pairing)
-      - /var/lib/bluetooth:/var/lib/bluetooth
-      # USB device access for controller pairing
-      - /dev/bus/usb:/dev/bus/usb
-      - /run/udev:/run/udev:ro
-      # Full /dev access for hidraw (PS Move uses hidraw for USB)
-      - /dev:/dev
-      # Socket for bluetooth restart requests to host helper
-      - /var/run/joustmania:/var/run/joustmania
+      # Bluetooth device info (read-only, pairing handled by host daemon)
+      - /var/lib/bluetooth:/var/lib/bluetooth:ro
     depends_on:
       redis:
         condition: service_healthy

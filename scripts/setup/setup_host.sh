@@ -86,12 +86,12 @@ cd $HOMEDIR/JoustMania
 uv sync --python $PYTHON || exit -1
 
 # Configure audio
-echo "[7/8] Configuring audio (ALSA)..."
+echo "[7/9] Configuring audio (ALSA)..."
 amixer sset PCM,0 100% 2>/dev/null || echo "  → Could not set PCM volume (may not be available)"
 sudo alsactl store 2>/dev/null || echo "  → Could not store ALSA state"
 
 # Configure Bluetooth
-echo "[8/8] Configuring Bluetooth..."
+echo "[8/9] Configuring Bluetooth..."
 
 # Detect config.txt location based on distribution
 DIST_REL=$(cut -f2 <<< $(lsb_release -r))
@@ -116,6 +116,15 @@ fi
 # Configure Bluetooth ClassicBondedOnly
 echo "  → Configuring Bluetooth input.conf..."
 sudo sed -i '/^#\?ClassicBondedOnly=\(true\|false\)$/s/.*/ClassicBondedOnly=false/' '/etc/bluetooth/input.conf' || exit -1
+
+# Install PS Move pairing daemon
+echo "[9/9] Installing PS Move pairing daemon..."
+if [ -f "$HOMEDIR/JoustMania/scripts/pairing-daemon/install.sh" ]; then
+    sudo bash "$HOMEDIR/JoustMania/scripts/pairing-daemon/install.sh"
+    echo "  → Pairing daemon installed"
+else
+    echo "  → Pairing daemon script not found, skipping"
+fi
 
 # Fix permissions
 echo "Fixing JoustMania directory permissions..."

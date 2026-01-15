@@ -8,6 +8,7 @@ Complete guide for setting up JoustMania on Raspberry Pi 5, covering USB configu
 
 - [USB Port Selection](#usb-port-selection)
 - [Bluetooth Adapter Recommendations](#bluetooth-adapter-recommendations)
+- [Controller Pairing](#controller-pairing)
 - [Power Configurations](#power-configurations)
 - [Mobile/Portable Setups](#mobileportable-setups)
 - [Scaling Guide](#scaling-guide)
@@ -97,6 +98,133 @@ Each Bluetooth adapter supports **up to 7 simultaneous connections** (Bluetooth 
 | 3 | 21 |
 | 4 | 28 |
 | 6 | 42 |
+
+---
+
+## Controller Pairing
+
+PS Move controllers must be paired to your Raspberry Pi before they can connect via Bluetooth. JoustMania includes an automatic pairing daemon that handles this process.
+
+### How Pairing Works
+
+1. **USB Connection**: Controller is connected via USB cable
+2. **Host MAC Written**: The pairing daemon writes your Bluetooth adapter's MAC address to the controller
+3. **BlueZ Trust**: The controller is registered as a trusted device
+4. **Bluetooth Connection**: After unplugging USB, pressing the PS button connects via Bluetooth
+
+### Pairing Daemon
+
+The pairing daemon (`psmove-pairing`) runs as a systemd service on the host and automatically detects USB-connected controllers.
+
+**Installation** (included in setup):
+```bash
+sudo ./scripts/pairing-daemon/install.sh
+```
+
+**Service Management**:
+```bash
+# Check status
+systemctl status psmove-pairing
+
+# View logs (live)
+journalctl -u psmove-pairing -f
+
+# Restart daemon
+sudo systemctl restart psmove-pairing
+```
+
+### Pairing a Controller
+
+1. **Plug in** the PS Move controller via USB cable
+2. **Wait** for the LED feedback:
+   - Yellow = Pairing in progress
+   - White flash (3x) = Success
+   - Red flash (3x) = Error
+3. **Unplug** the USB cable
+4. **Press PS button** to connect via Bluetooth
+
+The daemon polls every 30 seconds, so there may be a short delay before pairing starts.
+
+### LED Feedback Reference
+
+| LED Color | Meaning |
+|-----------|---------|
+| Yellow (solid) | Pairing in progress |
+| White (flash 3x) | Pairing successful - unplug now |
+| Red (flash 3x) | Pairing failed - check logs |
+
+### Pairing Multiple Controllers
+
+You can pair multiple controllers in sequence:
+
+1. Plug in first controller, wait for white flash
+2. Unplug first controller
+3. Plug in second controller, wait for white flash
+4. Repeat for all controllers
+5. Press PS button on each to connect via Bluetooth
+
+The daemon batches Bluetooth restarts, so you don't need to wait between controllers.
+
+### Troubleshooting Pairing
+
+**Controller not detected:**
+```bash
+# Check if daemon is running
+systemctl status psmove-pairing
+
+# Check USB device detected
+lsusb | grep Sony
+
+# View daemon logs
+journalctl -u psmove-pairing -n 50
+```
+
+**Pairing succeeds but Bluetooth won't connect:**
+```bash
+# Check if controller is trusted
+bluetoothctl devices Paired
+
+# Verify ClassicBondedOnly setting
+grep ClassicBondedOnly /etc/bluetooth/input.conf
+# Should show: ClassicBondedOnly=false
+
+# Restart Bluetooth
+sudo systemctl restart bluetooth
+```
+
+**First-generation PS Move controllers:**
+
+Older PS Move controllers (without the light-up PS button) require a special Bluetooth setting:
+
+```bash
+# Edit Bluetooth config
+sudo nano /etc/bluetooth/input.conf
+
+# Ensure this line exists:
+ClassicBondedOnly=false
+
+# Restart Bluetooth
+sudo systemctl restart bluetooth
+```
+
+This is automatically configured by `setup_host.sh`.
+
+### Manual Pairing (Alternative)
+
+If the daemon isn't working, you can pair manually:
+
+```bash
+# Pair via psmove CLI
+psmove pair
+
+# Trust the controller in BlueZ
+bluetoothctl trust AA:BB:CC:DD:EE:FF
+
+# Restart Bluetooth
+sudo systemctl restart bluetooth
+```
+
+Replace `AA:BB:CC:DD:EE:FF` with your controller's Bluetooth address (shown in `psmove pair` output).
 
 ---
 
@@ -303,9 +431,13 @@ If using adapters with adjustable antennas:
 
 | Cause | Solution |
 |-------|----------|
+| Pairing daemon not running | `systemctl status psmove-pairing` |
+| USB device not detected | `lsusb \| grep Sony` - check cable |
+| ClassicBondedOnly=true | Edit `/etc/bluetooth/input.conf`, set to `false` |
 | Adapter limit reached | Max 7 per adapter, add more adapters |
 | Power issue | Check hub isn't over current limit |
-| Driver issue | Most adapters work without drivers on Linux |
+
+See [Controller Pairing](#controller-pairing) for detailed troubleshooting.
 
 ### High Latency
 

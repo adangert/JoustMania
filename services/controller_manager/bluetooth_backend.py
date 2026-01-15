@@ -14,7 +14,6 @@ try:
 
     from lib.controller_state import ControllerState
     from services.controller_manager import bluetooth
-    from services.controller_manager.pairing import Pair as PairModule
 
     LINUX_DEPS_AVAILABLE = True
 except ImportError:
@@ -31,29 +30,30 @@ class BluetoothBackend(ControllerBackend):
     Uses:
     - psmove library for controller I/O
     - BlueZ via DBus for Bluetooth operations
-    - pair module for controller pairing
+
+    Note: Controller pairing is handled by the host psmove-pairing daemon.
+    This backend only handles Bluetooth-connected controllers.
     """
 
     def __init__(self):
         if not LINUX_DEPS_AVAILABLE:
-            raise RuntimeError("Linux dependencies not available. Install: psmove, dbus-python, controller_state, pair")
+            raise RuntimeError("Linux dependencies not available. Install: psmove, dbus-python, controller_state")
 
         self.controllers: dict[str, psmove.PSMove] = {}  # serial -> PSMove object
         self.controller_states: dict[str, ControllerState] = {}  # serial -> ControllerState
-        self.paired_serials: list[str] = []
         self.hci = "hci0"  # Default Bluetooth adapter
         self.running = False
 
         logger.info("BluetoothBackend initialized")
 
     async def initialize(self) -> bool:
-        """Initialize Bluetooth adapter and scan for controllers."""
+        """Initialize Bluetooth adapter and scan for Bluetooth-connected controllers."""
         try:
             # Enable Bluetooth adapter
             bluetooth.enable_adapter(self.hci)
             logger.info(f"Enabled Bluetooth adapter: {self.hci}")
 
-            # Scan for existing controllers
+            # Scan for existing controllers (Bluetooth only)
             count = psmove.count_connected()
             logger.info(f"Found {count} PS Move controllers")
 
@@ -61,16 +61,15 @@ class BluetoothBackend(ControllerBackend):
                 move = psmove.PSMove(move_num)
                 serial = move.get_serial()
 
-                # Auto-pair USB controllers
-                if move.connection_type == psmove.Conn_USB and serial not in self.paired_serials:
-                    await self.connect_controller(serial)
+                # Skip USB controllers - pairing handled by host daemon
+                if move.connection_type == psmove.Conn_USB:
+                    logger.info(f"Controller {serial}: USB (pairing handled by host daemon)")
+                    continue
 
-                # Track all controllers
+                # Track Bluetooth-connected controllers
                 self.controllers[serial] = move
                 self.controller_states[serial] = ControllerState()
-                logger.info(
-                    f"Controller {serial}: " f"{'USB' if move.connection_type == psmove.Conn_USB else 'Bluetooth'}"
-                )
+                logger.info(f"Controller {serial}: Bluetooth (ready)")
 
             self.running = True
             return True
@@ -117,26 +116,35 @@ class BluetoothBackend(ControllerBackend):
 
     async def connect_controller(self, address: str) -> bool:
         """
-        Connect/pair a controller.
+        Connect a controller by address.
 
-        Note: For PS Move, pairing requires USB connection. The controller must be
-        connected via USB first, then this method will pair it to Bluetooth.
+        Note: Controller pairing is handled by the host psmove-pairing daemon.
+        This method only tracks already-paired Bluetooth controllers.
         """
         try:
-            # Find USB-connected controller to pair
+            # Check if already tracked
+            if address in self.controllers:
+                logger.info(f"Controller {address} already connected")
+                return True
+
+            # Scan for the controller
             for i in range(psmove.count_connected()):
                 move = psmove.PSMove(i)
-                if move.connection_type == psmove.Conn_USB:
-                    serial = move.get_serial()
-                    if serial and (serial == address or serial.upper() == address.upper()):
-                        # Use Pair class to pair the move controller
-                        pair_helper = PairModule()
-                        pair_helper.pair_move(move)
-                        self.paired_serials.append(serial)
-                        logger.info(f"Paired controller {serial} via USB")
-                        return True
+                serial = move.get_serial()
 
-            logger.warning(f"Controller {address} not found connected via USB for pairing")
+                if serial and (serial == address or serial.upper() == address.upper()):
+                    # Skip USB controllers
+                    if move.connection_type == psmove.Conn_USB:
+                        logger.info(f"Controller {serial} is USB - pairing handled by host daemon")
+                        return False
+
+                    # Track the Bluetooth controller
+                    self.controllers[serial] = move
+                    self.controller_states[serial] = ControllerState()
+                    logger.info(f"Connected controller {serial} via Bluetooth")
+                    return True
+
+            logger.warning(f"Controller {address} not found")
             return False
 
         except Exception as e:
@@ -241,13 +249,14 @@ class BluetoothBackend(ControllerBackend):
 
     def get_connected_controllers(self) -> list[str]:
         """
-        Get list of connected controller serials.
+        Get list of connected Bluetooth controller serials.
 
-        Rescans for new USB/Bluetooth controllers each call to detect
-        newly plugged-in devices.
+        Rescans for new Bluetooth controllers each call to detect
+        newly connected devices. USB controllers are ignored (pairing
+        is handled by the host psmove-pairing daemon).
         """
         try:
-            # Rescan for controllers (detects newly plugged USB devices)
+            # Rescan for controllers
             count = psmove.count_connected()
 
             for move_num in range(count):
@@ -255,25 +264,17 @@ class BluetoothBackend(ControllerBackend):
                 if move is None:
                     continue
 
+                # Skip USB controllers - pairing handled by host daemon
+                if move.connection_type == psmove.Conn_USB:
+                    continue
+
                 try:
                     serial = move.get_serial()
                     if serial and serial not in self.controllers:
-                        # New controller detected
+                        # New Bluetooth controller detected
                         self.controllers[serial] = move
                         self.controller_states[serial] = ControllerState()
-                        logger.info(f"New controller detected: {serial}")
-
-                        # Auto-pair if USB connected
-                        if move.connection_type == psmove.Conn_USB:
-                            logger.info(f"Auto-pairing USB controller: {serial}")
-                            try:
-                                from services.controller_manager.pairing import Pair
-                                pair_helper = Pair()
-                                pair_helper.pair_move(move)
-                                self.paired_serials.append(serial)
-                                logger.info(f"Paired controller {serial}")
-                            except Exception as e:
-                                logger.error(f"Failed to pair {serial}: {e}")
+                        logger.info(f"New Bluetooth controller connected: {serial}")
                 except Exception as e:
                     logger.debug(f"Error reading controller {move_num}: {e}")
                     continue

@@ -75,6 +75,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.connected_controllers: set[str] = set()  # All connected controllers
         self.controller_lobby_state: dict[str, str] = {}  # {serial: "connected"|"ready"|"admin"}
         self.last_lobby_feedback_update: dict[str, float] = {}  # {serial: timestamp}
+        self.last_controller_seen: dict[str, float] = {}  # {serial: timestamp} for timeout-based disconnect
 
         # Admin mode state (Phase 23)
         self.admin_mode_active = False
@@ -500,11 +501,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     # Track frame processing via metrics (no span for routine polling)
                     metrics.button_frames_processed_total.inc()
 
-                    # Phase 58: Detect disconnected controllers
-                    current_serials = {c.serial for c in update.controllers}
-                    disconnected = self.connected_controllers - current_serials
-                    for serial in disconnected:
-                        await self._handle_controller_disconnect(serial)
+                    # Note: Stream uses delta updates - only changed controllers appear in each update.
+                    # Disconnect detection is disabled because it's unreliable with delta updates.
+                    # The controller manager should send explicit disconnect events if needed (future work).
 
                     # Only process buttons when menu is running
                     if self.state == menu_pb2.MenuState.RUNNING:
@@ -669,8 +668,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             except Exception as e:
                 logger.error(f"Failed to send connection flash for {serial}: {e}")
 
-            # Set initial state to connected (will be updated below after flash)
-            self.controller_lobby_state[serial] = "connected"
+            # Set initial state to "flash" - this ensures the next update will set the actual color
+            # (if we set "connected" here, the state check on line 697 would skip setting the dim color)
+            self.controller_lobby_state[serial] = "flash"
             self.last_lobby_feedback_update[serial] = current_time
             # Wait for green flash to complete, then normal state will be set on next update
             return
@@ -1526,8 +1526,9 @@ async def serve(port=50054, metrics_port=8000):
     )
     background_tasks.append(metrics_task)
 
-    # Create server
-    server = grpc.aio.server()
+    # Create server with keepalive options to match client settings
+    from lib.grpc_utils import get_server_options
+    server = grpc.aio.server(options=get_server_options())
 
     # Add servicer
     menu_servicer = MenuServicer()

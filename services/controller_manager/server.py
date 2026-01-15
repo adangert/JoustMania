@@ -1627,8 +1627,10 @@ async def serve(port=50052, metrics_port=8000):
         threads_gauge=metrics.process_threads,
     )
 
-    # Create async server (CRITICAL FIX: grpc.aio instead of grpc.server)
-    server = grpc.aio.server()
+    # Create async server with keepalive options to match client settings
+    # Without these options, server rejects client pings as "too many pings"
+    from lib.grpc_utils import get_server_options
+    server = grpc.aio.server(options=get_server_options())
 
     # Add servicer
     controller_servicer = ControllerManagerServicer()
@@ -1657,7 +1659,7 @@ async def serve(port=50052, metrics_port=8000):
         from proto import controller_manager_mock_pb2_grpc
         from services.controller_manager.mock_control_service import MockControllerService
 
-        mock_server = grpc.aio.server()
+        mock_server = grpc.aio.server(options=get_server_options())
         mock_servicer = MockControllerService(controller_servicer.backend)
         controller_manager_mock_pb2_grpc.add_MockControllerServiceServicer_to_server(mock_servicer, mock_server)
 

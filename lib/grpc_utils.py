@@ -11,7 +11,7 @@ from typing import Optional
 
 def get_optimized_channel_options() -> list[tuple[str, any]]:
     """
-    Get standard gRPC channel options for JoustMania services.
+    Get standard gRPC channel options for JoustMania services (client-side).
 
     These options optimize for:
     - Connection keepalive (30s ping, 5s timeout)
@@ -37,6 +37,31 @@ def get_optimized_channel_options() -> list[tuple[str, any]]:
         # Compression (Phase 26 - Performance)
         ("grpc.default_compression_algorithm", grpc.Compression.Gzip),
         ("grpc.grpc.default_compression_level", grpc.Compression.Gzip),
+    ]
+
+
+def get_server_options() -> list[tuple[str, any]]:
+    """
+    Get standard gRPC server options for JoustMania services.
+
+    These options must be compatible with client keepalive settings to avoid
+    "GOAWAY too many pings" errors.
+
+    Returns:
+        List of (option_name, value) tuples for gRPC server configuration
+    """
+    return [
+        # Server-side keepalive settings (must match client expectations)
+        ("grpc.keepalive_time_ms", 30000),  # Server sends keepalive every 30s
+        ("grpc.keepalive_timeout_ms", 5000),  # Wait 5s for keepalive ack
+        ("grpc.keepalive_permit_without_calls", True),  # Allow keepalive without active calls
+        # Critical: Allow clients to send pings frequently (every 20s minimum)
+        # Default is 300000ms (5 min), which causes "too many pings" with 30s client pings
+        ("grpc.http2.min_recv_ping_interval_without_data_ms", 20000),
+        ("grpc.http2.max_ping_strikes", 0),  # Disable ping strike detection
+        # Message size limits
+        ("grpc.max_receive_message_length", 10 * 1024 * 1024),  # 10MB receive
+        ("grpc.max_send_message_length", 10 * 1024 * 1024),  # 10MB send
     ]
 
 

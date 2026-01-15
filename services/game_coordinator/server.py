@@ -451,8 +451,9 @@ async def serve(port=50053, metrics_port=8000):
         threads_gauge=metrics.process_threads,
     )
 
-    # Create async server
-    server = grpc.aio.server()
+    # Create async server with keepalive options to match client settings
+    from lib.grpc_utils import get_server_options
+    server = grpc.aio.server(options=get_server_options())
 
     # Add servicer
     game_servicer = GameCoordinatorServicer()

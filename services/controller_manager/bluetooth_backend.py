@@ -62,6 +62,7 @@ class BluetoothBackend(ControllerBackend):
         self.controller_states: dict[str, ControllerState] = {}  # serial -> ControllerState
         self.hci = "hci0"  # Default Bluetooth adapter
         self.running = False
+        self._last_controller_count = 0  # Track count to avoid redundant rescans
 
         logger.info("BluetoothBackend initialized")
 
@@ -312,34 +313,42 @@ class BluetoothBackend(ControllerBackend):
         """
         Get list of connected Bluetooth controller serials.
 
-        Rescans for new Bluetooth controllers each call to detect
-        newly connected devices. USB controllers are ignored (pairing
-        is handled by the host psmove-pairing daemon).
+        Only rescans for new controllers when count_connected() changes to avoid
+        creating duplicate PSMove handles that could invalidate existing ones.
         """
         try:
-            # Rescan for controllers
+            # Check current count
             count = psmove.count_connected()
 
-            for move_num in range(count):
-                try:
-                    with suppress_stderr():
-                        move = psmove.PSMove(move_num)
-                    if move is None:
-                        continue
+            # Only rescan if count changed (new controller connected or one disconnected)
+            # This avoids creating duplicate PSMove handles every 60Hz poll
+            if count != self._last_controller_count:
+                logger.info(f"Controller count changed: {self._last_controller_count} -> {count}, tracked: {len(self.controllers)}")
+                self._last_controller_count = count
 
-                    serial = move.get_serial()
-                    if not serial:
-                        logger.debug(f"Controller {move_num}: no serial, skipping")
-                        continue
+                # Scan for new controllers only
+                for move_num in range(count):
+                    try:
+                        with suppress_stderr():
+                            move = psmove.PSMove(move_num)
+                        if move is None:
+                            continue
 
-                    if serial not in self.controllers:
-                        # New controller detected
-                        self.controllers[serial] = move
-                        self.controller_states[serial] = ControllerState()
-                        logger.info(f"New controller connected: {serial}")
-                except Exception as e:
-                    logger.debug(f"Error reading controller {move_num}: {e}")
-                    continue
+                        serial = move.get_serial()
+                        if not serial:
+                            logger.debug(f"Controller {move_num}: no serial, skipping")
+                            continue
+
+                        if serial not in self.controllers:
+                            # New controller detected - store the handle
+                            self.controllers[serial] = move
+                            self.controller_states[serial] = ControllerState()
+                            logger.info(f"New controller connected: {serial}")
+                        # If serial already tracked, let the PSMove object be garbage collected
+                        # to avoid invalidating the existing handle
+                    except Exception as e:
+                        logger.debug(f"Error reading controller {move_num}: {e}")
+                        continue
 
         except Exception as e:
             logger.error(f"Error scanning controllers: {e}")

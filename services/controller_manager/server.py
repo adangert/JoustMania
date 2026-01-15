@@ -1582,6 +1582,9 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     await self.active_effects[serial]
                 del self.active_effects[serial]
 
+        # Mark effect as active (polling skips LED refresh)
+        self.backend.set_effect_active(serial, True)
+
         # Create wrapper that restores color after effect
         async def effect_with_restore():
             try:
@@ -1598,6 +1601,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             except asyncio.CancelledError:
                 raise
             finally:
+                # Clear effect active flag
+                self.backend.set_effect_active(serial, False)
                 if restore_color:
                     await self._set_led_color(serial, restore_color)
 

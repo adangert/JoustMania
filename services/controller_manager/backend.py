@@ -166,3 +166,17 @@ class ControllerBackend(ABC):
             RSSI in dBm (-100 to 0), or None if not available/supported
         """
         return None
+
+    def set_effect_active(self, serial: str, active: bool):  # noqa: ARG002
+        """
+        Mark controller as having an active LED effect.
+
+        When active, polling should skip LED refresh to avoid overwriting
+        effect animations. This is optional - backends that don't need
+        this optimization can use the default no-op.
+
+        Args:
+            serial: Controller serial number
+            active: True if effect is starting, False when effect ends
+        """
+        pass

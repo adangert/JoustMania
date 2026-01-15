@@ -7,6 +7,7 @@ Uses psmove library + BlueZ/DBus for controller access on Raspberry Pi/Linux.
 import contextlib
 import logging
 import os
+import threading
 import time
 
 from services.controller_manager.backend import ControllerBackend
@@ -111,6 +112,11 @@ class BluetoothBackend(ControllerBackend):
         self.hci = "hci0"  # Default Bluetooth adapter
         self.running = False
         self._last_controller_count = 0  # Track count to avoid redundant rescans
+
+        # Thread safety for LED operations
+        self._led_lock = threading.Lock()
+        # Controllers with active effects - polling skips LED refresh for these
+        self._effect_active: set[str] = set()
 
         logger.info("BluetoothBackend initialized")
 
@@ -291,13 +297,15 @@ class BluetoothBackend(ControllerBackend):
                 pass
 
             # Refresh LED color every 4 seconds (PSMove LEDs timeout after 5s)
-            if serial in self.led_colors:
+            # Skip if effect is active - effect controls LEDs directly
+            if serial in self.led_colors and serial not in self._effect_active:
                 current_time = time.time()
                 last_led_update = getattr(self, '_last_led_update', {}).get(serial, 0)
                 if current_time - last_led_update >= 4.0:
                     r, g, b = self.led_colors[serial]
-                    move.set_leds(r, g, b)
-                    move.update_leds()
+                    with self._led_lock:
+                        move.set_leds(r, g, b)
+                        move.update_leds()
                     if not hasattr(self, '_last_led_update'):
                         self._last_led_update = {}
                     self._last_led_update[serial] = current_time
@@ -352,13 +360,21 @@ class BluetoothBackend(ControllerBackend):
         try:
             # Track desired LED color so it can be reapplied during state polling
             self.led_colors[serial] = (r, g, b)
-            move.set_leds(r, g, b)
-            move.update_leds()
+            with self._led_lock:
+                move.set_leds(r, g, b)
+                move.update_leds()
             return True
 
         except Exception as e:
             logger.error(f"Error setting LED color {serial}: {e}", exc_info=True)
             return False
+
+    def set_effect_active(self, serial: str, active: bool):
+        """Mark controller as having active effect (polling skips LED refresh)."""
+        if active:
+            self._effect_active.add(serial)
+        else:
+            self._effect_active.discard(serial)
 
     async def set_rumble(self, serial: str, intensity: int) -> bool:
         """Set rumble intensity on controller."""

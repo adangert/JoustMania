@@ -812,7 +812,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         try:
             from proto import controller_manager_pb2, controller_manager_pb2_grpc
 
-            stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.cm_channel)
+            stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
 
             # Get all controller states
             response = await stub.GetControllers(controller_manager_pb2.GetControllersRequest())

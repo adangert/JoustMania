@@ -291,12 +291,18 @@ class BluetoothBackend(ControllerBackend):
             while move.poll():
                 pass
 
-            # Reapply LED color - PSMove LEDs need continuous updates to stay lit,
-            # especially when using fresh handles each poll cycle
+            # Reapply LED color periodically - PSMove LEDs need updates to stay lit
+            # Only update every 100ms to avoid Bluetooth congestion
             if serial in self.led_colors:
-                r, g, b = self.led_colors[serial]
-                move.set_leds(r, g, b)
-                move.update_leds()
+                current_time = time.time()
+                last_led_update = getattr(self, '_last_led_update', {}).get(serial, 0)
+                if current_time - last_led_update >= 0.1:
+                    r, g, b = self.led_colors[serial]
+                    move.set_leds(r, g, b)
+                    move.update_leds()
+                    if not hasattr(self, '_last_led_update'):
+                        self._last_led_update = {}
+                    self._last_led_update[serial] = current_time
 
             # Get controller state
             state = self.controller_states.get(serial)

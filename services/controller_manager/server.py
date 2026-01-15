@@ -442,75 +442,80 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         """Stream controller states in real-time (async)."""
         subscriber_id = f"stream_{time.time()}"
 
-        with tracer.start_as_current_span("StreamControllerStates") as span:
-            span.set_attribute("subscriber.id", subscriber_id)
-            span.set_attribute("update_frequency_hz", request.update_frequency_hz or 60)
+        # Note: We manually manage the span instead of using context manager
+        # because GeneratorExit during stream disconnect causes context token issues
+        span = tracer.start_span("StreamControllerStates")
+        span.set_attribute("subscriber.id", subscriber_id)
+        span.set_attribute("update_frequency_hz", request.update_frequency_hz or 60)
 
-            # Create queue for this subscriber (Phase 34: asyncio.Queue, though not actively used)
-            event_queue = asyncio.Queue(maxsize=100)
+        # Create queue for this subscriber (Phase 34: asyncio.Queue, though not actively used)
+        event_queue = asyncio.Queue(maxsize=100)
 
-            async with self.stream_lock:  # Phase 34: async lock
-                self.stream_subscribers[subscriber_id] = event_queue
-                # Initialize delta tracking for this subscriber
-                self.last_sent_states[subscriber_id] = {}
+        async with self.stream_lock:  # Phase 34: async lock
+            self.stream_subscribers[subscriber_id] = event_queue
+            # Initialize delta tracking for this subscriber
+            self.last_sent_states[subscriber_id] = {}
+
+        # Update stream metrics (Phase 38)
+        metrics.active_streams.inc()
+
+        logger.info(f"New stream subscriber: {subscriber_id}")
+
+        try:
+            frequency = request.update_frequency_hz or 60
+            interval = 1.0 / frequency
+
+            while not context.cancelled():
+                try:
+                    # Build current state for all controllers (Phase 18: Use caching)
+                    current_states = {
+                        serial: self._build_or_get_cached_state(serial, info)
+                        for serial, info in self.tracked_controllers.items()
+                    }
+
+                    # Delta update: only include controllers that changed (Phase 26 - Part 3)
+                    changed_controllers = []
+                    for serial, current_state in current_states.items():
+                        current_hash = self._controller_state_hash(current_state)
+                        last_hash = self.last_sent_states[subscriber_id].get(serial)
+
+                        if current_hash != last_hash:
+                            changed_controllers.append(current_state)
+                            self.last_sent_states[subscriber_id][serial] = current_hash
+
+                    # Send update (empty if nothing changed, keeps stream alive)
+                    update = controller_manager_pb2.ControllerStateUpdate(
+                        controllers=changed_controllers, timestamp=int(time.time() * 1000)
+                    )
+                    yield update
+
+                    # Track stream update (Phase 38)
+                    if changed_controllers:
+                        metrics.stream_updates_total.labels(stream_type="legacy").inc()
+
+                    # CRITICAL FIX: Use async sleep instead of blocking time.sleep()
+                    await asyncio.sleep(interval)
+
+                except Exception as e:
+                    logger.error(f"Stream error for {subscriber_id}: {e}")
+                    break
+
+        finally:
+            # End span manually (avoids context token issues on GeneratorExit)
+            span.end()
+
+            # Cleanup (Phase 34: async lock)
+            async with self.stream_lock:
+                if subscriber_id in self.stream_subscribers:
+                    del self.stream_subscribers[subscriber_id]
+                # Clean up delta tracking
+                if subscriber_id in self.last_sent_states:
+                    del self.last_sent_states[subscriber_id]
 
             # Update stream metrics (Phase 38)
-            metrics.active_streams.inc()
+            metrics.active_streams.dec()
 
-            logger.info(f"New stream subscriber: {subscriber_id}")
-
-            try:
-                frequency = request.update_frequency_hz or 60
-                interval = 1.0 / frequency
-
-                while not context.cancelled():
-                    try:
-                        # Build current state for all controllers (Phase 18: Use caching)
-                        current_states = {
-                            serial: self._build_or_get_cached_state(serial, info)
-                            for serial, info in self.tracked_controllers.items()
-                        }
-
-                        # Delta update: only include controllers that changed (Phase 26 - Part 3)
-                        changed_controllers = []
-                        for serial, current_state in current_states.items():
-                            current_hash = self._controller_state_hash(current_state)
-                            last_hash = self.last_sent_states[subscriber_id].get(serial)
-
-                            if current_hash != last_hash:
-                                changed_controllers.append(current_state)
-                                self.last_sent_states[subscriber_id][serial] = current_hash
-
-                        # Send update (empty if nothing changed, keeps stream alive)
-                        update = controller_manager_pb2.ControllerStateUpdate(
-                            controllers=changed_controllers, timestamp=int(time.time() * 1000)
-                        )
-                        yield update
-
-                        # Track stream update (Phase 38)
-                        if changed_controllers:
-                            metrics.stream_updates_total.labels(stream_type="legacy").inc()
-
-                        # CRITICAL FIX: Use async sleep instead of blocking time.sleep()
-                        await asyncio.sleep(interval)
-
-                    except Exception as e:
-                        logger.error(f"Stream error for {subscriber_id}: {e}")
-                        break
-
-            finally:
-                # Cleanup (Phase 34: async lock)
-                async with self.stream_lock:
-                    if subscriber_id in self.stream_subscribers:
-                        del self.stream_subscribers[subscriber_id]
-                    # Clean up delta tracking
-                    if subscriber_id in self.last_sent_states:
-                        del self.last_sent_states[subscriber_id]
-
-                # Update stream metrics (Phase 38)
-                metrics.active_streams.dec()
-
-                logger.info(f"Stream subscriber disconnected: {subscriber_id}")
+            logger.info(f"Stream subscriber disconnected: {subscriber_id}")
 
     async def StreamButtonEvents(self, request_iterator, context):
         """
@@ -522,98 +527,103 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         """
         subscriber_id = f"button_stream_{time.time()}"
 
-        with tracer.start_as_current_span("StreamButtonEvents") as span:
-            span.set_attribute("subscriber.id", subscriber_id)
+        # Note: We manually manage the span instead of using context manager
+        # because GeneratorExit during stream disconnect causes context token issues
+        span = tracer.start_span("StreamButtonEvents")
+        span.set_attribute("subscriber.id", subscriber_id)
 
-            # Create queue for this subscriber (Phase 34: asyncio.Queue)
-            event_queue = asyncio.Queue(maxsize=100)
+        # Create queue for this subscriber (Phase 34: asyncio.Queue)
+        event_queue = asyncio.Queue(maxsize=100)
 
-            async with self.button_event_lock:  # Phase 34: async lock
-                self.button_event_subscribers[subscriber_id] = event_queue
+        async with self.button_event_lock:  # Phase 34: async lock
+            self.button_event_subscribers[subscriber_id] = event_queue
 
-            # Update stream metrics (Phase 38)
-            metrics.active_streams.inc()
+        # Update stream metrics (Phase 38)
+        metrics.active_streams.inc()
 
-            # Phase XX: Background task to read client control messages
-            async def read_client_controls():
-                try:
-                    async for control_msg in request_iterator:
-                        if control_msg.HasField("config"):
-                            # Initial configuration (currently empty, for future use)
-                            logger.info(f"[{subscriber_id}] Button stream configured")
+        # Phase XX: Background task to read client control messages
+        async def read_client_controls():
+            try:
+                async for control_msg in request_iterator:
+                    if control_msg.HasField("config"):
+                        # Initial configuration (currently empty, for future use)
+                        logger.info(f"[{subscriber_id}] Button stream configured")
 
-                        elif control_msg.HasField("base_color"):
-                            # Phase XX: Set base color for a controller
-                            cmd = control_msg.base_color
-                            serial = cmd.serial
-                            color = (cmd.color.r, cmd.color.g, cmd.color.b)
+                    elif control_msg.HasField("base_color"):
+                        # Phase XX: Set base color for a controller
+                        cmd = control_msg.base_color
+                        serial = cmd.serial
+                        color = (cmd.color.r, cmd.color.g, cmd.color.b)
 
-                            if serial and serial in self.tracked_controllers:
-                                # Store base color and set LED
-                                self.base_colors[serial] = color
-                                await self._set_controller_color_internal(serial, color)
+                        if serial and serial in self.tracked_controllers:
+                            # Store base color and set LED
+                            self.base_colors[serial] = color
+                            await self._set_controller_color_internal(serial, color)
 
-                                logger.debug(
-                                    f"[{subscriber_id}] Base color set: "
-                                    f"serial={serial}, rgb={color}"
-                                )
-
-                            metrics.stream_commands_total.labels(command_type="base_color").inc()
-
-                        elif control_msg.HasField("game_effect"):
-                            # Phase XX: Trigger semantic game effect
-                            cmd = control_msg.game_effect
-                            await self._handle_game_effect(cmd.serial, cmd.effect, subscriber_id)
-
-                            effect_name = controller_manager_pb2.GameEffect.Name(cmd.effect)
                             logger.debug(
-                                f"[{subscriber_id}] Game effect: "
-                                f"serial={cmd.serial or 'all'}, effect={effect_name}"
+                                f"[{subscriber_id}] Base color set: "
+                                f"serial={serial}, rgb={color}"
                             )
 
-                            metrics.stream_commands_total.labels(command_type="game_effect").inc()
+                        metrics.stream_commands_total.labels(command_type="base_color").inc()
+
+                    elif control_msg.HasField("game_effect"):
+                        # Phase XX: Trigger semantic game effect
+                        cmd = control_msg.game_effect
+                        await self._handle_game_effect(cmd.serial, cmd.effect, subscriber_id)
+
+                        effect_name = controller_manager_pb2.GameEffect.Name(cmd.effect)
+                        logger.debug(
+                            f"[{subscriber_id}] Game effect: "
+                            f"serial={cmd.serial or 'all'}, effect={effect_name}"
+                        )
+
+                        metrics.stream_commands_total.labels(command_type="game_effect").inc()
+
+            except Exception as e:
+                logger.error(f"[{subscriber_id}] Error reading client controls: {e}", exc_info=True)
+
+        # Start background task to read client controls
+        control_task = asyncio.create_task(read_client_controls())
+
+        logger.info(f"New button event subscriber: {subscriber_id}")
+
+        try:
+            while not context.cancelled():
+                try:
+                    # Wait for button events (Phase 34: async wait with timeout)
+                    # Check for events every 1s to stay responsive to cancellation
+                    try:
+                        event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
+                        yield event
+                        # Track stream update (Phase 38)
+                        metrics.stream_updates_total.labels(stream_type="button_events").inc()
+                    except TimeoutError:  # Phase 34: asyncio exception
+                        # No events, continue loop to check cancellation
+                        continue
 
                 except Exception as e:
-                    logger.error(f"[{subscriber_id}] Error reading client controls: {e}", exc_info=True)
+                    logger.error(f"Button event stream error for {subscriber_id}: {e}")
+                    break
 
-            # Start background task to read client controls
-            control_task = asyncio.create_task(read_client_controls())
+        finally:
+            # End span manually (avoids context token issues on GeneratorExit)
+            span.end()
 
-            logger.info(f"New button event subscriber: {subscriber_id}")
+            # Cleanup: Cancel background task
+            control_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await control_task
 
-            try:
-                while not context.cancelled():
-                    try:
-                        # Wait for button events (Phase 34: async wait with timeout)
-                        # Check for events every 1s to stay responsive to cancellation
-                        try:
-                            event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
-                            yield event
-                            # Track stream update (Phase 38)
-                            metrics.stream_updates_total.labels(stream_type="button_events").inc()
-                        except TimeoutError:  # Phase 34: asyncio exception
-                            # No events, continue loop to check cancellation
-                            continue
+            # Cleanup (Phase 34: async lock)
+            async with self.button_event_lock:
+                if subscriber_id in self.button_event_subscribers:
+                    del self.button_event_subscribers[subscriber_id]
 
-                    except Exception as e:
-                        logger.error(f"Button event stream error for {subscriber_id}: {e}")
-                        break
+            # Update stream metrics (Phase 38)
+            metrics.active_streams.dec()
 
-            finally:
-                # Cleanup: Cancel background task
-                control_task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await control_task
-
-                # Cleanup (Phase 34: async lock)
-                async with self.button_event_lock:
-                    if subscriber_id in self.button_event_subscribers:
-                        del self.button_event_subscribers[subscriber_id]
-
-                # Update stream metrics (Phase 38)
-                metrics.active_streams.dec()
-
-                logger.info(f"Button event subscriber disconnected: {subscriber_id}")
+            logger.info(f"Button event subscriber disconnected: {subscriber_id}")
 
     async def StreamGameplayData(self, request, context):
         """
@@ -624,61 +634,66 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         """
         subscriber_id = f"gameplay_stream_{time.time()}"
 
-        with tracer.start_as_current_span("StreamGameplayData") as span:
-            span.set_attribute("subscriber.id", subscriber_id)
-            span.set_attribute("update_frequency_hz", request.update_frequency_hz or 60)
+        # Note: We manually manage the span instead of using context manager
+        # because GeneratorExit during stream disconnect causes context token issues
+        span = tracer.start_span("StreamGameplayData")
+        span.set_attribute("subscriber.id", subscriber_id)
+        span.set_attribute("update_frequency_hz", request.update_frequency_hz or 60)
+
+        # Update stream metrics (Phase 38)
+        metrics.active_streams.inc()
+
+        logger.info(f"New gameplay data subscriber: {subscriber_id}")
+
+        try:
+            frequency = request.update_frequency_hz or 60
+            interval = 1.0 / frequency
+
+            while not context.cancelled():
+                try:
+                    # Build gameplay data for all controllers
+                    gameplay_data = []
+                    for serial, info in self.tracked_controllers.items():
+                        # Get full controller state
+                        full_state = self._build_or_get_cached_state(serial, info)
+
+                        # Convert to GameplayData (no buttons)
+                        gd = controller_manager_pb2.GameplayData(
+                            serial=full_state.serial,
+                            move_num=full_state.move_num,
+                            battery=full_state.battery,
+                            ready=full_state.ready,
+                            team=full_state.team,
+                            color=full_state.color,
+                            accel=full_state.accel,
+                            gyro=full_state.gyro,
+                        )
+                        gameplay_data.append(gd)
+
+                    # Send update
+                    update = controller_manager_pb2.GameplayDataUpdate(
+                        controllers=gameplay_data, timestamp=int(time.time() * 1000)
+                    )
+                    yield update
+
+                    # Track stream update (Phase 38)
+                    if gameplay_data:
+                        metrics.stream_updates_total.labels(stream_type="gameplay_data").inc()
+
+                    await asyncio.sleep(interval)
+
+                except Exception as e:
+                    logger.error(f"Gameplay stream error for {subscriber_id}: {e}")
+                    break
+
+        finally:
+            # End span manually (avoids context token issues on GeneratorExit)
+            span.end()
 
             # Update stream metrics (Phase 38)
-            metrics.active_streams.inc()
+            metrics.active_streams.dec()
 
-            logger.info(f"New gameplay data subscriber: {subscriber_id}")
-
-            try:
-                frequency = request.update_frequency_hz or 60
-                interval = 1.0 / frequency
-
-                while not context.cancelled():
-                    try:
-                        # Build gameplay data for all controllers
-                        gameplay_data = []
-                        for serial, info in self.tracked_controllers.items():
-                            # Get full controller state
-                            full_state = self._build_or_get_cached_state(serial, info)
-
-                            # Convert to GameplayData (no buttons)
-                            gd = controller_manager_pb2.GameplayData(
-                                serial=full_state.serial,
-                                move_num=full_state.move_num,
-                                battery=full_state.battery,
-                                ready=full_state.ready,
-                                team=full_state.team,
-                                color=full_state.color,
-                                accel=full_state.accel,
-                                gyro=full_state.gyro,
-                            )
-                            gameplay_data.append(gd)
-
-                        # Send update
-                        update = controller_manager_pb2.GameplayDataUpdate(
-                            controllers=gameplay_data, timestamp=int(time.time() * 1000)
-                        )
-                        yield update
-
-                        # Track stream update (Phase 38)
-                        if gameplay_data:
-                            metrics.stream_updates_total.labels(stream_type="gameplay_data").inc()
-
-                        await asyncio.sleep(interval)
-
-                    except Exception as e:
-                        logger.error(f"Gameplay stream error for {subscriber_id}: {e}")
-                        break
-
-            finally:
-                # Update stream metrics (Phase 38)
-                metrics.active_streams.dec()
-
-                logger.info(f"Gameplay data subscriber disconnected: {subscriber_id}")
+            logger.info(f"Gameplay data subscriber disconnected: {subscriber_id}")
 
     async def StreamGameplayDataDynamic(self, request_iterator, context):
         """
@@ -696,290 +711,295 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         """
         subscriber_id = f"gameplay_dynamic_stream_{time.time()}"
 
-        with tracer.start_as_current_span("StreamGameplayDataDynamic") as span:
-            span.set_attribute("subscriber.id", subscriber_id)
+        # Note: We manually manage the span instead of using context manager
+        # because GeneratorExit during stream disconnect causes context token issues
+        span = tracer.start_span("StreamGameplayDataDynamic")
+        span.set_attribute("subscriber.id", subscriber_id)
 
-            # Update stream metrics
-            metrics.active_streams.inc()
+        # Update stream metrics
+        metrics.active_streams.inc()
 
-            # Stream state (updated by client messages)
-            current_hz = 30  # Default Hz
-            current_filter = None  # None = all controllers
+        # Stream state (updated by client messages)
+        current_hz = 30  # Default Hz
+        current_filter = None  # None = all controllers
 
-            # Background task to read client updates
-            async def read_client_updates():
-                nonlocal current_hz, current_filter
-
-                try:
-                    async for control_msg in request_iterator:
-                        if control_msg.HasField("config"):
-                            # Initial configuration
-                            current_hz = control_msg.config.update_frequency_hz or 30
-
-                            # Phase XX: Extract filter from colors if provided, fallback to serials
-                            if control_msg.config.colors:
-                                # Use serials from colors as filter
-                                current_filter = set()
-                                for color_config in control_msg.config.colors:
-                                    serial = color_config.serial
-                                    if serial:
-                                        current_filter.add(serial)
-                                        # Store base color and set LED
-                                        color = (color_config.color.r, color_config.color.g, color_config.color.b)
-                                        self.base_colors[serial] = color
-                                        if serial in self.tracked_controllers:
-                                            await self._set_controller_color_internal(serial, color)
-                                logger.info(
-                                    f"[{subscriber_id}] Set base colors for {len(current_filter)} controllers"
-                                )
-                            elif control_msg.config.serials:
-                                # Legacy: use serials field directly
-                                current_filter = set(control_msg.config.serials)
-                            else:
-                                current_filter = None  # All controllers
-
-                            logger.info(
-                                f"[{subscriber_id}] Stream configured: {current_hz}Hz, "
-                                f"filter={len(current_filter) if current_filter else 'all'} controllers"
-                            )
-                            span.set_attribute("update_frequency_hz", current_hz)
-                            span.set_attribute("initial_filter_count", len(current_filter) if current_filter else 0)
-
-                        elif control_msg.HasField("filter_update"):
-                            # Mid-stream filter update
-                            new_filter = (
-                                set(control_msg.filter_update.serials) if control_msg.filter_update.serials else None
-                            )
-
-                            if new_filter != current_filter:
-                                old_count = len(current_filter) if current_filter else 0
-                                new_count = len(new_filter) if new_filter else 0
-
-                                logger.info(
-                                    f"[{subscriber_id}] Filter updated: " f"{old_count} → {new_count} controllers"
-                                )
-
-                                current_filter = new_filter
-
-                                # Add span event for filter update
-                                span.add_event(
-                                    "filter_updated",
-                                    {
-                                        "previous_count": old_count,
-                                        "new_count": new_count,
-                                    },
-                                )
-
-                        elif control_msg.HasField("color_command"):
-                            # Phase 46: Process color command via stream
-                            cmd = control_msg.color_command
-                            target_serial = cmd.serial if cmd.serial else None
-
-                            # Apply to target serial or all controllers (broadcast)
-                            serials_to_update = (
-                                [target_serial] if target_serial else list(self.tracked_controllers.keys())
-                            )
-
-                            for serial in serials_to_update:
-                                if serial in self.tracked_controllers:
-                                    await self._set_controller_color_internal(
-                                        serial, (cmd.color.r, cmd.color.g, cmd.color.b)
-                                    )
-
-                            logger.debug(
-                                f"[{subscriber_id}] Color command: "
-                                f"serial={cmd.serial or 'all'}, "
-                                f"rgb=({cmd.color.r},{cmd.color.g},{cmd.color.b})"
-                            )
-
-                            # Metric (Phase 46)
-                            metrics.stream_commands_total.labels(command_type="color").inc()
-
-                        elif control_msg.HasField("effect_command"):
-                            # Phase 46: Process effect command via stream
-                            cmd = control_msg.effect_command
-                            target_serial = cmd.serial if cmd.serial else None
-
-                            # Apply to target serial or all controllers (broadcast)
-                            serials_to_update = (
-                                [target_serial] if target_serial else list(self.tracked_controllers.keys())
-                            )
-
-                            color_rgb = (
-                                (cmd.color.r, cmd.color.g, cmd.color.b)
-                                if cmd.color.r or cmd.color.g or cmd.color.b
-                                else (255, 255, 255)
-                            )
-                            duration_ms = cmd.duration_ms or 1000
-
-                            for serial in serials_to_update:
-                                if serial in self.tracked_controllers:
-                                    await self._play_effect_internal(
-                                        serial, cmd.effect, color_rgb, duration_ms, speed=5
-                                    )
-
-                            effect_name = controller_manager_pb2.ControllerEffect.Name(cmd.effect)
-                            logger.debug(
-                                f"[{subscriber_id}] Effect command: "
-                                f"serial={cmd.serial or 'all'}, effect={effect_name}"
-                            )
-
-                            # Metric (Phase 46)
-                            metrics.stream_commands_total.labels(command_type="effect").inc()
-
-                        elif control_msg.HasField("vibration_command"):
-                            # Phase 46: Process vibration command via stream
-                            cmd = control_msg.vibration_command
-                            target_serial = cmd.serial if cmd.serial else None
-
-                            # Apply to target serial or all controllers (broadcast)
-                            serials_to_update = (
-                                [target_serial] if target_serial else list(self.tracked_controllers.keys())
-                            )
-
-                            for serial in serials_to_update:
-                                if serial in self.tracked_controllers:
-                                    await self._set_vibration_internal(serial, cmd.intensity, cmd.duration_ms)
-
-                            logger.debug(
-                                f"[{subscriber_id}] Vibration command: "
-                                f"serial={cmd.serial or 'all'}, "
-                                f"intensity={cmd.intensity}, duration={cmd.duration_ms}ms"
-                            )
-
-                            # Metric (Phase 46)
-                            metrics.stream_commands_total.labels(command_type="vibration").inc()
-
-                        elif control_msg.HasField("combined_feedback"):
-                            # Phase 46: Process combined color + vibration command
-                            cmd = control_msg.combined_feedback
-                            target_serial = cmd.serial if cmd.serial else None
-
-                            # Apply to target serial or all controllers (broadcast)
-                            serials_to_update = (
-                                [target_serial] if target_serial else list(self.tracked_controllers.keys())
-                            )
-
-                            for serial in serials_to_update:
-                                if serial in self.tracked_controllers:
-                                    # Set color and vibration atomically
-                                    await self._set_controller_color_internal(
-                                        serial, (cmd.color.r, cmd.color.g, cmd.color.b)
-                                    )
-                                    if cmd.vibration_intensity > 0:
-                                        await self._set_vibration_internal(
-                                            serial,
-                                            cmd.vibration_intensity,
-                                            cmd.vibration_duration_ms,
-                                        )
-
-                            logger.debug(
-                                f"[{subscriber_id}] Combined feedback: "
-                                f"serial={cmd.serial or 'all'}, "
-                                f"rgb=({cmd.color.r},{cmd.color.g},{cmd.color.b}), "
-                                f"vib={cmd.vibration_intensity}@{cmd.vibration_duration_ms}ms"
-                            )
-
-                            # Metric (Phase 46)
-                            metrics.stream_commands_total.labels(command_type="combined").inc()
-
-                        elif control_msg.HasField("base_color"):
-                            # Phase XX: Set base color for a controller (LED state ownership)
-                            cmd = control_msg.base_color
-                            serial = cmd.serial
-                            color = (cmd.color.r, cmd.color.g, cmd.color.b)
-
-                            if serial and serial in self.tracked_controllers:
-                                # Store base color and set LED
-                                self.base_colors[serial] = color
-                                await self._set_controller_color_internal(serial, color)
-
-                                logger.debug(
-                                    f"[{subscriber_id}] Base color set: "
-                                    f"serial={serial}, rgb={color}"
-                                )
-
-                            metrics.stream_commands_total.labels(command_type="base_color").inc()
-
-                        elif control_msg.HasField("game_effect"):
-                            # Phase XX: Trigger semantic game effect (LED state ownership)
-                            cmd = control_msg.game_effect
-                            await self._handle_game_effect(cmd.serial, cmd.effect, subscriber_id)
-
-                            effect_name = controller_manager_pb2.GameEffect.Name(cmd.effect)
-                            logger.debug(
-                                f"[{subscriber_id}] Game effect: "
-                                f"serial={cmd.serial or 'all'}, effect={effect_name}"
-                            )
-
-                            metrics.stream_commands_total.labels(command_type="game_effect").inc()
-
-                except Exception as e:
-                    logger.error(f"[{subscriber_id}] Error reading client updates: {e}", exc_info=True)
-
-            # Start background task to read client updates
-            update_task = asyncio.create_task(read_client_updates())
-
-            logger.info(f"New dynamic gameplay subscriber: {subscriber_id}")
+        # Background task to read client updates
+        async def read_client_updates():
+            nonlocal current_hz, current_filter
 
             try:
-                # Stream gameplay data
-                while not context.cancelled():
-                    try:
-                        # Calculate interval from current Hz
-                        interval = 1.0 / current_hz
+                async for control_msg in request_iterator:
+                    if control_msg.HasField("config"):
+                        # Initial configuration
+                        current_hz = control_msg.config.update_frequency_hz or 30
 
-                        # Build data for each controller (respecting filter)
-                        gameplay_data = []
-                        for serial, info in self.tracked_controllers.items():
-                            # Apply filter if present
-                            if current_filter is not None and serial not in current_filter:
-                                continue  # Skip filtered controller
-
-                            # Get full controller state
-                            full_state = self._build_or_get_cached_state(serial, info)
-
-                            # Convert to GameplayData (no buttons)
-                            gd = controller_manager_pb2.GameplayData(
-                                serial=full_state.serial,
-                                move_num=full_state.move_num,
-                                battery=full_state.battery,
-                                ready=full_state.ready,
-                                team=full_state.team,
-                                color=full_state.color,
-                                accel=full_state.accel,
-                                gyro=full_state.gyro,
+                        # Phase XX: Extract filter from colors if provided, fallback to serials
+                        if control_msg.config.colors:
+                            # Use serials from colors as filter
+                            current_filter = set()
+                            for color_config in control_msg.config.colors:
+                                serial = color_config.serial
+                                if serial:
+                                    current_filter.add(serial)
+                                    # Store base color and set LED
+                                    color = (color_config.color.r, color_config.color.g, color_config.color.b)
+                                    self.base_colors[serial] = color
+                                    if serial in self.tracked_controllers:
+                                        await self._set_controller_color_internal(serial, color)
+                            logger.info(
+                                f"[{subscriber_id}] Set base colors for {len(current_filter)} controllers"
                             )
-                            gameplay_data.append(gd)
+                        elif control_msg.config.serials:
+                            # Legacy: use serials field directly
+                            current_filter = set(control_msg.config.serials)
+                        else:
+                            current_filter = None  # All controllers
 
-                        # Send update
-                        update = controller_manager_pb2.GameplayDataUpdate(
-                            controllers=gameplay_data, timestamp=int(time.time() * 1000)
+                        logger.info(
+                            f"[{subscriber_id}] Stream configured: {current_hz}Hz, "
+                            f"filter={len(current_filter) if current_filter else 'all'} controllers"
                         )
-                        yield update
+                        span.set_attribute("update_frequency_hz", current_hz)
+                        span.set_attribute("initial_filter_count", len(current_filter) if current_filter else 0)
 
-                        # Track stream update
-                        if gameplay_data:
-                            metrics.stream_updates_total.labels(stream_type="gameplay_data_dynamic").inc()
-                            # Track number of controllers streamed per frame (Phase 45)
-                            metrics.streamed_controllers.observe(len(gameplay_data))
+                    elif control_msg.HasField("filter_update"):
+                        # Mid-stream filter update
+                        new_filter = (
+                            set(control_msg.filter_update.serials) if control_msg.filter_update.serials else None
+                        )
 
-                        await asyncio.sleep(interval)
+                        if new_filter != current_filter:
+                            old_count = len(current_filter) if current_filter else 0
+                            new_count = len(new_filter) if new_filter else 0
 
-                    except Exception as e:
-                        logger.error(f"[{subscriber_id}] Gameplay stream error: {e}", exc_info=True)
-                        break
+                            logger.info(
+                                f"[{subscriber_id}] Filter updated: " f"{old_count} → {new_count} controllers"
+                            )
 
-            finally:
-                # Cleanup: Cancel background task
-                update_task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await update_task
+                            current_filter = new_filter
 
-                # Update stream metrics
-                metrics.active_streams.dec()
+                            # Add span event for filter update
+                            span.add_event(
+                                "filter_updated",
+                                {
+                                    "previous_count": old_count,
+                                    "new_count": new_count,
+                                },
+                            )
 
-                logger.info(f"Dynamic gameplay subscriber disconnected: {subscriber_id}")
+                    elif control_msg.HasField("color_command"):
+                        # Phase 46: Process color command via stream
+                        cmd = control_msg.color_command
+                        target_serial = cmd.serial if cmd.serial else None
+
+                        # Apply to target serial or all controllers (broadcast)
+                        serials_to_update = (
+                            [target_serial] if target_serial else list(self.tracked_controllers.keys())
+                        )
+
+                        for serial in serials_to_update:
+                            if serial in self.tracked_controllers:
+                                await self._set_controller_color_internal(
+                                    serial, (cmd.color.r, cmd.color.g, cmd.color.b)
+                                )
+
+                        logger.debug(
+                            f"[{subscriber_id}] Color command: "
+                            f"serial={cmd.serial or 'all'}, "
+                            f"rgb=({cmd.color.r},{cmd.color.g},{cmd.color.b})"
+                        )
+
+                        # Metric (Phase 46)
+                        metrics.stream_commands_total.labels(command_type="color").inc()
+
+                    elif control_msg.HasField("effect_command"):
+                        # Phase 46: Process effect command via stream
+                        cmd = control_msg.effect_command
+                        target_serial = cmd.serial if cmd.serial else None
+
+                        # Apply to target serial or all controllers (broadcast)
+                        serials_to_update = (
+                            [target_serial] if target_serial else list(self.tracked_controllers.keys())
+                        )
+
+                        color_rgb = (
+                            (cmd.color.r, cmd.color.g, cmd.color.b)
+                            if cmd.color.r or cmd.color.g or cmd.color.b
+                            else (255, 255, 255)
+                        )
+                        duration_ms = cmd.duration_ms or 1000
+
+                        for serial in serials_to_update:
+                            if serial in self.tracked_controllers:
+                                await self._play_effect_internal(
+                                    serial, cmd.effect, color_rgb, duration_ms, speed=5
+                                )
+
+                        effect_name = controller_manager_pb2.ControllerEffect.Name(cmd.effect)
+                        logger.debug(
+                            f"[{subscriber_id}] Effect command: "
+                            f"serial={cmd.serial or 'all'}, effect={effect_name}"
+                        )
+
+                        # Metric (Phase 46)
+                        metrics.stream_commands_total.labels(command_type="effect").inc()
+
+                    elif control_msg.HasField("vibration_command"):
+                        # Phase 46: Process vibration command via stream
+                        cmd = control_msg.vibration_command
+                        target_serial = cmd.serial if cmd.serial else None
+
+                        # Apply to target serial or all controllers (broadcast)
+                        serials_to_update = (
+                            [target_serial] if target_serial else list(self.tracked_controllers.keys())
+                        )
+
+                        for serial in serials_to_update:
+                            if serial in self.tracked_controllers:
+                                await self._set_vibration_internal(serial, cmd.intensity, cmd.duration_ms)
+
+                        logger.debug(
+                            f"[{subscriber_id}] Vibration command: "
+                            f"serial={cmd.serial or 'all'}, "
+                            f"intensity={cmd.intensity}, duration={cmd.duration_ms}ms"
+                        )
+
+                        # Metric (Phase 46)
+                        metrics.stream_commands_total.labels(command_type="vibration").inc()
+
+                    elif control_msg.HasField("combined_feedback"):
+                        # Phase 46: Process combined color + vibration command
+                        cmd = control_msg.combined_feedback
+                        target_serial = cmd.serial if cmd.serial else None
+
+                        # Apply to target serial or all controllers (broadcast)
+                        serials_to_update = (
+                            [target_serial] if target_serial else list(self.tracked_controllers.keys())
+                        )
+
+                        for serial in serials_to_update:
+                            if serial in self.tracked_controllers:
+                                # Set color and vibration atomically
+                                await self._set_controller_color_internal(
+                                    serial, (cmd.color.r, cmd.color.g, cmd.color.b)
+                                )
+                                if cmd.vibration_intensity > 0:
+                                    await self._set_vibration_internal(
+                                        serial,
+                                        cmd.vibration_intensity,
+                                        cmd.vibration_duration_ms,
+                                    )
+
+                        logger.debug(
+                            f"[{subscriber_id}] Combined feedback: "
+                            f"serial={cmd.serial or 'all'}, "
+                            f"rgb=({cmd.color.r},{cmd.color.g},{cmd.color.b}), "
+                            f"vib={cmd.vibration_intensity}@{cmd.vibration_duration_ms}ms"
+                        )
+
+                        # Metric (Phase 46)
+                        metrics.stream_commands_total.labels(command_type="combined").inc()
+
+                    elif control_msg.HasField("base_color"):
+                        # Phase XX: Set base color for a controller (LED state ownership)
+                        cmd = control_msg.base_color
+                        serial = cmd.serial
+                        color = (cmd.color.r, cmd.color.g, cmd.color.b)
+
+                        if serial and serial in self.tracked_controllers:
+                            # Store base color and set LED
+                            self.base_colors[serial] = color
+                            await self._set_controller_color_internal(serial, color)
+
+                            logger.debug(
+                                f"[{subscriber_id}] Base color set: "
+                                f"serial={serial}, rgb={color}"
+                            )
+
+                        metrics.stream_commands_total.labels(command_type="base_color").inc()
+
+                    elif control_msg.HasField("game_effect"):
+                        # Phase XX: Trigger semantic game effect (LED state ownership)
+                        cmd = control_msg.game_effect
+                        await self._handle_game_effect(cmd.serial, cmd.effect, subscriber_id)
+
+                        effect_name = controller_manager_pb2.GameEffect.Name(cmd.effect)
+                        logger.debug(
+                            f"[{subscriber_id}] Game effect: "
+                            f"serial={cmd.serial or 'all'}, effect={effect_name}"
+                        )
+
+                        metrics.stream_commands_total.labels(command_type="game_effect").inc()
+
+            except Exception as e:
+                logger.error(f"[{subscriber_id}] Error reading client updates: {e}", exc_info=True)
+
+        # Start background task to read client updates
+        update_task = asyncio.create_task(read_client_updates())
+
+        logger.info(f"New dynamic gameplay subscriber: {subscriber_id}")
+
+        try:
+            # Stream gameplay data
+            while not context.cancelled():
+                try:
+                    # Calculate interval from current Hz
+                    interval = 1.0 / current_hz
+
+                    # Build data for each controller (respecting filter)
+                    gameplay_data = []
+                    for serial, info in self.tracked_controllers.items():
+                        # Apply filter if present
+                        if current_filter is not None and serial not in current_filter:
+                            continue  # Skip filtered controller
+
+                        # Get full controller state
+                        full_state = self._build_or_get_cached_state(serial, info)
+
+                        # Convert to GameplayData (no buttons)
+                        gd = controller_manager_pb2.GameplayData(
+                            serial=full_state.serial,
+                            move_num=full_state.move_num,
+                            battery=full_state.battery,
+                            ready=full_state.ready,
+                            team=full_state.team,
+                            color=full_state.color,
+                            accel=full_state.accel,
+                            gyro=full_state.gyro,
+                        )
+                        gameplay_data.append(gd)
+
+                    # Send update
+                    update = controller_manager_pb2.GameplayDataUpdate(
+                        controllers=gameplay_data, timestamp=int(time.time() * 1000)
+                    )
+                    yield update
+
+                    # Track stream update
+                    if gameplay_data:
+                        metrics.stream_updates_total.labels(stream_type="gameplay_data_dynamic").inc()
+                        # Track number of controllers streamed per frame (Phase 45)
+                        metrics.streamed_controllers.observe(len(gameplay_data))
+
+                    await asyncio.sleep(interval)
+
+                except Exception as e:
+                    logger.error(f"[{subscriber_id}] Gameplay stream error: {e}", exc_info=True)
+                    break
+
+        finally:
+            # End span manually (avoids context token issues on GeneratorExit)
+            span.end()
+
+            # Cleanup: Cancel background task
+            update_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await update_task
+
+            # Update stream metrics
+            metrics.active_streams.dec()
+
+            logger.info(f"Dynamic gameplay subscriber disconnected: {subscriber_id}")
 
     async def PairController(self, request, context):
         """Pair a new controller via backend (async)."""

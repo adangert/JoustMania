@@ -1,19 +1,18 @@
 """
 JoustMania Audio Microservice
 
-Handles audio playback with priority-based mixing and tempo control.
-Manages system audio device (/dev/snd/) to prevent conflicts between services.
+Handles audio playback with priority-based mixing and real-time tempo control.
+- Sound effects: pygame.mixer (8 channels, priority-based)
+- Background music: MusicPlayer with scipy resampling for tempo control
 
-Part of Phase 9 (Architecture Cleanup).
+Phase 9: Architecture Cleanup
+Phase 70: Dynamic Music System
 """
 
 import asyncio
-import glob
 import logging
 import os
-import random
 import threading
-import uuid
 
 import grpc
 import grpc.aio
@@ -30,6 +29,7 @@ from prometheus_client import start_http_server
 from lib.system_metrics import start_system_metrics_collector
 from proto import audio_pb2, audio_pb2_grpc
 from services.audio import metrics
+from services.audio.music_player import DummyMusicPlayer, MusicPlayer
 
 # Configure logging with environment variable support
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -57,29 +57,34 @@ GrpcInstrumentorServer().instrument()
 
 class AudioManager:
     """
-    Manages audio playback with priority-based mixing.
+    Manages audio playback with priority-based mixing and tempo control.
 
-    Handles background music with tempo control and sound effects with priorities.
+    - Sound effects: pygame.mixer (8 channels, priority-based)
+    - Background music: MusicPlayer with scipy resampling for real-time tempo control
     """
 
     def __init__(self):
-        """Initialize pygame mixer and audio state."""
+        """Initialize audio systems."""
         self.mock_mode = os.getenv("MOCK_MODE", "false").lower() == "true"
 
         # Assets directory - clients send relative paths, we resolve to full path
         self.assets_dir = os.getenv("AUDIO_ASSETS_DIR", "services/audio/assets")
 
+        # Initialize pygame for sound effects
         if not self.mock_mode:
             pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
             pygame.mixer.set_num_channels(8)  # Allow up to 8 simultaneous sounds
         else:
             logger.info("AudioManager running in MOCK_MODE - no actual audio playback")
 
-        self.current_music_track: str | None = None
+        # Initialize music player with tempo control (Phase 70)
+        if self.mock_mode:
+            self.music_player = DummyMusicPlayer("background")
+        else:
+            self.music_player = MusicPlayer("background")
+
         self.current_music_file: str | None = None
-        self.current_tempo: float = 1.0
         self.master_volume: float = 0.7
-        self.is_playing: bool = False
         self.music_lock = threading.Lock()
 
         logger.info(f"AudioManager initialized (assets_dir={self.assets_dir})")
@@ -146,13 +151,13 @@ class AudioManager:
 
     def play_music(self, file_pattern: str, loop: bool = True, tempo: float = 1.0, priority: int = 1) -> str | None:
         """
-        Play background music (looping).
+        Play background music with tempo control.
 
         Args:
             file_pattern: Glob pattern for music files (e.g., "Joust/music/*.wav")
-            loop: Whether to loop the music
-            tempo: Playback speed (1.0 = normal, 1.5 = 50% faster)
-            priority: Priority level
+            loop: Whether to loop the music (always True for MusicPlayer)
+            tempo: Playback speed (1.0 = normal, 1.3 = 30% faster)
+            priority: Priority level (not used for music)
 
         Returns:
             Track ID if successful, None otherwise
@@ -166,41 +171,22 @@ class AudioManager:
             span.set_attribute("audio.loop", loop)
             span.set_attribute("audio.tempo", tempo)
 
-            if self.mock_mode:
-                track_id = str(uuid.uuid4())
-                logger.debug(f"MOCK: Would play music pattern: {file_pattern}")
-                self.current_music_track = track_id
-                self.is_playing = True
-                return track_id
-
             try:
-                # Find matching audio files
-                audio_files = glob.glob(full_pattern)
-                if not audio_files:
-                    logger.error(f"No audio files match pattern: {full_pattern} (requested: {file_pattern})")
-                    return None
-
-                # Choose random file from pattern
-                selected_file = random.choice(audio_files)
-
                 with self.music_lock:
                     # Stop current music if playing
-                    if self.is_playing:
-                        pygame.mixer.music.stop()
+                    if self.music_player.is_playing:
+                        self.music_player.stop()
 
-                    # Load and play new music
-                    pygame.mixer.music.load(selected_file)
-                    pygame.mixer.music.set_volume(self.master_volume)
-                    pygame.mixer.music.play(loops=-1 if loop else 0)
+                    # Load and configure music
+                    self.music_player.load(full_pattern)
+                    self.music_player.set_volume(self.master_volume)
+                    self.music_player.set_ratio(tempo)
 
-                    # Generate track ID
-                    track_id = str(uuid.uuid4())
-                    self.current_music_track = track_id
-                    self.current_music_file = selected_file
-                    self.current_tempo = tempo
-                    self.is_playing = True
+                    # Start playback
+                    track_id = self.music_player.start()
+                    self.current_music_file = full_pattern
 
-                    logger.info(f"Playing music: {selected_file} " f"(track_id={track_id}, tempo={tempo}, loop={loop})")
+                    logger.info(f"Playing music: {file_pattern} (track_id={track_id}, tempo={tempo})")
                     span.add_event("music_started", {"track_id": track_id})
 
                     return track_id
@@ -210,12 +196,12 @@ class AudioManager:
                 span.record_exception(e)
                 return None
 
-    def stop_music(self, track_id: str) -> bool:
+    def stop_music(self, track_id: str = "") -> bool:
         """
         Stop music track.
 
         Args:
-            track_id: ID of track to stop
+            track_id: ID of track to stop (optional, stops current if empty)
 
         Returns:
             True if stopped successfully
@@ -223,25 +209,18 @@ class AudioManager:
         with tracer.start_as_current_span("stop_music") as span:
             span.set_attribute("audio.track_id", track_id)
 
-            if self.mock_mode:
-                logger.debug(f"MOCK: Would stop music track: {track_id}")
-                if self.current_music_track == track_id:
-                    self.is_playing = False
-                    self.current_music_track = None
-                    return True
-                return False
-
             try:
                 with self.music_lock:
-                    if self.current_music_track == track_id:
-                        pygame.mixer.music.stop()
-                        self.is_playing = False
-                        self.current_music_track = None
+                    current_track = self.music_player.track_id
+                    # Stop if no track_id specified or if it matches
+                    if not track_id or current_track == track_id:
+                        self.music_player.stop()
                         self.current_music_file = None
-                        logger.info(f"Stopped music track: {track_id}")
+                        logger.info(f"Stopped music track: {current_track}")
                         span.add_event("music_stopped")
                         return True
-                    logger.warning(f"Track ID mismatch: {track_id} != {self.current_music_track}")
+
+                    logger.warning(f"Track ID mismatch: {track_id} != {current_track}")
                     return False
 
             except Exception as e:
@@ -251,34 +230,44 @@ class AudioManager:
 
     def change_tempo(self, track_id: str, new_tempo: float, transition_duration: float = 1.0) -> bool:
         """
-        Change music tempo (real-time speed adjustment).
+        Change music tempo with smooth transition.
 
-        Note: pygame.mixer doesn't support tempo changes without resampling.
-        This is a placeholder for future implementation.
+        Uses scipy.signal.resample for real-time tempo changes.
 
         Args:
             track_id: ID of track to modify
-            new_tempo: New playback speed
+            new_tempo: New playback speed (1.0 = normal, 1.3 = 30% faster)
             transition_duration: Seconds to smoothly transition
 
         Returns:
-            True if tempo changed successfully
+            True if tempo change started successfully
         """
         with tracer.start_as_current_span("change_tempo") as span:
             span.set_attribute("audio.track_id", track_id)
             span.set_attribute("audio.new_tempo", new_tempo)
+            span.set_attribute("audio.transition_duration", transition_duration)
 
-            # TODO: Implement real-time tempo change
-            # pygame.mixer doesn't support this easily
-            # Would need to use scipy.signal.resample with streaming
+            try:
+                current_track = self.music_player.track_id
+                if track_id and current_track != track_id:
+                    logger.warning(f"Track ID mismatch: {track_id} != {current_track}")
+                    return False
 
-            logger.info(f"Tempo change requested: {new_tempo} (not implemented in pygame)")
-            self.current_tempo = new_tempo
-            return True
+                # Start async tempo transition
+                asyncio.create_task(self.music_player.transition_ratio(new_tempo, transition_duration))
+
+                logger.info(f"Tempo transition started: {self.music_player.ratio:.2f} -> {new_tempo:.2f}")
+                span.add_event("tempo_transition_started")
+                return True
+
+            except Exception as e:
+                logger.error(f"Error changing tempo: {e}", exc_info=True)
+                span.record_exception(e)
+                return False
 
     def set_volume(self, volume: float) -> bool:
         """
-        Set master volume.
+        Set master volume for both music and sound effects.
 
         Args:
             volume: Volume level (0.0 to 1.0)
@@ -291,8 +280,7 @@ class AudioManager:
 
             try:
                 self.master_volume = max(0.0, min(1.0, volume))
-                if not self.mock_mode:
-                    pygame.mixer.music.set_volume(self.master_volume)
+                self.music_player.set_volume(self.master_volume)
                 logger.info(f"Master volume set to {self.master_volume:.2f}")
                 return True
             except Exception as e:
@@ -308,15 +296,20 @@ class AudioManager:
             Dictionary with current status
         """
         with self.music_lock:
-            is_busy = self.is_playing if self.mock_mode else (self.is_playing and pygame.mixer.music.get_busy())
             return {
-                "current_track_id": self.current_music_track or "",
+                "current_track_id": self.music_player.track_id or "",
                 "current_track_file": self.current_music_file or "",
-                "is_playing": is_busy,
+                "is_playing": self.music_player.is_playing,
                 "volume": self.master_volume,
-                "tempo": self.current_tempo,
-                "queued_sounds_count": 0,  # pygame doesn't expose queue
+                "tempo": self.music_player.ratio,
+                "queued_sounds_count": 0,
             }
+
+    def cleanup(self):
+        """Clean up audio resources."""
+        self.music_player.cleanup()
+        if not self.mock_mode:
+            pygame.mixer.quit()
 
 
 class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):

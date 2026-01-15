@@ -2,12 +2,19 @@
 #
 # Uses pre-built pygame from pygame-builder image for faster builds
 # Build the pygame builder first: docker build -t joustmania/pygame-builder:latest images/pygame-builder/
+#
+# Phase 70: Added scipy, numpy, pydub, pyalsaaudio for tempo control
 
 # Pygame builder - pre-compiled pygame with SDL2 support
 FROM joustmania/pygame-builder:latest AS pygame-builder
 
 # Build stage - uses pre-cached builder with common dependencies
 FROM joustmania/builder:latest AS builder
+
+# Install ALSA dev libraries for pyalsaaudio compilation
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libasound2-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -33,18 +40,23 @@ RUN pip install --no-cache-dir \
     opentelemetry-exporter-otlp>=1.28.0 \
     opentelemetry-instrumentation-grpc>=0.49b0 \
     prometheus-client>=0.19.0 \
-    psutil>=5.9.0
+    psutil>=5.9.0 \
+    scipy>=1.11.0 \
+    numpy>=1.24.0 \
+    pydub>=0.25.0 \
+    pyalsaaudio>=0.11.0
 
 # Runtime stage - slim image without build tools
 FROM python:3.11-slim
 
-# Install runtime dependencies for SDL audio (no dev packages needed)
+# Install runtime dependencies for SDL audio and tempo control
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     libsdl2-2.0-0 \
     libsdl2-mixer-2.0-0 \
     libasound2 \
     alsa-utils \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

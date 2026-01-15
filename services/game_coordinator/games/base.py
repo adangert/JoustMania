@@ -8,11 +8,14 @@ Uses Template Method pattern:
 - run() orchestrates the entire game lifecycle with spans
 - Concrete methods implement shared behavior (settings, countdown, game loop)
 - Abstract methods define game-specific behavior (team assignment, win conditions, etc.)
+
+Phase 70: Added dynamic music tempo system.
 """
 
 import asyncio
 import logging
 import math
+import random
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -32,6 +35,26 @@ logger = logging.getLogger(__name__)
 # Game constants (Phase 43: Now uses runtime config for dynamic adjustment)
 UPDATE_FREQUENCY = 30  # Hz - default, overridden by runtime config
 COUNTDOWN_DURATION = 3  # seconds
+
+# Phase 70: Music tempo constants (from original JoustMania)
+SLOW_MUSIC_SPEED = 1.0  # Normal playback
+FAST_MUSIC_SPEED = 1.3  # 30% faster
+MUSIC_TRANSITION_DURATION = 1.5  # Seconds to smoothly transition
+
+# Music timing intervals (seconds) - how long before next tempo change
+MIN_MUSIC_FAST_TIME = 4  # Minimum time at fast speed
+MAX_MUSIC_FAST_TIME = 8  # Maximum time at fast speed
+MIN_MUSIC_SLOW_TIME = 10  # Minimum time at slow speed
+MAX_MUSIC_SLOW_TIME = 23  # Maximum time at slow speed
+
+# End game timing (more frequent changes as game progresses)
+END_MIN_MUSIC_FAST_TIME = 6
+END_MAX_MUSIC_FAST_TIME = 10
+END_MIN_MUSIC_SLOW_TIME = 8
+END_MAX_MUSIC_SLOW_TIME = 12
+
+# Volume levels
+GAME_VOLUME = 0.7
 
 
 # Sensitivity thresholds (in raw accelerometer units, ~1000 = 1g)
@@ -150,6 +173,14 @@ class BaseGameMode(ABC):
         self.sensitivity = Sensitivity.MEDIUM
         self.play_audio = True
         self.settings = {}  # Store raw settings dict
+
+        # Phase 70: Music tempo control state
+        self.music_track_id = None
+        self.music_speed = SLOW_MUSIC_SPEED
+        self.speed_up = True  # True = next change will speed up, False = slow down
+        self.change_time = 0.0  # Time of next tempo change
+        self.music_loop_task = None
+        self.dead_count = 0  # Track deaths for tempo timing
 
         logger.info(f"{self.get_game_name()} game initialized: {self.game_id}")
 
@@ -538,6 +569,12 @@ class BaseGameMode(ABC):
         accel = controller_state.accel
         accel_mag = math.sqrt(accel.x**2 + accel.y**2 + accel.z**2)
 
+        # Sanity check: ignore physically impossible readings (>10g = sensor glitch)
+        MAX_VALID_ACCEL = 10000  # 10g in raw units - beyond any realistic movement
+        if accel_mag > MAX_VALID_ACCEL:
+            logger.warning(f"Invalid accel magnitude {accel_mag:.0f} for {serial}, ignoring")
+            return  # Skip this reading entirely
+
         player.last_accel_mag = accel_mag
 
         # Grace period - ignore deaths for first N seconds after game starts
@@ -547,12 +584,19 @@ class BaseGameMode(ABC):
         # Get thresholds
         warn_threshold, death_threshold = self.sensitivity.value
 
+        # Phase 70: Scale thresholds based on music speed
+        # When music is fast (1.3x), increase thresholds to make players harder to kill
+        # This creates the classic JoustMania gameplay dynamic
+        speed_factor = self.music_speed / SLOW_MUSIC_SPEED
+        effective_warn = warn_threshold * speed_factor
+        effective_death = death_threshold * speed_factor
+
         # Check for death
-        if accel_mag > death_threshold:
+        if accel_mag > effective_death:
             await self._kill_player(serial, accel_mag)
 
         # Check for warning (flash controller)
-        elif accel_mag > warn_threshold:
+        elif accel_mag > effective_warn:
             await self._warn_player(serial, accel_mag)
 
     async def _warn_player(self, serial: str, accel_mag: float):
@@ -601,6 +645,9 @@ class BaseGameMode(ABC):
 
         alive_count_before = len([p for p in self.players.values() if p.alive])
         logger.info(f"Player died: {serial}, {alive_count_before - 1} players remaining")
+
+        # Phase 70: Track deaths for music tempo timing
+        self.dead_count += 1
 
         # Play death explosion sound (Phase 29)
         await self._play_sound("Joust/sounds/Explosion34.wav", priority=2)
@@ -679,9 +726,27 @@ class BaseGameMode(ABC):
             # Note: self.start_time is set in _game_loop when first data is received
             self.event_publisher(GameEvent.GAME_STARTED, {"game_id": self.game_id, "player_count": len(self.players)})
 
-            # Phase 5: Gameplay
+            # Phase 70: Start game music
+            await self._start_game_music()
+
+            # Phase 5: Gameplay (with music loop running alongside)
             with tracer.start_as_current_span("gameplay_phase"):
-                await self._game_loop()
+                # Start music loop as background task
+                self.music_loop_task = asyncio.create_task(self._music_loop())
+
+                try:
+                    await self._game_loop()
+                finally:
+                    # Stop music loop
+                    if self.music_loop_task:
+                        self.music_loop_task.cancel()
+                        try:
+                            await self.music_loop_task
+                        except asyncio.CancelledError:
+                            pass
+
+            # Phase 70: Stop game music
+            await self._stop_game_music()
 
             # Phase 6: Teardown
             with tracer.start_as_current_span("teardown_phase"):
@@ -754,3 +819,153 @@ class BaseGameMode(ABC):
             logger.debug(f"Playing sound: {sound_path}")
         except Exception as e:
             logger.warning(f"Failed to play sound {sound_path}: {e}")
+
+    # ========================================================================
+    # Phase 70: Music Tempo Control
+    # ========================================================================
+
+    def _lerp(self, a: float, b: float, t: float) -> float:
+        """Linear interpolation between a and b by t (0.0 to 1.0)."""
+        return a * (1 - t) + b * t
+
+    async def _start_game_music(self):
+        """
+        Start game music with tempo control (Phase 70).
+
+        Sets volume higher than lobby and starts music at normal speed.
+        """
+        if not self.play_audio or not self.audio_client:
+            return
+
+        try:
+            from proto import audio_pb2
+
+            # Set game volume (louder than lobby)
+            await self.audio_client.SetVolume(audio_pb2.SetVolumeRequest(volume=GAME_VOLUME))
+
+            # Start game music
+            response = await self.audio_client.PlayMusic(
+                audio_pb2.PlayMusicRequest(
+                    file_pattern="Joust/music/*.wav",
+                    loop=True,
+                    tempo=SLOW_MUSIC_SPEED,
+                    priority=audio_pb2.AudioPriority.MEDIUM,
+                )
+            )
+
+            if response.success:
+                self.music_track_id = response.track_id
+                self.music_speed = SLOW_MUSIC_SPEED
+                self.speed_up = True
+                self.change_time = self._get_music_change_time()
+                logger.info(f"Game music started: {response.track_id}, next change at +{self.change_time - time.time():.1f}s")
+            else:
+                logger.warning(f"Failed to start game music: {response.error}")
+
+        except Exception as e:
+            logger.warning(f"Failed to start game music: {e}")
+
+    async def _stop_game_music(self):
+        """Stop game music (Phase 70)."""
+        if not self.audio_client:
+            return
+
+        try:
+            from proto import audio_pb2
+
+            await self.audio_client.StopMusic(audio_pb2.StopMusicRequest(track_id=""))
+            self.music_track_id = None
+            logger.info("Game music stopped")
+
+        except Exception as e:
+            logger.warning(f"Failed to stop game music: {e}")
+
+    def _get_music_change_time(self) -> float:
+        """
+        Calculate time of next tempo change based on game progression.
+
+        As more players die, tempo changes become more frequent.
+        Returns absolute time (time.time() + delay).
+        """
+        # Calculate game progression (0.0 = start, 1.0 = near end)
+        min_moves = len(self.players) - 2
+        if min_moves <= 0:
+            min_moves = 1
+        game_percent = min(1.0, self.dead_count / min_moves)
+
+        # Interpolate between normal and end-game timing
+        if self.speed_up:
+            # Currently slow, will speed up - use slow timing
+            min_t = self._lerp(MIN_MUSIC_SLOW_TIME, END_MIN_MUSIC_SLOW_TIME, game_percent)
+            max_t = self._lerp(MAX_MUSIC_SLOW_TIME, END_MAX_MUSIC_SLOW_TIME, game_percent)
+        else:
+            # Currently fast, will slow down - use fast timing
+            min_t = self._lerp(MIN_MUSIC_FAST_TIME, END_MIN_MUSIC_FAST_TIME, game_percent)
+            max_t = self._lerp(MAX_MUSIC_FAST_TIME, END_MAX_MUSIC_FAST_TIME, game_percent)
+
+        delay = random.uniform(min_t, max_t)
+        return time.time() + delay
+
+    async def _check_music_speed(self):
+        """
+        Check and update music tempo (Phase 70).
+
+        Called periodically from music loop. Handles smooth transitions
+        between slow and fast tempos.
+        """
+        if not self.audio_client or not self.music_track_id:
+            return
+
+        now = time.time()
+
+        # Check if it's time for a tempo change
+        if now >= self.change_time:
+            try:
+                from proto import audio_pb2
+
+                # Determine target tempo
+                if self.speed_up:
+                    target_tempo = FAST_MUSIC_SPEED
+                else:
+                    target_tempo = SLOW_MUSIC_SPEED
+
+                # Request tempo transition
+                await self.audio_client.ChangeTempo(
+                    audio_pb2.ChangeTempoRequest(
+                        track_id=self.music_track_id,
+                        new_tempo=target_tempo,
+                        transition_duration=MUSIC_TRANSITION_DURATION,
+                    )
+                )
+
+                logger.info(f"Music tempo changing: {self.music_speed:.2f} -> {target_tempo:.2f}")
+
+                # Update state
+                self.music_speed = target_tempo
+                self.speed_up = not self.speed_up
+                self.change_time = self._get_music_change_time()
+
+                logger.debug(f"Next tempo change at +{self.change_time - now:.1f}s")
+
+            except Exception as e:
+                logger.warning(f"Failed to change music tempo: {e}")
+
+    async def _music_loop(self):
+        """
+        Background task to manage music tempo changes (Phase 70).
+
+        Runs alongside the main game loop and periodically checks
+        if tempo should change based on game progression.
+        """
+        logger.info("Music loop started")
+
+        try:
+            while self.running:
+                await self._check_music_speed()
+                await asyncio.sleep(0.1)  # Check every 100ms
+        except asyncio.CancelledError:
+            logger.info("Music loop cancelled")
+        except Exception as e:
+            logger.warning(f"Music loop error: {e}")
+        finally:
+            logger.info("Music loop ended")

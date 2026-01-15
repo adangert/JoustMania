@@ -122,6 +122,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         # Phase 60: Voice actor setting (aaron or ivy)
         self.voice_actor = "aaron"
 
+        # Phase 70: Lobby music tracking
+        self.lobby_music_track_id = None
+
         logger.info("Menu service initialized with persistent gRPC channels")
 
     async def StartMenu(self, request, context):
@@ -139,6 +142,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
                 # Phase 60: Load voice actor preference
                 await self._load_voice_actor_setting()
+
+                # Phase 70: Start lobby music
+                await self._start_lobby_music()
 
                 # Publish menu_started event (Phase 34: await)
                 await self._publish_event("menu_started", {})
@@ -437,17 +443,18 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     logger.info(f"Game event received: {event.event_type} (is_starting={GameEvent.is_game_starting(event.event_type)}, monitor_running={self.button_monitor_running})")
 
                     if GameEvent.is_game_starting(event.event_type):
-                        # Game is starting - stop button monitoring
+                        # Game is starting - stop button monitoring and lobby music
                         # Handle all start events to catch it as early as possible
                         if self.button_monitor_running:
-                            logger.info(f"Game event '{event.event_type}' - stopping button monitor")
+                            logger.info(f"Game event '{event.event_type}' - stopping button monitor and lobby music")
                             self.state = menu_pb2.MenuState.GAME_STARTING
+                            await self._stop_lobby_music()  # Phase 70: Stop lobby music
                             await self.stop_button_monitor()
-                            logger.info("Button monitor stopped")
+                            logger.info("Button monitor and lobby music stopped")
 
                     elif GameEvent.is_game_ending(event.event_type):
-                        # Game ended - restart button monitoring
-                        logger.info(f"Game event '{event.event_type}' - restarting button monitor")
+                        # Game ended - restart button monitoring and lobby music
+                        logger.info(f"Game event '{event.event_type}' - restarting button monitor and lobby music")
                         self.state = menu_pb2.MenuState.RUNNING
 
                         # Reset lobby state
@@ -458,6 +465,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         self.ready_controller_count = 0
                         self.controller_button_states.clear()
                         self.last_button_press_time.clear()
+
+                        # Phase 70: Restart lobby music
+                        await self._start_lobby_music()
 
                         # Restart button monitor
                         await self.start_button_monitor()
@@ -540,6 +550,55 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 logger.debug(f"Voice actor setting not found or invalid, using default: {self.voice_actor}")
         except Exception as e:
             logger.debug(f"Could not load voice actor setting: {e}, using default: {self.voice_actor}")
+
+    # Phase 70: Lobby music control
+    async def _start_lobby_music(self):
+        """
+        Start quiet background music for the lobby/menu.
+
+        Uses a lower volume than game music for a relaxed atmosphere.
+        """
+        try:
+            from proto import audio_pb2, audio_pb2_grpc
+
+            stub = audio_pb2_grpc.AudioServiceStub(self.audio_channel)
+
+            # Set lobby volume (quieter than game)
+            await stub.SetVolume(audio_pb2.SetVolumeRequest(volume=0.4))
+
+            # Start lobby music
+            response = await stub.PlayMusic(
+                audio_pb2.PlayMusicRequest(
+                    file_pattern="Menu/music/*.wav",
+                    loop=True,
+                    tempo=1.0,
+                    priority=audio_pb2.AudioPriority.LOW,
+                )
+            )
+
+            if response.success:
+                self.lobby_music_track_id = response.track_id
+                logger.info(f"Lobby music started: {response.track_id}")
+            else:
+                logger.warning(f"Failed to start lobby music: {response.error}")
+
+        except Exception as e:
+            logger.debug(f"Could not start lobby music: {e}")
+
+    async def _stop_lobby_music(self):
+        """Stop lobby music when game starts."""
+        try:
+            from proto import audio_pb2, audio_pb2_grpc
+
+            stub = audio_pb2_grpc.AudioServiceStub(self.audio_channel)
+
+            # Stop music (empty track_id stops any playing music)
+            await stub.StopMusic(audio_pb2.StopMusicRequest(track_id=""))
+            self.lobby_music_track_id = None
+            logger.info("Lobby music stopped")
+
+        except Exception as e:
+            logger.debug(f"Could not stop lobby music: {e}")
 
     async def _handle_controller_disconnect(self, serial: str):
         """

@@ -1418,6 +1418,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
         # State changed or not cached yet - rebuild (Phase 38: Track cache miss)
         metrics.state_cache_misses_total.inc()
+        logger.debug(f"Cache miss for {serial}: hash changed from {cache_entry.get('snapshot_hash', 'None') if cache_entry else 'None'} to {current_hash}")
         new_state = self._build_controller_state_message(serial, info)
 
         # Update cache
@@ -1542,6 +1543,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     ButtonTrackingKey.TRIANGLE: False,
                     ButtonTrackingKey.PS: False,
                 }
+                logger.info(f"Initialized button tracking for {serial} (current: move={move}, trigger={trigger})")
 
             prev_states = self.button_states[serial]
 

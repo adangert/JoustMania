@@ -74,6 +74,9 @@ class Player:
     alive: bool = True
     color: tuple = (255, 255, 255)
     last_accel_mag: float = 0.0
+    # Exponential moving average of acceleration (from original JoustMania)
+    # EMA smooths sensor noise and prevents false positives from single-frame spikes
+    smoothed_accel: float = 0.0
     span: trace.Span | None = None  # OpenTelemetry span for this player's lifecycle
 
 
@@ -575,7 +578,11 @@ class BaseGameMode(ABC):
             logger.warning(f"Invalid accel magnitude {accel_mag:.0f} for {serial}, ignoring")
             return  # Skip this reading entirely
 
-        player.last_accel_mag = accel_mag
+        # Apply exponential moving average filter (from original JoustMania)
+        # Formula: smoothed = (smoothed * 4 + raw) / 5
+        # This gives 80% weight to previous value, 20% to current - smooths sensor noise
+        player.smoothed_accel = (player.smoothed_accel * 4 + accel_mag) / 5
+        player.last_accel_mag = player.smoothed_accel
 
         # Grace period - ignore deaths for first N seconds after game starts
         if self.start_time and (time.time() - self.start_time) < self.GAME_START_GRACE_PERIOD:
@@ -591,13 +598,14 @@ class BaseGameMode(ABC):
         effective_warn = warn_threshold * speed_factor
         effective_death = death_threshold * speed_factor
 
-        # Check for death
-        if accel_mag > effective_death:
-            await self._kill_player(serial, accel_mag)
+        # Check for death (using smoothed acceleration to prevent false positives)
+        smoothed = player.smoothed_accel
+        if smoothed > effective_death:
+            await self._kill_player(serial, smoothed)
 
         # Check for warning (flash controller)
-        elif accel_mag > effective_warn:
-            await self._warn_player(serial, accel_mag)
+        elif smoothed > effective_warn:
+            await self._warn_player(serial, smoothed)
 
     async def _warn_player(self, serial: str, accel_mag: float):
         """

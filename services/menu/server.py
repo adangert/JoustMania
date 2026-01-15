@@ -367,6 +367,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         if not self.button_monitor_running:
             self.button_monitor_running = True
             self.button_monitor_task = asyncio.create_task(self._button_monitor_loop())
+            self.button_event_task = asyncio.create_task(self._button_event_loop())
             logger.info("Controller button monitor started")
 
     async def stop_button_monitor(self):
@@ -376,7 +377,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             self.button_monitor_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self.button_monitor_task
-            logger.info("Controller button monitor stopped")
+        if hasattr(self, 'button_event_task') and self.button_event_task:
+            self.button_event_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self.button_event_task
+        logger.info("Controller button monitor stopped")
 
     async def shutdown(self):
         """Cleanup resources on shutdown (Phase 26, Phase 60)."""
@@ -531,6 +536,110 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 logger.error(f"Button monitor error: {e}, reconnecting in {retry_delay:.1f}s")
                 await asyncio.sleep(retry_delay)
                 retry_delay = min(retry_delay * 2, max_retry_delay)
+
+    async def _button_event_loop(self):
+        """
+        Subscribe to button events for immediate ready state detection.
+
+        The state stream (_button_monitor_loop) can miss quick button presses.
+        This event stream ensures we catch every trigger press for ready toggle.
+        """
+        from proto import (
+            controller_manager_pb2,
+            controller_manager_pb2_grpc,
+        )
+
+        retry_delay = 1.0
+        max_retry_delay = 30.0
+
+        while self.button_monitor_running:
+            try:
+                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
+
+                logger.info("Button event monitor connected to Controller Manager")
+                retry_delay = 1.0
+
+                # Subscribe to button events
+                async for event in stub.StreamButtonEvents(controller_manager_pb2.StreamButtonEventsRequest()):
+                    if not self.button_monitor_running:
+                        return
+
+                    # Only handle trigger press events for ready state
+                    if event.button == controller_manager_pb2.BUTTON_TRIGGER and event.action == controller_manager_pb2.ACTION_PRESS:
+                        await self._handle_button_event_trigger(event.serial, stub)
+
+                if self.button_monitor_running:
+                    logger.warning("Button event stream ended, reconnecting...")
+
+            except asyncio.CancelledError:
+                logger.info("Button event monitor task cancelled")
+                raise
+            except Exception as e:
+                if not self.button_monitor_running:
+                    return
+                logger.error(f"Button event monitor error: {e}, reconnecting in {retry_delay:.1f}s")
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, max_retry_delay)
+
+    async def _handle_button_event_trigger(self, serial: str, stub):
+        """
+        Handle trigger press event for ready state toggle.
+
+        This is called from the button event stream for immediate response,
+        bypassing the state stream latency.
+        """
+        from proto import controller_manager_pb2
+
+        current_time = time.time()
+
+        # Debounce - ignore if we just processed this
+        last_press = self.last_button_press_time.get(serial, {}).get("trigger_event", 0)
+        if current_time - last_press < 0.3:
+            return
+        if serial not in self.last_button_press_time:
+            self.last_button_press_time[serial] = {}
+        self.last_button_press_time[serial]["trigger_event"] = current_time
+
+        # Track controller as connected if not already
+        if serial not in self.connected_controllers:
+            self.connected_controllers.add(serial)
+            logger.info(f"Controller {serial} connected (via button event)")
+
+        # Toggle ready state
+        if serial in self.ready_controllers:
+            # Already ready - trigger press starts game
+            if self.state == menu_pb2.MenuState.RUNNING:
+                # Check if all are ready
+                all_ready = len(self.ready_controllers) == len(self.connected_controllers) and len(self.ready_controllers) >= 2
+                if all_ready:
+                    logger.info(f"All ready, starting game via button event from {serial}")
+                    await self._handle_trigger_press(serial)
+        else:
+            # Not ready - mark as ready
+            self.ready_controllers.add(serial)
+            self.ready_controller_count = len(self.ready_controllers)
+            await self._play_sound("Joust/sounds/beep_loud.wav", volume=0.5)
+            logger.info(f"Controller {serial} ready via button event ({self.ready_controller_count} total)")
+
+            # Update LED to bright (ready) color
+            base_color = self.GAME_MODE_COLORS.get(self.current_selection, (255, 140, 0))
+            color = controller_manager_pb2.RGB(r=base_color[0], g=base_color[1], b=base_color[2])
+            try:
+                await stub.SetControllerColor(
+                    controller_manager_pb2.SetControllerColorRequest(serial=serial, color=color, duration_ms=0)
+                )
+            except Exception as e:
+                logger.error(f"Failed to set ready color for {serial}: {e}")
+
+            # Check if all ready - auto start
+            all_ready = len(self.ready_controllers) == len(self.connected_controllers)
+            logger.info(
+                f"Ready check (event): ready={len(self.ready_controllers)} connected={len(self.connected_controllers)} "
+                f"all_ready={all_ready}"
+            )
+            if all_ready and len(self.ready_controllers) >= 2:
+                logger.info("All controllers ready via button event - auto-starting game!")
+                await self._handle_trigger_press(serial)
 
     async def _process_button_state(self, controller):
         """

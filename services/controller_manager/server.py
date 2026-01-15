@@ -314,6 +314,10 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     self.tracked_controllers[serial][ControllerInfoKey.READY] = True
                     logger.info(f"Controller {serial} marked as ready (Move button pressed)")
 
+                # Detect button transitions immediately after polling (not in gRPC handlers)
+                # This ensures button events are detected at polling frequency, not stream frequency
+                self._detect_button_transitions_from_state(serial, state)
+
         except Exception as e:
             logger.error(f"Error updating controller states: {e}", exc_info=True)
 
@@ -1400,12 +1404,32 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         return f"{info.get(ControllerInfoKey.BATTERY, 0)}|{info.get(ControllerInfoKey.READY, False)}|{info.get(ControllerInfoKey.TEAM, 0)}"
 
     def _build_or_get_cached_state(self, serial: str, info: dict) -> controller_manager_pb2.ControllerState:
-        """Return cached state if unchanged, rebuild if dirty (Phase 18 - Task 1)."""
-        # TEMPORARILY DISABLED: Always rebuild state to ensure button transitions are detected
-        # The caching optimization was causing slow/missed button detection.
-        # TODO: Re-enable caching once button detection is moved to discovery loop
+        """Return cached state if unchanged, rebuild if dirty (Phase 18 - Task 1).
+
+        Note: Button transition detection has been moved to the discovery loop
+        (_detect_button_transitions_from_state), so caching here is safe - we no
+        longer need to rebuild state on every call to detect button events.
+        """
+        # Check if we have a cached state with matching hash
+        current_hash = self._snapshot_hash(serial, info)
+        cache_entry = self.state_cache.get(serial)
+
+        if cache_entry and cache_entry.get("snapshot_hash") == current_hash:
+            # Cache hit - return cached state
+            metrics.state_cache_hits_total.inc()
+            return cache_entry["cached_state"]
+
+        # Cache miss - rebuild state
         metrics.state_cache_misses_total.inc()
-        return self._build_controller_state_message(serial, info)
+        new_state = self._build_controller_state_message(serial, info)
+
+        # Update cache
+        self.state_cache[serial] = {
+            "cached_state": new_state,
+            "snapshot_hash": current_hash,
+        }
+
+        return new_state
 
     def _build_controller_state_message(self, serial: str, info: dict) -> controller_manager_pb2.ControllerState:
         """
@@ -1474,20 +1498,38 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         self.vector3_pool.return_msg(accel_vec)
         self.vector3_pool.return_msg(gyro_vec)
 
-        # Phase 41: Detect button transitions and publish events
-        self._detect_button_transitions(
-            serial,
-            info,
-            trigger_pressed,
-            move_pressed,
-            cross_pressed,
-            circle_pressed,
-            square_pressed,
-            triangle_pressed,
-            ps_pressed,
-        )
+        # Note: Button transition detection moved to discovery loop (_detect_button_transitions_from_state)
+        # for immediate detection at polling frequency instead of gRPC stream frequency
 
         return controller_state
+
+    def _detect_button_transitions_from_state(self, serial: str, state: dict):
+        """
+        Detect button transitions from polled state dict.
+
+        Called from discovery loop for immediate button detection at polling frequency.
+        This ensures button events are detected as fast as we poll, not limited by
+        gRPC stream frequency (default 60Hz).
+
+        Args:
+            serial: Controller serial number
+            state: State dict from backend polling
+        """
+        if not state:
+            return
+
+        trigger = state.get(ButtonKey.TRIGGER, False)
+        move = state.get(ButtonKey.MOVE, False)
+        cross = state.get(ButtonKey.CROSS, False)
+        circle = state.get(ButtonKey.CIRCLE, False)
+        square = state.get(ButtonKey.SQUARE, False)
+        triangle = state.get(ButtonKey.TRIANGLE, False)
+        ps = state.get(ButtonKey.PS, False)
+
+        info = self.tracked_controllers.get(serial, {})
+        self._detect_button_transitions(
+            serial, info, trigger, move, cross, circle, square, triangle, ps
+        )
 
     def _detect_button_transitions(
         self,

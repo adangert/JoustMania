@@ -25,10 +25,8 @@ if ! docker image inspect joustmania/builder:latest &>/dev/null; then
     echo ""
 fi
 
-# Build with builder image args (uses defaults if images don't exist)
-DOCKER_BUILDKIT=1 docker compose build --parallel \
-    --build-arg BUILDER_IMAGE=joustmania/builder:latest \
-    --build-arg PSMOVE_BUILDER_IMAGE=joustmania/psmove-builder:latest
+# Build all services (args are configured in docker-compose.yml)
+DOCKER_BUILDKIT=1 docker compose build --parallel
 
 echo ""
 echo "Build complete! All Docker images are ready."

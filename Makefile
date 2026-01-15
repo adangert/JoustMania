@@ -8,20 +8,19 @@ help:
 	@echo "========================"
 	@echo ""
 	@echo "Quick Start:"
-	@echo "  make builders        - Build builder images (run once, ~15min)"
-	@echo "  make up              - Build and start all services"
+	@echo "  make up              - Build images and start all services"
 	@echo "  make down            - Stop all services"
 	@echo "  make logs            - Follow service logs"
+	@echo "  make restart         - Restart all services"
 	@echo ""
-	@echo "Docker:"
-	@echo "  make docker-build    - Build all service images"
-	@echo "  make docker-start    - Start services (no build)"
-	@echo "  make docker-stop     - Stop services"
+	@echo "Build:"
+	@echo "  make images          - Build all service images"
+	@echo "  make builders        - Build base images (run once, ~15min on Pi)"
 	@echo ""
-	@echo "Builder Images (Phase 69):"
-	@echo "  make builders        - Build all builder images"
-	@echo "  make builder         - Build shared Python builder only"
-	@echo "  make psmove-builder  - Build psmoveapi builder (~15min)"
+	@echo "Individual Services:"
+	@echo "  make image-settings  - Build settings service image"
+	@echo "  make image-audio     - Build audio service image"
+	@echo "  (etc. for all services)"
 	@echo ""
 	@echo "Protos:"
 	@echo "  make protos          - Generate protobuf files"
@@ -43,26 +42,27 @@ clean-protos:
 	@rm -rf proto/__pycache__
 	@echo "✓ Done! Protobuf files cleaned."
 
-.PHONY: docker-build
-docker-build: builders
-	@bash scripts/docker/build.sh
+# ============================================================================
+# Docker Compose Commands
+# ============================================================================
 
-.PHONY: docker-start
-docker-start:
-	@bash scripts/docker/start.sh
-
-.PHONY: docker-stop
-docker-stop:
-	@bash scripts/docker/stop.sh
-
-# Convenience aliases
 .PHONY: up
-up: docker-build docker-start
+up: images
+	@echo "Starting JoustMania stack..."
+	@docker compose up -d
 	@echo ""
+	@echo "=========================================="
 	@echo "JoustMania is running!"
+	@echo "=========================================="
+	@echo "  Web UI:     http://localhost:80"
+	@echo "  Jaeger:     http://localhost:16686"
+	@echo "  Prometheus: http://localhost:9090"
+	@echo "  Grafana:    http://localhost:3000"
 
 .PHONY: down
-down: docker-stop
+down:
+	@echo "Stopping JoustMania stack..."
+	@docker compose down
 
 .PHONY: logs
 logs:
@@ -70,6 +70,10 @@ logs:
 
 .PHONY: restart
 restart: down up
+
+.PHONY: ps
+ps:
+	@docker compose ps
 
 # ============================================================================
 # Builder Images (Phase 69)
@@ -103,7 +107,6 @@ $(PSMOVE_BUILDER_MARKER): images/psmove-builder/Dockerfile
 builders: builder psmove-builder
 	@echo ""
 	@echo "✓ All builder images ready!"
-	@echo "  You can now run 'make build-all-services' for fast builds."
 
 .PHONY: builder-force
 builder-force:
@@ -124,6 +127,76 @@ clean-builders:
 	@echo "Removing builder marker files..."
 	@rm -f $(BUILDER_MARKER) $(PSMOVE_BUILDER_MARKER)
 	@echo "✓ Builder markers cleaned (images still exist)"
+
+# ============================================================================
+# Service Images
+# ============================================================================
+# Build service images using the shared builder images.
+# Each service image is tagged as joustmania/<service>-service:latest
+
+# Individual service image targets
+.PHONY: image-settings
+image-settings: builders
+	@echo "Building settings service..."
+	@docker build -f services/settings/Dockerfile \
+		-t joustmania/settings-service:latest \
+		--build-arg BUILDER_IMAGE=joustmania/builder:latest .
+	@echo "✓ settings-service:latest built"
+
+.PHONY: image-controller-manager
+image-controller-manager: builders
+	@echo "Building controller-manager service..."
+	@docker build -f services/controller_manager/Dockerfile \
+		-t joustmania/controller-manager-service:latest \
+		--build-arg BUILDER_IMAGE=joustmania/builder:latest \
+		--build-arg PSMOVE_BUILDER_IMAGE=joustmania/psmove-builder:latest .
+	@echo "✓ controller-manager-service:latest built"
+
+.PHONY: image-game-coordinator
+image-game-coordinator: builders
+	@echo "Building game-coordinator service..."
+	@docker build -f services/game_coordinator/Dockerfile \
+		-t joustmania/game-coordinator-service:latest \
+		--build-arg BUILDER_IMAGE=joustmania/builder:latest .
+	@echo "✓ game-coordinator-service:latest built"
+
+.PHONY: image-menu
+image-menu: builders
+	@echo "Building menu service..."
+	@docker build -f services/menu/Dockerfile \
+		-t joustmania/menu-service:latest \
+		--build-arg BUILDER_IMAGE=joustmania/builder:latest .
+	@echo "✓ menu-service:latest built"
+
+.PHONY: image-supervisor
+image-supervisor: builders
+	@echo "Building supervisor service..."
+	@docker build -f services/supervisor/Dockerfile \
+		-t joustmania/supervisor-service:latest \
+		--build-arg BUILDER_IMAGE=joustmania/builder:latest .
+	@echo "✓ supervisor-service:latest built"
+
+.PHONY: image-webui
+image-webui: builders
+	@echo "Building webui service..."
+	@docker build -f services/webui/Dockerfile \
+		-t joustmania/webui-service:latest \
+		--build-arg BUILDER_IMAGE=joustmania/builder:latest .
+	@echo "✓ webui-service:latest built"
+
+.PHONY: image-audio
+image-audio: builders
+	@echo "Building audio service..."
+	@docker build -f services/audio/Dockerfile \
+		-t joustmania/audio-service:latest \
+		--build-arg BUILDER_IMAGE=joustmania/builder:latest .
+	@echo "✓ audio-service:latest built"
+
+# Build all service images
+.PHONY: images
+images: image-settings image-controller-manager image-game-coordinator image-menu image-supervisor image-webui image-audio
+	@echo ""
+	@echo "✓ All service images built!"
 
 # ============================================================================
 # CI/CD Targets (Phase 55)
@@ -204,42 +277,6 @@ validate-protos: ci-build-tools
 .PHONY: validate-packages
 validate-packages: ci-build-tools
 	@bash scripts/ci/validate-packages.sh
-
-.PHONY: build-service
-build-service: builders
-	@if [ -z "$(SERVICE)" ]; then \
-		echo "Usage: make build-service SERVICE=<service-name>"; \
-		echo "Example: make build-service SERVICE=controller_manager"; \
-		exit 1; \
-	fi
-	@echo "Building $(SERVICE) service..."
-	@docker build \
-		-f services/$(SERVICE)/Dockerfile \
-		-t joustmania/$(SERVICE)-service:ci \
-		--build-arg BUILDKIT_INLINE_CACHE=1 \
-		--build-arg BUILDER_IMAGE=joustmania/builder:latest \
-		--build-arg PSMOVE_BUILDER_IMAGE=joustmania/psmove-builder:latest \
-		.
-	@echo "✅ Built $(SERVICE) successfully!"
-
-.PHONY: build-all-services
-build-all-services: builders
-	@echo "Building all services..."
-	@for service in $(SERVICES); do \
-		echo ""; \
-		echo "========================================"; \
-		echo "Building $$service"; \
-		echo "========================================"; \
-		docker build \
-			-f services/$$service/Dockerfile \
-			-t joustmania/$$service-service:ci \
-			--build-arg BUILDKIT_INLINE_CACHE=1 \
-			--build-arg BUILDER_IMAGE=joustmania/builder:latest \
-			--build-arg PSMOVE_BUILDER_IMAGE=joustmania/psmove-builder:latest \
-			.; \
-	done
-	@echo ""
-	@echo "✅ All services built successfully!"
 
 .PHONY: ci-all
 ci-all: lint format-check typecheck lint-dockerfiles validate-protos validate-packages

@@ -4,18 +4,19 @@ version: '3.8'
 #
 # Quick Start:
 #   make builders   # Build base images once (~15min on Pi)
-#   make up         # Build and start all services
+#   make images     # Build all service images
+#   make up         # Start all services
+#
+# Or just: make up (builds everything automatically)
 #
 # Base config defaults to mock mode (no hardware required).
-# For production with real hardware, use: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+# For production with real hardware, use: docker compose -f docker-compose.yml -f docker-compose.prod.yml up
 #
 # Environment Variables (can be set in shell or .env file):
 # - CONTROLLER_BACKEND: Controller backend type (bluetooth, mock, windows) [default: mock]
 # - MOCK_CONTROLLER_COUNT: Number of mock controllers when CONTROLLER_BACKEND=mock [default: 4]
 # - AUDIO_MOCK_MODE: Disable audio output for testing [default: true]
 # - LOG_LEVEL: Logging level for all services (DEBUG, INFO, WARNING, ERROR) [default: INFO]
-# - BUILDER_IMAGE: Shared builder image [default: joustmania/builder:latest]
-# - PSMOVE_BUILDER_IMAGE: PS Move API builder image [default: joustmania/psmove-builder:latest]
 
 services:
   # Redis for pub/sub messaging
@@ -80,11 +81,7 @@ services:
 
   # Settings Service
   settings:
-    build:
-      context: .
-      dockerfile: services/settings/Dockerfile
-      args:
-        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
+    image: joustmania/settings-service:latest
     container_name: joustmania-settings
     # Ports exposed only within Docker network (no host binding)
     expose:
@@ -119,12 +116,7 @@ services:
 
   # Controller Manager Service
   controller-manager:
-    build:
-      context: .
-      dockerfile: services/controller_manager/Dockerfile
-      args:
-        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
-        PSMOVE_BUILDER_IMAGE: ${PSMOVE_BUILDER_IMAGE:-joustmania/psmove-builder:latest}
+    image: joustmania/controller-manager-service:latest
     container_name: joustmania-controller-manager
     # Hardware access configured via docker-compose.prod.yml for production
     # Base config is mock-friendly (no privileged, devices, or dbus)
@@ -161,11 +153,7 @@ services:
 
   # Game Coordinator Service
   game-coordinator:
-    build:
-      context: .
-      dockerfile: services/game_coordinator/Dockerfile
-      args:
-        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
+    image: joustmania/game-coordinator-service:latest
     container_name: joustmania-game-coordinator
     # Ports exposed only within Docker network (no host binding)
     expose:
@@ -201,11 +189,7 @@ services:
 
   # Menu Service
   menu:
-    build:
-      context: .
-      dockerfile: services/menu/Dockerfile
-      args:
-        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
+    image: joustmania/menu-service:latest
     container_name: joustmania-menu
     # Ports exposed only within Docker network (no host binding)
     expose:
@@ -246,11 +230,7 @@ services:
 
   # Supervisor Service
   supervisor:
-    build:
-      context: .
-      dockerfile: services/supervisor/Dockerfile
-      args:
-        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
+    image: joustmania/supervisor-service:latest
     container_name: joustmania-supervisor
     # Ports exposed only within Docker network (no host binding)
     expose:
@@ -288,11 +268,7 @@ services:
 
   # Web UI Service
   webui:
-    build:
-      context: .
-      dockerfile: services/webui/Dockerfile
-      args:
-        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
+    image: joustmania/webui-service:latest
     container_name: joustmania-webui
     ports:
       - "80:80"  # WebUI exposed to host for browser access
@@ -335,11 +311,7 @@ services:
 
   # Audio Service
   audio:
-    build:
-      context: .
-      dockerfile: services/audio/Dockerfile
-      args:
-        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
+    image: joustmania/audio-service:latest
     container_name: joustmania-audio
     # Hardware access configured via docker-compose.prod.yml for production
     # Base config is mock-friendly (no privileged or devices)

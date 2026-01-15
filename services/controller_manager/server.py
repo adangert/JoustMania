@@ -206,8 +206,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         metrics.rssi_checks_total.inc()
                     self.monitoring.last_rssi_check = current_time
 
-                # Minimal sleep to yield CPU but keep polling fast for button responsiveness
-                time.sleep(0.001)  # ~1000 Hz max polling rate
+                # No sleep - poll as fast as possible for button responsiveness
 
             except Exception as e:
                 logger.error(f"Discovery loop error: {e}", exc_info=True)

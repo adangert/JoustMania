@@ -4,13 +4,32 @@ Linux/BlueZ Backend for PS Move Controllers
 Uses psmove library + BlueZ/DBus for controller access on Raspberry Pi/Linux.
 """
 
+import contextlib
 import logging
+import os
+import sys
 
 from services.controller_manager.backend import ControllerBackend
 
-# Import Linux-specific dependencies
+
+@contextlib.contextmanager
+def suppress_stderr():
+    """Suppress stderr output (e.g., psmoveapi calibration warnings)."""
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    old_stderr = os.dup(2)
+    os.dup2(devnull, 2)
+    try:
+        yield
+    finally:
+        os.dup2(old_stderr, 2)
+        os.close(devnull)
+        os.close(old_stderr)
+
+
+# Import Linux-specific dependencies (suppress psmove warnings)
 try:
-    import psmove
+    with suppress_stderr():
+        import psmove
 
     from lib.controller_state import ControllerState
     from services.controller_manager import bluetooth
@@ -59,7 +78,8 @@ class BluetoothBackend(ControllerBackend):
 
             for move_num in range(count):
                 try:
-                    move = psmove.PSMove(move_num)
+                    with suppress_stderr():
+                        move = psmove.PSMove(move_num)
                     if move is None:
                         continue
 
@@ -103,7 +123,8 @@ class BluetoothBackend(ControllerBackend):
             count = psmove.count_connected()
             for move_num in range(count):
                 try:
-                    move = psmove.PSMove(move_num)
+                    with suppress_stderr():
+                        move = psmove.PSMove(move_num)
                     if move is None:
                         continue
                     serial = move.get_serial()
@@ -144,7 +165,8 @@ class BluetoothBackend(ControllerBackend):
             # Scan for the controller
             for i in range(psmove.count_connected()):
                 try:
-                    move = psmove.PSMove(i)
+                    with suppress_stderr():
+                        move = psmove.PSMove(i)
                     if move is None:
                         continue
                     serial = move.get_serial()
@@ -277,7 +299,8 @@ class BluetoothBackend(ControllerBackend):
 
             for move_num in range(count):
                 try:
-                    move = psmove.PSMove(move_num)
+                    with suppress_stderr():
+                        move = psmove.PSMove(move_num)
                     if move is None:
                         continue
 

@@ -501,18 +501,14 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     # Track frame processing via metrics (no span for routine polling)
                     metrics.button_frames_processed_total.inc()
 
-                    # Log when we receive controllers in the update
-                    if update.controllers:
-                        logger.info(f"Menu received {len(update.controllers)} controller(s) in stream update")
-
                     # Note: Stream uses delta updates - only changed controllers appear in each update.
                     # Disconnect detection is disabled because it's unreliable with delta updates.
                     # The controller manager should send explicit disconnect events if needed (future work).
 
                     # Process each controller update
                     for controller in update.controllers:
-                        # Log received button states
-                        logger.info(f"Menu update: {controller.serial} trigger={controller.trigger_pressed} move={controller.move_pressed}")
+                        # Log button state changes (delta updates mean we only get this on changes)
+                        logger.info(f"Menu stream: {controller.serial} T={controller.trigger_pressed} M={controller.move_pressed}")
 
                         # Update lobby feedback regardless of menu state (controllers should light up)
                         await self._update_lobby_feedback(controller, stub)

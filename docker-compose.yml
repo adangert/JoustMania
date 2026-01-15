@@ -118,9 +118,17 @@ services:
   controller-manager:
     image: joustmania/controller-manager-service:latest
     container_name: joustmania-controller-manager
-    # D-Bus access for Bluetooth (required for bluetooth backend)
+    privileged: true
     volumes:
+      # D-Bus socket for BlueZ communication
       - /var/run/dbus:/var/run/dbus:ro
+      # Bluetooth device info (read-only, pairing handled by host daemon)
+      - /var/lib/bluetooth:/var/lib/bluetooth:ro
+      # PS Move calibration data (created by host pairing daemon)
+      - ${HOME}/.psmoveapi:/root/.psmoveapi:ro
+    devices:
+      # PS Move controllers use hidraw for Bluetooth communication
+      - /dev:/dev
     networks:
       - joustmania
     # Ports exposed only within Docker network (no host binding)

@@ -6,29 +6,29 @@
 help:
 	@echo "JoustMania Build Targets"
 	@echo "========================"
-	@echo "  make protos          - Generate and compile protobuf files"
-	@echo "  make clean-protos    - Remove generated protobuf files"
-	@echo "  make docker-build    - Build all Docker images"
-	@echo "  make docker-start    - Start Docker services"
-	@echo "  make docker-stop     - Stop Docker services"
+	@echo ""
+	@echo "Quick Start:"
+	@echo "  make builders        - Build builder images (run once, ~15min)"
+	@echo "  make up              - Build and start all services"
+	@echo "  make down            - Stop all services"
+	@echo "  make logs            - Follow service logs"
+	@echo ""
+	@echo "Docker:"
+	@echo "  make docker-build    - Build all service images"
+	@echo "  make docker-start    - Start services (no build)"
+	@echo "  make docker-stop     - Stop services"
 	@echo ""
 	@echo "Builder Images (Phase 69):"
-	@echo "  make builders        - Build all builder images (run once)"
-	@echo "  make builder         - Build shared Python builder image"
-	@echo "  make psmove-builder  - Build psmoveapi builder image (~15min)"
+	@echo "  make builders        - Build all builder images"
+	@echo "  make builder         - Build shared Python builder only"
+	@echo "  make psmove-builder  - Build psmoveapi builder (~15min)"
 	@echo ""
-	@echo "Testing Targets:"
-	@echo "  make test-help       - Show all testing targets"
-	@echo "  make test            - Run all integration tests (recommended)"
-	@echo "  make test-teams      - Run Teams test"
-	@echo "  make test-mock-pause - Run with pause for Jaeger inspection"
+	@echo "Protos:"
+	@echo "  make protos          - Generate protobuf files"
+	@echo "  make clean-protos    - Remove generated protos"
 	@echo ""
-	@echo "CI/CD Targets:"
-	@echo "  make ci-help         - Show all CI/CD targets"
-	@echo "  make ci-all          - Run all CI checks"
-	@echo "  make lint            - Lint Python code"
-	@echo "  make format          - Format code"
-	@echo "  make typecheck       - Type check code"
+	@echo "Testing:  make test-help"
+	@echo "CI/CD:    make ci-help"
 
 .PHONY: protos
 protos:
@@ -44,7 +44,7 @@ clean-protos:
 	@echo "✓ Done! Protobuf files cleaned."
 
 .PHONY: docker-build
-docker-build:
+docker-build: builders
 	@bash scripts/docker/build.sh
 
 .PHONY: docker-start
@@ -54,6 +54,22 @@ docker-start:
 .PHONY: docker-stop
 docker-stop:
 	@bash scripts/docker/stop.sh
+
+# Convenience aliases
+.PHONY: up
+up: docker-build docker-start
+	@echo ""
+	@echo "JoustMania is running!"
+
+.PHONY: down
+down: docker-stop
+
+.PHONY: logs
+logs:
+	@docker compose logs -f
+
+.PHONY: restart
+restart: down up
 
 # ============================================================================
 # Builder Images (Phase 69)

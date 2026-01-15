@@ -131,9 +131,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Shared event loop for discovery thread (avoids creating new loop per call)
         self._discovery_loop_handle: asyncio.AbstractEventLoop | None = None
 
-        # Debug: Rate limiting for button logging (log at most once per second per controller)
-        self._last_button_log: dict[str, float] = {}
-
         # Discovery thread
         self.running = True
         self.backend_initialized = False  # Phase 57: Track backend init status
@@ -209,7 +206,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         metrics.rssi_checks_total.inc()
                     self.monitoring.last_rssi_check = current_time
 
-                time.sleep(0.016)  # ~60 Hz polling for smooth state updates
+                # Minimal sleep to yield CPU but keep polling fast for button responsiveness
+                time.sleep(0.001)  # ~1000 Hz max polling rate
 
             except Exception as e:
                 logger.error(f"Discovery loop error: {e}", exc_info=True)
@@ -303,13 +301,17 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     # Update stored state
                     self.controller_states[serial] = state
 
-                    # Debug: Log button states when pressed (rate-limited to 1/sec per controller)
+                    # Debug: Log all button states when any button is pressed
                     move_btn = state.get(ButtonKey.MOVE, False)
                     trigger_btn = state.get(ButtonKey.TRIGGER, False)
-                    current_time = time.time()
-                    if (move_btn or trigger_btn) and current_time - self._last_button_log.get(serial, 0) >= 1.0:
-                        logger.info(f"Button state from backend {serial}: move={move_btn}, trigger={trigger_btn}")
-                        self._last_button_log[serial] = current_time
+                    cross_btn = state.get(ButtonKey.CROSS, False)
+                    circle_btn = state.get(ButtonKey.CIRCLE, False)
+                    square_btn = state.get(ButtonKey.SQUARE, False)
+                    triangle_btn = state.get(ButtonKey.TRIANGLE, False)
+                    ps_btn = state.get(ButtonKey.PS, False)
+                    any_pressed = move_btn or trigger_btn or cross_btn or circle_btn or square_btn or triangle_btn or ps_btn
+                    if any_pressed:
+                        logger.info(f"Buttons {serial}: M={move_btn} T={trigger_btn} X={cross_btn} O={circle_btn} []={square_btn} /\\={triangle_btn} PS={ps_btn}")
 
                     # Update battery in tracked_controllers info
                     if StateKey.BATTERY in state:

@@ -112,7 +112,6 @@ class BluetoothBackend(ControllerBackend):
         self.hci = "hci0"  # Default Bluetooth adapter
         self.running = False
         self._last_controller_count = 0  # Track count to avoid redundant rescans
-        self._last_button_log: dict[str, float] = {}  # Rate limiting for button logging
 
         logger.info("BluetoothBackend initialized")
 
@@ -307,11 +306,9 @@ class BluetoothBackend(ControllerBackend):
             trigger = move.get_trigger()
             buttons = move.get_buttons()
 
-            # Log raw button state at INFO level when any button is pressed (rate-limited)
-            current_time = time.time()
-            if buttons != 0 and current_time - self._last_button_log.get(serial, 0) >= 1.0:
-                logger.info(f"PSMove buttons for {serial}: 0x{buttons:04X} (move={bool(buttons & psmove.Btn_MOVE)}, trigger={bool(buttons & psmove.Btn_T)})")
-                self._last_button_log[serial] = current_time
+            # Log raw button state at INFO level when any button is pressed
+            if buttons != 0:
+                logger.info(f"PSMove raw buttons {serial}: 0x{buttons:04X}")
 
             # Read motion sensors
             ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)

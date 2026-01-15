@@ -36,9 +36,11 @@ GAME_MODE_ALIASES: dict[str, str] = {
     "ffa": "ffa",
     "free-for-all": "ffa",
     "joust free-for-all": "ffa",
+    "joustffa": "ffa",  # Menu service name
     # Teams
     "teams": "teams",
     "joust teams": "teams",
+    "joustteams": "teams",  # Menu service name
     # Random Teams
     "random teams": "random_teams",
     "joust random teams": "random_teams",
@@ -46,7 +48,7 @@ GAME_MODE_ALIASES: dict[str, str] = {
     # Nonstop Joust
     "nonstop": "nonstop_joust",
     "nonstop joust": "nonstop_joust",
-    "nonstopjoust": "nonstop_joust",
+    "nonstopjoust": "nonstop_joust",  # Menu service name
 }
 
 

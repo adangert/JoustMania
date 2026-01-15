@@ -75,6 +75,18 @@ restart: down up
 ps:
 	@docker compose ps
 
+# Mock mode for testing (no real hardware required)
+.PHONY: up-mock
+up-mock: images
+	@echo "Starting JoustMania stack in MOCK mode..."
+	@CONTROLLER_BACKEND=mock AUDIO_MOCK_MODE=true docker compose up -d
+	@echo ""
+	@echo "=========================================="
+	@echo "JoustMania is running (MOCK MODE)"
+	@echo "=========================================="
+	@echo "  Web UI:     http://localhost:80"
+	@echo "  Jaeger:     http://localhost:16686"
+
 # ============================================================================
 # Builder Images (Phase 69)
 # ============================================================================

@@ -9,13 +9,13 @@ version: '3.8'
 #
 # Or just: make up (builds everything automatically)
 #
-# Base config defaults to mock mode (no hardware required).
-# For production with real hardware, use: docker compose -f docker-compose.yml -f docker-compose.prod.yml up
+# Base config defaults to bluetooth mode (real hardware).
+# For mock mode (testing): CONTROLLER_BACKEND=mock AUDIO_MOCK_MODE=true make up
 #
 # Environment Variables (can be set in shell or .env file):
-# - CONTROLLER_BACKEND: Controller backend type (bluetooth, mock, windows) [default: mock]
+# - CONTROLLER_BACKEND: Controller backend type (bluetooth, mock, windows) [default: bluetooth]
 # - MOCK_CONTROLLER_COUNT: Number of mock controllers when CONTROLLER_BACKEND=mock [default: 4]
-# - AUDIO_MOCK_MODE: Disable audio output for testing [default: true]
+# - AUDIO_MOCK_MODE: Disable audio output for testing [default: false]
 # - LOG_LEVEL: Logging level for all services (DEBUG, INFO, WARNING, ERROR) [default: INFO]
 
 services:
@@ -127,7 +127,7 @@ services:
       - "50052"  # gRPC service
       - "8000"   # Prometheus metrics
     environment:
-      - CONTROLLER_BACKEND=${CONTROLLER_BACKEND:-mock}
+      - CONTROLLER_BACKEND=${CONTROLLER_BACKEND:-bluetooth}
       - MOCK_CONTROLLER_COUNT=${MOCK_CONTROLLER_COUNT:-4}
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
       - OTEL_SERVICE_NAME=controller-manager-service
@@ -322,7 +322,7 @@ services:
       - "50056"  # gRPC service
       - "8000"   # Prometheus metrics
     environment:
-      - MOCK_MODE=${AUDIO_MOCK_MODE:-true}
+      - MOCK_MODE=${AUDIO_MOCK_MODE:-false}
       - OTEL_SERVICE_NAME=audio-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:

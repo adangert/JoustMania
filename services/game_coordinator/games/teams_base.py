@@ -178,6 +178,7 @@ class TeamsGameBase(BaseGameMode):
         try:
             for serial, player in self.players.items():
                 team_color = self.team_colors[player.team]["rgb"]
+                player.color = team_color  # Phase XX: Store color for stream init
 
                 if pulse_effect:
                     # Use pulse effect for team announcement
@@ -389,21 +390,31 @@ class TeamsGameBase(BaseGameMode):
         alive_teams = self._get_alive_teams()
         winning_team_num = list(alive_teams)[0] if len(alive_teams) == 1 else None
 
-        # Show rainbow effect on winning team's controllers (Phase 29)
+        # Phase XX: Show rainbow effect on winning team's controllers via game effect
         if winning_team_num is not None:
             from proto import controller_manager_pb2
 
             # Play rainbow effect on all winning team members
             for serial, player in self.players.items():
                 if player.alive and player.team == winning_team_num:
-                    rainbow_request = controller_manager_pb2.PlayControllerEffectRequest(
-                        serial=serial,
-                        effect=controller_manager_pb2.EFFECT_RAINBOW,
-                        color=controller_manager_pb2.RGB(r=255, g=255, b=255),
-                        duration_ms=2000,
-                        speed=5,
-                    )
-                    await self.controller_client.PlayControllerEffect(rainbow_request)
+                    if self.gameplay_stream:
+                        effect_cmd = controller_manager_pb2.GameplayStreamControl(
+                            game_effect=controller_manager_pb2.GameEffectCommand(
+                                serial=serial,
+                                effect=controller_manager_pb2.GAME_EFFECT_WINNER_RAINBOW,
+                            )
+                        )
+                        await self.gameplay_stream.write(effect_cmd)
+                    else:
+                        # Fallback to RPC
+                        rainbow_request = controller_manager_pb2.PlayControllerEffectRequest(
+                            serial=serial,
+                            effect=controller_manager_pb2.EFFECT_RAINBOW,
+                            color=controller_manager_pb2.RGB(r=255, g=255, b=255),
+                            duration_ms=3000,
+                            speed=5,
+                        )
+                        await self.controller_client.PlayControllerEffect(rainbow_request)
 
             # Play victory sound (Phase 29)
             await self._play_sound("Joust/sounds/wolfdown.wav", priority=2)

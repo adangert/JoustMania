@@ -116,6 +116,10 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Phase 34: Use async lock since effects are managed from async gRPC methods
         self.effect_lock = asyncio.Lock()
 
+        # Phase XX: LED State Ownership - base colors per controller
+        # Clients set base colors via streams, effects auto-restore to these
+        self.base_colors: dict[str, tuple[int, int, int]] = {}
+
         # Monitoring (battery and RSSI) - Phase 39, Phase 48, extracted to monitoring.py
         self.monitoring = ControllerMonitoring(
             low_battery_threshold=1,
@@ -508,9 +512,10 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                 logger.info(f"Stream subscriber disconnected: {subscriber_id}")
 
-    async def StreamButtonEvents(self, request, context):
+    async def StreamButtonEvents(self, request_iterator, context):
         """
         Stream button press/release events as they occur (Phase 41).
+        Phase XX: Made bidirectional for LED state ownership - menu can send base colors and effects.
 
         This is an event-driven stream - events are only sent when buttons
         change state (press or release), not on every frame.
@@ -528,6 +533,51 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
             # Update stream metrics (Phase 38)
             metrics.active_streams.inc()
+
+            # Phase XX: Background task to read client control messages
+            async def read_client_controls():
+                try:
+                    async for control_msg in request_iterator:
+                        if control_msg.HasField("config"):
+                            # Initial configuration (currently empty, for future use)
+                            logger.info(f"[{subscriber_id}] Button stream configured")
+
+                        elif control_msg.HasField("base_color"):
+                            # Phase XX: Set base color for a controller
+                            cmd = control_msg.base_color
+                            serial = cmd.serial
+                            color = (cmd.color.r, cmd.color.g, cmd.color.b)
+
+                            if serial and serial in self.tracked_controllers:
+                                # Store base color and set LED
+                                self.base_colors[serial] = color
+                                await self._set_controller_color_internal(serial, color)
+
+                                logger.debug(
+                                    f"[{subscriber_id}] Base color set: "
+                                    f"serial={serial}, rgb={color}"
+                                )
+
+                            metrics.stream_commands_total.labels(command_type="base_color").inc()
+
+                        elif control_msg.HasField("game_effect"):
+                            # Phase XX: Trigger semantic game effect
+                            cmd = control_msg.game_effect
+                            await self._handle_game_effect(cmd.serial, cmd.effect, subscriber_id)
+
+                            effect_name = controller_manager_pb2.GameEffect.Name(cmd.effect)
+                            logger.debug(
+                                f"[{subscriber_id}] Game effect: "
+                                f"serial={cmd.serial or 'all'}, effect={effect_name}"
+                            )
+
+                            metrics.stream_commands_total.labels(command_type="game_effect").inc()
+
+                except Exception as e:
+                    logger.error(f"[{subscriber_id}] Error reading client controls: {e}", exc_info=True)
+
+            # Start background task to read client controls
+            control_task = asyncio.create_task(read_client_controls())
 
             logger.info(f"New button event subscriber: {subscriber_id}")
 
@@ -550,6 +600,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         break
 
             finally:
+                # Cleanup: Cancel background task
+                control_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await control_task
+
                 # Cleanup (Phase 34: async lock)
                 async with self.button_event_lock:
                     if subscriber_id in self.button_event_subscribers:
@@ -659,8 +714,30 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     async for control_msg in request_iterator:
                         if control_msg.HasField("config"):
                             # Initial configuration
-                            current_hz = control_msg.config.update_frequency_hz
-                            current_filter = set(control_msg.config.serials) if control_msg.config.serials else None
+                            current_hz = control_msg.config.update_frequency_hz or 30
+
+                            # Phase XX: Extract filter from colors if provided, fallback to serials
+                            if control_msg.config.colors:
+                                # Use serials from colors as filter
+                                current_filter = set()
+                                for color_config in control_msg.config.colors:
+                                    serial = color_config.serial
+                                    if serial:
+                                        current_filter.add(serial)
+                                        # Store base color and set LED
+                                        color = (color_config.color.r, color_config.color.g, color_config.color.b)
+                                        self.base_colors[serial] = color
+                                        if serial in self.tracked_controllers:
+                                            await self._set_controller_color_internal(serial, color)
+                                logger.info(
+                                    f"[{subscriber_id}] Set base colors for {len(current_filter)} controllers"
+                                )
+                            elif control_msg.config.serials:
+                                # Legacy: use serials field directly
+                                current_filter = set(control_msg.config.serials)
+                            else:
+                                current_filter = None  # All controllers
+
                             logger.info(
                                 f"[{subscriber_id}] Stream configured: {current_hz}Hz, "
                                 f"filter={len(current_filter) if current_filter else 'all'} controllers"
@@ -805,6 +882,37 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                             # Metric (Phase 46)
                             metrics.stream_commands_total.labels(command_type="combined").inc()
+
+                        elif control_msg.HasField("base_color"):
+                            # Phase XX: Set base color for a controller (LED state ownership)
+                            cmd = control_msg.base_color
+                            serial = cmd.serial
+                            color = (cmd.color.r, cmd.color.g, cmd.color.b)
+
+                            if serial and serial in self.tracked_controllers:
+                                # Store base color and set LED
+                                self.base_colors[serial] = color
+                                await self._set_controller_color_internal(serial, color)
+
+                                logger.debug(
+                                    f"[{subscriber_id}] Base color set: "
+                                    f"serial={serial}, rgb={color}"
+                                )
+
+                            metrics.stream_commands_total.labels(command_type="base_color").inc()
+
+                        elif control_msg.HasField("game_effect"):
+                            # Phase XX: Trigger semantic game effect (LED state ownership)
+                            cmd = control_msg.game_effect
+                            await self._handle_game_effect(cmd.serial, cmd.effect, subscriber_id)
+
+                            effect_name = controller_manager_pb2.GameEffect.Name(cmd.effect)
+                            logger.debug(
+                                f"[{subscriber_id}] Game effect: "
+                                f"serial={cmd.serial or 'all'}, effect={effect_name}"
+                            )
+
+                            metrics.stream_commands_total.labels(command_type="game_effect").inc()
 
                 except Exception as e:
                     logger.error(f"[{subscriber_id}] Error reading client updates: {e}", exc_info=True)
@@ -960,6 +1068,10 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     # Clean up button states
                     if serial in self.button_states:
                         del self.button_states[serial]
+
+                    # Phase XX: Clean up base colors
+                    if serial in self.base_colors:
+                        del self.base_colors[serial]
 
                 # Cancel any active effects (Phase 31, Phase 34: async lock - outside state_lock)
                 async with self.effect_lock:
@@ -1302,6 +1414,176 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         except Exception as e:
             logger.error(f"Error playing effect on {serial}: {e}", exc_info=True)
             return False
+
+    async def _handle_game_effect(self, serial: str, effect: int, subscriber_id: str = "") -> bool:
+        """
+        Handle semantic game effect with auto-restore to base color (Phase XX).
+
+        This method interprets game-level effects (warning, death, winner, etc.)
+        and translates them to LED animations with appropriate restore behavior.
+
+        Args:
+            serial: Controller serial (empty = all controllers for broadcast)
+            effect: GameEffect enum value
+            subscriber_id: For logging
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Determine target controllers
+            if serial:
+                serials = [serial] if serial in self.tracked_controllers else []
+            else:
+                serials = list(self.tracked_controllers.keys())
+
+            if not serials:
+                logger.warning(f"No controllers found for game effect")
+                return False
+
+            for target_serial in serials:
+                restore_color = self.base_colors.get(target_serial)
+
+                if effect == controller_manager_pb2.GAME_EFFECT_NONE:
+                    pass  # No-op
+
+                elif effect == controller_manager_pb2.GAME_EFFECT_PLAYER_WARNING:
+                    # White flash + vibrate, restore to base color
+                    await self._play_effect_with_restore(
+                        target_serial,
+                        effect_type="flash",
+                        color=(255, 255, 255),
+                        duration_ms=200,
+                        speed=5,
+                        restore_color=restore_color,
+                    )
+                    await self._set_vibration_internal(target_serial, 100, 200)
+
+                elif effect == controller_manager_pb2.GAME_EFFECT_PLAYER_DEATH:
+                    # Red + vibrate, stays red (no restore)
+                    await self._set_controller_color_internal(target_serial, (255, 0, 0))
+                    await self._set_vibration_internal(target_serial, 255, 500)
+                    # Update base color to red (dead state)
+                    self.base_colors[target_serial] = (255, 0, 0)
+
+                elif effect == controller_manager_pb2.GAME_EFFECT_PLAYER_RESPAWN:
+                    # White during spawn protection
+                    await self._set_controller_color_internal(target_serial, (255, 255, 255))
+                    self.base_colors[target_serial] = (255, 255, 255)
+
+                elif effect == controller_manager_pb2.GAME_EFFECT_WINNER_RAINBOW:
+                    # Rainbow 3s, restore to base color
+                    await self._play_effect_with_restore(
+                        target_serial,
+                        effect_type="rainbow",
+                        color=(255, 255, 255),
+                        duration_ms=3000,
+                        speed=5,
+                        restore_color=restore_color,
+                    )
+
+                elif effect == controller_manager_pb2.GAME_EFFECT_COUNTDOWN_3:
+                    # Red
+                    await self._set_controller_color_internal(target_serial, (255, 0, 0))
+
+                elif effect == controller_manager_pb2.GAME_EFFECT_COUNTDOWN_2:
+                    # Yellow
+                    await self._set_controller_color_internal(target_serial, (255, 255, 0))
+
+                elif effect == controller_manager_pb2.GAME_EFFECT_COUNTDOWN_1:
+                    # Green
+                    await self._set_controller_color_internal(target_serial, (0, 255, 0))
+
+                elif effect == controller_manager_pb2.GAME_EFFECT_ADMIN_ENTER:
+                    # White flash 3x, then persistent white
+                    await self._play_effect_internal(
+                        target_serial,
+                        controller_manager_pb2.EFFECT_FLASH,
+                        (255, 255, 255),
+                        600,
+                        5,
+                    )
+                    await asyncio.sleep(0.7)
+                    await self._set_controller_color_internal(target_serial, (255, 255, 255))
+                    self.base_colors[target_serial] = (255, 255, 255)
+
+                elif effect == controller_manager_pb2.GAME_EFFECT_ADMIN_EXIT:
+                    # Restore to base color
+                    if restore_color:
+                        await self._set_controller_color_internal(target_serial, restore_color)
+
+                elif effect == controller_manager_pb2.GAME_EFFECT_LOW_BATTERY:
+                    # Red flash 2x warning
+                    for _ in range(2):
+                        await self._set_controller_color_internal(target_serial, (255, 0, 0))
+                        await asyncio.sleep(0.15)
+                        await self._set_controller_color_internal(target_serial, (50, 0, 0))
+                        await asyncio.sleep(0.15)
+                    # Restore to base color
+                    if restore_color:
+                        await self._set_controller_color_internal(target_serial, restore_color)
+
+                else:
+                    effect_name = controller_manager_pb2.GameEffect.Name(effect)
+                    logger.warning(f"Unknown game effect: {effect_name}")
+                    return False
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error handling game effect: {e}", exc_info=True)
+            return False
+
+    async def _play_effect_with_restore(
+        self,
+        serial: str,
+        effect_type: str,
+        color: tuple[int, int, int],
+        duration_ms: int,
+        speed: int,
+        restore_color: tuple[int, int, int] | None,
+    ):
+        """
+        Play an effect and restore to base color when done (Phase XX).
+
+        Args:
+            serial: Controller serial
+            effect_type: "flash", "pulse", "rainbow", "fade_out", "fade_in"
+            color: RGB color for effect
+            duration_ms: Effect duration
+            speed: Effect speed (1-10)
+            restore_color: Color to restore to after effect (None = no restore)
+        """
+        # Cancel any existing effect
+        async with self.effect_lock:
+            if serial in self.active_effects:
+                self.active_effects[serial].cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self.active_effects[serial]
+                del self.active_effects[serial]
+
+        # Create wrapper that restores color after effect
+        async def effect_with_restore():
+            try:
+                if effect_type == "flash":
+                    await self._effect_flash(serial, color, duration_ms, speed)
+                elif effect_type == "pulse":
+                    await self._effect_pulse(serial, color, duration_ms, speed)
+                elif effect_type == "rainbow":
+                    await self._effect_rainbow(serial, duration_ms, speed)
+                elif effect_type == "fade_out":
+                    await self._effect_fade_out(serial, color, duration_ms)
+                elif effect_type == "fade_in":
+                    await self._effect_fade_in(serial, color, duration_ms)
+            except asyncio.CancelledError:
+                raise
+            finally:
+                if restore_color:
+                    await self._set_led_color(serial, restore_color)
+
+        task = asyncio.create_task(effect_with_restore())
+        async with self.effect_lock:
+            self.active_effects[serial] = task
 
     async def _set_vibration_internal(self, serial: str, intensity: int, duration_ms: int) -> bool:
         """

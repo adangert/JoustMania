@@ -95,6 +95,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             (150, 0, 255),  # Purple for force_all_start
         ]
 
+        # Phase XX: Bidirectional button event stream for LED state ownership
+        self.button_stream: grpc.aio.StreamStreamCall | None = None
+        self.button_stream_lock = asyncio.Lock()
+        self._button_stream_queue: asyncio.Queue | None = None
+
         # Persistent gRPC channels (Phase 26 - Performance, Phase 33 - shared utilities)
         # Create channels once and reuse throughout service lifecycle
         # Use environment variables for service addresses (supports mock environment)
@@ -633,6 +638,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
         The state stream (_button_monitor_loop) can miss quick button presses.
         This event stream ensures we catch every trigger press for ready toggle.
+
+        Phase XX: Now bidirectional - also sends base colors and game effects
+        to the controller manager for LED state ownership.
         """
         from proto import (
             controller_manager_pb2,
@@ -646,17 +654,49 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             try:
                 stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
 
-                logger.info("Button event monitor connected to Controller Manager")
+                logger.info("Button event monitor connecting to Controller Manager (bidirectional)...")
+
+                # Create bidirectional stream
+                # We need an async generator for the request side
+                request_queue = asyncio.Queue()
+
+                async def request_generator():
+                    """Async generator that yields ButtonEventStreamControl messages."""
+                    # Send initial config
+                    initial_config = controller_manager_pb2.ButtonEventStreamControl(
+                        config=controller_manager_pb2.ButtonEventStreamConfig()
+                    )
+                    yield initial_config
+
+                    # Then yield messages from queue
+                    while self.button_monitor_running:
+                        try:
+                            msg = await asyncio.wait_for(request_queue.get(), timeout=1.0)
+                            yield msg
+                        except TimeoutError:
+                            continue
+                        except asyncio.CancelledError:
+                            return
+
+                # Start bidirectional stream
+                stream = stub.StreamButtonEvents(request_generator())
+
+                # Store stream reference and queue for sending messages
+                async with self.button_stream_lock:
+                    self.button_stream = stream
+                    self._button_stream_queue = request_queue
+
+                logger.info("Button event monitor connected to Controller Manager (bidirectional)")
                 retry_delay = 1.0
 
-                # Subscribe to button events
-                async for event in stub.StreamButtonEvents(controller_manager_pb2.ButtonEventStreamRequest()):
+                # Process incoming button events
+                async for event in stream:
                     if not self.button_monitor_running:
                         return
 
                     # Only handle trigger press events for ready state
                     if event.button == controller_manager_pb2.BUTTON_TRIGGER and event.action == controller_manager_pb2.ACTION_PRESS:
-                        await self._handle_button_event_trigger(event.serial, stub)
+                        await self._handle_button_event_trigger(event.serial)
 
                 if self.button_monitor_running:
                     logger.warning("Button event stream ended, reconnecting...")
@@ -670,16 +710,83 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 logger.error(f"Button event monitor error: {e}, reconnecting in {retry_delay:.1f}s")
                 await asyncio.sleep(retry_delay)
                 retry_delay = min(retry_delay * 2, max_retry_delay)
+            finally:
+                # Clear stream reference on disconnect
+                async with self.button_stream_lock:
+                    self.button_stream = None
+                    self._button_stream_queue = None
 
-    async def _handle_button_event_trigger(self, serial: str, stub):
+    async def _send_base_color(self, serial: str, color: tuple[int, int, int]) -> bool:
+        """
+        Send base color via bidirectional button stream (Phase XX).
+
+        Args:
+            serial: Controller serial number
+            color: RGB tuple (r, g, b)
+
+        Returns:
+            True if sent successfully, False if stream not available
+        """
+        from proto import controller_manager_pb2
+
+        async with self.button_stream_lock:
+            if self._button_stream_queue is None:
+                return False
+
+            try:
+                msg = controller_manager_pb2.ButtonEventStreamControl(
+                    base_color=controller_manager_pb2.ControllerColorConfig(
+                        serial=serial,
+                        color=controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]),
+                    )
+                )
+                self._button_stream_queue.put_nowait(msg)
+                logger.debug(f"Sent base color for {serial}: {color}")
+                return True
+            except asyncio.QueueFull:
+                logger.warning(f"Button stream queue full, could not send base color for {serial}")
+                return False
+
+    async def _send_game_effect(self, serial: str, effect: int) -> bool:
+        """
+        Send game effect via bidirectional button stream (Phase XX).
+
+        Args:
+            serial: Controller serial number
+            effect: GameEffect enum value
+
+        Returns:
+            True if sent successfully, False if stream not available
+        """
+        from proto import controller_manager_pb2
+
+        async with self.button_stream_lock:
+            if self._button_stream_queue is None:
+                return False
+
+            try:
+                msg = controller_manager_pb2.ButtonEventStreamControl(
+                    game_effect=controller_manager_pb2.GameEffectCommand(
+                        serial=serial,
+                        effect=effect,
+                    )
+                )
+                self._button_stream_queue.put_nowait(msg)
+                logger.debug(f"Sent game effect for {serial}: {effect}")
+                return True
+            except asyncio.QueueFull:
+                logger.warning(f"Button stream queue full, could not send game effect for {serial}")
+                return False
+
+    async def _handle_button_event_trigger(self, serial: str):
         """
         Handle trigger press event for ready state toggle.
 
         This is called from the button event stream for immediate response,
         bypassing the state stream latency.
-        """
-        from proto import controller_manager_pb2
 
+        Phase XX: Uses bidirectional stream to send base colors instead of RPC.
+        """
         current_time = time.time()
 
         # Debounce - ignore if we just processed this
@@ -711,15 +818,23 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             await self._play_sound("Joust/sounds/beep_loud.wav", volume=0.5)
             logger.info(f"Controller {serial} ready via button event ({self.ready_controller_count} total)")
 
-            # Update LED to bright (ready) color
+            # Update LED to bright (ready) color via stream
             base_color = self.GAME_MODE_COLORS.get(self.current_selection, (255, 140, 0))
-            color = controller_manager_pb2.RGB(r=base_color[0], g=base_color[1], b=base_color[2])
-            try:
-                await stub.SetControllerColor(
-                    controller_manager_pb2.SetControllerColorRequest(serial=serial, color=color, duration_ms=0)
-                )
-            except Exception as e:
-                logger.error(f"Failed to set ready color for {serial}: {e}")
+            if not await self._send_base_color(serial, base_color):
+                # Fallback to RPC if stream not available
+                from proto import controller_manager_pb2, controller_manager_pb2_grpc
+
+                try:
+                    stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
+                    await stub.SetControllerColor(
+                        controller_manager_pb2.SetControllerColorRequest(
+                            serial=serial,
+                            color=controller_manager_pb2.RGB(r=base_color[0], g=base_color[1], b=base_color[2]),
+                            duration_ms=0,
+                        )
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to set ready color for {serial}: {e}")
 
             # Check if all ready - auto start
             all_ready = len(self.ready_controllers) == len(self.connected_controllers)
@@ -844,9 +959,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         - Green flash: Initial connection
         - White: Admin mode
 
+        Phase XX: Uses bidirectional stream to send base colors with RPC fallback.
+
         Args:
             controller: ControllerState protobuf message
-            stub: ControllerManagerServiceStub for LED control
+            stub: ControllerManagerServiceStub for LED control (fallback)
         """
         from proto import controller_manager_pb2
 
@@ -932,38 +1049,46 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             (255, 140, 0),  # Default to orange if game mode not found
         )
 
-        # Set LED color based on state
-        try:
-            if target_state == "ready":
-                # Bright version (100% brightness) - ready state is always full brightness
-                color = controller_manager_pb2.RGB(r=base_color[0], g=base_color[1], b=base_color[2])
-            else:
-                # Dim version with battery-based brightness (Phase 70)
-                # Battery level 0-5 maps to brightness 15-50%
-                battery = controller.battery if controller.battery >= 0 else 5
-                dim_factor = self._get_battery_dim_factor(battery)
-                color = controller_manager_pb2.RGB(
-                    r=int(base_color[0] * dim_factor),
-                    g=int(base_color[1] * dim_factor),
-                    b=int(base_color[2] * dim_factor),
-                )
-
-            await stub.SetControllerColor(
-                controller_manager_pb2.SetControllerColorRequest(
-                    serial=serial,
-                    color=color,
-                    duration_ms=0,  # Persistent until changed
-                )
+        # Calculate final color based on state
+        if target_state == "ready":
+            # Bright version (100% brightness) - ready state is always full brightness
+            final_color = base_color
+        else:
+            # Dim version with battery-based brightness (Phase 70)
+            # Battery level 0-5 maps to brightness 15-50%
+            battery = controller.battery if controller.battery >= 0 else 5
+            dim_factor = self._get_battery_dim_factor(battery)
+            final_color = (
+                int(base_color[0] * dim_factor),
+                int(base_color[1] * dim_factor),
+                int(base_color[2] * dim_factor),
             )
 
+        # Phase XX: Try to send via bidirectional stream first
+        if await self._send_base_color(serial, final_color):
             # Update state tracking
             self.controller_lobby_state[serial] = target_state
             self.last_lobby_feedback_update[serial] = current_time
+            logger.debug(f"Controller {serial} lobby state: {target_state} (game: {self.current_selection}) via stream")
+        else:
+            # Fallback to RPC if stream not available
+            try:
+                await stub.SetControllerColor(
+                    controller_manager_pb2.SetControllerColorRequest(
+                        serial=serial,
+                        color=controller_manager_pb2.RGB(r=final_color[0], g=final_color[1], b=final_color[2]),
+                        duration_ms=0,  # Persistent until changed
+                    )
+                )
 
-            logger.debug(f"Controller {serial} lobby state: {target_state} (game: {self.current_selection})")
+                # Update state tracking
+                self.controller_lobby_state[serial] = target_state
+                self.last_lobby_feedback_update[serial] = current_time
 
-        except Exception as e:
-            logger.error(f"Failed to update lobby feedback for {serial}: {e}")
+                logger.debug(f"Controller {serial} lobby state: {target_state} (game: {self.current_selection}) via RPC")
+
+            except Exception as e:
+                logger.error(f"Failed to update lobby feedback for {serial}: {e}")
 
     def _get_battery_dim_factor(self, battery_level: int) -> float:
         """
@@ -1060,13 +1185,15 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
         Flashes red on controllers with battery <= 2 (40%) as a warning.
         Does not block game start - just provides visual feedback.
+
+        Phase XX: Uses GAME_EFFECT_LOW_BATTERY via bidirectional stream.
         """
+        from proto import controller_manager_pb2, controller_manager_pb2_grpc
+
         low_battery_threshold = 2  # 40% or below
         low_battery_controllers = []
 
         try:
-            from proto import controller_manager_pb2, controller_manager_pb2_grpc
-
             stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
 
             # Get all controller states
@@ -1079,24 +1206,28 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             # Flash warning on low battery controllers
             for serial, battery in low_battery_controllers:
                 logger.warning(f"Controller {serial} has low battery ({battery}/5) before game start")
-                # Quick red flash (2x) to warn player
-                for _ in range(2):
-                    await stub.SetControllerColor(
-                        controller_manager_pb2.SetControllerColorRequest(
-                            serial=serial,
-                            color=controller_manager_pb2.RGB(r=255, g=0, b=0),
-                            duration_ms=150,
+
+                # Phase XX: Try to use game effect via stream
+                if not await self._send_game_effect(serial, controller_manager_pb2.GAME_EFFECT_LOW_BATTERY):
+                    # Fallback to RPC if stream not available
+                    # Quick red flash (2x) to warn player
+                    for _ in range(2):
+                        await stub.SetControllerColor(
+                            controller_manager_pb2.SetControllerColorRequest(
+                                serial=serial,
+                                color=controller_manager_pb2.RGB(r=255, g=0, b=0),
+                                duration_ms=150,
+                            )
                         )
-                    )
-                    await asyncio.sleep(0.15)
-                    await stub.SetControllerColor(
-                        controller_manager_pb2.SetControllerColorRequest(
-                            serial=serial,
-                            color=controller_manager_pb2.RGB(r=50, g=0, b=0),
-                            duration_ms=150,
+                        await asyncio.sleep(0.15)
+                        await stub.SetControllerColor(
+                            controller_manager_pb2.SetControllerColorRequest(
+                                serial=serial,
+                                color=controller_manager_pb2.RGB(r=50, g=0, b=0),
+                                duration_ms=150,
+                            )
                         )
-                    )
-                    await asyncio.sleep(0.15)
+                        await asyncio.sleep(0.15)
 
             if low_battery_controllers:
                 # Play warning sound
@@ -1192,9 +1323,13 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         - White flash (3 times) to acknowledge entry
         - Persistent white LED while in admin mode
 
+        Phase XX: Uses GAME_EFFECT_ADMIN_ENTER via bidirectional stream.
+
         Args:
             serial: Controller serial number
         """
+        from proto import controller_manager_pb2
+
         metrics.button_presses_total.labels(button="admin_combo", action="hold").inc()
 
         with tracer.start_as_current_span("enter_admin_mode") as span:
@@ -1205,48 +1340,60 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             self.admin_mode_entry_time = time.time()
             self.admin_current_option = 0  # Reset to first option (team_size)
 
-            # Visual feedback: Flash white 3 times, then set persistent white LED
-            from proto import (
-                controller_manager_pb2,
-                controller_manager_pb2_grpc,
-            )
-
-            try:
-                # Use persistent channel (Phase 26)
-                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
-
-                # Play flash effect in white
-                effect_request = controller_manager_pb2.PlayControllerEffectRequest(
-                    serial=serial,
-                    effect=controller_manager_pb2.ControllerEffect.EFFECT_FLASH,
-                    color=controller_manager_pb2.RGB(r=255, g=255, b=255),
-                    duration_ms=600,  # 3 flashes at ~5Hz
-                    speed=5,
-                )
-                await stub.PlayControllerEffect(effect_request)
-
-                # Wait for flash to complete, then set persistent white LED (Phase 39)
-                await asyncio.sleep(0.7)  # 600ms flash + small buffer
-
-                color_request = controller_manager_pb2.SetControllerColorRequest(
-                    serial=serial,
-                    color=controller_manager_pb2.RGB(r=255, g=255, b=255),
-                    duration_ms=0,  # Persistent white
-                )
-                await stub.SetControllerColor(color_request)
-
+            # Phase XX: Set base color to white for admin mode (so effect can restore to it)
+            # Then trigger ADMIN_ENTER effect for visual feedback
+            if await self._send_base_color(serial, (255, 255, 255)):
+                # Trigger admin enter effect (flash 3x, then stays white)
+                await self._send_game_effect(serial, controller_manager_pb2.GAME_EFFECT_ADMIN_ENTER)
                 # Mark as admin in lobby state (prevents normal lobby feedback)
                 self.controller_lobby_state[serial] = "admin"
-
                 span.add_event("admin_mode_entered")
-                logger.info(f"Admin mode entered by controller {serial} - white LED active")
+                logger.info(f"Admin mode entered by controller {serial} via stream")
+            else:
+                # Fallback to RPC if stream not available
+                from proto import controller_manager_pb2_grpc
 
-            except Exception as e:
-                logger.error(f"Error entering admin mode: {e}", exc_info=True)
+                try:
+                    stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
+
+                    # Play flash effect in white
+                    effect_request = controller_manager_pb2.PlayControllerEffectRequest(
+                        serial=serial,
+                        effect=controller_manager_pb2.ControllerEffect.EFFECT_FLASH,
+                        color=controller_manager_pb2.RGB(r=255, g=255, b=255),
+                        duration_ms=600,  # 3 flashes at ~5Hz
+                        speed=5,
+                    )
+                    await stub.PlayControllerEffect(effect_request)
+
+                    # Wait for flash to complete, then set persistent white LED (Phase 39)
+                    await asyncio.sleep(0.7)  # 600ms flash + small buffer
+
+                    color_request = controller_manager_pb2.SetControllerColorRequest(
+                        serial=serial,
+                        color=controller_manager_pb2.RGB(r=255, g=255, b=255),
+                        duration_ms=0,  # Persistent white
+                    )
+                    await stub.SetControllerColor(color_request)
+
+                    # Mark as admin in lobby state (prevents normal lobby feedback)
+                    self.controller_lobby_state[serial] = "admin"
+
+                    span.add_event("admin_mode_entered")
+                    logger.info(f"Admin mode entered by controller {serial} via RPC fallback")
+
+                except Exception as e:
+                    logger.error(f"Error entering admin mode: {e}", exc_info=True)
 
     async def _exit_admin_mode(self):
-        """Exit admin mode and restore lobby color (Phase 23 & 39)."""
+        """
+        Exit admin mode and restore lobby color (Phase 23 & 39).
+
+        Phase XX: Uses GAME_EFFECT_ADMIN_EXIT via bidirectional stream.
+        """
         if self.admin_mode_active:
+            from proto import controller_manager_pb2
+
             with tracer.start_as_current_span("exit_admin_mode") as span:
                 span.set_attribute("controller.serial", self.admin_mode_controller)
                 span.set_attribute("duration_seconds", time.time() - self.admin_mode_entry_time)
@@ -1256,48 +1403,57 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 # Phase 39: Restore lobby color for the admin controller
                 serial = self.admin_mode_controller
                 if serial:
-                    from proto import (
-                        controller_manager_pb2,
-                        controller_manager_pb2_grpc,
+                    # Get base color for current game mode
+                    base_color = self.GAME_MODE_COLORS.get(
+                        self.current_selection,
+                        (255, 140, 0),  # Default to orange
                     )
 
-                    try:
-                        stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
-
-                        # Get base color for current game mode
-                        base_color = self.GAME_MODE_COLORS.get(
-                            self.current_selection,
-                            (255, 140, 0),  # Default to orange
+                    # Determine if controller was ready before entering admin mode
+                    if serial in self.ready_controllers:
+                        # Bright version (ready)
+                        final_color = base_color
+                    else:
+                        # Dim version (connected but not ready)
+                        final_color = (
+                            int(base_color[0] * 0.5),
+                            int(base_color[1] * 0.5),
+                            int(base_color[2] * 0.5),
                         )
 
-                        # Determine if controller was ready before entering admin mode
-                        if serial in self.ready_controllers:
-                            # Bright version (ready)
-                            color = controller_manager_pb2.RGB(r=base_color[0], g=base_color[1], b=base_color[2])
-                        else:
-                            # Dim version (connected but not ready)
-                            color = controller_manager_pb2.RGB(
-                                r=int(base_color[0] * 0.5),
-                                g=int(base_color[1] * 0.5),
-                                b=int(base_color[2] * 0.5),
-                            )
-
-                        # Restore lobby color
-                        color_request = controller_manager_pb2.SetControllerColorRequest(
-                            serial=serial,
-                            color=color,
-                            duration_ms=0,  # Persistent
-                        )
-                        await stub.SetControllerColor(color_request)
-
+                    # Phase XX: Set base color first, then trigger ADMIN_EXIT effect to restore
+                    if await self._send_base_color(serial, final_color):
+                        # Trigger admin exit effect (restores to base color)
+                        await self._send_game_effect(serial, controller_manager_pb2.GAME_EFFECT_ADMIN_EXIT)
                         # Clear admin state
                         if serial in self.controller_lobby_state:
                             del self.controller_lobby_state[serial]
+                        logger.info(f"Restored lobby color for {serial} after exiting admin mode via stream")
+                    else:
+                        # Fallback to RPC if stream not available
+                        from proto import controller_manager_pb2_grpc
 
-                        logger.info(f"Restored lobby color for {serial} after exiting admin mode")
+                        try:
+                            stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
 
-                    except Exception as e:
-                        logger.error(f"Error restoring lobby color after admin mode: {e}", exc_info=True)
+                            # Restore lobby color
+                            color_request = controller_manager_pb2.SetControllerColorRequest(
+                                serial=serial,
+                                color=controller_manager_pb2.RGB(
+                                    r=final_color[0], g=final_color[1], b=final_color[2]
+                                ),
+                                duration_ms=0,  # Persistent
+                            )
+                            await stub.SetControllerColor(color_request)
+
+                            # Clear admin state
+                            if serial in self.controller_lobby_state:
+                                del self.controller_lobby_state[serial]
+
+                            logger.info(f"Restored lobby color for {serial} after exiting admin mode via RPC")
+
+                        except Exception as e:
+                            logger.error(f"Error restoring lobby color after admin mode: {e}", exc_info=True)
 
                 self.admin_mode_active = False
                 self.admin_mode_controller = None

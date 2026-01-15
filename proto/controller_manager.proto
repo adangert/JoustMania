@@ -18,7 +18,8 @@ service ControllerManagerService {
   rpc StreamControllerStates(StreamRequest) returns (stream ControllerStateUpdate);
 
   // Stream button press/release events (Phase 41 - event-driven for menu/UI)
-  rpc StreamButtonEvents(ButtonEventStreamRequest) returns (stream ButtonEvent);
+  // Phase XX: Made bidirectional for LED state ownership - menu can send base colors and effects
+  rpc StreamButtonEvents(stream ButtonEventStreamControl) returns (stream ButtonEvent);
 
   // Stream gameplay data (acceleration/gyro only, Phase 41 - for game modes)
   rpc StreamGameplayData(GameplayStreamRequest) returns (stream GameplayDataUpdate);
@@ -41,6 +42,7 @@ service ControllerManagerService {
 
   // Play predefined effect (flash, pulse, rainbow, etc.)
   rpc PlayControllerEffect(PlayControllerEffectRequest) returns (PlayControllerEffectResponse);
+
 }
 
 // Controller state data
@@ -205,8 +207,19 @@ message ButtonEvent {
   RGB color = 6;           // Current controller color
 }
 
-message ButtonEventStreamRequest {
-  // Empty - all button events are streamed
+// Phase XX: Bidirectional control for button event stream (menu/UI)
+// Menu sends base colors and effects, receives button events
+message ButtonEventStreamControl {
+  oneof control {
+    ButtonEventStreamConfig config = 1;      // Initial configuration (can be empty)
+    ControllerColorConfig base_color = 2;    // Set base color for a controller
+    GameEffectCommand game_effect = 3;       // Trigger semantic game effect
+  }
+}
+
+// Initial configuration for button event stream
+message ButtonEventStreamConfig {
+  // Empty for now - all button events are streamed
   // Could add filter options in future (e.g., specific buttons, controllers)
 }
 
@@ -242,13 +255,16 @@ message GameplayStreamControl {
     EffectCommand effect_command = 4;          // Controller effect (Phase 46)
     VibrationCommand vibration_command = 5;    // Controller vibration (Phase 46)
     CombinedFeedback combined_feedback = 6;    // Combined color + vibration (Phase 46)
+    ControllerColorConfig base_color = 7;      // Set base color for a controller (Phase XX)
+    GameEffectCommand game_effect = 8;         // Trigger semantic game effect (Phase XX)
   }
 }
 
 // Initial stream configuration (sent once at start)
 message GameplayStreamConfig {
   int32 update_frequency_hz = 1;            // Game loop frequency
-  repeated string serials = 2;              // Initial filter (empty = all controllers)
+  repeated string serials = 2;              // DEPRECATED: Use colors instead. Filter derived from colors.
+  repeated ControllerColorConfig colors = 3; // Phase XX: Initial base colors for players (serials derived from this)
 }
 
 // Filter update (sent when alive players change)
@@ -285,4 +301,35 @@ message CombinedFeedback {
   RGB color = 2;              // Color to set
   int32 vibration_intensity = 3;  // Vibration intensity (0-255, 0 = no vibration)
   int32 vibration_duration_ms = 4; // Vibration duration in milliseconds
+}
+
+// Phase XX: LED State Ownership
+// Controller manager is the single owner of all LED state
+// Clients send base colors, controller manager handles effects and auto-restore
+
+// Simple controller color assignment - controller manager only cares about serial + color
+message ControllerColorConfig {
+  string serial = 1;  // Controller serial
+  RGB color = 2;      // Base color for this controller
+}
+
+// Semantic game effects (controller manager handles animation and restore to base color)
+enum GameEffect {
+  GAME_EFFECT_NONE = 0;
+  GAME_EFFECT_PLAYER_WARNING = 1;   // White flash + vibrate, restore to base color
+  GAME_EFFECT_PLAYER_DEATH = 2;     // Red + vibrate, stays red (dead)
+  GAME_EFFECT_PLAYER_RESPAWN = 3;   // White during spawn protection
+  GAME_EFFECT_WINNER_RAINBOW = 4;   // Rainbow 3s, restore to base color
+  GAME_EFFECT_COUNTDOWN_3 = 5;      // Red (broadcast to all)
+  GAME_EFFECT_COUNTDOWN_2 = 6;      // Yellow (broadcast to all)
+  GAME_EFFECT_COUNTDOWN_1 = 7;      // Green (broadcast to all)
+  GAME_EFFECT_ADMIN_ENTER = 8;      // White flash 3x, then persistent white
+  GAME_EFFECT_ADMIN_EXIT = 9;       // Restore to base color
+  GAME_EFFECT_LOW_BATTERY = 10;     // Red flash 2x warning
+}
+
+// Trigger a game effect via stream
+message GameEffectCommand {
+  string serial = 1;      // Controller serial (empty = all controllers for broadcast)
+  GameEffect effect = 2;  // Effect to trigger
 }

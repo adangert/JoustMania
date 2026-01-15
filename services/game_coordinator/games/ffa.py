@@ -131,6 +131,7 @@ class FFAGame(BaseGameMode):
     async def _set_ffa_colors(self):
         """
         Set unique colors for each player in FFA mode (Phase 39 - Task 3).
+        Phase XX: Only sets player.color - LEDs are set when gameplay stream starts.
 
         Each player gets a distinct color so they can be identified during gameplay.
         Uses HSV color generation for maximum distinction.
@@ -152,11 +153,12 @@ class FFAGame(BaseGameMode):
             # Generate unique colors for each player
             unique_colors = generate_colors(len(self.players))
 
-            # Assign colors to players
+            # Assign colors to players (LEDs set when gameplay stream starts)
             for idx, (serial, player) in enumerate(self.players.items()):
                 color = unique_colors[idx]
                 player.color = color  # Update player's color attribute
 
+                # Phase XX: Also set LED now for pre-game display
                 await self.controller_client.SetControllerColor(
                     controller_manager_pb2.SetControllerColorRequest(
                         serial=serial,
@@ -200,16 +202,26 @@ class FFAGame(BaseGameMode):
         alive_players = [p for p in self.players.values() if p.alive]
         winner_serial = alive_players[0].serial if len(alive_players) == 1 else None
 
-        # Show rainbow effect on winner's controller
+        # Phase XX: Show rainbow effect on winner's controller via game effect
         if winner_serial:
-            rainbow_request = controller_manager_pb2.PlayControllerEffectRequest(
-                serial=winner_serial,
-                effect=controller_manager_pb2.EFFECT_RAINBOW,
-                color=controller_manager_pb2.RGB(r=255, g=255, b=255),  # Not used for rainbow
-                duration_ms=2000,  # 2 seconds
-                speed=5,  # Medium speed
-            )
-            await self.controller_client.PlayControllerEffect(rainbow_request)
+            if self.gameplay_stream:
+                effect_cmd = controller_manager_pb2.GameplayStreamControl(
+                    game_effect=controller_manager_pb2.GameEffectCommand(
+                        serial=winner_serial,
+                        effect=controller_manager_pb2.GAME_EFFECT_WINNER_RAINBOW,
+                    )
+                )
+                await self.gameplay_stream.write(effect_cmd)
+            else:
+                # Fallback to RPC
+                rainbow_request = controller_manager_pb2.PlayControllerEffectRequest(
+                    serial=winner_serial,
+                    effect=controller_manager_pb2.EFFECT_RAINBOW,
+                    color=controller_manager_pb2.RGB(r=255, g=255, b=255),
+                    duration_ms=3000,
+                    speed=5,
+                )
+                await self.controller_client.PlayControllerEffect(rainbow_request)
 
             # Play victory sound (Phase 29)
             await self._play_sound("Joust/sounds/wolfdown.wav", priority=2)

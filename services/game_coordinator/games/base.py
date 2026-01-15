@@ -392,12 +392,24 @@ class BaseGameMode(ABC):
             self.gameplay_stream = self.controller_client.StreamGameplayDataDynamic()
             logger.info("Stream created successfully")
 
-            # Send initial configuration
-            logger.info(f"Sending initial config: {update_frequency_hz}Hz, all controllers")
+            # Phase XX: Build player colors for stream init
+            player_colors = []
+            for serial, player in self.players.items():
+                player_colors.append(
+                    controller_manager_pb2.ControllerColorConfig(
+                        serial=serial,
+                        color=controller_manager_pb2.RGB(
+                            r=player.color[0], g=player.color[1], b=player.color[2]
+                        ),
+                    )
+                )
+
+            # Send initial configuration with player colors
+            logger.info(f"Sending initial config: {update_frequency_hz}Hz, {len(player_colors)} players with colors")
             initial_config = controller_manager_pb2.GameplayStreamControl(
                 config=controller_manager_pb2.GameplayStreamConfig(
                     update_frequency_hz=update_frequency_hz,
-                    serials=[],  # Start with all controllers
+                    colors=player_colors,  # Phase XX: Include player colors
                 )
             )
             await self.gameplay_stream.write(initial_config)
@@ -554,21 +566,15 @@ class BaseGameMode(ABC):
             )
             logger.debug(f"Player {serial} triggered warning (accel: {accel_mag:.2f})")
 
-        # Flash controller LED (orange warning)
-        flash_request = controller_manager_pb2.SetControllerColorRequest(
-            serial=serial,
-            color=controller_manager_pb2.RGB(r=255, g=128, b=0),  # Orange
-            duration_ms=200,  # Brief flash
-        )
-        await self.controller_client.SetControllerColor(flash_request)
-
-        # Vibrate controller briefly
-        vibrate_request = controller_manager_pb2.SetControllerVibrationRequest(
-            serial=serial,
-            intensity=100,  # Moderate vibration
-            duration_ms=200,  # Brief pulse
-        )
-        await self.controller_client.SetControllerVibration(vibrate_request)
+        # Phase XX: Send warning effect via stream (white flash + vibrate, auto-restore)
+        if self.gameplay_stream:
+            effect_cmd = controller_manager_pb2.GameplayStreamControl(
+                game_effect=controller_manager_pb2.GameEffectCommand(
+                    serial=serial,
+                    effect=controller_manager_pb2.GAME_EFFECT_PLAYER_WARNING,
+                )
+            )
+            await self.gameplay_stream.write(effect_cmd)
 
     async def _kill_player(self, serial: str, accel_mag: float):
         """
@@ -591,36 +597,17 @@ class BaseGameMode(ABC):
         # Call subclass-specific death handling
         await self._kill_player_impl(serial, accel_mag)
 
-        # Set controller color to red and vibrate (death indication)
+        # Phase XX: Send death effect via stream (red + vibrate, no restore)
         from proto import controller_manager_pb2
 
-        # Phase 46: Use stream-based commands if stream is active, otherwise fall back to unary RPCs
         if self.gameplay_stream:
-            # Send combined color + vibration via stream (single message)
-            combined_feedback = controller_manager_pb2.GameplayStreamControl(
-                combined_feedback=controller_manager_pb2.CombinedFeedback(
+            effect_cmd = controller_manager_pb2.GameplayStreamControl(
+                game_effect=controller_manager_pb2.GameEffectCommand(
                     serial=serial,
-                    color=controller_manager_pb2.RGB(r=255, g=0, b=0),  # Red
-                    vibration_intensity=255,  # Maximum vibration
-                    vibration_duration_ms=500,  # Half second
+                    effect=controller_manager_pb2.GAME_EFFECT_PLAYER_DEATH,
                 )
             )
-            await self.gameplay_stream.write(combined_feedback)
-        else:
-            # Fall back to unary RPCs (menu/lobby context)
-            death_color_request = controller_manager_pb2.SetControllerColorRequest(
-                serial=serial,
-                color=controller_manager_pb2.RGB(r=255, g=0, b=0),  # Red
-                duration_ms=0,  # Permanent
-            )
-            await self.controller_client.SetControllerColor(death_color_request)
-
-            death_vibrate_request = controller_manager_pb2.SetControllerVibrationRequest(
-                serial=serial,
-                intensity=255,  # Maximum vibration
-                duration_ms=500,  # Half second
-            )
-            await self.controller_client.SetControllerVibration(death_vibrate_request)
+            await self.gameplay_stream.write(effect_cmd)
 
     def force_end(self):
         """Force the game to end (called externally)."""

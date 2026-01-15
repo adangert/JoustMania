@@ -1373,9 +1373,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
     def _controller_state_hash(self, state: controller_manager_pb2.ControllerState) -> str:
         """Create a hash of controller state for delta comparison (Phase 26 - Part 3)."""
-        # Simple hash based on key fields that change during gameplay
+        # Include all button states to ensure delta updates on any button change
         return (
-            f"{state.battery}|{state.trigger_pressed}|{state.move_pressed}|{state.ready}|"
+            f"{state.battery}|{state.trigger_pressed}|{state.move_pressed}|"
+            f"{state.cross_pressed}|{state.circle_pressed}|{state.square_pressed}|"
+            f"{state.triangle_pressed}|{state.ps_pressed}|{state.ready}|"
             f"{state.team}|{state.color.r},{state.color.g},{state.color.b}"
         )
 

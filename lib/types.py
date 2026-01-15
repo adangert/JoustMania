@@ -108,6 +108,52 @@ class Sensitivity(Enum):
     ULTRA_FAST = 4
 
 
+class GameEvent(str, Enum):
+    """
+    Game lifecycle event types.
+
+    Used by game coordinator to publish events and by menu/supervisor to subscribe.
+    String enum for easy use in protobuf messages and logging.
+    """
+
+    # Game lifecycle - published by server/games
+    GAME_START = "game_start"  # StartGame RPC received, before game setup
+    GAME_STARTING = "game_starting"  # Game setup begins (pre-countdown)
+    GAME_STARTED = "game_started"  # Game loop begins (post-countdown)
+    GAME_ENDED = "game_ended"  # Game finished normally
+    GAME_ERROR = "game_error"  # Game ended due to error
+
+    # Player events - published by games
+    PLAYER_DEATH = "player_death"
+    PLAYER_REVIVE = "player_revive"
+    PLAYER_OUT = "player_out"  # Player eliminated (no more lives)
+
+    # Game phase events
+    COUNTDOWN_START = "countdown_start"
+    COUNTDOWN_END = "countdown_end"
+    PLAYERS_INITIALIZED = "players_initialized"
+
+    # Scoring events
+    SCORE_UPDATE = "score_update"
+    GAME_WINNER = "game_winner"
+    GAME_TIE = "game_tie"
+
+    # Team events (for team games)
+    TEAM_FORMATION_START = "team_formation_start"
+    TEAM_FORMATION_END = "team_formation_end"
+    TEAM_ELIMINATED = "team_eliminated"
+
+    @classmethod
+    def is_game_starting(cls, event_type: str) -> bool:
+        """Check if event indicates game is starting (any start phase)."""
+        return event_type in (cls.GAME_START, cls.GAME_STARTING, cls.GAME_STARTED)
+
+    @classmethod
+    def is_game_ending(cls, event_type: str) -> bool:
+        """Check if event indicates game is ending."""
+        return event_type in (cls.GAME_ENDED, cls.GAME_ERROR)
+
+
 def get_game_name(value: int) -> str | None:
     """Get game name by value."""
     for game in Games:

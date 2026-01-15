@@ -33,7 +33,7 @@ from prometheus_client import start_http_server
 
 from lib.system_metrics import start_system_metrics_collector
 from lib.telemetry import init_telemetry
-from lib.types import get_game_display_name
+from lib.types import GameEvent, get_game_display_name
 from proto import game_coordinator_pb2, game_coordinator_pb2_grpc
 from services.game_coordinator import metrics
 
@@ -107,10 +107,10 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         Called by EventBus.publish() while holding state lock.
         Updates game_state based on event type.
         """
-        if event_type == "game_started":
+        if event_type == GameEvent.GAME_STARTED:
             self.game_state = game_coordinator_pb2.GameState.RUNNING
             logger.info("Game state transitioned to RUNNING")
-        elif event_type in ["game_ended", "game_error"]:
+        elif GameEvent.is_game_ending(event_type):
             self.game_state = game_coordinator_pb2.GameState.ENDED
             logger.info("Game state transitioned to ENDED")
 
@@ -160,7 +160,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
                 # Publish game_start event
                 self.event_bus.publish(
-                    "game_start",
+                    GameEvent.GAME_START,
                     {
                         "game_name": self.game_name,
                         "game_id": self.game_id,

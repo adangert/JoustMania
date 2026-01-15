@@ -411,6 +411,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         Stops button monitor when game starts, restarts when game ends.
         This ensures menu doesn't interfere with game controller handling.
         """
+        from lib.types import GameEvent
         from proto import game_coordinator_pb2, game_coordinator_pb2_grpc
 
         retry_delay = 1.0
@@ -430,15 +431,17 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
                     logger.info(f"Game event received: {event.event_type}")
 
-                    if event.event_type == "game_started":
+                    if GameEvent.is_game_starting(event.event_type):
                         # Game is starting - stop button monitoring
-                        logger.info("Game started - stopping button monitor")
-                        self.state = menu_pb2.MenuState.GAME_STARTING
-                        await self.stop_button_monitor()
+                        # Handle all start events to catch it as early as possible
+                        if self.button_monitor_running:
+                            logger.info(f"Game event '{event.event_type}' - stopping button monitor")
+                            self.state = menu_pb2.MenuState.GAME_STARTING
+                            await self.stop_button_monitor()
 
-                    elif event.event_type == "game_ended":
+                    elif GameEvent.is_game_ending(event.event_type):
                         # Game ended - restart button monitoring
-                        logger.info("Game ended - restarting button monitor")
+                        logger.info(f"Game event '{event.event_type}' - restarting button monitor")
                         self.state = menu_pb2.MenuState.RUNNING
 
                         # Reset lobby state
@@ -454,7 +457,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         await self.start_button_monitor()
 
                         # Publish event so UI knows game ended
-                        await self._publish_event("game_ended", event.data)
+                        await self._publish_event(GameEvent.GAME_ENDED, event.data)
 
                 if self.game_event_monitor_running:
                     logger.warning("Game event stream ended, reconnecting...")

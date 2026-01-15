@@ -17,7 +17,9 @@ import time
 from dataclasses import dataclass
 
 from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 
+from lib.types import GameEvent
 from services.game_coordinator.games.base import BaseGameMode, Phase, Player
 
 tracer = trace.get_tracer(__name__)
@@ -484,8 +486,6 @@ class NonstopJoustGame(BaseGameMode):
 
     async def _end_game_impl(self):
         """Handle game ending with scoring calculation."""
-        from opentelemetry.trace import Status, StatusCode
-
         from proto import controller_manager_pb2
         from services.game_coordinator.games.base import GameState
 
@@ -517,7 +517,7 @@ class NonstopJoustGame(BaseGameMode):
             await self._play_sound("Joust/sounds/wolfdown.wav", priority=2)
 
             self.event_publisher(
-                "game_winner",
+                GameEvent.GAME_WINNER,
                 {
                     "serial": winner.serial,
                     "score": winner.score,
@@ -526,7 +526,15 @@ class NonstopJoustGame(BaseGameMode):
                 },
             )
 
-        # End all player lifecycle spans (they stayed open during respawns)
+        # Show winner for a bit (interruptible by force_end)
+        for _ in range(20):  # 2 seconds in 0.1s increments
+            if not self.running:
+                logger.info("End game interrupted by force_end")
+                break
+            await asyncio.sleep(0.1)
+
+        # End all player lifecycle spans AFTER the celebration
+        # This ensures winner's span is longer than losers'
         for serial, player in self.players.items():
             if player.span:
                 player.span.add_event(
@@ -542,16 +550,9 @@ class NonstopJoustGame(BaseGameMode):
                 player.span.end()
                 logger.debug(f"Ended lifecycle span for player {serial}")
 
-        # Show winner for a bit (interruptible by force_end)
-        for _ in range(20):  # 2 seconds in 0.1s increments
-            if not self.running:
-                logger.info("End game interrupted by force_end")
-                break
-            await asyncio.sleep(0.1)
-
         self.state = GameState.ENDED
         self.event_publisher(
-            "game_ended",
+            GameEvent.GAME_ENDED,
             {
                 "game_id": self.game_id,
                 "duration": time.time() - self.start_time if self.start_time else 0,

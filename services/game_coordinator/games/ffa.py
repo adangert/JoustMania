@@ -13,6 +13,7 @@ import time
 
 from opentelemetry.trace import Status, StatusCode
 
+from lib.types import GameEvent
 from services.game_coordinator.games.base import BaseGameMode, Phase
 
 logger = logging.getLogger(__name__)
@@ -89,12 +90,12 @@ class FFAGame(BaseGameMode):
                 winner = alive_players[0]
                 logger.info(f"Winner: {winner.serial}")
 
-                self.event_publisher("game_winner", {"serial": winner.serial})
+                self.event_publisher(GameEvent.GAME_WINNER, {"serial": winner.serial})
 
             elif len(alive_players) == 0:
                 logger.info("No winner - all players died simultaneously")
 
-                self.event_publisher("game_tie", {})
+                self.event_publisher(GameEvent.GAME_TIE, {})
 
             return True
 
@@ -199,20 +200,6 @@ class FFAGame(BaseGameMode):
         alive_players = [p for p in self.players.values() if p.alive]
         winner_serial = alive_players[0].serial if len(alive_players) == 1 else None
 
-        # End spans for any surviving players
-        for serial, player in self.players.items():
-            if player.span and player.alive:
-                player.span.add_event(
-                    "victory",
-                    attributes={
-                        "game_duration": time.time() - self.start_time if self.start_time else 0,
-                        "winner": serial == winner_serial,
-                    },
-                )
-                player.span.set_status(Status(StatusCode.OK))
-                player.span.end()
-                logger.debug(f"Ended lifecycle span for surviving player {serial}")
-
         # Show rainbow effect on winner's controller
         if winner_serial:
             rainbow_request = controller_manager_pb2.PlayControllerEffectRequest(
@@ -234,9 +221,24 @@ class FFAGame(BaseGameMode):
                 break
             await asyncio.sleep(0.1)
 
+        # End spans for surviving players AFTER the celebration
+        # This ensures winner's span is longer than losers'
+        for serial, player in self.players.items():
+            if player.span and player.alive:
+                player.span.add_event(
+                    "victory",
+                    attributes={
+                        "game_duration": time.time() - self.start_time if self.start_time else 0,
+                        "winner": serial == winner_serial,
+                    },
+                )
+                player.span.set_status(Status(StatusCode.OK))
+                player.span.end()
+                logger.debug(f"Ended lifecycle span for surviving player {serial}")
+
         self.state = GameState.ENDED
         self.event_publisher(
-            "game_ended",
+            GameEvent.GAME_ENDED,
             {
                 "game_id": self.game_id,
                 "duration": time.time() - self.start_time if self.start_time else 0,

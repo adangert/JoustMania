@@ -22,6 +22,7 @@ from typing import Any
 
 from opentelemetry import trace
 
+from lib.types import GameEvent
 from services.game_coordinator import metrics
 from services.game_coordinator.runtime_config import get_config_manager
 
@@ -312,7 +313,7 @@ class BaseGameMode(ABC):
 
             # Publish event
             self.event_publisher(
-                "players_initialized",
+                GameEvent.PLAYERS_INITIALIZED,
                 {
                     "player_count": len(self.players),
                     "serials": list(self.players.keys()),
@@ -328,7 +329,7 @@ class BaseGameMode(ABC):
         from proto import controller_manager_pb2
 
         logger.info("Starting countdown...")
-        self.event_publisher("countdown_start", {"duration": COUNTDOWN_DURATION})
+        self.event_publisher(GameEvent.COUNTDOWN_START, {"duration": COUNTDOWN_DURATION})
 
         # Countdown colors: Red -> Yellow -> Green
         countdown_colors = [
@@ -363,7 +364,7 @@ class BaseGameMode(ABC):
         # Play start sound (Phase 29 - GO!)
         await self._play_sound("Joust/sounds/start3.wav", priority=2)
 
-        self.event_publisher("countdown_end", {})
+        self.event_publisher(GameEvent.COUNTDOWN_END, {})
         logger.info("Countdown complete")
 
     async def _game_loop(self):
@@ -647,7 +648,7 @@ class BaseGameMode(ABC):
             # State transitions
             self.state = GameState.STARTING
             self.running = True  # Set early to allow force_end during countdown
-            self.event_publisher("game_starting", {"game_id": self.game_id})
+            self.event_publisher(GameEvent.GAME_STARTING, {"game_id": self.game_id})
 
             # Phase 1: Initialization
             with tracer.start_as_current_span("initialization_phase") as init_span:
@@ -678,7 +679,7 @@ class BaseGameMode(ABC):
             # Phase 4: Game starts
             self.state = GameState.RUNNING
             self.start_time = time.time()
-            self.event_publisher("game_started", {"game_id": self.game_id, "player_count": len(self.players)})
+            self.event_publisher(GameEvent.GAME_STARTED, {"game_id": self.game_id, "player_count": len(self.players)})
 
             # Phase 5: Gameplay
             with tracer.start_as_current_span("gameplay_phase"):
@@ -691,7 +692,7 @@ class BaseGameMode(ABC):
         except Exception as e:
             logger.error(f"{self.get_game_name()} game error: {e}", exc_info=True)
             self.state = GameState.ENDED
-            self.event_publisher("game_error", {"game_id": self.game_id, "error": str(e)})
+            self.event_publisher(GameEvent.GAME_ERROR, {"game_id": self.game_id, "error": str(e)})
             raise
 
         finally:

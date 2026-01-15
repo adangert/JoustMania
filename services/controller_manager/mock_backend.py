@@ -9,6 +9,13 @@ import logging
 import random
 import time
 
+from lib.controller_constants import (
+    AxisKey,
+    ButtonKey,
+    StateKey,
+    DEFAULT_ACCEL,
+    DEFAULT_GYRO,
+)
 from services.controller_manager.backend import ControllerBackend
 
 logger = logging.getLogger(__name__)
@@ -51,21 +58,21 @@ class MockBackend(ControllerBackend):
                 serial = f"mock_controller_{i}"  # Match old mock_server.py format
 
                 self.controllers[serial] = {
-                    "serial": serial,
-                    "battery": 5,  # Full battery (0-5)
-                    "trigger": 0,
-                    "move_button": True,  # Start with Move pressed (ready for tests)
-                    "trigger_button": False,
-                    "ps_button": False,
-                    "select_button": False,
-                    "start_button": False,
-                    "triangle": False,
-                    "circle": False,
-                    "cross": False,
-                    "square": False,
-                    "accel": {"x": 0.0, "y": 0.0, "z": 1.0},  # At rest (1g downward)
-                    "gyro": {"x": 0.0, "y": 0.0, "z": 0.0},
-                    "temperature": 25,
+                    StateKey.SERIAL: serial,
+                    StateKey.BATTERY: 5,  # Full battery (0-5)
+                    StateKey.TRIGGER: 0,
+                    ButtonKey.MOVE: True,  # Start with Move pressed (ready for tests)
+                    ButtonKey.TRIGGER: False,
+                    ButtonKey.PS: False,
+                    ButtonKey.SELECT: False,
+                    ButtonKey.START: False,
+                    ButtonKey.TRIANGLE: False,
+                    ButtonKey.CIRCLE: False,
+                    ButtonKey.CROSS: False,
+                    ButtonKey.SQUARE: False,
+                    StateKey.ACCEL: {AxisKey.X: 0.0, AxisKey.Y: 0.0, AxisKey.Z: 1.0},  # At rest (1g downward)
+                    StateKey.GYRO: {AxisKey.X: 0.0, AxisKey.Y: 0.0, AxisKey.Z: 0.0},
+                    StateKey.TEMPERATURE: 25,
                     "led": {"r": 255, "g": 255, "b": 255},
                     "rumble": 0,
                     "connected_at": time.time(),
@@ -127,15 +134,15 @@ class MockBackend(ControllerBackend):
 
         # Simulate random button presses (10% chance per second)
         if random.random() < 0.1 * time_since_update:
-            button = random.choice(["move_button", "trigger_button", "triangle", "circle", "cross", "square"])
+            button = random.choice([ButtonKey.MOVE, ButtonKey.TRIGGER, ButtonKey.TRIANGLE, ButtonKey.CIRCLE, ButtonKey.CROSS, ButtonKey.SQUARE])
             controller[button] = not controller[button]
 
         # Simulate trigger movement (occasionally)
         if random.random() < 0.05:
-            controller["trigger"] = random.randint(0, 255)
+            controller[StateKey.TRIGGER] = random.randint(0, 255)
         else:
             # Drift back to zero
-            controller["trigger"] = max(0, controller["trigger"] - 10)
+            controller[StateKey.TRIGGER] = max(0, controller[StateKey.TRIGGER] - 10)
 
         # Check if we're holding death acceleration
         death_accel = None
@@ -149,40 +156,40 @@ class MockBackend(ControllerBackend):
                 controller["death_hold_until"] = 0.0
 
             # Add slight noise to accelerometer (simulates hand shake)
-            controller["accel"]["x"] = random.gauss(0.0, 0.1)
-            controller["accel"]["y"] = random.gauss(0.0, 0.1)
-            controller["accel"]["z"] = random.gauss(1.0, 0.1)  # ~1g gravity
+            controller[StateKey.ACCEL][AxisKey.X] = random.gauss(0.0, 0.1)
+            controller[StateKey.ACCEL][AxisKey.Y] = random.gauss(0.0, 0.1)
+            controller[StateKey.ACCEL][AxisKey.Z] = random.gauss(1.0, 0.1)  # ~1g gravity
 
         # Add slight noise to gyroscope
-        controller["gyro"]["x"] = random.gauss(0.0, 0.5)
-        controller["gyro"]["y"] = random.gauss(0.0, 0.5)
-        controller["gyro"]["z"] = random.gauss(0.0, 0.5)
+        controller[StateKey.GYRO][AxisKey.X] = random.gauss(0.0, 0.5)
+        controller[StateKey.GYRO][AxisKey.Y] = random.gauss(0.0, 0.5)
+        controller[StateKey.GYRO][AxisKey.Z] = random.gauss(0.0, 0.5)
 
         # Simulate battery drain (1 level per hour of use)
         time_since_connected = current_time - controller["connected_at"]
         hours_used = time_since_connected / 3600
-        controller["battery"] = max(0, 5 - int(hours_used))
+        controller[StateKey.BATTERY] = max(0, 5 - int(hours_used))
 
         # Update timestamp
         controller["last_update"] = current_time
 
         # Return state (use death_accel if holding, otherwise normal accel)
         return {
-            "serial": serial,
-            "battery": controller["battery"],
-            "trigger": controller["trigger"],
-            "move_button": controller["move_button"],
-            "trigger_button": controller["trigger_button"],
-            "ps_button": controller["ps_button"],
-            "select_button": controller["select_button"],
-            "start_button": controller["start_button"],
-            "triangle": controller["triangle"],
-            "circle": controller["circle"],
-            "cross": controller["cross"],
-            "square": controller["square"],
-            "accel": death_accel.copy() if death_accel else controller["accel"].copy(),
-            "gyro": controller["gyro"].copy(),
-            "temperature": controller["temperature"],
+            StateKey.SERIAL: serial,
+            StateKey.BATTERY: controller[StateKey.BATTERY],
+            StateKey.TRIGGER: controller[StateKey.TRIGGER],
+            ButtonKey.MOVE: controller[ButtonKey.MOVE],
+            ButtonKey.TRIGGER: controller[ButtonKey.TRIGGER],
+            ButtonKey.PS: controller[ButtonKey.PS],
+            ButtonKey.SELECT: controller[ButtonKey.SELECT],
+            ButtonKey.START: controller[ButtonKey.START],
+            ButtonKey.TRIANGLE: controller[ButtonKey.TRIANGLE],
+            ButtonKey.CIRCLE: controller[ButtonKey.CIRCLE],
+            ButtonKey.CROSS: controller[ButtonKey.CROSS],
+            ButtonKey.SQUARE: controller[ButtonKey.SQUARE],
+            StateKey.ACCEL: death_accel.copy() if death_accel else controller[StateKey.ACCEL].copy(),
+            StateKey.GYRO: controller[StateKey.GYRO].copy(),
+            StateKey.TEMPERATURE: controller[StateKey.TEMPERATURE],
             "connection_type": "mock",
         }
 
@@ -230,14 +237,14 @@ class MockBackend(ControllerBackend):
 
         # Create new mock controller
         self.controllers[serial] = {
-            "serial": serial,
-            "battery": 5,
-            "trigger": 0,
-            "move_button": False,
-            "trigger_button": False,
-            "accel": {"x": 0.0, "y": 0.0, "z": 1.0},
-            "gyro": {"x": 0.0, "y": 0.0, "z": 0.0},
-            "temperature": 25,
+            StateKey.SERIAL: serial,
+            StateKey.BATTERY: 5,
+            StateKey.TRIGGER: 0,
+            ButtonKey.MOVE: False,
+            ButtonKey.TRIGGER: False,
+            StateKey.ACCEL: {AxisKey.X: 0.0, AxisKey.Y: 0.0, AxisKey.Z: 1.0},
+            StateKey.GYRO: {AxisKey.X: 0.0, AxisKey.Y: 0.0, AxisKey.Z: 0.0},
+            StateKey.TEMPERATURE: 25,
             "led": {"r": 255, "g": 255, "b": 255},
             "rumble": 0,
             "connected_at": time.time(),

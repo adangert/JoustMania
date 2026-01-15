@@ -10,6 +10,14 @@ import os
 import sys
 
 from services.controller_manager.backend import ControllerBackend
+from lib.controller_constants import (
+    AxisKey,
+    ButtonKey,
+    StateKey,
+    ControllerInfoKey,
+    DEFAULT_ACCEL,
+    DEFAULT_GYRO,
+)
 
 
 @contextlib.contextmanager
@@ -307,21 +315,21 @@ class BluetoothBackend(ControllerBackend):
 
             # Build state dict with all button states
             return {
-                "serial": serial,
-                "battery": battery,
-                "trigger": trigger,
-                "move_button": bool(buttons & psmove.Btn_MOVE),
-                "trigger_button": bool(buttons & psmove.Btn_T),
-                "ps_button": bool(buttons & psmove.Btn_PS),
-                "cross": bool(buttons & psmove.Btn_CROSS),
-                "circle": bool(buttons & psmove.Btn_CIRCLE),
-                "square": bool(buttons & psmove.Btn_SQUARE),
-                "triangle": bool(buttons & psmove.Btn_TRIANGLE),
-                "select_button": bool(buttons & psmove.Btn_SELECT),
-                "start_button": bool(buttons & psmove.Btn_START),
-                "accel": {"x": ax, "y": ay, "z": az},
-                "gyro": {"x": gx, "y": gy, "z": gz},
-                "temperature": move.get_temperature(),
+                StateKey.SERIAL: serial,
+                StateKey.BATTERY: battery,
+                StateKey.TRIGGER: trigger,
+                ButtonKey.MOVE: bool(buttons & psmove.Btn_MOVE),
+                ButtonKey.TRIGGER: bool(buttons & psmove.Btn_T),
+                ButtonKey.PS: bool(buttons & psmove.Btn_PS),
+                ButtonKey.CROSS: bool(buttons & psmove.Btn_CROSS),
+                ButtonKey.CIRCLE: bool(buttons & psmove.Btn_CIRCLE),
+                ButtonKey.SQUARE: bool(buttons & psmove.Btn_SQUARE),
+                ButtonKey.TRIANGLE: bool(buttons & psmove.Btn_TRIANGLE),
+                ButtonKey.SELECT: bool(buttons & psmove.Btn_SELECT),
+                ButtonKey.START: bool(buttons & psmove.Btn_START),
+                StateKey.ACCEL: {AxisKey.X: ax, AxisKey.Y: ay, AxisKey.Z: az},
+                StateKey.GYRO: {AxisKey.X: gx, AxisKey.Y: gy, AxisKey.Z: gz},
+                StateKey.TEMPERATURE: move.get_temperature(),
             }
 
         except Exception as e:

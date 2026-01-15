@@ -33,6 +33,13 @@ import contextlib
 
 from prometheus_client import start_http_server
 
+from lib.controller_constants import (
+    AxisKey,
+    ButtonKey,
+    ButtonTrackingKey,
+    ControllerInfoKey,
+    StateKey,
+)
 from lib.system_metrics import start_system_metrics_collector
 from lib.telemetry import init_telemetry
 from proto import controller_manager_pb2, controller_manager_pb2_grpc
@@ -297,12 +304,12 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     self.controller_states[serial] = state
 
                     # Update battery in tracked_controllers info
-                    if "battery" in state:
-                        self.tracked_controllers[serial]["battery"] = state["battery"]
+                    if StateKey.BATTERY in state:
+                        self.tracked_controllers[serial][ControllerInfoKey.BATTERY] = state[StateKey.BATTERY]
 
                     # Phase 57: Update ready flag when Move button is pressed
-                    if state.get("move_button", False) and not self.tracked_controllers[serial]["ready"]:
-                        self.tracked_controllers[serial]["ready"] = True
+                    if state.get(ButtonKey.MOVE, False) and not self.tracked_controllers[serial][ControllerInfoKey.READY]:
+                        self.tracked_controllers[serial][ControllerInfoKey.READY] = True
                         logger.info(f"Controller {serial} marked as ready (Move button pressed)")
 
         except Exception as e:
@@ -323,16 +330,16 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 logger.error(f"Failed to get initial state for controller {serial}")
                 return
 
-            battery = state.get("battery", 5)
+            battery = state.get(StateKey.BATTERY, 5)
 
             # Track controller under lock
             with self.state_lock:
                 self.tracked_controllers[serial] = {
-                    "serial": serial,
-                    "battery": battery,
-                    "ready": False,
-                    "team": 0,
-                    "connected_at": time.time(),
+                    ControllerInfoKey.SERIAL: serial,
+                    ControllerInfoKey.BATTERY: battery,
+                    ControllerInfoKey.READY: False,
+                    ControllerInfoKey.TEAM: 0,
+                    ControllerInfoKey.CONNECTED_AT: time.time(),
                 }
 
                 # Store initial state
@@ -1373,20 +1380,20 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
         if state_dict:
             # Hash all fields that can change during gameplay
-            accel = state_dict.get("accel", {})
-            gyro = state_dict.get("gyro", {})
+            accel = state_dict.get(StateKey.ACCEL, {})
+            gyro = state_dict.get(StateKey.GYRO, {})
             return (
-                f"{info.get('battery', 0)}|"
-                f"{state_dict.get('trigger_button', False)}|{state_dict.get('move_button', False)}|"
-                f"{state_dict.get('cross', False)}|{state_dict.get('circle', False)}|"
-                f"{state_dict.get('square', False)}|{state_dict.get('triangle', False)}|"
-                f"{state_dict.get('ps_button', False)}|"
-                f"{accel.get('x', 0):.2f},{accel.get('y', 0):.2f},{accel.get('z', 0):.2f}|"
-                f"{gyro.get('x', 0):.2f},{gyro.get('y', 0):.2f},{gyro.get('z', 0):.2f}|"
-                f"{info.get('ready', False)}|{info.get('team', 0)}"
+                f"{info.get(ControllerInfoKey.BATTERY, 0)}|"
+                f"{state_dict.get(ButtonKey.TRIGGER, False)}|{state_dict.get(ButtonKey.MOVE, False)}|"
+                f"{state_dict.get(ButtonKey.CROSS, False)}|{state_dict.get(ButtonKey.CIRCLE, False)}|"
+                f"{state_dict.get(ButtonKey.SQUARE, False)}|{state_dict.get(ButtonKey.TRIANGLE, False)}|"
+                f"{state_dict.get(ButtonKey.PS, False)}|"
+                f"{accel.get(AxisKey.X, 0):.2f},{accel.get(AxisKey.Y, 0):.2f},{accel.get(AxisKey.Z, 0):.2f}|"
+                f"{gyro.get(AxisKey.X, 0):.2f},{gyro.get(AxisKey.Y, 0):.2f},{gyro.get(AxisKey.Z, 0):.2f}|"
+                f"{info.get(ControllerInfoKey.READY, False)}|{info.get(ControllerInfoKey.TEAM, 0)}"
             )
         # No state available, return hash based on info only
-        return f"{info.get('battery', 0)}|{info.get('ready', False)}|{info.get('team', 0)}"
+        return f"{info.get(ControllerInfoKey.BATTERY, 0)}|{info.get(ControllerInfoKey.READY, False)}|{info.get(ControllerInfoKey.TEAM, 0)}"
 
     def _build_or_get_cached_state(self, serial: str, info: dict) -> controller_manager_pb2.ControllerState:
         """Return cached state if unchanged, rebuild if dirty (Phase 18 - Task 1)."""
@@ -1424,15 +1431,15 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
         if state_dict:
             # Phase 57: State is now a dict from backend, not ControllerState object
-            trigger_pressed = state_dict.get("trigger_button", False)
-            move_pressed = state_dict.get("move_button", False)
-            cross_pressed = state_dict.get("cross", False)
-            circle_pressed = state_dict.get("circle", False)
-            square_pressed = state_dict.get("square", False)
-            triangle_pressed = state_dict.get("triangle", False)
-            ps_pressed = state_dict.get("ps_button", False)
-            accel = state_dict.get("accel", {"x": 0, "y": 0, "z": 0})
-            gyro = state_dict.get("gyro", {"x": 0, "y": 0, "z": 0})
+            trigger_pressed = state_dict.get(ButtonKey.TRIGGER, False)
+            move_pressed = state_dict.get(ButtonKey.MOVE, False)
+            cross_pressed = state_dict.get(ButtonKey.CROSS, False)
+            circle_pressed = state_dict.get(ButtonKey.CIRCLE, False)
+            square_pressed = state_dict.get(ButtonKey.SQUARE, False)
+            triangle_pressed = state_dict.get(ButtonKey.TRIANGLE, False)
+            ps_pressed = state_dict.get(ButtonKey.PS, False)
+            accel = state_dict.get(StateKey.ACCEL, {AxisKey.X: 0, AxisKey.Y: 0, AxisKey.Z: 0})
+            gyro = state_dict.get(StateKey.GYRO, {AxisKey.X: 0, AxisKey.Y: 0, AxisKey.Z: 0})
         else:
             trigger_pressed = False
             move_pressed = False
@@ -1441,29 +1448,29 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             square_pressed = False
             triangle_pressed = False
             ps_pressed = False
-            accel = {"x": 0, "y": 0, "z": 0}
-            gyro = {"x": 0, "y": 0, "z": 0}
+            accel = {AxisKey.X: 0, AxisKey.Y: 0, AxisKey.Z: 0}
+            gyro = {AxisKey.X: 0, AxisKey.Y: 0, AxisKey.Z: 0}
 
         # Use pooled Vector3 objects (Phase 18 - Task 3)
         accel_vec = self.vector3_pool.get()
-        accel_vec.x = accel["x"]
-        accel_vec.y = accel["y"]
-        accel_vec.z = accel["z"]
+        accel_vec.x = accel[AxisKey.X]
+        accel_vec.y = accel[AxisKey.Y]
+        accel_vec.z = accel[AxisKey.Z]
 
         gyro_vec = self.vector3_pool.get()
-        gyro_vec.x = gyro["x"]
-        gyro_vec.y = gyro["y"]
-        gyro_vec.z = gyro["z"]
+        gyro_vec.x = gyro[AxisKey.X]
+        gyro_vec.y = gyro[AxisKey.Y]
+        gyro_vec.z = gyro[AxisKey.Z]
 
         # Use pooled ControllerState (Phase 18 - Task 3)
         controller_state = self.controller_state_pool.get()
         controller_state.serial = serial
-        controller_state.move_num = info.get("move_num", 0)
-        controller_state.battery = info.get("battery", 0)
+        controller_state.move_num = info.get(ControllerInfoKey.MOVE_NUM, 0)
+        controller_state.battery = info.get(ControllerInfoKey.BATTERY, 0)
         controller_state.trigger_pressed = trigger_pressed
         controller_state.move_pressed = move_pressed
-        controller_state.ready = info.get("ready", False)
-        controller_state.team = info.get("team", 0)
+        controller_state.ready = info.get(ControllerInfoKey.READY, False)
+        controller_state.team = info.get(ControllerInfoKey.TEAM, 0)
         controller_state.color.r = 0
         controller_state.color.g = 0
         controller_state.color.b = 255
@@ -1519,36 +1526,36 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         with self.state_lock:
             if serial not in self.button_states:
                 self.button_states[serial] = {
-                    "trigger": False,
-                    "move": False,
-                    "cross": False,
-                    "circle": False,
-                    "square": False,
-                    "triangle": False,
-                    "ps": False,
+                    ButtonTrackingKey.TRIGGER: False,
+                    ButtonTrackingKey.MOVE: False,
+                    ButtonTrackingKey.CROSS: False,
+                    ButtonTrackingKey.CIRCLE: False,
+                    ButtonTrackingKey.SQUARE: False,
+                    ButtonTrackingKey.TRIANGLE: False,
+                    ButtonTrackingKey.PS: False,
                 }
 
             prev_states = self.button_states[serial]
 
         current_states = {
-            "trigger": trigger,
-            "move": move,
-            "cross": cross,
-            "circle": circle,
-            "square": square,
-            "triangle": triangle,
-            "ps": ps,
+            ButtonTrackingKey.TRIGGER: trigger,
+            ButtonTrackingKey.MOVE: move,
+            ButtonTrackingKey.CROSS: cross,
+            ButtonTrackingKey.CIRCLE: circle,
+            ButtonTrackingKey.SQUARE: square,
+            ButtonTrackingKey.TRIANGLE: triangle,
+            ButtonTrackingKey.PS: ps,
         }
 
         # Map button names to ButtonType enum
         button_type_map = {
-            "trigger": controller_manager_pb2.BUTTON_TRIGGER,
-            "move": controller_manager_pb2.BUTTON_MOVE,
-            "cross": controller_manager_pb2.BUTTON_CROSS,
-            "circle": controller_manager_pb2.BUTTON_CIRCLE,
-            "square": controller_manager_pb2.BUTTON_SQUARE,
-            "triangle": controller_manager_pb2.BUTTON_TRIANGLE,
-            "ps": controller_manager_pb2.BUTTON_PS,
+            ButtonTrackingKey.TRIGGER: controller_manager_pb2.BUTTON_TRIGGER,
+            ButtonTrackingKey.MOVE: controller_manager_pb2.BUTTON_MOVE,
+            ButtonTrackingKey.CROSS: controller_manager_pb2.BUTTON_CROSS,
+            ButtonTrackingKey.CIRCLE: controller_manager_pb2.BUTTON_CIRCLE,
+            ButtonTrackingKey.SQUARE: controller_manager_pb2.BUTTON_SQUARE,
+            ButtonTrackingKey.TRIANGLE: controller_manager_pb2.BUTTON_TRIANGLE,
+            ButtonTrackingKey.PS: controller_manager_pb2.BUTTON_PS,
         }
 
         # Detect transitions and create events

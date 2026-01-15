@@ -11,6 +11,7 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
+from lib.controller_constants import AxisKey, ButtonKey, StateKey
 from proto import controller_manager_mock_pb2, controller_manager_mock_pb2_grpc
 
 if TYPE_CHECKING:
@@ -43,10 +44,10 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
                 )
 
             # Update acceleration
-            self.backend.controllers[serial]["accel"] = {
-                "x": request.accel_x,
-                "y": request.accel_y,
-                "z": request.accel_z,
+            self.backend.controllers[serial][StateKey.ACCEL] = {
+                AxisKey.X: request.accel_x,
+                AxisKey.Y: request.accel_y,
+                AxisKey.Z: request.accel_z,
             }
 
             logger.info(
@@ -67,7 +68,7 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
                 return controller_manager_mock_pb2.DeathResponse(success=False, accel_magnitude=0.0)
 
             # Set death-level acceleration (matches mock_server.py)
-            death_accel = {"x": 5.0, "y": 3.0, "z": 4.0}
+            death_accel = {AxisKey.X: 5.0, AxisKey.Y: 3.0, AxisKey.Z: 4.0}
             accel_mag = (5.0**2 + 3.0**2 + 4.0**2) ** 0.5  # ~7.07g
 
             # Hold death acceleration for 2 seconds to ensure game loop catches it
@@ -90,10 +91,10 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
 
             # Map proto button enum to backend state keys
             button_map = {
-                controller_manager_mock_pb2.ButtonRequest.TRIGGER: "trigger_button",
-                controller_manager_mock_pb2.ButtonRequest.MOVE: "move_button",
-                controller_manager_mock_pb2.ButtonRequest.SELECT: "select_button",
-                controller_manager_mock_pb2.ButtonRequest.START: "start_button",
+                controller_manager_mock_pb2.ButtonRequest.TRIGGER: ButtonKey.TRIGGER,
+                controller_manager_mock_pb2.ButtonRequest.MOVE: ButtonKey.MOVE,
+                controller_manager_mock_pb2.ButtonRequest.SELECT: ButtonKey.SELECT,
+                controller_manager_mock_pb2.ButtonRequest.START: ButtonKey.START,
             }
 
             button_key = button_map.get(request.button)
@@ -137,17 +138,17 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
 
             # Reset to idle
             controller = self.backend.controllers[serial]
-            controller["move_button"] = True  # Keep ready for tests
-            controller["trigger_button"] = False
-            controller["ps_button"] = False
-            controller["select_button"] = False
-            controller["start_button"] = False
-            controller["triangle"] = False
-            controller["circle"] = False
-            controller["cross"] = False
-            controller["square"] = False
-            controller["accel"] = {"x": 0.0, "y": 0.0, "z": 1.0}  # At rest
-            controller["gyro"] = {"x": 0.0, "y": 0.0, "z": 0.0}
+            controller[ButtonKey.MOVE] = True  # Keep ready for tests
+            controller[ButtonKey.TRIGGER] = False
+            controller[ButtonKey.PS] = False
+            controller[ButtonKey.SELECT] = False
+            controller[ButtonKey.START] = False
+            controller[ButtonKey.TRIANGLE] = False
+            controller[ButtonKey.CIRCLE] = False
+            controller[ButtonKey.CROSS] = False
+            controller[ButtonKey.SQUARE] = False
+            controller[StateKey.ACCEL] = {AxisKey.X: 0.0, AxisKey.Y: 0.0, AxisKey.Z: 1.0}  # At rest
+            controller[StateKey.GYRO] = {AxisKey.X: 0.0, AxisKey.Y: 0.0, AxisKey.Z: 0.0}
             # Clear death state
             controller["death_accel"] = None
             controller["death_hold_until"] = 0.0

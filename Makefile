@@ -204,9 +204,18 @@ image-audio: builders
 		--build-arg BUILDER_IMAGE=joustmania/builder:latest .
 	@echo "✓ audio-service:latest built"
 
-# Build all service images
+# Build all service images (parallel)
 .PHONY: images
-images: image-settings image-controller-manager image-game-coordinator image-menu image-supervisor image-webui image-audio
+images: builders
+	@echo "Building all service images in parallel..."
+	@docker build -f services/settings/Dockerfile -t joustmania/settings-service:latest --build-arg BUILDER_IMAGE=joustmania/builder:latest . & \
+	docker build -f services/game_coordinator/Dockerfile -t joustmania/game-coordinator-service:latest --build-arg BUILDER_IMAGE=joustmania/builder:latest . & \
+	docker build -f services/menu/Dockerfile -t joustmania/menu-service:latest --build-arg BUILDER_IMAGE=joustmania/builder:latest . & \
+	docker build -f services/supervisor/Dockerfile -t joustmania/supervisor-service:latest --build-arg BUILDER_IMAGE=joustmania/builder:latest . & \
+	docker build -f services/webui/Dockerfile -t joustmania/webui-service:latest --build-arg BUILDER_IMAGE=joustmania/builder:latest . & \
+	docker build -f services/audio/Dockerfile -t joustmania/audio-service:latest --build-arg BUILDER_IMAGE=joustmania/builder:latest . & \
+	docker build -f services/controller_manager/Dockerfile -t joustmania/controller-manager-service:latest --build-arg BUILDER_IMAGE=joustmania/builder:latest --build-arg PSMOVE_BUILDER_IMAGE=joustmania/psmove-builder:latest . & \
+	wait
 	@echo ""
 	@echo "✓ All service images built!"
 

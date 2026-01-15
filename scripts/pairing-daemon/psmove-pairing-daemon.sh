@@ -70,6 +70,17 @@ while true; do
     poll_count=$((poll_count + 1))
     debug "Poll #$poll_count"
 
+    # First check if any PS Move is connected via USB (fast, no controller interaction)
+    # 054c:03d5 = PS Move Motion Controller
+    # 054c:042f = PS Move Motion Controller (newer)
+    if ! lsusb 2>/dev/null | grep -qE "054c:(03d5|042f)"; then
+        debug "No USB PS Move detected, skipping psmove list"
+        sleep "$POLL_INTERVAL"
+        continue
+    fi
+
+    debug "USB PS Move detected, checking with psmove..."
+
     # Get raw psmove output (suppress library debug messages unless DEBUG=1)
     if [ "$DEBUG" = "1" ]; then
         psmove_output=$($PSMOVE list 2>&1)

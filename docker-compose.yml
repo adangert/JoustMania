@@ -314,8 +314,9 @@ services:
   audio:
     image: joustmania/audio-service:latest
     container_name: joustmania-audio
-    # Hardware access configured via docker-compose.prod.yml for production
-    # Base config is mock-friendly (no privileged or devices)
+    # Sound device access for real audio output
+    devices:
+      - /dev/snd:/dev/snd
     volumes:
       - ./services/audio/assets:/app/services/audio/assets:ro  # Audio files (read-only)
     # Ports exposed only within Docker network (no host binding)

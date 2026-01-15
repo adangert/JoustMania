@@ -656,30 +656,13 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         if self.admin_mode_active and serial == self.admin_mode_controller:
             return
 
-        # Detect first connection (green flash welcome)
+        # Track first connection (no flash, just set initial state)
         if serial not in self.connected_controllers:
             self.connected_controllers.add(serial)
-            # Flash green to acknowledge connection
-            try:
-                await stub.SetControllerColor(
-                    controller_manager_pb2.SetControllerColorRequest(
-                        serial=serial,
-                        color=controller_manager_pb2.RGB(r=0, g=255, b=0),
-                        duration_ms=300,
-                    )
-                )
-                # Phase 60: Play connection sound
-                await self._play_sound("Joust/sounds/join.wav", volume=0.6)
-                logger.info(f"Controller {serial} connected - green flash")
-            except Exception as e:
-                logger.error(f"Failed to send connection flash for {serial}: {e}")
-
-            # Set initial state to "flash" - this ensures the next update will set the actual color
-            # (if we set "connected" here, the state check on line 697 would skip setting the dim color)
-            self.controller_lobby_state[serial] = "flash"
+            logger.info(f"Controller {serial} connected")
+            # Set initial state to trigger immediate color update
+            self.controller_lobby_state[serial] = "new"
             self.last_lobby_feedback_update[serial] = current_time
-            # Wait for green flash to complete, then normal state will be set on next update
-            return
 
         # Detect trigger press to toggle ready state (Phase 39)
         # Press trigger once → become ready (and stay ready even after releasing)

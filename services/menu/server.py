@@ -367,7 +367,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         if not self.button_monitor_running:
             self.button_monitor_running = True
             self.button_monitor_task = asyncio.create_task(self._button_monitor_loop())
-            self.button_event_task = asyncio.create_task(self._button_event_loop())
+            # Note: Button event loop disabled due to gRPC asyncio resource issues
+            # self.button_event_task = asyncio.create_task(self._button_event_loop())
             logger.info("Controller button monitor started")
 
     async def stop_button_monitor(self):
@@ -496,8 +497,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 logger.info("Button monitor connected to Controller Manager")
                 retry_delay = 1.0  # Reset delay on successful connection
 
-                # Stream controller states at 30Hz (enough for button detection)
-                stream_request = controller_manager_pb2.StreamRequest(update_frequency_hz=30)
+                # Stream controller states at 60Hz for responsive button detection
+                stream_request = controller_manager_pb2.StreamRequest(update_frequency_hz=60)
 
                 async for update in stub.StreamControllerStates(stream_request):
                     if not self.button_monitor_running:

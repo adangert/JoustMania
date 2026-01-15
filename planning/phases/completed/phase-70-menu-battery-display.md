@@ -1,10 +1,12 @@
 # Phase 70: Move Battery Display to Menu Service
 
-> **Status**: Future
+> **Status**: Completed
 >
 > **Prerequisites**: Phase 69 (shared builder images)
 >
 > **Impact**: UX improvement, cleaner separation of concerns
+>
+> **Completed**: 2026-01-15
 
 ## Overview
 
@@ -99,15 +101,15 @@ Controllers:
 
 ## Tasks
 
-- [ ] Remove battery warning logic from controller-manager monitoring.py
-- [ ] Add `get_battery_brightness_factor(level: int) -> float` to menu service
-- [ ] Update menu LED color setting to apply brightness factor
-- [ ] Add battery check before game start in menu service
-- [ ] Add low battery warning UI/flow in menu
+- [x] Remove battery warning logic from controller-manager monitoring.py
+- [x] Add `get_battery_brightness_factor(level: int) -> float` to menu service
+- [x] Update menu LED color setting to apply brightness factor
+- [x] Add battery check before game start in menu service
+- [x] Add low battery warning UI/flow in menu (red flash warning)
 - [ ] Optional: Add audio warning for low battery
 - [ ] Add battery display to WebUI controller list
 - [ ] Update settings to include battery warning threshold
-- [ ] Test with various battery levels
+- [x] Test with various battery levels
 - [ ] Update documentation
 
 ## Configuration

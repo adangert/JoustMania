@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from proto import controller_manager_pb2 as proto_dot_controller__manager__pb2
+from proto import controller_manager_pb2 as controller__manager__pb2
 
 GRPC_GENERATED_VERSION = '1.76.0'
 GRPC_VERSION = grpc.__version__
@@ -18,7 +18,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + ' but the generated code in proto/controller_manager_pb2_grpc.py depends on'
+        + ' but the generated code in controller_manager_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -37,63 +37,63 @@ class ControllerManagerServiceStub(object):
         """
         self.GetControllerCount = channel.unary_unary(
                 '/joustmania.controller_manager.ControllerManagerService/GetControllerCount',
-                request_serializer=proto_dot_controller__manager__pb2.GetControllerCountRequest.SerializeToString,
-                response_deserializer=proto_dot_controller__manager__pb2.GetControllerCountResponse.FromString,
+                request_serializer=controller__manager__pb2.GetControllerCountRequest.SerializeToString,
+                response_deserializer=controller__manager__pb2.GetControllerCountResponse.FromString,
                 _registered_method=True)
         self.GetReadyControllers = channel.unary_unary(
                 '/joustmania.controller_manager.ControllerManagerService/GetReadyControllers',
-                request_serializer=proto_dot_controller__manager__pb2.GetReadyControllersRequest.SerializeToString,
-                response_deserializer=proto_dot_controller__manager__pb2.GetReadyControllersResponse.FromString,
+                request_serializer=controller__manager__pb2.GetReadyControllersRequest.SerializeToString,
+                response_deserializer=controller__manager__pb2.GetReadyControllersResponse.FromString,
                 _registered_method=True)
         self.GetControllers = channel.unary_unary(
                 '/joustmania.controller_manager.ControllerManagerService/GetControllers',
-                request_serializer=proto_dot_controller__manager__pb2.GetControllersRequest.SerializeToString,
-                response_deserializer=proto_dot_controller__manager__pb2.GetControllersResponse.FromString,
+                request_serializer=controller__manager__pb2.GetControllersRequest.SerializeToString,
+                response_deserializer=controller__manager__pb2.GetControllersResponse.FromString,
                 _registered_method=True)
         self.StreamControllerStates = channel.unary_stream(
                 '/joustmania.controller_manager.ControllerManagerService/StreamControllerStates',
-                request_serializer=proto_dot_controller__manager__pb2.StreamRequest.SerializeToString,
-                response_deserializer=proto_dot_controller__manager__pb2.ControllerStateUpdate.FromString,
+                request_serializer=controller__manager__pb2.StreamRequest.SerializeToString,
+                response_deserializer=controller__manager__pb2.ControllerStateUpdate.FromString,
                 _registered_method=True)
-        self.StreamButtonEvents = channel.unary_stream(
+        self.StreamButtonEvents = channel.stream_stream(
                 '/joustmania.controller_manager.ControllerManagerService/StreamButtonEvents',
-                request_serializer=proto_dot_controller__manager__pb2.ButtonEventStreamRequest.SerializeToString,
-                response_deserializer=proto_dot_controller__manager__pb2.ButtonEvent.FromString,
+                request_serializer=controller__manager__pb2.ButtonEventStreamControl.SerializeToString,
+                response_deserializer=controller__manager__pb2.ButtonEvent.FromString,
                 _registered_method=True)
         self.StreamGameplayData = channel.unary_stream(
                 '/joustmania.controller_manager.ControllerManagerService/StreamGameplayData',
-                request_serializer=proto_dot_controller__manager__pb2.GameplayStreamRequest.SerializeToString,
-                response_deserializer=proto_dot_controller__manager__pb2.GameplayDataUpdate.FromString,
+                request_serializer=controller__manager__pb2.GameplayStreamRequest.SerializeToString,
+                response_deserializer=controller__manager__pb2.GameplayDataUpdate.FromString,
                 _registered_method=True)
         self.StreamGameplayDataDynamic = channel.stream_stream(
                 '/joustmania.controller_manager.ControllerManagerService/StreamGameplayDataDynamic',
-                request_serializer=proto_dot_controller__manager__pb2.GameplayStreamControl.SerializeToString,
-                response_deserializer=proto_dot_controller__manager__pb2.GameplayDataUpdate.FromString,
+                request_serializer=controller__manager__pb2.GameplayStreamControl.SerializeToString,
+                response_deserializer=controller__manager__pb2.GameplayDataUpdate.FromString,
                 _registered_method=True)
         self.PairController = channel.unary_unary(
                 '/joustmania.controller_manager.ControllerManagerService/PairController',
-                request_serializer=proto_dot_controller__manager__pb2.PairControllerRequest.SerializeToString,
-                response_deserializer=proto_dot_controller__manager__pb2.PairControllerResponse.FromString,
+                request_serializer=controller__manager__pb2.PairControllerRequest.SerializeToString,
+                response_deserializer=controller__manager__pb2.PairControllerResponse.FromString,
                 _registered_method=True)
         self.RemoveController = channel.unary_unary(
                 '/joustmania.controller_manager.ControllerManagerService/RemoveController',
-                request_serializer=proto_dot_controller__manager__pb2.RemoveControllerRequest.SerializeToString,
-                response_deserializer=proto_dot_controller__manager__pb2.RemoveControllerResponse.FromString,
+                request_serializer=controller__manager__pb2.RemoveControllerRequest.SerializeToString,
+                response_deserializer=controller__manager__pb2.RemoveControllerResponse.FromString,
                 _registered_method=True)
         self.SetControllerColor = channel.unary_unary(
                 '/joustmania.controller_manager.ControllerManagerService/SetControllerColor',
-                request_serializer=proto_dot_controller__manager__pb2.SetControllerColorRequest.SerializeToString,
-                response_deserializer=proto_dot_controller__manager__pb2.SetControllerColorResponse.FromString,
+                request_serializer=controller__manager__pb2.SetControllerColorRequest.SerializeToString,
+                response_deserializer=controller__manager__pb2.SetControllerColorResponse.FromString,
                 _registered_method=True)
         self.SetControllerVibration = channel.unary_unary(
                 '/joustmania.controller_manager.ControllerManagerService/SetControllerVibration',
-                request_serializer=proto_dot_controller__manager__pb2.SetControllerVibrationRequest.SerializeToString,
-                response_deserializer=proto_dot_controller__manager__pb2.SetControllerVibrationResponse.FromString,
+                request_serializer=controller__manager__pb2.SetControllerVibrationRequest.SerializeToString,
+                response_deserializer=controller__manager__pb2.SetControllerVibrationResponse.FromString,
                 _registered_method=True)
         self.PlayControllerEffect = channel.unary_unary(
                 '/joustmania.controller_manager.ControllerManagerService/PlayControllerEffect',
-                request_serializer=proto_dot_controller__manager__pb2.PlayControllerEffectRequest.SerializeToString,
-                response_deserializer=proto_dot_controller__manager__pb2.PlayControllerEffectResponse.FromString,
+                request_serializer=controller__manager__pb2.PlayControllerEffectRequest.SerializeToString,
+                response_deserializer=controller__manager__pb2.PlayControllerEffectResponse.FromString,
                 _registered_method=True)
 
 
@@ -130,8 +130,9 @@ class ControllerManagerServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def StreamButtonEvents(self, request, context):
+    def StreamButtonEvents(self, request_iterator, context):
         """Stream button press/release events (Phase 41 - event-driven for menu/UI)
+        Phase XX: Made bidirectional for LED state ownership - menu can send base colors and effects
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -192,63 +193,63 @@ def add_ControllerManagerServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'GetControllerCount': grpc.unary_unary_rpc_method_handler(
                     servicer.GetControllerCount,
-                    request_deserializer=proto_dot_controller__manager__pb2.GetControllerCountRequest.FromString,
-                    response_serializer=proto_dot_controller__manager__pb2.GetControllerCountResponse.SerializeToString,
+                    request_deserializer=controller__manager__pb2.GetControllerCountRequest.FromString,
+                    response_serializer=controller__manager__pb2.GetControllerCountResponse.SerializeToString,
             ),
             'GetReadyControllers': grpc.unary_unary_rpc_method_handler(
                     servicer.GetReadyControllers,
-                    request_deserializer=proto_dot_controller__manager__pb2.GetReadyControllersRequest.FromString,
-                    response_serializer=proto_dot_controller__manager__pb2.GetReadyControllersResponse.SerializeToString,
+                    request_deserializer=controller__manager__pb2.GetReadyControllersRequest.FromString,
+                    response_serializer=controller__manager__pb2.GetReadyControllersResponse.SerializeToString,
             ),
             'GetControllers': grpc.unary_unary_rpc_method_handler(
                     servicer.GetControllers,
-                    request_deserializer=proto_dot_controller__manager__pb2.GetControllersRequest.FromString,
-                    response_serializer=proto_dot_controller__manager__pb2.GetControllersResponse.SerializeToString,
+                    request_deserializer=controller__manager__pb2.GetControllersRequest.FromString,
+                    response_serializer=controller__manager__pb2.GetControllersResponse.SerializeToString,
             ),
             'StreamControllerStates': grpc.unary_stream_rpc_method_handler(
                     servicer.StreamControllerStates,
-                    request_deserializer=proto_dot_controller__manager__pb2.StreamRequest.FromString,
-                    response_serializer=proto_dot_controller__manager__pb2.ControllerStateUpdate.SerializeToString,
+                    request_deserializer=controller__manager__pb2.StreamRequest.FromString,
+                    response_serializer=controller__manager__pb2.ControllerStateUpdate.SerializeToString,
             ),
-            'StreamButtonEvents': grpc.unary_stream_rpc_method_handler(
+            'StreamButtonEvents': grpc.stream_stream_rpc_method_handler(
                     servicer.StreamButtonEvents,
-                    request_deserializer=proto_dot_controller__manager__pb2.ButtonEventStreamRequest.FromString,
-                    response_serializer=proto_dot_controller__manager__pb2.ButtonEvent.SerializeToString,
+                    request_deserializer=controller__manager__pb2.ButtonEventStreamControl.FromString,
+                    response_serializer=controller__manager__pb2.ButtonEvent.SerializeToString,
             ),
             'StreamGameplayData': grpc.unary_stream_rpc_method_handler(
                     servicer.StreamGameplayData,
-                    request_deserializer=proto_dot_controller__manager__pb2.GameplayStreamRequest.FromString,
-                    response_serializer=proto_dot_controller__manager__pb2.GameplayDataUpdate.SerializeToString,
+                    request_deserializer=controller__manager__pb2.GameplayStreamRequest.FromString,
+                    response_serializer=controller__manager__pb2.GameplayDataUpdate.SerializeToString,
             ),
             'StreamGameplayDataDynamic': grpc.stream_stream_rpc_method_handler(
                     servicer.StreamGameplayDataDynamic,
-                    request_deserializer=proto_dot_controller__manager__pb2.GameplayStreamControl.FromString,
-                    response_serializer=proto_dot_controller__manager__pb2.GameplayDataUpdate.SerializeToString,
+                    request_deserializer=controller__manager__pb2.GameplayStreamControl.FromString,
+                    response_serializer=controller__manager__pb2.GameplayDataUpdate.SerializeToString,
             ),
             'PairController': grpc.unary_unary_rpc_method_handler(
                     servicer.PairController,
-                    request_deserializer=proto_dot_controller__manager__pb2.PairControllerRequest.FromString,
-                    response_serializer=proto_dot_controller__manager__pb2.PairControllerResponse.SerializeToString,
+                    request_deserializer=controller__manager__pb2.PairControllerRequest.FromString,
+                    response_serializer=controller__manager__pb2.PairControllerResponse.SerializeToString,
             ),
             'RemoveController': grpc.unary_unary_rpc_method_handler(
                     servicer.RemoveController,
-                    request_deserializer=proto_dot_controller__manager__pb2.RemoveControllerRequest.FromString,
-                    response_serializer=proto_dot_controller__manager__pb2.RemoveControllerResponse.SerializeToString,
+                    request_deserializer=controller__manager__pb2.RemoveControllerRequest.FromString,
+                    response_serializer=controller__manager__pb2.RemoveControllerResponse.SerializeToString,
             ),
             'SetControllerColor': grpc.unary_unary_rpc_method_handler(
                     servicer.SetControllerColor,
-                    request_deserializer=proto_dot_controller__manager__pb2.SetControllerColorRequest.FromString,
-                    response_serializer=proto_dot_controller__manager__pb2.SetControllerColorResponse.SerializeToString,
+                    request_deserializer=controller__manager__pb2.SetControllerColorRequest.FromString,
+                    response_serializer=controller__manager__pb2.SetControllerColorResponse.SerializeToString,
             ),
             'SetControllerVibration': grpc.unary_unary_rpc_method_handler(
                     servicer.SetControllerVibration,
-                    request_deserializer=proto_dot_controller__manager__pb2.SetControllerVibrationRequest.FromString,
-                    response_serializer=proto_dot_controller__manager__pb2.SetControllerVibrationResponse.SerializeToString,
+                    request_deserializer=controller__manager__pb2.SetControllerVibrationRequest.FromString,
+                    response_serializer=controller__manager__pb2.SetControllerVibrationResponse.SerializeToString,
             ),
             'PlayControllerEffect': grpc.unary_unary_rpc_method_handler(
                     servicer.PlayControllerEffect,
-                    request_deserializer=proto_dot_controller__manager__pb2.PlayControllerEffectRequest.FromString,
-                    response_serializer=proto_dot_controller__manager__pb2.PlayControllerEffectResponse.SerializeToString,
+                    request_deserializer=controller__manager__pb2.PlayControllerEffectRequest.FromString,
+                    response_serializer=controller__manager__pb2.PlayControllerEffectResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -277,8 +278,8 @@ class ControllerManagerService(object):
             request,
             target,
             '/joustmania.controller_manager.ControllerManagerService/GetControllerCount',
-            proto_dot_controller__manager__pb2.GetControllerCountRequest.SerializeToString,
-            proto_dot_controller__manager__pb2.GetControllerCountResponse.FromString,
+            controller__manager__pb2.GetControllerCountRequest.SerializeToString,
+            controller__manager__pb2.GetControllerCountResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -304,8 +305,8 @@ class ControllerManagerService(object):
             request,
             target,
             '/joustmania.controller_manager.ControllerManagerService/GetReadyControllers',
-            proto_dot_controller__manager__pb2.GetReadyControllersRequest.SerializeToString,
-            proto_dot_controller__manager__pb2.GetReadyControllersResponse.FromString,
+            controller__manager__pb2.GetReadyControllersRequest.SerializeToString,
+            controller__manager__pb2.GetReadyControllersResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -331,8 +332,8 @@ class ControllerManagerService(object):
             request,
             target,
             '/joustmania.controller_manager.ControllerManagerService/GetControllers',
-            proto_dot_controller__manager__pb2.GetControllersRequest.SerializeToString,
-            proto_dot_controller__manager__pb2.GetControllersResponse.FromString,
+            controller__manager__pb2.GetControllersRequest.SerializeToString,
+            controller__manager__pb2.GetControllersResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -358,8 +359,8 @@ class ControllerManagerService(object):
             request,
             target,
             '/joustmania.controller_manager.ControllerManagerService/StreamControllerStates',
-            proto_dot_controller__manager__pb2.StreamRequest.SerializeToString,
-            proto_dot_controller__manager__pb2.ControllerStateUpdate.FromString,
+            controller__manager__pb2.StreamRequest.SerializeToString,
+            controller__manager__pb2.ControllerStateUpdate.FromString,
             options,
             channel_credentials,
             insecure,
@@ -371,7 +372,7 @@ class ControllerManagerService(object):
             _registered_method=True)
 
     @staticmethod
-    def StreamButtonEvents(request,
+    def StreamButtonEvents(request_iterator,
             target,
             options=(),
             channel_credentials=None,
@@ -381,12 +382,12 @@ class ControllerManagerService(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_stream(
-            request,
+        return grpc.experimental.stream_stream(
+            request_iterator,
             target,
             '/joustmania.controller_manager.ControllerManagerService/StreamButtonEvents',
-            proto_dot_controller__manager__pb2.ButtonEventStreamRequest.SerializeToString,
-            proto_dot_controller__manager__pb2.ButtonEvent.FromString,
+            controller__manager__pb2.ButtonEventStreamControl.SerializeToString,
+            controller__manager__pb2.ButtonEvent.FromString,
             options,
             channel_credentials,
             insecure,
@@ -412,8 +413,8 @@ class ControllerManagerService(object):
             request,
             target,
             '/joustmania.controller_manager.ControllerManagerService/StreamGameplayData',
-            proto_dot_controller__manager__pb2.GameplayStreamRequest.SerializeToString,
-            proto_dot_controller__manager__pb2.GameplayDataUpdate.FromString,
+            controller__manager__pb2.GameplayStreamRequest.SerializeToString,
+            controller__manager__pb2.GameplayDataUpdate.FromString,
             options,
             channel_credentials,
             insecure,
@@ -439,8 +440,8 @@ class ControllerManagerService(object):
             request_iterator,
             target,
             '/joustmania.controller_manager.ControllerManagerService/StreamGameplayDataDynamic',
-            proto_dot_controller__manager__pb2.GameplayStreamControl.SerializeToString,
-            proto_dot_controller__manager__pb2.GameplayDataUpdate.FromString,
+            controller__manager__pb2.GameplayStreamControl.SerializeToString,
+            controller__manager__pb2.GameplayDataUpdate.FromString,
             options,
             channel_credentials,
             insecure,
@@ -466,8 +467,8 @@ class ControllerManagerService(object):
             request,
             target,
             '/joustmania.controller_manager.ControllerManagerService/PairController',
-            proto_dot_controller__manager__pb2.PairControllerRequest.SerializeToString,
-            proto_dot_controller__manager__pb2.PairControllerResponse.FromString,
+            controller__manager__pb2.PairControllerRequest.SerializeToString,
+            controller__manager__pb2.PairControllerResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -493,8 +494,8 @@ class ControllerManagerService(object):
             request,
             target,
             '/joustmania.controller_manager.ControllerManagerService/RemoveController',
-            proto_dot_controller__manager__pb2.RemoveControllerRequest.SerializeToString,
-            proto_dot_controller__manager__pb2.RemoveControllerResponse.FromString,
+            controller__manager__pb2.RemoveControllerRequest.SerializeToString,
+            controller__manager__pb2.RemoveControllerResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -520,8 +521,8 @@ class ControllerManagerService(object):
             request,
             target,
             '/joustmania.controller_manager.ControllerManagerService/SetControllerColor',
-            proto_dot_controller__manager__pb2.SetControllerColorRequest.SerializeToString,
-            proto_dot_controller__manager__pb2.SetControllerColorResponse.FromString,
+            controller__manager__pb2.SetControllerColorRequest.SerializeToString,
+            controller__manager__pb2.SetControllerColorResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -547,8 +548,8 @@ class ControllerManagerService(object):
             request,
             target,
             '/joustmania.controller_manager.ControllerManagerService/SetControllerVibration',
-            proto_dot_controller__manager__pb2.SetControllerVibrationRequest.SerializeToString,
-            proto_dot_controller__manager__pb2.SetControllerVibrationResponse.FromString,
+            controller__manager__pb2.SetControllerVibrationRequest.SerializeToString,
+            controller__manager__pb2.SetControllerVibrationResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -574,8 +575,8 @@ class ControllerManagerService(object):
             request,
             target,
             '/joustmania.controller_manager.ControllerManagerService/PlayControllerEffect',
-            proto_dot_controller__manager__pb2.PlayControllerEffectRequest.SerializeToString,
-            proto_dot_controller__manager__pb2.PlayControllerEffectResponse.FromString,
+            controller__manager__pb2.PlayControllerEffectRequest.SerializeToString,
+            controller__manager__pb2.PlayControllerEffectResponse.FromString,
             options,
             channel_credentials,
             insecure,

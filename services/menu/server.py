@@ -703,6 +703,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
             # Auto-start only when ALL connected controllers are ready (minimum 2)
             all_ready = len(self.ready_controllers) == len(self.connected_controllers)
+            logger.info(
+                f"Ready check: ready={len(self.ready_controllers)} connected={len(self.connected_controllers)} "
+                f"all_ready={all_ready} ready_set={self.ready_controllers} connected_set={self.connected_controllers}"
+            )
             if all_ready and len(self.ready_controllers) >= 2:
                 logger.info("All controllers ready - auto-starting game!")
                 await self._handle_trigger_press(serial)

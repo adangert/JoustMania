@@ -1525,10 +1525,12 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         square = state.get(ButtonKey.SQUARE, False)
         triangle = state.get(ButtonKey.TRIANGLE, False)
         ps = state.get(ButtonKey.PS, False)
+        select = state.get(ButtonKey.SELECT, False)
+        start = state.get(ButtonKey.START, False)
 
         info = self.tracked_controllers.get(serial, {})
         self._detect_button_transitions(
-            serial, info, trigger, move, cross, circle, square, triangle, ps
+            serial, info, trigger, move, cross, circle, square, triangle, ps, select, start
         )
 
     def _detect_button_transitions(
@@ -1542,6 +1544,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         square: bool,
         triangle: bool,
         ps: bool,
+        select: bool = False,
+        start: bool = False,
     ):
         """
         Detect button press/release transitions and publish button events (Phase 41).
@@ -1549,7 +1553,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         Args:
             serial: Controller serial number
             info: Controller info dict (for battery, color)
-            trigger, move, cross, circle, square, triangle, ps: Current button states
+            trigger, move, cross, circle, square, triangle, ps, select, start: Current button states
         """
         # Initialize button state tracking for this controller if needed (no lock - atomic dict ops)
         if serial not in self.button_states:
@@ -1561,6 +1565,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 ButtonTrackingKey.SQUARE: False,
                 ButtonTrackingKey.TRIANGLE: False,
                 ButtonTrackingKey.PS: False,
+                ButtonTrackingKey.SELECT: False,
+                ButtonTrackingKey.START: False,
             }
             logger.info(f"Initialized button tracking for {serial} (current: move={move}, trigger={trigger})")
 
@@ -1574,6 +1580,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             ButtonTrackingKey.SQUARE: square,
             ButtonTrackingKey.TRIANGLE: triangle,
             ButtonTrackingKey.PS: ps,
+            ButtonTrackingKey.SELECT: select,
+            ButtonTrackingKey.START: start,
         }
 
         # Map button names to ButtonType enum
@@ -1585,6 +1593,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             ButtonTrackingKey.SQUARE: controller_manager_pb2.BUTTON_SQUARE,
             ButtonTrackingKey.TRIANGLE: controller_manager_pb2.BUTTON_TRIANGLE,
             ButtonTrackingKey.PS: controller_manager_pb2.BUTTON_PS,
+            ButtonTrackingKey.SELECT: controller_manager_pb2.BUTTON_SELECT,
+            ButtonTrackingKey.START: controller_manager_pb2.BUTTON_START,
         }
 
         # Detect transitions and create events

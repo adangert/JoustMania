@@ -95,6 +95,8 @@ class ButtonTrackingKey(str, Enum):
     SQUARE = "square"
     TRIANGLE = "triangle"
     PS = "ps"
+    SELECT = "select"
+    START = "start"
 
 
 # Mapping from tracking keys to state dict keys
@@ -106,6 +108,8 @@ BUTTON_TRACKING_TO_STATE = {
     ButtonTrackingKey.SQUARE: ButtonKey.SQUARE,
     ButtonTrackingKey.TRIANGLE: ButtonKey.TRIANGLE,
     ButtonTrackingKey.PS: ButtonKey.PS,
+    ButtonTrackingKey.SELECT: ButtonKey.SELECT,
+    ButtonTrackingKey.START: ButtonKey.START,
 }
 
 

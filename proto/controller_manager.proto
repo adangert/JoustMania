@@ -187,6 +187,8 @@ enum ButtonType {
   BUTTON_SQUARE = 4;
   BUTTON_TRIANGLE = 5;
   BUTTON_PS = 6;
+  BUTTON_SELECT = 7;
+  BUTTON_START = 8;
 }
 
 enum ButtonAction {

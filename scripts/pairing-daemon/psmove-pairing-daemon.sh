@@ -48,16 +48,11 @@ debug() {
 }
 
 # Flash controller LED to indicate status
+# Note: LED control requires hidapi, not available via psmove CLI
+# This is a no-op placeholder for now
 flash_led() {
     local count=$1
-    local r=$2 g=$3 b=$4
-
-    for i in $(seq 1 "$count"); do
-        $PSMOVE set-leds "$r" "$g" "$b" 2>/dev/null
-        sleep 0.2
-        $PSMOVE set-leds 0 0 0 2>/dev/null
-        sleep 0.2
-    done
+    debug "LED flash requested (not implemented via CLI)"
 }
 
 log "PS Move Pairing Daemon started"
@@ -95,10 +90,11 @@ while true; do
 
     # Check for USB-connected controllers
     # Look for lines containing "USB" and extract controller info
-    usb_count=$(echo "$psmove_output" | grep -ci "USB" || echo "0")
+    usb_count=$(echo "$psmove_output" | grep -ci "USB" || true)
+    usb_count=${usb_count:-0}
     debug "USB controllers detected: $usb_count"
 
-    if [ "$usb_count" -eq 0 ]; then
+    if [ "$usb_count" = "0" ] || [ -z "$usb_count" ]; then
         debug "No USB controllers found"
         sleep "$POLL_INTERVAL"
         continue
@@ -131,10 +127,6 @@ while true; do
         fi
 
         log "Found unpaired USB controller: $serial"
-
-        # Yellow - pairing in progress
-        log "Setting LED to yellow (pairing)..."
-        $PSMOVE set-leds 255 255 0 2>/dev/null
 
         # Pair controller (writes host BT MAC to controller)
         log "Running: $PSMOVE pair"

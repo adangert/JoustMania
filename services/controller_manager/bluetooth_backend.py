@@ -271,19 +271,20 @@ class BluetoothBackend(ControllerBackend):
 
     async def get_controller_state(self, serial: str) -> dict | None:
         """Get current controller state."""
-        # Get fresh handle to avoid stale object issues
-        move = self._get_move_by_serial(serial)
+        # Use stored handle for fast polling - don't create new handles each time
+        move = self.controllers.get(serial)
         if not move:
-            # Controller disconnected
-            if serial in self.controllers:
-                logger.warning(f"Controller {serial} no longer available")
-                del self.controllers[serial]
-                if serial in self.controller_states:
-                    del self.controller_states[serial]
-            return None
-
-        # Update stored handle
-        self.controllers[serial] = move
+            # Try to get handle if not stored
+            move = self._get_move_by_serial(serial)
+            if not move:
+                # Controller disconnected
+                if serial in self.controllers:
+                    logger.warning(f"Controller {serial} no longer available")
+                    del self.controllers[serial]
+                    if serial in self.controller_states:
+                        del self.controller_states[serial]
+                return None
+            self.controllers[serial] = move
 
         try:
             # Poll for new data

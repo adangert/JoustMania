@@ -865,22 +865,30 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             self.controller_lobby_state[serial] = "new"
             # Don't set last_lobby_feedback_update - allow immediate color update
 
-        # Detect trigger press to toggle ready state (Phase 39)
-        # Press trigger once → become ready (and stay ready even after releasing)
+        # Detect button presses for ready state changes (Phase 39)
+        # - Trigger press → become ready
+        # - Move press → become un-ready (more purposeful action)
         prev_state = self.controller_button_states.get(serial, {})
 
-        # Detect trigger press event (False → True transition)
+        # Detect trigger press event (False → True transition) → become ready
         if controller.trigger_pressed and not prev_state.get("trigger", False):
-            # Toggle ready state on trigger press
             if serial in self.ready_controllers:
                 # Already ready → pressing trigger starts game (handled by _process_button_state)
                 # Don't update lobby feedback, let game start happen
                 return
             # Not ready → mark as ready
             target_state = "ready"
+        # Detect move press event (False → True transition) → become un-ready
+        elif controller.move_pressed and not prev_state.get("move", False):
+            if serial in self.ready_controllers:
+                # Ready → pressing Move button un-readies
+                target_state = "connected"
+                logger.info(f"Controller {serial} un-readied via Move button")
+            else:
+                # Not ready → stay connected
+                target_state = "connected"
         else:
-            # No trigger press event → maintain current state
-            # Once ready, stay ready (don't go back to connected when releasing trigger)
+            # No relevant button press → maintain current state
             target_state = "ready" if serial in self.ready_controllers else "connected"
 
         # Only update if state changed (avoid redundant SetControllerColor calls)
@@ -899,6 +907,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             # Phase 60: Play ready sound
             await self._play_sound("Joust/sounds/beep_loud.wav", volume=0.5)
             logger.info(f"Controller {serial} ready ({self.ready_controller_count} total)")
+
+            # Sync with controller manager to detect disconnects before checking ready
+            await self._sync_connected_controllers(stub)
 
             # Auto-start only when ALL connected controllers are ready (minimum 2)
             all_ready = len(self.ready_controllers) == len(self.connected_controllers)
@@ -983,6 +994,47 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             0: 0.15,
         }
         return dim_factors.get(battery_level, 0.50)
+
+    async def _sync_connected_controllers(self, stub):
+        """
+        Sync connected_controllers with controller manager to detect disconnects.
+
+        Calls GetControllers and removes any controllers from our sets
+        that are no longer present in the controller manager.
+
+        Args:
+            stub: ControllerManagerServiceStub
+        """
+        from proto import controller_manager_pb2
+
+        try:
+            response = await stub.GetControllers(controller_manager_pb2.GetControllersRequest())
+            if not response.success:
+                logger.warning(f"GetControllers failed: {response.error}")
+                return
+
+            # Get set of currently connected controller serials
+            current_serials = {c.serial for c in response.controllers}
+
+            # Find controllers that disconnected
+            disconnected = self.connected_controllers - current_serials
+            if disconnected:
+                logger.info(f"Controllers disconnected: {disconnected}")
+                for serial in disconnected:
+                    self.connected_controllers.discard(serial)
+                    self.ready_controllers.discard(serial)
+                    self.controller_lobby_state.pop(serial, None)
+                    self.controller_button_states.pop(serial, None)
+                    self.last_button_press_time.pop(serial, None)
+                    self.last_lobby_feedback_update.pop(serial, None)
+
+                self.ready_controller_count = len(self.ready_controllers)
+                logger.info(
+                    f"After disconnect cleanup: connected={len(self.connected_controllers)} ready={len(self.ready_controllers)}"
+                )
+
+        except Exception as e:
+            logger.warning(f"Failed to sync controllers: {e}")
 
     def _should_process_button(self, serial: str, button: str, current_time: float) -> bool:
         """

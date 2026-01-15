@@ -111,12 +111,11 @@ Controllers receive LED feedback based on their state and the selected game mode
 
 ### Controller States
 
-| State | LED Behavior |
-|-------|--------------|
-| Just Connected | Green flash (300ms), then dim game color |
-| Connected (not ready) | Dim game color (~50% brightness) |
-| Ready (trigger pressed) | Bright game color (100% brightness) |
-| Admin Mode | White (see full reference for details) |
+| State | LED Behavior | Transition |
+|-------|--------------|------------|
+| Connected (not ready) | Dim game color (15-50% based on battery) | Trigger → Ready |
+| Ready | Bright game color (100% brightness) | Move → Connected |
+| Admin Mode | White (see full reference for details) | PS or timeout → Connected |
 
 ### Auto-Start
 
@@ -166,15 +165,15 @@ stateDiagram-v2
     Disconnected --> Connected: Controller detected\nin state stream
 
     Connected --> Ready: Trigger pressed
-    Ready --> Connected: (not implemented -\nonce ready, stays ready)
+    Ready --> Connected: Move button pressed\n(purposeful un-ready)
 
     Connected --> Admin: All 4 face buttons\nheld simultaneously
     Ready --> Admin: All 4 face buttons\nheld simultaneously
     Admin --> Connected: PS button\nor 60s timeout
 
-    Connected --> Disconnected: Controller lost\n(timeout/disconnect)
-    Ready --> Disconnected: Controller lost
-    Admin --> Disconnected: Controller lost
+    Connected --> Disconnected: GetControllers sync\ndetects missing
+    Ready --> Disconnected: GetControllers sync\ndetects missing
+    Admin --> Disconnected: GetControllers sync\ndetects missing
 
     note right of Connected
         LED: Dim game color
@@ -241,22 +240,29 @@ flowchart TD
     AddConnected --> CheckTrigger
 
     CheckTrigger -->|Yes, not ready| MarkReady[Add to ready set<br/>Set bright game color<br/>Play beep sound]
-    CheckTrigger -->|Yes, already ready| CheckAllReady
-    CheckTrigger -->|No| CheckAdminCombo
+    CheckTrigger -->|Yes, already ready| SyncControllers
+    CheckTrigger -->|No| CheckMove
 
-    MarkReady --> CheckAllReady{All connected<br/>are ready?}
+    CheckMove{Move button<br/>pressed?} -->|Yes, is ready| UnReady[Remove from ready set<br/>Set dim game color]
+    CheckMove -->|No| CheckAdminCombo
+    UnReady --> Stream
+
+    MarkReady --> SyncControllers[Sync with GetControllers<br/>Remove disconnected]
+
+    SyncControllers --> CheckAllReady{All connected<br/>are ready?}
 
     CheckAllReady -->|No| CheckAdminCombo
     CheckAllReady -->|Yes| CheckMinPlayers{≥2 players?}
 
     CheckMinPlayers -->|No| CheckAdminCombo
-    CheckMinPlayers -->|Yes| StartGame[🎮 Start Game!<br/>Publish game_requested<br/>State → GAME_STARTING]
+    CheckMinPlayers -->|Yes| StartGame[🎮 Start Game!<br/>State → GAME_STARTING<br/>Publish game_requested]
 
     CheckAdminCombo{All 4 face<br/>buttons held?} -->|Yes| EnterAdmin[Enter Admin Mode<br/>White LED]
     CheckAdminCombo -->|No| Stream
 
     EnterAdmin --> Stream
-    StartGame --> WaitEnd([Wait for game_ended event])
+    StartGame --> StopMonitor[Stop button monitor]
+    StopMonitor --> WaitEnd([Wait for game_ended event])
     WaitEnd --> ResetLobby[Reset lobby state<br/>Clear ready controllers<br/>Restart button monitor]
     ResetLobby --> Start
 ```

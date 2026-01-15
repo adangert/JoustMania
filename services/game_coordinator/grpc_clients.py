@@ -48,7 +48,7 @@ class GrpcClientManager:
         self._settings_host = os.getenv("SETTINGS_HOST", "settings")
         self._settings_port = os.getenv("SETTINGS_PORT", "50051")
         self._audio_host = os.getenv("AUDIO_HOST", "audio")
-        self._audio_port = os.getenv("AUDIO_PORT", "50054")
+        self._audio_port = os.getenv("AUDIO_PORT", "50056")
 
         # Channels and stubs (initialized on connect)
         self._controller_manager_channel = None

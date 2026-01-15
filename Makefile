@@ -1,5 +1,6 @@
 # JoustMania Build Targets
 # Phase 47: Protobuf precompilation optimization
+# Phase 69: Shared builder images
 
 .PHONY: help
 help:
@@ -10,6 +11,11 @@ help:
 	@echo "  make docker-build    - Build all Docker images"
 	@echo "  make docker-start    - Start Docker services"
 	@echo "  make docker-stop     - Stop Docker services"
+	@echo ""
+	@echo "Builder Images (Phase 69):"
+	@echo "  make builders        - Build all builder images (run once)"
+	@echo "  make builder         - Build shared Python builder image"
+	@echo "  make psmove-builder  - Build psmoveapi builder image (~15min)"
 	@echo ""
 	@echo "Testing Targets:"
 	@echo "  make test-help       - Show all testing targets"
@@ -48,6 +54,60 @@ docker-start:
 .PHONY: docker-stop
 docker-stop:
 	@bash scripts/docker/stop.sh
+
+# ============================================================================
+# Builder Images (Phase 69)
+# ============================================================================
+# These images cache common dependencies to speed up service builds.
+# Build once, then service builds will be much faster.
+
+# Marker files to track when builders were last built
+BUILDER_MARKER := .builder-built
+PSMOVE_BUILDER_MARKER := .psmove-builder-built
+
+.PHONY: builder
+builder: $(BUILDER_MARKER)
+
+$(BUILDER_MARKER): images/builder/Dockerfile images/builder/requirements-common.txt
+	@echo "Building shared Python builder image..."
+	@docker build -t joustmania/builder:latest images/builder/
+	@touch $(BUILDER_MARKER)
+	@echo "✓ Builder image ready"
+
+.PHONY: psmove-builder
+psmove-builder: $(PSMOVE_BUILDER_MARKER)
+
+$(PSMOVE_BUILDER_MARKER): images/psmove-builder/Dockerfile
+	@echo "Building psmoveapi builder image (this takes 10-15 minutes on Pi)..."
+	@docker build -t joustmania/psmove-builder:latest images/psmove-builder/
+	@touch $(PSMOVE_BUILDER_MARKER)
+	@echo "✓ PS Move builder image ready"
+
+.PHONY: builders
+builders: builder psmove-builder
+	@echo ""
+	@echo "✓ All builder images ready!"
+	@echo "  You can now run 'make build-all-services' for fast builds."
+
+.PHONY: builder-force
+builder-force:
+	@echo "Force rebuilding shared Python builder image..."
+	@docker build --no-cache -t joustmania/builder:latest images/builder/
+	@touch $(BUILDER_MARKER)
+	@echo "✓ Builder image rebuilt"
+
+.PHONY: psmove-builder-force
+psmove-builder-force:
+	@echo "Force rebuilding psmoveapi builder image..."
+	@docker build --no-cache -t joustmania/psmove-builder:latest images/psmove-builder/
+	@touch $(PSMOVE_BUILDER_MARKER)
+	@echo "✓ PS Move builder image rebuilt"
+
+.PHONY: clean-builders
+clean-builders:
+	@echo "Removing builder marker files..."
+	@rm -f $(BUILDER_MARKER) $(PSMOVE_BUILDER_MARKER)
+	@echo "✓ Builder markers cleaned (images still exist)"
 
 # ============================================================================
 # CI/CD Targets (Phase 55)
@@ -130,7 +190,7 @@ validate-packages: ci-build-tools
 	@bash scripts/ci/validate-packages.sh
 
 .PHONY: build-service
-build-service:
+build-service: builders
 	@if [ -z "$(SERVICE)" ]; then \
 		echo "Usage: make build-service SERVICE=<service-name>"; \
 		echo "Example: make build-service SERVICE=controller_manager"; \
@@ -141,18 +201,26 @@ build-service:
 		-f services/$(SERVICE)/Dockerfile \
 		-t joustmania/$(SERVICE)-service:ci \
 		--build-arg BUILDKIT_INLINE_CACHE=1 \
+		--build-arg BUILDER_IMAGE=joustmania/builder:latest \
+		--build-arg PSMOVE_BUILDER_IMAGE=joustmania/psmove-builder:latest \
 		.
 	@echo "✅ Built $(SERVICE) successfully!"
 
 .PHONY: build-all-services
-build-all-services:
+build-all-services: builders
 	@echo "Building all services..."
 	@for service in $(SERVICES); do \
 		echo ""; \
 		echo "========================================"; \
 		echo "Building $$service"; \
 		echo "========================================"; \
-		$(MAKE) build-service SERVICE=$$service; \
+		docker build \
+			-f services/$$service/Dockerfile \
+			-t joustmania/$$service-service:ci \
+			--build-arg BUILDKIT_INLINE_CACHE=1 \
+			--build-arg BUILDER_IMAGE=joustmania/builder:latest \
+			--build-arg PSMOVE_BUILDER_IMAGE=joustmania/psmove-builder:latest \
+			.; \
 	done
 	@echo ""
 	@echo "✅ All services built successfully!"

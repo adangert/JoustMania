@@ -92,3 +92,7 @@ venv
 conf/supervisor/conf.d/joust.conf
 
 get-docker.sh
+
+# Builder marker files (Phase 69)
+.builder-built
+.psmove-builder-built

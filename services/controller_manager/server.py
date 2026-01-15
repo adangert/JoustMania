@@ -1566,11 +1566,17 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 # Track button event (Phase 38)
                 action_str = "press" if current_pressed else "release"
                 metrics.button_events_total.labels(serial=serial, button=button_name, action=action_str).inc()
-                logger.info(f"Button transition: {serial} {button_name} {action_str}")
 
                 # Update tracked state (dict is mutable, so this updates button_states)
                 with self.state_lock:
                     prev_states[button_name] = current_pressed
+
+        # Log all button states when any transition occurred
+        if events:
+            logger.info(
+                f"Button event {serial}: "
+                f"T={trigger} M={move} X={cross} O={circle} []={square} /\\={triangle} PS={ps}"
+            )
 
         # Publish events to all subscribers
         # Take snapshot of subscribers to avoid iteration over changing dict

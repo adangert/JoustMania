@@ -206,11 +206,34 @@ class BluetoothBackend(ControllerBackend):
             logger.error(f"Error disconnecting controller {serial}: {e}", exc_info=True)
             return False
 
+    def _get_move_by_serial(self, serial: str) -> "psmove.PSMove | None":
+        """Get a fresh PSMove handle for a serial number."""
+        count = psmove.count_connected()
+        for i in range(count):
+            try:
+                with suppress_stderr():
+                    move = psmove.PSMove(i)
+                if move and move.get_serial() == serial:
+                    return move
+            except Exception:
+                continue
+        return None
+
     async def get_controller_state(self, serial: str) -> dict | None:
         """Get current controller state."""
-        move = self.controllers.get(serial)
+        # Get fresh handle to avoid stale object issues
+        move = self._get_move_by_serial(serial)
         if not move:
+            # Controller disconnected
+            if serial in self.controllers:
+                logger.warning(f"Controller {serial} no longer available")
+                del self.controllers[serial]
+                if serial in self.controller_states:
+                    del self.controller_states[serial]
             return None
+
+        # Update stored handle
+        self.controllers[serial] = move
 
         try:
             # Poll for new data
@@ -220,7 +243,7 @@ class BluetoothBackend(ControllerBackend):
             # Get controller state
             state = self.controller_states.get(serial)
             if not state:
-                return None
+                self.controller_states[serial] = ControllerState()
 
             # Read inputs
             trigger = move.get_trigger()

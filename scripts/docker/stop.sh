@@ -8,7 +8,7 @@ set -e
 echo "Stopping JoustMania stack..."
 echo ""
 
-docker-compose down
+docker compose down
 
 echo ""
 echo "Stack stopped and cleaned up."

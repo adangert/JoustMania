@@ -58,18 +58,33 @@ class BluetoothBackend(ControllerBackend):
             logger.info(f"Found {count} PS Move controllers")
 
             for move_num in range(count):
-                move = psmove.PSMove(move_num)
-                serial = move.get_serial()
+                try:
+                    move = psmove.PSMove(move_num)
+                    if move is None:
+                        continue
 
-                # Skip USB controllers - pairing handled by host daemon
-                if move.connection_type == psmove.Conn_USB:
-                    logger.info(f"Controller {serial}: USB (pairing handled by host daemon)")
+                    serial = move.get_serial()
+                    if not serial:
+                        logger.debug(f"Controller {move_num}: no serial, skipping")
+                        continue
+
+                    # Skip USB controllers - pairing handled by host daemon
+                    try:
+                        conn_type = move.connection_type
+                        if conn_type == psmove.Conn_USB:
+                            logger.info(f"Controller {serial}: USB (pairing handled by host daemon)")
+                            continue
+                    except Exception:
+                        logger.debug(f"Controller {move_num}: can't get connection type, skipping")
+                        continue
+
+                    # Track Bluetooth-connected controllers
+                    self.controllers[serial] = move
+                    self.controller_states[serial] = ControllerState()
+                    logger.info(f"Controller {serial}: Bluetooth (ready)")
+                except Exception as e:
+                    logger.debug(f"Error initializing controller {move_num}: {e}")
                     continue
-
-                # Track Bluetooth-connected controllers
-                self.controllers[serial] = move
-                self.controller_states[serial] = ControllerState()
-                logger.info(f"Controller {serial}: Bluetooth (ready)")
 
             self.running = True
             return True
@@ -96,18 +111,26 @@ class BluetoothBackend(ControllerBackend):
             # Also check currently connected via psmove
             count = psmove.count_connected()
             for move_num in range(count):
-                move = psmove.PSMove(move_num)
-                serial = move.get_serial()
+                try:
+                    move = psmove.PSMove(move_num)
+                    if move is None:
+                        continue
+                    serial = move.get_serial()
+                    if not serial:
+                        continue
 
-                # Add if not already in list
-                if not any(c["serial"] == serial for c in controllers):
-                    controllers.append(
-                        {
-                            "address": serial,  # Use serial as address for connected controllers
-                            "serial": serial,
-                            "name": f"PS Move {serial[-4:]}",
-                        }
-                    )
+                    # Add if not already in list
+                    if not any(c["serial"] == serial for c in controllers):
+                        controllers.append(
+                            {
+                                "address": serial,  # Use serial as address for connected controllers
+                                "serial": serial,
+                                "name": f"PS Move {serial[-4:]}",
+                            }
+                        )
+                except Exception as e:
+                    logger.debug(f"Error scanning controller {move_num}: {e}")
+                    continue
 
         except Exception as e:
             logger.error(f"Error scanning controllers: {e}", exc_info=True)
@@ -129,20 +152,31 @@ class BluetoothBackend(ControllerBackend):
 
             # Scan for the controller
             for i in range(psmove.count_connected()):
-                move = psmove.PSMove(i)
-                serial = move.get_serial()
+                try:
+                    move = psmove.PSMove(i)
+                    if move is None:
+                        continue
+                    serial = move.get_serial()
+                    if not serial:
+                        continue
 
-                if serial and (serial == address or serial.upper() == address.upper()):
-                    # Skip USB controllers
-                    if move.connection_type == psmove.Conn_USB:
-                        logger.info(f"Controller {serial} is USB - pairing handled by host daemon")
-                        return False
+                    if serial == address or serial.upper() == address.upper():
+                        # Skip USB controllers
+                        try:
+                            if move.connection_type == psmove.Conn_USB:
+                                logger.info(f"Controller {serial} is USB - pairing handled by host daemon")
+                                return False
+                        except Exception:
+                            continue
 
-                    # Track the Bluetooth controller
-                    self.controllers[serial] = move
-                    self.controller_states[serial] = ControllerState()
-                    logger.info(f"Connected controller {serial} via Bluetooth")
-                    return True
+                        # Track the Bluetooth controller
+                        self.controllers[serial] = move
+                        self.controller_states[serial] = ControllerState()
+                        logger.info(f"Connected controller {serial} via Bluetooth")
+                        return True
+                except Exception as e:
+                    logger.debug(f"Error checking controller {i}: {e}")
+                    continue
 
             logger.warning(f"Controller {address} not found")
             return False
@@ -260,17 +294,27 @@ class BluetoothBackend(ControllerBackend):
             count = psmove.count_connected()
 
             for move_num in range(count):
-                move = psmove.PSMove(move_num)
-                if move is None:
-                    continue
-
-                # Skip USB controllers - pairing handled by host daemon
-                if move.connection_type == psmove.Conn_USB:
-                    continue
-
                 try:
+                    move = psmove.PSMove(move_num)
+                    if move is None:
+                        continue
+
+                    # Check if controller is valid before accessing properties
                     serial = move.get_serial()
-                    if serial and serial not in self.controllers:
+                    if not serial:
+                        logger.debug(f"Controller {move_num}: no serial, skipping")
+                        continue
+
+                    # Skip USB controllers - pairing handled by host daemon
+                    try:
+                        conn_type = move.connection_type
+                        if conn_type == psmove.Conn_USB:
+                            continue
+                    except Exception:
+                        logger.debug(f"Controller {move_num}: can't get connection type, skipping")
+                        continue
+
+                    if serial not in self.controllers:
                         # New Bluetooth controller detected
                         self.controllers[serial] = move
                         self.controller_states[serial] = ControllerState()

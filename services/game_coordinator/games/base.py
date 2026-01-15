@@ -735,10 +735,8 @@ class BaseGameMode(ABC):
         try:
             from proto import audio_pb2
 
-            # Prepend assets path (matches Docker volume mount at /app/services/audio/assets)
-            full_path = f"services/audio/assets/{sound_path}"
-
-            request = audio_pb2.PlaySoundRequest(file_path=full_path, volume=1.0, priority=priority)
+            # Send relative path - audio service resolves to its assets directory
+            request = audio_pb2.PlaySoundRequest(file_path=sound_path, volume=1.0, priority=priority)
 
             # Fire-and-forget - don't wait for response
             await self.audio_client.PlaySound(request)

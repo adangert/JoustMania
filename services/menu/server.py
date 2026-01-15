@@ -493,16 +493,17 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         Play a sound effect via the audio service (fire-and-forget).
 
         Args:
-            file_path: Path to audio file (relative to /app/services/audio/assets/)
+            file_path: Relative path to audio file (e.g., "Joust/sounds/beep.wav")
             volume: Volume level 0.0-1.0
         """
         try:
             from proto import audio_pb2, audio_pb2_grpc
 
             stub = audio_pb2_grpc.AudioServiceStub(self.audio_channel)
+            # Send relative path - audio service resolves to its assets directory
             await stub.PlaySound(
                 audio_pb2.PlaySoundRequest(
-                    file_path=f"/app/services/audio/assets/{file_path}",
+                    file_path=file_path,
                     volume=volume,
                     priority=audio_pb2.AudioPriority.HIGH,
                 )

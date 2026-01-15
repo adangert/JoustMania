@@ -66,6 +66,9 @@ class AudioManager:
         """Initialize pygame mixer and audio state."""
         self.mock_mode = os.getenv("MOCK_MODE", "false").lower() == "true"
 
+        # Assets directory - clients send relative paths, we resolve to full path
+        self.assets_dir = os.getenv("AUDIO_ASSETS_DIR", "services/audio/assets")
+
         if not self.mock_mode:
             pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
             pygame.mixer.set_num_channels(8)  # Allow up to 8 simultaneous sounds
@@ -79,25 +82,36 @@ class AudioManager:
         self.is_playing: bool = False
         self.music_lock = threading.Lock()
 
+        logger.info(f"AudioManager initialized (assets_dir={self.assets_dir})")
+
         # Track currently playing sounds for status
         self.active_sounds: dict[str, dict] = {}
 
-        logger.info("AudioManager initialized")
+    def _resolve_path(self, relative_path: str) -> str:
+        """Resolve relative path to full path using assets directory."""
+        # If already absolute or starts with assets dir, use as-is
+        if os.path.isabs(relative_path) or relative_path.startswith(self.assets_dir):
+            return relative_path
+        return os.path.join(self.assets_dir, relative_path)
 
     def play_sound(self, file_path: str, volume: float = 1.0, priority: int = 2) -> bool:
         """
         Play a sound effect (one-shot).
 
         Args:
-            file_path: Path to audio file
+            file_path: Relative path to audio file (e.g., "Joust/sounds/beep.wav")
             volume: Volume level (0.0 to 1.0)
             priority: Priority level (0=LOW, 3=CRITICAL)
 
         Returns:
             True if sound played successfully
         """
+        # Resolve relative path to full path
+        full_path = self._resolve_path(file_path)
+
         with tracer.start_as_current_span("play_sound") as span:
             span.set_attribute("audio.file", file_path)
+            span.set_attribute("audio.full_path", full_path)
             span.set_attribute("audio.volume", volume)
             span.set_attribute("audio.priority", priority)
 
@@ -106,12 +120,12 @@ class AudioManager:
                 return True
 
             try:
-                if not os.path.exists(file_path):
-                    logger.error(f"Audio file not found: {file_path}")
+                if not os.path.exists(full_path):
+                    logger.error(f"Audio file not found: {full_path} (requested: {file_path})")
                     return False
 
                 # Load and play sound effect
-                sound = pygame.mixer.Sound(file_path)
+                sound = pygame.mixer.Sound(full_path)
                 adjusted_volume = volume * self.master_volume
                 sound.set_volume(adjusted_volume)
 
@@ -135,7 +149,7 @@ class AudioManager:
         Play background music (looping).
 
         Args:
-            file_pattern: Glob pattern for music files (e.g. "audio/Joust/music/*.wav")
+            file_pattern: Glob pattern for music files (e.g., "Joust/music/*.wav")
             loop: Whether to loop the music
             tempo: Playback speed (1.0 = normal, 1.5 = 50% faster)
             priority: Priority level
@@ -143,8 +157,12 @@ class AudioManager:
         Returns:
             Track ID if successful, None otherwise
         """
+        # Resolve pattern to full path
+        full_pattern = self._resolve_path(file_pattern)
+
         with tracer.start_as_current_span("play_music") as span:
             span.set_attribute("audio.pattern", file_pattern)
+            span.set_attribute("audio.full_pattern", full_pattern)
             span.set_attribute("audio.loop", loop)
             span.set_attribute("audio.tempo", tempo)
 
@@ -157,9 +175,9 @@ class AudioManager:
 
             try:
                 # Find matching audio files
-                audio_files = glob.glob(file_pattern)
+                audio_files = glob.glob(full_pattern)
                 if not audio_files:
-                    logger.error(f"No audio files match pattern: {file_pattern}")
+                    logger.error(f"No audio files match pattern: {full_pattern} (requested: {file_pattern})")
                     return None
 
                 # Choose random file from pattern

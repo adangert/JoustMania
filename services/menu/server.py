@@ -67,6 +67,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         # Controller button monitoring (Phase 21)
         self.button_monitor_task = None
         self.button_monitor_running = False
+
+        # Game event monitoring - stops button monitor during games
+        self.game_event_task = None
+        self.game_event_monitor_running = False
         self.controller_button_states: dict[str, dict[str, bool]] = {}  # {serial: {trigger: bool, move: bool, ...}}
         self.last_button_press_time: dict[str, dict[str, float]] = {}  # {serial: {button: timestamp}}
 
@@ -383,6 +387,87 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             with contextlib.suppress(asyncio.CancelledError):
                 await self.button_event_task
         logger.info("Controller button monitor stopped")
+
+    async def start_game_event_monitor(self):
+        """Start the game event monitoring task."""
+        if not self.game_event_monitor_running:
+            self.game_event_monitor_running = True
+            self.game_event_task = asyncio.create_task(self._game_event_loop())
+            logger.info("Game event monitor started")
+
+    async def stop_game_event_monitor(self):
+        """Stop the game event monitoring task."""
+        self.game_event_monitor_running = False
+        if self.game_event_task:
+            self.game_event_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self.game_event_task
+        logger.info("Game event monitor stopped")
+
+    async def _game_event_loop(self):
+        """
+        Monitor game events from game coordinator.
+
+        Stops button monitor when game starts, restarts when game ends.
+        This ensures menu doesn't interfere with game controller handling.
+        """
+        from proto import game_coordinator_pb2, game_coordinator_pb2_grpc
+
+        retry_delay = 1.0
+        max_retry_delay = 30.0
+
+        while self.game_event_monitor_running:
+            try:
+                stub = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(self.game_coordinator_channel)
+
+                logger.info("Game event monitor connected to Game Coordinator")
+                retry_delay = 1.0  # Reset delay on successful connection
+
+                # Subscribe to game events
+                async for event in stub.StreamGameEvents(game_coordinator_pb2.StreamEventsRequest()):
+                    if not self.game_event_monitor_running:
+                        return
+
+                    logger.info(f"Game event received: {event.event_type}")
+
+                    if event.event_type == "game_started":
+                        # Game is starting - stop button monitoring
+                        logger.info("Game started - stopping button monitor")
+                        self.state = menu_pb2.MenuState.GAME_STARTING
+                        await self.stop_button_monitor()
+
+                    elif event.event_type == "game_ended":
+                        # Game ended - restart button monitoring
+                        logger.info("Game ended - restarting button monitor")
+                        self.state = menu_pb2.MenuState.RUNNING
+
+                        # Reset lobby state
+                        self.ready_controllers.clear()
+                        self.connected_controllers.clear()
+                        self.controller_lobby_state.clear()
+                        self.last_lobby_feedback_update.clear()
+                        self.ready_controller_count = 0
+                        self.controller_button_states.clear()
+                        self.last_button_press_time.clear()
+
+                        # Restart button monitor
+                        await self.start_button_monitor()
+
+                        # Publish event so UI knows game ended
+                        await self._publish_event("game_ended", event.data)
+
+                if self.game_event_monitor_running:
+                    logger.warning("Game event stream ended, reconnecting...")
+
+            except asyncio.CancelledError:
+                logger.info("Game event monitor task cancelled")
+                raise
+            except Exception as e:
+                if not self.game_event_monitor_running:
+                    return
+                logger.error(f"Game event monitor error: {e}, reconnecting in {retry_delay:.1f}s")
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, max_retry_delay)
 
     async def shutdown(self):
         """Cleanup resources on shutdown (Phase 26, Phase 60)."""
@@ -1722,6 +1807,9 @@ async def serve(port=50054, metrics_port=8000):
     # Start controller button monitoring (Phase 21)
     await menu_servicer.start_button_monitor()
 
+    # Start game event monitoring (stops button monitor during games)
+    await menu_servicer.start_game_event_monitor()
+
     # Auto-start menu (so controllers light up immediately)
     auto_start = os.getenv("MENU_AUTO_START", "true").lower() == "true"
     if auto_start:
@@ -1742,6 +1830,7 @@ async def serve(port=50054, metrics_port=8000):
         logger.info("Background tasks cancelled")
 
         await menu_servicer.stop_button_monitor()
+        await menu_servicer.stop_game_event_monitor()
         await menu_servicer.shutdown()  # Phase 26: Close persistent channels
         await server.stop(grace=5)
 

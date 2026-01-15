@@ -429,7 +429,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     if not self.game_event_monitor_running:
                         return
 
-                    logger.info(f"Game event received: {event.event_type}")
+                    logger.info(f"Game event received: {event.event_type} (is_starting={GameEvent.is_game_starting(event.event_type)}, monitor_running={self.button_monitor_running})")
 
                     if GameEvent.is_game_starting(event.event_type):
                         # Game is starting - stop button monitoring
@@ -438,6 +438,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                             logger.info(f"Game event '{event.event_type}' - stopping button monitor")
                             self.state = menu_pb2.MenuState.GAME_STARTING
                             await self.stop_button_monitor()
+                            logger.info("Button monitor stopped")
 
                     elif GameEvent.is_game_ending(event.event_type):
                         # Game ended - restart button monitoring

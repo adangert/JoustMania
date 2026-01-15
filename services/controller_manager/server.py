@@ -259,9 +259,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             return
 
         try:
-            # Get list of serials under lock
-            with self.state_lock:
-                serials = list(self.tracked_controllers.keys())
+            # Get list of serials (dict.keys() is atomic in Python due to GIL)
+            serials = list(self.tracked_controllers.keys())
 
             if not serials:
                 return
@@ -289,32 +288,31 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             metrics.poll_batch_duration_seconds.observe(poll_duration)
             metrics.poll_batch_size.observe(len(serials))
 
-            # Process all results under a single lock acquisition
-            with self.state_lock:
-                for serial, state in zip(serials, results):
-                    # Skip if controller was removed during polling
-                    if serial not in self.tracked_controllers:
-                        continue
+            # Process all results (no lock needed - dict operations atomic due to GIL)
+            for serial, state in zip(serials, results):
+                # Skip if controller was removed during polling
+                if serial not in self.tracked_controllers:
+                    continue
 
-                    # Handle exceptions from individual controller reads
-                    if isinstance(state, Exception):
-                        logger.debug(f"Error updating state for {serial}: {state}")
-                        continue
+                # Handle exceptions from individual controller reads
+                if isinstance(state, Exception):
+                    logger.debug(f"Error updating state for {serial}: {state}")
+                    continue
 
-                    if not state:
-                        continue
+                if not state:
+                    continue
 
-                    # Update stored state
-                    self.controller_states[serial] = state
+                # Update stored state
+                self.controller_states[serial] = state
 
-                    # Update battery in tracked_controllers info
-                    if StateKey.BATTERY in state:
-                        self.tracked_controllers[serial][ControllerInfoKey.BATTERY] = state[StateKey.BATTERY]
+                # Update battery in tracked_controllers info
+                if StateKey.BATTERY in state:
+                    self.tracked_controllers[serial][ControllerInfoKey.BATTERY] = state[StateKey.BATTERY]
 
-                    # Phase 57: Update ready flag when Move button is pressed
-                    if state.get(ButtonKey.MOVE, False) and not self.tracked_controllers[serial][ControllerInfoKey.READY]:
-                        self.tracked_controllers[serial][ControllerInfoKey.READY] = True
-                        logger.info(f"Controller {serial} marked as ready (Move button pressed)")
+                # Phase 57: Update ready flag when Move button is pressed
+                if state.get(ButtonKey.MOVE, False) and not self.tracked_controllers[serial][ControllerInfoKey.READY]:
+                    self.tracked_controllers[serial][ControllerInfoKey.READY] = True
+                    logger.info(f"Controller {serial} marked as ready (Move button pressed)")
 
         except Exception as e:
             logger.error(f"Error updating controller states: {e}", exc_info=True)
@@ -1511,21 +1509,20 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             info: Controller info dict (for battery, color)
             trigger, move, cross, circle, square, triangle, ps: Current button states
         """
-        # Initialize button state tracking for this controller if needed (under lock)
-        with self.state_lock:
-            if serial not in self.button_states:
-                self.button_states[serial] = {
-                    ButtonTrackingKey.TRIGGER: False,
-                    ButtonTrackingKey.MOVE: False,
-                    ButtonTrackingKey.CROSS: False,
-                    ButtonTrackingKey.CIRCLE: False,
-                    ButtonTrackingKey.SQUARE: False,
-                    ButtonTrackingKey.TRIANGLE: False,
-                    ButtonTrackingKey.PS: False,
-                }
-                logger.info(f"Initialized button tracking for {serial} (current: move={move}, trigger={trigger})")
+        # Initialize button state tracking for this controller if needed (no lock - atomic dict ops)
+        if serial not in self.button_states:
+            self.button_states[serial] = {
+                ButtonTrackingKey.TRIGGER: False,
+                ButtonTrackingKey.MOVE: False,
+                ButtonTrackingKey.CROSS: False,
+                ButtonTrackingKey.CIRCLE: False,
+                ButtonTrackingKey.SQUARE: False,
+                ButtonTrackingKey.TRIANGLE: False,
+                ButtonTrackingKey.PS: False,
+            }
+            logger.info(f"Initialized button tracking for {serial} (current: move={move}, trigger={trigger})")
 
-            prev_states = self.button_states[serial]
+        prev_states = self.button_states[serial]
 
         current_states = {
             ButtonTrackingKey.TRIGGER: trigger,
@@ -1575,8 +1572,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 metrics.button_events_total.labels(serial=serial, button=button_name, action=action_str).inc()
 
                 # Update tracked state (dict is mutable, so this updates button_states)
-                with self.state_lock:
-                    prev_states[button_name] = current_pressed
+                prev_states[button_name] = current_pressed
 
         # Log all button states when any transition occurred
         if events:

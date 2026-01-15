@@ -1551,6 +1551,13 @@ async def serve(port=50054, metrics_port=8000):
     # Start controller button monitoring (Phase 21)
     await menu_servicer.start_button_monitor()
 
+    # Auto-start menu (so controllers light up immediately)
+    auto_start = os.getenv("MENU_AUTO_START", "true").lower() == "true"
+    if auto_start:
+        menu_servicer.state = menu_pb2.MenuState.RUNNING
+        menu_servicer.current_selection = "JoustFFA"
+        logger.info("Menu auto-started (MENU_AUTO_START=true)")
+
     try:
         await server.wait_for_termination()
     except KeyboardInterrupt:

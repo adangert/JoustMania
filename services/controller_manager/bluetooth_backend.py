@@ -42,6 +42,45 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def _battery_to_level(battery_value: int) -> int:
+    """
+    Convert psmove battery constant to 0-5 scale.
+
+    psmove constants:
+    - Batt_MIN = 0x00
+    - Batt_20Percent = 0x01
+    - Batt_40Percent = 0x02
+    - Batt_60Percent = 0x03
+    - Batt_80Percent = 0x04
+    - Batt_MAX = 0x05
+    - Batt_CHARGING = 0xEE
+    - Batt_CHARGING_DONE = 0xEF
+    """
+    if not LINUX_DEPS_AVAILABLE:
+        return 5
+
+    if battery_value == psmove.Batt_CHARGING:
+        return 5  # Treat charging as full for display purposes
+    elif battery_value == psmove.Batt_CHARGING_DONE:
+        return 5
+    elif battery_value == psmove.Batt_MAX:
+        return 5
+    elif battery_value == psmove.Batt_80Percent:
+        return 4
+    elif battery_value == psmove.Batt_60Percent:
+        return 3
+    elif battery_value == psmove.Batt_40Percent:
+        return 2
+    elif battery_value == psmove.Batt_20Percent:
+        return 1
+    elif battery_value == psmove.Batt_MIN:
+        return 0
+    else:
+        # Unknown value, log and return mid-range
+        logger.debug(f"Unknown battery value: {battery_value:#x}")
+        return 3
+
+
 class BluetoothBackend(ControllerBackend):
     """
     Linux BlueZ backend for PS Move controllers.
@@ -254,8 +293,9 @@ class BluetoothBackend(ControllerBackend):
             ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
             gx, gy, gz = move.get_gyroscope_frame(psmove.Frame_SecondHalf)
 
-            # Get battery
-            battery = move.get_battery()
+            # Get battery (convert psmove constant to 0-5 scale)
+            battery_raw = move.get_battery()
+            battery = _battery_to_level(battery_raw)
 
             # Build state dict with all button states
             return {

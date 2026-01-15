@@ -1,37 +1,34 @@
 # Multi-stage build for JoustMania Menu Service
-# Build stage
-FROM python:3.11-slim AS builder
+#
+# Uses shared builder image for faster builds (Phase 69)
+# Build the builder first: docker build -t joustmania/builder:latest images/builder/
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
+# Builder image - override with --build-arg BUILDER_IMAGE=...
+ARG BUILDER_IMAGE=joustmania/builder:latest
 
-# Set working directory
+# Build stage - uses pre-cached builder with common dependencies
+FROM ${BUILDER_IMAGE} AS builder
+
 WORKDIR /app
 
-# Copy root pyproject.toml for workspace configuration
+# Copy workspace configuration
 COPY pyproject.toml /app/
 
 # Copy proto package (shared protocol buffer contracts)
 COPY proto/pyproject.toml /app/proto/
 COPY proto/*.py /app/proto/
-COPY proto/__pycache__ /app/proto/__pycache__/
+COPY proto/__pycache__/ /app/proto/__pycache__/
 
 # Copy service dependencies
 COPY services/menu/pyproject.toml /app/services/menu/
 
-# Install uv package manager
-RUN pip install --no-cache-dir uv==0.5.11
-
-# Install dependencies using uv
+# Install service-specific dependencies only (common deps already in builder)
 WORKDIR /app/services/menu
 RUN uv pip install --system -e .
 
-# Runtime stage
+# Runtime stage - slim image without build tools
 FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
 # Copy installed packages from builder

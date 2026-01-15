@@ -1,56 +1,26 @@
 # Multi-stage build for JoustMania Controller Manager Service
 #
-# Includes PS Move API built from source for real controller support.
-# Build time: ~10-15 minutes on first build (psmoveapi compilation)
+# Uses pre-built psmoveapi image for faster builds (Phase 69)
+# Build the images first:
+#   docker build -t joustmania/psmove-builder:latest images/psmove-builder/
+#   docker build -t joustmania/builder:latest images/builder/
+#
+# Build time: ~1-2 minutes (vs 10-15 minutes without pre-built psmoveapi)
 
 # =============================================================================
-# Stage 1: Build PS Move API from source
+# Stage 1: PS Move API - use pre-built image
 # =============================================================================
-FROM python:3.11-slim AS psmove-builder
-
-# Install psmoveapi build dependencies (including Python dev for SWIG bindings)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    cmake \
-    git \
-    pkg-config \
-    libudev-dev \
-    libbluetooth-dev \
-    libusb-dev \
-    libusb-1.0-0-dev \
-    libdbus-1-dev \
-    swig \
-    python3-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Clone and build psmoveapi (tested commit)
-WORKDIR /build
-RUN git clone --recursive https://github.com/thp/psmoveapi.git && \
-    cd psmoveapi && \
-    git checkout 8a1f8d035e9c82c5c134d848d9fbb4dd37a34b58
-
-WORKDIR /build/psmoveapi/build
-RUN cmake .. \
-    -DPSMOVE_BUILD_CSHARP_BINDINGS:BOOL=OFF \
-    -DPSMOVE_BUILD_EXAMPLES:BOOL=OFF \
-    -DPSMOVE_BUILD_JAVA_BINDINGS:BOOL=OFF \
-    -DPSMOVE_BUILD_OPENGL_EXAMPLES:BOOL=OFF \
-    -DPSMOVE_BUILD_PROCESSING_BINDINGS:BOOL=OFF \
-    -DPSMOVE_BUILD_TESTS:BOOL=OFF \
-    -DPSMOVE_BUILD_TRACKER:BOOL=OFF \
-    -DPSMOVE_USE_PSEYE:BOOL=OFF && \
-    make -j$(nproc) && \
-    echo "=== Build output files ===" && \
-    find /build/psmoveapi/build -name "*.so" -o -name "*psmove*.py" | head -20
+ARG PSMOVE_BUILDER_IMAGE=joustmania/psmove-builder:latest
+FROM ${PSMOVE_BUILDER_IMAGE} AS psmove-builder
 
 # =============================================================================
 # Stage 2: Build Python dependencies
 # =============================================================================
-FROM python:3.11-slim AS python-builder
+ARG BUILDER_IMAGE=joustmania/builder:latest
+FROM ${BUILDER_IMAGE} AS python-builder
 
-# Install build dependencies (including bluetooth libraries for PS Move)
+# Install additional bluetooth build dependencies (not in common builder)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
     pkg-config \
     libbluetooth-dev \
     libusb-dev \
@@ -58,24 +28,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
 WORKDIR /app
 
-# Copy root pyproject.toml for workspace configuration
+# Copy workspace configuration
 COPY pyproject.toml /app/
 
 # Copy proto package (shared protocol buffer contracts)
 COPY proto/pyproject.toml /app/proto/
 COPY proto/*.py /app/proto/
-COPY proto/__pycache__ /app/proto/__pycache__/
+COPY proto/__pycache__/ /app/proto/__pycache__/
 
 # Copy service dependencies
 COPY services/controller_manager/pyproject.toml /app/services/controller_manager/
 
-# Install uv package manager
-RUN pip install --no-cache-dir uv==0.5.11
-
-# Install dependencies using uv
+# Install service-specific dependencies
 WORKDIR /app/services/controller_manager
 RUN uv pip install --system -e .
 
@@ -92,18 +58,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
 WORKDIR /app
 
 # Copy installed packages from python-builder
 COPY --from=python-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=python-builder /usr/local/bin /usr/local/bin
 
-# Copy psmove Python bindings from psmove-builder
-COPY --from=psmove-builder /build/psmoveapi/build/psmove.py /usr/local/lib/python3.11/site-packages/
-COPY --from=psmove-builder /build/psmoveapi/build/_psmove.so /usr/local/lib/python3.11/site-packages/
-# Copy the shared library that _psmove.so depends on
-COPY --from=psmove-builder /build/psmoveapi/build/libpsmoveapi.so /usr/local/lib/
+# Copy psmove Python bindings from pre-built psmove-builder
+COPY --from=psmove-builder /psmove/psmove.py /usr/local/lib/python3.11/site-packages/
+COPY --from=psmove-builder /psmove/_psmove.so /usr/local/lib/python3.11/site-packages/
+COPY --from=psmove-builder /psmove/libpsmoveapi.so /usr/local/lib/
 
 # Update library cache so _psmove.so can find libpsmoveapi.so
 RUN ldconfig

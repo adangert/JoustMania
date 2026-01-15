@@ -1,0 +1,24 @@
+# Common dependencies shared across JoustMania services
+#
+# These are pre-installed in the builder image to speed up service builds.
+# Update this file when adding new dependencies used by multiple services.
+
+# gRPC - all services use gRPC for inter-service communication
+grpcio>=1.70.0
+grpcio-health-checking>=1.70.0
+
+# OpenTelemetry - observability across all services
+opentelemetry-distro>=0.49b0
+opentelemetry-exporter-otlp>=1.28.0
+opentelemetry-instrumentation-grpc>=0.49b0
+
+# Metrics - Prometheus metrics in all services
+prometheus-client>=0.19.0
+psutil>=5.9.0
+
+# Common utilities
+pyyaml>=6.0
+
+# Build tools needed for some dependencies
+setuptools>=45
+wheel

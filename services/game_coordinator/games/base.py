@@ -331,11 +331,11 @@ class BaseGameMode(ABC):
         logger.info("Starting countdown...")
         self.event_publisher(GameEvent.COUNTDOWN_START, {"duration": COUNTDOWN_DURATION})
 
-        # Countdown colors: Red -> Yellow -> Green
+        # Countdown colors: White -> Yellow -> Green (avoid red - reserved for death)
         countdown_colors = [
-            (255, 0, 0),  # Red (3 seconds)
-            (255, 255, 0),  # Yellow (2 seconds)
-            (0, 255, 0),  # Green (1 second)
+            (255, 255, 255),  # White (3)
+            (255, 255, 0),  # Yellow (2)
+            (0, 255, 0),  # Green (1 - GO!)
         ]
 
         for _i, (r, g, b) in enumerate(countdown_colors):
@@ -354,8 +354,8 @@ class BaseGameMode(ABC):
             )
             await self.controller_client.SetControllerColor(color_request)
 
-            # Wait 1 second (in 0.1s increments to allow interruption)
-            for _ in range(10):
+            # Wait 0.5 seconds (in 0.1s increments to allow interruption)
+            for _ in range(5):
                 if not self.running:
                     logger.info("Countdown interrupted by force_end")
                     return
@@ -432,6 +432,8 @@ class BaseGameMode(ABC):
             async for gameplay_update in self.gameplay_stream:
                 if loop_iterations == 0:
                     logger.info("✅ Received first gameplay update from stream!")
+                    # Set start_time here, not before game_loop, so grace period is accurate
+                    self.start_time = time.time()
 
                 time.time()
 
@@ -672,7 +674,7 @@ class BaseGameMode(ABC):
 
             # Phase 4: Game starts
             self.state = GameState.RUNNING
-            self.start_time = time.time()
+            # Note: self.start_time is set in _game_loop when first data is received
             self.event_publisher(GameEvent.GAME_STARTED, {"game_id": self.game_id, "player_count": len(self.players)})
 
             # Phase 5: Gameplay

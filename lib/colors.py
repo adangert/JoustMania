@@ -73,10 +73,10 @@ def change_color(color_array: list[int], r: int, g: int, b: int) -> None:
 
 
 class Colors(Enum):
-    # first 8 are team colors
-    Pink = (255, 108, 108)
+    # first 8 are team colors (avoid red-adjacent - red is reserved for death)
+    Pink = (255, 105, 180)  # Hot pink - clearly pink, not salmon/red
     Magenta = (255, 0, 192)
-    Orange = (255, 64, 0)
+    Orange = (255, 128, 0)  # More yellow-orange, less red
     Yellow = (255, 255, 0)
     Green = (0, 255, 0)
     Turquoise = (0, 255, 255)

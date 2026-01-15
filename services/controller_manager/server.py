@@ -1405,29 +1405,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
     def _build_or_get_cached_state(self, serial: str, info: dict) -> controller_manager_pb2.ControllerState:
         """Return cached state if unchanged, rebuild if dirty (Phase 18 - Task 1)."""
-        # Calculate current snapshot hash
-        current_hash = self._snapshot_hash(serial, info)
-
-        # Get cache entry for this controller
-        cache_entry = self.state_cache.get(serial)
-
-        if cache_entry and cache_entry["snapshot_hash"] == current_hash:
-            # State unchanged, return cached protobuf message (Phase 38: Track cache hit)
-            metrics.state_cache_hits_total.inc()
-            return cache_entry["cached_state"]
-
-        # State changed or not cached yet - rebuild (Phase 38: Track cache miss)
+        # TEMPORARILY DISABLED: Always rebuild state to ensure button transitions are detected
+        # The caching optimization was causing slow/missed button detection.
+        # TODO: Re-enable caching once button detection is moved to discovery loop
         metrics.state_cache_misses_total.inc()
-        logger.debug(f"Cache miss for {serial}: hash changed from {cache_entry.get('snapshot_hash', 'None') if cache_entry else 'None'} to {current_hash}")
-        new_state = self._build_controller_state_message(serial, info)
-
-        # Update cache
-        self.state_cache[serial] = {
-            "cached_state": new_state,
-            "snapshot_hash": current_hash,
-        }
-
-        return new_state
+        return self._build_controller_state_message(serial, info)
 
     def _build_controller_state_message(self, serial: str, info: dict) -> controller_manager_pb2.ControllerState:
         """

@@ -560,7 +560,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 retry_delay = 1.0
 
                 # Subscribe to button events
-                async for event in stub.StreamButtonEvents(controller_manager_pb2.StreamButtonEventsRequest()):
+                async for event in stub.StreamButtonEvents(controller_manager_pb2.ButtonEventStreamRequest()):
                     if not self.button_monitor_running:
                         return
 

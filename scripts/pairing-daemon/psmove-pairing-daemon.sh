@@ -70,8 +70,12 @@ while true; do
     poll_count=$((poll_count + 1))
     debug "Poll #$poll_count"
 
-    # Get raw psmove output for debugging
-    psmove_output=$($PSMOVE list 2>&1)
+    # Get raw psmove output (suppress library debug messages unless DEBUG=1)
+    if [ "$DEBUG" = "1" ]; then
+        psmove_output=$($PSMOVE list 2>&1)
+    else
+        psmove_output=$($PSMOVE list 2>/dev/null)
+    fi
     psmove_exit=$?
 
     debug "psmove list exit code: $psmove_exit"
@@ -129,36 +133,26 @@ while true; do
         log "Found unpaired USB controller: $serial"
 
         # Pair controller (writes host BT MAC to controller)
-        log "Running: $PSMOVE pair"
+        log "Pairing controller..."
         pair_output=$($PSMOVE pair 2>&1)
         pair_exit=$?
-        log "Pair output: $pair_output"
-        log "Pair exit code: $pair_exit"
+        debug "Pair output: $pair_output"
+        debug "Pair exit code: $pair_exit"
 
         if echo "$pair_output" | grep -qi "paired\|success\|master"; then
             # Trust in BlueZ
-            log "Trusting device in BlueZ: $serial_upper"
-            bluetoothctl trust "$serial_upper" 2>&1 | while read -r line; do
-                log "bluetoothctl: $line"
-            done
-
-            log "Paired $serial successfully"
-            log "Restarting bluetooth service..."
+            debug "Trusting device in BlueZ: $serial_upper"
+            bluetoothctl trust "$serial_upper" &>/dev/null
 
             # Restart bluetooth to recognize new device
+            debug "Restarting bluetooth service..."
             systemctl restart bluetooth
             sleep 2
 
-            log "Done! Unplug USB cable and press PS button to connect"
-
-            # Flash white 3x - success
-            flash_led 3 255 255 255
+            log "Paired $serial - unplug USB and press PS button to connect"
         else
             log "Failed to pair $serial"
-            log "Pair output was: $pair_output"
-
-            # Flash red 3x - error
-            flash_led 3 255 0 0
+            debug "Pair output was: $pair_output"
         fi
     done
 

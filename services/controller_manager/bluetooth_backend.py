@@ -8,6 +8,7 @@ import contextlib
 import logging
 import os
 import sys
+import time
 
 from services.controller_manager.backend import ControllerBackend
 from lib.controller_constants import (
@@ -111,6 +112,7 @@ class BluetoothBackend(ControllerBackend):
         self.hci = "hci0"  # Default Bluetooth adapter
         self.running = False
         self._last_controller_count = 0  # Track count to avoid redundant rescans
+        self._last_button_log: dict[str, float] = {}  # Rate limiting for button logging
 
         logger.info("BluetoothBackend initialized")
 
@@ -305,10 +307,11 @@ class BluetoothBackend(ControllerBackend):
             trigger = move.get_trigger()
             buttons = move.get_buttons()
 
-            # Log raw button state at INFO level when any button is pressed
-            # This helps diagnose button detection issues
-            if buttons != 0:
+            # Log raw button state at INFO level when any button is pressed (rate-limited)
+            current_time = time.time()
+            if buttons != 0 and current_time - self._last_button_log.get(serial, 0) >= 1.0:
                 logger.info(f"PSMove buttons for {serial}: 0x{buttons:04X} (move={bool(buttons & psmove.Btn_MOVE)}, trigger={bool(buttons & psmove.Btn_T)})")
+                self._last_button_log[serial] = current_time
 
             # Read motion sensors
             ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)

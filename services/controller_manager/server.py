@@ -131,6 +131,9 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Shared event loop for discovery thread (avoids creating new loop per call)
         self._discovery_loop_handle: asyncio.AbstractEventLoop | None = None
 
+        # Debug: Rate limiting for button logging (log at most once per second per controller)
+        self._last_button_log: dict[str, float] = {}
+
         # Discovery thread
         self.running = True
         self.backend_initialized = False  # Phase 57: Track backend init status
@@ -300,11 +303,13 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     # Update stored state
                     self.controller_states[serial] = state
 
-                    # Debug: Log button states every poll cycle
+                    # Debug: Log button states when pressed (rate-limited to 1/sec per controller)
                     move_btn = state.get(ButtonKey.MOVE, False)
                     trigger_btn = state.get(ButtonKey.TRIGGER, False)
-                    if move_btn or trigger_btn:
-                        logger.debug(f"Button state {serial}: move={move_btn}, trigger={trigger_btn}")
+                    current_time = time.time()
+                    if (move_btn or trigger_btn) and current_time - self._last_button_log.get(serial, 0) >= 1.0:
+                        logger.info(f"Button state from backend {serial}: move={move_btn}, trigger={trigger_btn}")
+                        self._last_button_log[serial] = current_time
 
                     # Update battery in tracked_controllers info
                     if StateKey.BATTERY in state:

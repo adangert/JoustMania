@@ -307,9 +307,6 @@ class BluetoothBackend(ControllerBackend):
             trigger = move.get_trigger()
             buttons = move.get_buttons()
 
-            # Log raw button state at INFO level when any button is pressed
-            if buttons != 0:
-                logger.info(f"PSMove raw buttons {serial}: 0x{buttons:04X}")
 
             # Read motion sensors
             ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)

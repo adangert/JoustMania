@@ -300,18 +300,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     # Update stored state
                     self.controller_states[serial] = state
 
-                    # Debug: Log all button states when any button is pressed
-                    move_btn = state.get(ButtonKey.MOVE, False)
-                    trigger_btn = state.get(ButtonKey.TRIGGER, False)
-                    cross_btn = state.get(ButtonKey.CROSS, False)
-                    circle_btn = state.get(ButtonKey.CIRCLE, False)
-                    square_btn = state.get(ButtonKey.SQUARE, False)
-                    triangle_btn = state.get(ButtonKey.TRIANGLE, False)
-                    ps_btn = state.get(ButtonKey.PS, False)
-                    any_pressed = move_btn or trigger_btn or cross_btn or circle_btn or square_btn or triangle_btn or ps_btn
-                    if any_pressed:
-                        logger.info(f"Buttons {serial}: M={move_btn} T={trigger_btn} X={cross_btn} O={circle_btn} []={square_btn} /\\={triangle_btn} PS={ps_btn}")
-
                     # Update battery in tracked_controllers info
                     if StateKey.BATTERY in state:
                         self.tracked_controllers[serial][ControllerInfoKey.BATTERY] = state[StateKey.BATTERY]

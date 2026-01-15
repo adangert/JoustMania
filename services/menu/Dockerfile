@@ -4,10 +4,10 @@
 # Build the builder first: docker build -t joustmania/builder:latest images/builder/
 
 # Builder image - override with --build-arg BUILDER_IMAGE=...
-ARG BUILDER_IMAGE=joustmania/builder:latest
+# Using pre-built builder image
 
 # Build stage - uses pre-cached builder with common dependencies
-FROM ${BUILDER_IMAGE} AS builder
+FROM joustmania/builder:latest AS builder
 
 WORKDIR /app
 

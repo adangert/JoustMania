@@ -10,14 +10,12 @@
 # =============================================================================
 # Stage 1: PS Move API - use pre-built image
 # =============================================================================
-ARG PSMOVE_BUILDER_IMAGE=joustmania/psmove-builder:latest
-FROM ${PSMOVE_BUILDER_IMAGE} AS psmove-builder
+FROM joustmania/psmove-builder:latest AS psmove-builder
 
 # =============================================================================
 # Stage 2: Build Python dependencies
 # =============================================================================
-ARG BUILDER_IMAGE=joustmania/builder:latest
-FROM ${BUILDER_IMAGE} AS python-builder
+FROM joustmania/builder:latest AS python-builder
 
 # Install additional bluetooth build dependencies (not in common builder)
 RUN apt-get update && apt-get install -y --no-install-recommends \

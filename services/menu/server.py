@@ -585,12 +585,13 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             return
 
         # Normal menu mode: Detect trigger press (False → True) - starts game
-        # Requires at least 2 ready controllers to start
+        # Only starts if ALL connected controllers are ready
+        all_ready = len(self.ready_controllers) == len(self.connected_controllers) and len(self.ready_controllers) >= 2
         if (
             controller.trigger_pressed
             and not prev_state["trigger"]
             and self._should_process_button(serial, "trigger", current_time)
-            and len(self.ready_controllers) >= 2
+            and all_ready
         ):
             await self._handle_trigger_press(serial)
 
@@ -700,33 +701,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             await self._play_sound("Joust/sounds/beep_loud.wav", volume=0.5)
             logger.info(f"Controller {serial} ready ({self.ready_controller_count} total)")
 
-            # Phase 59: Auto-start logic respects force_all_start setting
-            if len(self.ready_controllers) >= 2:
-                should_auto_start = False
-                all_ready = len(self.ready_controllers) == len(self.connected_controllers)
-
-                if all_ready:
-                    # All controllers ready - always auto-start
-                    should_auto_start = True
-                    logger.info("All controllers ready - auto-starting game!")
-                else:
-                    # Not all ready - check force_all_start setting
-                    try:
-                        from proto import settings_pb2, settings_pb2_grpc
-
-                        settings_stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
-                        response = await settings_stub.GetSetting(settings_pb2.GetSettingRequest(key="force_all_start"))
-                        force_all = response.value == "true"
-
-                        if not force_all:
-                            # Don't require all controllers - auto-start with 2+ ready
-                            should_auto_start = True
-                            logger.info(f"{len(self.ready_controllers)} ready (force_all_start=false) - auto-starting!")
-                    except Exception as e:
-                        logger.warning(f"Could not check force_all_start setting: {e}, waiting for all controllers")
-
-                if should_auto_start:
-                    await self._handle_trigger_press(serial)
+            # Auto-start only when ALL connected controllers are ready (minimum 2)
+            all_ready = len(self.ready_controllers) == len(self.connected_controllers)
+            if all_ready and len(self.ready_controllers) >= 2:
+                logger.info("All controllers ready - auto-starting game!")
+                await self._handle_trigger_press(serial)
 
         elif target_state == "connected" and serial in self.ready_controllers:
             self.ready_controllers.remove(serial)

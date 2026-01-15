@@ -18,7 +18,18 @@ def hsv2rgb(h: float, s: float, v: float) -> tuple[int, int, int]:
 
 
 def generate_colors(color_num: int) -> list[tuple[int, int, int]]:
-    Hue = [((num + 1.0) / color_num, 1, 1) for num in range(color_num)]
+    """
+    Generate distinct colors for FFA players using HSV color space.
+
+    Avoids red hues (0.0 and 1.0) as red is reserved for death indication.
+    Uses hue range 0.1-0.9 to stay away from red.
+    """
+    # Avoid red (hue 0/1) - use range 0.1 to 0.9 for player colors
+    hue_start = 0.1  # Avoid red (starts at orange-yellow)
+    hue_end = 0.9  # Avoid red (ends at magenta-pink)
+    hue_range = hue_end - hue_start
+
+    Hue = [(hue_start + (num * hue_range / color_num), 1, 1) for num in range(color_num)]
     colors = [hsv2rgb(*hsv_color) for hsv_color in Hue]
     return colors
 

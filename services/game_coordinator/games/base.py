@@ -510,6 +510,9 @@ class BaseGameMode(ABC):
             # Cleanup stream reference (Phase 46)
             self.gameplay_stream = None
 
+    # Grace period at game start where deaths are ignored (seconds)
+    GAME_START_GRACE_PERIOD = 1.5
+
     async def _process_controller_state(self, controller_state):
         """
         Process a single controller's state and check for death.
@@ -532,6 +535,10 @@ class BaseGameMode(ABC):
         accel_mag = math.sqrt(accel.x**2 + accel.y**2 + accel.z**2)
 
         player.last_accel_mag = accel_mag
+
+        # Grace period - ignore deaths for first N seconds after game starts
+        if self.start_time and (time.time() - self.start_time) < self.GAME_START_GRACE_PERIOD:
+            return  # Still in grace period, no death checks
 
         # Get thresholds
         warn_threshold, death_threshold = self.sensitivity.value

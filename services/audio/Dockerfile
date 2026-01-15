@@ -1,10 +1,10 @@
 # Multi-stage build for JoustMania Audio Service
 #
-# Uses shared builder image for faster builds (Phase 69)
-# Build the builder first: docker build -t joustmania/builder:latest images/builder/
+# Uses pre-built pygame from pygame-builder image for faster builds
+# Build the pygame builder first: docker build -t joustmania/pygame-builder:latest images/pygame-builder/
 
-# Builder image - override with --build-arg BUILDER_IMAGE=...
-# Using pre-built builder image
+# Pygame builder - pre-compiled pygame with SDL2 support
+FROM joustmania/pygame-builder:latest AS pygame-builder
 
 # Build stage - uses pre-cached builder with common dependencies
 FROM joustmania/builder:latest AS builder
@@ -22,14 +22,23 @@ COPY proto/__pycache__/ /app/proto/__pycache__/
 # Copy service dependencies
 COPY services/audio/pyproject.toml /app/services/audio/
 
-# Install service-specific dependencies (pygame, etc.)
+# Install service-specific dependencies EXCEPT pygame (comes from pygame-builder)
+# Using pip directly with --ignore-installed to skip pygame
 WORKDIR /app/services/audio
-RUN uv pip install --system -e .
+RUN pip install --no-cache-dir \
+    joustmania-proto \
+    grpcio>=1.70.0 \
+    grpcio-health-checking>=1.70.0 \
+    opentelemetry-distro>=0.49b0 \
+    opentelemetry-exporter-otlp>=1.28.0 \
+    opentelemetry-instrumentation-grpc>=0.49b0 \
+    prometheus-client>=0.19.0 \
+    psutil>=5.9.0
 
 # Runtime stage - slim image without build tools
 FROM python:3.11-slim
 
-# Install runtime dependencies for pygame/SDL audio
+# Install runtime dependencies for SDL audio (no dev packages needed)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     libsdl2-2.0-0 \
@@ -40,16 +49,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Copy installed packages from builder
+# Copy installed packages from builder (everything except pygame)
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
+# Copy pre-compiled pygame from pygame-builder
+COPY --from=pygame-builder /pygame /usr/local/lib/python3.11/site-packages/pygame
+
 # Copy application code
-COPY --from=builder /app/pyproject.toml /app/
 COPY proto/ /app/proto/
 COPY lib/ /app/lib/
 COPY services/audio/ /app/services/audio/
-# Note: Audio assets are mounted as volume in docker-compose.yml
 
 # Set Python path
 ENV PYTHONPATH=/app

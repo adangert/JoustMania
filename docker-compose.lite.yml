@@ -73,6 +73,9 @@ services:
       - /var/lib/bluetooth:/var/lib/bluetooth:ro
       # PS Move calibration data (created by host pairing daemon)
       - ${HOME}/.psmoveapi:/root/.psmoveapi:ro
+    devices:
+      # PS Move controllers use hidraw for Bluetooth communication
+      - /dev:/dev
     depends_on:
       redis:
         condition: service_healthy

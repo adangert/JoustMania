@@ -83,6 +83,8 @@ services:
       - /var/run/dbus:/var/run/dbus:ro
       # Bluetooth device info (read-only, pairing handled by host daemon)
       - /var/lib/bluetooth:/var/lib/bluetooth:ro
+      # PS Move calibration data (created by host pairing daemon)
+      - ${HOME}/.psmoveapi:/root/.psmoveapi:ro
     depends_on:
       redis:
         condition: service_healthy

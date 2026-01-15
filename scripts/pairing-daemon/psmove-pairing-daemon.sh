@@ -155,12 +155,17 @@ while true; do
             debug "Trusting device in BlueZ: $serial_upper"
             bluetoothctl trust "$serial_upper" &>/dev/null
 
+            # Calibrate controller (saves to ~/.psmoveapi/)
+            log "Calibrating controller..."
+            calibrate_output=$($PSMOVE calibrate 2>&1) || true
+            debug "Calibrate output: $calibrate_output"
+
             # Restart bluetooth to recognize new device
             debug "Restarting bluetooth service..."
             systemctl restart bluetooth
             sleep 2
 
-            log "Paired $serial - unplug USB and press PS button to connect"
+            log "Paired and calibrated $serial - unplug USB and press PS button to connect"
         else
             log "Failed to pair $serial"
             debug "Pair output was: $pair_output"

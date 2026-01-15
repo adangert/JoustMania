@@ -15,6 +15,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "Installing PS Move Pairing Daemon..."
 
+# Install udev rules for USB access
+echo "  Installing udev rules..."
+cat > /etc/udev/rules.d/99-psmove.rules << 'EOF'
+# PS Move Motion Controller (USB access for pairing)
+SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="03d5", MODE="0666"
+SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="042f", MODE="0666"
+# PS Move Navigation Controller
+SUBSYSTEM=="usb", ATTR{idVendor}=="054c", ATTR{idProduct}=="03d4", MODE="0666"
+EOF
+udevadm control --reload-rules
+udevadm trigger
+
 # Copy daemon script
 echo "  Installing daemon script..."
 cp "$SCRIPT_DIR/psmove-pairing-daemon.sh" /usr/local/bin/

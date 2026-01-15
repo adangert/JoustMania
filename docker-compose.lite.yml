@@ -22,12 +22,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          memory: 64M
-        reservations:
-          memory: 32M
 
   # Settings Service
   settings:
@@ -47,12 +41,6 @@ services:
     networks:
       - joustmania
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 64M
-        reservations:
-          memory: 32M
     healthcheck:
       test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50051'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
       interval: 10s
@@ -89,12 +77,6 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 192M
-        reservations:
-          memory: 96M
     healthcheck:
       test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50052'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
       interval: 10s
@@ -122,12 +104,6 @@ services:
     networks:
       - joustmania
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
     healthcheck:
       test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50053'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
       interval: 10s
@@ -159,12 +135,6 @@ services:
     networks:
       - joustmania
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 96M
-        reservations:
-          memory: 48M
     healthcheck:
       test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50054'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
       interval: 10s
@@ -194,12 +164,6 @@ services:
     networks:
       - joustmania
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 64M
-        reservations:
-          memory: 32M
     healthcheck:
       test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50055'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
       interval: 10s
@@ -233,12 +197,6 @@ services:
     networks:
       - joustmania
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 96M
-        reservations:
-          memory: 48M
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:80/health', timeout=2); exit(0)"]
       interval: 10s
@@ -270,12 +228,6 @@ services:
     restart: unless-stopped
     group_add:
       - audio
-    deploy:
-      resources:
-        limits:
-          memory: 192M
-        reservations:
-          memory: 96M
     healthcheck:
       test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50056'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
       interval: 10s

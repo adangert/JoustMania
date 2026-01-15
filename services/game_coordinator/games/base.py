@@ -34,11 +34,12 @@ UPDATE_FREQUENCY = 30  # Hz - default, overridden by runtime config
 COUNTDOWN_DURATION = 3  # seconds
 
 
-# Sensitivity thresholds
+# Sensitivity thresholds (in raw accelerometer units, ~1000 = 1g)
+# Scaled up from g-force values to avoid per-frame division
 class Sensitivity(Enum):
-    SLOW = (1.3, 1.5)  # (warning_threshold, death_threshold)
-    MEDIUM = (1.6, 1.8)
-    FAST = (1.9, 2.8)
+    SLOW = (1300, 1500)  # (warning_threshold, death_threshold)
+    MEDIUM = (1600, 1800)
+    FAST = (1900, 2800)
 
 
 @dataclass
@@ -532,7 +533,8 @@ class BaseGameMode(ABC):
         if not player.alive:
             return  # Dead player, ignore
 
-        # Calculate acceleration magnitude
+        # Calculate acceleration magnitude (raw units, ~1000 = 1g)
+        # Thresholds are scaled to match, avoiding per-frame division
         accel = controller_state.accel
         accel_mag = math.sqrt(accel.x**2 + accel.y**2 + accel.z**2)
 

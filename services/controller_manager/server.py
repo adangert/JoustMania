@@ -1378,8 +1378,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             return (
                 f"{info.get('battery', 0)}|"
                 f"{state_dict.get('trigger_button', False)}|{state_dict.get('move_button', False)}|"
-                f"{state_dict.get('cross_button', False)}|{state_dict.get('circle_button', False)}|"
-                f"{state_dict.get('square_button', False)}|{state_dict.get('triangle_button', False)}|"
+                f"{state_dict.get('cross', False)}|{state_dict.get('circle', False)}|"
+                f"{state_dict.get('square', False)}|{state_dict.get('triangle', False)}|"
                 f"{state_dict.get('ps_button', False)}|"
                 f"{accel.get('x', 0):.2f},{accel.get('y', 0):.2f},{accel.get('z', 0):.2f}|"
                 f"{gyro.get('x', 0):.2f},{gyro.get('y', 0):.2f},{gyro.get('z', 0):.2f}|"

@@ -99,6 +99,7 @@ class BluetoothBackend(ControllerBackend):
 
         self.controllers: dict[str, psmove.PSMove] = {}  # serial -> PSMove object
         self.controller_states: dict[str, ControllerState] = {}  # serial -> ControllerState
+        self.led_colors: dict[str, tuple[int, int, int]] = {}  # serial -> (r, g, b) - track desired LED state
         self.hci = "hci0"  # Default Bluetooth adapter
         self.running = False
         self._last_controller_count = 0  # Track count to avoid redundant rescans
@@ -280,6 +281,13 @@ class BluetoothBackend(ControllerBackend):
             while move.poll():
                 pass
 
+            # Reapply LED color - PSMove LEDs need continuous updates to stay lit,
+            # especially when using fresh handles each poll cycle
+            if serial in self.led_colors:
+                r, g, b = self.led_colors[serial]
+                move.set_leds(r, g, b)
+                move.update_leds()
+
             # Get controller state
             state = self.controller_states.get(serial)
             if not state:
@@ -327,6 +335,8 @@ class BluetoothBackend(ControllerBackend):
             return False
 
         try:
+            # Track desired LED color so it can be reapplied during state polling
+            self.led_colors[serial] = (r, g, b)
             move.set_leds(r, g, b)
             move.update_leds()
             return True

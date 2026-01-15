@@ -7,6 +7,7 @@ Uses psmove library + BlueZ/DBus for controller access on Raspberry Pi/Linux.
 import contextlib
 import logging
 import os
+import time
 
 from services.controller_manager.backend import ControllerBackend
 from lib.controller_constants import (
@@ -288,6 +289,18 @@ class BluetoothBackend(ControllerBackend):
             # Poll for new data
             while move.poll():
                 pass
+
+            # Refresh LED color every 4 seconds (PSMove LEDs timeout after 5s)
+            if serial in self.led_colors:
+                current_time = time.time()
+                last_led_update = getattr(self, '_last_led_update', {}).get(serial, 0)
+                if current_time - last_led_update >= 4.0:
+                    r, g, b = self.led_colors[serial]
+                    move.set_leds(r, g, b)
+                    move.update_leds()
+                    if not hasattr(self, '_last_led_update'):
+                        self._last_led_update = {}
+                    self._last_led_update[serial] = current_time
 
             # Get controller state
             state = self.controller_states.get(serial)

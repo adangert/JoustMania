@@ -309,10 +309,10 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 if StateKey.BATTERY in state:
                     self.tracked_controllers[serial][ControllerInfoKey.BATTERY] = state[StateKey.BATTERY]
 
-                # Phase 57: Update ready flag when Move button is pressed
-                if state.get(ButtonKey.MOVE, False) and not self.tracked_controllers[serial][ControllerInfoKey.READY]:
+                # Update ready flag when trigger is pressed (matches menu service behavior)
+                if state.get(ButtonKey.TRIGGER, False) and not self.tracked_controllers[serial][ControllerInfoKey.READY]:
                     self.tracked_controllers[serial][ControllerInfoKey.READY] = True
-                    logger.info(f"Controller {serial} marked as ready (Move button pressed)")
+                    logger.info(f"Controller {serial} marked as ready (trigger pressed)")
 
                 # Detect button transitions immediately after polling (not in gRPC handlers)
                 # This ensures button events are detected at polling frequency, not stream frequency

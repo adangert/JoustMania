@@ -505,13 +505,19 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     # Disconnect detection is disabled because it's unreliable with delta updates.
                     # The controller manager should send explicit disconnect events if needed (future work).
 
-                    # Only process buttons when menu is running
-                    if self.state == menu_pb2.MenuState.RUNNING:
-                        for controller in update.controllers:
+                    # Process each controller update
+                    for controller in update.controllers:
+                        # Debug: Log received button states
+                        if controller.trigger_pressed or controller.move_pressed:
+                            logger.debug(f"Menu received: {controller.serial} trigger={controller.trigger_pressed} move={controller.move_pressed}")
+
+                        # Update lobby feedback regardless of menu state (controllers should light up)
+                        await self._update_lobby_feedback(controller, stub)
+                        metrics.lobby_updates_total.inc()
+
+                        # Only process buttons for menu navigation when menu is running
+                        if self.state == menu_pb2.MenuState.RUNNING:
                             await self._process_button_state(controller)
-                            # Phase 39: Update lobby feedback for this controller
-                            await self._update_lobby_feedback(controller, stub)
-                            metrics.lobby_updates_total.inc()
 
                 # Stream ended normally (server closed connection)
                 if self.button_monitor_running:

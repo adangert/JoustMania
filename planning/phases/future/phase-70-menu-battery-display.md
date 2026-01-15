@@ -27,18 +27,23 @@ The menu service is the right place for battery display because:
 
 ### LED Brightness Based on Battery Level
 
-In menu/lobby state, adjust controller LED brightness based on battery:
+In menu/lobby state, adjust the "dim" (not ready) LED brightness based on battery.
+Full brightness (100%) is reserved for the "ready" state.
 
-| Battery Level | LED Brightness | Visual Effect |
-|---------------|----------------|---------------|
-| 5 (100%) | 100% | Full brightness |
-| 4 (80%) | 85% | Slightly dimmer |
-| 3 (60%) | 70% | Noticeably dimmer |
-| 2 (40%) | 55% | Dim |
-| 1 (20%) | 40% | Very dim |
-| 0 (critical) | 25% + slow pulse | Pulsing dim |
+| Battery Level | Not Ready (Dim) | Ready |
+|---------------|-----------------|-------|
+| 5 (100%) | 50% | 100% |
+| 4 (80%) | 45% | 100% |
+| 3 (60%) | 40% | 100% |
+| 2 (40%) | 30% | 100% |
+| 1 (20%) | 20% | 100% |
+| 0 (critical) | 15% + slow pulse | 100% |
 
-This provides subtle, non-intrusive feedback - players can glance at their controller brightness to gauge battery level.
+This provides subtle, non-intrusive feedback:
+- **Not ready**: Dimmer = lower battery (players can compare their controller to others)
+- **Ready**: Always full brightness (clear "I'm ready" signal)
+
+Players can glance at their dim controller brightness to gauge battery level before readying up.
 
 ### Pre-Game Battery Warning
 

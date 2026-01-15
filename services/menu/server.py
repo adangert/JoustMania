@@ -664,7 +664,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             logger.info(f"Controller {serial} connected")
             # Set initial state to trigger immediate color update
             self.controller_lobby_state[serial] = "new"
-            self.last_lobby_feedback_update[serial] = current_time
+            # Don't set last_lobby_feedback_update - allow immediate color update
 
         # Detect trigger press to toggle ready state (Phase 39)
         # Press trigger once → become ready (and stay ready even after releasing)

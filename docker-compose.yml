@@ -118,8 +118,9 @@ services:
   controller-manager:
     image: joustmania/controller-manager-service:latest
     container_name: joustmania-controller-manager
-    # Hardware access configured via docker-compose.prod.yml for production
-    # Base config is mock-friendly (no privileged, devices, or dbus)
+    # D-Bus access for Bluetooth (required for bluetooth backend)
+    volumes:
+      - /var/run/dbus:/var/run/dbus:ro
     networks:
       - joustmania
     # Ports exposed only within Docker network (no host binding)

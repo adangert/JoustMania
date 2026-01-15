@@ -266,6 +266,13 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             if not serials:
                 return
 
+            # Debug: Log tracked controller count periodically (every 5 seconds)
+            if not hasattr(self, '_last_controller_count_log'):
+                self._last_controller_count_log = 0
+            if time.time() - self._last_controller_count_log >= 5.0:
+                logger.info(f"Polling {len(serials)} controllers: {serials}")
+                self._last_controller_count_log = time.time()
+
             # Phase 62: Parallel polling - read all controllers concurrently
             start_time = time.time()
 

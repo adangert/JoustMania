@@ -42,16 +42,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpng-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install pygame (will compile from source with SDL2 support)
-RUN pip install --no-cache-dir pygame==${PYGAME_VERSION}
+# Install pygame from source (not wheel) to link against system SDL2
+# --no-binary forces compilation from source
+RUN pip install --no-cache-dir --no-binary pygame pygame==${PYGAME_VERSION}
+
+# Verify the build (links against system SDL2 libs)
+RUN python -c "import pygame; print(f'pygame version: {pygame.version.ver}')"
 
 # Stage output files to a clean location for easy COPY
-# Copy the entire pygame package
+# Copy the entire pygame package including bundled SDL2 libs
 RUN mkdir -p /pygame && \
     cp -r /usr/local/lib/python3.11/site-packages/pygame/* /pygame/
-
-# Verify the build
-RUN python -c "import pygame; pygame.init(); print(f'pygame version: {pygame.version.ver}')"
 
 # The output directory for consumers
 WORKDIR /pygame

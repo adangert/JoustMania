@@ -122,6 +122,183 @@ Controllers receive LED feedback based on their state and the selected game mode
 
 When all connected controllers are ready (trigger pressed) and there are at least 2 controllers, the game automatically starts.
 
+## State Diagrams
+
+### Menu Service States
+
+```mermaid
+stateDiagram-v2
+    [*] --> STOPPED: Service starts
+
+    STOPPED --> RUNNING: StartMenu RPC\nor MENU_AUTO_START=true
+    RUNNING --> STOPPED: StopMenu RPC
+    RUNNING --> GAME_STARTING: All controllers ready\n(≥2 controllers)
+    GAME_STARTING --> RUNNING: Game ends\n(game_ended event)
+    GAME_STARTING --> RUNNING: reset_menu input\n(game start cancelled)
+
+    note right of STOPPED
+        No button monitoring
+        No LED feedback
+        Channels remain open
+    end note
+
+    note right of RUNNING
+        Button monitor active
+        LED feedback active
+        Game event monitor active
+    end note
+
+    note right of GAME_STARTING
+        Button monitor STOPPED
+        Waiting for game_ended
+        LED controlled by game
+    end note
+```
+
+### Controller State Machine
+
+Each connected controller goes through these states in the lobby:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Disconnected
+
+    Disconnected --> Connected: Controller detected\nin state stream
+
+    Connected --> Ready: Trigger pressed
+    Ready --> Connected: (not implemented -\nonce ready, stays ready)
+
+    Connected --> Admin: All 4 face buttons\nheld simultaneously
+    Ready --> Admin: All 4 face buttons\nheld simultaneously
+    Admin --> Connected: PS button\nor 60s timeout
+
+    Connected --> Disconnected: Controller lost\n(timeout/disconnect)
+    Ready --> Disconnected: Controller lost
+    Admin --> Disconnected: Controller lost
+
+    note right of Connected
+        LED: Dim game color
+        (~15-50% based on battery)
+    end note
+
+    note right of Ready
+        LED: Bright game color
+        (100% brightness)
+    end note
+
+    note right of Admin
+        LED: White
+        (persistent)
+    end note
+```
+
+### LED Color Flow
+
+```mermaid
+flowchart TD
+    subgraph GameModes["Game Mode Colors"]
+        FFA["JoustFFA<br/>🟠 Orange (255,140,0)"]
+        Teams["JoustTeams<br/>🔵 Blue (0,100,255)"]
+        Tournament["Tournament<br/>🟣 Purple (150,0,255)"]
+        Werewolf["Werewolf<br/>🟢 Green (0,255,100)"]
+        Nonstop["NonstopJoust<br/>🩷 Pink (255,50,120)"]
+    end
+
+    subgraph ControllerState["Controller LED States"]
+        direction TB
+        CS_Connected["Connected (not ready)<br/>Dim color (15-50%)<br/>Based on battery level"]
+        CS_Ready["Ready (trigger pressed)<br/>Full brightness (100%)"]
+        CS_Admin["Admin Mode<br/>⚪ White (255,255,255)"]
+    end
+
+    subgraph BatteryDim["Battery → Dim Factor"]
+        B5["Battery 5 (100%) → 50%"]
+        B4["Battery 4 (80%) → 45%"]
+        B3["Battery 3 (60%) → 40%"]
+        B2["Battery 2 (40%) → 30%"]
+        B1["Battery 1 (20%) → 20%"]
+        B0["Battery 0 (critical) → 15%"]
+    end
+
+    GameModes --> CS_Connected
+    GameModes --> CS_Ready
+    BatteryDim --> CS_Connected
+```
+
+### Lobby Decision Flow
+
+```mermaid
+flowchart TD
+    Start([Menu RUNNING]) --> Stream[Stream controller states<br/>from Controller Manager]
+
+    Stream --> Update{Controller<br/>state update?}
+    Update -->|No| Stream
+    Update -->|Yes| NewCtrl{New<br/>controller?}
+
+    NewCtrl -->|Yes| AddConnected[Add to connected set<br/>Set dim game color]
+    NewCtrl -->|No| CheckTrigger{Trigger<br/>pressed?}
+
+    AddConnected --> CheckTrigger
+
+    CheckTrigger -->|Yes, not ready| MarkReady[Add to ready set<br/>Set bright game color<br/>Play beep sound]
+    CheckTrigger -->|Yes, already ready| CheckAllReady
+    CheckTrigger -->|No| CheckAdminCombo
+
+    MarkReady --> CheckAllReady{All connected<br/>are ready?}
+
+    CheckAllReady -->|No| CheckAdminCombo
+    CheckAllReady -->|Yes| CheckMinPlayers{≥2 players?}
+
+    CheckMinPlayers -->|No| CheckAdminCombo
+    CheckMinPlayers -->|Yes| StartGame[🎮 Start Game!<br/>Publish game_requested<br/>State → GAME_STARTING]
+
+    CheckAdminCombo{All 4 face<br/>buttons held?} -->|Yes| EnterAdmin[Enter Admin Mode<br/>White LED]
+    CheckAdminCombo -->|No| Stream
+
+    EnterAdmin --> Stream
+    StartGame --> WaitEnd([Wait for game_ended event])
+    WaitEnd --> ResetLobby[Reset lobby state<br/>Clear ready controllers<br/>Restart button monitor]
+    ResetLobby --> Start
+```
+
+### Game Event Integration
+
+```mermaid
+sequenceDiagram
+    participant Menu
+    participant CM as Controller Manager
+    participant GC as Game Coordinator
+    participant Game
+
+    Note over Menu: RUNNING state
+    Menu->>CM: StreamControllerStates (60Hz)
+
+    loop Button Monitoring
+        CM-->>Menu: Controller states
+        Menu->>Menu: Update LED colors
+        Menu->>Menu: Check ready state
+    end
+
+    Note over Menu: All ready, ≥2 players
+    Menu->>GC: (via Supervisor) StartGame
+
+    GC-->>Menu: game_start event
+    Menu->>Menu: Stop button monitor
+    Note over Menu: GAME_STARTING state
+
+    GC->>Game: Run game
+    Game->>CM: StreamControllerStates
+
+    Note over Game: Game running...
+
+    Game->>GC: Game complete
+    GC-->>Menu: game_ended event
+
+    Menu->>Menu: Reset lobby state
+    Menu->>CM: StreamControllerStates (restart)
+    Note over Menu: RUNNING state
+```
+
 ## Admin Mode
 
 Enter admin mode by pressing all 4 face buttons (Cross + Circle + Square + Triangle) simultaneously.

@@ -1,25 +1,50 @@
-# Multi-stage build for JoustMania Controller Manager Service
+# Standalone Dockerfile for JoustMania Controller Manager Service
 #
-# Uses pre-built psmoveapi image for faster builds (Phase 69)
-# Build the images first:
-#   docker build -t joustmania/psmove-builder:latest images/psmove-builder/
-#   docker build -t joustmania/builder:latest images/builder/
-#
-# Build time: ~1-2 minutes (vs 10-15 minutes without pre-built psmoveapi)
+# Builds psmoveapi from source - no pre-built images needed
+# Build time: ~10-15 minutes on Pi 5
 
 # =============================================================================
-# Stage 1: PS Move API - use pre-built image
+# Stage 1: Build PS Move API from source
 # =============================================================================
-ARG PSMOVE_BUILDER_IMAGE=joustmania/psmove-builder:latest
-FROM ${PSMOVE_BUILDER_IMAGE} AS psmove-builder
+FROM python:3.11-slim AS psmove-builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    git \
+    pkg-config \
+    libbluetooth-dev \
+    libusb-dev \
+    libusb-1.0-0-dev \
+    libudev-dev \
+    swig \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# Clone and build psmoveapi
+RUN git clone --depth 1 https://github.com/thp/psmoveapi.git && \
+    cd psmoveapi && \
+    git submodule update --init --recursive
+
+WORKDIR /build/psmoveapi/build
+
+RUN cmake .. \
+    -DPSMOVE_BUILD_CSHARP_BINDINGS=OFF \
+    -DPSMOVE_BUILD_JAVA_BINDINGS=OFF \
+    -DPSMOVE_BUILD_PROCESSING_BINDINGS=OFF \
+    -DPSMOVE_BUILD_TRACKER=OFF \
+    -DPSMOVE_BUILD_EXAMPLES=OFF \
+    -DPSMOVE_BUILD_TESTS=OFF \
+    -DPSMOVE_BUILD_OPENGL_EXAMPLES=OFF \
+    -DPSMOVE_USE_PSEYE=OFF \
+    && make -j$(nproc)
 
 # =============================================================================
 # Stage 2: Build Python dependencies
 # =============================================================================
-ARG BUILDER_IMAGE=joustmania/builder:latest
-FROM ${BUILDER_IMAGE} AS python-builder
+FROM python:3.11-slim AS python-builder
 
-# Install additional bluetooth build dependencies (not in common builder)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libbluetooth-dev \
@@ -28,20 +53,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Install uv for fast dependency installation
+RUN pip install uv
+
 WORKDIR /app
 
 # Copy workspace configuration
 COPY pyproject.toml /app/
 
-# Copy proto package (shared protocol buffer contracts)
+# Copy proto package
 COPY proto/pyproject.toml /app/proto/
 COPY proto/*.py /app/proto/
-COPY proto/__pycache__/ /app/proto/__pycache__/
 
 # Copy service dependencies
 COPY services/controller_manager/pyproject.toml /app/services/controller_manager/
 
-# Install service-specific dependencies
+# Install dependencies
 WORKDIR /app/services/controller_manager
 RUN uv pip install --system -e .
 
@@ -50,7 +77,7 @@ RUN uv pip install --system -e .
 # =============================================================================
 FROM python:3.11-slim
 
-# Install runtime dependencies (bluetooth for PS Move controllers)
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libbluetooth3 \
     libusb-1.0-0 \
@@ -64,40 +91,30 @@ WORKDIR /app
 COPY --from=python-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=python-builder /usr/local/bin /usr/local/bin
 
-# Copy psmove Python bindings from pre-built psmove-builder
-COPY --from=psmove-builder /psmove/psmove.py /usr/local/lib/python3.11/site-packages/
-COPY --from=psmove-builder /psmove/_psmove.so /usr/local/lib/python3.11/site-packages/
-COPY --from=psmove-builder /psmove/libpsmoveapi.so /usr/local/lib/
+# Copy psmove Python bindings from psmove-builder
+COPY --from=psmove-builder /build/psmoveapi/build/psmove.py /usr/local/lib/python3.11/site-packages/
+COPY --from=psmove-builder /build/psmoveapi/build/_psmove.so /usr/local/lib/python3.11/site-packages/
+COPY --from=psmove-builder /build/psmoveapi/build/libpsmoveapi.so /usr/local/lib/
 
-# Update library cache so _psmove.so can find libpsmoveapi.so
+# Update library cache
 RUN ldconfig
 
 # Copy application code
-COPY --from=python-builder /app/pyproject.toml /app/
+COPY pyproject.toml /app/
 COPY proto/ /app/proto/
 COPY lib/ /app/lib/
 COPY services/controller_manager/ /app/services/controller_manager/
 
 # Set Python path
 ENV PYTHONPATH=/app
-# Ensure Python uses bytecode cache for faster imports (Phase 47)
 ENV PYTHONDONTWRITEBYTECODE=0
 
-# Configure OpenTelemetry
+# Configure OpenTelemetry (disabled in lite mode)
 ENV OTEL_SERVICE_NAME=controller-manager-service
-ENV OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-ENV OTEL_TRACES_EXPORTER=otlp
-ENV OTEL_METRICS_EXPORTER=none
-ENV OTEL_LOGS_EXPORTER=none
+ENV OTEL_SDK_DISABLED=true
 
 # Expose gRPC port
 EXPOSE 50052
-
-# Expose Prometheus metrics port (Phase 38)
-EXPOSE 8000
-
-# Note: Controller manager needs privileged access for bluetooth
-# Run with: docker run --privileged or docker-compose privileged: true
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

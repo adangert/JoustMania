@@ -29,11 +29,13 @@ COPY proto/__pycache__/ /app/proto/__pycache__/
 # Copy service dependencies
 COPY services/audio/pyproject.toml /app/services/audio/
 
+# Install proto package from local workspace
+WORKDIR /app/proto
+RUN pip install --no-cache-dir -e .
+
 # Install service-specific dependencies EXCEPT pygame (comes from pygame-builder)
-# Using pip directly with --ignore-installed to skip pygame
 WORKDIR /app/services/audio
 RUN pip install --no-cache-dir \
-    joustmania-proto \
     grpcio>=1.70.0 \
     grpcio-health-checking>=1.70.0 \
     opentelemetry-distro>=0.49b0 \

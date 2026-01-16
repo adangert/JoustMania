@@ -14,6 +14,14 @@ import asyncio
 import logging
 import os
 
+# Configure logging early, before any logging calls
+# This must happen before any logging.warning/info/etc to ensure INFO level is shown
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=getattr(logging, log_level, logging.INFO),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+
 # Import protobuf
 import sys
 import threading
@@ -55,9 +63,9 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-logging.warning("=" * 60)
-logging.warning("GAME COORDINATOR BUILD: 2026-01-16 warning-protection-v2")
-logging.warning("=" * 60)
+logger.info("=" * 60)
+logger.info("GAME COORDINATOR BUILD: 2026-01-16 warning-protection-v3")
+logger.info("=" * 60)
 
 # Initialize OpenTelemetry (game coordinator calls other services, so instrument client too)
 tracer = init_telemetry(instrument_grpc_client=True)
@@ -436,17 +444,8 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
 
 async def serve(port=50053, metrics_port=8000):
     """Start the GameCoordinator async gRPC server."""
-    # Configure logging with environment variable support
-    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
-    logging.basicConfig(
-        level=getattr(logging, log_level, logging.INFO),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
-
-    # BUILD VERIFICATION: This line confirms the new image is deployed
-    logger.info("=" * 60)
-    logger.info("GAME COORDINATOR BUILD: 2026-01-16 warning-protection-v1")
-    logger.info("=" * 60)
+    # Note: logging.basicConfig() is now called at module level (top of file)
+    # to ensure INFO level is enabled before any logging calls
 
     # Start Prometheus metrics HTTP server (Phase 38)
     start_http_server(metrics_port)

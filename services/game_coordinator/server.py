@@ -55,6 +55,9 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+logging.warning("=" * 60)
+logging.warning("GAME COORDINATOR BUILD: 2026-01-16 warning-protection-v2")
+logging.warning("=" * 60)
 
 # Initialize OpenTelemetry (game coordinator calls other services, so instrument client too)
 tracer = init_telemetry(instrument_grpc_client=True)
@@ -439,6 +442,11 @@ async def serve(port=50053, metrics_port=8000):
         level=getattr(logging, log_level, logging.INFO),
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
+
+    # BUILD VERIFICATION: This line confirms the new image is deployed
+    logger.info("=" * 60)
+    logger.info("GAME COORDINATOR BUILD: 2026-01-16 warning-protection-v1")
+    logger.info("=" * 60)
 
     # Start Prometheus metrics HTTP server (Phase 38)
     start_http_server(metrics_port)

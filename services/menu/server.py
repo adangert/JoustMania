@@ -849,9 +849,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         """
         current_time = time.time()
 
-        # Debounce - ignore if we just processed this
+        # Debounce - ignore if we just processed this (100ms to prevent double-triggers)
         last_press = self.last_button_press_time.get(serial, {}).get("trigger_event", 0)
-        if current_time - last_press < 0.3:
+        if current_time - last_press < 0.1:
             return
         if serial not in self.last_button_press_time:
             self.last_button_press_time[serial] = {}
@@ -1072,12 +1072,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         if target_state == self.controller_lobby_state.get(serial, "unknown"):
             return
 
-        # Rate limit updates (max 2 per second per controller)
-        last_update = self.last_lobby_feedback_update.get(serial, 0)
-        if current_time - last_update < 0.5:
-            return
-
-        # Update ready controller tracking
+        # Update ready controller tracking IMMEDIATELY (no rate limiting for state changes)
         if target_state == "ready" and serial not in self.ready_controllers:
             self.ready_controllers.add(serial)
             self.ready_controller_count = len(self.ready_controllers)
@@ -1234,7 +1229,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             True if button press should be processed, False if debouncing
         """
         last_press = self.last_button_press_time[serial].get(button, 0)
-        if current_time - last_press < 0.2:  # 200ms debounce
+        if current_time - last_press < 0.1:  # 100ms debounce (original had none)
             return False
         self.last_button_press_time[serial][button] = current_time
         return True

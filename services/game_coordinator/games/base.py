@@ -68,6 +68,9 @@ class Sensitivity(Enum):
 # Warning protection window duration (seconds) - matches original JoustMania
 WARNING_PROTECTION_DURATION = 0.5
 
+# Log at import time to verify correct version is deployed
+logger.info(f"base.py loaded with WARNING_PROTECTION_DURATION={WARNING_PROTECTION_DURATION}s")
+
 
 @dataclass
 class Player:
@@ -614,8 +617,8 @@ class BaseGameMode(ABC):
             if current_time >= player.warning_until:
                 await self._kill_player(serial, smoothed)
             else:
-                logger.debug(
-                    f"Player {serial} above death threshold but protected "
+                logger.info(
+                    f"Player {serial} PROTECTED from death "
                     f"({player.warning_until - current_time:.2f}s remaining)"
                 )
 
@@ -654,7 +657,7 @@ class BaseGameMode(ABC):
                     "protection_duration": WARNING_PROTECTION_DURATION,
                 },
             )
-        logger.debug(
+        logger.info(
             f"Player {serial} triggered warning (accel: {accel_mag:.2f}), "
             f"protected for {WARNING_PROTECTION_DURATION}s"
         )

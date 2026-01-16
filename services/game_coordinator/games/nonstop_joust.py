@@ -392,6 +392,9 @@ class NonstopJoustGame(BaseGameMode):
         player.alive = True
         player.spawn_protected = True
         player.spawn_protection_end = time.time() + SPAWN_PROTECTION_DURATION
+        # Reset warning state for clean respawn
+        player.warning_until = 0.0
+        player.smoothed_accel = 0.0
 
         # Add respawn event to player's lifecycle span
         if player.span:

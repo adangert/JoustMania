@@ -117,6 +117,10 @@ class BluetoothBackend(ControllerBackend):
         self._led_lock = threading.Lock()
         # Controllers with active effects - polling skips LED refresh for these
         self._effect_active: set[str] = set()
+        # Track last LED update time for keep-alive refresh
+        self._last_led_update: dict[str, float] = {}
+        # Phase 71: Track last color actually sent to each controller
+        self._last_sent_color: dict[str, tuple[int, int, int]] = {}
 
         logger.info("BluetoothBackend initialized")
 
@@ -253,6 +257,11 @@ class BluetoothBackend(ControllerBackend):
                 del self.controllers[serial]
             if serial in self.controller_states:
                 del self.controller_states[serial]
+            # Phase 71: Clean up LED tracking
+            self.led_colors.pop(serial, None)
+            self._last_sent_color.pop(serial, None)
+            self._last_led_update.pop(serial, None)
+            self._effect_active.discard(serial)
 
             logger.info(f"Disconnected controller {serial}")
             return True
@@ -282,12 +291,17 @@ class BluetoothBackend(ControllerBackend):
             # Try to get handle if not stored
             move = self._get_move_by_serial(serial)
             if not move:
-                # Controller disconnected
+                # Controller disconnected - clean up all tracking
                 if serial in self.controllers:
                     logger.warning(f"Controller {serial} no longer available")
                     del self.controllers[serial]
                     if serial in self.controller_states:
                         del self.controller_states[serial]
+                    # Phase 71: Clean up LED tracking
+                    self.led_colors.pop(serial, None)
+                    self._last_sent_color.pop(serial, None)
+                    self._last_led_update.pop(serial, None)
+                    self._effect_active.discard(serial)
                 return None
             self.controllers[serial] = move
 
@@ -296,19 +310,29 @@ class BluetoothBackend(ControllerBackend):
             while move.poll():
                 pass
 
-            # Refresh LED color every 4 seconds (PSMove LEDs timeout after 5s)
+            # Phase 71: LED refresh with immediate update on color change
             # Skip if effect is active - effect controls LEDs directly
             if serial in self.led_colors and serial not in self._effect_active:
                 current_time = time.time()
-                last_led_update = getattr(self, '_last_led_update', {}).get(serial, 0)
-                if current_time - last_led_update >= 4.0:
-                    r, g, b = self.led_colors[serial]
+                last_led_update = self._last_led_update.get(serial, 0)
+
+                stored_color = self.led_colors[serial]
+                last_sent = self._last_sent_color.get(serial)
+
+                # Update if: color changed (immediate) OR 4s elapsed (keep-alive)
+                color_changed = stored_color != last_sent
+                keepalive_needed = current_time - last_led_update >= 4.0
+
+                if color_changed or keepalive_needed:
+                    r, g, b = stored_color
                     with self._led_lock:
                         move.set_leds(r, g, b)
                         move.update_leds()
-                    if not hasattr(self, '_last_led_update'):
-                        self._last_led_update = {}
+                    self._last_sent_color[serial] = stored_color
                     self._last_led_update[serial] = current_time
+
+                    if color_changed:
+                        logger.debug(f"LED color changed for {serial}: {last_sent} -> {stored_color}")
 
             # Get controller state
             state = self.controller_states.get(serial)
@@ -363,6 +387,9 @@ class BluetoothBackend(ControllerBackend):
             with self._led_lock:
                 move.set_leds(r, g, b)
                 move.update_leds()
+            # Phase 71: Track what was actually sent and when
+            self._last_sent_color[serial] = (r, g, b)
+            self._last_led_update[serial] = time.time()
             return True
 
         except Exception as e:

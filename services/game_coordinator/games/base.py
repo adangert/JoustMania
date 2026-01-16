@@ -65,6 +65,10 @@ class Sensitivity(Enum):
     FAST = (1900, 2800)
 
 
+# Warning protection window duration (seconds) - matches original JoustMania
+WARNING_PROTECTION_DURATION = 0.5
+
+
 @dataclass
 class Player:
     """Represents a player in the game."""
@@ -78,6 +82,8 @@ class Player:
     # EMA smooths sensor noise and prevents false positives from single-frame spikes
     smoothed_accel: float = 0.0
     span: trace.Span | None = None  # OpenTelemetry span for this player's lifecycle
+    # Warning protection: player cannot die until this timestamp (gives time to slow down)
+    warning_until: float = 0.0
 
 
 @dataclass
@@ -599,17 +605,31 @@ class BaseGameMode(ABC):
         effective_death = death_threshold * speed_factor
 
         # Check for death (using smoothed acceleration to prevent false positives)
+        # But skip if player is in warning protection window (they need time to slow down)
         smoothed = player.smoothed_accel
-        if smoothed > effective_death:
-            await self._kill_player(serial, smoothed)
+        current_time = time.time()
 
-        # Check for warning (flash controller)
-        elif smoothed > effective_warn:
+        if smoothed > effective_death:
+            # Only kill if warning protection has expired (matches original JoustMania behavior)
+            if current_time >= player.warning_until:
+                await self._kill_player(serial, smoothed)
+            else:
+                logger.debug(
+                    f"Player {serial} above death threshold but protected "
+                    f"({player.warning_until - current_time:.2f}s remaining)"
+                )
+
+        # Check for warning (flash controller) - only if not already in warning state
+        elif smoothed > effective_warn and current_time >= player.warning_until:
             await self._warn_player(serial, smoothed)
 
     async def _warn_player(self, serial: str, accel_mag: float):
         """
         Warn a player that they're moving too much.
+
+        Sets a protection window during which the player cannot die, giving them
+        time to slow down. This matches the original JoustMania behavior where
+        warnings provided a 0.5 second grace period.
 
         Args:
             serial: Controller serial number
@@ -621,13 +641,23 @@ class BaseGameMode(ABC):
         if not player or not player.alive:
             return
 
+        # Set warning protection window - player cannot die for WARNING_PROTECTION_DURATION
+        player.warning_until = time.time() + WARNING_PROTECTION_DURATION
+
         # Add warning event to player's lifecycle span
         if player.span:
             player.span.add_event(
                 "death_warning",
-                attributes={"accel_magnitude": accel_mag, "threshold": self.sensitivity.value[0]},
+                attributes={
+                    "accel_magnitude": accel_mag,
+                    "threshold": self.sensitivity.value[0],
+                    "protection_duration": WARNING_PROTECTION_DURATION,
+                },
             )
-            logger.debug(f"Player {serial} triggered warning (accel: {accel_mag:.2f})")
+        logger.debug(
+            f"Player {serial} triggered warning (accel: {accel_mag:.2f}), "
+            f"protected for {WARNING_PROTECTION_DURATION}s"
+        )
 
         # Phase XX: Send warning effect via stream (white flash + vibrate, auto-restore)
         if self.gameplay_stream:

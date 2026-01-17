@@ -59,6 +59,7 @@ jobs:
         run: make validate-packages
 
   # Build and push builder images to GHCR (Phase 75)
+  # Multi-platform builds for amd64 (CI/dev) and arm64 (Raspberry Pi)
   build-builder:
     name: Build builder
     runs-on: ubuntu-latest
@@ -67,6 +68,9 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -82,6 +86,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: images/builder
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ env.IMAGE_PREFIX }}/builder:${{ github.sha }}
@@ -98,6 +103,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -112,6 +120,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: images/psmove-builder
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ env.IMAGE_PREFIX }}/psmove-builder:${{ github.sha }}
@@ -128,6 +137,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -142,6 +154,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: images/pygame-builder
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ env.IMAGE_PREFIX }}/pygame-builder:${{ github.sha }}
@@ -170,6 +183,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -193,6 +209,7 @@ jobs:
         with:
           context: .
           file: services/${{ matrix.service }}/Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ env.IMAGE_PREFIX }}/${{ steps.image_name.outputs.name }}:${{ github.sha }}

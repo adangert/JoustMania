@@ -440,7 +440,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     if not self.game_event_monitor_running:
                         return
 
-                    logger.info(f"Game event received: {event.event_type} (is_starting={GameEvent.is_game_starting(event.event_type)}, monitor_running={self.button_monitor_running})")
+                    is_starting = GameEvent.is_game_starting(event.event_type)
+                    logger.info(
+                        f"Game event received: {event.event_type} "
+                        f"(is_starting={is_starting}, monitor_running={self.button_monitor_running})"
+                    )
 
                     if GameEvent.is_game_starting(event.event_type):
                         # Game is starting - stop button monitoring and lobby music
@@ -668,7 +672,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     # Process each controller update
                     for controller in update.controllers:
                         # Log button state changes (delta updates mean we only get this on changes)
-                        logger.info(f"Menu stream: {controller.serial} T={controller.trigger_pressed} M={controller.move_pressed}")
+                        serial = controller.serial
+                        logger.info(f"Menu stream: {serial} T={controller.trigger_pressed} M={controller.move_pressed}")
 
                         # Update lobby feedback regardless of menu state (controllers should light up)
                         await self._update_lobby_feedback(controller, stub)
@@ -720,7 +725,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 # We need an async generator for the request side
                 request_queue = asyncio.Queue()
 
-                async def request_generator():
+                async def request_generator(queue=request_queue):
                     """Async generator that yields ButtonEventStreamControl messages."""
                     # Send initial config
                     initial_config = controller_manager_pb2.ButtonEventStreamControl(
@@ -731,7 +736,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     # Then yield messages from queue
                     while self.button_monitor_running:
                         try:
-                            msg = await asyncio.wait_for(request_queue.get(), timeout=1.0)
+                            msg = await asyncio.wait_for(queue.get(), timeout=1.0)
                             yield msg
                         except TimeoutError:
                             continue
@@ -754,8 +759,15 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     if not self.button_monitor_running:
                         return
 
+                    # Log button events for debugging quick press issues
+                    action_str = "PRESS" if event.action == controller_manager_pb2.ACTION_PRESS else "RELEASE"
+                    logger.debug(f"Button event: {event.serial} button={event.button} action={action_str}")
+
                     # Only handle trigger press events for ready state
-                    if event.button == controller_manager_pb2.BUTTON_TRIGGER and event.action == controller_manager_pb2.ACTION_PRESS:
+                    is_trigger = event.button == controller_manager_pb2.BUTTON_TRIGGER
+                    is_press = event.action == controller_manager_pb2.ACTION_PRESS
+                    if is_trigger and is_press:
+                        logger.info(f"Trigger PRESS event: {event.serial}")
                         await self._handle_button_event_trigger(event.serial)
 
                 if self.button_monitor_running:
@@ -867,7 +879,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             # Already ready - trigger press starts game
             if self.state == menu_pb2.MenuState.RUNNING:
                 # Check if all are ready
-                all_ready = len(self.ready_controllers) == len(self.connected_controllers) and len(self.ready_controllers) >= 2
+                ready_count = len(self.ready_controllers)
+                all_ready = ready_count == len(self.connected_controllers) and ready_count >= 2
                 if all_ready:
                     logger.info(f"All ready, starting game via button event from {serial}")
                     await self._handle_trigger_press(serial)

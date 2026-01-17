@@ -68,11 +68,16 @@ class Sensitivity(Enum):
     FAST = (7800, 11500)  # ~1.9g warning, ~2.8g death
 
 
-# Warning protection window duration (seconds) - matches original JoustMania
-WARNING_PROTECTION_DURATION = 0.5
+# Warning feedback duration (seconds) - flash + rumble time
+# This is purely visual feedback, NOT protection (player can still die during warning)
+WARNING_DURATION = 0.5
+
+# Grace periods - no death or warning during these times (matches original JoustMania)
+GAME_START_GRACE_PERIOD = 2.0  # seconds of invincibility at game start
+DEATH_GRACE_PERIOD = 0.5  # seconds of invincibility after death (for respawn modes)
 
 # Log at import time to verify correct version is deployed
-logger.info(f"base.py loaded with WARNING_PROTECTION_DURATION={WARNING_PROTECTION_DURATION}s")
+logger.info(f"base.py loaded: WARNING_DURATION={WARNING_DURATION}s, GAME_START_GRACE={GAME_START_GRACE_PERIOD}s")
 
 
 @dataclass
@@ -88,7 +93,11 @@ class Player:
     # EMA smooths sensor noise and prevents false positives from single-frame spikes
     smoothed_accel: float = 0.0
     span: trace.Span | None = None  # OpenTelemetry span for this player's lifecycle
-    # Warning protection: player cannot die until this timestamp (gives time to slow down)
+    # Grace period: no death or warning checks until this timestamp
+    # Set at game start (2s) and after death (0.5s) - matches original JoustMania
+    grace_until: float = 0.0
+    # Warning state: when > 0, player is in warning feedback (flash + rumble)
+    # This is purely visual - player CAN still die during warning (matches original)
     warning_until: float = 0.0
 
 
@@ -496,6 +505,13 @@ class BaseGameMode(ABC):
                     # Set start_time here, not before game_loop, so grace period is accurate
                     self.start_time = time.time()
 
+                    # Set grace period for all players (2 seconds at game start)
+                    # Matches original JoustMania: no_rumble = time.time() + 2
+                    grace_end = self.start_time + GAME_START_GRACE_PERIOD
+                    for player in self.players.values():
+                        player.grace_until = grace_end
+                    logger.info(f"Set {GAME_START_GRACE_PERIOD}s grace period for {len(self.players)} players")
+
                 if not self.running:
                     logger.info("Game running=False, breaking loop")
                     break
@@ -613,41 +629,31 @@ class BaseGameMode(ABC):
         effective_warn = warn_threshold * speed_factor
         effective_death = death_threshold * speed_factor
 
-        # Check for death (using smoothed acceleration to prevent false positives)
-        # But skip if player is in warning protection window (they need time to slow down)
         smoothed = player.smoothed_accel
         current_time = time.time()
 
-        if smoothed > effective_death:
-            # Player exceeded death threshold - check if they should die or be warned first
-            if player.warning_until == 0.0:
-                # Player has never been warned - give them a warning first!
-                # This handles the case where EMA jumps past warning zone directly to death zone
-                logger.info(
-                    f"Player {serial} exceeded death threshold without warning "
-                    f"(accel: {smoothed:.2f}), warning first"
-                )
-                await self._warn_player(serial, smoothed)
-            elif current_time >= player.warning_until:
-                # Warning expired, kill the player
-                await self._kill_player(serial, smoothed)
-            else:
-                # Still in warning protection window
-                logger.info(
-                    f"Player {serial} PROTECTED from death " f"({player.warning_until - current_time:.2f}s remaining)"
-                )
+        # Check grace period first - no death or warning during grace period
+        # Matches original JoustMania: if time.time() > no_rumble
+        if current_time < player.grace_until:
+            return  # In grace period, skip all checks
 
-        # Check for warning (flash controller) - only if not already in warning state
+        # Death and warning checks (matches original JoustMania logic)
+        # Key: warning is just feedback, NOT protection - player can die during warning!
+        if smoothed > effective_death:
+            # Player exceeded death threshold - kill them
+            await self._kill_player(serial, smoothed)
         elif smoothed > effective_warn and current_time >= player.warning_until:
+            # Player exceeded warning threshold and not already in warning state
+            # Start warning feedback (flash + rumble)
             await self._warn_player(serial, smoothed)
 
     async def _warn_player(self, serial: str, accel_mag: float):
         """
         Warn a player that they're moving too much.
 
-        Sets a protection window during which the player cannot die, giving them
-        time to slow down. This matches the original JoustMania behavior where
-        warnings provided a 0.5 second grace period.
+        This is purely visual/haptic feedback (flash + rumble) - NOT protection!
+        Player can still die immediately if they exceed death threshold.
+        Matches original JoustMania where warning was just feedback.
 
         Args:
             serial: Controller serial number
@@ -659,11 +665,9 @@ class BaseGameMode(ABC):
         if not player or not player.alive:
             return
 
-        # Phase 74: Scale warning protection with music tempo
-        # At faster tempos, give players proportionally more time to react
-        speed_factor = self.music_speed / SLOW_MUSIC_SPEED
-        protection_duration = WARNING_PROTECTION_DURATION * speed_factor
-        player.warning_until = time.time() + protection_duration
+        # Set warning feedback duration (prevents repeated warnings during flash)
+        # This is NOT protection - player can still die during this time!
+        player.warning_until = time.time() + WARNING_DURATION
 
         # Add warning event to player's lifecycle span
         if player.span:
@@ -672,15 +676,11 @@ class BaseGameMode(ABC):
                 attributes={
                     "accel_magnitude": accel_mag,
                     "threshold": self.sensitivity.value[0],
-                    "protection_duration": protection_duration,
                 },
             )
-        logger.info(
-            f"Player {serial} triggered warning (accel: {accel_mag:.2f}), "
-            f"protected for {protection_duration:.2f}s (tempo: {self.music_speed:.2f}x)"
-        )
+        logger.info(f"Player {serial} triggered warning (accel: {accel_mag:.2f})")
 
-        # Phase XX: Send warning effect via stream (white flash + vibrate, auto-restore)
+        # Send warning effect via stream (white flash + vibrate, auto-restore)
         if self.gameplay_stream:
             effect_cmd = controller_manager_pb2.GameplayStreamControl(
                 game_effect=controller_manager_pb2.GameEffectCommand(

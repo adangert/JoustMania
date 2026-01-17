@@ -522,8 +522,22 @@ class BaseGameMode(ABC):
                     break
 
                 # Process each controller's gameplay data
+                # Check win condition after EACH controller to prevent simultaneous deaths
+                # This ensures the last player standing can never die
+                game_over = False
                 for gameplay_data in gameplay_update.controllers:
                     await self._process_controller_state(gameplay_data)
+
+                    # Check after each controller - stop processing if we have a winner
+                    if self._check_win_condition():
+                        game_over = True
+                        break
+
+                if game_over:
+                    # Keep game running for 1 second to clearly show winner in traces
+                    logger.info("Win condition met, keeping game active for 1 second to show winner")
+                    await asyncio.sleep(1.0)
+                    break
 
                 # Check if alive players changed (Phase 45 - dynamic filtering)
                 current_alive_serials = {p.serial for p in self.players.values() if p.alive}
@@ -547,12 +561,8 @@ class BaseGameMode(ABC):
 
                     last_alive_serials = current_alive_serials
 
-                # Check win condition
-                if self._check_win_condition():
-                    # Keep game running for 1 second to clearly show winner in traces
-                    logger.info("Win condition met, keeping game active for 1 second to show winner")
-                    await asyncio.sleep(1.0)
-                    break
+                # Note: Win condition is now checked after EACH controller (above)
+                # to prevent simultaneous deaths - the last player standing can never die
 
                 # Check if config changed (Phase 43: Live Hz adjustment)
                 current_hz = get_config_manager().get_config().update_frequency_hz

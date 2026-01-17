@@ -22,6 +22,26 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
+
+# Filter to suppress noisy gRPC async errors
+# These BlockingIOError messages from PollerCompletionQueue are harmless but noisy
+# They occur due to gRPC's async polling internals and don't affect functionality
+class GrpcPollerFilter(logging.Filter):
+    """Filter out gRPC PollerCompletionQueue errors that spam the logs."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Suppress BlockingIOError from gRPC poller
+        if "PollerCompletionQueue" in record.getMessage():
+            return False
+        # Suppress the related "Event loop is closed" errors
+        if "Event loop is closed" in record.getMessage():
+            return False
+        return True
+
+
+# Apply filter to asyncio logger (where gRPC errors appear)
+logging.getLogger("asyncio").addFilter(GrpcPollerFilter())
+
 # Import protobuf (after logging config)
 import sys  # noqa: E402
 import threading  # noqa: E402
@@ -64,7 +84,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 logger.info("=" * 60)
-logger.info("GAME COORDINATOR BUILD: 2026-01-17 grpc-cleanup-fix")
+logger.info("GAME COORDINATOR BUILD: 2026-01-17 last-player-win-fix")
 logger.info("=" * 60)
 
 # Initialize OpenTelemetry (game coordinator calls other services, so instrument client too)

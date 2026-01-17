@@ -438,9 +438,7 @@ class BaseGameMode(ABC):
             player_colors.append(
                 controller_manager_pb2.ControllerColorConfig(
                     serial=serial,
-                    color=controller_manager_pb2.RGB(
-                        r=player.color[0], g=player.color[1], b=player.color[2]
-                    ),
+                    color=controller_manager_pb2.RGB(r=player.color[0], g=player.color[1], b=player.color[2]),
                 )
             )
 

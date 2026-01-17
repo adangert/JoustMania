@@ -47,15 +47,15 @@ tracer = init_telemetry()
 # Button type enum to name mapping (for state tracking)
 # Maps controller_manager_pb2.BUTTON_* enum values to state dict keys
 BUTTON_TYPE_NAMES = {
-    0: "trigger",    # BUTTON_TRIGGER
-    1: "move",       # BUTTON_MOVE
-    2: "cross",      # BUTTON_CROSS
-    3: "circle",     # BUTTON_CIRCLE
-    4: "square",     # BUTTON_SQUARE
-    5: "triangle",   # BUTTON_TRIANGLE
-    6: "ps",         # BUTTON_PS
-    7: "select",     # BUTTON_SELECT
-    8: "start",      # BUTTON_START
+    0: "trigger",  # BUTTON_TRIGGER
+    1: "move",  # BUTTON_MOVE
+    2: "cross",  # BUTTON_CROSS
+    3: "circle",  # BUTTON_CIRCLE
+    4: "square",  # BUTTON_SQUARE
+    5: "triangle",  # BUTTON_TRIANGLE
+    6: "ps",  # BUTTON_PS
+    7: "select",  # BUTTON_SELECT
+    8: "start",  # BUTTON_START
 }
 
 
@@ -850,9 +850,15 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     # Initialize state tracking for this controller
                     if serial not in self.controller_button_states:
                         self.controller_button_states[serial] = {
-                            "trigger": False, "move": False, "cross": False,
-                            "circle": False, "square": False, "triangle": False,
-                            "ps": False, "select": False, "start": False,
+                            "trigger": False,
+                            "move": False,
+                            "cross": False,
+                            "circle": False,
+                            "square": False,
+                            "triangle": False,
+                            "ps": False,
+                            "select": False,
+                            "start": False,
                         }
                         self.last_button_press_time[serial] = {}
 
@@ -872,12 +878,12 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         continue
 
                     # Check for admin mode combo (all 4 face buttons pressed)
-                    if button_name in ["cross", "circle", "square", "triangle"]:
-                        if self._check_admin_combo_from_state(serial):
-                            if not self.admin_combo_shown:
-                                self.admin_combo_shown = True
-                                await self._enter_admin_mode(serial)
-                            continue  # Don't process as individual button
+                    is_face_button = button_name in ["cross", "circle", "square", "triangle"]
+                    if is_face_button and self._check_admin_combo_from_state(serial):
+                        if not self.admin_combo_shown:
+                            self.admin_combo_shown = True
+                            await self._enter_admin_mode(serial)
+                        continue  # Don't process as individual button
 
                     # Handle button based on current mode
                     if self.admin_mode_active and serial == self.admin_mode_controller:
@@ -978,6 +984,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         # Try bidirectional stream first, fall back to RPC
         if not await self._send_base_color(serial, dim_color):
             from proto import controller_manager_pb2
+
             try:
                 await stub.SetControllerColor(
                     controller_manager_pb2.SetControllerColorRequest(

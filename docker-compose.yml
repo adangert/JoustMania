@@ -61,13 +61,15 @@ services:
     container_name: joustmania-otel-collector
     command: [ "--config=/etc/otel-collector-config.yaml" ]
     volumes:
-      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+      - ./services/otel-collector/config.yaml:/etc/otel-collector-config.yaml
     ports:
       # Only expose Prometheus metrics for external monitoring
       - "8889:8889"   # Prometheus metrics (Jaeger uses 8888)
       # OTLP ports (4317, 4318) and health check (13133) are only used internally
     depends_on:
       jaeger:
+        condition: service_healthy
+      loki:
         condition: service_healthy
     networks:
       - joustmania
@@ -319,8 +321,8 @@ services:
     ports:
       - "9090:9090"  # Prometheus UI exposed to host for browser access
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./prometheus-alerts.yml:/etc/prometheus/prometheus-alerts.yml:ro
+      - ./services/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./services/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus-data:/prometheus
     networks:
       - joustmania
@@ -345,17 +347,41 @@ services:
       - GF_SERVER_ROOT_URL=http://localhost:3000
       - GF_INSTALL_PLUGINS=
     volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./services/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./services/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
     depends_on:
       prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+      jaeger:
         condition: service_healthy
     networks:
       - joustmania
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Loki for log aggregation with 1h retention
+  loki:
+    image: grafana/loki:2.9.3
+    container_name: joustmania-loki
+    ports:
+      - "3100:3100"  # Loki HTTP API (for queries and ingestion)
+    volumes:
+      - ./services/loki/config.yaml:/etc/loki/config.yaml:ro
+      - loki-data:/tmp/loki
+    command: -config.file=/etc/loki/config.yaml
+    networks:
+      - joustmania
+    restart: unless-stopped
+    healthcheck:
+      test:  ["CMD", "wget", "--spider", "-q", "http://localhost:3100/ready"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -370,3 +396,4 @@ volumes:
   redis-data:
   prometheus-data:
   grafana-data:
+  loki-data:

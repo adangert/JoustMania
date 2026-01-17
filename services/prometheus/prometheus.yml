@@ -6,7 +6,7 @@ global:
     environment: 'production'
 
 rule_files:
-  - 'prometheus-alerts.yml'
+  - 'alerts.yml'
 
 scrape_configs:
   # Controller Manager

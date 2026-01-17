@@ -613,10 +613,20 @@ class BaseGameMode(ABC):
         current_time = time.time()
 
         if smoothed > effective_death:
-            # Only kill if warning protection has expired (matches original JoustMania behavior)
-            if current_time >= player.warning_until:
+            # Player exceeded death threshold - check if they should die or be warned first
+            if player.warning_until == 0.0:
+                # Player has never been warned - give them a warning first!
+                # This handles the case where EMA jumps past warning zone directly to death zone
+                logger.info(
+                    f"Player {serial} exceeded death threshold without warning "
+                    f"(accel: {smoothed:.2f}), warning first"
+                )
+                await self._warn_player(serial, smoothed)
+            elif current_time >= player.warning_until:
+                # Warning expired, kill the player
                 await self._kill_player(serial, smoothed)
             else:
+                # Still in warning protection window
                 logger.info(
                     f"Player {serial} PROTECTED from death "
                     f"({player.warning_until - current_time:.2f}s remaining)"

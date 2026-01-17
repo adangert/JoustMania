@@ -64,7 +64,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 logger.info("=" * 60)
-logger.info("GAME COORDINATOR BUILD: 2026-01-16 warning-protection-v3")
+logger.info("GAME COORDINATOR BUILD: 2026-01-16 warning-protection-v4")
 logger.info("=" * 60)
 
 # Initialize OpenTelemetry (game coordinator calls other services, so instrument client too)

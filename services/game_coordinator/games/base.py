@@ -59,13 +59,13 @@ END_MAX_MUSIC_SLOW_TIME = 12
 GAME_VOLUME = 0.7
 
 
-# Sensitivity thresholds (in raw accelerometer units, ~4096 = 1g)
-# PSMove accelerometer returns raw values where gravity alone = ~4096
-# Thresholds are in raw units to avoid per-frame division
+# Sensitivity thresholds (in g-force units, 1.0 = 1g)
+# PSMove accelerometer returns g-force values (standing still = ~1.0 on Z axis)
+# Values match original JoustMania (sensitivity index 2 = medium difficulty)
 class Sensitivity(Enum):
-    SLOW = (5300, 6100)  # ~1.3g warning, ~1.5g death
-    MEDIUM = (6500, 7400)  # ~1.6g warning, ~1.8g death
-    FAST = (7800, 11500)  # ~1.9g warning, ~2.8g death
+    SLOW = (1.3, 1.5)    # 1.3g warning, 1.5g death (easier - more movement allowed)
+    MEDIUM = (1.6, 1.8)  # 1.6g warning, 1.8g death (default)
+    FAST = (1.9, 2.8)    # 1.9g warning, 2.8g death (harder - less movement allowed)
 
 
 # Warning feedback duration (seconds) - flash + rumble time
@@ -604,8 +604,9 @@ class BaseGameMode(ABC):
         if not player.alive:
             return  # Dead player, ignore
 
-        # Calculate acceleration magnitude (raw units, ~4096 = 1g)
-        # Thresholds are scaled to match, avoiding per-frame division
+        # Calculate acceleration magnitude (g-force units, 1.0 = 1g)
+        # Standing still: sqrt(0² + 0² + 1²) ≈ 1.0g
+        # Movement adds to this, e.g., 1.8g = significant movement
         accel = controller_state.accel
         accel_mag = math.sqrt(accel.x**2 + accel.y**2 + accel.z**2)
 

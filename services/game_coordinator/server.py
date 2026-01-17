@@ -30,13 +30,9 @@ class GrpcPollerFilter(logging.Filter):
     """Filter out gRPC PollerCompletionQueue errors that spam the logs."""
 
     def filter(self, record: logging.LogRecord) -> bool:
-        # Suppress BlockingIOError from gRPC poller
-        if "PollerCompletionQueue" in record.getMessage():
-            return False
-        # Suppress the related "Event loop is closed" errors
-        if "Event loop is closed" in record.getMessage():
-            return False
-        return True
+        # Suppress BlockingIOError from gRPC poller and related "Event loop is closed" errors
+        msg = record.getMessage()
+        return "PollerCompletionQueue" not in msg and "Event loop is closed" not in msg
 
 
 # Apply filter to asyncio logger (where gRPC errors appear)

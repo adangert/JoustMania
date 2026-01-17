@@ -96,3 +96,6 @@ get-docker.sh
 # Builder marker files (Phase 69)
 .builder-built
 .psmove-builder-built
+
+# Linter cache
+.ruff_cache/

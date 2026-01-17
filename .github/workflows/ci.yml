@@ -59,22 +59,12 @@ jobs:
         run: make validate-packages
 
   # Build and push builder images to GHCR (Phase 75)
-  build-builders:
-    name: Build ${{ matrix.builder }} Builder
+  build-builder:
+    name: Build builder
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        builder:
-          - name: builder
-            context: images/builder
-          - name: psmove-builder
-            context: images/psmove-builder
-          - name: pygame-builder
-            context: images/pygame-builder
     steps:
       - uses: actions/checkout@v4
 
@@ -88,30 +78,81 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_PREFIX }}/${{ matrix.builder.name }}
-          tags: |
-            type=sha,prefix=
-            type=ref,event=branch
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push
+      - name: Build and push builder
         uses: docker/build-push-action@v5
         with:
-          context: ${{ matrix.builder.context }}
+          context: images/builder
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/builder:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/builder:${{ github.ref_name }}
+          cache-from: type=gha,scope=builder
+          cache-to: type=gha,mode=max,scope=builder
+
+  build-psmove-builder:
+    name: Build psmove-builder
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push psmove-builder
+        uses: docker/build-push-action@v5
+        with:
+          context: images/psmove-builder
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/psmove-builder:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/psmove-builder:${{ github.ref_name }}
+          cache-from: type=gha,scope=psmove-builder
+          cache-to: type=gha,mode=max,scope=psmove-builder
+
+  build-pygame-builder:
+    name: Build pygame-builder
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push pygame-builder
+        uses: docker/build-push-action@v5
+        with:
+          context: images/pygame-builder
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/pygame-builder:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/pygame-builder:${{ github.ref_name }}
+          cache-from: type=gha,scope=pygame-builder
+          cache-to: type=gha,mode=max,scope=pygame-builder
 
   docker-build:
     name: Build ${{ matrix.service }}
     runs-on: ubuntu-latest
-    needs: build-builders
+    needs: [build-builder, build-psmove-builder, build-pygame-builder]
     strategy:
       fail-fast: false
       matrix:
@@ -146,7 +187,7 @@ jobs:
   integration-test:
     name: Integration Tests
     runs-on: ubuntu-latest
-    needs: build-builders
+    needs: [build-builder, build-psmove-builder, build-pygame-builder]
     steps:
       - uses: actions/checkout@v4
 

@@ -5,11 +5,16 @@
 #
 # Or with the override file for port exposures:
 #   docker-compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.ci.yml up
+#
+# Note: We must fully redefine services to clear device/volume lists
+# (docker-compose merges arrays, doesn't replace them)
 
 services:
   # Audio Service - Mock mode, no sound device required
+  # Fully redefined to remove devices list
   audio:
-    devices: []  # Override: remove /dev/snd requirement
+    # Clear devices list from base compose (requires docker compose v2.24.0+)
+    devices: !reset []
     environment:
       - MOCK_MODE=true
       - OTEL_SERVICE_NAME=audio-service
@@ -17,8 +22,10 @@ services:
 
   # Controller Manager - Mock mode, no Bluetooth required
   controller-manager:
-    devices: []  # Override: remove /dev requirement
-    volumes: []  # Override: remove D-Bus and Bluetooth volumes
+    # Clear devices and volumes from base compose (requires docker compose v2.24.0+)
+    devices: !reset []
+    volumes: !reset []
+    privileged: false
     environment:
       - CONTROLLER_BACKEND=mock
       - MOCK_CONTROLLER_COUNT=${MOCK_CONTROLLER_COUNT:-4}

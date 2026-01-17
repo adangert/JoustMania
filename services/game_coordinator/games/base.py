@@ -652,8 +652,11 @@ class BaseGameMode(ABC):
         if not player or not player.alive:
             return
 
-        # Set warning protection window - player cannot die for WARNING_PROTECTION_DURATION
-        player.warning_until = time.time() + WARNING_PROTECTION_DURATION
+        # Phase 74: Scale warning protection with music tempo
+        # At faster tempos, give players proportionally more time to react
+        speed_factor = self.music_speed / SLOW_MUSIC_SPEED
+        protection_duration = WARNING_PROTECTION_DURATION * speed_factor
+        player.warning_until = time.time() + protection_duration
 
         # Add warning event to player's lifecycle span
         if player.span:
@@ -662,12 +665,12 @@ class BaseGameMode(ABC):
                 attributes={
                     "accel_magnitude": accel_mag,
                     "threshold": self.sensitivity.value[0],
-                    "protection_duration": WARNING_PROTECTION_DURATION,
+                    "protection_duration": protection_duration,
                 },
             )
         logger.info(
             f"Player {serial} triggered warning (accel: {accel_mag:.2f}), "
-            f"protected for {WARNING_PROTECTION_DURATION}s"
+            f"protected for {protection_duration:.2f}s (tempo: {self.music_speed:.2f}x)"
         )
 
         # Phase XX: Send warning effect via stream (white flash + vibrate, auto-restore)

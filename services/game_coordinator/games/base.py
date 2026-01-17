@@ -59,12 +59,13 @@ END_MAX_MUSIC_SLOW_TIME = 12
 GAME_VOLUME = 0.7
 
 
-# Sensitivity thresholds (in raw accelerometer units, ~1000 = 1g)
-# Scaled up from g-force values to avoid per-frame division
+# Sensitivity thresholds (in raw accelerometer units, ~4096 = 1g)
+# PSMove accelerometer returns raw values where gravity alone = ~4096
+# Thresholds are in raw units to avoid per-frame division
 class Sensitivity(Enum):
-    SLOW = (1300, 1500)  # (warning_threshold, death_threshold)
-    MEDIUM = (1600, 1800)
-    FAST = (1900, 2800)
+    SLOW = (5300, 6100)  # ~1.3g warning, ~1.5g death
+    MEDIUM = (6500, 7400)  # ~1.6g warning, ~1.8g death
+    FAST = (7800, 11500)  # ~1.9g warning, ~2.8g death
 
 
 # Warning protection window duration (seconds) - matches original JoustMania
@@ -413,6 +414,86 @@ class BaseGameMode(ABC):
         self.event_publisher(GameEvent.COUNTDOWN_END, {})
         logger.info("Countdown complete")
 
+    async def _start_gameplay_stream(self):
+        """
+        Create and configure the gameplay stream.
+
+        Called before countdown to allow EMA warmup during countdown phase.
+        The stream is stored in self.gameplay_stream for use by _game_loop().
+        """
+        from proto import controller_manager_pb2
+
+        # Get runtime config
+        config = get_config_manager().get_config()
+        update_frequency_hz = config.update_frequency_hz
+
+        logger.info(f"Creating gameplay stream at {update_frequency_hz}Hz...")
+
+        # Create bidirectional stream
+        self.gameplay_stream = self.controller_client.StreamGameplayDataDynamic()
+
+        # Build player colors for stream init
+        player_colors = []
+        for serial, player in self.players.items():
+            player_colors.append(
+                controller_manager_pb2.ControllerColorConfig(
+                    serial=serial,
+                    color=controller_manager_pb2.RGB(
+                        r=player.color[0], g=player.color[1], b=player.color[2]
+                    ),
+                )
+            )
+
+        # Send initial configuration
+        initial_config = controller_manager_pb2.GameplayStreamControl(
+            config=controller_manager_pb2.GameplayStreamConfig(
+                update_frequency_hz=update_frequency_hz,
+                colors=player_colors,
+            )
+        )
+        await self.gameplay_stream.write(initial_config)
+        logger.info(f"Gameplay stream started with {len(player_colors)} players")
+
+    async def _warmup_ema(self):
+        """
+        Prime the EMA filter by reading accelerometer data without checking deaths.
+
+        Runs concurrently with countdown to ensure the EMA filter has stable
+        readings before gameplay begins. This prevents false deaths from
+        uninitialized/cold-start EMA values.
+        """
+        logger.info("Starting EMA warmup...")
+        readings_count = 0
+
+        try:
+            async for gameplay_update in self.gameplay_stream:
+                if not self.running:
+                    break
+
+                # Process each controller's data to prime EMA
+                for gameplay_data in gameplay_update.controllers:
+                    serial = gameplay_data.serial
+                    player = self.players.get(serial)
+                    if not player:
+                        continue
+
+                    # Calculate magnitude and update EMA (no death checks)
+                    accel = gameplay_data.accel
+                    accel_mag = math.sqrt(accel.x**2 + accel.y**2 + accel.z**2)
+
+                    if player.smoothed_accel == 0.0:
+                        player.smoothed_accel = accel_mag
+                    else:
+                        player.smoothed_accel = (player.smoothed_accel * 4 + accel_mag) / 5
+
+                    readings_count += 1
+
+        except asyncio.CancelledError:
+            # Expected when countdown finishes
+            pass
+
+        logger.info(f"EMA warmup complete: {readings_count} readings processed")
+
     async def _game_loop(self):
         """Main game loop - processes controller states and checks for deaths."""
         logger.info("Starting game loop...")
@@ -431,33 +512,10 @@ class BaseGameMode(ABC):
             # Emit configured Hz metric (Phase 43)
             metrics.configured_update_frequency_hz.set(update_frequency_hz)
 
-            logger.info(f"Starting game loop with dynamic filtering at {update_frequency_hz}Hz")
+            logger.info(f"Starting game loop at {update_frequency_hz}Hz (stream already started)")
 
-            # Create bidirectional stream (Phase 45 - dynamic filtering, Phase 46 - feedback commands)
-            logger.info("Creating bidirectional stream to controller manager...")
-            self.gameplay_stream = self.controller_client.StreamGameplayDataDynamic()
-            logger.info("Stream created successfully")
-
-            # Phase XX: Build player colors for stream init
-            player_colors = []
-            for serial, player in self.players.items():
-                player_colors.append(
-                    controller_manager_pb2.ControllerColorConfig(
-                        serial=serial,
-                        color=controller_manager_pb2.RGB(r=player.color[0], g=player.color[1], b=player.color[2]),
-                    )
-                )
-
-            # Send initial configuration with player colors
-            logger.info(f"Sending initial config: {update_frequency_hz}Hz, {len(player_colors)} players with colors")
-            initial_config = controller_manager_pb2.GameplayStreamControl(
-                config=controller_manager_pb2.GameplayStreamConfig(
-                    update_frequency_hz=update_frequency_hz,
-                    colors=player_colors,  # Phase XX: Include player colors
-                )
-            )
-            await self.gameplay_stream.write(initial_config)
-            logger.info("Initial config sent successfully")
+            # Stream was already created in _start_gameplay_stream() before countdown
+            # EMA filter was primed during countdown by _warmup_ema()
 
             # Track current alive set for detecting changes
             last_alive_serials = {p.serial for p in self.players.values() if p.alive}
@@ -478,8 +536,6 @@ class BaseGameMode(ABC):
                     logger.info("✅ Received first gameplay update from stream!")
                     # Set start_time here, not before game_loop, so grace period is accurate
                     self.start_time = time.time()
-
-                time.time()
 
                 if not self.running:
                     logger.info("Game running=False, breaking loop")
@@ -573,16 +629,10 @@ class BaseGameMode(ABC):
         if not player.alive:
             return  # Dead player, ignore
 
-        # Calculate acceleration magnitude (raw units, ~1000 = 1g)
+        # Calculate acceleration magnitude (raw units, ~4096 = 1g)
         # Thresholds are scaled to match, avoiding per-frame division
         accel = controller_state.accel
         accel_mag = math.sqrt(accel.x**2 + accel.y**2 + accel.z**2)
-
-        # Sanity check: ignore physically impossible readings (>10g = sensor glitch)
-        max_valid_accel = 10000  # 10g in raw units - beyond any realistic movement
-        if accel_mag > max_valid_accel:
-            logger.warning(f"Invalid accel magnitude {accel_mag:.0f} for {serial}, ignoring")
-            return  # Skip this reading entirely
 
         # Apply exponential moving average filter (from original JoustMania)
         # Formula: smoothed = (smoothed * 4 + raw) / 5
@@ -767,9 +817,19 @@ class BaseGameMode(ABC):
                 with tracer.start_as_current_span(phase.name):
                     await phase.execute()
 
-            # Phase 3: Countdown
+            # Start gameplay stream early (before countdown) for EMA warmup
+            await self._start_gameplay_stream()
+
+            # Phase 3: Countdown with concurrent EMA warmup
+            # Stream data is read during countdown to prime the EMA filter
             with tracer.start_as_current_span("countdown_phase"):
-                await self._countdown()
+                warmup_task = asyncio.create_task(self._warmup_ema())
+                try:
+                    await self._countdown()
+                finally:
+                    warmup_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await warmup_task
 
             # Phase 4: Game starts
             self.state = GameState.RUNNING

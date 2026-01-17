@@ -393,7 +393,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             self.button_monitor_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self.button_monitor_task
-        if hasattr(self, 'button_event_task') and self.button_event_task:
+        if hasattr(self, "button_event_task") and self.button_event_task:
             self.button_event_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self.button_event_task
@@ -1061,13 +1061,19 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         prev_state = self.controller_button_states.get(serial, {})
 
         # Detect trigger press event (False → True transition) → become ready
-        if controller.trigger_pressed and not prev_state.get("trigger", False):
+        # Also check controller.ready flag set by controller manager (catches quick presses)
+        trigger_edge = controller.trigger_pressed and not prev_state.get("trigger", False)
+        cm_says_ready = getattr(controller, "ready", False)
+
+        if trigger_edge or (cm_says_ready and serial not in self.ready_controllers):
             if serial in self.ready_controllers:
                 # Already ready → pressing trigger starts game (handled by _process_button_state)
                 # Don't update lobby feedback, let game start happen
                 return
             # Not ready → mark as ready
             target_state = "ready"
+            if cm_says_ready and not trigger_edge:
+                logger.info(f"Controller {serial} ready via CM flag (quick press caught)")
         # Detect move press event (False → True transition) → become un-ready
         elif controller.move_pressed and not prev_state.get("move", False):
             if serial in self.ready_controllers:
@@ -1150,7 +1156,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 self.controller_lobby_state[serial] = target_state
                 self.last_lobby_feedback_update[serial] = current_time
 
-                logger.debug(f"Controller {serial} lobby state: {target_state} (game: {self.current_selection}) via RPC")
+                logger.debug(f"Controller {serial} lobby state: {target_state} (game: {self.current_selection})")
 
             except Exception as e:
                 logger.error(f"Failed to update lobby feedback for {serial}: {e}")
@@ -1189,9 +1195,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     self.last_lobby_feedback_update.pop(serial, None)
 
                 self.ready_controller_count = len(self.ready_controllers)
-                logger.info(
-                    f"After disconnect cleanup: connected={len(self.connected_controllers)} ready={len(self.ready_controllers)}"
-                )
+                connected = len(self.connected_controllers)
+                ready = len(self.ready_controllers)
+                logger.info(f"After disconnect cleanup: connected={connected} ready={ready}")
 
         except Exception as e:
             logger.warning(f"Failed to sync controllers: {e}")
@@ -1414,9 +1420,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                             # Restore lobby color
                             color_request = controller_manager_pb2.SetControllerColorRequest(
                                 serial=serial,
-                                color=controller_manager_pb2.RGB(
-                                    r=final_color[0], g=final_color[1], b=final_color[2]
-                                ),
+                                color=controller_manager_pb2.RGB(r=final_color[0], g=final_color[1], b=final_color[2]),
                                 duration_ms=0,  # Persistent
                             )
                             await stub.SetControllerColor(color_request)
@@ -1970,6 +1974,7 @@ async def serve(port=50054, metrics_port=8000):
 
     # Create server with keepalive options to match client settings
     from lib.grpc_utils import get_server_options
+
     server = grpc.aio.server(options=get_server_options())
 
     # Add servicer

@@ -318,12 +318,36 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
     def __init__(self):
         """Initialize audio servicer."""
         self.audio_manager = AudioManager()
+        self.audio_enabled = True  # Controlled by play_audio setting
         logger.info("AudioServiceServicer initialized")
+
+    async def _load_audio_setting(self):
+        """Load play_audio setting from settings service."""
+        try:
+            import grpc.aio
+
+            from proto import settings_pb2, settings_pb2_grpc
+
+            settings_host = os.getenv("SETTINGS_HOST", "settings")
+            settings_port = os.getenv("SETTINGS_PORT", "50051")
+
+            async with grpc.aio.insecure_channel(f"{settings_host}:{settings_port}") as channel:
+                stub = settings_pb2_grpc.SettingsServiceStub(channel)
+                response = await stub.GetSetting(settings_pb2.GetSettingRequest(key="play_audio"))
+                self.audio_enabled = response.value.lower() != "false" if response.value else True
+                logger.info(f"Audio enabled setting loaded: {self.audio_enabled}")
+
+        except Exception as e:
+            logger.debug(f"Could not load play_audio setting: {e}, defaulting to enabled")
 
     def PlaySound(self, request, context):
         """Play a sound effect."""
         with tracer.start_as_current_span("PlaySound_RPC") as span:
             span.set_attribute("audio.file", request.file_path)
+
+            # Check if audio is disabled via settings
+            if not self.audio_enabled:
+                return audio_pb2.PlaySoundResponse(success=True, error="")  # Silently succeed
 
             success = self.audio_manager.play_sound(
                 file_path=request.file_path, volume=request.volume or 1.0, priority=request.priority
@@ -335,6 +359,10 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
         """Play background music."""
         with tracer.start_as_current_span("PlayMusic_RPC") as span:
             span.set_attribute("audio.pattern", request.file_pattern)
+
+            # Check if audio is disabled via settings
+            if not self.audio_enabled:
+                return audio_pb2.PlayMusicResponse(track_id="muted", success=True, error="")
 
             track_id = self.audio_manager.play_music(
                 file_pattern=request.file_pattern,
@@ -408,7 +436,11 @@ async def serve(metrics_port=8000):
     from lib.grpc_utils import get_server_options
 
     server = grpc.aio.server(options=get_server_options())
-    audio_pb2_grpc.add_AudioServiceServicer_to_server(AudioServiceServicer(), server)
+    audio_servicer = AudioServiceServicer()
+    audio_pb2_grpc.add_AudioServiceServicer_to_server(audio_servicer, server)
+
+    # Load audio enabled setting from settings service
+    await audio_servicer._load_audio_setting()
 
     # Add health checking service
     health_servicer = health.aio.HealthServicer()

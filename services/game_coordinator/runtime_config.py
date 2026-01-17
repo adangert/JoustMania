@@ -8,9 +8,32 @@ Phase 44 will add OpenFeature integration for dynamic flag-based configuration.
 """
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class AnalyticsConfig:
+    """Configuration for controller analytics during gameplay."""
+
+    # Master toggle
+    enabled: bool = True
+
+    # Feature toggles
+    track_gyro: bool = False  # Track rotation data (increases memory/cpu slightly)
+    enable_replay: bool = False  # Store 60Hz samples for replay/testing
+    replay_ttl_seconds: int = 3600  # Redis TTL for replay data (1 hour)
+
+    # Fixed zone thresholds (in g-force units, ~4096 raw = 1g)
+    # These define movement intensity zones for activity classification
+    zone_still_max: float = 1.1  # < 1.1g = still
+    zone_active_max: float = 1.5  # 1.1-1.5g = active movement
+    zone_warning_max: float = 2.0  # 1.5-2.0g = warning zone
+    # > 2.0g = danger zone
+
+    # Metrics emission interval (emit Prometheus gauges every N frames)
+    metrics_emit_interval_frames: int = 60  # ~1 second at 60Hz
 
 
 @dataclass
@@ -21,6 +44,9 @@ class GamePerformanceConfig:
     # Phase 72: Increased from 30Hz to 60Hz for better responsiveness
     update_frequency_hz: int = 60  # Game loop frequency
     enable_delta_compression: bool = True
+
+    # Analytics configuration
+    analytics: AnalyticsConfig = field(default_factory=AnalyticsConfig)
 
     # Monitoring
     enable_metrics: bool = True

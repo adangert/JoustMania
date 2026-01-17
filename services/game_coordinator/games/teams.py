@@ -8,9 +8,13 @@ Phase 36b: Refactored to extend TeamsGameBase, eliminating ~500 lines of duplica
 """
 
 import logging
+import random
+import time
 
+from services.game_coordinator.games.analytics import PlayerAnalytics
 from services.game_coordinator.games.base import Player
 from services.game_coordinator.games.teams_base import TeamsGameBase
+from services.game_coordinator.runtime_config import get_config_manager
 
 logger = logging.getLogger()
 
@@ -42,15 +46,44 @@ class SimpleTeamsGame(TeamsGameBase):
         """
         Initialize players with round-robin team assignment.
 
+        Uses random_teams setting:
+        - True: Randomize player order before round-robin assignment
+        - False: Sequential assignment based on controller order
+
         Args:
             controllers: List of controller protobuf messages from GetReadyControllers
         """
+        config = get_config_manager().get_config()
+        game_start_time = time.time()
+
+        # Create a list for assignment (optionally randomized)
+        controller_list = list(controllers)
+        if self.random_teams:
+            random.shuffle(controller_list)
+            logger.info("Using randomized team assignment")
+        else:
+            logger.info("Using sequential team assignment")
+
         # Assign players to teams (round-robin)
-        for idx, controller in enumerate(controllers):
+        for idx, controller in enumerate(controller_list):
             team_num = idx % self.num_teams
             team_color = self.team_colors[team_num]["rgb"]
 
-            player = Player(serial=controller.serial, team=team_num, alive=True, color=team_color)
+            # Initialize analytics if enabled
+            analytics = None
+            if config.analytics.enabled:
+                analytics = PlayerAnalytics(
+                    serial=controller.serial,
+                    game_start_time=game_start_time,
+                )
+
+            player = Player(
+                serial=controller.serial,
+                team=team_num,
+                alive=True,
+                color=team_color,
+                analytics=analytics,
+            )
             self.players[controller.serial] = player
             logger.debug(f"Added player: {controller.serial} to team {team_num}")
 

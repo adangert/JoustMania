@@ -22,13 +22,16 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from opentelemetry import trace
 
 from lib.types import GameEvent
 from services.game_coordinator import metrics
 from services.game_coordinator.runtime_config import get_config_manager
+
+if TYPE_CHECKING:
+    from services.game_coordinator.games.analytics import PlayerAnalytics
 
 tracer = trace.get_tracer(__name__)
 logger = logging.getLogger(__name__)
@@ -124,6 +127,8 @@ class Player:
     # Warning state: when > 0, player is in warning feedback (flash + rumble)
     # This is purely visual - player CAN still die during warning (matches original)
     warning_until: float = 0.0
+    # Analytics tracker for this player (initialized when game starts)
+    analytics: "PlayerAnalytics | None" = None
 
 
 @dataclass
@@ -220,7 +225,7 @@ class BaseGameMode(ABC):
 
         # Settings (will be fetched from Settings service)
         self.sensitivity = Sensitivity.MEDIUM
-        self.play_audio = True
+        self.random_teams = True  # Randomize team assignments (vs sequential)
         self.settings = {}  # Store raw settings dict
 
         # Phase 70: Music tempo control state
@@ -350,8 +355,8 @@ class BaseGameMode(ABC):
                 if sens_str in Sensitivity.__members__:
                     self.sensitivity = Sensitivity[sens_str]
 
-                # Parse audio setting
-                self.play_audio = self.settings.get("play_audio", "true").lower() == "true"
+                # Parse random_teams setting (for team-based games)
+                self.random_teams = self.settings.get("random_teams", "true").lower() == "true"
 
             else:
                 logger.warning(f"Failed to load settings: {response.error}")
@@ -671,6 +676,40 @@ class BaseGameMode(ABC):
         smoothed = player.smoothed_accel
         current_time = time.time()
 
+        # Analytics: Record sample if analytics is enabled and initialized
+        config = get_config_manager().get_config()
+        if config.analytics.enabled and player.analytics is not None:
+            # Get gyro data if available
+            gyro = controller_state.gyro if hasattr(controller_state, "gyro") else None
+            gyro_x = gyro.x if gyro else 0.0
+            gyro_y = gyro.y if gyro else 0.0
+            gyro_z = gyro.z if gyro else 0.0
+
+            # Record sample (returns current movement zone)
+            zone = player.analytics.record_sample(
+                accel_x=accel.x,
+                accel_y=accel.y,
+                accel_z=accel.z,
+                raw_accel_mag=accel_mag,
+                smoothed_accel=smoothed,
+                death_threshold=effective_death,
+                config=config.analytics,
+                gyro_x=gyro_x,
+                gyro_y=gyro_y,
+                gyro_z=gyro_z,
+                frame_duration_ms=1000.0 / config.update_frequency_hz,
+            )
+
+            # Emit Prometheus metrics periodically (every ~1 second)
+            if player.analytics.sample_count % config.analytics.metrics_emit_interval_frames == 0:
+                metrics.player_accel_magnitude.labels(serial=serial).set(accel_mag)
+                metrics.player_movement_zone.labels(serial=serial).set(zone.value)
+                metrics.player_peak_accel.labels(serial=serial, game_id=self.game_id).set(player.analytics.peak_accel)
+                metrics.player_playstyle.labels(serial=serial).set(player.analytics.get_playstyle().value)
+
+            # Record to histogram for distribution analysis
+            metrics.accel_distribution.labels(game_mode=self.get_game_name()).observe(accel_mag)
+
         # Check grace period first - no death or warning during grace period
         # Matches original JoustMania: if time.time() > no_rumble
         if current_time < player.grace_until:
@@ -708,6 +747,11 @@ class BaseGameMode(ABC):
         # Set warning feedback duration (prevents repeated warnings during flash)
         # This is NOT protection - player can still die during this time!
         player.warning_until = time.time() + WARNING_DURATION
+
+        # Analytics: Record warning event
+        if player.analytics is not None:
+            player.analytics.record_warning()
+            metrics.player_warnings_total.labels(serial=serial, game_mode=self.get_game_name()).inc()
 
         # Add warning event to player's lifecycle span
         if player.span:
@@ -908,7 +952,7 @@ class BaseGameMode(ABC):
             sound_path: Relative path to sound file (e.g., "Joust/sounds/Explosion34.wav")
             priority: Audio priority (0=LOW, 1=MEDIUM, 2=HIGH, 3=CRITICAL)
         """
-        if not self.play_audio or not self.audio_client:
+        if not self.audio_client:
             return
 
         try:
@@ -918,6 +962,7 @@ class BaseGameMode(ABC):
             request = audio_pb2.PlaySoundRequest(file_path=sound_path, volume=1.0, priority=priority)
 
             # Fire-and-forget - don't wait for response
+            # Note: play_audio setting is checked centrally in audio service
             await self.audio_client.PlaySound(request)
             logger.debug(f"Playing sound: {sound_path}")
         except Exception as e:
@@ -936,8 +981,9 @@ class BaseGameMode(ABC):
         Start game music with tempo control (Phase 70).
 
         Sets volume higher than lobby and starts music at normal speed.
+        Note: play_audio setting is checked centrally in audio service.
         """
-        if not self.play_audio or not self.audio_client:
+        if not self.audio_client:
             return
 
         try:

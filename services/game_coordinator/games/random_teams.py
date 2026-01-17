@@ -11,9 +11,12 @@ Phase 36b: Refactored to extend TeamsGameBase, eliminating ~550 lines of duplica
 import asyncio
 import logging
 import random
+import time
 
+from services.game_coordinator.games.analytics import PlayerAnalytics
 from services.game_coordinator.games.base import Phase, Player
 from services.game_coordinator.games.teams_base import TEAM_COLORS, TeamsGameBase
+from services.game_coordinator.runtime_config import get_config_manager
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +129,9 @@ class RandomTeamsGame(TeamsGameBase):
         Args:
             controllers: List of controller protobuf messages from GetReadyControllers
         """
+        config = get_config_manager().get_config()
+        game_start_time = time.time()
+
         player_serials = [c.serial for c in controllers]
 
         # Generate random team colors (do this BEFORE assigning teams)
@@ -139,7 +145,21 @@ class RandomTeamsGame(TeamsGameBase):
             team_num = team_assignments[controller.serial]
             team_color = self.team_colors[team_num]["rgb"]
 
-            player = Player(serial=controller.serial, team=team_num, alive=True, color=team_color)
+            # Initialize analytics if enabled
+            analytics = None
+            if config.analytics.enabled:
+                analytics = PlayerAnalytics(
+                    serial=controller.serial,
+                    game_start_time=game_start_time,
+                )
+
+            player = Player(
+                serial=controller.serial,
+                team=team_num,
+                alive=True,
+                color=team_color,
+                analytics=analytics,
+            )
             self.players[controller.serial] = player
             logger.debug(f"Added player: {controller.serial} to team {team_num} ({self.team_colors[team_num]['name']})")
 

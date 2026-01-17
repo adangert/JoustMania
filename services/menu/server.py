@@ -135,7 +135,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.audio_channel = create_channel(f"{audio_host}:{audio_port}")
 
         # Phase 60: Voice actor setting (aaron or ivy)
-        self.voice_actor = "aaron"
+        self.voice_actor = "ivy"  # Default matches settings schema
 
         # Phase 70: Lobby music tracking
         self.lobby_music_track_id = None
@@ -152,11 +152,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     return menu_pb2.StartMenuResponse(success=False, error="Menu already running")
 
                 self.state = menu_pb2.MenuState.RUNNING
-                self.current_selection = "JoustFFA"
                 self.ready_controller_count = 0
 
-                # Phase 60: Load voice actor preference
+                # Load settings (voice, play_audio, current_game)
                 await self._load_voice_actor_setting()
+                await self._load_current_game_setting()
 
                 # Phase 70: Start lobby music
                 await self._start_lobby_music()
@@ -279,6 +279,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                             current_index = 0
                         self.current_selection = self.GAME_MODES[(current_index + 1) % len(self.GAME_MODES)]
                         await self._publish_event("selection_changed", {"game_name": self.current_selection})
+                        await self._save_current_game_setting()
                         logger.info(f"Selection changed to: {self.current_selection}")
 
                 elif input_type == "web_command":
@@ -297,6 +298,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         if game_name in self.GAME_MODES:
                             self.current_selection = game_name
                             await self._publish_event("selection_changed", {"game_name": game_name, "source": "web"})
+                            await self._save_current_game_setting()
                             # Phase 60: Play game mode voice announcement
                             voice_file = self.GAME_MODE_VOICE.get(game_name)
                             if voice_file:
@@ -567,7 +569,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             from proto import settings_pb2, settings_pb2_grpc
 
             stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
-            response = await stub.GetSetting(settings_pb2.GetSettingRequest(key="voice_actor"))
+            response = await stub.GetSetting(settings_pb2.GetSettingRequest(key="menu_voice"))
             if response.value in ("aaron", "ivy"):
                 self.voice_actor = response.value
                 logger.info(f"Voice actor set to: {self.voice_actor}")
@@ -575,6 +577,43 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 logger.debug(f"Voice actor setting not found or invalid, using default: {self.voice_actor}")
         except Exception as e:
             logger.debug(f"Could not load voice actor setting: {e}, using default: {self.voice_actor}")
+
+    async def _load_current_game_setting(self):
+        """Load current game mode from settings service."""
+        try:
+            from proto import settings_pb2, settings_pb2_grpc
+
+            stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
+            response = await stub.GetSetting(settings_pb2.GetSettingRequest(key="current_game"))
+
+            if response.value and response.value in self.GAME_MODES:
+                self.current_selection = response.value
+                logger.info(f"Loaded current game mode: {self.current_selection}")
+            else:
+                self.current_selection = "JoustFFA"
+                logger.debug(f"Current game setting not found, using default: {self.current_selection}")
+
+        except Exception as e:
+            self.current_selection = "JoustFFA"
+            logger.debug(f"Could not load current game setting: {e}, using default")
+
+    async def _save_current_game_setting(self):
+        """Save current game mode to settings service."""
+        try:
+            from proto import settings_pb2, settings_pb2_grpc
+
+            stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
+            await stub.UpdateSetting(
+                settings_pb2.UpdateSettingRequest(
+                    key="current_game",
+                    value=self.current_selection,
+                    source="menu",
+                )
+            )
+            logger.debug(f"Saved current game mode: {self.current_selection}")
+
+        except Exception as e:
+            logger.debug(f"Could not save current game setting: {e}")
 
     # Phase 70: Lobby music control
     async def _start_lobby_music(self):
@@ -1513,6 +1552,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 "selection_changed",
                 {"game_name": self.current_selection, "source": "controller", "serial": serial},
             )
+            await self._save_current_game_setting()
             logger.info(f"Selection changed via controller {serial}: {self.current_selection}")
 
             # Phase 60: Play game mode voice announcement

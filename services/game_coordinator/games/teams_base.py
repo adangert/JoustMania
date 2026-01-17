@@ -383,6 +383,8 @@ class TeamsGameBase(BaseGameMode):
 
     async def _end_game_impl(self):
         """Handle game ending for team-based games."""
+        from services.game_coordinator import metrics
+
         logger.info("Ending game...")
         self.state = self.state.__class__.ENDING
 
@@ -431,17 +433,50 @@ class TeamsGameBase(BaseGameMode):
         for serial, player in self.players.items():
             if player.span and player.alive:
                 is_winner = winning_team_num is not None and player.team == winning_team_num
-                player.span.add_event(
-                    "player_survived",
-                    attributes={
-                        "game_duration": time.time() - self.start_time if self.start_time else 0,
-                        "winner": is_winner,
-                        "team": player.team,
-                    },
-                )
+
+                # Build attributes including analytics summary if available
+                survived_attrs = {
+                    "game_duration": time.time() - self.start_time if self.start_time else 0,
+                    "winner": is_winner,
+                    "team": player.team,
+                }
+
+                # Add analytics summary to span
+                if player.analytics is not None:
+                    analytics_summary = player.analytics.get_summary()
+                    for key, value in analytics_summary.items():
+                        survived_attrs[f"analytics.{key}"] = value
+
+                player.span.add_event("player_survived", attributes=survived_attrs)
                 player.span.set_status(Status(StatusCode.OK))
                 player.span.end()
                 logger.debug(f"Ended lifecycle span for surviving player {serial}")
+
+        # Publish analytics summaries for all players
+        for serial, player in self.players.items():
+            if player.analytics is not None:
+                is_winner = winning_team_num is not None and player.team == winning_team_num
+                summary = player.analytics.get_summary()
+                summary["game_id"] = self.game_id
+                summary["winner"] = is_winner
+                summary["team"] = player.team
+                summary["survival_time_ms"] = player.analytics.total_time_ms
+
+                # Publish player analytics event
+                self.event_publisher(GameEvent.PLAYER_ANALYTICS, summary)
+
+                # Update Prometheus metrics
+                metrics.game_analytics_samples_total.labels(game_mode=self.get_game_name()).inc(
+                    player.analytics.sample_count
+                )
+                metrics.near_death_events_total.labels(serial=serial, game_mode=self.get_game_name()).inc(
+                    player.analytics.near_death_count
+                )
+
+                logger.info(
+                    f"Player {serial} analytics: peak={summary['peak_accel']:.2f}g, "
+                    f"playstyle={summary['playstyle']}, near_deaths={summary['near_death_count']}"
+                )
 
         # End spans for surviving teams AFTER the celebration
         for team_num, team in self.teams.items():

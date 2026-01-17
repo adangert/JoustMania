@@ -59,8 +59,8 @@ class MockBackend(ControllerBackend):
                     StateKey.SERIAL: serial,
                     StateKey.BATTERY: 5,  # Full battery (0-5)
                     StateKey.TRIGGER: 0,
-                    ButtonKey.MOVE: True,  # Start with Move pressed (ready for tests)
-                    ButtonKey.TRIGGER: False,
+                    ButtonKey.MOVE: True,  # Start with Move pressed
+                    ButtonKey.TRIGGER: True,  # Start with trigger pressed (marks controller as ready)
                     ButtonKey.PS: False,
                     ButtonKey.SELECT: False,
                     ButtonKey.START: False,

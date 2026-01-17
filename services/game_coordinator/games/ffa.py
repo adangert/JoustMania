@@ -14,7 +14,9 @@ import time
 from opentelemetry.trace import Status, StatusCode
 
 from lib.types import GameEvent
+from services.game_coordinator.games.analytics import PlayerAnalytics
 from services.game_coordinator.games.base import BaseGameMode, Phase
+from services.game_coordinator.runtime_config import get_config_manager
 
 logger = logging.getLogger(__name__)
 
@@ -51,12 +53,24 @@ class FFAGame(BaseGameMode):
         """
         from services.game_coordinator.games.base import Player
 
+        config = get_config_manager().get_config()
+        game_start_time = time.time()
+
         for controller in controllers:
+            # Initialize analytics if enabled
+            analytics = None
+            if config.analytics.enabled:
+                analytics = PlayerAnalytics(
+                    serial=controller.serial,
+                    game_start_time=game_start_time,
+                )
+
             player = Player(
                 serial=controller.serial,
                 team=0,  # FFA - everyone on their own team
                 alive=True,
                 color=(255, 255, 255),
+                analytics=analytics,
             )
             self.players[controller.serial] = player
             logger.debug(f"Added player: {controller.serial}")
@@ -163,6 +177,7 @@ class FFAGame(BaseGameMode):
     async def _end_game_impl(self):
         """Handle game ending - show winner, cleanup."""
         from proto import controller_manager_pb2
+        from services.game_coordinator import metrics
         from services.game_coordinator.games.base import GameState
 
         logger.info("Ending game...")
@@ -207,16 +222,46 @@ class FFAGame(BaseGameMode):
         # This ensures winner's span is longer than losers'
         for serial, player in self.players.items():
             if player.span and player.alive:
-                player.span.add_event(
-                    "victory",
-                    attributes={
-                        "game_duration": time.time() - self.start_time if self.start_time else 0,
-                        "winner": serial == winner_serial,
-                    },
-                )
+                # Build attributes including analytics summary if available
+                victory_attrs = {
+                    "game_duration": time.time() - self.start_time if self.start_time else 0,
+                    "winner": serial == winner_serial,
+                }
+
+                # Add analytics summary to span
+                if player.analytics is not None:
+                    analytics_summary = player.analytics.get_summary()
+                    for key, value in analytics_summary.items():
+                        victory_attrs[f"analytics.{key}"] = value
+
+                player.span.add_event("victory", attributes=victory_attrs)
                 player.span.set_status(Status(StatusCode.OK))
                 player.span.end()
                 logger.debug(f"Ended lifecycle span for surviving player {serial}")
+
+        # Publish analytics summaries for all players
+        for serial, player in self.players.items():
+            if player.analytics is not None:
+                summary = player.analytics.get_summary()
+                summary["game_id"] = self.game_id
+                summary["winner"] = serial == winner_serial
+                summary["survival_time_ms"] = player.analytics.total_time_ms
+
+                # Publish player analytics event
+                self.event_publisher(GameEvent.PLAYER_ANALYTICS, summary)
+
+                # Update Prometheus metrics
+                metrics.game_analytics_samples_total.labels(game_mode=self.get_game_name()).inc(
+                    player.analytics.sample_count
+                )
+                metrics.near_death_events_total.labels(serial=serial, game_mode=self.get_game_name()).inc(
+                    player.analytics.near_death_count
+                )
+
+                logger.info(
+                    f"Player {serial} analytics: peak={summary['peak_accel']:.2f}g, "
+                    f"playstyle={summary['playstyle']}, near_deaths={summary['near_death_count']}"
+                )
 
         self.state = GameState.ENDED
         self.event_publisher(

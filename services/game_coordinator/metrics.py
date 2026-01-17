@@ -120,3 +120,64 @@ filter_updates_total = Counter(
 )
 
 active_controllers = Gauge("game_active_controllers", "Number of controllers currently being monitored (alive players)")
+
+# Controller analytics metrics (Phase XX - Analytics)
+# Real-time gauges (updated every ~1 second during gameplay)
+player_accel_magnitude = Gauge(
+    "game_player_accel_magnitude",
+    "Current acceleration magnitude for player (g-force)",
+    ["serial"],
+)
+
+player_movement_zone = Gauge(
+    "game_player_movement_zone",
+    "Current movement zone (0=still, 1=active, 2=warning, 3=danger)",
+    ["serial"],
+)
+
+player_peak_accel = Gauge(
+    "game_player_peak_accel",
+    "Peak acceleration magnitude for player in current game (g-force)",
+    ["serial", "game_id"],
+)
+
+player_playstyle = Gauge(
+    "game_player_playstyle",
+    "Player playstyle classification (0=calm, 1=balanced, 2=active, 3=aggressive)",
+    ["serial"],
+)
+
+# Counters (incremented on events)
+near_death_events_total = Counter(
+    "game_near_death_events_total",
+    "Total near-death events (raw > threshold but EMA saved player)",
+    ["serial", "game_mode"],
+)
+
+player_warnings_total = Counter(
+    "game_player_warnings_total",
+    "Total warning events triggered",
+    ["serial", "game_mode"],
+)
+
+# Histogram for distribution analysis
+accel_distribution = Histogram(
+    "game_accel_distribution",
+    "Distribution of acceleration magnitudes during gameplay",
+    ["game_mode"],
+    buckets=[0.5, 1.0, 1.1, 1.3, 1.5, 1.8, 2.0, 2.5, 3.0, 4.0, 5.0],
+)
+
+# Per-game summary metrics (set at end of game)
+game_analytics_samples_total = Counter(
+    "game_analytics_samples_total",
+    "Total analytics samples recorded",
+    ["game_mode"],
+)
+
+game_analytics_replay_bytes = Histogram(
+    "game_analytics_replay_bytes",
+    "Size of replay data stored in bytes",
+    ["game_mode"],
+    buckets=[10000, 50000, 100000, 200000, 500000, 1000000],
+)

@@ -118,13 +118,20 @@ class GrpcClientManager:
 
     async def close(self):
         """
-        Close all gRPC channels gracefully.
+        Close all gRPC channels gracefully with timeout.
 
         Safe to call multiple times.
+        Uses timeout to prevent hanging if service is unresponsive.
         """
+        import asyncio
+
+        close_timeout = 2.0  # seconds
+
         if self._controller_manager_channel:
             try:
-                await self._controller_manager_channel.close()
+                await asyncio.wait_for(self._controller_manager_channel.close(), timeout=close_timeout)
+            except TimeoutError:
+                logger.warning("Timeout closing controller_manager channel")
             except Exception as e:
                 logger.warning(f"Error closing controller_manager channel: {e}")
             self._controller_manager_channel = None
@@ -132,7 +139,9 @@ class GrpcClientManager:
 
         if self._settings_channel:
             try:
-                await self._settings_channel.close()
+                await asyncio.wait_for(self._settings_channel.close(), timeout=close_timeout)
+            except TimeoutError:
+                logger.warning("Timeout closing settings channel")
             except Exception as e:
                 logger.warning(f"Error closing settings channel: {e}")
             self._settings_channel = None
@@ -140,7 +149,9 @@ class GrpcClientManager:
 
         if self._audio_channel:
             try:
-                await self._audio_channel.close()
+                await asyncio.wait_for(self._audio_channel.close(), timeout=close_timeout)
+            except TimeoutError:
+                logger.warning("Timeout closing audio channel")
             except Exception as e:
                 logger.warning(f"Error closing audio channel: {e}")
             self._audio_channel = None

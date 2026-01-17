@@ -64,7 +64,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 logger.info("=" * 60)
-logger.info("GAME COORDINATOR BUILD: 2026-01-16 warning-protection-v4")
+logger.info("GAME COORDINATOR BUILD: 2026-01-17 grpc-cleanup-fix")
 logger.info("=" * 60)
 
 # Initialize OpenTelemetry (game coordinator calls other services, so instrument client too)
@@ -202,7 +202,24 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         try:
             loop.run_until_complete(self._run_game_loop_async())
         finally:
-            loop.close()
+            # Properly cleanup gRPC async resources before closing loop
+            # This prevents BlockingIOError from gRPC's PollerCompletionQueue
+            try:
+                # Cancel any remaining tasks
+                pending = asyncio.all_tasks(loop)
+                if pending:
+                    logger.debug(f"Cancelling {len(pending)} pending tasks before loop close")
+                    for task in pending:
+                        task.cancel()
+                    # Wait for cancellation to complete (with timeout)
+                    loop.run_until_complete(asyncio.wait(pending, timeout=1.0))
+
+                # Give gRPC pollers time to drain their queues
+                loop.run_until_complete(asyncio.sleep(0.1))
+            except Exception as e:
+                logger.debug(f"Cleanup before loop close: {e}")
+            finally:
+                loop.close()
 
     async def _run_game_loop_async(self):
         """Run the async game loop."""

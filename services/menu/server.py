@@ -1154,14 +1154,17 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 except Exception as e:
                     logger.error(f"Failed to set ready color for {serial}: {e}")
 
-            # Check if all ready - auto start
+            # Check if all ready - auto start with feedback delay
             all_ready = len(self.ready_controllers) == len(self.connected_controllers)
             logger.info(
                 f"Ready check (event): ready={len(self.ready_controllers)} connected={len(self.connected_controllers)} "
                 f"all_ready={all_ready}"
             )
             if all_ready and len(self.ready_controllers) >= 2:
-                logger.info("All controllers ready via button event - auto-starting game!")
+                logger.info("All controllers ready - showing feedback before game start")
+                # Brief delay so last player sees their LED go bright
+                await asyncio.sleep(0.3)
+                logger.info("Starting game after feedback delay")
                 await self._handle_trigger_press(serial)
 
     async def _process_button_state(self, controller):

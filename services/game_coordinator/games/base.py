@@ -33,7 +33,8 @@ tracer = trace.get_tracer(__name__)
 logger = logging.getLogger(__name__)
 
 # Game constants (Phase 43: Now uses runtime config for dynamic adjustment)
-UPDATE_FREQUENCY = 30  # Hz - default, overridden by runtime config
+# Phase 72: Increased from 30Hz to 60Hz for better responsiveness
+UPDATE_FREQUENCY = 60  # Hz - default, overridden by runtime config
 COUNTDOWN_DURATION = 3  # seconds
 
 # Phase 70: Music tempo constants (from original JoustMania)

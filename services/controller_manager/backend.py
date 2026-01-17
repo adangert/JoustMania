@@ -180,3 +180,19 @@ class ControllerBackend(ABC):
             active: True if effect is starting, False when effect ends
         """
         pass
+
+    def update_all_leds(self) -> int:
+        """
+        Update LEDs for all controllers that need it.
+
+        Phase 72: Separated from get_controller_state() for better performance.
+        Called from discovery loop at a fixed rate (e.g., 20Hz).
+
+        This is optional - backends that don't need LED refresh can use
+        the default no-op. BluetoothBackend overrides this to handle
+        LED keep-alive and color change detection.
+
+        Returns:
+            Number of controllers updated
+        """
+        return 0

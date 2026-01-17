@@ -135,6 +135,9 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Shared event loop for discovery thread (avoids creating new loop per call)
         self._discovery_loop_handle: asyncio.AbstractEventLoop | None = None
 
+        # Phase 72: LED update timing (separated from polling)
+        self._last_led_update = 0.0
+
         # Discovery thread
         self.running = True
         self.backend_initialized = False  # Phase 57: Track backend init status
@@ -209,6 +212,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         )
                         metrics.rssi_checks_total.inc()
                     self.monitoring.last_rssi_check = current_time
+
+                # Phase 72: Update LEDs at 20Hz (every 50ms) - separated from polling
+                if current_time - self._last_led_update >= 0.05:
+                    self.backend.update_all_leds()
+                    self._last_led_update = current_time
 
                 # No sleep - poll as fast as possible for button responsiveness
 

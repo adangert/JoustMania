@@ -284,7 +284,11 @@ class BluetoothBackend(ControllerBackend):
         return None
 
     async def get_controller_state(self, serial: str) -> dict | None:
-        """Get current controller state."""
+        """Get current controller state.
+
+        Phase 72: LED updates removed from polling path for better performance.
+        LED updates now happen via update_all_leds() called separately.
+        """
         # Use stored handle for fast polling - don't create new handles each time
         move = self.controllers.get(serial)
         if not move:
@@ -306,33 +310,9 @@ class BluetoothBackend(ControllerBackend):
             self.controllers[serial] = move
 
         try:
-            # Poll for new data
+            # Poll for new data (just sensor data, no LED I/O)
             while move.poll():
                 pass
-
-            # Phase 71: LED refresh with immediate update on color change
-            # Skip if effect is active - effect controls LEDs directly
-            if serial in self.led_colors and serial not in self._effect_active:
-                current_time = time.time()
-                last_led_update = self._last_led_update.get(serial, 0)
-
-                stored_color = self.led_colors[serial]
-                last_sent = self._last_sent_color.get(serial)
-
-                # Update if: color changed (immediate) OR 4s elapsed (keep-alive)
-                color_changed = stored_color != last_sent
-                keepalive_needed = current_time - last_led_update >= 4.0
-
-                if color_changed or keepalive_needed:
-                    r, g, b = stored_color
-                    with self._led_lock:
-                        move.set_leds(r, g, b)
-                        move.update_leds()
-                    self._last_sent_color[serial] = stored_color
-                    self._last_led_update[serial] = current_time
-
-                    if color_changed:
-                        logger.debug(f"LED color changed for {serial}: {last_sent} -> {stored_color}")
 
             # Get controller state
             state = self.controller_states.get(serial)
@@ -342,7 +322,6 @@ class BluetoothBackend(ControllerBackend):
             # Read inputs
             trigger = move.get_trigger()
             buttons = move.get_buttons()
-
 
             # Read motion sensors
             ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
@@ -374,6 +353,53 @@ class BluetoothBackend(ControllerBackend):
         except Exception as e:
             logger.error(f"Error reading controller state {serial}: {e}", exc_info=True)
             return None
+
+    def update_all_leds(self) -> int:
+        """Update LEDs for all controllers that need it.
+
+        Phase 72: Separated from get_controller_state() for better performance.
+        Called from discovery loop at a fixed rate (e.g., 20Hz).
+
+        Returns:
+            Number of controllers updated
+        """
+        current_time = time.time()
+        updated_count = 0
+
+        for serial, stored_color in list(self.led_colors.items()):
+            # Skip if effect is active - effect controls LEDs directly
+            if serial in self._effect_active:
+                continue
+
+            # Skip if controller not tracked
+            move = self.controllers.get(serial)
+            if not move:
+                continue
+
+            try:
+                last_sent = self._last_sent_color.get(serial)
+                last_led_update = self._last_led_update.get(serial, 0)
+
+                # Update if: color changed (immediate) OR 4s elapsed (keep-alive)
+                color_changed = stored_color != last_sent
+                keepalive_needed = current_time - last_led_update >= 4.0
+
+                if color_changed or keepalive_needed:
+                    r, g, b = stored_color
+                    with self._led_lock:
+                        move.set_leds(r, g, b)
+                        move.update_leds()
+                    self._last_sent_color[serial] = stored_color
+                    self._last_led_update[serial] = current_time
+                    updated_count += 1
+
+                    if color_changed:
+                        logger.debug(f"LED color changed for {serial}: {last_sent} -> {stored_color}")
+
+            except Exception as e:
+                logger.debug(f"Error updating LED for {serial}: {e}")
+
+        return updated_count
 
     async def set_led_color(self, serial: str, r: int, g: int, b: int) -> bool:
         """Set LED color on controller."""

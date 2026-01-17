@@ -81,20 +81,35 @@ class ControllerMonitoring:
         Non-Bluetooth backends return None for RSSI (handled gracefully).
         Uses shared discovery loop event loop for efficiency.
 
+        Phase 72: Parallelized using asyncio.gather() for O(1) latency instead of O(n).
+
         Args:
             tracked_controllers: Dict of serial → controller info
             backend: Backend instance for RSSI queries
             run_in_discovery_loop: Callable to run async code in discovery loop
         """
+        import asyncio
+
         with tracer.start_as_current_span("check_rssi_levels") as span:
             try:
-                checked_count = 0
+                serials = list(tracked_controllers.keys())
+                if not serials:
+                    return
 
-                # Check RSSI for each tracked controller
-                for serial in list(tracked_controllers.keys()):
+                # Phase 72: Parallel RSSI checks using asyncio.gather()
+                async def get_all_rssi():
+                    coros = [backend.get_rssi(serial) for serial in serials]
+                    return await asyncio.gather(*coros, return_exceptions=True)
+
+                results = run_in_discovery_loop(get_all_rssi())
+
+                checked_count = 0
+                for serial, rssi in zip(serials, results):
                     try:
-                        # Get RSSI from backend using shared event loop
-                        rssi = run_in_discovery_loop(backend.get_rssi(serial))
+                        # Handle exceptions from gather
+                        if isinstance(rssi, Exception):
+                            logger.debug(f"Could not get RSSI for {serial}: {rssi}")
+                            continue
 
                         if rssi is not None:
                             self.controller_rssi[serial] = rssi
@@ -113,7 +128,7 @@ class ControllerMonitoring:
                             metrics.controller_rssi_dbm.labels(serial=serial).set(0)
 
                     except Exception as e:
-                        logger.debug(f"Could not get RSSI for {serial}: {e}")
+                        logger.debug(f"Error processing RSSI for {serial}: {e}")
 
                 span.set_attribute("rssi.checked_controllers", checked_count)
 

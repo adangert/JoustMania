@@ -217,6 +217,11 @@ class MockBackend(ControllerBackend):
         """Get list of mock controller serials."""
         return list(self.controllers.keys())
 
+    def update_all_leds(self) -> int:
+        """Update LEDs for all controllers (Phase 72: no-op for mock)."""
+        # Mock backend doesn't need LED refresh - just return 0
+        return 0
+
     async def add_controller(self, serial: str | None = None) -> str:
         """
         Add a new mock controller dynamically.

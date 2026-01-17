@@ -18,7 +18,8 @@ class GamePerformanceConfig:
     """Runtime configuration for game performance parameters."""
 
     # Core performance
-    update_frequency_hz: int = 30  # Game loop frequency
+    # Phase 72: Increased from 30Hz to 60Hz for better responsiveness
+    update_frequency_hz: int = 60  # Game loop frequency
     enable_delta_compression: bool = True
 
     # Monitoring

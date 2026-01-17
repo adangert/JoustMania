@@ -2,10 +2,13 @@ version: '3.8'
 
 # JoustMania Docker Compose Configuration
 #
-# Quick Start:
+# Quick Start (local build):
 #   make builders   # Build base images once (~15min on Pi)
 #   make images     # Build all service images
 #   make up         # Start all services
+#
+# Quick Start (pull from GHCR - no local build needed):
+#   IMAGE_PREFIX=ghcr.io/watchmejoustmyflags/joustmania IMAGE_TAG=dev-refactor make up
 #
 # Or just: make up (builds everything automatically)
 #
@@ -13,6 +16,8 @@ version: '3.8'
 # For mock mode (testing): CONTROLLER_BACKEND=mock AUDIO_MOCK_MODE=true make up
 #
 # Environment Variables (can be set in shell or .env file):
+# - IMAGE_PREFIX: Image registry prefix [default: joustmania, or ghcr.io/watchmejoustmyflags/joustmania]
+# - IMAGE_TAG: Image tag to use [default: latest]
 # - CONTROLLER_BACKEND: Controller backend type (bluetooth, mock, windows) [default: bluetooth]
 # - MOCK_CONTROLLER_COUNT: Number of mock controllers when CONTROLLER_BACKEND=mock [default: 4]
 # - AUDIO_MOCK_MODE: Disable audio output for testing [default: false]
@@ -77,7 +82,7 @@ services:
 
   # Settings Service
   settings:
-    image: joustmania/settings-service:latest
+    image: ${IMAGE_PREFIX:-joustmania}/settings-service:${IMAGE_TAG:-latest}
     container_name: joustmania-settings
     # Ports exposed only within Docker network (no host binding)
     expose:
@@ -106,7 +111,7 @@ services:
 
   # Controller Manager Service
   controller-manager:
-    image: joustmania/controller-manager-service:latest
+    image: ${IMAGE_PREFIX:-joustmania}/controller-manager-service:${IMAGE_TAG:-latest}
     container_name: joustmania-controller-manager
     privileged: true
     volumes:
@@ -146,7 +151,7 @@ services:
 
   # Game Coordinator Service
   game-coordinator:
-    image: joustmania/game-coordinator-service:latest
+    image: ${IMAGE_PREFIX:-joustmania}/game-coordinator-service:${IMAGE_TAG:-latest}
     container_name: joustmania-game-coordinator
     # Ports exposed only within Docker network (no host binding)
     expose:
@@ -176,7 +181,7 @@ services:
 
   # Menu Service
   menu:
-    image: joustmania/menu-service:latest
+    image: ${IMAGE_PREFIX:-joustmania}/menu-service:${IMAGE_TAG:-latest}
     container_name: joustmania-menu
     # Ports exposed only within Docker network (no host binding)
     expose:
@@ -211,7 +216,7 @@ services:
 
   # Supervisor Service
   supervisor:
-    image: joustmania/supervisor-service:latest
+    image: ${IMAGE_PREFIX:-joustmania}/supervisor-service:${IMAGE_TAG:-latest}
     container_name: joustmania-supervisor
     # Ports exposed only within Docker network (no host binding)
     expose:
@@ -243,7 +248,7 @@ services:
 
   # Web UI Service
   webui:
-    image: joustmania/webui-service:latest
+    image: ${IMAGE_PREFIX:-joustmania}/webui-service:${IMAGE_TAG:-latest}
     container_name: joustmania-webui
     ports:
       - "80:80"  # WebUI exposed to host for browser access
@@ -280,7 +285,7 @@ services:
 
   # Audio Service
   audio:
-    image: joustmania/audio-service:latest
+    image: ${IMAGE_PREFIX:-joustmania}/audio-service:${IMAGE_TAG:-latest}
     container_name: joustmania-audio
     # Sound device access for real audio output
     devices:

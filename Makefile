@@ -404,6 +404,34 @@ build-all-services:
 	done
 	@echo "✓ All services built"
 
+# GHCR image defaults (for pulling pre-built images)
+GHCR_PREFIX ?= ghcr.io/watchmejoustmyflags/joustmania
+GHCR_TAG ?= dev-refactor
+
+.PHONY: pull
+pull:
+	@echo "Pulling all service images from GHCR..."
+	@for service in $(SERVICES); do \
+		image_name=$$(echo $$service | tr '_' '-')-service; \
+		echo "Pulling $(GHCR_PREFIX)/$$image_name:$(GHCR_TAG)..."; \
+		docker pull $(GHCR_PREFIX)/$$image_name:$(GHCR_TAG) || exit 1; \
+	done
+	@echo "✓ All service images pulled from GHCR"
+
+.PHONY: pull-builders
+pull-builders:
+	@echo "Pulling builder images from GHCR..."
+	@docker pull $(GHCR_PREFIX)/builder:$(GHCR_TAG)
+	@docker pull $(GHCR_PREFIX)/psmove-builder:$(GHCR_TAG)
+	@docker pull $(GHCR_PREFIX)/pygame-builder:$(GHCR_TAG)
+	@echo "✓ All builder images pulled from GHCR"
+
+.PHONY: up-ghcr
+up-ghcr:
+	@echo "Starting services using GHCR images..."
+	IMAGE_PREFIX=$(GHCR_PREFIX) IMAGE_TAG=$(GHCR_TAG) docker compose up -d
+	@echo "✓ Services started with GHCR images"
+
 # ============================================================================
 # Testing Targets
 # ============================================================================

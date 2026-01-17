@@ -43,6 +43,18 @@ SLOW_MUSIC_SPEED = 1.0  # Normal playback
 FAST_MUSIC_SPEED = 1.3  # 30% faster
 MUSIC_TRANSITION_DURATION = 1.5  # Seconds to smoothly transition
 
+# Threshold Scaling: LERP approach (matches original JoustMania)
+# ===============================================================
+# Uses linear interpolation between slow/fast threshold arrays based on music speed.
+# This allows fine-tuned per-sensitivity-level behavior as music tempo changes.
+#
+# Formula: threshold = lerp(SLOW[sens], FAST[sens], music_speed_percent)
+# Where music_speed_percent = (current_speed - SLOW_SPEED) / (FAST_SPEED - SLOW_SPEED)
+#
+# Example at MEDIUM (sens=2), music at 1.15x (50% between slow/fast):
+#   warning = lerp(1.6, 1.9, 0.5) = 1.75g
+#   death   = lerp(1.8, 2.8, 0.5) = 2.3g
+
 # Music timing intervals (seconds) - how long before next tempo change
 MIN_MUSIC_FAST_TIME = 4  # Minimum time at fast speed
 MAX_MUSIC_FAST_TIME = 8  # Maximum time at fast speed
@@ -59,13 +71,26 @@ END_MAX_MUSIC_SLOW_TIME = 12
 GAME_VOLUME = 0.7
 
 
-# Sensitivity thresholds (in g-force units, 1.0 = 1g)
-# PSMove accelerometer returns g-force values (standing still = ~1.0 on Z axis)
-# Values match original JoustMania (sensitivity index 2 = medium difficulty)
+# Sensitivity levels (index into threshold arrays)
 class Sensitivity(Enum):
-    SLOW = (1.3, 1.5)    # 1.3g warning, 1.5g death (easier - more movement allowed)
-    MEDIUM = (1.6, 1.8)  # 1.6g warning, 1.8g death (default)
-    FAST = (1.9, 2.8)    # 1.9g warning, 2.8g death (harder - less movement allowed)
+    ULTRA_SLOW = 0  # Most sensitive, tightest thresholds
+    SLOW = 1  # High sensitivity
+    MEDIUM = 2  # Default (balanced)
+    FAST = 3  # Low sensitivity
+    ULTRA_FAST = 4  # Least sensitive, loosest thresholds
+
+
+# Threshold arrays from original JoustMania (in g-force units, 1.0 = 1g)
+# PSMove accelerometer returns g-force values (standing still = ~1.0 on Z axis)
+#
+# Uses LERP between slow/fast thresholds based on music speed:
+#   threshold = lerp(SLOW[sens], FAST[sens], music_speed_percent)
+#
+# Index: 0=ULTRA_SLOW, 1=SLOW, 2=MEDIUM, 3=FAST, 4=ULTRA_FAST
+SLOW_WARNING = [1.2, 1.3, 1.6, 2.0, 2.5]  # Warning thresholds when music is slow
+SLOW_MAX = [1.3, 1.5, 1.8, 2.5, 3.2]  # Death thresholds when music is slow
+FAST_WARNING = [1.4, 1.6, 1.9, 2.7, 2.8]  # Warning thresholds when music is fast
+FAST_MAX = [1.6, 1.8, 2.8, 3.2, 3.5]  # Death thresholds when music is fast
 
 
 # Warning feedback duration (seconds) - flash + rumble time
@@ -630,15 +655,18 @@ class BaseGameMode(ABC):
             player.smoothed_accel = (player.smoothed_accel * 4 + accel_mag) / 5
         player.last_accel_mag = player.smoothed_accel
 
-        # Get thresholds
-        warn_threshold, death_threshold = self.sensitivity.value
+        # Get thresholds using LERP between slow/fast based on music speed
+        # This matches original JoustMania's threshold scaling behavior
+        sens_idx = self.sensitivity.value
 
-        # Phase 70: Scale thresholds based on music speed
-        # When music is fast (1.3x), increase thresholds to make players harder to kill
-        # This creates the classic JoustMania gameplay dynamic
-        speed_factor = self.music_speed / SLOW_MUSIC_SPEED
-        effective_warn = warn_threshold * speed_factor
-        effective_death = death_threshold * speed_factor
+        # Calculate music speed as percentage (0.0 = slow, 1.0 = fast)
+        speed_range = FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED
+        speed_percent = (self.music_speed - SLOW_MUSIC_SPEED) / speed_range if speed_range > 0 else 0.0
+        speed_percent = max(0.0, min(1.0, speed_percent))  # Clamp to [0, 1]
+
+        # LERP between slow and fast thresholds
+        effective_warn = self._lerp(SLOW_WARNING[sens_idx], FAST_WARNING[sens_idx], speed_percent)
+        effective_death = self._lerp(SLOW_MAX[sens_idx], FAST_MAX[sens_idx], speed_percent)
 
         smoothed = player.smoothed_accel
         current_time = time.time()
@@ -656,9 +684,9 @@ class BaseGameMode(ABC):
         elif smoothed > effective_warn and current_time >= player.warning_until:
             # Player exceeded warning threshold and not already in warning state
             # Start warning feedback (flash + rumble)
-            await self._warn_player(serial, smoothed)
+            await self._warn_player(serial, smoothed, effective_warn)
 
-    async def _warn_player(self, serial: str, accel_mag: float):
+    async def _warn_player(self, serial: str, accel_mag: float, threshold: float):
         """
         Warn a player that they're moving too much.
 
@@ -669,6 +697,7 @@ class BaseGameMode(ABC):
         Args:
             serial: Controller serial number
             accel_mag: Acceleration magnitude that triggered warning
+            threshold: The effective warning threshold (after lerp)
         """
         from proto import controller_manager_pb2
 
@@ -686,10 +715,12 @@ class BaseGameMode(ABC):
                 "death_warning",
                 attributes={
                     "accel_magnitude": accel_mag,
-                    "threshold": self.sensitivity.value[0],
+                    "threshold": threshold,
+                    "sensitivity": self.sensitivity.name,
+                    "music_speed": self.music_speed,
                 },
             )
-        logger.info(f"Player {serial} triggered warning (accel: {accel_mag:.2f})")
+        logger.info(f"Player {serial} triggered warning (accel: {accel_mag:.2f}, threshold: {threshold:.2f})")
 
         # Send warning effect via stream (white flash + vibrate, auto-restore)
         if self.gameplay_stream:

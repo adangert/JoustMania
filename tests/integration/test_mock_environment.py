@@ -90,12 +90,17 @@ async def wait_for_game_end(game_client, timeout=10):
 def docker_compose():
     """Fixture to start docker-compose mock environment.
 
-    Uses docker-compose.yml which defaults to mock mode (no hardware required).
-    Override file adds port exposures for testing.
+    Uses docker-compose.yml with overrides for testing:
+    - docker-compose.override.yml: port exposures for testing
+    - docker-compose.ci.yml: mock mode for audio/controllers (no hardware)
     """
     compose = DockerCompose(
         context=".",
-        compose_file_name=["docker-compose.yml", "docker-compose.override.yml"],
+        compose_file_name=[
+            "docker-compose.yml",
+            "docker-compose.override.yml",
+            "docker-compose.ci.yml",
+        ],
         pull=False,
         build=True,
     )

@@ -67,13 +67,13 @@ class Games(Enum):
 
 
 class Sensitivity(Enum):
-    """Sensitivity levels."""
+    """Sensitivity levels (matches game_coordinator/games/base.py)."""
 
-    SLOWEST = 0
-    SLOW = 1
-    MID = 2
-    FAST = 3
-    FASTEST = 4
+    ULTRA_SLOW = 0  # Most sensitive, tightest thresholds
+    SLOW = 1  # High sensitivity
+    MEDIUM = 2  # Default (balanced)
+    FAST = 3  # Low sensitivity
+    ULTRA_FAST = 4  # Least sensitive, loosest thresholds
 
 
 logger = logging.getLogger(__name__)
@@ -88,7 +88,7 @@ SETTINGS_SCHEMA = {
         "type": int,
         "min": 0,
         "max": 4,
-        "default": Sensitivity.MID.value,
+        "default": Sensitivity.MEDIUM.value,
         "description": "Controller sensitivity (0=ultra slow, 4=ultra fast)",
     },
     "instructions": {

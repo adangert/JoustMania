@@ -1287,15 +1287,35 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         prev_state["ps"] = controller.ps_pressed
 
     # Game modes available in the menu (Phase 59: single source of truth)
-    GAME_MODES = ["JoustFFA", "JoustTeams", "Tournament", "Werewolf", "NonstopJoust"]
+    GAME_MODES = [
+        "JoustFFA",
+        "JoustTeams",
+        "JoustRandomTeams",
+        "Swapper",
+        "Werewolf",
+        "Traitor",
+        "Zombie",
+        "Commander",
+        "FightClub",
+        "Tournament",
+        "NonstopJoust",
+        "SpeedBomb",
+    ]
 
     # Game mode voice announcements (Phase 60)
     GAME_MODE_VOICE = {
         "JoustFFA": "menu Joust FFA.wav",
         "JoustTeams": "menu Joust Teams.wav",
-        "Tournament": "menu Tournament.wav",
+        "JoustRandomTeams": "menu Random Teams.wav",
+        "Swapper": "menu Swapper.wav",
         "Werewolf": "menu Werewolves.wav",
+        "Traitor": "menu Traitor.wav",
+        "Zombie": "menu Zombies.wav",
+        "Commander": "menu Commander.wav",
+        "FightClub": "menu Fight Club.wav",
+        "Tournament": "menu Tournament.wav",
         "NonstopJoust": "menu NonStopJoust.wav",
+        "SpeedBomb": "menu Speed Bomb.wav",
     }
 
     # Game mode lobby colors (Phase 39)
@@ -1303,9 +1323,16 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
     GAME_MODE_COLORS = {
         "JoustFFA": (255, 140, 0),  # Orange - FFA
         "JoustTeams": (0, 100, 255),  # Blue - Team play
-        "Tournament": (150, 0, 255),  # Purple - Competitive
+        "JoustRandomTeams": (0, 200, 255),  # Cyan - Random teams
+        "Swapper": (255, 0, 255),  # Magenta - Team switching
         "Werewolf": (0, 255, 100),  # Green - Mysterious
+        "Traitor": (128, 0, 128),  # Dark purple - Betrayal
+        "Zombie": (100, 100, 100),  # Gray - Undead
+        "Commander": (255, 0, 0),  # Red - Leadership
+        "FightClub": (255, 255, 0),  # Yellow - Arena combat
+        "Tournament": (150, 0, 255),  # Purple - Competitive
         "NonstopJoust": (255, 50, 120),  # Pink - Intense/energetic
+        "SpeedBomb": (255, 100, 0),  # Orange-red - Explosive
     }
 
     async def _update_lobby_feedback(self, controller, stub):

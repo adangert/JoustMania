@@ -24,7 +24,7 @@ Usage:
 import logging
 from collections.abc import Callable
 
-from services.game_coordinator.games import ffa, nonstop_joust, random_teams, teams
+from services.game_coordinator.games import ffa, nonstop_joust, random_teams, swapper, teams, traitor
 from services.game_coordinator.games.base import BaseGameMode
 
 logger = logging.getLogger(__name__)
@@ -49,6 +49,10 @@ GAME_MODE_ALIASES: dict[str, str] = {
     "nonstop": "nonstop_joust",
     "nonstop joust": "nonstop_joust",
     "nonstopjoust": "nonstop_joust",  # Menu service name
+    # Swapper
+    "swapper": "swapper",
+    # Traitor
+    "traitor": "traitor",
 }
 
 
@@ -122,6 +126,14 @@ class GameFactory:
         if canonical_name == "nonstop_joust":
             logger.info("Creating Nonstop Joust game")
             return nonstop_joust.NonstopJoustGame(**common_args)
+
+        if canonical_name == "swapper":
+            logger.info("Creating Swapper game")
+            return swapper.SwapperGame(**common_args)
+
+        if canonical_name == "traitor":
+            logger.info("Creating Traitor game")
+            return traitor.TraitorGame(**common_args)
 
         # Should never reach here due to alias check above
         raise ValueError(f"Game mode '{canonical_name}' not implemented")

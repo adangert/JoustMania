@@ -591,7 +591,11 @@ class BaseGameMode(ABC):
         # Apply exponential moving average filter (from original JoustMania)
         # Formula: smoothed = (smoothed * 4 + raw) / 5
         # This gives 80% weight to previous value, 20% to current - smooths sensor noise
-        player.smoothed_accel = (player.smoothed_accel * 4 + accel_mag) / 5
+        # Phase 73: Initialize with first reading to prevent false deaths at game start
+        if player.smoothed_accel == 0.0:
+            player.smoothed_accel = accel_mag  # Prime filter with first real reading
+        else:
+            player.smoothed_accel = (player.smoothed_accel * 4 + accel_mag) / 5
         player.last_accel_mag = player.smoothed_accel
 
         # Grace period - ignore deaths for first N seconds after game starts

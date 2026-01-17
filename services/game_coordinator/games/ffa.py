@@ -18,9 +18,6 @@ from services.game_coordinator.games.base import BaseGameMode, Phase
 
 logger = logging.getLogger(__name__)
 
-# Duration to show FFA white color
-FFA_COLOR_DURATION = 1  # second
-
 
 class FFAGame(BaseGameMode):
     """
@@ -128,26 +125,17 @@ class FFAGame(BaseGameMode):
             player.span.end()
             logger.debug(f"Ended lifecycle span for player {serial}")
 
-    async def _set_ffa_colors(self):
+    async def _assign_ffa_colors(self):
         """
-        Set unique colors for each player in FFA mode (Phase 39 - Task 3).
-        Phase XX: Only sets player.color - LEDs are set when gameplay stream starts.
+        Assign unique colors to each player in FFA mode.
 
-        Each player gets a distinct color so they can be identified during gameplay.
-        Uses HSV color generation for maximum distinction.
+        Colors are assigned to player objects but NOT displayed yet.
+        Players see their colors when the game starts (after countdown),
+        matching the original JoustMania behavior.
         """
         from lib.colors import generate_colors
-        from proto import controller_manager_pb2
 
-        logger.info("Setting unique FFA colors...")
-
-        self.event_publisher(
-            "ffa_colors_display",
-            {
-                "duration": FFA_COLOR_DURATION,
-                "player_count": len(self.players),
-            },
-        )
+        logger.info("Assigning unique FFA colors...")
 
         try:
             # Generate unique colors for each player
@@ -158,37 +146,19 @@ class FFAGame(BaseGameMode):
                 color = unique_colors[idx]
                 player.color = color  # Update player's color attribute
 
-                # Phase XX: Also set LED now for pre-game display
-                await self.controller_client.SetControllerColor(
-                    controller_manager_pb2.SetControllerColorRequest(
-                        serial=serial,
-                        color=controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]),
-                        duration_ms=0,  # Persistent
-                    )
-                )
-
-            logger.info(f"Set {len(self.players)} controllers to unique colors (FFA mode)")
+            logger.info(f"Assigned {len(self.players)} unique colors (will display at game start)")
 
         except Exception as e:
-            logger.error(f"Failed to set FFA colors: {e}", exc_info=True)
-
-        # Brief pause to let players see their unique colors
-        for _ in range(FFA_COLOR_DURATION * 10):
-            if not self.running:
-                logger.info("FFA colors display interrupted by force_end")
-                return
-            await asyncio.sleep(0.1)
-
-        logger.info("FFA unique colors displayed")
+            logger.error(f"Failed to assign FFA colors: {e}", exc_info=True)
 
     def _get_additional_phases(self) -> list:
         """
-        Return FFA color phase to execute before countdown (Phase 39 - Task 3).
+        Return phases to execute before countdown.
 
-        Returns:
-            List containing FFA white color display phase
+        FFA assigns colors silently - players see them at game start (after countdown),
+        matching original JoustMania behavior.
         """
-        return [Phase(name="ffa_colors_phase", execute=self._set_ffa_colors)]
+        return [Phase(name="ffa_color_assignment", execute=self._assign_ffa_colors)]
 
     async def _end_game_impl(self):
         """Handle game ending - show winner, cleanup."""

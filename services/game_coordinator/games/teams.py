@@ -15,9 +15,6 @@ from services.game_coordinator.games.teams_base import TeamsGameBase
 
 logger = logging.getLogger()
 
-# Duration to show team colors before game starts
-TEAM_COLORS_DURATION = 2  # seconds
-
 
 class SimpleTeamsGame(TeamsGameBase):
     """
@@ -73,39 +70,11 @@ class SimpleTeamsGame(TeamsGameBase):
             },
         )
 
-    async def _show_team_colors(self):
-        """
-        Show team colors phase - display team assignments (Phase 39 - Task 3).
-
-        Gives players a moment to see their team color before the countdown.
-        """
-        logger.info("Showing team colors...")
-
-        self.event_publisher(
-            "team_colors_display",
-            {
-                "duration": TEAM_COLORS_DURATION,
-                "num_teams": self.num_teams,
-            },
-        )
-
-        # Set persistent team colors
-        await self._set_team_colors(pulse_effect=False, duration_ms=0)
-
-        # Brief pause to let players see their team colors
-        for _ in range(TEAM_COLORS_DURATION * 10):
-            if not self.running:
-                logger.info("Team colors display interrupted by force_end")
-                return
-            await asyncio.sleep(0.1)
-
-        logger.info("Team colors displayed")
-
     def _get_additional_phases(self) -> list:
         """
-        Return team colors phase to execute before countdown (Phase 39 - Task 3).
+        Return phases to execute before countdown.
 
-        Returns:
-            List containing team colors display phase
+        Teams mode has no additional phases - team colors are shown at game start
+        (after countdown), matching original JoustMania behavior.
         """
-        return [Phase(name="team_colors_phase", execute=self._show_team_colors)]
+        return []

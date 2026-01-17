@@ -378,11 +378,12 @@ class BaseGameMode(ABC):
         logger.info("Starting countdown...")
         self.event_publisher(GameEvent.COUNTDOWN_START, {"duration": COUNTDOWN_DURATION})
 
-        # Countdown colors: White -> Yellow -> Green (avoid red - reserved for death)
+        # Countdown colors: Red -> Yellow -> Green (matches original JoustMania)
+        # High contrast sequence that's unmistakable
         countdown_colors = [
-            (255, 255, 255),  # White (3)
-            (255, 255, 0),  # Yellow (2)
-            (0, 255, 0),  # Green (1 - GO!)
+            (80, 0, 0),  # Red (3) - dimmed to match original
+            (70, 100, 0),  # Orange-Yellow (2)
+            (0, 70, 0),  # Green (1 - GO!) - dimmed to match original
         ]
 
         for _i, (r, g, b) in enumerate(countdown_colors):
@@ -401,12 +402,12 @@ class BaseGameMode(ABC):
             )
             await self.controller_client.SetControllerColor(color_request)
 
-            # Wait 0.5 seconds (in 0.1s increments to allow interruption)
-            for _ in range(5):
+            # Wait 0.75 seconds (matches original JoustMania timing)
+            for _ in range(15):  # 15 * 50ms = 750ms
                 if not self.running:
                     logger.info("Countdown interrupted by force_end")
                     return
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.05)
 
         # Play start sound (Phase 29 - GO!)
         await self._play_sound("Joust/sounds/start3.wav", priority=2)

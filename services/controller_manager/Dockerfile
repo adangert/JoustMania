@@ -62,6 +62,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libusb-1.0-0 \
     libdbus-1-3 \
     libglib2.0-0 \
+    bluez \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

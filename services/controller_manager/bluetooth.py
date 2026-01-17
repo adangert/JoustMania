@@ -205,9 +205,15 @@ def get_device_rssi(hci, device_address):
         RSSI in dBm (-100 to 0), or None if not available
 
     Note:
-        RSSI is only available for actively connected Bluetooth devices.
-        USB-connected controllers will return None.
+        Uses hcitool for connected devices (more reliable than DBus RSSI property).
+        Falls back to DBus property if hcitool is unavailable.
     """
+    # Try hcitool first - more reliable for connected devices
+    rssi = _get_rssi_via_hcitool(device_address)
+    if rssi is not None:
+        return rssi
+
+    # Fall back to DBus property (only works during discovery)
     try:
         # Convert MAC address to DBus path format (replace : with _)
         device_path = device_address.replace(":", "_")
@@ -226,6 +232,48 @@ def get_device_rssi(hci, device_address):
         return None
     except Exception:
         # Other errors (invalid device path, etc.)
+        return None
+
+
+def _get_rssi_via_hcitool(device_address):
+    """
+    Get RSSI using hcitool (works for connected devices).
+
+    Args:
+        device_address: Bluetooth MAC address (e.g., "00:1A:2B:3C:4D:5E")
+
+    Returns:
+        RSSI in dBm, or None if not available
+    """
+    import subprocess
+
+    try:
+        # hcitool rssi returns: "RSSI return value: -50"
+        result = subprocess.run(
+            ["hcitool", "rssi", device_address],
+            capture_output=True,
+            text=True,
+            timeout=1.0,
+        )
+
+        if result.returncode == 0 and result.stdout:
+            # Parse "RSSI return value: -50"
+            output = result.stdout.strip()
+            if "RSSI return value:" in output:
+                rssi_str = output.split(":")[-1].strip()
+                return int(rssi_str)
+
+        return None
+
+    except FileNotFoundError:
+        # hcitool not installed
+        return None
+    except subprocess.TimeoutExpired:
+        return None
+    except (ValueError, IndexError):
+        # Parsing error
+        return None
+    except Exception:
         return None
 
 

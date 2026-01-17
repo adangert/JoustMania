@@ -1,7 +1,4 @@
-# Performance Investigations
-Absolutely! Below is your **complete, production-quality prompt** with all key performance facts, code observations, and investigation asks, suitable for internal/external SRE, performance consulting, or expert AI assistance.
 
----
 
 ## 🚦 JoustMania dev-refactor: Comprehensive Performance Investigation Prompt
 

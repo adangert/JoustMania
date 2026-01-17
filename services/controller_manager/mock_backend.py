@@ -92,7 +92,7 @@ class MockBackend(ControllerBackend):
     async def scan_controllers(self) -> list[dict]:
         """Return all mock controllers."""
         return [
-            {"address": serial, "serial": serial, "name": f"Mock Controller {i+1}", "paired": True}
+            {"address": serial, "serial": serial, "name": f"Mock Controller {i + 1}", "paired": True}
             for i, serial in enumerate(self.controllers.keys())
         ]
 

@@ -34,7 +34,7 @@ class WindowsBackend(ControllerBackend):
     def __init__(self):
         if not PSMOVE_AVAILABLE:
             raise RuntimeError(
-                "psmoveapi not available. Install with: pip install psmoveapi\n" "See: https://github.com/thp/psmoveapi"
+                "psmoveapi not available. Install with: pip install psmoveapi\nSee: https://github.com/thp/psmoveapi"
             )
 
         self.controllers: dict[str, psmove.PSMove] = {}  # serial -> PSMove object

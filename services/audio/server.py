@@ -138,7 +138,7 @@ class AudioManager:
                 channel = pygame.mixer.find_channel(priority == 3)
                 if channel:
                     channel.play(sound)
-                    logger.info(f"Playing sound: {file_path} " f"(volume={adjusted_volume:.2f}, priority={priority})")
+                    logger.info(f"Playing sound: {file_path} (volume={adjusted_volume:.2f}, priority={priority})")
                     span.add_event("sound_played")
                     return True
                 logger.warning(f"No available channel for sound: {file_path}")

@@ -206,7 +206,7 @@ class TeamsGameBase(BaseGameMode):
                     logger.debug(f"Set {serial} to team {player.team} ({self.team_colors[player.team]['name']}) color")
 
             logger.info(
-                f"Set team colors for {len(self.players)} players " f"({'pulsing' if pulse_effect else 'persistent'})"
+                f"Set team colors for {len(self.players)} players ({'pulsing' if pulse_effect else 'persistent'})"
             )
 
         except Exception as e:

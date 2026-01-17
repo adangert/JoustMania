@@ -51,8 +51,7 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
             }
 
             logger.info(
-                f"Mock: Set accel for {serial}: "
-                f"({request.accel_x:.2f}, {request.accel_y:.2f}, {request.accel_z:.2f})"
+                f"Mock: Set accel for {serial}: ({request.accel_x:.2f}, {request.accel_y:.2f}, {request.accel_z:.2f})"
             )
             return controller_manager_mock_pb2.MovementResponse(success=True, error="")
 
@@ -139,7 +138,7 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
             # Reset to idle
             controller = self.backend.controllers[serial]
             controller[ButtonKey.MOVE] = True  # Keep ready for tests
-            controller[ButtonKey.TRIGGER] = False
+            controller[ButtonKey.TRIGGER] = True  # Keep trigger pressed (marks as ready)
             controller[ButtonKey.PS] = False
             controller[ButtonKey.SELECT] = False
             controller[ButtonKey.START] = False
@@ -219,7 +218,8 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
                     controller = self.backend.controllers.get(serial)
                     if controller:
                         # Set death-level acceleration (same as SimulateDeath)
-                        controller["death_accel"] = {"x": 5.0, "y": 3.0, "z": 4.0}
+                        # Use AxisKey enum for consistency with mock_backend.py
+                        controller["death_accel"] = {AxisKey.X: 5.0, AxisKey.Y: 3.0, AxisKey.Z: 4.0}
                         controller["death_hold_until"] = time.time() + 2.0
                         logger.info(f"Mock: Auto-killed player {serial}")
                     await asyncio.sleep(0.3)  # Stagger deaths for better trace visualization

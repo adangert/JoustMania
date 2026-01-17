@@ -569,7 +569,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             self.base_colors[serial] = color
                             await self._set_controller_color_internal(serial, color)
 
-                            logger.debug(f"[{subscriber_id}] Base color set: " f"serial={serial}, rgb={color}")
+                            logger.debug(f"[{subscriber_id}] Base color set: serial={serial}, rgb={color}")
 
                         metrics.stream_commands_total.labels(command_type="base_color").inc()
 
@@ -580,7 +580,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                         effect_name = controller_manager_pb2.GameEffect.Name(cmd.effect)
                         logger.debug(
-                            f"[{subscriber_id}] Game effect: " f"serial={cmd.serial or 'all'}, effect={effect_name}"
+                            f"[{subscriber_id}] Game effect: serial={cmd.serial or 'all'}, effect={effect_name}"
                         )
 
                         metrics.stream_commands_total.labels(command_type="game_effect").inc()
@@ -776,7 +776,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             old_count = len(current_filter) if current_filter else 0
                             new_count = len(new_filter) if new_filter else 0
 
-                            logger.info(f"[{subscriber_id}] Filter updated: " f"{old_count} → {new_count} controllers")
+                            logger.info(f"[{subscriber_id}] Filter updated: {old_count} → {new_count} controllers")
 
                             current_filter = new_filter
 
@@ -833,7 +833,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                         effect_name = controller_manager_pb2.ControllerEffect.Name(cmd.effect)
                         logger.debug(
-                            f"[{subscriber_id}] Effect command: " f"serial={cmd.serial or 'all'}, effect={effect_name}"
+                            f"[{subscriber_id}] Effect command: serial={cmd.serial or 'all'}, effect={effect_name}"
                         )
 
                         # Metric (Phase 46)
@@ -902,7 +902,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             self.base_colors[serial] = color
                             await self._set_controller_color_internal(serial, color)
 
-                            logger.debug(f"[{subscriber_id}] Base color set: " f"serial={serial}, rgb={color}")
+                            logger.debug(f"[{subscriber_id}] Base color set: serial={serial}, rgb={color}")
 
                         metrics.stream_commands_total.labels(command_type="base_color").inc()
 
@@ -913,7 +913,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                         effect_name = controller_manager_pb2.GameEffect.Name(cmd.effect)
                         logger.debug(
-                            f"[{subscriber_id}] Game effect: " f"serial={cmd.serial or 'all'}, effect={effect_name}"
+                            f"[{subscriber_id}] Game effect: serial={cmd.serial or 'all'}, effect={effect_name}"
                         )
 
                         metrics.stream_commands_total.labels(command_type="game_effect").inc()
@@ -1932,8 +1932,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Log all button states when any transition occurred
         if events:
             logger.info(
-                f"Button event {serial}: "
-                f"T={trigger} M={move} X={cross} O={circle} []={square} /\\={triangle} PS={ps}"
+                f"Button event {serial}: T={trigger} M={move} X={cross} O={circle} []={square} /\\={triangle} PS={ps}"
             )
 
         # Publish events to all subscribers

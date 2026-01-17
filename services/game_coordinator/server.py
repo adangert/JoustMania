@@ -22,33 +22,33 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
-# Import protobuf
-import sys
-import threading
-import time
+# Import protobuf (after logging config)
+import sys  # noqa: E402
+import threading  # noqa: E402
+import time  # noqa: E402
 
-import grpc
-import grpc.aio
-from grpc_health.v1 import health, health_pb2, health_pb2_grpc
+import grpc  # noqa: E402
+import grpc.aio  # noqa: E402
+from grpc_health.v1 import health, health_pb2, health_pb2_grpc  # noqa: E402
 
 # OpenTelemetry (trace API for span operations)
-from opentelemetry import trace
+from opentelemetry import trace  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 # Prometheus metrics (Phase 38)
-from prometheus_client import start_http_server
+from prometheus_client import start_http_server  # noqa: E402
 
-from lib.system_metrics import start_system_metrics_collector
-from lib.telemetry import init_telemetry
-from lib.types import GameEvent, get_game_display_name
-from proto import game_coordinator_pb2, game_coordinator_pb2_grpc
-from services.game_coordinator import metrics
+from lib.system_metrics import start_system_metrics_collector  # noqa: E402
+from lib.telemetry import init_telemetry  # noqa: E402
+from lib.types import GameEvent, get_game_display_name  # noqa: E402
+from proto import game_coordinator_pb2, game_coordinator_pb2_grpc  # noqa: E402
+from services.game_coordinator import metrics  # noqa: E402
 
 # Game factory, event bus, and client manager
-from services.game_coordinator.event_bus import EventBus
-from services.game_coordinator.game_factory import GameFactory
-from services.game_coordinator.grpc_clients import GrpcClientManager
+from services.game_coordinator.event_bus import EventBus  # noqa: E402
+from services.game_coordinator.game_factory import GameFactory  # noqa: E402
+from services.game_coordinator.grpc_clients import GrpcClientManager  # noqa: E402
 
 # Legacy game imports (optional for testing)
 try:
@@ -460,6 +460,7 @@ async def serve(port=50053, metrics_port=8000):
 
     # Create async server with keepalive options to match client settings
     from lib.grpc_utils import get_server_options
+
     server = grpc.aio.server(options=get_server_options())
 
     # Add servicer

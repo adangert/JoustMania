@@ -167,7 +167,7 @@ class ControllerBackend(ABC):
         """
         return None
 
-    def set_effect_active(self, serial: str, active: bool):  # noqa: ARG002
+    def set_effect_active(self, serial: str, active: bool):  # noqa: ARG002, B027
         """
         Mark controller as having an active LED effect.
 

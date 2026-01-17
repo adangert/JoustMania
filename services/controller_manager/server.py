@@ -278,7 +278,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 return
 
             # Debug: Log tracked controller count periodically (every 5 seconds)
-            if not hasattr(self, '_last_controller_count_log'):
+            if not hasattr(self, "_last_controller_count_log"):
                 self._last_controller_count_log = 0
             if time.time() - self._last_controller_count_log >= 5.0:
                 logger.info(f"Polling {len(serials)} controllers: {serials}")
@@ -301,7 +301,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             metrics.poll_batch_size.observe(len(serials))
 
             # Process all results (no lock needed - dict operations atomic due to GIL)
-            for serial, state in zip(serials, results):
+            for serial, state in zip(serials, results, strict=False):
                 # Skip if controller was removed during polling
                 if serial not in self.tracked_controllers:
                     continue
@@ -322,7 +322,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     self.tracked_controllers[serial][ControllerInfoKey.BATTERY] = state[StateKey.BATTERY]
 
                 # Update ready flag when trigger is pressed (matches menu service behavior)
-                if state.get(ButtonKey.TRIGGER, False) and not self.tracked_controllers[serial][ControllerInfoKey.READY]:
+                trigger_pressed = state.get(ButtonKey.TRIGGER, False)
+                if trigger_pressed and not self.tracked_controllers[serial][ControllerInfoKey.READY]:
                     self.tracked_controllers[serial][ControllerInfoKey.READY] = True
                     logger.info(f"Controller {serial} marked as ready (trigger pressed)")
 
@@ -568,10 +569,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             self.base_colors[serial] = color
                             await self._set_controller_color_internal(serial, color)
 
-                            logger.debug(
-                                f"[{subscriber_id}] Base color set: "
-                                f"serial={serial}, rgb={color}"
-                            )
+                            logger.debug(f"[{subscriber_id}] Base color set: " f"serial={serial}, rgb={color}")
 
                         metrics.stream_commands_total.labels(command_type="base_color").inc()
 
@@ -582,8 +580,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                         effect_name = controller_manager_pb2.GameEffect.Name(cmd.effect)
                         logger.debug(
-                            f"[{subscriber_id}] Game effect: "
-                            f"serial={cmd.serial or 'all'}, effect={effect_name}"
+                            f"[{subscriber_id}] Game effect: " f"serial={cmd.serial or 'all'}, effect={effect_name}"
                         )
 
                         metrics.stream_commands_total.labels(command_type="game_effect").inc()
@@ -754,9 +751,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                                     self.base_colors[serial] = color
                                     if serial in self.tracked_controllers:
                                         await self._set_controller_color_internal(serial, color)
-                            logger.info(
-                                f"[{subscriber_id}] Set base colors for {len(current_filter)} controllers"
-                            )
+                            logger.info(f"[{subscriber_id}] Set base colors for {len(current_filter)} controllers")
                         elif control_msg.config.serials:
                             # Legacy: use serials field directly
                             current_filter = set(control_msg.config.serials)
@@ -780,9 +775,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             old_count = len(current_filter) if current_filter else 0
                             new_count = len(new_filter) if new_filter else 0
 
-                            logger.info(
-                                f"[{subscriber_id}] Filter updated: " f"{old_count} → {new_count} controllers"
-                            )
+                            logger.info(f"[{subscriber_id}] Filter updated: " f"{old_count} → {new_count} controllers")
 
                             current_filter = new_filter
 
@@ -801,9 +794,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         target_serial = cmd.serial if cmd.serial else None
 
                         # Apply to target serial or all controllers (broadcast)
-                        serials_to_update = (
-                            [target_serial] if target_serial else list(self.tracked_controllers.keys())
-                        )
+                        serials_to_update = [target_serial] if target_serial else list(self.tracked_controllers.keys())
 
                         for serial in serials_to_update:
                             if serial in self.tracked_controllers:
@@ -826,9 +817,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         target_serial = cmd.serial if cmd.serial else None
 
                         # Apply to target serial or all controllers (broadcast)
-                        serials_to_update = (
-                            [target_serial] if target_serial else list(self.tracked_controllers.keys())
-                        )
+                        serials_to_update = [target_serial] if target_serial else list(self.tracked_controllers.keys())
 
                         color_rgb = (
                             (cmd.color.r, cmd.color.g, cmd.color.b)
@@ -839,14 +828,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                         for serial in serials_to_update:
                             if serial in self.tracked_controllers:
-                                await self._play_effect_internal(
-                                    serial, cmd.effect, color_rgb, duration_ms, speed=5
-                                )
+                                await self._play_effect_internal(serial, cmd.effect, color_rgb, duration_ms, speed=5)
 
                         effect_name = controller_manager_pb2.ControllerEffect.Name(cmd.effect)
                         logger.debug(
-                            f"[{subscriber_id}] Effect command: "
-                            f"serial={cmd.serial or 'all'}, effect={effect_name}"
+                            f"[{subscriber_id}] Effect command: " f"serial={cmd.serial or 'all'}, effect={effect_name}"
                         )
 
                         # Metric (Phase 46)
@@ -858,9 +844,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         target_serial = cmd.serial if cmd.serial else None
 
                         # Apply to target serial or all controllers (broadcast)
-                        serials_to_update = (
-                            [target_serial] if target_serial else list(self.tracked_controllers.keys())
-                        )
+                        serials_to_update = [target_serial] if target_serial else list(self.tracked_controllers.keys())
 
                         for serial in serials_to_update:
                             if serial in self.tracked_controllers:
@@ -881,9 +865,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         target_serial = cmd.serial if cmd.serial else None
 
                         # Apply to target serial or all controllers (broadcast)
-                        serials_to_update = (
-                            [target_serial] if target_serial else list(self.tracked_controllers.keys())
-                        )
+                        serials_to_update = [target_serial] if target_serial else list(self.tracked_controllers.keys())
 
                         for serial in serials_to_update:
                             if serial in self.tracked_controllers:
@@ -919,10 +901,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             self.base_colors[serial] = color
                             await self._set_controller_color_internal(serial, color)
 
-                            logger.debug(
-                                f"[{subscriber_id}] Base color set: "
-                                f"serial={serial}, rgb={color}"
-                            )
+                            logger.debug(f"[{subscriber_id}] Base color set: " f"serial={serial}, rgb={color}")
 
                         metrics.stream_commands_total.labels(command_type="base_color").inc()
 
@@ -933,8 +912,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                         effect_name = controller_manager_pb2.GameEffect.Name(cmd.effect)
                         logger.debug(
-                            f"[{subscriber_id}] Game effect: "
-                            f"serial={cmd.serial or 'all'}, effect={effect_name}"
+                            f"[{subscriber_id}] Game effect: " f"serial={cmd.serial or 'all'}, effect={effect_name}"
                         )
 
                         metrics.stream_commands_total.labels(command_type="game_effect").inc()
@@ -1466,7 +1444,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 serials = list(self.tracked_controllers.keys())
 
             if not serials:
-                logger.warning(f"No controllers found for game effect")
+                logger.warning("No controllers found for game effect")
                 return False
 
             for target_serial in serials:
@@ -1716,7 +1694,10 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 f"{info.get(ControllerInfoKey.READY, False)}|{info.get(ControllerInfoKey.TEAM, 0)}"
             )
         # No state available, return hash based on info only
-        return f"{info.get(ControllerInfoKey.BATTERY, 0)}|{info.get(ControllerInfoKey.READY, False)}|{info.get(ControllerInfoKey.TEAM, 0)}"
+        battery = info.get(ControllerInfoKey.BATTERY, 0)
+        ready = info.get(ControllerInfoKey.READY, False)
+        team = info.get(ControllerInfoKey.TEAM, 0)
+        return f"{battery}|{ready}|{team}"
 
     def _build_or_get_cached_state(self, serial: str, info: dict) -> controller_manager_pb2.ControllerState:
         """Return cached state if unchanged, rebuild if dirty (Phase 18 - Task 1).
@@ -1844,9 +1825,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         start = state.get(ButtonKey.START, False)
 
         info = self.tracked_controllers.get(serial, {})
-        self._detect_button_transitions(
-            serial, info, trigger, move, cross, circle, square, triangle, ps, select, start
-        )
+        self._detect_button_transitions(serial, info, trigger, move, cross, circle, square, triangle, ps, select, start)
 
     def _detect_button_transitions(
         self,
@@ -1997,6 +1976,7 @@ async def serve(port=50052, metrics_port=8000):
     # Create async server with keepalive options to match client settings
     # Without these options, server rejects client pings as "too many pings"
     from lib.grpc_utils import get_server_options
+
     server = grpc.aio.server(options=get_server_options())
 
     # Add servicer

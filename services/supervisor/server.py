@@ -516,6 +516,7 @@ async def serve(port=50055, metrics_port=8000):
 
     # Create server with keepalive options to match client settings
     from lib.grpc_utils import get_server_options
+
     server = grpc.aio.server(options=get_server_options())
 
     # Add servicer

@@ -13,8 +13,6 @@ from lib.controller_constants import (
     AxisKey,
     ButtonKey,
     StateKey,
-    DEFAULT_ACCEL,
-    DEFAULT_GYRO,
 )
 from services.controller_manager.backend import ControllerBackend
 
@@ -134,7 +132,16 @@ class MockBackend(ControllerBackend):
 
         # Simulate random button presses (10% chance per second)
         if random.random() < 0.1 * time_since_update:
-            button = random.choice([ButtonKey.MOVE, ButtonKey.TRIGGER, ButtonKey.TRIANGLE, ButtonKey.CIRCLE, ButtonKey.CROSS, ButtonKey.SQUARE])
+            button = random.choice(
+                [
+                    ButtonKey.MOVE,
+                    ButtonKey.TRIGGER,
+                    ButtonKey.TRIANGLE,
+                    ButtonKey.CIRCLE,
+                    ButtonKey.CROSS,
+                    ButtonKey.SQUARE,
+                ]
+            )
             controller[button] = not controller[button]
 
         # Simulate trigger movement (occasionally)

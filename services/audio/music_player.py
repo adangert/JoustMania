@@ -8,6 +8,7 @@ Runs audio playback in a separate process to avoid blocking the gRPC server.
 """
 
 import asyncio
+import contextlib
 import glob
 import io
 import logging
@@ -55,8 +56,8 @@ def _linux_audio_loop(fname: dict, ratio: Value, volume: Value, stop_proc: Value
         volume: Shared Value for volume (0.0 to 1.0)
         stop_proc: Shared Value to control playback (0=play, 1=stop)
     """
-    PERIOD = 1024 * 4
-    PERIOD_BYTES = PERIOD * 2 * 2  # Two channels, two bytes per sample
+    period = 1024 * 4
+    period_bytes = period * 2 * 2  # Two channels, two bytes per sample
 
     time.sleep(0.1)  # Brief startup delay
 
@@ -116,7 +117,7 @@ def _linux_audio_loop(fname: dict, ratio: Value, volume: Value, stop_proc: Value
             # Play the loaded song
             if stop_proc.value == 0 and song_loaded:
                 try:
-                    wf = wave.open(io.BytesIO(wav_data), "rb")
+                    wf = wave.open(io.BytesIO(wav_data), "rb")  # noqa: SIM115
                     if len(wf.readframes(1)) == 0:
                         logger.error("Empty WAV data")
                         song_loaded = False
@@ -127,7 +128,7 @@ def _linux_audio_loop(fname: dict, ratio: Value, volume: Value, stop_proc: Value
                         channels=wf.getnchannels(),
                         rate=wf.getframerate(),
                         format=alsaaudio.PCM_FORMAT_S16_LE,
-                        periodsize=PERIOD,
+                        periodsize=period,
                         device="default",
                     )
 
@@ -186,7 +187,7 @@ def _linux_audio_loop(fname: dict, ratio: Value, volume: Value, stop_proc: Value
                                 return
 
                     # Play with resampling
-                    write_samples(device, PERIOD_BYTES, resample_audio(read_samples(wf, PERIOD), ratio, volume))
+                    write_samples(device, period_bytes, resample_audio(read_samples(wf, period), ratio, volume))
 
                     wf.close()
                     device.close()
@@ -314,10 +315,8 @@ class MusicPlayer:
         # Cancel any existing transition
         if self._transition_task and not self._transition_task.done():
             self._transition_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._transition_task
-            except asyncio.CancelledError:
-                pass
 
         async def do_transition():
             num_steps = 20
@@ -397,7 +396,7 @@ class DummyMusicPlayer:
     def set_volume(self, volume: float):
         self._volume = volume
 
-    async def transition_ratio(self, new_ratio: float, duration: float = 1.0):
+    async def transition_ratio(self, new_ratio: float, _duration: float = 1.0):
         self._ratio = new_ratio
 
     @property

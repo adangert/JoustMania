@@ -10,15 +10,12 @@ import os
 import threading
 import time
 
-from services.controller_manager.backend import ControllerBackend
 from lib.controller_constants import (
     AxisKey,
     ButtonKey,
     StateKey,
-    ControllerInfoKey,
-    DEFAULT_ACCEL,
-    DEFAULT_GYRO,
 )
+from services.controller_manager.backend import ControllerBackend
 
 
 @contextlib.contextmanager
@@ -70,24 +67,21 @@ def _battery_to_level(battery_value: int) -> int:
 
     if battery_value == psmove.Batt_CHARGING:
         return 5  # Treat charging as full for display purposes
-    elif battery_value == psmove.Batt_CHARGING_DONE:
+    if battery_value == psmove.Batt_CHARGING_DONE or battery_value == psmove.Batt_MAX:
         return 5
-    elif battery_value == psmove.Batt_MAX:
-        return 5
-    elif battery_value == psmove.Batt_80Percent:
+    if battery_value == psmove.Batt_80Percent:
         return 4
-    elif battery_value == psmove.Batt_60Percent:
+    if battery_value == psmove.Batt_60Percent:
         return 3
-    elif battery_value == psmove.Batt_40Percent:
+    if battery_value == psmove.Batt_40Percent:
         return 2
-    elif battery_value == psmove.Batt_20Percent:
+    if battery_value == psmove.Batt_20Percent:
         return 1
-    elif battery_value == psmove.Batt_MIN:
+    if battery_value == psmove.Batt_MIN:
         return 0
-    else:
-        # Unknown value, log and return mid-range
-        logger.debug(f"Unknown battery value: {battery_value:#x}")
-        return 3
+    # Unknown value, log and return mid-range
+    logger.debug(f"Unknown battery value: {battery_value:#x}")
+    return 3
 
 
 class BluetoothBackend(ControllerBackend):
@@ -457,7 +451,10 @@ class BluetoothBackend(ControllerBackend):
             # Only rescan if count changed (new controller connected or one disconnected)
             # This avoids creating duplicate PSMove handles every 60Hz poll
             if count != self._last_controller_count:
-                logger.info(f"Controller count changed: {self._last_controller_count} -> {count}, tracked: {len(self.controllers)}")
+                logger.info(
+                    f"Controller count changed: {self._last_controller_count} -> {count}, "
+                    f"tracked: {len(self.controllers)}"
+                )
                 self._last_controller_count = count
 
                 # Scan for new controllers only

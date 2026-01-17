@@ -13,6 +13,7 @@ Phase 70: Added dynamic music tempo system.
 """
 
 import asyncio
+import contextlib
 import logging
 import math
 import random
@@ -443,9 +444,7 @@ class BaseGameMode(ABC):
                 player_colors.append(
                     controller_manager_pb2.ControllerColorConfig(
                         serial=serial,
-                        color=controller_manager_pb2.RGB(
-                            r=player.color[0], g=player.color[1], b=player.color[2]
-                        ),
+                        color=controller_manager_pb2.RGB(r=player.color[0], g=player.color[1], b=player.color[2]),
                     )
                 )
 
@@ -580,8 +579,8 @@ class BaseGameMode(ABC):
         accel_mag = math.sqrt(accel.x**2 + accel.y**2 + accel.z**2)
 
         # Sanity check: ignore physically impossible readings (>10g = sensor glitch)
-        MAX_VALID_ACCEL = 10000  # 10g in raw units - beyond any realistic movement
-        if accel_mag > MAX_VALID_ACCEL:
+        max_valid_accel = 10000  # 10g in raw units - beyond any realistic movement
+        if accel_mag > max_valid_accel:
             logger.warning(f"Invalid accel magnitude {accel_mag:.0f} for {serial}, ignoring")
             return  # Skip this reading entirely
 
@@ -626,8 +625,7 @@ class BaseGameMode(ABC):
             else:
                 # Still in warning protection window
                 logger.info(
-                    f"Player {serial} PROTECTED from death "
-                    f"({player.warning_until - current_time:.2f}s remaining)"
+                    f"Player {serial} PROTECTED from death " f"({player.warning_until - current_time:.2f}s remaining)"
                 )
 
         # Check for warning (flash controller) - only if not already in warning state
@@ -792,10 +790,8 @@ class BaseGameMode(ABC):
                     # Stop music loop
                     if self.music_loop_task:
                         self.music_loop_task.cancel()
-                        try:
+                        with contextlib.suppress(asyncio.CancelledError):
                             await self.music_loop_task
-                        except asyncio.CancelledError:
-                            pass
 
             # Phase 70: Stop game music
             await self._stop_game_music()
@@ -910,7 +906,8 @@ class BaseGameMode(ABC):
                 self.music_speed = SLOW_MUSIC_SPEED
                 self.speed_up = True
                 self.change_time = self._get_music_change_time()
-                logger.info(f"Game music started: {response.track_id}, next change at +{self.change_time - time.time():.1f}s")
+                next_change = self.change_time - time.time()
+                logger.info(f"Game music started: {response.track_id}, next change at +{next_change:.1f}s")
             else:
                 logger.warning(f"Failed to start game music: {response.error}")
 
@@ -976,10 +973,7 @@ class BaseGameMode(ABC):
                 from proto import audio_pb2
 
                 # Determine target tempo
-                if self.speed_up:
-                    target_tempo = FAST_MUSIC_SPEED
-                else:
-                    target_tempo = SLOW_MUSIC_SPEED
+                target_tempo = FAST_MUSIC_SPEED if self.speed_up else SLOW_MUSIC_SPEED
 
                 # Request tempo transition
                 await self.audio_client.ChangeTempo(

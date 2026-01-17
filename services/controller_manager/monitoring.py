@@ -104,7 +104,7 @@ class ControllerMonitoring:
                 results = run_in_discovery_loop(get_all_rssi())
 
                 checked_count = 0
-                for serial, rssi in zip(serials, results):
+                for serial, rssi in zip(serials, results, strict=False):
                     try:
                         # Handle exceptions from gather
                         if isinstance(rssi, Exception):

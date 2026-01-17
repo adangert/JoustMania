@@ -672,6 +672,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             color=full_state.color,
                             accel=full_state.accel,
                             gyro=full_state.gyro,
+                            rssi=full_state.rssi,  # Signal strength for gameplay adaptation
                         )
                         gameplay_data.append(gd)
 
@@ -952,6 +953,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             color=full_state.color,
                             accel=full_state.accel,
                             gyro=full_state.gyro,
+                            rssi=full_state.rssi,  # Signal strength for gameplay adaptation
                         )
                         gameplay_data.append(gd)
 

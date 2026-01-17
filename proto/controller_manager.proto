@@ -234,6 +234,7 @@ message GameplayData {
   Vector3 accel = 7;  // Primary gameplay data
   Vector3 gyro = 8;   // Secondary gameplay data
   // NO button states - use StreamButtonEvents if buttons are needed
+  int32 rssi = 9;     // Signal strength in dBm (-100 to 0, 0 = USB/unavailable)
 }
 
 message GameplayDataUpdate {

@@ -165,7 +165,7 @@ jobs:
   docker-build:
     name: Build ${{ matrix.service }}
     runs-on: ubuntu-latest
-    needs: [build-builder, build-psmove-builder, build-pygame-builder]
+    needs: [build-builder, build-psmove-builder, build-pygame-builder, integration-test]
     permissions:
       contents: read
       packages: write
@@ -242,8 +242,8 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Run integration tests
-        run: |
-          make test \
-            BUILDER_IMAGE=${{ env.IMAGE_PREFIX }}/builder:${{ github.sha }} \
-            PSMOVE_BUILDER_IMAGE=${{ env.IMAGE_PREFIX }}/psmove-builder:${{ github.sha }} \
-            PYGAME_BUILDER_IMAGE=${{ env.IMAGE_PREFIX }}/pygame-builder:${{ github.sha }}
+        env:
+          BUILDER_IMAGE: ${{ env.IMAGE_PREFIX }}/builder:${{ github.sha }}
+          PSMOVE_BUILDER_IMAGE: ${{ env.IMAGE_PREFIX }}/psmove-builder:${{ github.sha }}
+          PYGAME_BUILDER_IMAGE: ${{ env.IMAGE_PREFIX }}/pygame-builder:${{ github.sha }}
+        run: make test

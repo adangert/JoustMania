@@ -18,6 +18,9 @@ version: '3.8'
 # Environment Variables (can be set in shell or .env file):
 # - IMAGE_PREFIX: Image registry prefix [default: joustmania, or ghcr.io/watchmejoustmyflags/joustmania]
 # - IMAGE_TAG: Image tag to use [default: latest]
+# - BUILDER_IMAGE: Base builder image for local builds [default: joustmania/builder:latest]
+# - PSMOVE_BUILDER_IMAGE: PSMove builder image [default: joustmania/psmove-builder:latest]
+# - PYGAME_BUILDER_IMAGE: Pygame builder image [default: joustmania/pygame-builder:latest]
 # - CONTROLLER_BACKEND: Controller backend type (bluetooth, mock, windows) [default: bluetooth]
 # - MOCK_CONTROLLER_COUNT: Number of mock controllers when CONTROLLER_BACKEND=mock [default: 4]
 # - AUDIO_MOCK_MODE: Disable audio output for testing [default: false]
@@ -83,6 +86,11 @@ services:
   # Settings Service
   settings:
     image: ${IMAGE_PREFIX:-joustmania}/settings-service:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: services/settings/Dockerfile
+      args:
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
     container_name: joustmania-settings
     # Ports exposed only within Docker network (no host binding)
     expose:
@@ -112,6 +120,12 @@ services:
   # Controller Manager Service
   controller-manager:
     image: ${IMAGE_PREFIX:-joustmania}/controller-manager-service:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: services/controller_manager/Dockerfile
+      args:
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
+        PSMOVE_BUILDER_IMAGE: ${PSMOVE_BUILDER_IMAGE:-joustmania/psmove-builder:latest}
     container_name: joustmania-controller-manager
     privileged: true
     volumes:
@@ -152,6 +166,11 @@ services:
   # Game Coordinator Service
   game-coordinator:
     image: ${IMAGE_PREFIX:-joustmania}/game-coordinator-service:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: services/game_coordinator/Dockerfile
+      args:
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
     container_name: joustmania-game-coordinator
     # Ports exposed only within Docker network (no host binding)
     expose:
@@ -182,6 +201,11 @@ services:
   # Menu Service
   menu:
     image: ${IMAGE_PREFIX:-joustmania}/menu-service:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: services/menu/Dockerfile
+      args:
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
     container_name: joustmania-menu
     # Ports exposed only within Docker network (no host binding)
     expose:
@@ -217,6 +241,11 @@ services:
   # Supervisor Service
   supervisor:
     image: ${IMAGE_PREFIX:-joustmania}/supervisor-service:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: services/supervisor/Dockerfile
+      args:
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
     container_name: joustmania-supervisor
     # Ports exposed only within Docker network (no host binding)
     expose:
@@ -249,6 +278,11 @@ services:
   # Web UI Service
   webui:
     image: ${IMAGE_PREFIX:-joustmania}/webui-service:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: services/webui/Dockerfile
+      args:
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
     container_name: joustmania-webui
     ports:
       - "80:80"  # WebUI exposed to host for browser access
@@ -286,6 +320,12 @@ services:
   # Audio Service
   audio:
     image: ${IMAGE_PREFIX:-joustmania}/audio-service:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: services/audio/Dockerfile
+      args:
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
+        PYGAME_BUILDER_IMAGE: ${PYGAME_BUILDER_IMAGE:-joustmania/pygame-builder:latest}
     container_name: joustmania-audio
     # Sound device access for real audio output
     devices:

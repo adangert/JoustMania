@@ -1,0 +1,28 @@
+# Hardware Override - Real device access
+#
+# Adds hardware device mounts for production/Pi deployment:
+#   docker-compose -f docker-compose.yml -f docker-compose.hardware.yml up
+#
+# For development with hardware:
+#   docker-compose -f docker-compose.yml -f docker-compose.hardware.yml -f docker-compose.override.yml up
+
+services:
+  # Audio Service - Real sound device
+  audio:
+    devices:
+      - /dev/snd:/dev/snd
+
+  # Controller Manager - Bluetooth hardware access
+  controller-manager:
+    privileged: true
+    devices:
+      - /dev:/dev
+    volumes:
+      # D-Bus socket for BlueZ communication
+      - /var/run/dbus:/var/run/dbus:ro
+      # Bluetooth device info (read-only, pairing handled by host daemon)
+      - /var/lib/bluetooth:/var/lib/bluetooth:ro
+      # PS Move calibration data (created by host pairing daemon)
+      - ${HOME}/.psmoveapi:/root/.psmoveapi:ro
+    environment:
+      - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket

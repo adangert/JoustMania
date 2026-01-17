@@ -122,9 +122,39 @@ SETTINGS_SCHEMA = {
     },
     "menu_voice": {
         "type": str,
-        "allowed_values": ["ivy", "en", "es", "fr", "de"],
+        "allowed_values": ["ivy", "aaron"],
         "default": "ivy",
-        "description": "Voice pack for menu announcements (for future multi-language support)",
+        "description": "Voice pack for menu announcements",
+    },
+    "play_audio": {
+        "type": bool,
+        "default": True,
+        "description": "Enable/disable all audio playback",
+    },
+    "current_game": {
+        "type": str,
+        "allowed_values": [
+            "JoustFFA",
+            "JoustTeams",
+            "JoustRandomTeams",
+            "Traitor",
+            "Werewolf",
+            "Zombies",
+            "Commander",
+            "Swapper",
+            "FightClub",
+            "Tournament",
+            "NonStop",
+            "Ninja",
+            "Random",
+        ],
+        "default": "JoustFFA",
+        "description": "Currently selected game mode",
+    },
+    "random_teams": {
+        "type": bool,
+        "default": True,
+        "description": "Randomize team assignments (vs sequential)",
     },
 }
 

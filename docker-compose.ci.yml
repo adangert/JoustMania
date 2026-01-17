@@ -15,10 +15,10 @@ services:
   audio:
     # Clear devices list from base compose (requires docker compose v2.24.0+)
     devices: !reset []
-    environment: !reset
-      - MOCK_MODE=true
-      - OTEL_SERVICE_NAME=audio-service
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    environment: !override
+      MOCK_MODE: "true"
+      OTEL_SERVICE_NAME: audio-service
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
 
   # Controller Manager - Mock mode, no Bluetooth required
   controller-manager:
@@ -26,8 +26,8 @@ services:
     devices: !reset []
     volumes: !reset []
     privileged: false
-    environment: !reset
-      - CONTROLLER_BACKEND=mock
-      - MOCK_CONTROLLER_COUNT=4
-      - OTEL_SERVICE_NAME=controller-manager-service
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    environment: !override
+      CONTROLLER_BACKEND: mock
+      MOCK_CONTROLLER_COUNT: "4"
+      OTEL_SERVICE_NAME: controller-manager-service
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317

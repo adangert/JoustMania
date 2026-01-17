@@ -152,69 +152,48 @@ $(document).ready(function(){
 </div>
 
 <div class="admin" id="admin_settings">
-    <h3>Admin Settings</h3>
-    <p>Note: Does not update during games.</p>
+    <h3>Game Settings</h3>
+    <p>Note: Changes apply to next game.</p>
 
     <form action="/settings" method="POST">
         <div class="settings-section">
-            {{ form.move_can_be_admin(checked=settings.move_can_be_admin) }} {{ form.move_can_be_admin.label }}
+            <h4>Game Mode</h4>
+            {{ form.current_game.label }}: {{ form.current_game }}
         </div>
+
         <div class="settings-section">
-            {{ form.play_instructions(checked=settings.play_instructions) }} {{ form.play_instructions.label }}
+            <h4>Audio</h4>
+            {{ form.play_audio }} {{ form.play_audio.label }}<br/>
+            {{ form.instructions }} {{ form.instructions.label }}<br/>
+            {{ form.menu_voice.label }}: {{ form.menu_voice }}
         </div>
+
         <div class="settings-section">
-            {{ form.play_audio(checked=settings.play_audio) }} {{ form.play_audio.label }}
+            <h4>Gameplay</h4>
+            {{ form.sensitivity.label }}: {{ form.sensitivity }}<br/>
+            {{ form.random_teams }} {{ form.random_teams.label }}
         </div>
+
         <div class="settings-section">
-            {{ form.random_teams(checked=settings.random_teams) }} {{ form.random_teams.label }}
+            <h4>Teams</h4>
+            {{ form.num_teams.label }}: {{ form.num_teams }}
         </div>
+
         <div class="settings-section">
-            {{ form.color_lock(checked=settings.color_lock) }} {{ form.color_lock.label }}
+            <h4>Advanced</h4>
+            {{ form.force_all_start }} {{ form.force_all_start.label }}<br/>
+            {{ form.nonstop_time_limit.label }}: {{ form.nonstop_time_limit }}
         </div>
-        <div class="settings-section">
-            {{ form.red_on_kill }} {{ form.red_on_kill.label }}
-        </div>
-        <div class="settings-section">
-            {{ form.sensitivity }} {{ form.sensitivity.label }}
-        </div>
-        <div class="settings-section">
-            {{ form.force_all_start }} {{ form.force_all_start.label }}
-        </div>
-        <div class="settings-section">
-            {{ form.random_team_size }} {{ form.random_team_size.label }}
-        </div>
+
         <div class="settings-section">
             <p>
-                Random Mode Game Selection 
+                Random Mode Game Selection
                 <button type="button" id="random_toggle">Show/Hide</button>
             </p>
             <span id="random_mode_options">
                 {% for item in form.random_modes %}
-                    {{ item(checked=item.data in settings.random_modes) }} {{ item.label }} <br />
+                    {{ item }} {{ item.label }} <br />
                 {% endfor %}
-            </span>
-        </div>
-        <div class="settings-section">
-            <p>
-                Color Lock Selection 
-                <button type="button" id="color_lock_toggle">Show/Hide</button>
-            </p>
-            <span id="color_lock_options">
-                <p>Dual Teams</p>
-                {% for i in range(2) %}
-                    {{ form.color_lock_choices[i](class_="rand2") }} 
-                {% endfor %}
-                <button type="button" class="rand" id="rand2">Randomize</button>
-                <p>Tri Teams</p>
-                {% for i in range(2, 5) %}
-                    {{ form.color_lock_choices[i](class_="rand3") }} 
-                {% endfor %}
-                <button type="button" class="rand" id="rand3">Randomize</button>
-                <p>Quad Teams</p>
-                {% for i in range(5, 9) %}
-                    {{ form.color_lock_choices[i](class_="rand4") }} 
-                {% endfor %}
-                <button type="button" class="rand" id="rand4">Randomize</button>
             </span>
         </div>
 

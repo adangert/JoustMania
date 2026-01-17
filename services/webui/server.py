@@ -113,20 +113,24 @@ class SettingsForm(Form):
     )
     mode_options = [game for game in Games if game not in [Games.Random, Games.JoustTeams]]
     random_modes = MultiCheckboxField(
-        "Random Modes (for future Random game mode)",
+        "Random Modes (for Random game mode)",
         choices=[(game.name, game.pretty_name) for game in mode_options],
     )
     menu_voice = SelectField(
-        "Menu voice pack (for future multi-language support)",
+        "Menu voice pack",
         choices=[
-            ("ivy", "Ivy (English)"),
-            ("en", "English"),
-            ("es", "Spanish"),
-            ("fr", "French"),
-            ("de", "German"),
+            ("ivy", "Ivy"),
+            ("aaron", "Aaron"),
         ],
         coerce=str,
     )
+    play_audio = BooleanField("Enable audio playback")
+    current_game = SelectField(
+        "Current game mode",
+        choices=[(game.name, game.pretty_name) for game in Games],
+        coerce=str,
+    )
+    random_teams = BooleanField("Randomize team assignments (vs sequential)")
 
 
 class GrpcClients:
@@ -461,6 +465,9 @@ class WebUI:
                         nonstop_time_limit=int(current_settings.get("nonstop_time_limit", 0)),
                         random_modes=random_modes_list,
                         menu_voice=current_settings.get("menu_voice", "ivy"),
+                        play_audio=current_settings.get("play_audio", "true") == "true",
+                        current_game=current_settings.get("current_game", "JoustFFA"),
+                        random_teams=current_settings.get("random_teams", "true") == "true",
                     )
 
                     span.set_attribute("settings.loaded", True)

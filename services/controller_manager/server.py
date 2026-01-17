@@ -1466,11 +1466,18 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     await self._set_vibration_internal(target_serial, 100, 200)
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_PLAYER_DEATH:
-                    # Red + vibrate, stays red (no restore)
-                    await self._set_controller_color_internal(target_serial, (255, 0, 0))
+                    # Red flash + vibrate, then LED off to signal player is out
+                    await self._play_effect_with_restore(
+                        target_serial,
+                        effect_type="flash",
+                        color=(255, 0, 0),
+                        duration_ms=300,
+                        speed=3,
+                        restore_color=(0, 0, 0),  # LED off after death
+                    )
                     await self._set_vibration_internal(target_serial, 255, 500)
-                    # Update base color to red (dead state)
-                    self.base_colors[target_serial] = (255, 0, 0)
+                    # Update base color to off (dead state)
+                    self.base_colors[target_serial] = (0, 0, 0)
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_PLAYER_RESPAWN:
                     # White during spawn protection

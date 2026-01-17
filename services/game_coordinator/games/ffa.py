@@ -142,7 +142,7 @@ class FFAGame(BaseGameMode):
             unique_colors = generate_colors(len(self.players))
 
             # Assign colors to players (LEDs set when gameplay stream starts)
-            for idx, (serial, player) in enumerate(self.players.items()):
+            for idx, (_serial, player) in enumerate(self.players.items()):
                 color = unique_colors[idx]
                 player.color = color  # Update player's color attribute
 

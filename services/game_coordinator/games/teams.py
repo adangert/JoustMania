@@ -7,10 +7,9 @@ Last team standing wins.
 Phase 36b: Refactored to extend TeamsGameBase, eliminating ~500 lines of duplicate code.
 """
 
-import asyncio
 import logging
 
-from services.game_coordinator.games.base import Phase, Player
+from services.game_coordinator.games.base import Player
 from services.game_coordinator.games.teams_base import TeamsGameBase
 
 logger = logging.getLogger()

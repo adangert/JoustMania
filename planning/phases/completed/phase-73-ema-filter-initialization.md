@@ -34,4 +34,5 @@ else:
 
 - EMA immediately tracks actual controller state
 - No false deaths at game start
-- Normal death detection works after grace period
+- Removed redundant 1.5s grace period (countdown serves this purpose)
+- Death detection starts immediately after countdown

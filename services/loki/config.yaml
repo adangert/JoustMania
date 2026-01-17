@@ -10,11 +10,19 @@ common:
   storage:
     filesystem:
       chunks_directory: /tmp/loki/chunks
-      rules_directory: /tmp/loki/rules
   replication_factor: 1
   ring:
     kvstore:
       store: inmemory
+
+# Disable ruler - we don't need alerting rules, just log aggregation
+ruler:
+  enable_api: false
+  enable_alertmanager_v2: false
+  storage:
+    type: local
+    local:
+      directory: /tmp/loki/rules
 
 # 1 hour retention
 limits_config:

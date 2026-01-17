@@ -371,6 +371,7 @@ services:
   loki:
     image: grafana/loki:2.9.3
     container_name: joustmania-loki
+    user: "0"  # Run as root to avoid permission issues with volume
     ports:
       - "3100:3100"  # Loki HTTP API (for queries and ingestion)
     volumes:

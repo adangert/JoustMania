@@ -158,9 +158,6 @@ uv run python -m services.controller_manager.server
 
 # With mock controllers
 MOCK_CONTROLLERS=true uv run python -m services.controller_manager.server
-
-# Windows development (see docs/development/windows-setup.md)
-uv run --package joustmania-controller-manager python -m services.controller_manager.server
 ```
 
 ### Running Tests
@@ -197,5 +194,4 @@ services/controller_manager/
 
 - [Main Project Documentation](../../README.md)
 - [Architecture Overview](../../docs/ARCHITECTURE.md)
-- [Windows Development Setup](../../docs/development/windows-setup.md)
 - [Proto Definitions](../../proto/controller_manager.proto)

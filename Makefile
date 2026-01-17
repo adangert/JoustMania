@@ -372,6 +372,39 @@ ci-help:
 	@echo "  make ci-build-tools  - Build CI tooling images"
 
 # ============================================================================
+# CI Service Building Targets (Phase 75)
+# ============================================================================
+
+# Builder image defaults (can be overridden for CI/CD)
+BUILDER_IMAGE ?= joustmania/builder:latest
+PSMOVE_BUILDER_IMAGE ?= joustmania/psmove-builder:latest
+PYGAME_BUILDER_IMAGE ?= joustmania/pygame-builder:latest
+
+.PHONY: build-service
+build-service:
+ifndef SERVICE
+	$(error SERVICE is required. Usage: make build-service SERVICE=settings)
+endif
+	@echo "Building service: $(SERVICE)..."
+	@docker build \
+		--build-arg BUILDER_IMAGE=$(BUILDER_IMAGE) \
+		--build-arg PSMOVE_BUILDER_IMAGE=$(PSMOVE_BUILDER_IMAGE) \
+		--build-arg PYGAME_BUILDER_IMAGE=$(PYGAME_BUILDER_IMAGE) \
+		-t joustmania/$(SERVICE)-service:latest \
+		-f services/$(SERVICE)/Dockerfile \
+		.
+	@echo "✓ Built joustmania/$(SERVICE)-service:latest"
+
+.PHONY: build-all-services
+build-all-services:
+	@echo "Building all services..."
+	@for service in $(SERVICES); do \
+		echo "Building $$service..."; \
+		$(MAKE) build-service SERVICE=$$service || exit 1; \
+	done
+	@echo "✓ All services built"
+
+# ============================================================================
 # Testing Targets
 # ============================================================================
 

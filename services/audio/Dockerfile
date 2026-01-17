@@ -4,12 +4,19 @@
 # Build the pygame builder first: docker build -t joustmania/pygame-builder:latest images/pygame-builder/
 #
 # Phase 70: Added scipy, numpy, pydub, pyalsaaudio for tempo control
+# Phase 75: Builder images can be overridden for CI/CD
+# --build-arg BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/builder:latest
+# --build-arg PYGAME_BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/pygame-builder:latest
+
+# Builder images - override with --build-arg for CI/CD
+ARG BUILDER_IMAGE=joustmania/builder:latest
+ARG PYGAME_BUILDER_IMAGE=joustmania/pygame-builder:latest
 
 # Pygame builder - pre-compiled pygame with SDL2 support
-FROM joustmania/pygame-builder:latest AS pygame-builder
+FROM ${PYGAME_BUILDER_IMAGE} AS pygame-builder
 
 # Build stage - uses pre-cached builder with common dependencies
-FROM joustmania/builder:latest AS builder
+FROM ${BUILDER_IMAGE} AS builder
 
 # Install ALSA dev libraries for pyalsaaudio compilation
 RUN apt-get update && apt-get install -y --no-install-recommends \

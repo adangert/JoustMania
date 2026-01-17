@@ -454,46 +454,6 @@ class BaseGameMode(ABC):
         await self.gameplay_stream.write(initial_config)
         logger.info(f"Gameplay stream started with {len(player_colors)} players")
 
-    async def _warmup_ema(self):
-        """
-        Prime the EMA filter by reading accelerometer data without checking deaths.
-
-        Runs concurrently with countdown to ensure the EMA filter has stable
-        readings before gameplay begins. This prevents false deaths from
-        uninitialized/cold-start EMA values.
-        """
-        logger.info("Starting EMA warmup...")
-        readings_count = 0
-
-        try:
-            async for gameplay_update in self.gameplay_stream:
-                if not self.running:
-                    break
-
-                # Process each controller's data to prime EMA
-                for gameplay_data in gameplay_update.controllers:
-                    serial = gameplay_data.serial
-                    player = self.players.get(serial)
-                    if not player:
-                        continue
-
-                    # Calculate magnitude and update EMA (no death checks)
-                    accel = gameplay_data.accel
-                    accel_mag = math.sqrt(accel.x**2 + accel.y**2 + accel.z**2)
-
-                    if player.smoothed_accel == 0.0:
-                        player.smoothed_accel = accel_mag
-                    else:
-                        player.smoothed_accel = (player.smoothed_accel * 4 + accel_mag) / 5
-
-                    readings_count += 1
-
-        except asyncio.CancelledError:
-            # Expected when countdown finishes
-            pass
-
-        logger.info(f"EMA warmup complete: {readings_count} readings processed")
-
     async def _game_loop(self):
         """Main game loop - processes controller states and checks for deaths."""
         logger.info("Starting game loop...")
@@ -817,19 +777,13 @@ class BaseGameMode(ABC):
                 with tracer.start_as_current_span(phase.name):
                     await phase.execute()
 
-            # Start gameplay stream early (before countdown) for EMA warmup
-            await self._start_gameplay_stream()
-
-            # Phase 3: Countdown with concurrent EMA warmup
-            # Stream data is read during countdown to prime the EMA filter
+            # Phase 3: Countdown
             with tracer.start_as_current_span("countdown_phase"):
-                warmup_task = asyncio.create_task(self._warmup_ema())
-                try:
-                    await self._countdown()
-                finally:
-                    warmup_task.cancel()
-                    with contextlib.suppress(asyncio.CancelledError):
-                        await warmup_task
+                await self._countdown()
+
+            # Start gameplay stream after countdown
+            # EMA will be primed with first readings in game loop
+            await self._start_gameplay_stream()
 
             # Phase 4: Game starts
             self.state = GameState.RUNNING

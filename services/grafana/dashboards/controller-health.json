@@ -170,7 +170,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_battery_level * 20",
+          "expr": "controller_battery_level",
           "legendFormat": "{{serial}}",
           "refId": "A"
         }

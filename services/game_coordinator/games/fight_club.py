@@ -182,8 +182,8 @@ class FightClubGame(BaseGameMode):
                 )
                 await self.gameplay_stream.write(color_cmd)
 
-        # Play intro sound
-        await self._play_sound(Sound.SFX_FIGHT_CLUB_INTRO, priority=2)
+        # Play intro sound (use start sound - no dedicated fight club intro exists)
+        await self._play_sound(Sound.SFX_START3, priority=2)
 
         # Wait for intro
         for _ in range(20):  # 2 seconds

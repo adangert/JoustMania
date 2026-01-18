@@ -348,12 +348,12 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
         Populates self.sound_registry with mappings from sound name to type.
         Registry values are tuples of (type, base_dir) where:
         - type: "vox" or "sound"
-        - base_dir: "Joust" or "Menu"
+        - base_dir: "Joust", "Menu", "Zombie", "Fight_Club", or "Commander"
         """
         base_assets_dir = Path(__file__).parent / "assets"
 
-        # Scan both Joust and Menu directories
-        for base_dir in ["Joust", "Menu"]:
+        # Scan all game asset directories
+        for base_dir in ["Joust", "Menu", "Zombie", "Fight_Club", "Commander"]:
             assets_dir = base_assets_dir / base_dir
 
             # Scan vox directory (use aaron as reference - all voices should have same files)

@@ -157,7 +157,7 @@ class Sound(str, Enum):
     # Sound effects (SFX)
     SFX_EXPLOSION = "Explosion34"
     SFX_EXPLOSION_22 = "Explosion22"
-    SFX_BEEP = "beep"
+    SFX_BEEP = "beep_loud"  # No separate beep.wav exists, use beep_loud
     SFX_BEEP_LOUD = "beep_loud"
     SFX_START = "start"
     SFX_START3 = "start3"
@@ -166,28 +166,22 @@ class Sound(str, Enum):
     SFX_TEAMS_FORM = "teams_form"
     SFX_WOLFDOWN = "wolfdown"
     SFX_SHOTGUN_FOUND = "shotgun found"
-    SFX_FIGHT_CLUB_INTRO = "fight_club_intro"
     SFX_TRAITOR_INTRO = "traitor_intro"
 
-    # Zombie game sounds
-    SFX_ZOMBIE_INTRO = "zombie_intro"
-    SFX_ZOMBIE_CONVERT = "zombie_convert"
-    SFX_ZOMBIE_WIN = "zombie_win"
-    SFX_HUMAN_WIN = "human_win"
-    SFX_ONE_MINUTE = "one_minute"
-    SFX_THIRTY_SECONDS = "thirty_seconds"
-    SFX_TEN_SECONDS = "ten_seconds"
+    # Zombie game sounds (in Zombie/vox/)
+    VOX_ZOMBIE_VICTORY = "zombie_victory"
+    VOX_ZOMBIE_DEATH = "zombie_death"
+    VOX_HUMAN_VICTORY = "human_victory"
+    # Time announcements (in Zombie/vox/)
+    VOX_ZOMBIE_ONE_MINUTE = "1 minute"
+    VOX_ZOMBIE_THIRTY_SECONDS = "30 seconds"
+    VOX_ZOMBIE_TEN_SECONDS = "10 seconds left"
 
-    # Tournament game sounds
-    SFX_TOURNAMENT_INTRO = "tournament_intro"
-    SFX_FIGHT = "fight"
-    SFX_ROUND_START = "round_start"
-    SFX_VICTORY = "victory"
-
-    # Werewolf game sounds
-    SFX_WEREWOLF_INTRO = "werewolf_intro"
-    SFX_WEREWOLF_REVEAL = "werewolf_reveal"
-    SFX_WEREWOLF_WIN = "werewolf_win"
+    # Fight Club game sounds (in Fight_Club/vox/)
+    VOX_FIGHT_CLUB_5_ROUNDS = "5_rounds"
+    VOX_FIGHT_CLUB_LAST_ROUND = "last_round"
+    VOX_FIGHT_CLUB_GAME_OVER = "game_over"
+    VOX_FIGHT_CLUB_TIE_GAME = "tie_game"
 
     # Menu sound effects (in Menu/sounds/)
     MENU_SFX_SLOW_SENSITIVITY = "slow_sensitivity"

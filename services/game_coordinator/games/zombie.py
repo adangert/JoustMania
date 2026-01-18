@@ -251,8 +251,8 @@ class ZombieGame(BaseGameMode):
                     )
                 )
 
-        # Play intro sound
-        await self._play_sound(Sound.SFX_ZOMBIE_INTRO, priority=2)
+        # Play intro sound (use start sound - no dedicated zombie intro exists)
+        await self._play_sound(Sound.SFX_START3, priority=2)
 
         # Wait for intro
         for _ in range(30):  # 3 seconds
@@ -291,13 +291,13 @@ class ZombieGame(BaseGameMode):
                 if abs(self.time_remaining - seconds) < 0.5:
                     logger.info(f"Time announcement: {seconds} seconds remaining")
                     self.event_publisher("time_announcement", {"seconds_remaining": seconds})
-                    # Play time announcement sound
+                    # Play time announcement sound (Zombie/vox/ directory)
                     if seconds == 60:
-                        await self._play_sound(Sound.SFX_ONE_MINUTE, priority=2)
+                        await self._play_sound(Sound.VOX_ZOMBIE_ONE_MINUTE, priority=2)
                     elif seconds == 30:
-                        await self._play_sound(Sound.SFX_THIRTY_SECONDS, priority=2)
+                        await self._play_sound(Sound.VOX_ZOMBIE_THIRTY_SECONDS, priority=2)
                     elif seconds == 10:
-                        await self._play_sound(Sound.SFX_TEN_SECONDS, priority=2)
+                        await self._play_sound(Sound.VOX_ZOMBIE_TEN_SECONDS, priority=2)
                     break
 
         # Time's up - humans win if any survive
@@ -418,8 +418,8 @@ class ZombieGame(BaseGameMode):
                     )
                 )
 
-            # Play conversion sound
-            await self._play_sound(Sound.SFX_ZOMBIE_CONVERT, priority=2)
+            # Play conversion sound (use zombie death sound for conversion)
+            await self._play_sound(Sound.VOX_ZOMBIE_DEATH, priority=2)
 
             if player.span:
                 player.span.add_event(
@@ -516,11 +516,11 @@ class ZombieGame(BaseGameMode):
                         )
                     )
 
-        # Play victory sound
+        # Play victory sound (Zombie/vox/ directory)
         if winner == "humans":
-            await self._play_sound(Sound.SFX_HUMAN_WIN, priority=2)
+            await self._play_sound(Sound.VOX_HUMAN_VICTORY, priority=2)
         else:
-            await self._play_sound(Sound.SFX_ZOMBIE_WIN, priority=2)
+            await self._play_sound(Sound.VOX_ZOMBIE_VICTORY, priority=2)
 
         # Wait for celebration
         for _ in range(20):  # 2 seconds

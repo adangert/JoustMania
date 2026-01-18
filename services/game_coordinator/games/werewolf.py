@@ -204,8 +204,8 @@ class WerewolfGame(BaseGameMode):
         # Set all controllers to human color (yellow)
         await self._set_all_colors(HUMAN_COLOR)
 
-        # Play intro sound
-        await self._play_sound(Sound.SFX_WEREWOLF_INTRO, priority=2)
+        # Play intro sound (Joust/vox/)
+        await self._play_sound(Sound.VOX_WEREWOLF_INTRO, priority=2)
 
         # Rumble werewolves to signal their role
         for serial in self.werewolf_serials:
@@ -276,8 +276,8 @@ class WerewolfGame(BaseGameMode):
 
         self.event_publisher("werewolf_reveal", {"werewolf_serials": self.werewolf_serials})
 
-        # Play reveal sound
-        await self._play_sound(Sound.SFX_WEREWOLF_REVEAL, priority=2)
+        # Play reveal sound (Joust/vox/)
+        await self._play_sound(Sound.VOX_WEREWOLF_REVEAL, priority=2)
 
         # Change werewolf colors to blue
         for serial in self.werewolf_serials:
@@ -458,11 +458,11 @@ class WerewolfGame(BaseGameMode):
                     )
                 )
 
-        # Play appropriate victory sound
+        # Play appropriate victory sound (Joust/vox/)
         if winner == "werewolves":
-            await self._play_sound(Sound.SFX_WEREWOLF_WIN, priority=2)
+            await self._play_sound(Sound.VOX_WEREWOLF_WIN, priority=2)
         elif winner == "humans":
-            await self._play_sound(Sound.SFX_HUMAN_WIN, priority=2)
+            await self._play_sound(Sound.VOX_HUMAN_WIN, priority=2)
         else:
             await self._play_sound(Sound.SFX_WOLFDOWN, priority=2)
 

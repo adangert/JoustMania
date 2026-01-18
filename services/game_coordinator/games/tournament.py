@@ -346,8 +346,8 @@ class TournamentGame(BaseGameMode):
                 )
                 await self.gameplay_stream.write(color_cmd)
 
-        # Play intro sound
-        await self._play_sound(Sound.SFX_TOURNAMENT_INTRO, priority=2)
+        # Play intro sound (use start sound - no dedicated tournament intro exists)
+        await self._play_sound(Sound.SFX_START3, priority=2)
 
         # Wait for intro
         for _ in range(30):  # 3 seconds
@@ -418,8 +418,8 @@ class TournamentGame(BaseGameMode):
         p1.invincible_until = invincible_until
         p2.invincible_until = invincible_until
 
-        # Play match start sound
-        await self._play_sound(Sound.SFX_FIGHT, priority=2)
+        # Play match start sound (use beep - no dedicated fight sound exists)
+        await self._play_sound(Sound.SFX_BEEP_LOUD, priority=2)
 
         # Run match with timer
         match_start = time.time()
@@ -532,8 +532,8 @@ class TournamentGame(BaseGameMode):
                     "round_start",
                     {"round": self.current_round, "total_rounds": self.total_rounds},
                 )
-                # Play round start sound
-                await self._play_sound(Sound.SFX_ROUND_START, priority=2)
+                # Play round start sound (use start - no dedicated round sound exists)
+                await self._play_sound(Sound.SFX_START, priority=2)
                 await asyncio.sleep(2)
 
             self.current_match = next_match
@@ -650,7 +650,7 @@ class TournamentGame(BaseGameMode):
                 )
                 await self.gameplay_stream.write(effect_cmd)
 
-            await self._play_sound(Sound.SFX_VICTORY, priority=2)
+            await self._play_sound(Sound.VOX_CONGRATULATIONS, priority=2)
 
         # Wait for celebration
         for _ in range(30):  # 3 seconds

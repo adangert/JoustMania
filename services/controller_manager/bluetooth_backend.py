@@ -48,40 +48,40 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def _battery_to_level(battery_value: int) -> int:
+def _battery_to_percent(battery_value: int) -> int:
     """
-    Convert psmove battery constant to 0-5 scale.
+    Convert psmove battery constant to percentage (0-100).
 
     psmove constants:
-    - Batt_MIN = 0x00
-    - Batt_20Percent = 0x01
-    - Batt_40Percent = 0x02
-    - Batt_60Percent = 0x03
-    - Batt_80Percent = 0x04
-    - Batt_MAX = 0x05
-    - Batt_CHARGING = 0xEE
-    - Batt_CHARGING_DONE = 0xEF
+    - Batt_MIN = 0x00 -> 0%
+    - Batt_20Percent = 0x01 -> 20%
+    - Batt_40Percent = 0x02 -> 40%
+    - Batt_60Percent = 0x03 -> 60%
+    - Batt_80Percent = 0x04 -> 80%
+    - Batt_MAX = 0x05 -> 100%
+    - Batt_CHARGING = 0xEE -> 100% (charging)
+    - Batt_CHARGING_DONE = 0xEF -> 100%
     """
     if not LINUX_DEPS_AVAILABLE:
-        return 5
+        return 100
 
     if battery_value == psmove.Batt_CHARGING:
-        return 5  # Treat charging as full for display purposes
+        return 100  # Treat charging as full for display purposes
     if battery_value == psmove.Batt_CHARGING_DONE or battery_value == psmove.Batt_MAX:
-        return 5
+        return 100
     if battery_value == psmove.Batt_80Percent:
-        return 4
+        return 80
     if battery_value == psmove.Batt_60Percent:
-        return 3
+        return 60
     if battery_value == psmove.Batt_40Percent:
-        return 2
+        return 40
     if battery_value == psmove.Batt_20Percent:
-        return 1
+        return 20
     if battery_value == psmove.Batt_MIN:
         return 0
     # Unknown value, log and return mid-range
     logger.debug(f"Unknown battery value: {battery_value:#x}")
-    return 3
+    return 50
 
 
 class BluetoothBackend(ControllerBackend):
@@ -328,9 +328,9 @@ class BluetoothBackend(ControllerBackend):
             ay = ay_raw / accel_scale
             az = az_raw / accel_scale
 
-            # Get battery (convert psmove constant to 0-5 scale)
+            # Get battery (convert psmove constant to percentage)
             battery_raw = move.get_battery()
-            battery = _battery_to_level(battery_raw)
+            battery = _battery_to_percent(battery_raw)
 
             # Build state dict with all button states
             return {

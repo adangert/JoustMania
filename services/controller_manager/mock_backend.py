@@ -57,7 +57,7 @@ class MockBackend(ControllerBackend):
 
                 self.controllers[serial] = {
                     StateKey.SERIAL: serial,
-                    StateKey.BATTERY: 5,  # Full battery (0-5)
+                    StateKey.BATTERY: 100,  # Full battery (percentage)
                     StateKey.TRIGGER: 0,
                     ButtonKey.MOVE: True,  # Start with Move pressed
                     ButtonKey.TRIGGER: True,  # Start with trigger pressed (marks controller as ready)
@@ -172,10 +172,10 @@ class MockBackend(ControllerBackend):
         controller[StateKey.GYRO][AxisKey.Y] = random.gauss(0.0, 0.5)
         controller[StateKey.GYRO][AxisKey.Z] = random.gauss(0.0, 0.5)
 
-        # Simulate battery drain (1 level per hour of use)
+        # Simulate battery drain (20% per hour of use, ~5 hour battery life)
         time_since_connected = current_time - controller["connected_at"]
         hours_used = time_since_connected / 3600
-        controller[StateKey.BATTERY] = max(0, 5 - int(hours_used))
+        controller[StateKey.BATTERY] = max(0, 100 - int(hours_used * 20))
 
         # Update timestamp
         controller["last_update"] = current_time

@@ -21,6 +21,40 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def _battery_to_percent(battery_value: int) -> int:
+    """
+    Convert psmove battery constant to percentage (0-100).
+
+    psmove constants:
+    - Batt_MIN = 0x00 -> 0%
+    - Batt_20Percent = 0x01 -> 20%
+    - Batt_40Percent = 0x02 -> 40%
+    - Batt_60Percent = 0x03 -> 60%
+    - Batt_80Percent = 0x04 -> 80%
+    - Batt_MAX = 0x05 -> 100%
+    - Batt_CHARGING = 0xEE -> 100% (charging)
+    - Batt_CHARGING_DONE = 0xEF -> 100%
+    """
+    if not PSMOVE_AVAILABLE:
+        return 100
+
+    if battery_value == psmove.Batt_CHARGING:
+        return 100
+    if battery_value == psmove.Batt_CHARGING_DONE or battery_value == psmove.Batt_MAX:
+        return 100
+    if battery_value == psmove.Batt_80Percent:
+        return 80
+    if battery_value == psmove.Batt_60Percent:
+        return 60
+    if battery_value == psmove.Batt_40Percent:
+        return 40
+    if battery_value == psmove.Batt_20Percent:
+        return 20
+    if battery_value == psmove.Batt_MIN:
+        return 0
+    return 50  # Unknown value
+
+
 class WindowsBackend(ControllerBackend):
     """
     Windows backend for PS Move controllers using psmoveapi.
@@ -70,8 +104,8 @@ class WindowsBackend(ControllerBackend):
                 if move.connection_type == psmove.Conn_Bluetooth:
                     self.controllers[serial] = move
                     self.move_indices[serial] = i
-                    battery = move.get_battery()
-                    logger.info(f"Connected to controller {serial} (battery: {battery}/5)")
+                    battery = _battery_to_percent(move.get_battery())
+                    logger.info(f"Connected to controller {serial} (battery: {battery}%)")
 
                     # Set initial LED color (dim white to indicate ready)
                     move.set_leds(50, 50, 50)
@@ -174,8 +208,8 @@ class WindowsBackend(ControllerBackend):
             # Read gyroscope (raw values)
             gx, gy, gz = move.get_gyroscope_frame(psmove.Frame_SecondHalf)
 
-            # Battery level (0-5)
-            battery = move.get_battery()
+            # Battery level (convert to percentage)
+            battery = _battery_to_percent(move.get_battery())
 
             # Temperature (internal sensor)
             temperature = move.get_temperature()

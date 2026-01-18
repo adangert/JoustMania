@@ -408,7 +408,8 @@ class TraitorGame(TeamsGameBase):
                         await self.controller_client.PlayControllerEffect(rainbow_request)
 
             # Play victory sound
-            await self._play_sound("Joust/sounds/wolfdown.wav", priority=2)
+            # TODO: Use voice setting from settings service instead of hardcoded path
+            await self._play_sound("Joust/vox/aaron/traitor win.wav", priority=2)
 
         # Wait for celebration
         for _ in range(20):  # 2 seconds

@@ -209,7 +209,8 @@ class FFAGame(BaseGameMode):
                 await self.controller_client.PlayControllerEffect(rainbow_request)
 
             # Play victory sound (Phase 29)
-            await self._play_sound("Joust/sounds/wolfdown.wav", priority=2)
+            # TODO: Use voice setting from settings service instead of hardcoded path
+            await self._play_sound("Joust/vox/aaron/congratulations.wav", priority=2)
 
         # Show winner for a bit (interruptible by force_end)
         for _ in range(20):  # 2 seconds in 0.1s increments

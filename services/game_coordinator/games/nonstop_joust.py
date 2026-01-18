@@ -521,7 +521,8 @@ class NonstopJoustGame(BaseGameMode):
                 await self.controller_client.PlayControllerEffect(rainbow_request)
 
             # Play victory sound (Phase 29)
-            await self._play_sound("Joust/sounds/wolfdown.wav", priority=2)
+            # TODO: Use voice setting from settings service instead of hardcoded path
+            await self._play_sound("Joust/vox/aaron/congratulations.wav", priority=2)
 
             self.event_publisher(
                 GameEvent.GAME_WINNER,

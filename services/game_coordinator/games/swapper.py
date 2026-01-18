@@ -17,7 +17,7 @@ from opentelemetry.trace import Status, StatusCode
 
 from proto import controller_manager_pb2
 from services.game_coordinator.games.base import Player
-from services.game_coordinator.games.teams_base import TeamsGameBase
+from services.game_coordinator.games.teams_base import TEAM_WIN_SOUNDS, TeamsGameBase
 
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
@@ -353,8 +353,12 @@ class SwapperGame(TeamsGameBase):
             )
             await self.gameplay_stream.write(color_cmd)
 
-        # Play victory sound
-        await self._play_sound("Joust/sounds/wolfdown.wav", priority=2)
+        # Play team victory sound
+        # TODO: Use voice setting from settings service instead of hardcoded path
+        winning_team_obj = self.teams.get(winning_team)
+        if winning_team_obj:
+            sound_file = TEAM_WIN_SOUNDS.get(winning_team_obj.name, "Joust/vox/aaron/congratulations.wav")
+            await self._play_sound(sound_file, priority=2)
 
         # Wait for celebration (interruptible)
         for _ in range(20):  # 2 seconds

@@ -36,6 +36,16 @@ TEAM_COLORS = [
     {"name": "Purple", "rgb": (96, 0, 255)},
 ]
 
+# Map team names to victory sound files
+# Teams without specific sounds fall back to congratulations
+TEAM_WIN_SOUNDS = {
+    "Blue": "Joust/vox/aaron/blue team win.wav",
+    "Magenta": "Joust/vox/aaron/magenta team win.wav",
+    "Green": "Joust/vox/aaron/green team win.wav",
+    "Yellow": "Joust/vox/aaron/yellow team win.wav",
+    "Turquoise": "Joust/vox/aaron/cyan team win.wav",  # Turquoise uses cyan sound
+}
+
 
 @dataclass
 class Team:
@@ -418,8 +428,12 @@ class TeamsGameBase(BaseGameMode):
                         )
                         await self.controller_client.PlayControllerEffect(rainbow_request)
 
-            # Play victory sound (Phase 29)
-            await self._play_sound("Joust/sounds/wolfdown.wav", priority=2)
+            # Play team victory sound (Phase 29)
+            # TODO: Use voice setting from settings service instead of hardcoded path
+            winning_team = self.teams.get(winning_team_num)
+            if winning_team:
+                sound_file = TEAM_WIN_SOUNDS.get(winning_team.name, "Joust/vox/aaron/congratulations.wav")
+                await self._play_sound(sound_file, priority=2)
 
         # Show winner for a bit (interruptible by force_end)
         for _ in range(20):  # 2 seconds in 0.1s increments

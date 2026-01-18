@@ -28,7 +28,7 @@ from opentelemetry import trace
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from lib.types import Sound
-from services.menu.admin_mode import AdminModeHandler
+from services.menu.handlers.admin import AdminModeHandler
 from services.menu.utils import AudioHelper, LedController, SettingsHelper
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))

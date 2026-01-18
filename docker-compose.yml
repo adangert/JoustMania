@@ -380,6 +380,29 @@ services:
       retries: 5
       start_period: 10s
 
+  # Node Exporter for host metrics (CPU, memory, disk, temperature)
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: joustmania-node-exporter
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - joustmania
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9100/metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
   # Grafana for metrics visualization (Phase 38)
   grafana:
     image: grafana/grafana:10.2.3

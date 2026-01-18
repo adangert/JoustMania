@@ -62,3 +62,10 @@ scrape_configs:
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
+
+  # Node Exporter (host metrics - CPU, memory, disk, temperature)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          instance: 'raspberry-pi'

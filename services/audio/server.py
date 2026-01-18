@@ -73,8 +73,11 @@ class AudioManager:
 
         # Initialize pygame for sound effects
         if not self.mock_mode:
+            # Force SDL/pygame to use ALSA and the default device from asound.conf
+            os.environ.setdefault("SDL_AUDIODRIVER", "alsa")
             pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
             pygame.mixer.set_num_channels(8)  # Allow up to 8 simultaneous sounds
+            logger.info(f"Pygame mixer initialized (SDL_AUDIODRIVER={os.environ.get('SDL_AUDIODRIVER', 'default')})")
         else:
             logger.info("AudioManager running in MOCK_MODE - no actual audio playback")
 

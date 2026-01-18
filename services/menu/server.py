@@ -764,12 +764,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         # Update ready count
         self.ready_controller_count = len(self.ready_controllers)
 
-        # If admin mode controller disconnected, exit admin mode
-        if self.admin_mode_active and serial == self.admin_mode_controller:
-            logger.info(f"Admin mode controller {serial} disconnected, exiting admin mode")
-            self.admin_mode_active = False
-            self.admin_mode_controller = None
-            self.admin_mode_entry_time = 0
+        # If admin mode controller disconnected, reset admin mode state
+        self.admin_handler.reset_on_disconnect(serial)
 
         logger.info(f"Controller {serial} disconnected, state cleaned up")
 
@@ -851,7 +847,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         serial = controller.serial
 
         # Skip admin mode controllers (handled separately)
-        if self.admin_mode_active and serial == self.admin_mode_controller:
+        if self.admin_handler.is_admin_controller(serial):
             return
 
         # Determine target state based on ready set (updated by button events)
@@ -996,21 +992,22 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     if not is_press:
                         # Reset admin combo flag when any face button released
                         if button_name in ["cross", "circle", "square", "triangle"]:
-                            self.admin_combo_shown = False
+                            self.admin_handler.combo_shown = False
                         continue
 
                     # Check for admin mode combo (all 4 face buttons pressed)
                     is_face_button = button_name in ["cross", "circle", "square", "triangle"]
-                    if is_face_button and self._check_admin_combo_from_state(serial):
-                        if not self.admin_combo_shown:
-                            self.admin_combo_shown = True
-                            await self._enter_admin_mode(serial)
+                    button_state = self.controller_button_states.get(serial, {})
+                    if is_face_button and self.admin_handler.check_combo_from_state(button_state):
+                        if not self.admin_handler.combo_shown:
+                            self.admin_handler.combo_shown = True
+                            await self.admin_handler.enter(serial)
                         continue  # Don't process as individual button
 
                     # Handle button based on current mode
-                    if self.admin_mode_active and serial == self.admin_mode_controller:
+                    if self.admin_handler.is_admin_controller(serial):
                         # Admin mode: process admin commands
-                        await self._handle_admin_button_event(serial, button_name)
+                        await self.admin_handler.handle_button_event(serial, button_name)
                     elif self.state == menu_pb2.MenuState.RUNNING:
                         # Normal menu mode: process menu actions
                         await self._handle_menu_button_event(serial, button_name, stub)
@@ -1315,19 +1312,19 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         prev_state = self.controller_button_states[serial]
 
         # Phase 23: Check for admin mode combo (all 4 front buttons)
-        if self._check_admin_mode_combo(controller):
-            if not self.admin_combo_shown:  # Only trigger once per combo
-                await self._enter_admin_mode(serial)
-                self.admin_combo_shown = True
+        if self.admin_handler.check_combo_from_controller(controller):
+            if not self.admin_handler.combo_shown:  # Only trigger once per combo
+                await self.admin_handler.enter(serial)
+                self.admin_handler.combo_shown = True
         else:
-            self.admin_combo_shown = False
+            self.admin_handler.combo_shown = False
 
         # Phase 23: Process admin mode commands if active
-        if self.admin_mode_active and serial == self.admin_mode_controller:
+        if self.admin_handler.is_admin_controller(serial):
             # Phase 58: Check for admin mode timeout (60 seconds)
-            if current_time - self.admin_mode_entry_time > 60:
+            if current_time - self.admin_handler.entry_time > 60:
                 logger.info("Admin mode timed out after 60 seconds")
-                await self._exit_admin_mode()
+                await self.admin_handler.exit()
                 return
 
             await self._process_admin_commands(controller, prev_state, current_time)
@@ -1445,7 +1442,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         current_time = time.time()
 
         # Skip admin mode controllers (handled separately)
-        if self.admin_mode_active and serial == self.admin_mode_controller:
+        if self.admin_handler.is_admin_controller(serial):
             return
 
         # Track first connection (no flash, just set initial state)
@@ -1899,7 +1896,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             and not prev_state["move"]
             and self._should_process_button(controller.serial, "move", current_time)
         ):
-            await self._handle_admin_cycle_option(controller.serial)
+            await self.admin_handler.handle_cycle_option(controller.serial)
 
         # TRIGGER button: Track hold for force start (Phase 79)
         # Visual feedback: LED fades from white to dark over 2 seconds via EFFECT_FADE_OUT
@@ -1909,7 +1906,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 self.admin_trigger_hold_start = current_time
                 self.admin_force_start_pending = False
                 # Start fade-out effect on controller manager (2 seconds)
-                await self._start_force_start_effect(controller.serial)
+                await self.admin_handler.start_force_start_effect(controller.serial)
             elif not self.admin_force_start_pending:
                 # Trigger still held - check if 2 seconds have passed
                 hold_duration = current_time - self.admin_trigger_hold_start
@@ -1918,18 +1915,18 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 if hold_duration >= force_start_threshold:
                     # Force start game
                     self.admin_force_start_pending = True
-                    await self._handle_admin_force_start(controller.serial)
+                    await self.admin_handler.handle_force_start(controller.serial)
         else:
             # Trigger released - was a short press (< 2s) - cancel effect and increase value
             if prev_state["trigger"] and not self.admin_force_start_pending:
                 # Cancel fade effect and restore white color (admin mode)
-                await self._cancel_force_start_effect(controller.serial)
+                await self.admin_handler.cancel_force_start_effect(controller.serial)
             if (
                 prev_state["trigger"]
                 and not self.admin_force_start_pending
                 and self._should_process_button(controller.serial, "trigger", current_time)
             ):
-                await self._handle_admin_increase_value(controller.serial)
+                await self.admin_handler.handle_increase_value(controller.serial)
             # Reset state
             self.admin_trigger_hold_start = 0.0
             self.admin_force_start_pending = False
@@ -1940,7 +1937,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             and not prev_state["cross"]
             and self._should_process_button(controller.serial, "cross", current_time)
         ):
-            await self._handle_admin_decrease_value(controller.serial)
+            await self.admin_handler.handle_decrease_value(controller.serial)
 
         # SELECT button: Cycle game mode backward (Phase 79)
         if (
@@ -1948,7 +1945,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             and not prev_state.get("select", False)
             and self._should_process_button(controller.serial, "select", current_time)
         ):
-            await self._handle_admin_game_mode_change(controller.serial, forward=False)
+            await self.admin_handler.handle_game_mode_change(controller.serial, forward=False)
 
         # START button: Cycle game mode forward (Phase 79)
         if (
@@ -1956,7 +1953,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             and not prev_state.get("start", False)
             and self._should_process_button(controller.serial, "start", current_time)
         ):
-            await self._handle_admin_game_mode_change(controller.serial, forward=True)
+            await self.admin_handler.handle_game_mode_change(controller.serial, forward=True)
 
         # Circle button: Cycle sensitivity (quick access)
         if (
@@ -1964,7 +1961,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             and not prev_state["circle"]
             and self._should_process_button(controller.serial, "circle", current_time)
         ):
-            await self._handle_admin_sensitivity(controller.serial)
+            await self.admin_handler.handle_sensitivity(controller.serial)
 
         # Triangle button: Show battery levels (quick access)
         if (
@@ -1972,7 +1969,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             and not prev_state["triangle"]
             and self._should_process_button(controller.serial, "triangle", current_time)
         ):
-            await self._handle_admin_battery(controller.serial)
+            await self.admin_handler.handle_battery(controller.serial)
 
         # Square button: Toggle instructions (quick access)
         if (
@@ -1980,7 +1977,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             and not prev_state["square"]
             and self._should_process_button(controller.serial, "square", current_time)
         ):
-            await self._handle_admin_instructions(controller.serial)
+            await self.admin_handler.handle_instructions(controller.serial)
 
         # PlayStation button: Exit admin mode
         if (
@@ -1988,7 +1985,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             and not prev_state["ps"]
             and self._should_process_button(controller.serial, "ps", current_time)
         ):
-            await self._exit_admin_mode()
+            await self.admin_handler.exit()
 
     async def _handle_admin_sensitivity(self, serial: str):
         """
@@ -2396,7 +2393,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 # Schedule restore to white after mode color finishes
                 async def restore_white():
                     await asyncio.sleep(1.0)
-                    if self.admin_mode_active and serial == self.admin_mode_controller:
+                    if self.admin_handler.is_admin_controller(serial):
                         try:
                             white_request = controller_manager_pb2.SetControllerColorRequest(
                                 serial=serial,
@@ -2450,7 +2447,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 # Phase 59: Schedule restore to white after option color finishes
                 async def restore_white():
                     await asyncio.sleep(1.1)  # Wait for option color to finish
-                    if self.admin_mode_active and serial == self.admin_mode_controller:
+                    if self.admin_handler.is_admin_controller(serial):
                         try:
                             white_request = controller_manager_pb2.SetControllerColorRequest(
                                 serial=serial,

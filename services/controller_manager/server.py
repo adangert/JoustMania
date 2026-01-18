@@ -138,6 +138,18 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Phase 72: LED update timing (separated from polling)
         self._last_led_update = 0.0
 
+        # Adaptive polling (Quick Win optimization)
+        # Track activity per controller to reduce polling frequency when idle
+        # - Active: poll at 60Hz (16ms) - controller has button/motion activity
+        # - Idle: poll at 10Hz (100ms) - no activity for >5 seconds
+        self._last_activity_time: dict[str, float] = {}  # serial -> last activity timestamp
+        self._previous_accel: dict[str, tuple[float, float, float]] = {}  # for motion detection
+        self._last_poll_time: dict[str, float] = {}  # serial -> last poll timestamp
+        self._idle_threshold_seconds = 5.0  # Seconds of inactivity before going to idle mode
+        self._active_poll_interval = 0.016  # ~60Hz
+        self._idle_poll_interval = 0.100  # ~10Hz
+        self._accel_movement_threshold = 0.05  # Minimum accel change to count as activity
+
         # Discovery thread
         self.running = True
         self.backend_initialized = False  # Phase 57: Track backend init status
@@ -167,8 +179,15 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         """
         import asyncio
 
-        # Create a single event loop for this thread and reuse it
-        self._discovery_loop_handle = asyncio.new_event_loop()
+        # Performance: Use uvloop for discovery thread's event loop too
+        try:
+            import uvloop
+
+            self._discovery_loop_handle = uvloop.new_event_loop()
+            logger.debug("Discovery loop using uvloop")
+        except ImportError:
+            self._discovery_loop_handle = asyncio.new_event_loop()
+
         asyncio.set_event_loop(self._discovery_loop_handle)
 
         try:
@@ -215,8 +234,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                 # Phase 72: Update LEDs at 20Hz (every 50ms) - separated from polling
                 if current_time - self._last_led_update >= 0.05:
-                    self.backend.update_all_leds()
+                    updated_count = self.backend.update_all_leds()
                     self._last_led_update = current_time
+                    # Track LED batch update efficiency
+                    metrics.led_batch_updates_total.inc()
+                    metrics.led_controllers_updated_per_batch.observe(updated_count)
 
                 # No sleep - poll as fast as possible for button responsiveness
 
@@ -264,6 +286,10 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         controllers concurrently. This reduces latency from O(n × latency)
         to O(latency), enabling support for large player counts.
 
+        Adaptive polling: Controllers are polled at different rates based on activity:
+        - Active (recent button/motion activity): 60Hz
+        - Idle (no activity for 5+ seconds): 10Hz
+
         Called frequently (~60 Hz) to keep states fresh for streaming.
         Uses shared discovery loop event loop for efficiency.
         """
@@ -272,24 +298,63 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
         try:
             # Get list of serials (dict.keys() is atomic in Python due to GIL)
-            serials = list(self.tracked_controllers.keys())
+            all_serials = list(self.tracked_controllers.keys())
 
-            if not serials:
+            if not all_serials:
+                return
+
+            current_time = time.time()
+
+            # Adaptive polling: Determine which controllers need polling this cycle
+            serials_to_poll = []
+            active_count = 0
+            idle_count = 0
+            skipped_count = 0
+
+            for serial in all_serials:
+                last_activity = self._last_activity_time.get(serial, current_time)
+                last_poll = self._last_poll_time.get(serial, 0)
+                is_idle = (current_time - last_activity) > self._idle_threshold_seconds
+
+                if is_idle:
+                    idle_count += 1
+                    poll_interval = self._idle_poll_interval
+                else:
+                    active_count += 1
+                    poll_interval = self._active_poll_interval
+
+                # Check if enough time has passed since last poll
+                if (current_time - last_poll) >= poll_interval:
+                    serials_to_poll.append(serial)
+                    self._last_poll_time[serial] = current_time
+                else:
+                    skipped_count += 1
+
+            # Update adaptive polling metrics
+            metrics.adaptive_polling_active_controllers.set(active_count)
+            metrics.adaptive_polling_idle_controllers.set(idle_count)
+            if skipped_count > 0:
+                metrics.adaptive_polling_skipped_total.inc(skipped_count)
+
+            if not serials_to_poll:
                 return
 
             # Debug: Log tracked controller count periodically (every 5 seconds)
             if not hasattr(self, "_last_controller_count_log"):
                 self._last_controller_count_log = 0
-            if time.time() - self._last_controller_count_log >= 5.0:
-                logger.info(f"Polling {len(serials)} controllers: {serials}")
-                self._last_controller_count_log = time.time()
+            if current_time - self._last_controller_count_log >= 5.0:
+                logger.info(
+                    f"Polling {len(serials_to_poll)}/{len(all_serials)} controllers "
+                    f"(active={active_count}, idle={idle_count}): {serials_to_poll}"
+                )
+                self._last_controller_count_log = current_time
 
             # Phase 62: Parallel polling - read all controllers concurrently
             start_time = time.time()
 
             async def get_all_states():
                 """Gather all controller states in parallel."""
-                coros = [self.backend.get_controller_state(serial) for serial in serials]
+                coros = [self.backend.get_controller_state(serial) for serial in serials_to_poll]
                 return await asyncio.gather(*coros, return_exceptions=True)
 
             # Single blocking call for ALL controllers (instead of one per controller)
@@ -298,10 +363,10 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             # Record metrics
             poll_duration = time.time() - start_time
             metrics.poll_batch_duration_seconds.observe(poll_duration)
-            metrics.poll_batch_size.observe(len(serials))
+            metrics.poll_batch_size.observe(len(serials_to_poll))
 
             # Process all results (no lock needed - dict operations atomic due to GIL)
-            for serial, state in zip(serials, results, strict=False):
+            for serial, state in zip(serials_to_poll, results, strict=False):
                 # Skip if controller was removed during polling
                 if serial not in self.tracked_controllers:
                     continue
@@ -331,8 +396,64 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 # This ensures button events are detected at polling frequency, not stream frequency
                 self._detect_button_transitions_from_state(serial, state)
 
+                # Adaptive polling: Detect activity to update polling rate
+                self._update_activity_tracking(serial, state, current_time)
+
         except Exception as e:
             logger.error(f"Error updating controller states: {e}", exc_info=True)
+
+    def _update_activity_tracking(self, serial: str, state: dict, current_time: float):
+        """
+        Update activity tracking for adaptive polling.
+
+        Activity is detected when:
+        - Any button is pressed
+        - Accelerometer values change significantly (movement detected)
+        """
+        activity_detected = False
+
+        # Check for any button activity
+        button_keys = [
+            ButtonKey.MOVE,
+            ButtonKey.TRIGGER,
+            ButtonKey.PS,
+            ButtonKey.CROSS,
+            ButtonKey.CIRCLE,
+            ButtonKey.SQUARE,
+            ButtonKey.TRIANGLE,
+            ButtonKey.SELECT,
+            ButtonKey.START,
+        ]
+        for key in button_keys:
+            if state.get(key, False):
+                activity_detected = True
+                break
+
+        # Check for accelerometer movement if no button pressed
+        if not activity_detected and StateKey.ACCEL in state:
+            accel = state[StateKey.ACCEL]
+            current_accel = (
+                accel.get(AxisKey.X, 0),
+                accel.get(AxisKey.Y, 0),
+                accel.get(AxisKey.Z, 0),
+            )
+
+            prev_accel = self._previous_accel.get(serial)
+            if prev_accel:
+                # Calculate magnitude of acceleration change
+                dx = abs(current_accel[0] - prev_accel[0])
+                dy = abs(current_accel[1] - prev_accel[1])
+                dz = abs(current_accel[2] - prev_accel[2])
+                movement = dx + dy + dz
+
+                if movement > self._accel_movement_threshold:
+                    activity_detected = True
+
+            self._previous_accel[serial] = current_accel
+
+        # Update last activity time if activity detected
+        if activity_detected:
+            self._last_activity_time[serial] = current_time
 
     def _spawn_controller_process(self, serial: str):
         """
@@ -1080,6 +1201,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     # Phase XX: Clean up base colors
                     if serial in self.base_colors:
                         del self.base_colors[serial]
+
+                    # Clean up adaptive polling tracking data
+                    self._last_activity_time.pop(serial, None)
+                    self._previous_accel.pop(serial, None)
+                    self._last_poll_time.pop(serial, None)
 
                 # Cancel any active effects (Phase 31, Phase 34: async lock - outside state_lock)
                 async with self.effect_lock:
@@ -2036,4 +2162,15 @@ async def serve(port=50052, metrics_port=8000):
 
 
 if __name__ == "__main__":
+    # Performance optimization: Use uvloop for faster event loop on Linux
+    # uvloop provides 2-4x faster asyncio performance by using libuv
+    try:
+        import uvloop
+
+        uvloop.install()
+        logger.info("uvloop installed for improved asyncio performance")
+    except ImportError:
+        # uvloop not available (e.g., macOS/Windows development)
+        pass
+
     asyncio.run(serve())

@@ -149,3 +149,31 @@ poll_batch_size = Histogram(
     "Number of controllers polled per batch",
     buckets=[1, 2, 4, 8, 12, 16, 20, 24],
 )
+
+# Adaptive polling metrics (Quick Win optimization)
+adaptive_polling_active_controllers = Gauge(
+    "controller_adaptive_polling_active",
+    "Number of controllers being polled at active rate (60Hz)",
+)
+
+adaptive_polling_idle_controllers = Gauge(
+    "controller_adaptive_polling_idle",
+    "Number of controllers being polled at idle rate (10Hz)",
+)
+
+adaptive_polling_skipped_total = Counter(
+    "controller_adaptive_polling_skipped_total",
+    "Total number of poll cycles skipped due to adaptive rate limiting",
+)
+
+# LED batch update metrics (Phase 72 optimization)
+led_batch_updates_total = Counter(
+    "controller_led_batch_updates_total",
+    "Total number of LED batch update cycles",
+)
+
+led_controllers_updated_per_batch = Histogram(
+    "controller_led_controllers_updated_per_batch",
+    "Number of controllers with LEDs updated per batch cycle",
+    buckets=[0, 1, 2, 4, 8, 12, 16, 20, 24],
+)

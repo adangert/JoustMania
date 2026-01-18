@@ -61,6 +61,9 @@ class MockController:
         self.gyro = Vector3(x=0.0, y=0.0, z=0.0)
         self.death_accel = None  # Set by SimulateDeath to hold death acceleration
         self.death_hold_until = 0.0  # Timestamp until which to hold death acceleration
+        # Phase 79: Select/Start buttons for admin mode game selection
+        self.select_pressed = False
+        self.start_pressed = False
 
     def to_proto(self) -> ControllerState:
         """Convert to protobuf ControllerState."""
@@ -75,6 +78,8 @@ class MockController:
             color=self.color,
             accel=self.accel,
             gyro=self.gyro,
+            select_pressed=self.select_pressed,  # Phase 79
+            start_pressed=self.start_pressed,  # Phase 79
         )
 
 

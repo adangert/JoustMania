@@ -110,6 +110,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             (150, 0, 255),  # Purple for force_all_start
         ]
 
+        # Phase 79: Force start game state (trigger hold 2s)
+        self.admin_trigger_hold_start: float = 0.0
+        self.admin_force_start_pending: bool = False
+
         # Phase XX: Bidirectional button event stream for LED state ownership
         self.button_stream: grpc.aio.StreamStreamCall | None = None
         self.button_stream_lock = asyncio.Lock()
@@ -1256,6 +1260,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             prev_state["square"] = controller.square_pressed
             prev_state["triangle"] = controller.triangle_pressed
             prev_state["ps"] = controller.ps_pressed
+            prev_state["select"] = controller.select_pressed
+            prev_state["start"] = controller.start_pressed
             return
 
         # Normal menu mode: Detect trigger press (False → True) - starts game
@@ -1285,6 +1291,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         prev_state["square"] = controller.square_pressed
         prev_state["triangle"] = controller.triangle_pressed
         prev_state["ps"] = controller.ps_pressed
+        prev_state["select"] = controller.select_pressed
+        prev_state["start"] = controller.start_pressed
 
     # Game modes available in the menu (Phase 59: single source of truth)
     GAME_MODES = [
@@ -1756,12 +1764,17 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
     async def _process_admin_commands(self, controller, prev_state: dict[str, bool], current_time: float):
         """
-        Process admin mode commands (Phase 23).
+        Process admin mode commands (Phase 23, enhanced Phase 79).
 
         Admin option navigation:
         - MOVE button: Cycle through settings (num_teams, force_all_start)
-        - TRIGGER button: Increase current setting value
+        - TRIGGER button (tap): Increase current setting value
+        - TRIGGER button (hold 2s): Force start game
         - CROSS button: Decrease current setting value
+
+        Game mode selection (Phase 79):
+        - SELECT button: Cycle game mode backward
+        - START button: Cycle game mode forward
 
         Quick access commands:
         - Circle: Cycle sensitivity
@@ -1782,13 +1795,30 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         ):
             await self._handle_admin_cycle_option(controller.serial)
 
-        # TRIGGER button: Increase current setting value
-        if (
-            controller.trigger_pressed
-            and not prev_state["trigger"]
-            and self._should_process_button(controller.serial, "trigger", current_time)
-        ):
-            await self._handle_admin_increase_value(controller.serial)
+        # TRIGGER button: Track hold for force start (Phase 79)
+        if controller.trigger_pressed:
+            if not prev_state["trigger"]:
+                # Trigger just pressed - start tracking hold time
+                self.admin_trigger_hold_start = current_time
+                self.admin_force_start_pending = False
+            elif not self.admin_force_start_pending:
+                # Trigger still held - check if 2 seconds have passed
+                hold_duration = current_time - self.admin_trigger_hold_start
+                if hold_duration >= 2.0:
+                    # Force start game
+                    self.admin_force_start_pending = True
+                    await self._handle_admin_force_start(controller.serial)
+        else:
+            # Trigger released - was a short press (< 2s) - increase value
+            if (
+                prev_state["trigger"]
+                and not self.admin_force_start_pending
+                and self._should_process_button(controller.serial, "trigger", current_time)
+            ):
+                await self._handle_admin_increase_value(controller.serial)
+            # Reset state
+            self.admin_trigger_hold_start = 0.0
+            self.admin_force_start_pending = False
 
         # CROSS button: Decrease current setting value
         if (
@@ -1797,6 +1827,22 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             and self._should_process_button(controller.serial, "cross", current_time)
         ):
             await self._handle_admin_decrease_value(controller.serial)
+
+        # SELECT button: Cycle game mode backward (Phase 79)
+        if (
+            controller.select_pressed
+            and not prev_state.get("select", False)
+            and self._should_process_button(controller.serial, "select", current_time)
+        ):
+            await self._handle_admin_game_mode_change(controller.serial, forward=False)
+
+        # START button: Cycle game mode forward (Phase 79)
+        if (
+            controller.start_pressed
+            and not prev_state.get("start", False)
+            and self._should_process_button(controller.serial, "start", current_time)
+        ):
+            await self._handle_admin_game_mode_change(controller.serial, forward=True)
 
         # Circle button: Cycle sensitivity (quick access)
         if (
@@ -1832,9 +1878,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
     async def _handle_admin_sensitivity(self, serial: str):
         """
-        Handle sensitivity cycling in admin mode (Phase 28).
+        Handle sensitivity cycling in admin mode (Phase 79).
 
-        Cycles through: Slow (0) → Medium (1) → Fast (2) → Slow
+        Cycles through all 5 levels:
+        Ultra Slow (0) → Slow (1) → Medium (2) → Fast (3) → Ultra Fast (4) → Ultra Slow
 
         Args:
             serial: Controller serial number
@@ -1856,15 +1903,15 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 # Get current sensitivity
                 get_request = settings_pb2.GetSettingRequest(key="sensitivity")
                 get_response = await settings_stub.GetSetting(get_request)
-                current = int(get_response.value) if get_response.value else 1
+                current = int(get_response.value) if get_response.value else 2
 
-                # Validate current value is in range
-                if current < 0 or current > 2:
-                    logger.warning(f"Invalid sensitivity value {current}, resetting to 1")
-                    current = 1
+                # Validate current value is in range (0-4)
+                if current < 0 or current > 4:
+                    logger.warning(f"Invalid sensitivity value {current}, resetting to 2")
+                    current = 2
 
-                # Cycle: 0 (slow) → 1 (medium) → 2 (fast) → 0
-                new_value = str((current + 1) % 3)
+                # Cycle through all 5 levels: 0 → 1 → 2 → 3 → 4 → 0
+                new_value = str((current + 1) % 5)
 
                 # Update setting
                 update_request = settings_pb2.UpdateSettingRequest(
@@ -1872,11 +1919,13 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 )
                 await settings_stub.UpdateSetting(update_request)
 
-                # Visual feedback: Color by sensitivity level
+                # Visual feedback: Color by sensitivity level (5 distinct colors)
                 sensitivity_colors = [
-                    (0, 0, 255),  # Slow: Blue
+                    (0, 0, 150),  # Ultra Slow: Dark Blue
+                    (0, 100, 255),  # Slow: Light Blue
                     (0, 255, 0),  # Medium: Green
-                    (255, 0, 0),  # Fast: Red
+                    (255, 128, 0),  # Fast: Orange
+                    (255, 0, 0),  # Ultra Fast: Red
                 ]
                 color = sensitivity_colors[int(new_value)]
 
@@ -1893,10 +1942,17 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 )
                 await controller_stub.PlayControllerEffect(effect_request)
 
-                sensitivity_names = ["Slow", "Medium", "Fast"]
+                sensitivity_names = ["Ultra Slow", "Slow", "Medium", "Fast", "Ultra Fast"]
 
                 # Phase 60: Play sensitivity voice announcement
-                sensitivity_sounds = ["slow_sensitivity.wav", "mid_sensitivity.wav", "fast_sensitivity.wav"]
+                # Map 5 levels to 3 available sound files
+                sensitivity_sounds = [
+                    "slow_sensitivity.wav",  # Ultra Slow
+                    "slow_sensitivity.wav",  # Slow
+                    "mid_sensitivity.wav",  # Medium
+                    "fast_sensitivity.wav",  # Fast
+                    "fast_sensitivity.wav",  # Ultra Fast
+                ]
                 await self._play_sound(f"Menu/sounds/{sensitivity_sounds[int(new_value)]}")
 
                 span.add_event(
@@ -2036,6 +2092,146 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
             except Exception as e:
                 logger.error(f"Error toggling instructions: {e}", exc_info=True)
+
+    async def _handle_admin_force_start(self, serial: str):
+        """
+        Force start the game from admin mode (Phase 79).
+
+        Triggered when admin holds trigger for 2 seconds.
+        Starts the game regardless of ready state.
+
+        Args:
+            serial: Controller serial number
+        """
+        with tracer.start_as_current_span("admin_force_start") as span:
+            span.set_attribute("controller.serial", serial)
+            span.set_attribute("game.name", self.current_selection)
+
+            from proto import controller_manager_pb2, controller_manager_pb2_grpc
+
+            try:
+                # Visual feedback: White flash before starting
+                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
+                effect_request = controller_manager_pb2.PlayControllerEffectRequest(
+                    serial=serial,
+                    effect=controller_manager_pb2.ControllerEffect.EFFECT_FLASH,
+                    color=controller_manager_pb2.RGB(r=255, g=255, b=255),
+                    duration_ms=500,
+                    speed=10,
+                )
+                await stub.PlayControllerEffect(effect_request)
+
+                # Exit admin mode
+                await self._exit_admin_mode()
+
+                # Small delay for visual feedback
+                await asyncio.sleep(0.3)
+
+                # Start the game
+                self.state = menu_pb2.MenuState.GAME_STARTING
+                await self._publish_event(
+                    "game_requested",
+                    {"game_name": self.current_selection, "source": "admin_force_start", "serial": serial},
+                )
+
+                span.add_event("force_start_triggered", {"game": self.current_selection})
+                logger.info(f"Force starting game '{self.current_selection}' via admin controller {serial}")
+
+            except Exception as e:
+                logger.error(f"Error force starting game: {e}", exc_info=True)
+
+    async def _handle_admin_game_mode_change(self, serial: str, forward: bool = True):
+        """
+        Change game mode from admin mode (Phase 79).
+
+        Only available in admin mode to prevent accidental game changes.
+
+        Args:
+            serial: Controller serial number
+            forward: True to go forward through modes, False to go backward
+        """
+        with tracer.start_as_current_span("admin_game_mode_change") as span:
+            span.set_attribute("controller.serial", serial)
+            span.set_attribute("direction", "forward" if forward else "backward")
+
+            from proto import controller_manager_pb2, controller_manager_pb2_grpc
+
+            try:
+                # Get current index
+                if self.current_selection in self.GAME_MODES:
+                    current_index = self.GAME_MODES.index(self.current_selection)
+                else:
+                    current_index = 0
+
+                # Calculate new index
+                if forward:
+                    new_index = (current_index + 1) % len(self.GAME_MODES)
+                else:
+                    new_index = (current_index - 1) % len(self.GAME_MODES)
+
+                old_selection = self.current_selection
+                self.current_selection = self.GAME_MODES[new_index]
+
+                span.set_attribute("old_game", old_selection)
+                span.set_attribute("new_game", self.current_selection)
+
+                # Visual feedback: Show game mode color
+                mode_color = self.GAME_MODE_COLORS.get(self.current_selection, (255, 140, 0))
+                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
+
+                # Pulse the game mode color
+                effect_request = controller_manager_pb2.PlayControllerEffectRequest(
+                    serial=serial,
+                    effect=controller_manager_pb2.ControllerEffect.EFFECT_PULSE,
+                    color=controller_manager_pb2.RGB(r=mode_color[0], g=mode_color[1], b=mode_color[2]),
+                    duration_ms=800,
+                    speed=5,
+                )
+                await stub.PlayControllerEffect(effect_request)
+
+                # Publish mode change event
+                await self._publish_event(
+                    "mode_changed",
+                    {"old_mode": old_selection, "new_mode": self.current_selection, "source": "admin"},
+                )
+
+                # Phase 60: Play game mode voice announcement
+                game_voice_map = {
+                    "FFA": "game_ffa.wav",
+                    "Teams": "game_teams.wav",
+                    "Random Teams": "game_random_teams.wav",
+                    "Werewolf": "game_werewolf.wav",
+                    "Zombies": "game_zombies.wav",
+                    "Swapper": "game_swapper.wav",
+                    "Nonstop Joust": "game_nonstop.wav",
+                    "Tournament": "game_tournament.wav",
+                    "Traitors": "game_traitors.wav",
+                }
+                voice_file = game_voice_map.get(self.current_selection)
+                if voice_file:
+                    await self._play_voice(voice_file)
+
+                span.add_event("game_mode_changed", {"from": old_selection, "to": self.current_selection})
+                logger.info(f"Game mode changed by admin {serial}: {old_selection} → {self.current_selection}")
+
+                # Schedule restore to white after mode color finishes
+                async def restore_white():
+                    await asyncio.sleep(1.0)
+                    if self.admin_mode_active and serial == self.admin_mode_controller:
+                        try:
+                            white_request = controller_manager_pb2.SetControllerColorRequest(
+                                serial=serial,
+                                color=controller_manager_pb2.RGB(r=255, g=255, b=255),
+                                duration_ms=0,
+                            )
+                            await stub.SetControllerColor(white_request)
+                        except Exception:
+                            pass
+
+                asyncio.create_task(restore_white())
+
+            except Exception as e:
+                logger.error(f"Error changing game mode: {e}", exc_info=True)
 
     async def _handle_admin_cycle_option(self, serial: str):
         """

@@ -1840,7 +1840,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         return (
             f"{state.battery}|{state.trigger_pressed}|{state.move_pressed}|"
             f"{state.cross_pressed}|{state.circle_pressed}|{state.square_pressed}|"
-            f"{state.triangle_pressed}|{state.ps_pressed}|{state.ready}|"
+            f"{state.triangle_pressed}|{state.ps_pressed}|{state.select_pressed}|"
+            f"{state.start_pressed}|{state.ready}|"
             f"{state.team}|{state.color.r},{state.color.g},{state.color.b}"
         )
 
@@ -1918,6 +1919,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             square_pressed = state_dict.get(ButtonKey.SQUARE, False)
             triangle_pressed = state_dict.get(ButtonKey.TRIANGLE, False)
             ps_pressed = state_dict.get(ButtonKey.PS, False)
+            select_pressed = state_dict.get(ButtonKey.SELECT, False)  # Phase 79
+            start_pressed = state_dict.get(ButtonKey.START, False)  # Phase 79
             accel = state_dict.get(StateKey.ACCEL, {AxisKey.X: 0, AxisKey.Y: 0, AxisKey.Z: 0})
             gyro = state_dict.get(StateKey.GYRO, {AxisKey.X: 0, AxisKey.Y: 0, AxisKey.Z: 0})
         else:
@@ -1928,6 +1931,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             square_pressed = False
             triangle_pressed = False
             ps_pressed = False
+            select_pressed = False  # Phase 79
+            start_pressed = False  # Phase 79
             accel = {AxisKey.X: 0, AxisKey.Y: 0, AxisKey.Z: 0}
             gyro = {AxisKey.X: 0, AxisKey.Y: 0, AxisKey.Z: 0}
 
@@ -1961,6 +1966,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         controller_state.square_pressed = square_pressed
         controller_state.triangle_pressed = triangle_pressed
         controller_state.ps_pressed = ps_pressed
+        controller_state.select_pressed = select_pressed  # Phase 79
+        controller_state.start_pressed = start_pressed  # Phase 79
         controller_state.rssi = self.monitoring.get_rssi(serial)  # Phase 48
 
         # Return pooled Vector3 objects (ControllerState made copies with CopyFrom)

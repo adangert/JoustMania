@@ -67,6 +67,10 @@ message ControllerState {
 
   // Connection strength (Phase 48)
   int32 rssi = 16;              // Signal strength in dBm (-100 to 0, 0 = USB/unavailable)
+
+  // Additional button states (Phase 79 - Admin Mode Game Selection)
+  bool select_pressed = 17;     // Select button
+  bool start_pressed = 18;      // Start button
 }
 
 message RGB {

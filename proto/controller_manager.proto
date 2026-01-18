@@ -7,9 +7,6 @@ service ControllerManagerService {
   // Get controller count
   rpc GetControllerCount(GetControllerCountRequest) returns (GetControllerCountResponse);
 
-  // Get ready controllers
-  rpc GetReadyControllers(GetReadyControllersRequest) returns (GetReadyControllersResponse);
-
   // Get all controller states
   rpc GetControllers(GetControllersRequest) returns (GetControllersResponse);
 
@@ -52,7 +49,7 @@ message ControllerState {
   int32 battery = 3;
   bool trigger_pressed = 4;
   bool move_pressed = 5;
-  bool ready = 6;
+  // Field 6 removed (was: bool ready) - ready state is tracked by Menu service
   int32 team = 7;
   RGB color = 8;
   Vector3 accel = 9;
@@ -90,14 +87,6 @@ message GetControllerCountRequest {}
 
 message GetControllerCountResponse {
   int32 count = 1;
-  bool success = 2;
-  string error = 3;
-}
-
-message GetReadyControllersRequest {}
-
-message GetReadyControllersResponse {
-  repeated ControllerState controllers = 1;
   bool success = 2;
   string error = 3;
 }
@@ -232,7 +221,7 @@ message GameplayData {
   string serial = 1;
   int32 move_num = 2;
   int32 battery = 3;
-  bool ready = 4;
+  // Field 4 removed (was: bool ready) - ready state is tracked by Menu service
   int32 team = 5;
   RGB color = 6;
   Vector3 accel = 7;  // Primary gameplay data
@@ -331,6 +320,7 @@ enum GameEffect {
   GAME_EFFECT_ADMIN_ENTER = 8;      // White flash 3x, then persistent white
   GAME_EFFECT_ADMIN_EXIT = 9;       // Restore to base color
   GAME_EFFECT_LOW_BATTERY = 10;     // Red flash 2x warning
+  GAME_EFFECT_FORCE_START_CHARGE = 11;  // Fade white→dim over 2s (force start countdown)
 }
 
 // Trigger a game effect via stream

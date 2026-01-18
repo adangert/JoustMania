@@ -65,7 +65,7 @@ class ControllerInfoKey(str, Enum):
 
     SERIAL = "serial"
     BATTERY = "battery"
-    READY = "ready"
+    # READY removed - ready state is tracked by Menu service
     TEAM = "team"
     MOVE_NUM = "move_num"
     CONNECTED_AT = "connected_at"

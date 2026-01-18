@@ -43,8 +43,9 @@ from services.menu import metrics
 logger = logging.getLogger(__name__)
 
 
-# Initialize OpenTelemetry
-tracer = init_telemetry()
+# Initialize OpenTelemetry with gRPC client instrumentation
+# Menu calls ControllerManager, Settings, and Audio services
+tracer = init_telemetry(instrument_grpc_client=True)
 
 
 # Button type enum to name mapping (for state tracking)
@@ -1408,19 +1409,15 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         prev_state = self.controller_button_states.get(serial, {})
 
         # Detect trigger press event (False → True transition) → become ready
-        # Also check controller.ready flag set by controller manager (catches quick presses)
         trigger_edge = controller.trigger_pressed and not prev_state.get("trigger", False)
-        cm_says_ready = getattr(controller, "ready", False)
 
-        if trigger_edge or (cm_says_ready and serial not in self.ready_controllers):
+        if trigger_edge:
             if serial in self.ready_controllers:
                 # Already ready → pressing trigger starts game (handled by _process_button_state)
                 # Don't update lobby feedback, let game start happen
                 return
             # Not ready → mark as ready
             target_state = "ready"
-            if cm_says_ready and not trigger_edge:
-                logger.info(f"Controller {serial} ready via CM flag (quick press caught)")
         # Detect move press event (False → True transition) → become un-ready
         elif controller.move_pressed and not prev_state.get("move", False):
             if serial in self.ready_controllers:

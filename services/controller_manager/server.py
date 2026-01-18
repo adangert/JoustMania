@@ -121,6 +121,15 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Clients set base colors via streams, effects auto-restore to these
         self.base_colors: dict[str, tuple[int, int, int]] = {}
 
+        # Track which GameEffect type is active per controller (for cancellability check)
+        self.active_effect_types: dict[str, int] = {}
+
+        # Effects that can be cancelled by a base_color message
+        # (e.g., force start countdown should be cancellable, winner rainbow should not)
+        self.cancellable_effects: set[int] = {
+            controller_manager_pb2.GAME_EFFECT_FORCE_START_CHARGE,
+        }
+
         # Monitoring (battery and RSSI) - Phase 39, Phase 48, extracted to monitoring.py
         self.monitoring = ControllerMonitoring(
             low_battery_threshold=1,
@@ -428,12 +437,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 if StateKey.BATTERY in state:
                     self.tracked_controllers[serial][ControllerInfoKey.BATTERY] = state[StateKey.BATTERY]
 
-                # Update ready flag when trigger is pressed (matches menu service behavior)
-                trigger_pressed = state.get(ButtonKey.TRIGGER, False)
-                if trigger_pressed and not self.tracked_controllers[serial][ControllerInfoKey.READY]:
-                    self.tracked_controllers[serial][ControllerInfoKey.READY] = True
-                    logger.info(f"Controller {serial} marked as ready (trigger pressed)")
-
                 # Detect button transitions immediately after polling (not in gRPC handlers)
                 # This ensures button events are detected at polling frequency, not stream frequency
                 self._detect_button_transitions_from_state(serial, state)
@@ -519,7 +522,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 self.tracked_controllers[serial] = {
                     ControllerInfoKey.SERIAL: serial,
                     ControllerInfoKey.BATTERY: battery,
-                    ControllerInfoKey.READY: False,
                     ControllerInfoKey.TEAM: 0,
                     ControllerInfoKey.CONNECTED_AT: time.time(),
                 }
@@ -566,28 +568,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 logger.error(f"GetControllerCount error: {e}", exc_info=True)
                 return controller_manager_pb2.GetControllerCountResponse(count=0, success=False, error=str(e))
-
-    def GetReadyControllers(self, request, context):
-        """Get all ready controllers."""
-        with tracer.start_as_current_span("GetReadyControllers") as span:
-            try:
-                with self.state_lock:
-                    ready_controllers = [
-                        self._build_or_get_cached_state(serial, info)
-                        for serial, info in self.tracked_controllers.items()
-                        if info.get("ready", False)
-                    ]
-
-                span.set_attribute("controller.ready_count", len(ready_controllers))
-
-                return controller_manager_pb2.GetReadyControllersResponse(
-                    controllers=ready_controllers, success=True, error=""
-                )
-            except Exception as e:
-                span.record_exception(e)
-                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-                logger.error(f"GetReadyControllers error: {e}", exc_info=True)
-                return controller_manager_pb2.GetReadyControllersResponse(controllers=[], success=False, error=str(e))
 
     def GetControllers(self, request, context):
         """Get all controllers."""
@@ -728,9 +708,26 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         color = (cmd.color.r, cmd.color.g, cmd.color.b)
 
                         if serial and serial in self.tracked_controllers:
-                            # Store base color and set LED
+                            # Only cancel effect if it's marked as cancellable
+                            async with self.effect_lock:
+                                if serial in self.active_effects:
+                                    effect_type = self.active_effect_types.get(serial)
+                                    if effect_type in self.cancellable_effects:
+                                        self.active_effects[serial].cancel()
+                                        with contextlib.suppress(asyncio.CancelledError):
+                                            await self.active_effects[serial]
+                                        del self.active_effects[serial]
+                                        self.active_effect_types.pop(serial, None)
+                                        # Clear effect active flag
+                                        self.backend.set_effect_active(serial, False)
+                                        logger.debug(f"Cancelled cancellable effect for {serial}")
+
+                            # Store base color (will be used when effect completes)
                             self.base_colors[serial] = color
-                            await self._set_controller_color_internal(serial, color)
+
+                            # Only set LED immediately if no effect is running
+                            if serial not in self.active_effects:
+                                await self._set_controller_color_internal(serial, color)
 
                             logger.debug(f"[{subscriber_id}] Base color set: serial={serial}, rgb={color}")
 
@@ -830,7 +827,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             serial=full_state.serial,
                             move_num=full_state.move_num,
                             battery=full_state.battery,
-                            ready=full_state.ready,
                             team=full_state.team,
                             color=full_state.color,
                             accel=full_state.accel,
@@ -1061,9 +1057,26 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         color = (cmd.color.r, cmd.color.g, cmd.color.b)
 
                         if serial and serial in self.tracked_controllers:
-                            # Store base color and set LED
+                            # Only cancel effect if it's marked as cancellable
+                            async with self.effect_lock:
+                                if serial in self.active_effects:
+                                    effect_type = self.active_effect_types.get(serial)
+                                    if effect_type in self.cancellable_effects:
+                                        self.active_effects[serial].cancel()
+                                        with contextlib.suppress(asyncio.CancelledError):
+                                            await self.active_effects[serial]
+                                        del self.active_effects[serial]
+                                        self.active_effect_types.pop(serial, None)
+                                        # Clear effect active flag
+                                        self.backend.set_effect_active(serial, False)
+                                        logger.debug(f"Cancelled cancellable effect for {serial}")
+
+                            # Store base color (will be used when effect completes)
                             self.base_colors[serial] = color
-                            await self._set_controller_color_internal(serial, color)
+
+                            # Only set LED immediately if no effect is running
+                            if serial not in self.active_effects:
+                                await self._set_controller_color_internal(serial, color)
 
                             logger.debug(f"[{subscriber_id}] Base color set: serial={serial}, rgb={color}")
 
@@ -1111,7 +1124,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             serial=full_state.serial,
                             move_num=full_state.move_num,
                             battery=full_state.battery,
-                            ready=full_state.ready,
                             team=full_state.team,
                             color=full_state.color,
                             accel=full_state.accel,
@@ -1620,8 +1632,12 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             for target_serial in serials:
                 restore_color = self.base_colors.get(target_serial)
 
+                # Track effect type for cancellability check
+                self.active_effect_types[target_serial] = effect
+
                 if effect == controller_manager_pb2.GAME_EFFECT_NONE:
-                    pass  # No-op
+                    # No-op - clear tracking
+                    self.active_effect_types.pop(target_serial, None)
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_PLAYER_WARNING:
                     # White flash + vibrate, restore to base color
@@ -1651,7 +1667,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     self.base_colors[target_serial] = (0, 0, 0)
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_PLAYER_RESPAWN:
-                    # White during spawn protection
+                    # White during spawn protection (no effect task, clear tracking)
+                    self.active_effect_types.pop(target_serial, None)
                     await self._set_controller_color_internal(target_serial, (255, 255, 255))
                     self.base_colors[target_serial] = (255, 255, 255)
 
@@ -1667,15 +1684,18 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     )
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_COUNTDOWN_3:
-                    # Red
+                    # Red (instant, no effect task)
+                    self.active_effect_types.pop(target_serial, None)
                     await self._set_controller_color_internal(target_serial, (255, 0, 0))
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_COUNTDOWN_2:
-                    # Yellow
+                    # Yellow (instant, no effect task)
+                    self.active_effect_types.pop(target_serial, None)
                     await self._set_controller_color_internal(target_serial, (255, 255, 0))
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_COUNTDOWN_1:
-                    # Green
+                    # Green (instant, no effect task)
+                    self.active_effect_types.pop(target_serial, None)
                     await self._set_controller_color_internal(target_serial, (0, 255, 0))
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_ADMIN_ENTER:
@@ -1688,24 +1708,39 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         5,
                     )
                     await asyncio.sleep(0.7)
+                    self.active_effect_types.pop(target_serial, None)
                     await self._set_controller_color_internal(target_serial, (255, 255, 255))
                     self.base_colors[target_serial] = (255, 255, 255)
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_ADMIN_EXIT:
-                    # Restore to base color
+                    # Restore to base color (instant, no effect task)
+                    self.active_effect_types.pop(target_serial, None)
                     if restore_color:
                         await self._set_controller_color_internal(target_serial, restore_color)
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_LOW_BATTERY:
-                    # Red flash 2x warning
+                    # Red flash 2x warning (inline blocking animation)
                     for _ in range(2):
                         await self._set_controller_color_internal(target_serial, (255, 0, 0))
                         await asyncio.sleep(0.15)
                         await self._set_controller_color_internal(target_serial, (50, 0, 0))
                         await asyncio.sleep(0.15)
                     # Restore to base color
+                    self.active_effect_types.pop(target_serial, None)
                     if restore_color:
                         await self._set_controller_color_internal(target_serial, restore_color)
+
+                elif effect == controller_manager_pb2.GAME_EFFECT_FORCE_START_CHARGE:
+                    # Fade from white to dim over 2s (admin force start countdown)
+                    # No auto-restore - stays dim when complete. Cancel via base_color.
+                    await self._play_effect_with_restore(
+                        target_serial,
+                        effect_type="fade_out",
+                        color=(255, 255, 255),  # Start white
+                        duration_ms=2000,
+                        speed=5,
+                        restore_color=None,  # Don't restore - menu will send color or game starts
+                    )
 
                 else:
                     effect_name = controller_manager_pb2.GameEffect.Name(effect)
@@ -1765,8 +1800,9 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             except asyncio.CancelledError:
                 raise
             finally:
-                # Clear effect active flag
+                # Clear effect active flag and effect type tracking
                 self.backend.set_effect_active(serial, False)
+                self.active_effect_types.pop(serial, None)
                 # Use current base_colors (may have changed during effect) if restore requested
                 # This ensures menu color updates during effects take precedence
                 current_restore = self.base_colors.get(serial) if restore_color else None
@@ -1849,7 +1885,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             f"{state.battery}|{state.trigger_pressed}|{state.move_pressed}|"
             f"{state.cross_pressed}|{state.circle_pressed}|{state.square_pressed}|"
             f"{state.triangle_pressed}|{state.ps_pressed}|{state.select_pressed}|"
-            f"{state.start_pressed}|{state.ready}|"
+            f"{state.start_pressed}|"
             f"{state.team}|{state.color.r},{state.color.g},{state.color.b}"
         )
 
@@ -1873,13 +1909,12 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 f"{state_dict.get(ButtonKey.PS, False)}|"
                 f"{accel.get(AxisKey.X, 0):.2f},{accel.get(AxisKey.Y, 0):.2f},{accel.get(AxisKey.Z, 0):.2f}|"
                 f"{gyro.get(AxisKey.X, 0):.2f},{gyro.get(AxisKey.Y, 0):.2f},{gyro.get(AxisKey.Z, 0):.2f}|"
-                f"{info.get(ControllerInfoKey.READY, False)}|{info.get(ControllerInfoKey.TEAM, 0)}"
+                f"{info.get(ControllerInfoKey.TEAM, 0)}"
             )
         # No state available, return hash based on info only
         battery = info.get(ControllerInfoKey.BATTERY, 0)
-        ready = info.get(ControllerInfoKey.READY, False)
         team = info.get(ControllerInfoKey.TEAM, 0)
-        return f"{battery}|{ready}|{team}"
+        return f"{battery}|{team}"
 
     def _build_or_get_cached_state(self, serial: str, info: dict) -> controller_manager_pb2.ControllerState:
         """Return cached state if unchanged, rebuild if dirty (Phase 18 - Task 1).
@@ -1962,7 +1997,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         controller_state.battery = info.get(ControllerInfoKey.BATTERY, 0)
         controller_state.trigger_pressed = trigger_pressed
         controller_state.move_pressed = move_pressed
-        controller_state.ready = info.get(ControllerInfoKey.READY, False)
         controller_state.team = info.get(ControllerInfoKey.TEAM, 0)
         controller_state.color.r = 0
         controller_state.color.g = 0

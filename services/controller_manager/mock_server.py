@@ -37,7 +37,6 @@ from proto.controller_manager_pb2 import (
     RGB,
     ControllerState,
     ControllerStateUpdate,
-    GetReadyControllersResponse,
     PlayControllerEffectResponse,
     Vector3,
 )
@@ -54,7 +53,6 @@ class MockController:
         self.battery = 100
         self.trigger_pressed = False
         self.move_pressed = False
-        self.ready = True
         self.team = 0
         self.color = RGB(r=255, g=255, b=255)
         self.accel = Vector3(x=0.0, y=0.0, z=1.0)  # Default idle
@@ -73,7 +71,6 @@ class MockController:
             battery=self.battery,
             trigger_pressed=self.trigger_pressed,
             move_pressed=self.move_pressed,
-            ready=self.ready,
             team=self.team,
             color=self.color,
             accel=self.accel,
@@ -101,11 +98,6 @@ class MockControllerManagerService(controller_manager_pb2_grpc.ControllerManager
         # active_effects dict inherited from ControllerEffectsBase (Phase 40)
 
         logger.info(f"Initialized {num_controllers} mock controllers")
-
-    def GetReadyControllers(self, request, context):
-        """Return all mock controllers as ready."""
-        controllers = [c.to_proto() for c in self.controllers.values()]
-        return GetReadyControllersResponse(controllers=controllers, success=True, error="")
 
     async def StreamControllerStates(self, request, context):
         """Stream controller states at requested frequency."""
@@ -189,7 +181,6 @@ class MockControllerManagerService(controller_manager_pb2_grpc.ControllerManager
                         serial=controller.serial,
                         move_num=int(controller.serial.split("_")[-1]),
                         battery=controller.battery,
-                        ready=controller.ready,
                         team=controller.team,
                         color=controller.color,
                         accel=accel,
@@ -316,7 +307,6 @@ class MockControllerManagerService(controller_manager_pb2_grpc.ControllerManager
                         serial=controller.serial,
                         move_num=int(controller.serial.split("_")[-1]),
                         battery=controller.battery,
-                        ready=controller.ready,
                         team=controller.team,
                         color=controller.color,
                         accel=accel,

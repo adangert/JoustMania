@@ -40,11 +40,6 @@ class ControllerManagerServiceStub(object):
                 request_serializer=controller__manager__pb2.GetControllerCountRequest.SerializeToString,
                 response_deserializer=controller__manager__pb2.GetControllerCountResponse.FromString,
                 _registered_method=True)
-        self.GetReadyControllers = channel.unary_unary(
-                '/joustmania.controller_manager.ControllerManagerService/GetReadyControllers',
-                request_serializer=controller__manager__pb2.GetReadyControllersRequest.SerializeToString,
-                response_deserializer=controller__manager__pb2.GetReadyControllersResponse.FromString,
-                _registered_method=True)
         self.GetControllers = channel.unary_unary(
                 '/joustmania.controller_manager.ControllerManagerService/GetControllers',
                 request_serializer=controller__manager__pb2.GetControllersRequest.SerializeToString,
@@ -103,13 +98,6 @@ class ControllerManagerServiceServicer(object):
 
     def GetControllerCount(self, request, context):
         """Get controller count
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetReadyControllers(self, request, context):
-        """Get ready controllers
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -196,11 +184,6 @@ def add_ControllerManagerServiceServicer_to_server(servicer, server):
                     request_deserializer=controller__manager__pb2.GetControllerCountRequest.FromString,
                     response_serializer=controller__manager__pb2.GetControllerCountResponse.SerializeToString,
             ),
-            'GetReadyControllers': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetReadyControllers,
-                    request_deserializer=controller__manager__pb2.GetReadyControllersRequest.FromString,
-                    response_serializer=controller__manager__pb2.GetReadyControllersResponse.SerializeToString,
-            ),
             'GetControllers': grpc.unary_unary_rpc_method_handler(
                     servicer.GetControllers,
                     request_deserializer=controller__manager__pb2.GetControllersRequest.FromString,
@@ -280,33 +263,6 @@ class ControllerManagerService(object):
             '/joustmania.controller_manager.ControllerManagerService/GetControllerCount',
             controller__manager__pb2.GetControllerCountRequest.SerializeToString,
             controller__manager__pb2.GetControllerCountResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def GetReadyControllers(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/joustmania.controller_manager.ControllerManagerService/GetReadyControllers',
-            controller__manager__pb2.GetReadyControllersRequest.SerializeToString,
-            controller__manager__pb2.GetReadyControllersResponse.FromString,
             options,
             channel_credentials,
             insecure,

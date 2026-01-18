@@ -38,6 +38,9 @@ settings_pb_path = os.path.join(project_root, "services", "settings")
 sys.path.insert(0, settings_pb_path)
 import settings_pb2
 
+# Game Coordinator protobufs (for Player message)
+from proto import game_coordinator_pb2
+
 
 class MockControllerManagerService:
     """Mock ControllerManager gRPC service for testing."""
@@ -62,17 +65,12 @@ class MockControllerManagerService:
                 battery=80,
                 trigger_pressed=False,
                 move_pressed=False,
-                ready=True,
                 team=0,
                 color=controller_manager_pb2.RGB(r=255, g=255, b=255),
                 accel=controller_manager_pb2.Vector3(x=0.0, y=0.0, z=1.0),
                 gyro=controller_manager_pb2.Vector3(x=0.0, y=0.0, z=0.0),
             )
             self.controllers.append(controller)
-
-    def GetReadyControllers(self, request):
-        """Mock GetReadyControllers RPC."""
-        return controller_manager_pb2.GetReadyControllersResponse(controllers=self.controllers, success=True, error="")
 
     async def StreamControllerStates(self, request):
         """
@@ -158,7 +156,6 @@ class MockControllerManagerService:
                     serial=controller.serial,
                     move_num=int(controller.serial.split("_")[-1]),
                     battery=controller.battery,
-                    ready=controller.ready,
                     team=controller.team,
                     color=controller.color,
                     accel=controller.accel,
@@ -242,6 +239,12 @@ async def test_teams_game_full_lifecycle(mock_controller_manager, mock_settings,
     - Team 0 wins
     - Game ends
     """
+    # Create initial players from mock controllers
+    initial_players = [
+        game_coordinator_pb2.Player(serial=c.serial, team=i % 2, alive=True, score=0)
+        for i, c in enumerate(mock_controller_manager.controllers)
+    ]
+
     # Create Teams game with mock services (2 teams)
     game = teams.TeamsGame(
         controller_manager_client=mock_controller_manager,
@@ -249,6 +252,7 @@ async def test_teams_game_full_lifecycle(mock_controller_manager, mock_settings,
         event_publisher=event_collector.publish,
         game_id="test_teams_1",
         num_teams=2,
+        initial_players=initial_players,
     )
 
     # Run the game

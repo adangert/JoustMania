@@ -376,36 +376,22 @@ class BaseGameMode(ABC):
             # Use defaults
 
     async def _initialize_players(self):
-        """Get ready controllers and initialize players via subclass implementation."""
+        """Initialize players from StartGame RPC payload."""
         try:
-            from proto import controller_manager_pb2
+            # Players must be provided via StartGame RPC (from Menu → Supervisor)
+            if not self.initial_players:
+                raise RuntimeError("No players provided - StartGame must include player list")
 
-            # If initial_players were provided (from StartGame RPC), use them
-            if self.initial_players:
-                # Convert protobuf Player messages to controller-like objects for _initialize_players_impl
-                # _initialize_players_impl expects controllers with .serial attribute
-                class ControllerStub:
-                    def __init__(self, serial):
-                        self.serial = serial
+            # Convert protobuf Player messages to controller-like objects for _initialize_players_impl
+            # _initialize_players_impl expects controllers with .serial attribute
+            class ControllerStub:
+                def __init__(self, serial):
+                    self.serial = serial
 
-                controllers = [ControllerStub(p.serial) for p in self.initial_players]
-                await self._initialize_players_impl(controllers)
+            controllers = [ControllerStub(p.serial) for p in self.initial_players]
+            await self._initialize_players_impl(controllers)
 
-                logger.info(f"Initialized {len(self.players)} players from StartGame RPC")
-            else:
-                # Fall back to querying controller manager
-                response = await self.controller_client.GetReadyControllers(
-                    controller_manager_pb2.GetReadyControllersRequest()
-                )
-
-                if response.success:
-                    # Call subclass-specific initialization
-                    await self._initialize_players_impl(list(response.controllers))
-
-                    logger.info(f"Initialized {len(self.players)} players from controller manager")
-                else:
-                    logger.error(f"Failed to get controllers: {response.error}")
-                    raise RuntimeError(f"Failed to get controllers: {response.error}")
+            logger.info(f"Initialized {len(self.players)} players from StartGame RPC")
 
             # Publish event
             self.event_publisher(

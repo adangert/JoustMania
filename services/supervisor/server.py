@@ -37,7 +37,6 @@ from prometheus_client import start_http_server
 from lib.system_metrics import start_system_metrics_collector
 from lib.telemetry import init_telemetry
 from proto import (
-    controller_manager_pb2,
     controller_manager_pb2_grpc,
     game_coordinator_pb2,
     game_coordinator_pb2_grpc,
@@ -453,15 +452,9 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
                 controller_serials = event.data.get("controllers", [])
 
                 if not controller_serials:
-                    # Fallback to GetReadyControllers for backwards compatibility
-                    logger.warning("No controllers in event, falling back to GetReadyControllers")
-                    controllers_response = await self.controller_manager_stub.GetReadyControllers(
-                        controller_manager_pb2.GetReadyControllersRequest()
-                    )
-                    if not controllers_response.success:
-                        logger.error(f"Failed to get ready controllers: {controllers_response.error}")
-                        return
-                    controller_serials = [c.serial for c in controllers_response.controllers]
+                    logger.error("No controllers in event - Menu must provide controller list")
+                    span.set_attribute("error", "no_controllers_in_event")
+                    return
 
                 logger.info(f"Starting game with {len(controller_serials)} controllers: {controller_serials}")
 

@@ -422,8 +422,8 @@ services:
       - joustmania
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9100/metrics"]
-      interval: 10s
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9100/-/healthy"]
+      interval: 30s
       timeout: 5s
       retries: 3
       start_period: 5s

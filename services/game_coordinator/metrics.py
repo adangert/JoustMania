@@ -4,6 +4,8 @@ Prometheus metrics for Game Coordinator (Phase 38).
 Tracks game state, player performance, audio playback, and game quality metrics.
 """
 
+from contextlib import suppress
+
 from prometheus_client import Counter, Gauge, Histogram
 
 # Game state metrics
@@ -181,3 +183,38 @@ game_analytics_replay_bytes = Histogram(
     ["game_mode"],
     buckets=[10000, 50000, 100000, 200000, 500000, 1000000],
 )
+
+
+def clear_player_analytics(serial: str, game_id: str = "") -> None:
+    """
+    Clear analytics metrics for a player (e.g., when they die or game ends).
+
+    This removes the gauge labels so they no longer appear in dashboards,
+    rather than showing stale data.
+    """
+    with suppress(KeyError):
+        player_accel_magnitude.remove(serial)
+
+    with suppress(KeyError):
+        player_movement_zone.remove(serial)
+
+    with suppress(KeyError):
+        player_playstyle.remove(serial)
+
+    # peak_accel has both serial and game_id labels
+    if game_id:
+        with suppress(KeyError):
+            player_peak_accel.remove(serial, game_id)
+
+
+def clear_all_player_analytics() -> None:
+    """
+    Clear all player analytics metrics (e.g., when game ends).
+
+    This removes all label combinations so dashboards show no data
+    when no game is running.
+    """
+    player_accel_magnitude._metrics.clear()
+    player_movement_zone._metrics.clear()
+    player_playstyle._metrics.clear()
+    player_peak_accel._metrics.clear()

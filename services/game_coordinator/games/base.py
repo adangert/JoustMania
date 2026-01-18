@@ -794,8 +794,8 @@ class BaseGameMode(ABC):
         # Phase 70: Track deaths for music tempo timing
         self.dead_count += 1
 
-        # Clear acceleration metric so dead players show as 0 on dashboard
-        metrics.player_accel_magnitude.labels(serial=serial).set(0)
+        # Clear analytics metrics so dead players don't appear on dashboard
+        metrics.clear_player_analytics(serial, self.game_id)
 
         # Play death explosion sound (Phase 29)
         await self._play_sound("Joust/sounds/Explosion34.wav", priority=2)
@@ -902,6 +902,9 @@ class BaseGameMode(ABC):
             with tracer.start_as_current_span("teardown_phase"):
                 await self._end_game_impl()
 
+                # Clear all analytics metrics so dashboards show no data when game is over
+                metrics.clear_all_player_analytics()
+
         except Exception as e:
             logger.error(f"{self.get_game_name()} game error: {e}", exc_info=True)
             self.state = GameState.ENDED
@@ -910,6 +913,8 @@ class BaseGameMode(ABC):
 
         finally:
             self.running = False
+            # Ensure analytics are always cleared, even on error
+            metrics.clear_all_player_analytics()
             logger.info(f"{self.get_game_name()} game finished: {self.game_id}")
 
     # ========================================================================

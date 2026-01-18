@@ -87,11 +87,17 @@ class AudioManager:
         self.current_music_file: str | None = None
         self.master_volume: float = 0.7
         self.music_lock = threading.Lock()
+        self.event_loop: asyncio.AbstractEventLoop | None = None  # Set from async context
 
         logger.info(f"AudioManager initialized (assets_dir={self.assets_dir})")
 
         # Track currently playing sounds for status
         self.active_sounds: dict[str, dict] = {}
+
+    def set_event_loop(self, loop: asyncio.AbstractEventLoop):
+        """Set the event loop for async operations (call from async context)."""
+        self.event_loop = loop
+        logger.debug("Event loop set for AudioManager")
 
     def _resolve_path(self, relative_path: str) -> str:
         """Resolve relative path to full path using assets directory."""
@@ -254,8 +260,15 @@ class AudioManager:
                     logger.warning(f"Track ID mismatch: {track_id} != {current_track}")
                     return False
 
-                # Start async tempo transition
-                asyncio.create_task(self.music_player.transition_ratio(new_tempo, transition_duration))
+                # Start async tempo transition using stored event loop
+                if self.event_loop is None:
+                    logger.error("Event loop not set - cannot change tempo")
+                    return False
+
+                asyncio.run_coroutine_threadsafe(
+                    self.music_player.transition_ratio(new_tempo, transition_duration),
+                    self.event_loop,
+                )
 
                 logger.info(f"Tempo transition started: {self.music_player.ratio:.2f} -> {new_tempo:.2f}")
                 span.add_event("tempo_transition_started")
@@ -542,6 +555,9 @@ async def serve(metrics_port=8000):
     server = grpc.aio.server(options=get_server_options())
     audio_servicer = AudioServiceServicer()
     audio_pb2_grpc.add_AudioServiceServicer_to_server(audio_servicer, server)
+
+    # Set the event loop for async operations (tempo transitions)
+    audio_servicer.audio_manager.set_event_loop(asyncio.get_running_loop())
 
     # Load audio enabled setting from settings service
     await audio_servicer._load_audio_setting()

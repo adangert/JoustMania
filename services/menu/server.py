@@ -29,6 +29,7 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 
 from lib.types import Sound
 from services.menu.admin_mode import AdminModeHandler
+from services.menu.utils import AudioHelper, LedController, SettingsHelper
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -125,11 +126,13 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.game_coordinator_channel = create_channel(f"{game_coordinator_host}:{game_coordinator_port}")
         self.audio_channel = create_channel(f"{audio_host}:{audio_port}")
 
+        # Utility classes (Phase XX: SOLID refactor)
+        self.led = LedController(self.controller_channel)
+        self.audio = AudioHelper(self.audio_channel)
+        self.settings_helper = SettingsHelper(self.settings_channel)
+
         # Phase 60: Voice actor setting (aaron or ivy)
         self.voice_actor = "ivy"  # Default matches settings schema
-
-        # Phase 70: Lobby music tracking
-        self.lobby_music_track_id = None
 
         # Admin mode handler (provides callbacks to access Menu methods)
         self.admin_handler = AdminModeHandler(
@@ -928,6 +931,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 async with self.button_stream_lock:
                     self.button_stream = stream
                     self._button_stream_queue = request_queue
+                    # Wire LED controller to use the same stream
+                    self.led.set_stream(request_queue, self.button_stream_lock)
 
                 logger.info("Button event loop connected to Controller Manager")
                 retry_delay = 1.0
@@ -1009,6 +1014,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 async with self.button_stream_lock:
                     self.button_stream = None
                     self._button_stream_queue = None
+                    self.led.set_stream(None)
 
     async def _handle_menu_button_event(self, serial: str, button: str, stub):
         """

@@ -260,7 +260,32 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         try:
             # Get list of connected controllers from backend
             connected_serials = self.backend.get_connected_controllers()
+            connected_set = set(connected_serials)
 
+            # Check for disconnected controllers (in tracked but not in connected)
+            with self.state_lock:
+                tracked_serials = set(self.tracked_controllers.keys())
+
+            disconnected_serials = tracked_serials - connected_set
+            for serial in disconnected_serials:
+                logger.info(f"Controller {serial} disconnected - cleaning up server tracking")
+                with self.state_lock:
+                    if serial in self.tracked_controllers:
+                        del self.tracked_controllers[serial]
+                    if serial in self.controller_states:
+                        del self.controller_states[serial]
+                    if serial in self.state_cache:
+                        del self.state_cache[serial]
+                    if serial in self.button_states:
+                        del self.button_states[serial]
+                    # Note: Keep base_colors[serial] so we can restore on reconnect!
+                    # Adaptive polling cleanup
+                    self._last_activity_time.pop(serial, None)
+                    self._previous_accel.pop(serial, None)
+                    self._last_poll_time.pop(serial, None)
+                metrics.controller_disconnect_total.labels(serial=serial).inc()
+
+            # Check for new controllers
             for serial in connected_serials:
                 if serial not in self.tracked_controllers:
                     # New controller found - create event span
@@ -274,6 +299,15 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         with tracer.start_as_current_span("spawn_controller_process") as spawn_span:
                             spawn_span.set_attribute("controller.serial", serial)
                             self._spawn_controller_process(serial)
+
+                        # Restore base color if we had one before (reconnection case)
+                        if serial in self.base_colors:
+                            color = self.base_colors[serial]
+                            logger.info(f"Restoring base color for reconnected controller {serial}: {color}")
+                            asyncio.run_coroutine_threadsafe(
+                                self._set_controller_color_internal(serial, color),
+                                self._discovery_loop,
+                            )
 
         except Exception as e:
             logger.error(f"Error discovering controllers: {e}", exc_info=True)

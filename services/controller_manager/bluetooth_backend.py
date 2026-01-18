@@ -516,6 +516,21 @@ class BluetoothBackend(ControllerBackend):
                         logger.info(f"Retry {attempt + 1}/{max_retries} in {retry_delay}s...")
                         time.sleep(retry_delay)
 
+                # Clean up controllers that are no longer connected
+                # This handles the case where a controller disconnects and we need to
+                # remove the stale handle so reconnection is properly detected
+                stale_serials = set(self.controllers.keys()) - set(seen_serials)
+                for stale_serial in stale_serials:
+                    logger.info(f"Controller {stale_serial} no longer in scan - removing stale handle")
+                    del self.controllers[stale_serial]
+                    if stale_serial in self.controller_states:
+                        del self.controller_states[stale_serial]
+                    # Clean up LED tracking
+                    self.led_colors.pop(stale_serial, None)
+                    self._last_sent_color.pop(stale_serial, None)
+                    self._last_led_update.pop(stale_serial, None)
+                    self._effect_active.discard(stale_serial)
+
                 logger.info(
                     f"Scan complete: found {len(seen_serials)} serials: {seen_serials}, "
                     f"now tracking {len(self.controllers)}: {list(self.controllers.keys())}"

@@ -297,22 +297,25 @@ class TournamentGame(BaseGameMode):
             },
         )
 
-    async def _create_player_spans(self):
+    def _create_player_spans(self, game_context):
         """Create flat player spans (no team hierarchy in tournament)."""
-        if not self.game_span:
-            return
+        # Get current context if not provided
+        if game_context is None:
+            from opentelemetry import context as otel_context
 
-        with trace.use_span(self.game_span, end_on_exit=False):
-            for serial, player in self.players.items():
-                player.span = tracer.start_span(
-                    "player_lifecycle",
-                    attributes={
-                        "player.serial": serial,
-                        "player.bracket_position": player.bracket_position,
-                        "game.mode": "Tournament",
-                    },
-                )
-                logger.debug(f"Created span for player {serial}")
+            game_context = otel_context.get_current()
+
+        for serial, player in self.players.items():
+            player.span = tracer.start_span(
+                "player_lifecycle",
+                context=game_context,
+                attributes={
+                    "player.serial": serial,
+                    "player.bracket_position": player.bracket_position,
+                    "game.mode": "Tournament",
+                },
+            )
+            logger.debug(f"Created span for player {serial}")
 
     def _get_additional_phases(self) -> list:
         """Return tournament-specific phases."""
@@ -375,18 +378,16 @@ class TournamentGame(BaseGameMode):
         p1.alive = True
         p2.alive = True
 
-        # Create match span
-        if self.game_span:
-            with trace.use_span(self.game_span, end_on_exit=False):
-                self.match_span = tracer.start_span(
-                    "tournament_match",
-                    attributes={
-                        "match.id": match.match_id,
-                        "match.round": match.round_number,
-                        "player1.serial": match.player1_serial,
-                        "player2.serial": match.player2_serial,
-                    },
-                )
+        # Create match span (inherits current active context)
+        self.match_span = tracer.start_span(
+            "tournament_match",
+            attributes={
+                "match.id": match.match_id,
+                "match.round": match.round_number,
+                "player1.serial": match.player1_serial,
+                "player2.serial": match.player2_serial,
+            },
+        )
 
         logger.info(f"Match {match.match_id} starting: {match.player1_serial} vs {match.player2_serial}")
 

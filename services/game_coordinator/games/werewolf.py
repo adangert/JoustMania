@@ -93,6 +93,7 @@ class WerewolfGame(BaseGameMode):
         self.human_serials: list[str] = []
         self.revealed = False
         self.reveal_task: asyncio.Task | None = None
+        self.game_span: trace.Span | None = None
 
     def get_game_name(self) -> str:
         """Return game mode identifier."""
@@ -150,20 +151,37 @@ class WerewolfGame(BaseGameMode):
             },
         )
 
-    def _create_player_spans(self, game_context):
-        """Create flat player lifecycle spans (FFA-style)."""
-        for serial, player in self.players.items():
-            wolf_player = player
-            player.span = tracer.start_span(
-                "player_lifecycle",
-                context=game_context,
-                attributes={
-                    "player.serial": serial,
-                    "player.is_werewolf": wolf_player.is_werewolf,
-                    "player.team": "werewolf" if wolf_player.is_werewolf else "human",
-                    "game.mode": self.get_game_name(),
-                },
-            )
+    def _create_player_spans(self):
+        """Create flat player lifecycle spans (FFA-style), parented to game span."""
+        if not self.game_span:
+            logger.warning("No game_span available, creating orphan player spans")
+            for serial, player in self.players.items():
+                wolf_player = player
+                player.span = tracer.start_span(
+                    "player_lifecycle",
+                    attributes={
+                        "player.serial": serial,
+                        "player.is_werewolf": wolf_player.is_werewolf,
+                        "player.team": "werewolf" if wolf_player.is_werewolf else "human",
+                        "game.mode": self.get_game_name(),
+                    },
+                )
+            return
+
+        # Create player spans as children of game span
+        with trace.use_span(self.game_span, end_on_exit=False):
+            for serial, player in self.players.items():
+                wolf_player = player
+                player.span = tracer.start_span(
+                    "player_lifecycle",
+                    attributes={
+                        "player.serial": serial,
+                        "player.is_werewolf": wolf_player.is_werewolf,
+                        "player.team": "werewolf" if wolf_player.is_werewolf else "human",
+                        "game.mode": self.get_game_name(),
+                    },
+                )
+                logger.debug(f"Created span for player {serial}")
 
     def _get_additional_phases(self) -> list:
         """Return werewolf intro phase."""
@@ -496,6 +514,7 @@ class WerewolfGame(BaseGameMode):
         from services.game_coordinator.games.base import GameState
 
         with tracer.start_as_current_span("werewolf_game") as game_span:
+            self.game_span = game_span
             game_span.set_attribute("game.id", self.game_id)
             game_span.set_attribute("game.mode", self.get_game_name())
 
@@ -506,7 +525,7 @@ class WerewolfGame(BaseGameMode):
                 with tracer.start_as_current_span("initialization_phase"):
                     await self._load_settings()
                     await self._initialize_players()
-                    self._create_player_spans(None)
+                    self._create_player_spans()
 
                 # Additional phases (werewolf intro)
                 for phase in self._get_additional_phases():

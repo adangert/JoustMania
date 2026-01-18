@@ -317,9 +317,16 @@ class BluetoothBackend(ControllerBackend):
             trigger = move.get_trigger()
             buttons = move.get_buttons()
 
-            # Read motion sensors
-            ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
+            # Read motion sensors (raw values)
+            ax_raw, ay_raw, az_raw = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
             gx, gy, gz = move.get_gyroscope_frame(psmove.Frame_SecondHalf)
+
+            # Convert accelerometer to g-force units (raw ~4096 = 1g)
+            # Standing still: z ≈ 1.0g (gravity), x/y ≈ 0
+            accel_scale = 4096.0
+            ax = ax_raw / accel_scale
+            ay = ay_raw / accel_scale
+            az = az_raw / accel_scale
 
             # Get battery (convert psmove constant to 0-5 scale)
             battery_raw = move.get_battery()

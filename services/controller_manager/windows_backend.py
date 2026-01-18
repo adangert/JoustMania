@@ -164,8 +164,12 @@ class WindowsBackend(ControllerBackend):
             cross = bool(buttons & psmove.Btn_CROSS)
             square = bool(buttons & psmove.Btn_SQUARE)
 
-            # Read accelerometer (raw values)
-            ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
+            # Read accelerometer (raw values) and convert to g-force
+            ax_raw, ay_raw, az_raw = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
+            accel_scale = 4096.0  # Raw ~4096 = 1g
+            ax = ax_raw / accel_scale
+            ay = ay_raw / accel_scale
+            az = az_raw / accel_scale
 
             # Read gyroscope (raw values)
             gx, gy, gz = move.get_gyroscope_frame(psmove.Frame_SecondHalf)

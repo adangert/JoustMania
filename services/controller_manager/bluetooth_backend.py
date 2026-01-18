@@ -463,11 +463,12 @@ class BluetoothBackend(ControllerBackend):
                         with suppress_stderr():
                             move = psmove.PSMove(move_num)
                         if move is None:
+                            logger.warning(f"Controller {move_num}: PSMove() returned None")
                             continue
 
                         serial = move.get_serial()
                         if not serial:
-                            logger.debug(f"Controller {move_num}: no serial, skipping")
+                            logger.warning(f"Controller {move_num}: no serial returned")
                             continue
 
                         if serial not in self.controllers:
@@ -475,10 +476,12 @@ class BluetoothBackend(ControllerBackend):
                             self.controllers[serial] = move
                             self.controller_states[serial] = ControllerState()
                             logger.info(f"New controller connected: {serial}")
+                        else:
+                            logger.debug(f"Controller {move_num}: {serial} already tracked")
                         # If serial already tracked, let the PSMove object be garbage collected
                         # to avoid invalidating the existing handle
                     except Exception as e:
-                        logger.debug(f"Error reading controller {move_num}: {e}")
+                        logger.warning(f"Error reading controller {move_num}: {e}")
                         continue
 
         except Exception as e:

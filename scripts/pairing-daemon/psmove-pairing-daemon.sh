@@ -132,12 +132,26 @@ while true; do
         serial_upper=$(echo "$serial" | tr '[:lower:]' '[:upper:]')
         debug "Processing controller: $serial_upper"
 
-        # Check if already paired in BlueZ
-        paired_devices=$(bluetoothctl devices Paired 2>/dev/null)
-        debug "Paired devices: $paired_devices"
+        # Check if already paired/trusted in BlueZ
+        # PS Move controllers may be "trusted" rather than "paired" since they initiate connection
+        paired_devices=$(bluetoothctl devices Paired 2>/dev/null || true)
+        trusted_devices=$(bluetoothctl devices Trusted 2>/dev/null || true)
+        # Also check connected devices
+        connected_devices=$(bluetoothctl devices Connected 2>/dev/null || true)
+        all_known="$paired_devices $trusted_devices $connected_devices"
+        debug "Known devices: $all_known"
 
-        if echo "$paired_devices" | grep -qi "$serial_upper"; then
-            debug "Controller $serial_upper already paired, skipping"
+        # Check with both formats: XX:XX:XX:XX:XX:XX and XXXXXXXXXXXX
+        serial_nocolons=$(echo "$serial_upper" | tr -d ':')
+        if echo "$all_known" | grep -qi "$serial_upper\|$serial_nocolons"; then
+            debug "Controller $serial_upper already known to BlueZ, skipping"
+            continue
+        fi
+
+        # Also check if psmove itself thinks it's paired (host address already set)
+        psmove_info=$($PSMOVE list 2>/dev/null | grep -i "$serial" || true)
+        if echo "$psmove_info" | grep -qi "bluetooth\|paired\|host"; then
+            debug "Controller $serial_upper already has host set, skipping"
             continue
         fi
 

@@ -207,9 +207,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 self.state = menu_pb2.MenuState.RUNNING
                 self.ready_controller_count = 0
 
-                # Load settings (voice, play_audio, current_game)
-                await self._load_voice_actor_setting()
-                await self._load_current_game_setting()
+                # Load settings (voice, current_game)
+                self.voice_actor = await self.settings_helper.load_voice_actor()
+                self.current_selection = await self.settings_helper.load_current_game()
+                self.state_manager.set_game_mode(self.current_selection)
 
                 # Phase 70: Start lobby music
                 await self.audio.start_lobby_music()
@@ -313,74 +314,12 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 input_type = request.input_type
                 data = dict(request.data)
 
-                # Handle different input types
                 if input_type == "button_press":
-                    button = data.get("button", "")
-                    span.set_attribute("button", button)
-
-                    if button == "trigger":
-                        # Game requested - pass ready controllers
-                        controllers = list(self.ready_controllers)
-                        self.state = menu_pb2.MenuState.GAME_STARTING
-                        await self.event_publisher.publish(
-                            "game_requested",
-                            {"game_name": self.current_selection, "controllers": controllers},
-                        )
-                        logger.info(f"Game requested: {self.current_selection} with {len(controllers)} players")
-
-                    elif button == "select":
-                        # Move to next game (Phase 59: use GAME_MODES constant)
-                        if self.current_selection in GAME_MODES:
-                            current_index = GAME_MODES.index(self.current_selection)
-                        else:
-                            current_index = 0
-                        self.current_selection = GAME_MODES[(current_index + 1) % len(GAME_MODES)]
-                        self.state_manager.set_game_mode(self.current_selection)
-                        await self.event_publisher.publish("selection_changed", {"game_name": self.current_selection})
-                        await self._save_current_game_setting()
-                        logger.info(f"Selection changed to: {self.current_selection}")
-
+                    await self._handle_button_input(data, span)
                 elif input_type == "web_command":
-                    command = data.get("command", "")
-                    span.set_attribute("command", command)
-
-                    if command == "start_game":
-                        # Web start - use ready controllers
-                        controllers = list(self.ready_controllers)
-                        self.state = menu_pb2.MenuState.GAME_STARTING
-                        await self.event_publisher.publish(
-                            "game_requested",
-                            {"game_name": self.current_selection, "source": "web", "controllers": controllers},
-                        )
-                        logger.info(f"Game requested via web: {self.current_selection} with {len(controllers)} players")
-
-                    # Phase 59: Add select_game command for web UI
-                    elif command == "select_game":
-                        game_name = data.get("game_name", "")
-                        if game_name in GAME_MODES:
-                            self.current_selection = game_name
-                            self.state_manager.set_game_mode(game_name)
-                            await self.event_publisher.publish(
-                                "selection_changed", {"game_name": game_name, "source": "web"}
-                            )
-                            await self._save_current_game_setting()
-                            # Phase 60: Play game mode voice announcement
-                            voice_file = GAME_MODE_VOICE.get(game_name)
-                            if voice_file:
-                                await self.audio.play_voice(voice_file)
-                            # Clear lobby state to trigger color update on next frame
-                            self.controller_lobby_state.clear()
-                            self.last_lobby_feedback_update.clear()
-                            logger.info(f"Game selected via web: {game_name}")
-                        else:
-                            logger.warning(f"Unknown game mode requested via web: {game_name}")
-
-                # Phase 58: Handle menu reset (recover from GAME_STARTING if game fails to start)
+                    await self._handle_web_command(data, span)
                 elif input_type == "reset_menu":
-                    if self.state == menu_pb2.MenuState.GAME_STARTING:
-                        self.state = menu_pb2.MenuState.RUNNING
-                        await self.event_publisher.publish("game_start_cancelled", {})
-                        logger.info("Menu reset to RUNNING state (game start cancelled)")
+                    await self._handle_reset_menu()
 
                 metrics.grpc_requests_total.labels(method="ProcessInput", status="ok").inc()
                 return menu_pb2.ProcessInputResponse(success=True, error="")
@@ -417,6 +356,68 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             finally:
                 await self.event_publisher.unsubscribe(subscriber_id)
                 metrics.stream_connections_active.dec()
+
+    # Input handlers for ProcessInput
+
+    async def _handle_button_input(self, data: dict, span) -> None:
+        """Handle button_press input type."""
+        button = data.get("button", "")
+        span.set_attribute("button", button)
+
+        if button == "trigger":
+            controllers = list(self.ready_controllers)
+            self.state = menu_pb2.MenuState.GAME_STARTING
+            await self.event_publisher.publish(
+                "game_requested",
+                {"game_name": self.current_selection, "controllers": controllers},
+            )
+            logger.info(f"Game requested: {self.current_selection} with {len(controllers)} players")
+
+        elif button == "select":
+            # Move to next game
+            current_index = GAME_MODES.index(self.current_selection) if self.current_selection in GAME_MODES else 0
+            self.current_selection = GAME_MODES[(current_index + 1) % len(GAME_MODES)]
+            self.state_manager.set_game_mode(self.current_selection)
+            await self.event_publisher.publish("selection_changed", {"game_name": self.current_selection})
+            await self.settings_helper.save_current_game(self.current_selection)
+            logger.info(f"Selection changed to: {self.current_selection}")
+
+    async def _handle_web_command(self, data: dict, span) -> None:
+        """Handle web_command input type."""
+        command = data.get("command", "")
+        span.set_attribute("command", command)
+
+        if command == "start_game":
+            controllers = list(self.ready_controllers)
+            self.state = menu_pb2.MenuState.GAME_STARTING
+            await self.event_publisher.publish(
+                "game_requested",
+                {"game_name": self.current_selection, "source": "web", "controllers": controllers},
+            )
+            logger.info(f"Game requested via web: {self.current_selection} with {len(controllers)} players")
+
+        elif command == "select_game":
+            game_name = data.get("game_name", "")
+            if game_name in GAME_MODES:
+                self.current_selection = game_name
+                self.state_manager.set_game_mode(game_name)
+                await self.event_publisher.publish("selection_changed", {"game_name": game_name, "source": "web"})
+                await self.settings_helper.save_current_game(self.current_selection)
+                voice_file = GAME_MODE_VOICE.get(game_name)
+                if voice_file:
+                    await self.audio.play_voice(voice_file)
+                self.controller_lobby_state.clear()
+                self.last_lobby_feedback_update.clear()
+                logger.info(f"Game selected via web: {game_name}")
+            else:
+                logger.warning(f"Unknown game mode requested via web: {game_name}")
+
+    async def _handle_reset_menu(self) -> None:
+        """Handle reset_menu input type."""
+        if self.state == menu_pb2.MenuState.GAME_STARTING:
+            self.state = menu_pb2.MenuState.RUNNING
+            await self.event_publisher.publish("game_start_cancelled", {})
+            logger.info("Menu reset to RUNNING state (game start cancelled)")
 
     async def start_button_monitor(self):
         """Start the controller event loop."""
@@ -525,65 +526,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         await self.game_coordinator_channel.close()
         await self.audio_channel.close()
         logger.info("Menu service gRPC channels closed")
-
-    async def _load_voice_actor_setting(self):
-        """
-        Load voice actor preference from settings service (Phase 60).
-
-        Updates self.voice_actor to "aaron" or "ivy".
-        """
-        try:
-            from proto import settings_pb2, settings_pb2_grpc
-
-            stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
-            response = await stub.GetSetting(settings_pb2.GetSettingRequest(key="menu_voice"))
-            if response.value in ("aaron", "ivy"):
-                self.voice_actor = response.value
-                logger.info(f"Voice actor set to: {self.voice_actor}")
-            else:
-                logger.debug(f"Voice actor setting not found or invalid, using default: {self.voice_actor}")
-        except Exception as e:
-            logger.debug(f"Could not load voice actor setting: {e}, using default: {self.voice_actor}")
-
-    async def _load_current_game_setting(self):
-        """Load current game mode from settings service."""
-        try:
-            from proto import settings_pb2, settings_pb2_grpc
-
-            stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
-            response = await stub.GetSetting(settings_pb2.GetSettingRequest(key="current_game"))
-
-            if response.value and response.value in GAME_MODES:
-                self.current_selection = response.value
-                self.state_manager.set_game_mode(response.value)
-                logger.info(f"Loaded current game mode: {self.current_selection}")
-            else:
-                self.current_selection = "JoustFFA"
-                self.state_manager.set_game_mode("JoustFFA")
-                logger.debug(f"Current game setting not found, using default: {self.current_selection}")
-
-        except Exception as e:
-            self.current_selection = "JoustFFA"
-            self.state_manager.set_game_mode("JoustFFA")
-            logger.debug(f"Could not load current game setting: {e}, using default")
-
-    async def _save_current_game_setting(self):
-        """Save current game mode to settings service."""
-        try:
-            from proto import settings_pb2, settings_pb2_grpc
-
-            stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
-            await stub.UpdateSetting(
-                settings_pb2.UpdateSettingRequest(
-                    key="current_game",
-                    value=self.current_selection,
-                    source="menu",
-                )
-            )
-            logger.debug(f"Saved current game mode: {self.current_selection}")
-
-        except Exception as e:
-            logger.debug(f"Could not save current game setting: {e}")
 
     async def _handle_controller_disconnect(self, serial: str):
         """

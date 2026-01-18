@@ -50,26 +50,56 @@ def get_attached_addresses(hci):
 def get_connected_addresses(hci):
     """Get the addresses of devices currently connected via hci.
 
-    Unlike get_attached_addresses() which returns all known/paired devices,
-    this returns only devices with an active Bluetooth connection.
+    Uses hcitool con to get actual HCI-level connections, which works
+    for PS Move controllers that connect via raw HCI rather than through
+    BlueZ's full device management.
+
+    Falls back to DBus Connected property if hcitool fails.
     """
-    proxy = get_adapter_proxy(hci)
-    devices = get_node_child_names(proxy)
+    import subprocess
 
-    connected_devices = []
-    for dev in devices:
-        try:
-            proxy2 = get_device_proxy(hci, dev)
-            # Check if device is currently connected
-            connected = get_device_attrib(proxy2, "Connected")
-            if connected:
-                dev_addr = str(get_device_attrib(proxy2, "Address"))
-                connected_devices.append(dev_addr)
-        except Exception:
-            # Skip devices that can't be queried
-            continue
+    # Try hcitool con first - this shows actual HCI connections
+    try:
+        result = subprocess.run(
+            ["hcitool", "con"],
+            capture_output=True,
+            text=True,
+            timeout=2.0,
+        )
+        if result.returncode == 0 and result.stdout:
+            connected_devices = []
+            for line in result.stdout.strip().split("\n"):
+                # Parse lines like: "> ACL E0:AE:5E:55:BB:DD handle 2 state 1 lm CENTRAL"
+                if line.strip().startswith(">") and "ACL" in line:
+                    parts = line.split()
+                    if len(parts) >= 3:
+                        address = parts[2]  # The MAC address
+                        connected_devices.append(address)
+            if connected_devices:
+                return connected_devices
+    except Exception as e:
+        logger.debug(f"hcitool con failed: {e}")
 
-    return connected_devices
+    # Fallback to DBus Connected property
+    try:
+        proxy = get_adapter_proxy(hci)
+        devices = get_node_child_names(proxy)
+
+        connected_devices = []
+        for dev in devices:
+            try:
+                proxy2 = get_device_proxy(hci, dev)
+                connected = get_device_attrib(proxy2, "Connected")
+                if connected:
+                    dev_addr = str(get_device_attrib(proxy2, "Address"))
+                    connected_devices.append(dev_addr)
+            except Exception:
+                continue
+
+        return connected_devices
+    except Exception as e:
+        logger.debug(f"DBus connected query failed: {e}")
+        return []
 
 
 def get_bus():

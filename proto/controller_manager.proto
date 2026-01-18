@@ -191,13 +191,21 @@ enum ButtonAction {
   ACTION_RELEASE = 1;  // Button transitioned from pressed to released
 }
 
+// Event types for the button event stream (also handles connection events)
+enum ControllerEventType {
+  EVENT_BUTTON = 0;      // Button press/release (default for backwards compatibility)
+  EVENT_CONNECT = 1;     // Controller connected
+  EVENT_DISCONNECT = 2;  // Controller disconnected
+}
+
 message ButtonEvent {
   string serial = 1;
   int64 timestamp = 2;     // Unix timestamp in milliseconds
-  ButtonType button = 3;   // Which button
-  ButtonAction action = 4; // Press or release
+  ButtonType button = 3;   // Which button (only set for EVENT_BUTTON)
+  ButtonAction action = 4; // Press or release (only set for EVENT_BUTTON)
   int32 battery = 5;       // Battery level at time of event
   RGB color = 6;           // Current controller color
+  ControllerEventType event_type = 7;  // Event type (default EVENT_BUTTON for backwards compat)
 }
 
 // Phase XX: Bidirectional control for button event stream (menu/UI)

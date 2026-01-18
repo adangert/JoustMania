@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from proto import controller_manager_pb2 as controller__manager__pb2
+import controller_manager_pb2 as controller__manager__pb2
 
 GRPC_GENERATED_VERSION = '1.76.0'
 GRPC_VERSION = grpc.__version__

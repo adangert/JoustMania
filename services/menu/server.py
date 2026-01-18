@@ -31,7 +31,6 @@ from services.menu.handlers import AdminModeHandler, ConnectedHandler, ReadyHand
 from services.menu.state_manager import StateManager
 from services.menu.utils import AudioHelper, LedController, SettingsHelper
 from services.menu.utils.audio import GAME_MODE_VOICE
-from services.menu.utils.led import GAME_MODE_COLORS
 from services.menu.utils.settings import GAME_MODES
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -89,7 +88,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.event_lock = asyncio.Lock()
 
         # Controller button monitoring (Phase 21)
-        self.button_monitor_task = None
+        self.button_event_task = None
         self.button_monitor_running = False
 
         # Game event monitoring - stops button monitor during games
@@ -448,27 +447,21 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         logger.error(f"Error publishing to subscriber {sub_id}: {e}")
 
     async def start_button_monitor(self):
-        """Start the controller button monitoring tasks.
+        """Start the controller button monitoring task.
 
-        Two parallel loops:
-        - Button event loop: Primary handler for all button actions (edge-triggered)
-        - Button monitor loop: Connection tracking and LED feedback (state polling)
+        Single event-driven loop handles:
+        - Button events (edge-triggered presses/releases)
+        - Connection events (connect/disconnect notifications)
+        - LED state via bidirectional stream
         """
         if not self.button_monitor_running:
             self.button_monitor_running = True
-            # Primary: Button event stream for immediate button handling
             self.button_event_task = asyncio.create_task(self._button_event_loop())
-            # Secondary: State stream for connection tracking and LED updates
-            self.button_monitor_task = asyncio.create_task(self._button_monitor_loop())
-            logger.info("Button monitors started (event stream + state stream)")
+            logger.info("Button event monitor started")
 
     async def stop_button_monitor(self):
         """Stop the controller button monitoring task."""
         self.button_monitor_running = False
-        if self.button_monitor_task:
-            self.button_monitor_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self.button_monitor_task
         if hasattr(self, "button_event_task") and self.button_event_task:
             self.button_event_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -654,140 +647,87 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
         logger.info(f"Controller {serial} disconnected, state cleaned up")
 
-    async def _button_monitor_loop(self):
+    async def _handle_connect_event(self, serial: str) -> None:
         """
-        Secondary monitor for connection tracking and LED feedback.
-
-        This loop handles:
-        - Controller connection detection (first-seen)
-        - LED color updates based on ready state
-        - Heartbeat/presence tracking
-
-        Button actions are handled by _button_event_loop (edge-triggered events).
-        """
-        from proto import (
-            controller_manager_pb2,
-            controller_manager_pb2_grpc,
-        )
-
-        retry_delay = 1.0
-        max_retry_delay = 30.0
-
-        while self.button_monitor_running:
-            try:
-                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
-
-                logger.info("State monitor connected to Controller Manager")
-                retry_delay = 1.0
-
-                # Stream at lower rate - only need connection tracking and LED updates
-                stream_request = controller_manager_pb2.StreamRequest(update_frequency_hz=20)
-
-                async for update in stub.StreamControllerStates(stream_request):
-                    if not self.button_monitor_running:
-                        return
-
-                    metrics.button_frames_processed_total.inc()
-
-                    for controller in update.controllers:
-                        serial = controller.serial
-
-                        # Track connection (button event loop also does this, but state stream
-                        # catches controllers that haven't pressed any buttons yet)
-                        if serial not in self.connected_controllers:
-                            self.connected_controllers.add(serial)
-                            logger.info(f"Controller {serial} connected (via state stream)")
-
-                        # Update LED feedback based on current ready state
-                        await self._update_lobby_led(controller, stub)
-                        metrics.lobby_updates_total.inc()
-
-                if self.button_monitor_running:
-                    logger.warning("Controller state stream ended, reconnecting...")
-
-            except asyncio.CancelledError:
-                logger.info("Button monitor task cancelled")
-                raise
-            except Exception as e:
-                if not self.button_monitor_running:
-                    return
-                logger.error(f"Button monitor error: {e}, reconnecting in {retry_delay:.1f}s")
-                await asyncio.sleep(retry_delay)
-                retry_delay = min(retry_delay * 2, max_retry_delay)
-
-    async def _update_lobby_led(self, controller, stub):
-        """
-        Update controller LED based on current ready state.
-
-        This is a simplified LED-only update - button state changes are handled
-        by _button_event_loop. This method only sets the LED color based on
-        whether the controller is in ready_controllers or not.
+        Handle a controller connect event.
 
         Args:
-            controller: ControllerState protobuf message
-            stub: ControllerManagerServiceStub for LED control (fallback)
+            serial: Controller serial number
         """
-        from proto import controller_manager_pb2
+        logger.info(f"Controller {serial} connected (via button event stream)")
+        self.connected_controllers.add(serial)
+        await self.state_manager.on_controller_connected(serial)
+        metrics.button_frames_processed_total.inc()
 
-        serial = controller.serial
+    async def _handle_disconnect_event(self, serial: str) -> None:
+        """
+        Handle a controller disconnect event.
 
-        # Skip admin mode controllers (handled separately)
-        if self.admin_handler.is_admin_controller(serial):
+        Args:
+            serial: Controller serial number
+        """
+        logger.info(f"Controller {serial} disconnected (via button event stream)")
+        await self.state_manager.on_controller_disconnected(serial)
+        self.connected_controllers.discard(serial)
+        self.ready_controllers.discard(serial)
+        self.controller_lobby_state.pop(serial, None)
+        self.last_lobby_feedback_update.pop(serial, None)
+        self.ready_controller_count = len(self.ready_controllers)
+        metrics.button_frames_processed_total.inc()
+
+    async def _handle_button_event(self, serial: str, button_name: str, is_press: bool) -> None:
+        """
+        Handle a button press/release event.
+
+        Args:
+            serial: Controller serial number
+            button_name: Name of the button
+            is_press: True if button press, False if release
+        """
+        # Log button events for debugging
+        action_str = "PRESS" if is_press else "RELEASE"
+        logger.debug(f"Button event: {serial} {button_name}={action_str}")
+
+        # Only process when menu is running
+        if self.state != menu_pb2.MenuState.RUNNING:
             return
 
-        # Determine target state based on ready set (updated by button events)
-        target_state = "ready" if serial in self.ready_controllers else "connected"
+        # Check for admin mode combo (all 4 face buttons pressed)
+        # This needs to happen before StateManager processes the event
+        # so we can intercept the combo and transition to admin state
+        button_state = self.state_manager.button_states.get(serial, {})
+        if is_press and button_name in ["cross", "circle", "square", "triangle"]:
+            # Preview what button state will be after this press
+            preview_state = dict(button_state)
+            preview_state[button_name] = True
+            if self.admin_handler.check_combo_from_state(preview_state):
+                if not self.admin_handler.combo_shown:
+                    self.admin_handler.combo_shown = True
+                    # Transition to admin state via StateManager
+                    from services.menu.handlers.base import ControllerState
 
-        # Only update if state changed (avoid redundant SetControllerColor calls)
-        if target_state == self.controller_lobby_state.get(serial, "unknown"):
-            return
+                    await self.state_manager.transition_to(serial, ControllerState.ADMIN)
+                # Update button state but don't process as individual button
+                await self.state_manager.handle_button_event(serial, button_name, is_press)
+                return
 
-        # Get base color for current game mode
-        base_color = GAME_MODE_COLORS.get(
-            self.current_selection,
-            (255, 140, 0),  # Default to orange
-        )
+        # Reset admin combo flag when any face button released
+        if not is_press and button_name in ["cross", "circle", "square", "triangle"]:
+            self.admin_handler.combo_shown = False
 
-        # Calculate final color based on state
-        if target_state == "ready":
-            final_color = base_color  # Full brightness
-        else:
-            final_color = (
-                int(base_color[0] * 0.3),
-                int(base_color[1] * 0.3),
-                int(base_color[2] * 0.3),
-            )
-
-        # Try to send via bidirectional stream first, fall back to RPC
-        if await self.led.send_base_color(serial, final_color):
-            self.controller_lobby_state[serial] = target_state
-            logger.debug(f"Controller {serial} LED: {target_state} via stream")
-        else:
-            try:
-                await stub.SetControllerColor(
-                    controller_manager_pb2.SetControllerColorRequest(
-                        serial=serial,
-                        color=controller_manager_pb2.RGB(r=final_color[0], g=final_color[1], b=final_color[2]),
-                        duration_ms=0,
-                    )
-                )
-                self.controller_lobby_state[serial] = target_state
-                logger.debug(f"Controller {serial} LED: {target_state} via RPC")
-            except Exception as e:
-                logger.error(f"Failed to update LED for {serial}: {e}")
+        # Route all button events through StateManager
+        await self.state_manager.handle_button_event(serial, button_name, is_press)
 
     async def _button_event_loop(self):
         """
-        Primary button handler using edge-triggered events.
+        Primary handler for button events and connection events.
 
-        This is the main button handling loop - all button actions go through here.
-        The state stream (_button_monitor_loop) only handles connection tracking and LED updates.
+        This is the main event handling loop - all button actions and
+        connection events (connect/disconnect) go through here.
 
         Handles:
-        - Trigger: ready state toggle, game start (when all ready)
-        - Move: game mode cycling, un-ready
-        - Admin mode combo detection (all 4 face buttons)
-        - Admin mode commands (when active)
+        - Connection events: Controller connect/disconnect notifications
+        - Button events: Trigger, Move, face buttons, admin mode combo
 
         Phase XX: Bidirectional - sends base colors and effects to controller manager.
         """
@@ -839,48 +779,23 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 logger.info("Button event loop connected to Controller Manager")
                 retry_delay = 1.0
 
-                # Process incoming button events
+                # Process incoming events (button events and connection events)
                 async for event in stream:
                     if not self.button_monitor_running:
                         return
 
                     serial = event.serial
-                    is_press = event.action == controller_manager_pb2.ACTION_PRESS
-                    button_name = BUTTON_TYPE_NAMES.get(event.button, "unknown")
 
-                    # Log button events for debugging
-                    action_str = "PRESS" if is_press else "RELEASE"
-                    logger.debug(f"Button event: {serial} {button_name}={action_str}")
-
-                    # Only process when menu is running
-                    if self.state != menu_pb2.MenuState.RUNNING:
-                        continue
-
-                    # Check for admin mode combo (all 4 face buttons pressed)
-                    # This needs to happen before StateManager processes the event
-                    # so we can intercept the combo and transition to admin state
-                    button_state = self.state_manager.button_states.get(serial, {})
-                    if is_press and button_name in ["cross", "circle", "square", "triangle"]:
-                        # Preview what button state will be after this press
-                        preview_state = dict(button_state)
-                        preview_state[button_name] = True
-                        if self.admin_handler.check_combo_from_state(preview_state):
-                            if not self.admin_handler.combo_shown:
-                                self.admin_handler.combo_shown = True
-                                # Transition to admin state via StateManager
-                                from services.menu.handlers.base import ControllerState
-
-                                await self.state_manager.transition_to(serial, ControllerState.ADMIN)
-                            # Update button state but don't process as individual button
-                            await self.state_manager.handle_button_event(serial, button_name, is_press)
-                            continue
-
-                    # Reset admin combo flag when any face button released
-                    if not is_press and button_name in ["cross", "circle", "square", "triangle"]:
-                        self.admin_handler.combo_shown = False
-
-                    # Route all button events through StateManager
-                    await self.state_manager.handle_button_event(serial, button_name, is_press)
+                    # Dispatch to appropriate handler based on event type
+                    if event.event_type == controller_manager_pb2.EVENT_CONNECT:
+                        await self._handle_connect_event(serial)
+                    elif event.event_type == controller_manager_pb2.EVENT_DISCONNECT:
+                        await self._handle_disconnect_event(serial)
+                    else:
+                        # Regular button event (EVENT_BUTTON is default, 0)
+                        is_press = event.action == controller_manager_pb2.ACTION_PRESS
+                        button_name = BUTTON_TYPE_NAMES.get(event.button, "unknown")
+                        await self._handle_button_event(serial, button_name, is_press)
 
                 if self.button_monitor_running:
                     logger.warning("Button event stream ended, reconnecting...")
@@ -900,45 +815,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     self.button_stream = None
                     self._button_stream_queue = None
                     self.led.set_stream(None)
-
-    async def _sync_connected_controllers(self, stub):
-        """
-        Sync connected_controllers with controller manager to detect disconnects.
-
-        Calls GetControllers and removes any controllers from our sets
-        that are no longer present in the controller manager.
-
-        Args:
-            stub: ControllerManagerServiceStub
-        """
-        from proto import controller_manager_pb2
-
-        try:
-            response = await stub.GetControllers(controller_manager_pb2.GetControllersRequest())
-            if not response.success:
-                logger.warning(f"GetControllers failed: {response.error}")
-                return
-
-            # Get set of currently connected controller serials
-            current_serials = {c.serial for c in response.controllers}
-
-            # Find controllers that disconnected
-            disconnected = self.connected_controllers - current_serials
-            if disconnected:
-                logger.info(f"Controllers disconnected: {disconnected}")
-                for serial in disconnected:
-                    self.connected_controllers.discard(serial)
-                    self.ready_controllers.discard(serial)
-                    self.controller_lobby_state.pop(serial, None)
-                    self.last_lobby_feedback_update.pop(serial, None)
-
-                self.ready_controller_count = len(self.ready_controllers)
-                connected = len(self.connected_controllers)
-                ready = len(self.ready_controllers)
-                logger.info(f"After disconnect cleanup: connected={connected} ready={ready}")
-
-        except Exception as e:
-            logger.warning(f"Failed to sync controllers: {e}")
 
     async def _handle_trigger_press(self, serial: str):
         """
@@ -968,7 +844,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 },
             )
             logger.info(
-                f"Game requested via controller {serial}: {self.current_selection} " f"with {len(controllers)} players"
+                f"Game requested via controller {serial}: {self.current_selection} with {len(controllers)} players"
             )
 
 

@@ -300,6 +300,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     self._last_activity_time.pop(serial, None)
                     self._previous_accel.pop(serial, None)
                     self._last_poll_time.pop(serial, None)
+                # Publish disconnect event to button event stream subscribers
+                self._publish_connection_event(serial, is_connect=False)
                 metrics.controller_disconnect_total.labels(serial=serial).inc()
 
             # Check for new controllers
@@ -316,6 +318,10 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         with tracer.start_as_current_span("spawn_controller_process") as spawn_span:
                             spawn_span.set_attribute("controller.serial", serial)
                             self._spawn_controller_process(serial)
+
+                        # Publish connect event to button event stream subscribers
+                        battery = self.tracked_controllers.get(serial, {}).get(ControllerInfoKey.BATTERY, 0)
+                        self._publish_connection_event(serial, is_connect=True, battery=battery)
 
                         # Restore base color if we had one before (reconnection case)
                         if serial in self.base_colors:
@@ -2159,6 +2165,39 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         subscriber_queue.put_nowait(event)
                     except asyncio.QueueFull:
                         logger.warning("Button event queue full for subscriber")
+
+    def _publish_connection_event(self, serial: str, is_connect: bool, battery: int = 0) -> None:
+        """
+        Publish a connection or disconnection event to all button event subscribers.
+
+        This allows the menu service to track controller connections via the same
+        stream used for button events, eliminating the need for a separate polling loop.
+
+        Args:
+            serial: Controller serial number
+            is_connect: True for connect, False for disconnect
+            battery: Battery level (only available for connect events)
+        """
+        event_type = controller_manager_pb2.EVENT_CONNECT if is_connect else controller_manager_pb2.EVENT_DISCONNECT
+
+        event = controller_manager_pb2.ButtonEvent(
+            serial=serial,
+            timestamp=int(time.time() * 1000),
+            battery=battery,
+            event_type=event_type,
+            # button and action fields are left unset for connection events
+        )
+
+        # Snapshot subscriber queues to avoid race conditions during iteration
+        subscriber_queues = list(self.button_event_subscribers.values())
+        for subscriber_queue in subscriber_queues:
+            try:
+                subscriber_queue.put_nowait(event)
+            except asyncio.QueueFull:
+                logger.warning(f"Connection event queue full for subscriber (serial={serial}, connect={is_connect})")
+
+        action_str = "connected" if is_connect else "disconnected"
+        logger.info(f"Published connection event: {serial} {action_str}")
 
     def shutdown(self):
         """Shutdown the controller manager."""

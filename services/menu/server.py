@@ -28,6 +28,7 @@ from opentelemetry import trace
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from lib.types import Sound
+from services.menu.admin_mode import AdminModeHandler
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -150,7 +151,55 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         # Phase 70: Lobby music tracking
         self.lobby_music_track_id = None
 
+        # Admin mode handler (provides callbacks to access Menu methods)
+        self.admin_handler = AdminModeHandler(
+            controller_channel=self.controller_channel,
+            settings_channel=self.settings_channel,
+            tracer=tracer,
+            callbacks=self,  # Menu implements AdminModeCallbacks protocol
+            metrics=metrics,
+        )
+
         logger.info("Menu service initialized with persistent gRPC channels")
+
+    # AdminModeCallbacks protocol implementation
+    # These methods provide the interface that AdminModeHandler uses
+
+    async def play_voice(self, sound: Sound) -> None:
+        """Play a voice announcement (AdminModeCallbacks)."""
+        await self._play_voice(sound)
+
+    async def send_game_effect(self, serial: str, effect: int) -> bool:
+        """Send a game effect to a controller (AdminModeCallbacks)."""
+        return await self._send_game_effect(serial, effect)
+
+    async def send_base_color(self, serial: str, color: tuple[int, int, int]) -> bool:
+        """Send a base color to a controller (AdminModeCallbacks)."""
+        return await self._send_base_color(serial, color)
+
+    async def publish_event(self, event_type: str, data: dict) -> None:
+        """Publish an event to subscribers (AdminModeCallbacks)."""
+        await self._publish_event(event_type, data)
+
+    def get_current_selection(self) -> str:
+        """Get the currently selected game mode (AdminModeCallbacks)."""
+        return self.current_selection
+
+    def get_connected_controllers(self) -> set[str]:
+        """Get set of connected controller serials (AdminModeCallbacks)."""
+        return self.connected_controllers
+
+    def get_ready_controllers(self) -> set[str]:
+        """Get set of ready controller serials (AdminModeCallbacks)."""
+        return self.ready_controllers
+
+    def set_menu_state(self, state) -> None:
+        """Set the menu state (AdminModeCallbacks)."""
+        self.state = state
+
+    def get_game_options(self) -> list[str]:
+        """Get list of available game options (AdminModeCallbacks)."""
+        return self.game_options if hasattr(self, "game_options") else []
 
     async def StartMenu(self, request, context):
         """Start the menu (Phase 34: async for _publish_event)."""

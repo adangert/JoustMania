@@ -2,7 +2,7 @@
 Description=PS Move Controller Pairing Daemon
 Documentation=https://github.com/adangert/JoustMania
 After=bluetooth.service
-Requires=bluetooth.service
+Wants=bluetooth.service
 
 [Service]
 Type=simple

@@ -568,13 +568,13 @@ class BluetoothBackend(ControllerBackend):
                     if rssi is not None:
                         logger.debug(f"RSSI for {serial}: {rssi} dBm")
                     else:
-                        logger.debug(f"RSSI lookup returned None for {serial} (address={address})")
+                        logger.info(f"RSSI: hcitool returned None for {serial} (address={address})")
                     return rssi
 
-            # Log mismatch for debugging
-            logger.debug(
-                f"No BlueZ device matching serial {serial} (normalized: {serial_normalized}). "
-                f"Known devices: {[a.replace(':', '').upper() for a in devices]}"
+            # Log mismatch - this is the likely issue
+            logger.info(
+                f"RSSI: No BlueZ device matching {serial}. "
+                f"BlueZ knows {len(devices)} devices: {devices[:3]}{'...' if len(devices) > 3 else ''}"
             )
             return None
 

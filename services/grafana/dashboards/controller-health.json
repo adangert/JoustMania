@@ -317,14 +317,21 @@
             }
           },
           "mappings": [],
-          "max": 1,
           "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 2
               }
             ]
           },
@@ -341,7 +348,7 @@
       "id": 3,
       "options": {
         "legend": {
-          "calcs": [],
+          "calcs": ["last"],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -358,12 +365,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_connected",
-          "legendFormat": "{{serial}}",
+          "expr": "sum(controller_connected)",
+          "legendFormat": "Connected",
           "refId": "A"
         }
       ],
-      "title": "Controller Connection Status",
+      "title": "Controllers Connected",
       "type": "timeseries"
     },
     {

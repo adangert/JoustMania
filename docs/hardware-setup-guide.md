@@ -439,6 +439,32 @@ If using adapters with adjustable antennas:
 
 See [Controller Pairing](#controller-pairing) for detailed troubleshooting.
 
+### Controllers Not Detected After Container Start (Hot-Plug)
+
+The Docker container-manager requires specific configuration for controller hot-plug:
+
+| Symptom | Cause | Solution |
+|---------|-------|----------|
+| New controllers not detected | `/dev` bind mount is snapshot | Ensure `/dev:/dev:rslave` mount |
+| PSMove invalid handle errors | Device not visible in container | Add `pid: "host"` to compose |
+| Works after restart only | Hot-plug not configured | Apply both fixes below |
+
+**Required docker-compose.yml settings for hot-plug:**
+
+```yaml
+controller-manager:
+  privileged: true
+  pid: "host"                    # Required for device visibility
+  volumes:
+    - /dev:/dev:rslave           # rslave propagation for hot-plug
+```
+
+Both settings are required:
+- **`pid: "host"`**: Shares host PID namespace for device event visibility
+- **`/dev:/dev:rslave`**: Recursive slave mount propagates new devices into container
+
+These are already configured in the default `docker-compose.yml` (Phase 73).
+
 ### High Latency
 
 | Cause | Solution |

@@ -78,6 +78,28 @@ controller-manager:
 - Battery level tracking
 - Motion sensors (accel/gyro)
 - LED + rumble control
+- Controller hot-plug (Phase 73)
+
+**Hot-Plug Support** (Phase 73):
+
+Controllers can connect/disconnect dynamically after container startup. The backend polls `psmove.count_connected()` and rescans when count changes:
+
+```python
+def get_connected_controllers(self) -> list[str]:
+    count = psmove.count_connected()
+    if count != self._last_controller_count:
+        # Rescan with retry logic for newly connected controllers
+        # New controllers may not be immediately ready - retry 3x with 0.5s delay
+```
+
+Docker requirements for hot-plug:
+```yaml
+controller-manager:
+  privileged: true
+  pid: "host"            # Required: host PID namespace for device visibility
+  volumes:
+    - /dev:/dev:rslave   # Required: rslave propagation for new devices
+```
 
 ### 2. WindowsBackend (Development)
 

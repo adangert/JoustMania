@@ -6,7 +6,7 @@ Wants=bluetooth.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /opt/joustmania/scripts/pairing-daemon/psmove_pairing_daemon.py
+ExecStart=/opt/joustmania/scripts/pairing-daemon/venv/bin/python /opt/joustmania/scripts/pairing-daemon/psmove_pairing_daemon.py
 Restart=always
 RestartSec=10
 

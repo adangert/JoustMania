@@ -13,6 +13,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="/opt/joustmania/scripts/pairing-daemon"
+VENV_DIR="$INSTALL_DIR/venv"
 
 echo "Installing PS Move Pairing Daemon..."
 
@@ -28,13 +29,18 @@ EOF
 udevadm control --reload-rules
 udevadm trigger
 
-# Install Python dependencies
-echo "  Installing Python dependencies..."
-pip3 install --quiet -r "$SCRIPT_DIR/requirements.txt"
-
 # Create installation directory
 echo "  Creating installation directory..."
 mkdir -p "$INSTALL_DIR"
+
+# Create virtual environment
+echo "  Creating Python virtual environment..."
+python3 -m venv "$VENV_DIR"
+
+# Install Python dependencies in venv
+echo "  Installing Python dependencies..."
+"$VENV_DIR/bin/pip" install --quiet --upgrade pip
+"$VENV_DIR/bin/pip" install --quiet -r "$SCRIPT_DIR/requirements.txt"
 
 # Copy Python daemon
 echo "  Installing Python daemon..."

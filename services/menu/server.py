@@ -27,7 +27,6 @@ from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 from opentelemetry import trace
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
-from lib.types import Sound
 from services.menu.handlers import AdminModeHandler, ConnectedHandler, ReadyHandler
 from services.menu.state_manager import StateManager
 from services.menu.utils import AudioHelper, LedController, SettingsHelper
@@ -96,7 +95,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         # Game event monitoring - stops button monitor during games
         self.game_event_task = None
         self.game_event_monitor_running = False
-        self.controller_button_states: dict[str, dict[str, bool]] = {}  # {serial: {trigger: bool, move: bool, ...}}
 
         # Lobby state feedback (Phase 39)
         self.ready_controllers: set[str] = set()  # Controllers with trigger pressed (ready)
@@ -545,7 +543,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         self.controller_lobby_state.clear()
                         self.last_lobby_feedback_update.clear()
                         self.ready_controller_count = 0
-                        self.controller_button_states.clear()
 
                         # Phase 70: Restart lobby music
                         await self.audio.start_lobby_music()
@@ -646,7 +643,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         """
         self.connected_controllers.discard(serial)
         self.ready_controllers.discard(serial)
-        self.controller_button_states.pop(serial, None)
         self.controller_lobby_state.pop(serial, None)
         self.last_lobby_feedback_update.pop(serial, None)
 
@@ -905,142 +901,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     self._button_stream_queue = None
                     self.led.set_stream(None)
 
-    async def _update_lobby_feedback(self, controller, stub):
-        """
-        Update controller LED feedback based on lobby state and selected game mode (Phase 39).
-
-        Colors are game-mode-specific:
-        - Each game mode has its own base color (e.g., orange for FFA, blue for Teams)
-        - Dim version (~50% brightness): Connected but not ready
-        - Bright version (100% brightness): Ready (trigger pressed)
-        - Green flash: Initial connection
-        - White: Admin mode
-
-        Phase XX: Uses bidirectional stream to send base colors with RPC fallback.
-
-        Args:
-            controller: ControllerState protobuf message
-            stub: ControllerManagerServiceStub for LED control (fallback)
-        """
-        from proto import controller_manager_pb2
-
-        serial = controller.serial
-        current_time = time.time()
-
-        # Skip admin mode controllers (handled separately)
-        if self.admin_handler.is_admin_controller(serial):
-            return
-
-        # Track first connection (no flash, just set initial state)
-        if serial not in self.connected_controllers:
-            self.connected_controllers.add(serial)
-            logger.info(f"Controller {serial} connected")
-            # Set initial state to trigger immediate color update
-            self.controller_lobby_state[serial] = "new"
-            # Don't set last_lobby_feedback_update - allow immediate color update
-
-        # Detect button presses for ready state changes (Phase 39)
-        # - Trigger press → become ready
-        # - Move press → become un-ready (more purposeful action)
-        prev_state = self.controller_button_states.get(serial, {})
-
-        # Detect trigger press event (False → True transition) → become ready
-        trigger_edge = controller.trigger_pressed and not prev_state.get("trigger", False)
-
-        if trigger_edge:
-            if serial in self.ready_controllers:
-                # Already ready → pressing trigger starts game (handled by _process_button_state)
-                # Don't update lobby feedback, let game start happen
-                return
-            # Not ready → mark as ready
-            target_state = "ready"
-        # Detect move press event (False → True transition) → become un-ready
-        elif controller.move_pressed and not prev_state.get("move", False):
-            if serial in self.ready_controllers:
-                # Ready → pressing Move button un-readies
-                target_state = "connected"
-                logger.info(f"Controller {serial} un-readied via Move button")
-            else:
-                # Not ready → stay connected
-                target_state = "connected"
-        else:
-            # No relevant button press → maintain current state
-            target_state = "ready" if serial in self.ready_controllers else "connected"
-
-        # Only update if state changed (avoid redundant SetControllerColor calls)
-        if target_state == self.controller_lobby_state.get(serial, "unknown"):
-            return
-
-        # Update ready controller tracking IMMEDIATELY (no rate limiting for state changes)
-        if target_state == "ready" and serial not in self.ready_controllers:
-            self.ready_controllers.add(serial)
-            self.ready_controller_count = len(self.ready_controllers)
-            # Phase 60: Play ready sound
-            await self.audio.play_sound(Sound.SFX_BEEP_LOUD, volume=0.5)
-            logger.info(f"Controller {serial} ready ({self.ready_controller_count} total)")
-
-            # Sync with controller manager to detect disconnects before checking ready
-            await self._sync_connected_controllers(stub)
-
-            # Auto-start only when ALL connected controllers are ready (minimum 2)
-            all_ready = len(self.ready_controllers) == len(self.connected_controllers)
-            logger.info(
-                f"Ready check: ready={len(self.ready_controllers)} connected={len(self.connected_controllers)} "
-                f"all_ready={all_ready} ready_set={self.ready_controllers} connected_set={self.connected_controllers}"
-            )
-            if all_ready and len(self.ready_controllers) >= 2:
-                logger.info("All controllers ready - auto-starting game!")
-                await self._handle_trigger_press(serial)
-
-        elif target_state == "connected" and serial in self.ready_controllers:
-            self.ready_controllers.remove(serial)
-            self.ready_controller_count = len(self.ready_controllers)
-            logger.info(f"Controller {serial} unready ({self.ready_controller_count} total)")
-
-        # Get base color for current game mode
-        base_color = GAME_MODE_COLORS.get(
-            self.current_selection,
-            (255, 140, 0),  # Default to orange if game mode not found
-        )
-
-        # Calculate final color based on state
-        if target_state == "ready":
-            # Bright version (100% brightness) - ready state
-            final_color = base_color
-        else:
-            # Dim version (30% brightness) - connected but not ready
-            final_color = (
-                int(base_color[0] * 0.3),
-                int(base_color[1] * 0.3),
-                int(base_color[2] * 0.3),
-            )
-
-        # Phase XX: Try to send via bidirectional stream first
-        if await self.led.send_base_color(serial, final_color):
-            # Update state tracking
-            self.controller_lobby_state[serial] = target_state
-            self.last_lobby_feedback_update[serial] = current_time
-            logger.debug(f"Controller {serial} lobby state: {target_state} (game: {self.current_selection}) via stream")
-        else:
-            # Fallback to RPC if stream not available
-            try:
-                await stub.SetControllerColor(
-                    controller_manager_pb2.SetControllerColorRequest(
-                        serial=serial,
-                        color=controller_manager_pb2.RGB(r=final_color[0], g=final_color[1], b=final_color[2]),
-                        duration_ms=0,  # Persistent until changed
-                    )
-                )
-
-                # Update state tracking
-                self.controller_lobby_state[serial] = target_state
-                self.last_lobby_feedback_update[serial] = current_time
-
-                logger.debug(f"Controller {serial} lobby state: {target_state} (game: {self.current_selection})")
-
-            except Exception as e:
-                logger.error(f"Failed to update lobby feedback for {serial}: {e}")
-
     async def _sync_connected_controllers(self, stub):
         """
         Sync connected_controllers with controller manager to detect disconnects.
@@ -1070,7 +930,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     self.connected_controllers.discard(serial)
                     self.ready_controllers.discard(serial)
                     self.controller_lobby_state.pop(serial, None)
-                    self.controller_button_states.pop(serial, None)
                     self.last_lobby_feedback_update.pop(serial, None)
 
                 self.ready_controller_count = len(self.ready_controllers)

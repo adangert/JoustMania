@@ -13,48 +13,26 @@ Admin mode allows changing settings like:
 - Cycle options / adjust values (Move button / Trigger / Cross)
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import time
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from opentelemetry import trace
 
 from lib.types import Sound
+from services.menu.handlers.base import ControllerState
+
+if TYPE_CHECKING:
+    from services.menu.state_manager import StateManager
 
 logger = logging.getLogger(__name__)
 
 
 class AdminModeCallbacks(Protocol):
-    """Protocol defining callbacks that AdminModeHandler needs from Menu."""
-
-    async def play_voice(self, sound: Sound) -> None:
-        """Play a voice announcement."""
-        ...
-
-    async def send_game_effect(self, serial: str, effect: int) -> bool:
-        """Send a game effect to a controller."""
-        ...
-
-    async def send_base_color(self, serial: str, color: tuple[int, int, int]) -> bool:
-        """Send a base color to a controller."""
-        ...
-
-    async def publish_event(self, event_type: str, data: dict) -> None:
-        """Publish an event to subscribers."""
-        ...
-
-    def get_current_selection(self) -> str:
-        """Get the currently selected game mode."""
-        ...
-
-    def get_connected_controllers(self) -> set[str]:
-        """Get set of connected controller serials."""
-        ...
-
-    def get_ready_controllers(self) -> set[str]:
-        """Get set of ready controller serials."""
-        ...
+    """Protocol defining Menu-specific callbacks that AdminModeHandler needs."""
 
     def set_menu_state(self, state) -> None:
         """Set the menu state (for game starting)."""
@@ -71,12 +49,13 @@ class AdminModeHandler:
 
     Admin mode is activated by holding Move + Trigger + PS for 3 seconds.
     While active, face buttons perform administrative actions.
+
+    Implements the ControllerHandler protocol for StateManager integration.
     """
 
     def __init__(
         self,
         controller_channel,
-        settings_channel,
         tracer: trace.Tracer,
         callbacks: AdminModeCallbacks,
         metrics,
@@ -86,16 +65,17 @@ class AdminModeHandler:
 
         Args:
             controller_channel: gRPC channel to Controller Manager service
-            settings_channel: gRPC channel to Settings service
             tracer: OpenTelemetry tracer for span creation
-            callbacks: Callbacks to Menu service methods
+            callbacks: Menu-specific callbacks (set_menu_state, get_game_options)
             metrics: Prometheus metrics module
         """
         self.controller_channel = controller_channel
-        self.settings_channel = settings_channel
         self.tracer = tracer
         self.callbacks = callbacks
         self.metrics = metrics
+
+        # StateManager reference (set via set_state_manager)
+        self._state_manager: StateManager | None = None
 
         # Admin mode state
         self.active = False
@@ -118,6 +98,107 @@ class AdminModeHandler:
         # Button debouncing
         self.last_button_time: dict[str, float] = {}
         self.button_debounce_interval = 0.3  # seconds
+
+    # ControllerHandler protocol methods
+
+    @property
+    def state(self) -> ControllerState:
+        """The state this handler manages."""
+        return ControllerState.ADMIN
+
+    def set_state_manager(self, manager: StateManager) -> None:
+        """Set the state manager reference."""
+        self._state_manager = manager
+
+    async def handle_button(self, serial: str, button: str) -> None:
+        """
+        Handle a button press event (ControllerHandler protocol).
+
+        Delegates to the existing handle_button_event method.
+
+        Args:
+            serial: Controller serial number
+            button: Button name
+        """
+        await self.handle_button_event(serial, button)
+
+    async def on_enter(self, serial: str) -> None:
+        """
+        Called when a controller enters admin mode (ControllerHandler protocol).
+
+        Delegates to the existing enter method.
+
+        Args:
+            serial: Controller serial number
+        """
+        await self.enter(serial)
+
+    async def on_exit(self, serial: str) -> None:  # noqa: ARG002
+        """
+        Called when a controller exits admin mode (ControllerHandler protocol).
+
+        Delegates to the existing exit method.
+
+        Args:
+            serial: Controller serial number (unused - uses internal state)
+        """
+        await self.exit()
+
+    # Helper properties for StateManager access
+
+    @property
+    def _settings_channel(self):
+        """Get settings channel from StateManager."""
+        if self._state_manager is None:
+            raise RuntimeError("StateManager not set")
+        return self._state_manager.settings.settings_channel
+
+    @property
+    def _connected_controllers(self) -> set[str]:
+        """Get connected controllers from StateManager."""
+        if self._state_manager is None:
+            return set()
+        return self._state_manager.connected_controllers
+
+    @property
+    def _ready_controllers(self) -> set[str]:
+        """Get ready controllers from StateManager."""
+        if self._state_manager is None:
+            return set()
+        return self._state_manager.ready_controllers
+
+    @property
+    def _current_game_mode(self) -> str:
+        """Get current game mode from StateManager."""
+        if self._state_manager is None:
+            return "JoustFFA"
+        return self._state_manager.current_game_mode
+
+    async def _send_game_effect(self, serial: str, effect: int) -> bool:
+        """Send game effect via StateManager's LED controller."""
+        if self._state_manager is None:
+            return False
+        return await self._state_manager.led.send_game_effect(serial, effect)
+
+    async def _send_base_color(self, serial: str, color: tuple[int, int, int]) -> bool:
+        """Send base color via StateManager's LED controller."""
+        if self._state_manager is None:
+            return False
+        return await self._state_manager.led.send_base_color(serial, color)
+
+    async def _publish_event(self, event_type: str, data: dict) -> None:
+        """Publish event via StateManager."""
+        if self._state_manager is None:
+            return
+        await self._state_manager.publish_event(event_type, data)
+
+    async def _play_voice(self, sound: Sound) -> None:
+        """Play voice via StateManager's audio helper."""
+        if self._state_manager is None:
+            return
+        await self._state_manager.audio.play_voice(sound)
+
+    # Original properties
 
     @property
     def is_active(self) -> bool:
@@ -211,7 +292,7 @@ class AdminModeHandler:
             self.current_option = 0  # Reset to first option (team_size)
 
             # Try bidirectional stream first (Phase XX)
-            if await self.callbacks.send_game_effect(serial, controller_manager_pb2.GAME_EFFECT_ADMIN_ENTER):
+            if await self._send_game_effect(serial, controller_manager_pb2.GAME_EFFECT_ADMIN_ENTER):
                 logger.info(f"Admin mode entered by controller {serial} (via stream)")
                 span.add_event("admin_mode_entered")
             else:
@@ -263,7 +344,7 @@ class AdminModeHandler:
 
             # Send exit effect via stream
             serial = self.controller_serial
-            if await self.callbacks.send_game_effect(serial, controller_manager_pb2.GAME_EFFECT_ADMIN_EXIT):
+            if await self._send_game_effect(serial, controller_manager_pb2.GAME_EFFECT_ADMIN_EXIT):
                 logger.debug(f"Admin exit effect sent via stream for {serial}")
             else:
                 # Fallback to unary RPC
@@ -318,7 +399,7 @@ class AdminModeHandler:
         # Check for admin mode timeout (60 seconds)
         if current_time - self.entry_time > 60:
             logger.info("Admin mode timed out after 60 seconds")
-            await self.exit()
+            await self._exit_to_connected(serial)
             return
 
         if not self._should_process_button(serial, button, current_time):
@@ -337,6 +418,21 @@ class AdminModeHandler:
         elif button == "square":
             await self.handle_instructions(serial)
         elif button == "ps":
+            await self._exit_to_connected(serial)
+
+    async def _exit_to_connected(self, serial: str) -> None:
+        """
+        Exit admin mode and transition back to CONNECTED state.
+
+        Uses StateManager to properly transition states.
+
+        Args:
+            serial: Controller serial number
+        """
+        if self._state_manager is not None:
+            await self._state_manager.transition_to(serial, ControllerState.CONNECTED)
+        else:
+            # Fallback if StateManager not set
             await self.exit()
 
     async def handle_game_mode_change(self, serial: str, forward: bool = True) -> None:
@@ -358,7 +454,7 @@ class AdminModeHandler:
 
             try:
                 game_options = self.callbacks.get_game_options()
-                current_selection = self.callbacks.get_current_selection()
+                current_selection = self._current_game_mode
 
                 if not game_options:
                     logger.warning("No game options available for mode change")
@@ -379,7 +475,7 @@ class AdminModeHandler:
                 span.set_attribute("new_selection", new_selection)
 
                 # Publish selection change
-                await self.callbacks.publish_event(
+                await self._publish_event(
                     "game_selection_changed",
                     {"game_name": new_selection, "source": "admin_mode", "serial": serial},
                 )
@@ -441,11 +537,11 @@ class AdminModeHandler:
         ctx = self._get_span_context()
         with self.tracer.start_as_current_span("admin_force_start", context=ctx) as span:
             span.set_attribute("controller.serial", serial)
-            span.set_attribute("game.name", self.callbacks.get_current_selection())
+            span.set_attribute("game.name", self._current_game_mode)
 
             try:
                 # Check force_all_start setting
-                settings_stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
+                settings_stub = settings_pb2_grpc.SettingsServiceStub(self._settings_channel)
                 force_all_response = await settings_stub.GetSetting(
                     settings_pb2.GetSettingRequest(key="force_all_start")
                 )
@@ -455,10 +551,10 @@ class AdminModeHandler:
                 # Determine which controllers to include
                 if force_all:
                     # Use all connected controllers
-                    controllers = list(self.callbacks.get_connected_controllers())
+                    controllers = list(self._connected_controllers)
                 else:
                     # Use ready controllers, but include admin if not already ready
-                    controllers = list(self.callbacks.get_ready_controllers())
+                    controllers = list(self._ready_controllers)
                     if serial not in controllers:
                         controllers.append(serial)
 
@@ -485,10 +581,10 @@ class AdminModeHandler:
                 from proto import menu_pb2
 
                 self.callbacks.set_menu_state(menu_pb2.MenuState.GAME_STARTING)
-                await self.callbacks.publish_event(
+                await self._publish_event(
                     "game_requested",
                     {
-                        "game_name": self.callbacks.get_current_selection(),
+                        "game_name": self._current_game_mode,
                         "source": "admin_force_start",
                         "serial": serial,
                         "controllers": controllers,
@@ -498,12 +594,12 @@ class AdminModeHandler:
                 span.add_event(
                     "force_start_triggered",
                     {
-                        "game": self.callbacks.get_current_selection(),
+                        "game": self._current_game_mode,
                         "player_count": len(controllers),
                     },
                 )
                 logger.info(
-                    f"Force starting game '{self.callbacks.get_current_selection()}' via admin controller {serial} "
+                    f"Force starting game '{self._current_game_mode}' via admin controller {serial} "
                     f"with {len(controllers)} players"
                 )
 
@@ -523,7 +619,7 @@ class AdminModeHandler:
         from proto import controller_manager_pb2
 
         try:
-            if await self.callbacks.send_game_effect(serial, controller_manager_pb2.GAME_EFFECT_FORCE_START_CHARGE):
+            if await self._send_game_effect(serial, controller_manager_pb2.GAME_EFFECT_FORCE_START_CHARGE):
                 logger.debug(f"Started force start fade effect for {serial}")
             else:
                 logger.warning(f"Could not start force start effect for {serial} - stream not available")
@@ -540,7 +636,7 @@ class AdminModeHandler:
             serial: Controller serial number
         """
         try:
-            if await self.callbacks.send_base_color(serial, (255, 255, 255)):
+            if await self._send_base_color(serial, (255, 255, 255)):
                 logger.debug(f"Cancelled force start effect for {serial}")
             else:
                 logger.warning(f"Could not cancel force start effect for {serial} - stream not available")
@@ -569,7 +665,7 @@ class AdminModeHandler:
             span.set_attribute("controller.serial", serial)
 
             try:
-                settings_stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
+                settings_stub = settings_pb2_grpc.SettingsServiceStub(self._settings_channel)
 
                 # Get current sensitivity
                 get_request = settings_pb2.GetSettingRequest(key="sensitivity")
@@ -620,7 +716,7 @@ class AdminModeHandler:
                     Sound.MENU_VOX_FAST,
                     Sound.MENU_VOX_ULTRA_FAST,
                 ]
-                await self.callbacks.play_voice(sensitivity_sounds[int(new_value)])
+                await self._play_voice(sensitivity_sounds[int(new_value)])
 
                 # Restore white after feedback
                 async def restore_white():
@@ -721,7 +817,7 @@ class AdminModeHandler:
             span.set_attribute("controller.serial", serial)
 
             try:
-                settings_stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
+                settings_stub = settings_pb2_grpc.SettingsServiceStub(self._settings_channel)
 
                 # Get current instruction state
                 get_request = settings_pb2.GetSettingRequest(key="instructions")
@@ -757,7 +853,7 @@ class AdminModeHandler:
 
                 # Play instructions toggle voice announcement
                 voice = Sound.MENU_VOX_INSTRUCTIONS_ON if new_value == "true" else Sound.MENU_VOX_INSTRUCTIONS_OFF
-                await self.callbacks.play_voice(voice)
+                await self._play_voice(voice)
 
                 span.add_event(
                     "instructions_toggled",
@@ -843,7 +939,7 @@ class AdminModeHandler:
             span.set_attribute("admin.option", option_name)
 
             try:
-                stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
+                stub = settings_pb2_grpc.SettingsServiceStub(self._settings_channel)
 
                 # Get current value
                 get_request = settings_pb2.GetSettingRequest(key=option_name)
@@ -903,7 +999,7 @@ class AdminModeHandler:
             span.set_attribute("admin.option", option_name)
 
             try:
-                stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
+                stub = settings_pb2_grpc.SettingsServiceStub(self._settings_channel)
 
                 # Get current value
                 get_request = settings_pb2.GetSettingRequest(key=option_name)

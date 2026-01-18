@@ -53,9 +53,6 @@ class StateManager:
         # Current game mode (for LED colors)
         self.current_game_mode: str = "JoustFFA"
 
-        # Admin combo detection
-        self.admin_combo_shown: bool = False
-
     def register_handler(self, handler: ControllerHandler) -> None:
         """
         Register a handler for a controller state.
@@ -121,45 +118,18 @@ class StateManager:
             }
         self.button_states[serial][button] = is_press
 
-        # Handle release events
+        # Handle release events - no action needed for handlers
         if not is_press:
-            # Reset admin combo flag when face button released
-            if button in ("cross", "circle", "square", "triangle"):
-                self.admin_combo_shown = False
-            return
-
-        # Check for admin combo (all 4 face buttons)
-        if button in ("cross", "circle", "square", "triangle") and self._check_admin_combo(serial):
-            if not self.admin_combo_shown:
-                self.admin_combo_shown = True
-                await self.transition_to(serial, ControllerState.ADMIN)
             return
 
         # Dispatch to appropriate handler
+        # Note: Admin mode is handled externally by AdminModeHandler
         state = self.get_controller_state(serial)
         handler = self._handlers.get(state)
         if handler:
             await handler.handle_button(serial, button)
         else:
             logger.warning(f"No handler for state {state.value}")
-
-    def _check_admin_combo(self, serial: str) -> bool:
-        """
-        Check if all 4 face buttons are pressed.
-
-        Args:
-            serial: Controller serial number
-
-        Returns:
-            True if admin combo is active
-        """
-        state = self.button_states.get(serial, {})
-        return (
-            state.get("cross", False)
-            and state.get("circle", False)
-            and state.get("square", False)
-            and state.get("triangle", False)
-        )
 
     async def transition_to(self, serial: str, new_state: ControllerState) -> None:
         """
@@ -262,5 +232,4 @@ class StateManager:
         self.connected_controllers.clear()
         self.ready_controllers.clear()
         self.button_states.clear()
-        self.admin_combo_shown = False
         logger.info("StateManager reset")

@@ -132,9 +132,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.audio = AudioHelper(self.audio_channel)
         self.settings_helper = SettingsHelper(self.settings_channel)
 
-        # State manager and handlers (Phase XX: SOLID refactor)
-        # Note: StateManager is created but not yet wired into button event loop
-        # TODO: Wire state_manager into _button_event_loop to replace current handler code
+        # State manager and handlers (SOLID refactor)
+        # StateManager handles button events for all controller states (connected, ready, admin)
         self.state_manager = StateManager(
             led=self.led,
             audio=self.audio,
@@ -151,48 +150,19 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         # Phase 60: Voice actor setting (aaron or ivy)
         self.voice_actor = "ivy"  # Default matches settings schema
 
-        # Admin mode handler (provides callbacks to access Menu methods)
-        # Note: AdminModeHandler is kept separate for now as it has different interface
+        # Admin mode handler
         self.admin_handler = AdminModeHandler(
             controller_channel=self.controller_channel,
-            settings_channel=self.settings_channel,
             tracer=tracer,
-            callbacks=self,  # Menu implements AdminModeCallbacks protocol
+            callbacks=self,  # Menu implements AdminModeCallbacks (set_menu_state, get_game_options)
             metrics=metrics,
         )
+        # Register admin handler with state manager
+        self.state_manager.register_handler(self.admin_handler)
 
         logger.info("Menu service initialized with persistent gRPC channels")
 
-    # AdminModeCallbacks protocol implementation
-    # These methods provide the interface that AdminModeHandler uses
-
-    async def play_voice(self, sound: Sound) -> None:
-        """Play a voice announcement (AdminModeCallbacks)."""
-        await self._play_voice(sound)
-
-    async def send_game_effect(self, serial: str, effect: int) -> bool:
-        """Send a game effect to a controller (AdminModeCallbacks)."""
-        return await self._send_game_effect(serial, effect)
-
-    async def send_base_color(self, serial: str, color: tuple[int, int, int]) -> bool:
-        """Send a base color to a controller (AdminModeCallbacks)."""
-        return await self._send_base_color(serial, color)
-
-    async def publish_event(self, event_type: str, data: dict) -> None:
-        """Publish an event to subscribers (AdminModeCallbacks)."""
-        await self._publish_event(event_type, data)
-
-    def get_current_selection(self) -> str:
-        """Get the currently selected game mode (AdminModeCallbacks)."""
-        return self.current_selection
-
-    def get_connected_controllers(self) -> set[str]:
-        """Get set of connected controller serials (AdminModeCallbacks)."""
-        return self.connected_controllers
-
-    def get_ready_controllers(self) -> set[str]:
-        """Get set of ready controller serials (AdminModeCallbacks)."""
-        return self.ready_controllers
+    # AdminModeCallbacks protocol implementation (Menu-specific methods only)
 
     def set_menu_state(self, state) -> None:
         """Set the menu state (AdminModeCallbacks)."""
@@ -342,6 +312,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         else:
                             current_index = 0
                         self.current_selection = self.GAME_MODES[(current_index + 1) % len(self.GAME_MODES)]
+                        self.state_manager.set_game_mode(self.current_selection)
                         await self._publish_event("selection_changed", {"game_name": self.current_selection})
                         await self._save_current_game_setting()
                         logger.info(f"Selection changed to: {self.current_selection}")
@@ -365,6 +336,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         game_name = data.get("game_name", "")
                         if game_name in self.GAME_MODES:
                             self.current_selection = game_name
+                            self.state_manager.set_game_mode(game_name)
                             await self._publish_event("selection_changed", {"game_name": game_name, "source": "web"})
                             await self._save_current_game_setting()
                             # Phase 60: Play game mode voice announcement
@@ -672,13 +644,16 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
             if response.value and response.value in self.GAME_MODES:
                 self.current_selection = response.value
+                self.state_manager.set_game_mode(response.value)
                 logger.info(f"Loaded current game mode: {self.current_selection}")
             else:
                 self.current_selection = "JoustFFA"
+                self.state_manager.set_game_mode("JoustFFA")
                 logger.debug(f"Current game setting not found, using default: {self.current_selection}")
 
         except Exception as e:
             self.current_selection = "JoustFFA"
+            self.state_manager.set_game_mode("JoustFFA")
             logger.debug(f"Could not load current game setting: {e}, using default")
 
     async def _save_current_game_setting(self):
@@ -968,52 +943,35 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     action_str = "PRESS" if is_press else "RELEASE"
                     logger.debug(f"Button event: {serial} {button_name}={action_str}")
 
-                    # Initialize state tracking for this controller
-                    if serial not in self.controller_button_states:
-                        self.controller_button_states[serial] = {
-                            "trigger": False,
-                            "move": False,
-                            "cross": False,
-                            "circle": False,
-                            "square": False,
-                            "triangle": False,
-                            "ps": False,
-                            "select": False,
-                            "start": False,
-                        }
-                        self.last_button_press_time[serial] = {}
-
-                    # Update button state from event (for combo detection)
-                    self.controller_button_states[serial][button_name] = is_press
-
-                    # Track controller as connected
-                    if serial not in self.connected_controllers:
-                        self.connected_controllers.add(serial)
-                        logger.info(f"Controller {serial} connected (via button event)")
-
-                    # Only process button presses (not releases) for actions
-                    if not is_press:
-                        # Reset admin combo flag when any face button released
-                        if button_name in ["cross", "circle", "square", "triangle"]:
-                            self.admin_handler.combo_shown = False
+                    # Only process when menu is running
+                    if self.state != menu_pb2.MenuState.RUNNING:
                         continue
 
                     # Check for admin mode combo (all 4 face buttons pressed)
-                    is_face_button = button_name in ["cross", "circle", "square", "triangle"]
-                    button_state = self.controller_button_states.get(serial, {})
-                    if is_face_button and self.admin_handler.check_combo_from_state(button_state):
-                        if not self.admin_handler.combo_shown:
-                            self.admin_handler.combo_shown = True
-                            await self.admin_handler.enter(serial)
-                        continue  # Don't process as individual button
+                    # This needs to happen before StateManager processes the event
+                    # so we can intercept the combo and transition to admin state
+                    button_state = self.state_manager.button_states.get(serial, {})
+                    if is_press and button_name in ["cross", "circle", "square", "triangle"]:
+                        # Preview what button state will be after this press
+                        preview_state = dict(button_state)
+                        preview_state[button_name] = True
+                        if self.admin_handler.check_combo_from_state(preview_state):
+                            if not self.admin_handler.combo_shown:
+                                self.admin_handler.combo_shown = True
+                                # Transition to admin state via StateManager
+                                from services.menu.handlers.base import ControllerState
 
-                    # Handle button based on current mode
-                    if self.admin_handler.is_admin_controller(serial):
-                        # Admin mode: process admin commands
-                        await self.admin_handler.handle_button_event(serial, button_name)
-                    elif self.state == menu_pb2.MenuState.RUNNING:
-                        # Normal menu mode: process menu actions
-                        await self._handle_menu_button_event(serial, button_name, stub)
+                                await self.state_manager.transition_to(serial, ControllerState.ADMIN)
+                            # Update button state but don't process as individual button
+                            await self.state_manager.handle_button_event(serial, button_name, is_press)
+                            continue
+
+                    # Reset admin combo flag when any face button released
+                    if not is_press and button_name in ["cross", "circle", "square", "triangle"]:
+                        self.admin_handler.combo_shown = False
+
+                    # Route all button events through StateManager
+                    await self.state_manager.handle_button_event(serial, button_name, is_press)
 
                 if self.button_monitor_running:
                     logger.warning("Button event stream ended, reconnecting...")
@@ -1033,76 +991,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     self.button_stream = None
                     self._button_stream_queue = None
                     self.led.set_stream(None)
-
-    async def _handle_menu_button_event(self, serial: str, button: str, stub):
-        """
-        Handle button press in normal menu mode.
-
-        Args:
-            serial: Controller serial number
-            button: Button name (trigger, move, etc.)
-            stub: ControllerManagerServiceStub for LED control
-        """
-        current_time = time.time()
-
-        if button == "trigger":
-            # Trigger press: ready toggle or game start
-            if not self._should_process_button(serial, "trigger", current_time):
-                return
-            logger.info(f"Trigger PRESS event: {serial}")
-            await self._handle_button_event_trigger(serial)
-
-        elif button == "move":
-            # Move press: cycle game modes OR un-ready if ready
-            if not self._should_process_button(serial, "move", current_time):
-                return
-            if serial in self.ready_controllers:
-                # Un-ready the controller
-                await self._handle_button_event_unready(serial, stub)
-            else:
-                # Cycle game modes
-                await self._handle_select_press(serial)
-
-    async def _handle_button_event_unready(self, serial: str, stub):
-        """
-        Handle move button press to un-ready a controller.
-
-        Args:
-            serial: Controller serial number
-            stub: ControllerManagerServiceStub for LED control
-        """
-        if serial not in self.ready_controllers:
-            return
-
-        self.ready_controllers.remove(serial)
-        self.ready_controller_count = len(self.ready_controllers)
-        logger.info(f"Controller {serial} un-readied via Move button ({self.ready_controller_count} ready)")
-
-        # Update LED to dim color (not ready)
-        base_color = self.GAME_MODE_COLORS.get(self.current_selection, (255, 140, 0))
-        dim_color = (
-            int(base_color[0] * 0.3),
-            int(base_color[1] * 0.3),
-            int(base_color[2] * 0.3),
-        )
-
-        # Try bidirectional stream first, fall back to RPC
-        if not await self._send_base_color(serial, dim_color):
-            from proto import controller_manager_pb2
-
-            try:
-                await stub.SetControllerColor(
-                    controller_manager_pb2.SetControllerColorRequest(
-                        serial=serial,
-                        color=controller_manager_pb2.RGB(r=dim_color[0], g=dim_color[1], b=dim_color[2]),
-                        duration_ms=0,
-                    )
-                )
-            except Exception as e:
-                logger.error(f"Failed to set dim color for {serial}: {e}")
-
-        # Update lobby state
-        self.controller_lobby_state[serial] = "connected"
 
     async def _send_base_color(self, serial: str, color: tuple[int, int, int]) -> bool:
         """
@@ -1165,78 +1053,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             except asyncio.QueueFull:
                 logger.warning(f"Button stream queue full, could not send game effect for {serial}")
                 return False
-
-    async def _handle_button_event_trigger(self, serial: str):
-        """
-        Handle trigger press event for ready state toggle.
-
-        This is called from the button event stream for immediate response,
-        bypassing the state stream latency.
-
-        Phase XX: Uses bidirectional stream to send base colors instead of RPC.
-        """
-        current_time = time.time()
-
-        # Debounce - ignore if we just processed this (100ms to prevent double-triggers)
-        last_press = self.last_button_press_time.get(serial, {}).get("trigger_event", 0)
-        if current_time - last_press < 0.1:
-            return
-        if serial not in self.last_button_press_time:
-            self.last_button_press_time[serial] = {}
-        self.last_button_press_time[serial]["trigger_event"] = current_time
-
-        # Track controller as connected if not already
-        if serial not in self.connected_controllers:
-            self.connected_controllers.add(serial)
-            logger.info(f"Controller {serial} connected (via button event)")
-
-        # Toggle ready state
-        if serial in self.ready_controllers:
-            # Already ready - trigger press starts game
-            if self.state == menu_pb2.MenuState.RUNNING:
-                # Check if all are ready
-                ready_count = len(self.ready_controllers)
-                all_ready = ready_count == len(self.connected_controllers) and ready_count >= 2
-                if all_ready:
-                    logger.info(f"All ready, starting game via button event from {serial}")
-                    await self._handle_trigger_press(serial)
-        else:
-            # Not ready - mark as ready
-            self.ready_controllers.add(serial)
-            self.ready_controller_count = len(self.ready_controllers)
-            await self._play_sound(Sound.SFX_BEEP_LOUD, volume=0.5)
-            logger.info(f"Controller {serial} ready via button event ({self.ready_controller_count} total)")
-
-            # Update LED to bright (ready) color via stream
-            base_color = self.GAME_MODE_COLORS.get(self.current_selection, (255, 140, 0))
-            if not await self._send_base_color(serial, base_color):
-                # Fallback to RPC if stream not available
-                from proto import controller_manager_pb2, controller_manager_pb2_grpc
-
-                try:
-                    stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
-                    await stub.SetControllerColor(
-                        controller_manager_pb2.SetControllerColorRequest(
-                            serial=serial,
-                            color=controller_manager_pb2.RGB(r=base_color[0], g=base_color[1], b=base_color[2]),
-                            duration_ms=0,
-                        )
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to set ready color for {serial}: {e}")
-
-            # Check if all ready - auto start with feedback delay
-            all_ready = len(self.ready_controllers) == len(self.connected_controllers)
-            logger.info(
-                f"Ready check (event): ready={len(self.ready_controllers)} connected={len(self.connected_controllers)} "
-                f"all_ready={all_ready}"
-            )
-            if all_ready and len(self.ready_controllers) >= 2:
-                logger.info("All controllers ready - showing feedback before game start")
-                # Brief delay so last player sees their LED go bright
-                await asyncio.sleep(0.3)
-                logger.info("Starting game after feedback delay")
-                await self._handle_trigger_press(serial)
 
     # Game modes available in the menu (Phase 59: single source of truth)
     GAME_MODES = [
@@ -1512,44 +1328,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             logger.info(
                 f"Game requested via controller {serial}: {self.current_selection} " f"with {len(controllers)} players"
             )
-
-    async def _handle_select_press(self, serial: str):
-        """
-        Handle select button press - cycle games (Phase 21).
-
-        Args:
-            serial: Controller serial number
-        """
-        metrics.button_presses_total.labels(button="move", action="press").inc()
-
-        with tracer.start_as_current_span("handle_select_press") as span:
-            span.set_attribute("controller.serial", serial)
-
-            # Phase 59: Use GAME_MODES constant
-            if self.current_selection in self.GAME_MODES:
-                current_index = self.GAME_MODES.index(self.current_selection)
-            else:
-                current_index = 0
-            self.current_selection = self.GAME_MODES[(current_index + 1) % len(self.GAME_MODES)]
-
-            span.set_attribute("game.name", self.current_selection)
-
-            await self._publish_event(  # Phase 34: await
-                "selection_changed",
-                {"game_name": self.current_selection, "source": "controller", "serial": serial},
-            )
-            await self._save_current_game_setting()
-            logger.info(f"Selection changed via controller {serial}: {self.current_selection}")
-
-            # Phase 60: Play game mode voice announcement
-            voice_file = self.GAME_MODE_VOICE.get(self.current_selection)
-            if voice_file:
-                await self._play_voice(voice_file)
-
-            # Phase 39: Force lobby color update for all controllers to reflect new game mode
-            # Clear the state so colors update on next _update_lobby_feedback call
-            self.controller_lobby_state.clear()
-            self.last_lobby_feedback_update.clear()
 
 
 async def serve(port=50054, metrics_port=8000):

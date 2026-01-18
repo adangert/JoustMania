@@ -149,9 +149,12 @@ while true; do
         fi
 
         # Also check if psmove itself thinks it's paired (host address already set)
-        psmove_info=$($PSMOVE list 2>/dev/null | grep -i "$serial" || true)
-        if echo "$psmove_info" | grep -qi "bluetooth\|paired\|host"; then
-            debug "Controller $serial_upper already has host set, skipping"
+        psmove_list_output=$($PSMOVE list 2>&1)
+        debug "psmove list full output: $psmove_list_output"
+        psmove_info=$(echo "$psmove_list_output" | grep -i "$serial" || true)
+        debug "psmove info for $serial: $psmove_info"
+        if echo "$psmove_info" | grep -qi "bluetooth"; then
+            log "Controller $serial already paired (shows Bluetooth mode), skipping"
             continue
         fi
 

@@ -557,7 +557,8 @@ class BluetoothBackend(ControllerBackend):
             # Serial from PSMove has colons (e.g., "00:06:f7:26:ed:5")
             # BlueZ address also has colons (e.g., "00:06:F7:26:ED:5")
             # Normalize both to uppercase without colons for reliable comparison
-            devices = bluetooth.get_attached_addresses(self.hci)
+            # Use get_connected_addresses() to only check devices with active connections
+            devices = bluetooth.get_connected_addresses(self.hci)
             serial_normalized = serial.replace(":", "").upper()
 
             for address in devices:

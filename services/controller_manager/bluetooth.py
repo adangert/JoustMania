@@ -47,6 +47,31 @@ def get_attached_addresses(hci):
     return known_devices
 
 
+def get_connected_addresses(hci):
+    """Get the addresses of devices currently connected via hci.
+
+    Unlike get_attached_addresses() which returns all known/paired devices,
+    this returns only devices with an active Bluetooth connection.
+    """
+    proxy = get_adapter_proxy(hci)
+    devices = get_node_child_names(proxy)
+
+    connected_devices = []
+    for dev in devices:
+        try:
+            proxy2 = get_device_proxy(hci, dev)
+            # Check if device is currently connected
+            connected = get_device_attrib(proxy2, "Connected")
+            if connected:
+                dev_addr = str(get_device_attrib(proxy2, "Address"))
+                connected_devices.append(dev_addr)
+        except Exception:
+            # Skip devices that can't be queried
+            continue
+
+    return connected_devices
+
+
 def get_bus():
     """Get DBus hook"""
     return BUS

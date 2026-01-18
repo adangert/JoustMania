@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
+from opentelemetry import context as otel_context
 from opentelemetry import trace
 
 from lib.types import GameEvent, Sound
@@ -235,6 +236,8 @@ class BaseGameMode(ABC):
         self.change_time = 0.0  # Time of next tempo change
         self.music_loop_task = None
         self.dead_count = 0  # Track deaths for tempo timing
+        self.gameplay_span: trace.Span | None = None  # Reference for span events
+        self.gameplay_span_context = None  # Context for child spans in background tasks
 
         logger.info(f"{self.get_game_name()} game initialized: {self.game_id}")
 
@@ -889,7 +892,11 @@ class BaseGameMode(ABC):
             await self._start_game_music()
 
             # Phase 5: Gameplay (with music loop running alongside)
-            with tracer.start_as_current_span("gameplay_phase"):
+            with tracer.start_as_current_span("gameplay_phase") as gameplay_span:
+                # Store span reference and context for background tasks
+                self.gameplay_span = gameplay_span
+                self.gameplay_span_context = otel_context.get_current()
+
                 # Start music loop as background task
                 self.music_loop_task = asyncio.create_task(self._music_loop())
 
@@ -1106,18 +1113,40 @@ class BaseGameMode(ABC):
                 from proto import audio_pb2
 
                 # Determine target tempo
+                old_tempo = self.music_speed
                 target_tempo = FAST_MUSIC_SPEED if self.speed_up else SLOW_MUSIC_SPEED
 
-                # Request tempo transition
-                await self.audio_client.ChangeTempo(
-                    audio_pb2.ChangeTempoRequest(
-                        track_id=self.music_track_id,
-                        new_tempo=target_tempo,
-                        transition_duration=MUSIC_TRANSITION_DURATION,
-                    )
-                )
+                # Use gameplay context so gRPC span appears as child of gameplay_phase
+                token = None
+                if self.gameplay_span_context:
+                    token = otel_context.attach(self.gameplay_span_context)
 
-                logger.info(f"Music tempo changing: {self.music_speed:.2f} -> {target_tempo:.2f}")
+                try:
+                    # Request tempo transition
+                    await self.audio_client.ChangeTempo(
+                        audio_pb2.ChangeTempoRequest(
+                            track_id=self.music_track_id,
+                            new_tempo=target_tempo,
+                            transition_duration=MUSIC_TRANSITION_DURATION,
+                        )
+                    )
+                finally:
+                    if token:
+                        otel_context.detach(token)
+
+                logger.info(f"Music tempo changing: {old_tempo:.2f} -> {target_tempo:.2f}")
+
+                # Add span event to gameplay span for tempo change
+                if self.gameplay_span:
+                    self.gameplay_span.add_event(
+                        "music_tempo_change",
+                        attributes={
+                            "old_tempo": old_tempo,
+                            "new_tempo": target_tempo,
+                            "dead_count": self.dead_count,
+                            "direction": "speed_up" if self.speed_up else "slow_down",
+                        },
+                    )
 
                 # Update state
                 self.music_speed = target_tempo

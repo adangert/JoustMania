@@ -34,6 +34,31 @@ node-exporter:
     - '--path.sysfs=/host/sys'
     - '--path.rootfs=/rootfs'
     - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    # Disable slow/unnecessary collectors for Raspberry Pi
+    - '--no-collector.arp'
+    - '--no-collector.bcache'
+    - '--no-collector.bonding'
+    - '--no-collector.btrfs'
+    - '--no-collector.conntrack'
+    - '--no-collector.edac'
+    - '--no-collector.entropy'
+    - '--no-collector.fibrechannel'
+    - '--no-collector.infiniband'
+    - '--no-collector.ipvs'
+    - '--no-collector.mdadm'
+    - '--no-collector.nfs'
+    - '--no-collector.nfsd'
+    - '--no-collector.nvme'
+    - '--no-collector.powersupplyclass'
+    - '--no-collector.pressure'
+    - '--no-collector.rapl'
+    - '--no-collector.schedstat'
+    - '--no-collector.softnet'
+    - '--no-collector.tapestats'
+    - '--no-collector.textfile'
+    - '--no-collector.timex'
+    - '--no-collector.xfs'
+    - '--no-collector.zfs'
   volumes:
     - /proc:/host/proc:ro
     - /sys:/host/sys:ro
@@ -42,8 +67,9 @@ node-exporter:
     - joustmania
   restart: unless-stopped
   healthcheck:
-    test: ["CMD", "wget", "--spider", "-q", "http://localhost:9100/metrics"]
-    interval: 10s
+    # Use /-/healthy endpoint, not /metrics (avoids broken pipe errors)
+    test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9100/-/healthy"]
+    interval: 30s
     timeout: 5s
     retries: 3
     start_period: 5s
@@ -55,11 +81,15 @@ Added scrape target in `services/prometheus/prometheus.yml`:
 
 ```yaml
 - job_name: 'node'
+  scrape_interval: 30s  # Longer interval for Pi
+  scrape_timeout: 25s   # Must be < interval
   static_configs:
     - targets: ['node-exporter:9100']
       labels:
         instance: 'raspberry-pi'
 ```
+
+**Note:** The scrape interval is set to 30s (vs 10s default) because node-exporter metric collection can be slow on Raspberry Pi. The timeout must be less than the interval.
 
 ### 3. Grafana Dashboard
 
@@ -182,6 +212,34 @@ The dashboard provides at-a-glance health status:
 │ [BAR GAUGE: /, /boot, etc.]                                            │
 └────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Troubleshooting
+
+### Broken Pipe Errors
+
+**Symptom:** Repeated `write: broken pipe` errors in node-exporter logs.
+
+**Cause:** The healthcheck was using `wget --spider` on `/metrics`, which closes the connection immediately while node-exporter is streaming thousands of metrics.
+
+**Solution:** Use the dedicated health endpoint `/-/healthy` instead of `/metrics`.
+
+### Scrape Timeout Errors
+
+**Symptom:** Prometheus fails to start with "scrape timeout greater than scrape interval".
+
+**Cause:** Default scrape_interval is 10s but we set scrape_timeout to 30s.
+
+**Solution:** Set `scrape_interval: 30s` and `scrape_timeout: 25s` (timeout must be < interval).
+
+### Slow Metric Collection
+
+**Symptom:** Node-exporter takes too long to respond, causing timeouts.
+
+**Cause:** Default collectors include many irrelevant subsystems (btrfs, nfs, zfs, etc.).
+
+**Solution:** Disable unnecessary collectors with `--no-collector.*` flags. The essential collectors for Raspberry Pi are: cpu, cpufreq, diskstats, filesystem, hwmon, loadavg, meminfo, netdev, thermal_zone.
 
 ---
 

@@ -1016,6 +1016,8 @@ class BaseGameMode(ABC):
                 self.speed_up = True
                 self.change_time = self._get_music_change_time()
                 next_change = self.change_time - time.time()
+                # Update metric for dashboard
+                metrics.music_tempo.set(self.music_speed)
                 logger.info(f"Game music started: {response.track_id}, next change at +{next_change:.1f}s")
             else:
                 logger.warning(f"Failed to start game music: {response.error}")
@@ -1099,6 +1101,8 @@ class BaseGameMode(ABC):
                 self.music_speed = target_tempo
                 self.speed_up = not self.speed_up
                 self.change_time = self._get_music_change_time()
+                # Update metric for dashboard
+                metrics.music_tempo.set(self.music_speed)
 
                 logger.debug(f"Next tempo change at +{self.change_time - now:.1f}s")
 

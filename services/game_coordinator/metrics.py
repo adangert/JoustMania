@@ -88,6 +88,12 @@ grpc_request_duration_seconds = Histogram(
     buckets=[0.001, 0.005, 0.010, 0.025, 0.050, 0.100, 0.250, 0.500, 1.0],
 )
 
+# Music tempo metric (Phase 70)
+music_tempo = Gauge(
+    "game_music_tempo",
+    "Current music playback speed (1.0=slow, 1.3=fast, 0=no game)",
+)
+
 # Runtime configuration metrics (Phase 43)
 configured_update_frequency_hz = Gauge(
     "game_configured_update_frequency_hz", "Configured update frequency from runtime config"
@@ -218,3 +224,5 @@ def clear_all_player_analytics() -> None:
     player_movement_zone._metrics.clear()
     player_playstyle._metrics.clear()
     player_peak_accel._metrics.clear()
+    # Reset music tempo to 0 to indicate no game running
+    music_tempo.set(0)

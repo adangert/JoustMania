@@ -558,17 +558,24 @@ class BluetoothBackend(ControllerBackend):
             # BlueZ address also has colons (e.g., "00:06:F7:26:ED:5")
             # Normalize both to uppercase without colons for reliable comparison
             devices = bluetooth.get_attached_addresses(self.hci)
+            serial_normalized = serial.replace(":", "").upper()
+
             for address in devices:
                 # Normalize both to uppercase without colons for comparison
                 addr_normalized = address.replace(":", "").upper()
-                serial_normalized = serial.replace(":", "").upper()
                 if addr_normalized == serial_normalized:
                     rssi = bluetooth.get_device_rssi(self.hci, address)
                     if rssi is not None:
                         logger.debug(f"RSSI for {serial}: {rssi} dBm")
+                    else:
+                        logger.debug(f"RSSI lookup returned None for {serial} (address={address})")
                     return rssi
 
-            logger.debug(f"No BlueZ device found matching serial {serial}")
+            # Log mismatch for debugging
+            logger.debug(
+                f"No BlueZ device matching serial {serial} (normalized: {serial_normalized}). "
+                f"Known devices: {[a.replace(':', '').upper() for a in devices]}"
+            )
             return None
 
         except Exception as e:

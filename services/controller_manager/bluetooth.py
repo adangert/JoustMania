@@ -2,10 +2,13 @@
 This module handles interacting with Bluez over DBus for JoustMania
 """
 
+import logging
 import os
 from xml.etree import ElementTree
 
 import dbus
+
+logger = logging.getLogger(__name__)
 
 BUS = dbus.SystemBus()
 ORG_BLUEZ = "org.bluez"
@@ -263,17 +266,24 @@ def _get_rssi_via_hcitool(device_address):
                 rssi_str = output.split(":")[-1].strip()
                 return int(rssi_str)
 
+        # Log failure reason for debugging
+        if result.returncode != 0:
+            stderr = result.stderr.strip() if result.stderr else "no error output"
+            logger.debug(f"hcitool rssi failed for {device_address}: returncode={result.returncode}, stderr={stderr}")
+
         return None
 
     except FileNotFoundError:
-        # hcitool not installed
+        logger.warning("hcitool not found - RSSI monitoring unavailable")
         return None
     except subprocess.TimeoutExpired:
+        logger.debug(f"hcitool rssi timed out for {device_address}")
         return None
-    except (ValueError, IndexError):
-        # Parsing error
+    except (ValueError, IndexError) as e:
+        logger.debug(f"Error parsing hcitool rssi output: {e}")
         return None
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Unexpected error in hcitool rssi: {e}")
         return None
 
 

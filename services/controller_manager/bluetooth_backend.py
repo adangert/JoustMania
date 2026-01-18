@@ -458,32 +458,56 @@ class BluetoothBackend(ControllerBackend):
                 self._last_controller_count = count
 
                 # Scan for new controllers - enumerate all and check which are new
-                seen_serials = []
-                for move_num in range(count):
-                    try:
-                        with suppress_stderr():
-                            move = psmove.PSMove(move_num)
-                        if move is None:
-                            logger.warning(f"Controller {move_num}/{count}: PSMove() returned None")
+                # Retry logic: new controllers may not be immediately ready
+                max_retries = 3
+                retry_delay = 0.5  # seconds
+
+                for attempt in range(max_retries):
+                    seen_serials = []
+                    failed_indices = []
+
+                    for move_num in range(count):
+                        # Skip indices we've already successfully processed
+                        if move_num < len(self.controllers) and attempt > 0:
+                            # On retries, only process indices that failed before
+                            pass
+
+                        try:
+                            with suppress_stderr():
+                                move = psmove.PSMove(move_num)
+                            if move is None:
+                                logger.warning(f"Controller {move_num}/{count}: PSMove() returned None")
+                                failed_indices.append(move_num)
+                                continue
+
+                            serial = move.get_serial()
+                            if not serial:
+                                logger.warning(f"Controller {move_num}/{count}: no serial returned")
+                                failed_indices.append(move_num)
+                                continue
+
+                            seen_serials.append(serial)
+
+                            if serial not in self.controllers:
+                                # New controller detected - store the handle
+                                self.controllers[serial] = move
+                                self.controller_states[serial] = ControllerState()
+                                logger.info(f"New controller connected: {serial} (index {move_num})")
+                            # If serial already tracked, let the PSMove object be garbage collected
+                            # to avoid invalidating the existing handle
+                        except Exception as e:
+                            logger.warning(f"Controller {move_num}/{count}: {e}")
+                            failed_indices.append(move_num)
                             continue
 
-                        serial = move.get_serial()
-                        if not serial:
-                            logger.warning(f"Controller {move_num}/{count}: no serial returned")
-                            continue
+                    # If we found all controllers or no failures, we're done
+                    if len(seen_serials) >= count or not failed_indices:
+                        break
 
-                        seen_serials.append(serial)
-
-                        if serial not in self.controllers:
-                            # New controller detected - store the handle
-                            self.controllers[serial] = move
-                            self.controller_states[serial] = ControllerState()
-                            logger.info(f"New controller connected: {serial} (index {move_num})")
-                        # If serial already tracked, let the PSMove object be garbage collected
-                        # to avoid invalidating the existing handle
-                    except Exception as e:
-                        logger.warning(f"Error reading controller {move_num}/{count}: {e}")
-                        continue
+                    # Retry after delay if we're missing controllers
+                    if attempt < max_retries - 1:
+                        logger.info(f"Retry {attempt + 1}/{max_retries} in {retry_delay}s...")
+                        time.sleep(retry_delay)
 
                 logger.info(
                     f"Scan complete: found {len(seen_serials)} serials: {seen_serials}, "

@@ -1,0 +1,266 @@
+"""Controller state manager for the Menu service."""
+
+import logging
+from collections.abc import Callable, Coroutine
+
+from services.menu.handlers.base import ControllerHandler, ControllerState
+from services.menu.utils import AudioHelper, LedController, SettingsHelper
+
+logger = logging.getLogger(__name__)
+
+
+class StateManager:
+    """
+    Central coordinator for controller states in the menu.
+
+    Tracks which state each controller is in and dispatches button events
+    to the appropriate handler. Manages state transitions with proper
+    callbacks to handlers.
+    """
+
+    def __init__(
+        self,
+        led: LedController,
+        audio: AudioHelper,
+        settings: SettingsHelper,
+        publish_event: Callable[[str, dict], Coroutine],
+    ):
+        """
+        Initialize state manager.
+
+        Args:
+            led: LED controller utility
+            audio: Audio helper utility
+            settings: Settings helper utility
+            publish_event: Async function to publish events
+        """
+        self.led = led
+        self.audio = audio
+        self.settings = settings
+        self.publish_event = publish_event
+
+        # Controller state tracking
+        self.controller_states: dict[str, ControllerState] = {}
+        self.connected_controllers: set[str] = set()
+        self.ready_controllers: set[str] = set()
+
+        # Button state tracking (for combo detection)
+        self.button_states: dict[str, dict[str, bool]] = {}
+
+        # Handlers for each state
+        self._handlers: dict[ControllerState, ControllerHandler] = {}
+
+        # Current game mode (for LED colors)
+        self.current_game_mode: str = "JoustFFA"
+
+        # Admin combo detection
+        self.admin_combo_shown: bool = False
+
+    def register_handler(self, handler: ControllerHandler) -> None:
+        """
+        Register a handler for a controller state.
+
+        Args:
+            handler: Handler instance implementing ControllerHandler protocol
+        """
+        handler.set_state_manager(self)
+        self._handlers[handler.state] = handler
+        logger.debug(f"Registered handler for state: {handler.state.value}")
+
+    def get_handler(self, state: ControllerState) -> ControllerHandler | None:
+        """
+        Get the handler for a state.
+
+        Args:
+            state: Controller state
+
+        Returns:
+            Handler instance or None if not registered
+        """
+        return self._handlers.get(state)
+
+    def get_controller_state(self, serial: str) -> ControllerState:
+        """
+        Get the current state of a controller.
+
+        Args:
+            serial: Controller serial number
+
+        Returns:
+            Current state (defaults to CONNECTED for unknown controllers)
+        """
+        return self.controller_states.get(serial, ControllerState.CONNECTED)
+
+    async def handle_button_event(self, serial: str, button: str, is_press: bool) -> None:
+        """
+        Handle a button event for a controller.
+
+        Dispatches to the appropriate handler based on current state.
+
+        Args:
+            serial: Controller serial number
+            button: Button name
+            is_press: True if press, False if release
+        """
+        # Track controller as connected
+        if serial not in self.connected_controllers:
+            await self.on_controller_connected(serial)
+
+        # Update button state
+        if serial not in self.button_states:
+            self.button_states[serial] = {
+                "trigger": False,
+                "move": False,
+                "cross": False,
+                "circle": False,
+                "square": False,
+                "triangle": False,
+                "ps": False,
+                "select": False,
+                "start": False,
+            }
+        self.button_states[serial][button] = is_press
+
+        # Handle release events
+        if not is_press:
+            # Reset admin combo flag when face button released
+            if button in ("cross", "circle", "square", "triangle"):
+                self.admin_combo_shown = False
+            return
+
+        # Check for admin combo (all 4 face buttons)
+        if button in ("cross", "circle", "square", "triangle") and self._check_admin_combo(serial):
+            if not self.admin_combo_shown:
+                self.admin_combo_shown = True
+                await self.transition_to(serial, ControllerState.ADMIN)
+            return
+
+        # Dispatch to appropriate handler
+        state = self.get_controller_state(serial)
+        handler = self._handlers.get(state)
+        if handler:
+            await handler.handle_button(serial, button)
+        else:
+            logger.warning(f"No handler for state {state.value}")
+
+    def _check_admin_combo(self, serial: str) -> bool:
+        """
+        Check if all 4 face buttons are pressed.
+
+        Args:
+            serial: Controller serial number
+
+        Returns:
+            True if admin combo is active
+        """
+        state = self.button_states.get(serial, {})
+        return (
+            state.get("cross", False)
+            and state.get("circle", False)
+            and state.get("square", False)
+            and state.get("triangle", False)
+        )
+
+    async def transition_to(self, serial: str, new_state: ControllerState) -> None:
+        """
+        Transition a controller to a new state.
+
+        Calls on_exit on old handler and on_enter on new handler.
+
+        Args:
+            serial: Controller serial number
+            new_state: State to transition to
+        """
+        old_state = self.controller_states.get(serial, ControllerState.CONNECTED)
+
+        if old_state == new_state:
+            return
+
+        # Call exit handler
+        old_handler = self._handlers.get(old_state)
+        if old_handler:
+            await old_handler.on_exit(serial)
+
+        # Update state
+        self.controller_states[serial] = new_state
+
+        # Update ready set
+        if new_state == ControllerState.READY:
+            self.ready_controllers.add(serial)
+        else:
+            self.ready_controllers.discard(serial)
+
+        # Call enter handler
+        new_handler = self._handlers.get(new_state)
+        if new_handler:
+            await new_handler.on_enter(serial)
+
+        logger.info(f"Controller {serial} transitioned: {old_state.value} -> {new_state.value}")
+
+    async def on_controller_connected(self, serial: str) -> None:
+        """
+        Handle a new controller connection.
+
+        Args:
+            serial: Controller serial number
+        """
+        self.connected_controllers.add(serial)
+        self.controller_states[serial] = ControllerState.CONNECTED
+
+        # Call enter handler for CONNECTED state
+        handler = self._handlers.get(ControllerState.CONNECTED)
+        if handler:
+            await handler.on_enter(serial)
+
+        logger.info(f"Controller {serial} connected")
+
+    async def on_controller_disconnected(self, serial: str) -> None:
+        """
+        Handle a controller disconnection.
+
+        Args:
+            serial: Controller serial number
+        """
+        # Call exit handler for current state
+        state = self.controller_states.get(serial, ControllerState.CONNECTED)
+        handler = self._handlers.get(state)
+        if handler:
+            await handler.on_exit(serial)
+
+        # Clean up state
+        self.connected_controllers.discard(serial)
+        self.ready_controllers.discard(serial)
+        self.controller_states.pop(serial, None)
+        self.button_states.pop(serial, None)
+
+        logger.info(f"Controller {serial} disconnected")
+
+    def get_ready_count(self) -> int:
+        """Get number of ready controllers."""
+        return len(self.ready_controllers)
+
+    def get_connected_count(self) -> int:
+        """Get number of connected controllers."""
+        return len(self.connected_controllers)
+
+    def all_ready(self) -> bool:
+        """Check if all connected controllers are ready (minimum 2)."""
+        return len(self.ready_controllers) >= 2 and len(self.ready_controllers) == len(self.connected_controllers)
+
+    def set_game_mode(self, game_mode: str) -> None:
+        """
+        Set the current game mode.
+
+        Args:
+            game_mode: Game mode name
+        """
+        self.current_game_mode = game_mode
+
+    def reset(self) -> None:
+        """Reset all controller states (e.g., after game ends)."""
+        self.controller_states.clear()
+        self.connected_controllers.clear()
+        self.ready_controllers.clear()
+        self.button_states.clear()
+        self.admin_combo_shown = False
+        logger.info("StateManager reset")

@@ -51,8 +51,8 @@ from services.supervisor import metrics
 logger = logging.getLogger(__name__)
 
 
-# Initialize OpenTelemetry
-tracer = init_telemetry()
+# Initialize OpenTelemetry (with client instrumentation for StartGame calls to Game Coordinator)
+tracer = init_telemetry(instrument_grpc_client=True)
 
 
 class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):

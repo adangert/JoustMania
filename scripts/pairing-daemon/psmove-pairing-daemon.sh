@@ -184,11 +184,6 @@ while true; do
             calibrate_output=$($PSMOVE calibrate 2>&1) || true
             debug "Calibrate output: $calibrate_output"
 
-            # Restart bluetooth to recognize new device
-            debug "Restarting bluetooth service..."
-            systemctl restart bluetooth
-            sleep 2
-
             log "Controller ready: $serial - unplug USB and press PS button to connect"
         else
             log "Failed to pair $serial (exit code: $pair_exit)"

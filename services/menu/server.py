@@ -28,7 +28,8 @@ from opentelemetry import trace
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from lib.types import Sound
-from services.menu.handlers.admin import AdminModeHandler
+from services.menu.handlers import AdminModeHandler, ConnectedHandler, ReadyHandler
+from services.menu.state_manager import StateManager
 from services.menu.utils import AudioHelper, LedController, SettingsHelper
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -131,10 +132,27 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.audio = AudioHelper(self.audio_channel)
         self.settings_helper = SettingsHelper(self.settings_channel)
 
+        # State manager and handlers (Phase XX: SOLID refactor)
+        # Note: StateManager is created but not yet wired into button event loop
+        # TODO: Wire state_manager into _button_event_loop to replace current handler code
+        self.state_manager = StateManager(
+            led=self.led,
+            audio=self.audio,
+            settings=self.settings_helper,
+            publish_event=self._publish_event,
+        )
+
+        # Register handlers with state manager
+        self.connected_handler = ConnectedHandler()
+        self.ready_handler = ReadyHandler(start_game_callback=self._handle_trigger_press)
+        self.state_manager.register_handler(self.connected_handler)
+        self.state_manager.register_handler(self.ready_handler)
+
         # Phase 60: Voice actor setting (aaron or ivy)
         self.voice_actor = "ivy"  # Default matches settings schema
 
         # Admin mode handler (provides callbacks to access Menu methods)
+        # Note: AdminModeHandler is kept separate for now as it has different interface
         self.admin_handler = AdminModeHandler(
             controller_channel=self.controller_channel,
             settings_channel=self.settings_channel,

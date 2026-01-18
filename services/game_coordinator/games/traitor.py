@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
+from lib.types import Sound
 from proto import controller_manager_pb2
 from services.game_coordinator.games.base import Player
 from services.game_coordinator.games.teams_base import TeamsGameBase
@@ -407,9 +408,8 @@ class TraitorGame(TeamsGameBase):
                         )
                         await self.controller_client.PlayControllerEffect(rainbow_request)
 
-            # Play victory sound
-            # TODO: Use voice setting from settings service instead of hardcoded path
-            await self._play_sound("Joust/vox/aaron/traitor win.wav", priority=2)
+            # Play victory sound (audio service handles voice selection)
+            await self._play_sound(Sound.VOX_TRAITOR_WIN, priority=2)
 
         # Wait for celebration
         for _ in range(20):  # 2 seconds

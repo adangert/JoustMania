@@ -319,10 +319,86 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
         """Initialize audio servicer."""
         self.audio_manager = AudioManager()
         self.audio_enabled = True  # Controlled by play_audio setting
+        self.menu_voice = "ivy"  # Controlled by menu_voice setting
+        self.sound_registry: dict[str, str] = {}  # sound_name -> type ("vox" or "sound")
+        self._build_sound_registry()
         logger.info("AudioServiceServicer initialized")
 
+    def _build_sound_registry(self):
+        """
+        Build registry of available sounds by scanning asset directories.
+
+        Populates self.sound_registry with mappings from sound name to type.
+        """
+        assets_dir = Path(__file__).parent / "assets" / "Joust"
+
+        # Scan vox directory (use aaron as reference - all voices should have same files)
+        vox_dir = assets_dir / "vox" / "aaron"
+        if vox_dir.exists():
+            for wav_file in vox_dir.glob("*.wav"):
+                sound_name = wav_file.stem  # filename without extension
+                self.sound_registry[sound_name] = "vox"
+                self.sound_registry[sound_name.lower()] = "vox"  # Also index lowercase
+
+        # Scan sounds directory
+        sounds_dir = assets_dir / "sounds"
+        if sounds_dir.exists():
+            for wav_file in sounds_dir.glob("*.wav"):
+                sound_name = wav_file.stem
+                # Don't overwrite vox entries - vox takes priority
+                if sound_name not in self.sound_registry:
+                    self.sound_registry[sound_name] = "sound"
+                if sound_name.lower() not in self.sound_registry:
+                    self.sound_registry[sound_name.lower()] = "sound"
+
+        logger.info(f"Sound registry built: {len(self.sound_registry)} sounds indexed")
+
+    def _resolve_sound_path(self, sound_input: str) -> str:
+        """
+        Resolve a sound name or path to a full file path.
+
+        Accepts multiple input formats:
+        - Simple name: "congratulations" -> Joust/vox/{voice}/congratulations.wav
+        - Name with extension: "congratulations.wav" -> Joust/vox/{voice}/congratulations.wav
+        - Partial path: "Joust/vox/congratulations.wav" -> Joust/vox/{voice}/congratulations.wav
+        - Full path with voice: "Joust/vox/aaron/congratulations.wav" -> used as-is
+
+        Args:
+            sound_input: Sound name or path
+
+        Returns:
+            Full resolved path to the sound file
+        """
+        # Strip .wav extension if present for lookup
+        lookup_name = sound_input
+        if lookup_name.endswith(".wav"):
+            lookup_name = lookup_name[:-4]
+
+        # If it's a simple name (no path separators), look up in registry
+        if "/" not in lookup_name and "\\" not in lookup_name:
+            sound_type = self.sound_registry.get(lookup_name) or self.sound_registry.get(lookup_name.lower())
+            if sound_type == "vox":
+                return f"Joust/vox/{self.menu_voice}/{lookup_name}.wav"
+            elif sound_type == "sound":
+                return f"Joust/sounds/{lookup_name}.wav"
+            else:
+                # Unknown sound - try vox first with current voice
+                logger.warning(f"Sound '{lookup_name}' not in registry, trying vox path")
+                return f"Joust/vox/{self.menu_voice}/{lookup_name}.wav"
+
+        # Handle paths - check if it needs voice insertion
+        if "/vox/" in sound_input:
+            parts = sound_input.split("/vox/")
+            if len(parts) == 2:
+                remainder = parts[1]
+                # Check if voice folder is already present
+                if not remainder.startswith("aaron/") and not remainder.startswith("ivy/"):
+                    return f"{parts[0]}/vox/{self.menu_voice}/{remainder}"
+
+        return sound_input
+
     async def _load_audio_setting(self):
-        """Load play_audio setting from settings service."""
+        """Load audio settings from settings service."""
         try:
             import grpc.aio
 
@@ -333,24 +409,38 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
 
             async with grpc.aio.insecure_channel(f"{settings_host}:{settings_port}") as channel:
                 stub = settings_pb2_grpc.SettingsServiceStub(channel)
+
+                # Load play_audio setting
                 response = await stub.GetSetting(settings_pb2.GetSettingRequest(key="play_audio"))
                 self.audio_enabled = response.value.lower() != "false" if response.value else True
                 logger.info(f"Audio enabled setting loaded: {self.audio_enabled}")
 
+                # Load menu_voice setting (Phase 77)
+                try:
+                    voice_response = await stub.GetSetting(settings_pb2.GetSettingRequest(key="menu_voice"))
+                    if voice_response.value and voice_response.value in ("aaron", "ivy"):
+                        self.menu_voice = voice_response.value
+                    logger.info(f"Menu voice setting loaded: {self.menu_voice}")
+                except Exception as voice_err:
+                    logger.debug(f"Could not load menu_voice setting: {voice_err}, using default: ivy")
+
         except Exception as e:
-            logger.debug(f"Could not load play_audio setting: {e}, defaulting to enabled")
+            logger.debug(f"Could not load audio settings: {e}, using defaults")
 
     def PlaySound(self, request, context):
         """Play a sound effect."""
         with tracer.start_as_current_span("PlaySound_RPC") as span:
-            span.set_attribute("audio.file", request.file_path)
+            # Resolve sound name/path to full path with voice selection (Phase 77)
+            resolved_path = self._resolve_sound_path(request.file_path)
+            span.set_attribute("audio.file", resolved_path)
+            span.set_attribute("audio.original_file", request.file_path)
 
             # Check if audio is disabled via settings
             if not self.audio_enabled:
                 return audio_pb2.PlaySoundResponse(success=True, error="")  # Silently succeed
 
             success = self.audio_manager.play_sound(
-                file_path=request.file_path, volume=request.volume or 1.0, priority=request.priority
+                file_path=resolved_path, volume=request.volume or 1.0, priority=request.priority
             )
 
             return audio_pb2.PlaySoundResponse(success=success, error="" if success else "Failed to play sound")

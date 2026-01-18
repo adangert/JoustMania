@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any
 
 from opentelemetry import trace
 
-from lib.types import GameEvent
+from lib.types import GameEvent, Sound
 from services.game_coordinator import metrics
 from services.game_coordinator.runtime_config import get_config_manager
 
@@ -350,10 +350,25 @@ class BaseGameMode(ABC):
                 self.settings = dict(response.settings)
                 logger.info(f"Loaded settings: {len(self.settings)} keys")
 
-                # Parse sensitivity
-                sens_str = self.settings.get("sensitivity", "MEDIUM").upper()
-                if sens_str in Sensitivity.__members__:
-                    self.sensitivity = Sensitivity[sens_str]
+                # Parse sensitivity (can be integer "0"-"4" or name "MEDIUM")
+                sens_value = self.settings.get("sensitivity", "2")
+                try:
+                    # Try parsing as integer first (0-4)
+                    sens_int = int(sens_value)
+                    if 0 <= sens_int <= 4:
+                        self.sensitivity = Sensitivity(sens_int)
+                    else:
+                        logger.warning(f"Sensitivity value {sens_int} out of range, using MEDIUM")
+                        self.sensitivity = Sensitivity.MEDIUM
+                except ValueError:
+                    # Try parsing as name (ULTRA_SLOW, SLOW, MEDIUM, FAST, ULTRA_FAST)
+                    sens_str = str(sens_value).upper()
+                    if sens_str in Sensitivity.__members__:
+                        self.sensitivity = Sensitivity[sens_str]
+                    else:
+                        logger.warning(f"Unknown sensitivity '{sens_value}', using MEDIUM")
+                        self.sensitivity = Sensitivity.MEDIUM
+                logger.info(f"Sensitivity set to {self.sensitivity.name} ({self.sensitivity.value})")
 
                 # Parse random_teams setting (for team-based games)
                 self.random_teams = self.settings.get("random_teams", "true").lower() == "true"
@@ -431,7 +446,7 @@ class BaseGameMode(ABC):
                 return
 
             # Play countdown beep (Phase 29)
-            await self._play_sound("Joust/sounds/beep_loud.wav", priority=2)
+            await self._play_sound(Sound.SFX_BEEP_LOUD, priority=2)
 
             # Set color on all controllers
             color_request = controller_manager_pb2.SetControllerColorRequest(
@@ -449,7 +464,7 @@ class BaseGameMode(ABC):
                 await asyncio.sleep(0.05)
 
         # Play start sound (Phase 29 - GO!)
-        await self._play_sound("Joust/sounds/start3.wav", priority=2)
+        await self._play_sound(Sound.SFX_START3, priority=2)
 
         self.event_publisher(GameEvent.COUNTDOWN_END, {})
         logger.info("Countdown complete")
@@ -798,7 +813,7 @@ class BaseGameMode(ABC):
         metrics.clear_player_analytics(serial, self.game_id)
 
         # Play death explosion sound (Phase 29)
-        await self._play_sound("Joust/sounds/Explosion34.wav", priority=2)
+        await self._play_sound(Sound.SFX_EXPLOSION, priority=2)
 
         # Call subclass-specific death handling
         await self._kill_player_impl(serial, accel_mag)
@@ -952,12 +967,12 @@ class BaseGameMode(ABC):
             },
         )
 
-    async def _play_sound(self, sound_path: str, priority: int = 2):
+    async def _play_sound(self, sound: str | Sound, priority: int = 2):
         """
         Play sound via Audio service (Phase 29).
 
         Args:
-            sound_path: Relative path to sound file (e.g., "Joust/sounds/Explosion34.wav")
+            sound: Sound enum or string name (e.g., Sound.VOX_CONGRATULATIONS or "congratulations")
             priority: Audio priority (0=LOW, 1=MEDIUM, 2=HIGH, 3=CRITICAL)
         """
         if not self.audio_client:
@@ -966,15 +981,16 @@ class BaseGameMode(ABC):
         try:
             from proto import audio_pb2
 
-            # Send relative path - audio service resolves to its assets directory
-            request = audio_pb2.PlaySoundRequest(file_path=sound_path, volume=1.0, priority=priority)
+            # Convert Sound enum to string value if needed
+            sound_name = sound.value if isinstance(sound, Sound) else sound
+            request = audio_pb2.PlaySoundRequest(file_path=sound_name, volume=1.0, priority=priority)
 
             # Fire-and-forget - don't wait for response
             # Note: play_audio setting is checked centrally in audio service
             await self.audio_client.PlaySound(request)
-            logger.debug(f"Playing sound: {sound_path}")
+            logger.debug(f"Playing sound: {sound_name}")
         except Exception as e:
-            logger.warning(f"Failed to play sound {sound_path}: {e}")
+            logger.warning(f"Failed to play sound {sound_name}: {e}")
 
     # ========================================================================
     # Phase 70: Music Tempo Control

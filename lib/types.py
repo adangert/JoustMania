@@ -108,6 +108,65 @@ class Sensitivity(Enum):
     ULTRA_FAST = 4
 
 
+class Sound(str, Enum):
+    """
+    Sound names for the audio service.
+
+    Use these enums instead of string literals for type safety.
+    The audio service resolves these to actual file paths, handling:
+    - Voice selection (aaron/ivy) for VOX sounds
+    - Directory lookup (sounds/ vs vox/) based on sound type
+
+    Naming convention:
+    - VOX_* for voice announcements (voice-dependent)
+    - SFX_* for sound effects (not voice-dependent)
+    """
+
+    # Victory/End sounds (VOX)
+    VOX_CONGRATULATIONS = "congratulations"
+    VOX_GAME_OVER = "game_over"
+    VOX_HUMAN_WIN = "human win"
+    VOX_WEREWOLF_WIN = "werewolf win"
+    VOX_TRAITOR_WIN = "traitor win"
+
+    # Team win sounds (VOX)
+    VOX_BLUE_TEAM_WIN = "blue team win"
+    VOX_RED_TEAM_WIN = "red team win"
+    VOX_GREEN_TEAM_WIN = "green team win"
+    VOX_YELLOW_TEAM_WIN = "yellow team win"
+    VOX_CYAN_TEAM_WIN = "cyan team win"
+    VOX_MAGENTA_TEAM_WIN = "magenta team win"
+
+    # Time announcements (VOX)
+    VOX_1_MINUTE = "1 minute"
+    VOX_3_MINUTES = "3 minutes"
+    VOX_5_MINUTES = "5 minutes"
+
+    # Werewolf announcements (VOX)
+    VOX_10_WEREWOLF = "10 werewolf"
+    VOX_30_WEREWOLF = "30 werewolf"
+    VOX_WEREWOLF_INTRO = "werewolf intro"
+    VOX_WEREWOLF_REVEAL = "werewolf reveal"
+
+    # Other VOX sounds
+    VOX_FAKEDOUT = "Fakedout"
+    VOX_FAKEDOUT_COUNTER = "FakedoutCounter"
+    VOX_COUNTERED = "countered"
+    VOX_EXPLOSION_DEATH = "explosiondeath"
+
+    # Sound effects (SFX)
+    SFX_EXPLOSION = "Explosion34"
+    SFX_EXPLOSION_22 = "Explosion22"
+    SFX_BEEP_LOUD = "beep_loud"
+    SFX_START = "start"
+    SFX_START3 = "start3"
+    SFX_DEATH = "death"
+    SFX_JOIN = "join"
+    SFX_TEAMS_FORM = "teams_form"
+    SFX_WOLFDOWN = "wolfdown"
+    SFX_SHOTGUN_FOUND = "shotgun found"
+
+
 class GameEvent(str, Enum):
     """
     Game lifecycle event types.

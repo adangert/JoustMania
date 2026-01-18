@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
-from lib.types import GameEvent
+from lib.types import GameEvent, Sound
 from services.game_coordinator.games.analytics import PlayerAnalytics
 from services.game_coordinator.games.base import BaseGameMode, Phase, Player
 from services.game_coordinator.runtime_config import get_config_manager
@@ -521,8 +521,7 @@ class NonstopJoustGame(BaseGameMode):
                 await self.controller_client.PlayControllerEffect(rainbow_request)
 
             # Play victory sound (Phase 29)
-            # TODO: Use voice setting from settings service instead of hardcoded path
-            await self._play_sound("Joust/vox/aaron/congratulations.wav", priority=2)
+            await self._play_sound(Sound.VOX_CONGRATULATIONS, priority=2)
 
             self.event_publisher(
                 GameEvent.GAME_WINNER,

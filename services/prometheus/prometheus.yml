@@ -65,8 +65,16 @@ scrape_configs:
 
   # Node Exporter (host metrics - CPU, memory, disk, temperature)
   - job_name: 'node'
-    scrape_timeout: 30s
+    scrape_interval: 30s
+    scrape_timeout: 25s
     static_configs:
       - targets: ['node-exporter:9100']
         labels:
           instance: 'raspberry-pi'
+
+  # PS Move Pairing Daemon (runs on host, not in Docker)
+  - job_name: 'psmove-pairing'
+    static_configs:
+      - targets: ['host.docker.internal:8002']
+        labels:
+          service: 'psmove-pairing'

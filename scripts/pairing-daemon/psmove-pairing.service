@@ -13,8 +13,9 @@ RestartSec=10
 # Environment
 Environment=POLL_INTERVAL=10
 Environment=DEBUG=0
-# Common psmoveapi location - adjust if built elsewhere
-Environment=PATH=/usr/local/bin:/usr/bin:/bin:/home/joustmania/psmoveapi/build
+# psmoveapi binary location - set PSMOVE_PATH if built elsewhere
+Environment=PSMOVE_PATH=/home/joustmania/psmoveapi/build/psmove
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
 
 # Logging
 StandardOutput=journal

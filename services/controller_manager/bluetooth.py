@@ -75,10 +75,15 @@ def get_connected_addresses(hci):
                     if len(parts) >= 3:
                         address = parts[2]  # The MAC address
                         connected_devices.append(address)
+            logger.info(f"hcitool con: {len(connected_devices)} devices: {connected_devices}")
             if connected_devices:
                 return connected_devices
+        else:
+            stdout = result.stdout[:80] if result.stdout else "empty"
+            stderr = result.stderr[:80] if result.stderr else "empty"
+            logger.info(f"hcitool con failed: rc={result.returncode}, out={stdout}, err={stderr}")
     except Exception as e:
-        logger.debug(f"hcitool con failed: {e}")
+        logger.info(f"hcitool con exception: {e}")
 
     # Fallback to DBus Connected property
     try:

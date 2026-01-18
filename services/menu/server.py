@@ -25,6 +25,7 @@ from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
 # OpenTelemetry (trace API for span operations)
 from opentelemetry import trace
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from lib.types import Sound
 
@@ -272,10 +273,14 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     span.set_attribute("button", button)
 
                     if button == "trigger":
-                        # Game requested
+                        # Game requested - pass ready controllers
+                        controllers = list(self.ready_controllers)
                         self.state = menu_pb2.MenuState.GAME_STARTING
-                        await self._publish_event("game_requested", {"game_name": self.current_selection})
-                        logger.info(f"Game requested: {self.current_selection}")
+                        await self._publish_event(
+                            "game_requested",
+                            {"game_name": self.current_selection, "controllers": controllers},
+                        )
+                        logger.info(f"Game requested: {self.current_selection} with {len(controllers)} players")
 
                     elif button == "select":
                         # Move to next game (Phase 59: use GAME_MODES constant)
@@ -293,10 +298,14 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     span.set_attribute("command", command)
 
                     if command == "start_game":
+                        # Web start - use ready controllers
+                        controllers = list(self.ready_controllers)
                         self.state = menu_pb2.MenuState.GAME_STARTING
                         await self._publish_event(
-                            "game_requested", {"game_name": self.current_selection, "source": "web"}
+                            "game_requested",
+                            {"game_name": self.current_selection, "source": "web", "controllers": controllers},
                         )
+                        logger.info(f"Game requested via web: {self.current_selection} with {len(controllers)} players")
 
                     # Phase 59: Add select_game command for web UI
                     elif command == "select_game":
@@ -385,7 +394,18 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         with tracer.start_as_current_span("publish_menu_event") as span:
             span.set_attribute("event.type", event_type)
 
-            event = menu_pb2.MenuEvent(event_type=event_type, data=data, timestamp=int(time.time() * 1000))
+            # Inject W3C Trace Context into event data for cross-service propagation
+            # This allows the Supervisor to link its spans to this trace
+            event_data = dict(data)  # Copy to avoid mutating original
+            propagator = TraceContextTextMapPropagator()
+            carrier: dict[str, str] = {}
+            propagator.inject(carrier)
+            if "traceparent" in carrier:
+                event_data["_traceparent"] = carrier["traceparent"]
+            if "tracestate" in carrier:
+                event_data["_tracestate"] = carrier["tracestate"]
+
+            event = menu_pb2.MenuEvent(event_type=event_type, data=event_data, timestamp=int(time.time() * 1000))
 
             async with self.event_lock:  # Phase 34: async lock
                 subscriber_count = len(self.event_subscribers)
@@ -1560,12 +1580,23 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             span.set_attribute("controller.serial", serial)
             span.set_attribute("game.name", self.current_selection)
 
+            # Pass ready controllers directly - menu is source of truth
+            controllers = list(self.ready_controllers)
+            span.set_attribute("controller.count", len(controllers))
+
             self.state = menu_pb2.MenuState.GAME_STARTING
             await self._publish_event(  # Phase 34: await
                 "game_requested",
-                {"game_name": self.current_selection, "source": "controller", "serial": serial},
+                {
+                    "game_name": self.current_selection,
+                    "source": "controller",
+                    "serial": serial,
+                    "controllers": controllers,
+                },
             )
-            logger.info(f"Game requested via controller {serial}: {self.current_selection}")
+            logger.info(
+                f"Game requested via controller {serial}: {self.current_selection} " f"with {len(controllers)} players"
+            )
 
     async def _handle_select_press(self, serial: str):
         """
@@ -1801,20 +1832,28 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             await self._handle_admin_cycle_option(controller.serial)
 
         # TRIGGER button: Track hold for force start (Phase 79)
+        # Visual feedback: LED fades from white to dark over 2 seconds via EFFECT_FADE_OUT
         if controller.trigger_pressed:
             if not prev_state["trigger"]:
-                # Trigger just pressed - start tracking hold time
+                # Trigger just pressed - start tracking hold time and start fade effect
                 self.admin_trigger_hold_start = current_time
                 self.admin_force_start_pending = False
+                # Start fade-out effect on controller manager (2 seconds)
+                await self._start_force_start_effect(controller.serial)
             elif not self.admin_force_start_pending:
                 # Trigger still held - check if 2 seconds have passed
                 hold_duration = current_time - self.admin_trigger_hold_start
-                if hold_duration >= 2.0:
+                force_start_threshold = 2.0
+
+                if hold_duration >= force_start_threshold:
                     # Force start game
                     self.admin_force_start_pending = True
                     await self._handle_admin_force_start(controller.serial)
         else:
-            # Trigger released - was a short press (< 2s) - increase value
+            # Trigger released - was a short press (< 2s) - cancel effect and increase value
+            if prev_state["trigger"] and not self.admin_force_start_pending:
+                # Cancel fade effect and restore white color (admin mode)
+                await self._cancel_force_start_effect(controller.serial)
             if (
                 prev_state["trigger"]
                 and not self.admin_force_start_pending
@@ -2103,7 +2142,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         Force start the game from admin mode (Phase 79).
 
         Triggered when admin holds trigger for 2 seconds.
-        Starts the game regardless of ready state.
+        Starts the game with currently ready controllers (or all if force_all_start=true).
 
         Args:
             serial: Controller serial number
@@ -2112,9 +2151,29 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             span.set_attribute("controller.serial", serial)
             span.set_attribute("game.name", self.current_selection)
 
-            from proto import controller_manager_pb2, controller_manager_pb2_grpc
+            from proto import controller_manager_pb2, controller_manager_pb2_grpc, settings_pb2, settings_pb2_grpc
 
             try:
+                # Check force_all_start setting
+                settings_stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
+                force_all_response = await settings_stub.GetSetting(
+                    settings_pb2.GetSettingRequest(key="force_all_start")
+                )
+                force_all = force_all_response.value == "true"
+                span.set_attribute("force_all_start", force_all)
+
+                # Determine which controllers to include
+                if force_all:
+                    # Use all connected controllers
+                    controllers = list(self.connected_controllers)
+                else:
+                    # Use ready controllers, but include admin if not already ready
+                    controllers = list(self.ready_controllers)
+                    if serial not in controllers:
+                        controllers.append(serial)
+
+                span.set_attribute("controller.count", len(controllers))
+
                 # Visual feedback: White flash before starting
                 stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
                 effect_request = controller_manager_pb2.PlayControllerEffectRequest(
@@ -2136,14 +2195,60 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 self.state = menu_pb2.MenuState.GAME_STARTING
                 await self._publish_event(
                     "game_requested",
-                    {"game_name": self.current_selection, "source": "admin_force_start", "serial": serial},
+                    {
+                        "game_name": self.current_selection,
+                        "source": "admin_force_start",
+                        "serial": serial,
+                        "controllers": controllers,
+                    },
                 )
 
-                span.add_event("force_start_triggered", {"game": self.current_selection})
-                logger.info(f"Force starting game '{self.current_selection}' via admin controller {serial}")
+                span.add_event(
+                    "force_start_triggered",
+                    {"game": self.current_selection, "player_count": len(controllers)},
+                )
+                logger.info(
+                    f"Force starting game '{self.current_selection}' via admin controller {serial} "
+                    f"with {len(controllers)} players"
+                )
 
             except Exception as e:
                 logger.error(f"Error force starting game: {e}", exc_info=True)
+
+    async def _start_force_start_effect(self, serial: str):
+        """Start the fade-out effect for force start countdown.
+
+        Sends GAME_EFFECT_FORCE_START_CHARGE via bidirectional stream - LED fades white to dim over 2s.
+
+        Args:
+            serial: Controller serial number
+        """
+        from proto import controller_manager_pb2
+
+        try:
+            if await self._send_game_effect(serial, controller_manager_pb2.GAME_EFFECT_FORCE_START_CHARGE):
+                logger.debug(f"Started force start fade effect for {serial}")
+            else:
+                logger.warning(f"Could not start force start effect for {serial} - stream not available")
+        except Exception as e:
+            logger.error(f"Error starting force start effect: {e}")
+
+    async def _cancel_force_start_effect(self, serial: str):
+        """Cancel the force start effect and restore admin mode white color.
+
+        Sends base color via bidirectional stream to cancel effect and restore white.
+
+        Args:
+            serial: Controller serial number
+        """
+        try:
+            # Setting base color cancels any active effect and restores to white
+            if await self._send_base_color(serial, (255, 255, 255)):
+                logger.debug(f"Cancelled force start effect for {serial}, restored white")
+            else:
+                logger.warning(f"Could not cancel force start effect for {serial} - stream not available")
+        except Exception as e:
+            logger.error(f"Error cancelling force start effect: {e}")
 
     async def _handle_admin_game_mode_change(self, serial: str, forward: bool = True):
         """

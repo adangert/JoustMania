@@ -26,6 +26,7 @@ from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
 # OpenTelemetry (trace API for span operations)
 from opentelemetry import trace
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -401,7 +402,17 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
             logger.info("Subscribing to menu events...")
 
             async for event in self.menu_stub.StreamMenuEvents(request):
-                with tracer.start_as_current_span("handle_menu_event") as span:
+                # Extract W3C Trace Context from event data (injected by Menu service)
+                # This links the Supervisor's spans to the Menu's trace
+                propagator = TraceContextTextMapPropagator()
+                carrier = {
+                    "traceparent": event.data.get("_traceparent", ""),
+                    "tracestate": event.data.get("_tracestate", ""),
+                }
+                ctx = propagator.extract(carrier)
+
+                # Create span with extracted context as parent
+                with tracer.start_as_current_span("handle_menu_event", context=ctx) as span:
                     span.set_attribute("event.type", event.event_type)
                     logger.info(f"Received menu event: {event.event_type}")
 
@@ -425,31 +436,39 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
         Handle game_requested event from menu - start the game.
 
         This creates the trace link: Menu Event → Supervisor → StartGame → Game
+
+        The menu passes the controller list directly in the event - it is the
+        source of truth for which controllers should participate in the game.
         """
         with tracer.start_as_current_span("orchestrate_game_start") as span:
             try:
                 game_name = event.data.get("game_name", "JoustFFA")
+                source = event.data.get("source", "unknown")
                 span.set_attribute("game.name", game_name)
+                span.set_attribute("game.source", source)
 
-                logger.info(f"Orchestrating game start: {game_name}")
+                logger.info(f"Orchestrating game start: {game_name} (source: {source})")
 
-                # Get ready controllers from controller manager
-                controllers_response = await self.controller_manager_stub.GetReadyControllers(
-                    controller_manager_pb2.GetReadyControllersRequest()
-                )
+                # Get controllers from event - menu is source of truth
+                controller_serials = event.data.get("controllers", [])
 
-                if not controllers_response.success:
-                    logger.error(f"Failed to get ready controllers: {controllers_response.error}")
-                    return
-
-                logger.info(f"Got {len(controllers_response.controllers)} ready controllers")
-
-                # Convert controllers to players
-                players = []
-                for i, controller in enumerate(controllers_response.controllers):
-                    players.append(
-                        game_coordinator_pb2.Player(serial=controller.serial, team=i % 2, alive=True, score=0)
+                if not controller_serials:
+                    # Fallback to GetReadyControllers for backwards compatibility
+                    logger.warning("No controllers in event, falling back to GetReadyControllers")
+                    controllers_response = await self.controller_manager_stub.GetReadyControllers(
+                        controller_manager_pb2.GetReadyControllersRequest()
                     )
+                    if not controllers_response.success:
+                        logger.error(f"Failed to get ready controllers: {controllers_response.error}")
+                        return
+                    controller_serials = [c.serial for c in controllers_response.controllers]
+
+                logger.info(f"Starting game with {len(controller_serials)} controllers: {controller_serials}")
+
+                # Convert controller serials to players
+                players = []
+                for i, serial in enumerate(controller_serials):
+                    players.append(game_coordinator_pb2.Player(serial=serial, team=i % 2, alive=True, score=0))
 
                 span.set_attribute("player.count", len(players))
 

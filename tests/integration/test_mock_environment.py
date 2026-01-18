@@ -309,9 +309,17 @@ async def test_teams_game_with_mock_controllers(docker_compose):
     # Wait for game to reach RUNNING state (after team colors + countdown)
     await wait_for_game_running(game_client)
 
-    # Simulate deaths on one team (controllers 0 and 2 should be on same team)
+    # Simulate deaths - kill 3 players to ensure one team wins
+    # Note: With random_teams=true (default), team assignment is randomized,
+    # so we can't assume specific players are on the same team.
+    # Killing 3 players guarantees one team is eliminated.
     await mock_client.SimulateDeath(
         controller_manager_mock_pb2.DeathRequest(serial="mock_controller_0")
+    )
+    await asyncio.sleep(1)
+
+    await mock_client.SimulateDeath(
+        controller_manager_mock_pb2.DeathRequest(serial="mock_controller_1")
     )
     await asyncio.sleep(1)
 
@@ -320,8 +328,8 @@ async def test_teams_game_with_mock_controllers(docker_compose):
     )
     await asyncio.sleep(2)
 
-    # Game should auto-end when one team is eliminated
-    # Wait for game to end (with extra time for 1-second winner delay)
+    # Game should auto-end when one team is eliminated (only player 3 remains)
+    # Wait for game to end (with extra time for winner celebration)
     await wait_for_game_end(game_client, timeout=15)
 
     status_response = await game_client.GetGameStatus(game_coordinator_pb2.GetGameStatusRequest())

@@ -359,6 +359,9 @@ class BaseGameMode(ABC):
                     self.sensitivity = Sensitivity.MEDIUM
                 logger.info(f"Sensitivity: {self.sensitivity.name} ({self.sensitivity.value})")
 
+                # Emit sensitivity metric for dashboard (Phase 80)
+                metrics.game_sensitivity.set(self.sensitivity.value)
+
                 # Parse random_teams setting (for team-based games)
                 self.random_teams = self.settings.get("random_teams", "true").lower() == "true"
 
@@ -989,6 +992,19 @@ class BaseGameMode(ABC):
         """Linear interpolation between a and b by t (0.0 to 1.0)."""
         return a * (1 - t) + b * t
 
+    def _emit_threshold_metrics(self):
+        """Emit effective threshold metrics for the current music speed (Phase 80)."""
+        sens_idx = self.sensitivity.value
+        speed_range = FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED
+        speed_percent = (self.music_speed - SLOW_MUSIC_SPEED) / speed_range if speed_range > 0 else 0.0
+        speed_percent = max(0.0, min(1.0, speed_percent))
+
+        effective_warn = self._lerp(SLOW_WARNING[sens_idx], FAST_WARNING[sens_idx], speed_percent)
+        effective_death = self._lerp(SLOW_MAX[sens_idx], FAST_MAX[sens_idx], speed_percent)
+
+        metrics.effective_warning_threshold.set(effective_warn)
+        metrics.effective_death_threshold.set(effective_death)
+
     async def _start_game_music(self):
         """
         Start game music with tempo control (Phase 70).
@@ -1021,8 +1037,9 @@ class BaseGameMode(ABC):
                 self.speed_up = True
                 self.change_time = self._get_music_change_time()
                 next_change = self.change_time - time.time()
-                # Update metric for dashboard
+                # Update metrics for dashboard (Phase 80)
                 metrics.music_tempo.set(self.music_speed)
+                self._emit_threshold_metrics()
                 logger.info(f"Game music started: {response.track_id}, next change at +{next_change:.1f}s")
             else:
                 logger.warning(f"Failed to start game music: {response.error}")
@@ -1106,8 +1123,9 @@ class BaseGameMode(ABC):
                 self.music_speed = target_tempo
                 self.speed_up = not self.speed_up
                 self.change_time = self._get_music_change_time()
-                # Update metric for dashboard
+                # Update metrics for dashboard (Phase 80)
                 metrics.music_tempo.set(self.music_speed)
+                self._emit_threshold_metrics()
 
                 logger.debug(f"Next tempo change at +{self.change_time - now:.1f}s")
 

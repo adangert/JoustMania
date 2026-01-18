@@ -94,6 +94,22 @@ music_tempo = Gauge(
     "Current music playback speed (1.0=slow, 1.3=fast, 0=no game)",
 )
 
+# Sensitivity and threshold metrics (Phase 80)
+game_sensitivity = Gauge(
+    "game_sensitivity",
+    "Current game sensitivity level (0=ultra_slow, 1=slow, 2=medium, 3=fast, 4=ultra_fast)",
+)
+
+effective_warning_threshold = Gauge(
+    "game_effective_warning_threshold",
+    "Current effective warning threshold after LERP (g-force)",
+)
+
+effective_death_threshold = Gauge(
+    "game_effective_death_threshold",
+    "Current effective death threshold after LERP (g-force)",
+)
+
 # Runtime configuration metrics (Phase 43)
 configured_update_frequency_hz = Gauge(
     "game_configured_update_frequency_hz", "Configured update frequency from runtime config"
@@ -224,5 +240,8 @@ def clear_all_player_analytics() -> None:
     player_movement_zone._metrics.clear()
     player_playstyle._metrics.clear()
     player_peak_accel._metrics.clear()
-    # Reset music tempo to 0 to indicate no game running
+    # Reset game state gauges to 0 to indicate no game running
     music_tempo.set(0)
+    game_sensitivity.set(0)
+    effective_warning_threshold.set(0)
+    effective_death_threshold.set(0)

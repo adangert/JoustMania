@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any
 from opentelemetry import context as otel_context
 from opentelemetry import trace
 
-from lib.types import GameEvent, Sound
+from lib.types import GameEvent, Sensitivity, Sound
 from services.game_coordinator import metrics
 from services.game_coordinator.runtime_config import get_config_manager
 
@@ -73,15 +73,6 @@ END_MAX_MUSIC_SLOW_TIME = 12
 
 # Volume levels
 GAME_VOLUME = 0.7
-
-
-# Sensitivity levels (index into threshold arrays)
-class Sensitivity(Enum):
-    ULTRA_SLOW = 0  # Most sensitive, tightest thresholds
-    SLOW = 1  # High sensitivity
-    MEDIUM = 2  # Default (balanced)
-    FAST = 3  # Low sensitivity
-    ULTRA_FAST = 4  # Least sensitive, loosest thresholds
 
 
 # Threshold arrays from original JoustMania (in g-force units, 1.0 = 1g)

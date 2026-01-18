@@ -24,7 +24,17 @@ Usage:
 import logging
 from collections.abc import Callable
 
-from services.game_coordinator.games import ffa, nonstop_joust, random_teams, swapper, teams, traitor, werewolf, zombie
+from services.game_coordinator.games import (
+    ffa,
+    fight_club,
+    nonstop_joust,
+    random_teams,
+    swapper,
+    teams,
+    traitor,
+    werewolf,
+    zombie,
+)
 from services.game_coordinator.games.base import BaseGameMode
 
 logger = logging.getLogger(__name__)
@@ -59,6 +69,10 @@ GAME_MODE_ALIASES: dict[str, str] = {
     # Zombie
     "zombie": "zombie",
     "zombies": "zombie",
+    # Fight Club
+    "fightclub": "fight_club",
+    "fight_club": "fight_club",
+    "fight club": "fight_club",
 }
 
 
@@ -148,6 +162,10 @@ class GameFactory:
         if canonical_name == "zombie":
             logger.info("Creating Zombie game")
             return zombie.ZombieGame(**common_args)
+
+        if canonical_name == "fight_club":
+            logger.info("Creating Fight Club game")
+            return fight_club.FightClubGame(**common_args)
 
         # Should never reach here due to alias check above
         raise ValueError(f"Game mode '{canonical_name}' not implemented")

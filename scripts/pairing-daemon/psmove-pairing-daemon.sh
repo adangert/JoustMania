@@ -150,10 +150,19 @@ while true; do
         debug "Pair output: $pair_output"
         debug "Pair exit code: $pair_exit"
 
-        # Check for success - includes "already" for already-paired controllers
-        if echo "$pair_output" | grep -qi "paired\|success\|master\|already"; then
-            # Trust in BlueZ (idempotent - safe to run again)
-            debug "Trusting device in BlueZ: $serial_upper"
+        # Check for explicit failure indicators
+        # Note: psmove pair output varies; only fail if we see clear error messages
+        pair_failed=false
+        if echo "$pair_output" | grep -qi "error\|failed\|cannot\|unable\|permission denied\|not found"; then
+            # Only fail if it's a real error, not just "already set" type messages
+            if ! echo "$pair_output" | grep -qi "already\|set\|paired\|master"; then
+                pair_failed=true
+            fi
+        fi
+
+        if [ "$pair_failed" = "false" ]; then
+            # Success - either explicit success message, exit 0, or no failure indicators
+            debug "Pair appears successful, trusting device in BlueZ: $serial_upper"
             bluetoothctl trust "$serial_upper" &>/dev/null
 
             # Calibrate controller (saves to ~/.psmoveapi/)
@@ -167,21 +176,9 @@ while true; do
             sleep 2
 
             log "Controller ready: $serial - unplug USB and press PS button to connect"
-        elif [ $pair_exit -eq 0 ]; then
-            # Exit code 0 but no recognized output - assume success
-            debug "Trusting device in BlueZ: $serial_upper"
-            bluetoothctl trust "$serial_upper" &>/dev/null
-
-            log "Calibrating controller..."
-            $PSMOVE calibrate &>/dev/null || true
-
-            systemctl restart bluetooth
-            sleep 2
-
-            log "Controller ready: $serial - unplug USB and press PS button to connect"
         else
             log "Failed to pair $serial (exit code: $pair_exit)"
-            debug "Pair output was: $pair_output"
+            log "Pair output: $pair_output"
         fi
     done
 

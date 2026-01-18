@@ -132,6 +132,13 @@ class ControllerMonitoring:
 
                 span.set_attribute("rssi.checked_controllers", checked_count)
 
+                # Log summary at INFO level for visibility
+                if checked_count > 0:
+                    rssi_summary = {s: self.controller_rssi.get(s, 0) for s in serials[:3]}
+                    logger.info(f"RSSI check: {checked_count}/{len(serials)} controllers, samples: {rssi_summary}")
+                elif serials:
+                    logger.info(f"RSSI check: 0/{len(serials)} controllers returned RSSI (all returned None)")
+
             except Exception as e:
                 logger.error(f"Error checking RSSI levels: {e}", exc_info=True)
 

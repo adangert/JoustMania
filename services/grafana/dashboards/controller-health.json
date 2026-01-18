@@ -121,22 +121,26 @@
             }
           },
           "mappings": [],
-          "max": 5,
+          "max": 100,
           "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
               },
               {
-                "color": "red",
-                "value": 80
+                "color": "yellow",
+                "value": 20
+              },
+              {
+                "color": "green",
+                "value": 40
               }
             ]
           },
-          "unit": "none"
+          "unit": "percent"
         },
         "overrides": []
       },
@@ -166,7 +170,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_battery_level",
+          "expr": "controller_battery_level * 20",
           "legendFormat": "{{serial}}",
           "refId": "A"
         }

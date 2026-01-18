@@ -268,12 +268,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_rssi_dbm",
+          "expr": "controller_rssi_dbm != 0",
           "legendFormat": "{{serial}}",
           "refId": "A"
         }
       ],
-      "title": "Signal Strength (RSSI)",
+      "title": "Signal Strength (RSSI) - Host Only",
       "type": "timeseries"
     },
     {

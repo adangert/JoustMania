@@ -128,6 +128,8 @@ services:
         PSMOVE_BUILDER_IMAGE: ${PSMOVE_BUILDER_IMAGE:-joustmania/psmove-builder:latest}
     container_name: joustmania-controller-manager
     privileged: true
+    # Required for controller hot-plug: run in host PID namespace to see new devices
+    pid: "host"
     volumes:
       # D-Bus socket for BlueZ communication
       - /var/run/dbus:/var/run/dbus:ro
@@ -135,9 +137,8 @@ services:
       - /var/lib/bluetooth:/var/lib/bluetooth:ro
       # PS Move calibration data (created by host pairing daemon)
       - ${HOME}/.psmoveapi:/root/.psmoveapi:ro
-    devices:
-      # PS Move controllers use hidraw for Bluetooth communication
-      - /dev:/dev
+      # Mount devtmpfs with rslave for hot-plug device visibility
+      - /dev:/dev:rslave
     networks:
       - joustmania
     # Ports exposed only within Docker network (no host binding)

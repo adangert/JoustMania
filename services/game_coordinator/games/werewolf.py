@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
+from lib.types import Sound
 from proto import controller_manager_pb2
 from services.game_coordinator.games.base import BaseGameMode, Phase, Player, Sensitivity
 
@@ -204,7 +205,7 @@ class WerewolfGame(BaseGameMode):
         await self._set_all_colors(HUMAN_COLOR)
 
         # Play intro sound
-        await self._play_sound("Joust/sounds/werewolf_intro.wav", priority=2)
+        await self._play_sound(Sound.SFX_WEREWOLF_INTRO, priority=2)
 
         # Rumble werewolves to signal their role
         for serial in self.werewolf_serials:
@@ -276,7 +277,7 @@ class WerewolfGame(BaseGameMode):
         self.event_publisher("werewolf_reveal", {"werewolf_serials": self.werewolf_serials})
 
         # Play reveal sound
-        await self._play_sound("Joust/sounds/werewolf_reveal.wav", priority=2)
+        await self._play_sound(Sound.SFX_WEREWOLF_REVEAL, priority=2)
 
         # Change werewolf colors to blue
         for serial in self.werewolf_serials:
@@ -459,11 +460,11 @@ class WerewolfGame(BaseGameMode):
 
         # Play appropriate victory sound
         if winner == "werewolves":
-            await self._play_sound("Joust/sounds/werewolf_win.wav", priority=2)
+            await self._play_sound(Sound.SFX_WEREWOLF_WIN, priority=2)
         elif winner == "humans":
-            await self._play_sound("Joust/sounds/human_win.wav", priority=2)
+            await self._play_sound(Sound.SFX_HUMAN_WIN, priority=2)
         else:
-            await self._play_sound("Joust/sounds/wolfdown.wav", priority=2)
+            await self._play_sound(Sound.SFX_WOLFDOWN, priority=2)
 
         # Wait for celebration
         for _ in range(20):  # 2 seconds

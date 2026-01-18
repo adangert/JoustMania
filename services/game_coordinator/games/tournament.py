@@ -19,6 +19,7 @@ from enum import Enum
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
+from lib.types import Sound
 from proto import controller_manager_pb2
 from services.game_coordinator.games.base import BaseGameMode, Phase, Player
 
@@ -346,7 +347,7 @@ class TournamentGame(BaseGameMode):
                 await self.gameplay_stream.write(color_cmd)
 
         # Play intro sound
-        await self._play_sound("Joust/sounds/tournament_intro.wav", priority=2)
+        await self._play_sound(Sound.SFX_TOURNAMENT_INTRO, priority=2)
 
         # Wait for intro
         for _ in range(30):  # 3 seconds
@@ -418,7 +419,7 @@ class TournamentGame(BaseGameMode):
         p2.invincible_until = invincible_until
 
         # Play match start sound
-        await self._play_sound("Joust/sounds/fight.wav", priority=2)
+        await self._play_sound(Sound.SFX_FIGHT, priority=2)
 
         # Run match with timer
         match_start = time.time()
@@ -532,7 +533,7 @@ class TournamentGame(BaseGameMode):
                     {"round": self.current_round, "total_rounds": self.total_rounds},
                 )
                 # Play round start sound
-                await self._play_sound("Joust/sounds/round_start.wav", priority=2)
+                await self._play_sound(Sound.SFX_ROUND_START, priority=2)
                 await asyncio.sleep(2)
 
             self.current_match = next_match
@@ -649,7 +650,7 @@ class TournamentGame(BaseGameMode):
                 )
                 await self.gameplay_stream.write(effect_cmd)
 
-            await self._play_sound("Joust/sounds/victory.wav", priority=2)
+            await self._play_sound(Sound.SFX_VICTORY, priority=2)
 
         # Wait for celebration
         for _ in range(30):  # 3 seconds

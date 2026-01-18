@@ -157,6 +157,7 @@ class Sound(str, Enum):
     # Sound effects (SFX)
     SFX_EXPLOSION = "Explosion34"
     SFX_EXPLOSION_22 = "Explosion22"
+    SFX_BEEP = "beep"
     SFX_BEEP_LOUD = "beep_loud"
     SFX_START = "start"
     SFX_START3 = "start3"
@@ -165,6 +166,68 @@ class Sound(str, Enum):
     SFX_TEAMS_FORM = "teams_form"
     SFX_WOLFDOWN = "wolfdown"
     SFX_SHOTGUN_FOUND = "shotgun found"
+    SFX_FIGHT_CLUB_INTRO = "fight_club_intro"
+    SFX_TRAITOR_INTRO = "traitor_intro"
+
+    # Zombie game sounds
+    SFX_ZOMBIE_INTRO = "zombie_intro"
+    SFX_ZOMBIE_CONVERT = "zombie_convert"
+    SFX_ZOMBIE_WIN = "zombie_win"
+    SFX_HUMAN_WIN = "human_win"
+    SFX_ONE_MINUTE = "one_minute"
+    SFX_THIRTY_SECONDS = "thirty_seconds"
+    SFX_TEN_SECONDS = "ten_seconds"
+
+    # Tournament game sounds
+    SFX_TOURNAMENT_INTRO = "tournament_intro"
+    SFX_FIGHT = "fight"
+    SFX_ROUND_START = "round_start"
+    SFX_VICTORY = "victory"
+
+    # Werewolf game sounds
+    SFX_WEREWOLF_INTRO = "werewolf_intro"
+    SFX_WEREWOLF_REVEAL = "werewolf_reveal"
+    SFX_WEREWOLF_WIN = "werewolf_win"
+
+    # Menu sound effects (in Menu/sounds/)
+    MENU_SFX_SLOW_SENSITIVITY = "slow_sensitivity"
+    MENU_SFX_MID_SENSITIVITY = "mid_sensitivity"
+    MENU_SFX_FAST_SENSITIVITY = "fast_sensitivity"
+
+    # Menu voice announcements - game mode selection (in Menu/vox/)
+    MENU_VOX_JOUST_FFA = "menu Joust FFA"
+    MENU_VOX_JOUST_TEAMS = "menu Joust Teams"
+    MENU_VOX_RANDOM_TEAMS = "menu Joust Random Teams"
+    MENU_VOX_SWAPPER = "menu Swapper"
+    MENU_VOX_WEREWOLVES = "menu Werewolves"
+    MENU_VOX_TRAITOR = "menu Traitor"
+    MENU_VOX_ZOMBIES = "menu Zombies"
+    MENU_VOX_COMMANDER = "menu Commander"
+    MENU_VOX_FIGHT_CLUB = "menu FightClub"
+    MENU_VOX_TOURNAMENT = "menu Tournament"
+    MENU_VOX_NONSTOP_JOUST = "menu NonStopJoust"
+    MENU_VOX_NINJABOMB = "menu ninjabomb"
+    MENU_VOX_RANDOM = "menu Random"
+
+    # Menu voice announcements - instructions
+    MENU_VOX_INSTRUCTIONS_ON = "instructions_on"
+    MENU_VOX_INSTRUCTIONS_OFF = "instructions_off"
+
+    # Menu voice announcements - game instructions
+    MENU_VOX_FFA_INSTRUCTIONS = "FFA-instructions"
+    MENU_VOX_TEAMS_INSTRUCTIONS = "Teams-instructions"
+    MENU_VOX_SWAPPER_INSTRUCTIONS = "Swapper-instructions"
+    MENU_VOX_TOURNAMENT_INSTRUCTIONS = "Tournament-instructions"
+    MENU_VOX_TRAITOR_INSTRUCTIONS = "Traitor-instructions"
+    MENU_VOX_WEREWOLF_INSTRUCTIONS = "werewolf-instructions"
+    MENU_VOX_ZOMBIE_INSTRUCTIONS = "zombie-instructions"
+    MENU_VOX_COMMANDER_INSTRUCTIONS = "commander-instructions"
+    MENU_VOX_NINJABOMB_INSTRUCTIONS = "Ninjabomb-instructions"
+
+    # Menu voice announcements - other
+    MENU_VOX_NOT_ENOUGH_PLAYERS = "notenoughplayers"
+    MENU_VOX_ADDED_RANDOM = "added_random"
+    MENU_VOX_REMOVED_RANDOM = "removed_random"
 
 
 class GameEvent(str, Enum):
@@ -346,11 +409,7 @@ class GamePace:
         self.death_threshold = death_threshold
 
     def __str__(self) -> str:
-        return "<GamePace tempo=%s, warn=%s, death=%s>" % (
-            self.tempo,
-            self.warn_threshold,
-            self.death_threshold,
-        )
+        return f"<GamePace tempo={self.tempo}, warn={self.warn_threshold}, death={self.death_threshold}>"
 
 
 # TODO: These are placeholder values.

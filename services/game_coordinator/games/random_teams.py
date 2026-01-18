@@ -13,6 +13,7 @@ import logging
 import random
 import time
 
+from lib.types import Sound
 from services.game_coordinator.games.analytics import PlayerAnalytics
 from services.game_coordinator.games.base import Phase, Player
 from services.game_coordinator.games.teams_base import TEAM_COLORS, TeamsGameBase
@@ -198,7 +199,7 @@ class RandomTeamsGame(TeamsGameBase):
         await self._set_team_colors(pulse_effect=True, duration_ms=TEAM_FORMATION_DURATION * 1000)
 
         # Play team formation sound (Phase 29)
-        await self._play_sound("Joust/sounds/start3.wav", priority=2)
+        await self._play_sound(Sound.SFX_START3, priority=2)
 
         # Use shorter sleeps to allow force_end to interrupt
         for _ in range(TEAM_FORMATION_DURATION * 10):

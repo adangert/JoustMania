@@ -183,7 +183,7 @@ class FightClubGame(BaseGameMode):
                 await self.gameplay_stream.write(color_cmd)
 
         # Play intro sound
-        await self._play_sound("Joust/sounds/fight_club_intro.wav", priority=2)
+        await self._play_sound(Sound.SFX_FIGHT_CLUB_INTRO, priority=2)
 
         # Wait for intro
         for _ in range(20):  # 2 seconds
@@ -242,7 +242,7 @@ class FightClubGame(BaseGameMode):
         await self._update_player_colors()
 
         # Play round start sound
-        await self._play_sound("Joust/sounds/beep.wav", priority=2)
+        await self._play_sound(Sound.SFX_BEEP, priority=2)
 
         self.event_publisher(
             "round_start",
@@ -275,7 +275,7 @@ class FightClubGame(BaseGameMode):
 
             # Play beeps in last 3 seconds
             if remaining <= COUNTDOWN_BEEPS and remaining > 0:
-                await self._play_sound("Joust/sounds/beep_loud.wav", priority=2)
+                await self._play_sound(Sound.SFX_BEEP_LOUD, priority=2)
 
             await asyncio.sleep(1.0)
 
@@ -421,7 +421,7 @@ class FightClubGame(BaseGameMode):
         logger.info(f"Score update: {winner_serial}={winner.score}, {loser_serial}={loser.score}")
 
         # Play victory sound for round
-        await self._play_sound("Joust/sounds/beep.wav", priority=1)
+        await self._play_sound(Sound.SFX_BEEP, priority=1)
 
         if player.span:
             player.span.add_event(

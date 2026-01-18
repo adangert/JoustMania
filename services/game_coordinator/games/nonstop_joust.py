@@ -388,7 +388,7 @@ class NonstopJoustGame(BaseGameMode):
             player._last_respawn_color = color
 
             # Play respawn countdown beep (Phase 29)
-            await self._play_sound("Joust/sounds/beep_loud.wav", priority=1)
+            await self._play_sound(Sound.SFX_BEEP_LOUD, priority=1)
 
             color_request = controller_manager_pb2.SetControllerColorRequest(
                 serial=serial,
@@ -424,7 +424,7 @@ class NonstopJoustGame(BaseGameMode):
         logger.info(f"Player respawned: {serial} (spawn protection active)")
 
         # Play respawn sound (Phase 29)
-        await self._play_sound("Joust/sounds/join.wav", priority=2)
+        await self._play_sound(Sound.SFX_JOIN, priority=2)
 
         # White color during spawn protection
         protection_color_request = controller_manager_pb2.SetControllerColorRequest(

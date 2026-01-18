@@ -13,6 +13,7 @@ import asyncio
 import logging
 import os
 import threading
+from pathlib import Path
 
 import grpc
 import grpc.aio
@@ -320,7 +321,7 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
         self.audio_manager = AudioManager()
         self.audio_enabled = True  # Controlled by play_audio setting
         self.menu_voice = "ivy"  # Controlled by menu_voice setting
-        self.sound_registry: dict[str, str] = {}  # sound_name -> type ("vox" or "sound")
+        self.sound_registry: dict[str, tuple[str, str]] = {}  # sound_name -> (type, base_dir)
         self._build_sound_registry()
         logger.info("AudioServiceServicer initialized")
 
@@ -329,27 +330,37 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
         Build registry of available sounds by scanning asset directories.
 
         Populates self.sound_registry with mappings from sound name to type.
+        Registry values are tuples of (type, base_dir) where:
+        - type: "vox" or "sound"
+        - base_dir: "Joust" or "Menu"
         """
-        assets_dir = Path(__file__).parent / "assets" / "Joust"
+        base_assets_dir = Path(__file__).parent / "assets"
 
-        # Scan vox directory (use aaron as reference - all voices should have same files)
-        vox_dir = assets_dir / "vox" / "aaron"
-        if vox_dir.exists():
-            for wav_file in vox_dir.glob("*.wav"):
-                sound_name = wav_file.stem  # filename without extension
-                self.sound_registry[sound_name] = "vox"
-                self.sound_registry[sound_name.lower()] = "vox"  # Also index lowercase
+        # Scan both Joust and Menu directories
+        for base_dir in ["Joust", "Menu"]:
+            assets_dir = base_assets_dir / base_dir
 
-        # Scan sounds directory
-        sounds_dir = assets_dir / "sounds"
-        if sounds_dir.exists():
-            for wav_file in sounds_dir.glob("*.wav"):
-                sound_name = wav_file.stem
-                # Don't overwrite vox entries - vox takes priority
-                if sound_name not in self.sound_registry:
-                    self.sound_registry[sound_name] = "sound"
-                if sound_name.lower() not in self.sound_registry:
-                    self.sound_registry[sound_name.lower()] = "sound"
+            # Scan vox directory (use aaron as reference - all voices should have same files)
+            vox_dir = assets_dir / "vox" / "aaron"
+            if vox_dir.exists():
+                for wav_file in vox_dir.glob("*.wav"):
+                    sound_name = wav_file.stem  # filename without extension
+                    # Don't overwrite existing entries - first found wins
+                    if sound_name not in self.sound_registry:
+                        self.sound_registry[sound_name] = ("vox", base_dir)
+                    if sound_name.lower() not in self.sound_registry:
+                        self.sound_registry[sound_name.lower()] = ("vox", base_dir)
+
+            # Scan sounds directory
+            sounds_dir = assets_dir / "sounds"
+            if sounds_dir.exists():
+                for wav_file in sounds_dir.glob("*.wav"):
+                    sound_name = wav_file.stem
+                    # Don't overwrite existing entries
+                    if sound_name not in self.sound_registry:
+                        self.sound_registry[sound_name] = ("sound", base_dir)
+                    if sound_name.lower() not in self.sound_registry:
+                        self.sound_registry[sound_name.lower()] = ("sound", base_dir)
 
         logger.info(f"Sound registry built: {len(self.sound_registry)} sounds indexed")
 
@@ -358,10 +369,12 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
         Resolve a sound name or path to a full file path.
 
         Accepts multiple input formats:
-        - Simple name: "congratulations" -> Joust/vox/{voice}/congratulations.wav
-        - Name with extension: "congratulations.wav" -> Joust/vox/{voice}/congratulations.wav
+        - Simple name: "congratulations" -> {base_dir}/vox/{voice}/congratulations.wav
+        - Name with extension: "congratulations.wav" -> {base_dir}/vox/{voice}/congratulations.wav
         - Partial path: "Joust/vox/congratulations.wav" -> Joust/vox/{voice}/congratulations.wav
         - Full path with voice: "Joust/vox/aaron/congratulations.wav" -> used as-is
+
+        The registry tracks both sound type (vox/sound) and base directory (Joust/Menu).
 
         Args:
             sound_input: Sound name or path
@@ -376,15 +389,16 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
 
         # If it's a simple name (no path separators), look up in registry
         if "/" not in lookup_name and "\\" not in lookup_name:
-            sound_type = self.sound_registry.get(lookup_name) or self.sound_registry.get(lookup_name.lower())
-            if sound_type == "vox":
-                return f"Joust/vox/{self.menu_voice}/{lookup_name}.wav"
-            elif sound_type == "sound":
-                return f"Joust/sounds/{lookup_name}.wav"
-            else:
-                # Unknown sound - try vox first with current voice
-                logger.warning(f"Sound '{lookup_name}' not in registry, trying vox path")
-                return f"Joust/vox/{self.menu_voice}/{lookup_name}.wav"
+            registry_entry = self.sound_registry.get(lookup_name) or self.sound_registry.get(lookup_name.lower())
+            if registry_entry:
+                sound_type, base_dir = registry_entry
+                if sound_type == "vox":
+                    return f"{base_dir}/vox/{self.menu_voice}/{lookup_name}.wav"
+                # sound_type == "sound"
+                return f"{base_dir}/sounds/{lookup_name}.wav"
+            # Unknown sound - try Joust vox first with current voice
+            logger.warning(f"Sound '{lookup_name}' not in registry, trying Joust vox path")
+            return f"Joust/vox/{self.menu_voice}/{lookup_name}.wav"
 
         # Handle paths - check if it needs voice insertion
         if "/vox/" in sound_input:

@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
+from lib.types import Sound
 from proto import controller_manager_pb2
 from services.game_coordinator.games.base import BaseGameMode, Phase, Player, Sensitivity
 
@@ -251,7 +252,7 @@ class ZombieGame(BaseGameMode):
                 )
 
         # Play intro sound
-        await self._play_sound("Joust/sounds/zombie_intro.wav", priority=2)
+        await self._play_sound(Sound.SFX_ZOMBIE_INTRO, priority=2)
 
         # Wait for intro
         for _ in range(30):  # 3 seconds
@@ -292,11 +293,11 @@ class ZombieGame(BaseGameMode):
                     self.event_publisher("time_announcement", {"seconds_remaining": seconds})
                     # Play time announcement sound
                     if seconds == 60:
-                        await self._play_sound("Joust/sounds/one_minute.wav", priority=2)
+                        await self._play_sound(Sound.SFX_ONE_MINUTE, priority=2)
                     elif seconds == 30:
-                        await self._play_sound("Joust/sounds/thirty_seconds.wav", priority=2)
+                        await self._play_sound(Sound.SFX_THIRTY_SECONDS, priority=2)
                     elif seconds == 10:
-                        await self._play_sound("Joust/sounds/ten_seconds.wav", priority=2)
+                        await self._play_sound(Sound.SFX_TEN_SECONDS, priority=2)
                     break
 
         # Time's up - humans win if any survive
@@ -418,7 +419,7 @@ class ZombieGame(BaseGameMode):
                 )
 
             # Play conversion sound
-            await self._play_sound("Joust/sounds/zombie_convert.wav", priority=2)
+            await self._play_sound(Sound.SFX_ZOMBIE_CONVERT, priority=2)
 
             if player.span:
                 player.span.add_event(
@@ -517,9 +518,9 @@ class ZombieGame(BaseGameMode):
 
         # Play victory sound
         if winner == "humans":
-            await self._play_sound("Joust/sounds/human_win.wav", priority=2)
+            await self._play_sound(Sound.SFX_HUMAN_WIN, priority=2)
         else:
-            await self._play_sound("Joust/sounds/zombie_win.wav", priority=2)
+            await self._play_sound(Sound.SFX_ZOMBIE_WIN, priority=2)
 
         # Wait for celebration
         for _ in range(20):  # 2 seconds

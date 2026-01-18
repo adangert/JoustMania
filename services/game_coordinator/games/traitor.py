@@ -232,7 +232,7 @@ class TraitorGame(TeamsGameBase):
         logger.info(f"Signaled {len(self.traitor_serials)} traitors with rumble")
 
         # Play traitor intro sound
-        await self._play_sound("Joust/sounds/traitor_intro.wav", priority=2)
+        await self._play_sound(Sound.SFX_TRAITOR_INTRO, priority=2)
 
         # Wait for signal phase (interruptible)
         for _ in range(50):  # 5 seconds

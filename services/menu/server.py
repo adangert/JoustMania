@@ -26,6 +26,8 @@ from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 # OpenTelemetry (trace API for span operations)
 from opentelemetry import trace
 
+from lib.types import Sound
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import contextlib
@@ -529,39 +531,42 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         logger.info("Menu service gRPC channels closed")
 
     # Phase 60: Audio feedback helpers
-    async def _play_sound(self, file_path: str, volume: float = 0.8):
+    async def _play_sound(self, sound: str | Sound, volume: float = 0.8):
         """
         Play a sound effect via the audio service (fire-and-forget).
 
         Args:
-            file_path: Relative path to audio file (e.g., "Joust/sounds/beep.wav")
+            sound: Sound enum or relative path to audio file
             volume: Volume level 0.0-1.0
         """
         try:
             from proto import audio_pb2, audio_pb2_grpc
 
+            # Convert Sound enum to string value if needed
+            sound_name = sound.value if isinstance(sound, Sound) else sound
+
             stub = audio_pb2_grpc.AudioServiceStub(self.audio_channel)
-            # Send relative path - audio service resolves to its assets directory
+            # Send sound name - audio service resolves to its assets directory
             await stub.PlaySound(
                 audio_pb2.PlaySoundRequest(
-                    file_path=file_path,
+                    file_path=sound_name,
                     volume=volume,
                     priority=audio_pb2.AudioPriority.HIGH,
                 )
             )
-            logger.debug(f"Played sound: {file_path}")
+            logger.debug(f"Played sound: {sound_name}")
         except Exception as e:
-            logger.debug(f"Could not play sound {file_path}: {e}")
+            logger.debug(f"Could not play sound {sound}: {e}")
 
-    async def _play_voice(self, voice_file: str, volume: float = 0.9):
+    async def _play_voice(self, voice: str | Sound, volume: float = 0.9):
         """
         Play a voice announcement.
 
         Args:
-            voice_file: Voice file name (without path, e.g., "instructions_on.wav")
+            voice: Sound enum or voice file name (audio service resolves the path)
             volume: Volume level 0.0-1.0
         """
-        await self._play_sound(f"Menu/vox/{self.voice_actor}/{voice_file}", volume)
+        await self._play_sound(voice, volume)
 
     async def _load_voice_actor_setting(self):
         """
@@ -1176,7 +1181,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             # Not ready - mark as ready
             self.ready_controllers.add(serial)
             self.ready_controller_count = len(self.ready_controllers)
-            await self._play_sound("Joust/sounds/beep_loud.wav", volume=0.5)
+            await self._play_sound(Sound.SFX_BEEP_LOUD, volume=0.5)
             logger.info(f"Controller {serial} ready via button event ({self.ready_controller_count} total)")
 
             # Update LED to bright (ready) color via stream
@@ -1312,18 +1317,18 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
     # Game mode voice announcements (Phase 60)
     GAME_MODE_VOICE = {
-        "JoustFFA": "menu Joust FFA.wav",
-        "JoustTeams": "menu Joust Teams.wav",
-        "JoustRandomTeams": "menu Random Teams.wav",
-        "Swapper": "menu Swapper.wav",
-        "Werewolf": "menu Werewolves.wav",
-        "Traitor": "menu Traitor.wav",
-        "Zombie": "menu Zombies.wav",
-        "Commander": "menu Commander.wav",
-        "FightClub": "menu Fight Club.wav",
-        "Tournament": "menu Tournament.wav",
-        "NonstopJoust": "menu NonStopJoust.wav",
-        "SpeedBomb": "menu Speed Bomb.wav",
+        "JoustFFA": Sound.MENU_VOX_JOUST_FFA,
+        "JoustTeams": Sound.MENU_VOX_JOUST_TEAMS,
+        "JoustRandomTeams": Sound.MENU_VOX_RANDOM_TEAMS,
+        "Swapper": Sound.MENU_VOX_SWAPPER,
+        "Werewolf": Sound.MENU_VOX_WEREWOLVES,
+        "Traitor": Sound.MENU_VOX_TRAITOR,
+        "Zombie": Sound.MENU_VOX_ZOMBIES,
+        "Commander": Sound.MENU_VOX_COMMANDER,
+        "FightClub": Sound.MENU_VOX_FIGHT_CLUB,
+        "Tournament": Sound.MENU_VOX_TOURNAMENT,
+        "NonstopJoust": Sound.MENU_VOX_NONSTOP_JOUST,
+        "SpeedBomb": Sound.MENU_VOX_NINJABOMB,
     }
 
     # Game mode lobby colors (Phase 39)
@@ -1418,7 +1423,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             self.ready_controllers.add(serial)
             self.ready_controller_count = len(self.ready_controllers)
             # Phase 60: Play ready sound
-            await self._play_sound("Joust/sounds/beep_loud.wav", volume=0.5)
+            await self._play_sound(Sound.SFX_BEEP_LOUD, volume=0.5)
             logger.info(f"Controller {serial} ready ({self.ready_controller_count} total)")
 
             # Sync with controller manager to detect disconnects before checking ready
@@ -1947,13 +1952,13 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 # Phase 60: Play sensitivity voice announcement
                 # Map 5 levels to 3 available sound files
                 sensitivity_sounds = [
-                    "slow_sensitivity.wav",  # Ultra Slow
-                    "slow_sensitivity.wav",  # Slow
-                    "mid_sensitivity.wav",  # Medium
-                    "fast_sensitivity.wav",  # Fast
-                    "fast_sensitivity.wav",  # Ultra Fast
+                    Sound.MENU_SFX_SLOW_SENSITIVITY,  # Ultra Slow
+                    Sound.MENU_SFX_SLOW_SENSITIVITY,  # Slow
+                    Sound.MENU_SFX_MID_SENSITIVITY,  # Medium
+                    Sound.MENU_SFX_FAST_SENSITIVITY,  # Fast
+                    Sound.MENU_SFX_FAST_SENSITIVITY,  # Ultra Fast
                 ]
-                await self._play_sound(f"Menu/sounds/{sensitivity_sounds[int(new_value)]}")
+                await self._play_sound(sensitivity_sounds[int(new_value)])
 
                 span.add_event(
                     "sensitivity_changed",
@@ -2081,8 +2086,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 await controller_stub.PlayControllerEffect(effect_request)
 
                 # Phase 60: Play instructions toggle voice announcement
-                voice_file = "instructions_on.wav" if new_value == "true" else "instructions_off.wav"
-                await self._play_voice(voice_file)
+                voice = Sound.MENU_VOX_INSTRUCTIONS_ON if new_value == "true" else Sound.MENU_VOX_INSTRUCTIONS_OFF
+                await self._play_voice(voice)
 
                 span.add_event(
                     "instructions_toggled",
@@ -2195,21 +2200,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     {"old_mode": old_selection, "new_mode": self.current_selection, "source": "admin"},
                 )
 
-                # Phase 60: Play game mode voice announcement
-                game_voice_map = {
-                    "FFA": "game_ffa.wav",
-                    "Teams": "game_teams.wav",
-                    "Random Teams": "game_random_teams.wav",
-                    "Werewolf": "game_werewolf.wav",
-                    "Zombies": "game_zombies.wav",
-                    "Swapper": "game_swapper.wav",
-                    "Nonstop Joust": "game_nonstop.wav",
-                    "Tournament": "game_tournament.wav",
-                    "Traitors": "game_traitors.wav",
-                }
-                voice_file = game_voice_map.get(self.current_selection)
-                if voice_file:
-                    await self._play_voice(voice_file)
+                # Phase 60: Play game mode voice announcement (uses GAME_MODE_VOICE mapping)
+                voice = self.GAME_MODE_VOICE.get(self.current_selection)
+                if voice:
+                    await self._play_voice(voice)
 
                 span.add_event("game_mode_changed", {"from": old_selection, "to": self.current_selection})
                 logger.info(f"Game mode changed by admin {serial}: {old_selection} → {self.current_selection}")

@@ -265,7 +265,7 @@ class TeamsGameBase(BaseGameMode):
                 return
 
             # Play countdown beep (Phase 29)
-            await self._play_sound("Joust/sounds/beep_loud.wav", priority=2)
+            await self._play_sound(Sound.SFX_BEEP_LOUD, priority=2)
 
             if phase.get("set_team_colors"):
                 # Set each player to their team color
@@ -288,7 +288,7 @@ class TeamsGameBase(BaseGameMode):
                 await asyncio.sleep(0.1)
 
         # Play start sound (Phase 29)
-        await self._play_sound("Joust/sounds/start3.wav", priority=2)
+        await self._play_sound(Sound.SFX_START3, priority=2)
 
         self.event_publisher(GameEvent.COUNTDOWN_END, {})
         logger.info("Team countdown complete")

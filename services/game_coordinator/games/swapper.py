@@ -232,7 +232,7 @@ class SwapperGame(TeamsGameBase):
         )
 
         # Play swap sound
-        await self._play_sound("Joust/sounds/beep.wav", priority=1)
+        await self._play_sound(Sound.SFX_BEEP, priority=1)
 
     async def _set_player_color(self, serial: str, color: tuple):
         """Set a player's controller LED color."""

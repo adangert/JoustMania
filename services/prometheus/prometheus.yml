@@ -65,6 +65,7 @@ scrape_configs:
 
   # Node Exporter (host metrics - CPU, memory, disk, temperature)
   - job_name: 'node'
+    scrape_timeout: 30s
     static_configs:
       - targets: ['node-exporter:9100']
         labels:

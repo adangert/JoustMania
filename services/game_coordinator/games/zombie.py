@@ -511,7 +511,7 @@ class ZombieGame(BaseGameMode):
                             effect=controller_manager_pb2.EFFECT_RAINBOW,
                             color=controller_manager_pb2.RGB(r=255, g=255, b=255),
                             duration_ms=3000,
-                            speed=5,
+                            speed=1,  # Slow rainbow (1 cycle/second)
                         )
                     )
 

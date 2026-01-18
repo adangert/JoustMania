@@ -350,25 +350,14 @@ class BaseGameMode(ABC):
                 self.settings = dict(response.settings)
                 logger.info(f"Loaded settings: {len(self.settings)} keys")
 
-                # Parse sensitivity (can be integer "0"-"4" or name "MEDIUM")
-                sens_value = self.settings.get("sensitivity", "2")
-                try:
-                    # Try parsing as integer first (0-4)
-                    sens_int = int(sens_value)
-                    if 0 <= sens_int <= 4:
-                        self.sensitivity = Sensitivity(sens_int)
-                    else:
-                        logger.warning(f"Sensitivity value {sens_int} out of range, using MEDIUM")
-                        self.sensitivity = Sensitivity.MEDIUM
-                except ValueError:
-                    # Try parsing as name (ULTRA_SLOW, SLOW, MEDIUM, FAST, ULTRA_FAST)
-                    sens_str = str(sens_value).upper()
-                    if sens_str in Sensitivity.__members__:
-                        self.sensitivity = Sensitivity[sens_str]
-                    else:
-                        logger.warning(f"Unknown sensitivity '{sens_value}', using MEDIUM")
-                        self.sensitivity = Sensitivity.MEDIUM
-                logger.info(f"Sensitivity set to {self.sensitivity.name} ({self.sensitivity.value})")
+                # Parse sensitivity (integer 0-4)
+                sens_value = int(self.settings.get("sensitivity", "2"))
+                if 0 <= sens_value <= 4:
+                    self.sensitivity = Sensitivity(sens_value)
+                else:
+                    logger.warning(f"Sensitivity {sens_value} out of range, using MEDIUM")
+                    self.sensitivity = Sensitivity.MEDIUM
+                logger.info(f"Sensitivity: {self.sensitivity.name} ({self.sensitivity.value})")
 
                 # Parse random_teams setting (for team-based games)
                 self.random_teams = self.settings.get("random_teams", "true").lower() == "true"

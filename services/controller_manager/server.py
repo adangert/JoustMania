@@ -1594,16 +1594,17 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     await self._set_vibration_internal(target_serial, 100, 200)
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_PLAYER_DEATH:
-                    # Red flash + vibrate, then LED off to signal player is out
+                    # Red + vibrate, then LED off to signal player is out
+                    # Red stays for 1.5s (visible feedback), vibration is short (250ms)
+                    await self._set_vibration_internal(target_serial, 255, 250)
                     await self._play_effect_with_restore(
                         target_serial,
                         effect_type="flash",
                         color=(255, 0, 0),
-                        duration_ms=300,
-                        speed=3,
+                        duration_ms=1500,
+                        speed=1,  # Slow flash (mostly solid red)
                         restore_color=(0, 0, 0),  # LED off after death
                     )
-                    await self._set_vibration_internal(target_serial, 255, 500)
                     # Update base color to off (dead state)
                     self.base_colors[target_serial] = (0, 0, 0)
 
@@ -1613,13 +1614,13 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     self.base_colors[target_serial] = (255, 255, 255)
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_WINNER_RAINBOW:
-                    # Rainbow 3s, restore to base color
+                    # Rainbow 3s at slow speed, restore to base color
                     await self._play_effect_with_restore(
                         target_serial,
                         effect_type="rainbow",
                         color=(255, 255, 255),
                         duration_ms=3000,
-                        speed=5,
+                        speed=1,  # 1 full rainbow cycle per second (was 5 = too fast)
                         restore_color=restore_color,
                     )
 
@@ -1724,8 +1725,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             finally:
                 # Clear effect active flag
                 self.backend.set_effect_active(serial, False)
-                if restore_color:
-                    await self._set_led_color(serial, restore_color)
+                # Use current base_colors (may have changed during effect) if restore requested
+                # This ensures menu color updates during effects take precedence
+                current_restore = self.base_colors.get(serial) if restore_color else None
+                if current_restore:
+                    await self._set_led_color(serial, current_restore)
 
         task = asyncio.create_task(effect_with_restore())
         async with self.effect_lock:

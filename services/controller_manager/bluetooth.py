@@ -75,9 +75,11 @@ def get_connected_addresses(hci):
                     if len(parts) >= 3:
                         address = parts[2]  # The MAC address
                         connected_devices.append(address)
-            logger.info(f"hcitool con: {len(connected_devices)} devices: {connected_devices}")
             if connected_devices:
+                logger.info(f"hcitool con: {len(connected_devices)} devices: {connected_devices}")
                 return connected_devices
+            # Log raw output to debug parsing
+            logger.info(f"hcitool con: no devices parsed. Raw output: {repr(result.stdout[:200])}")
         else:
             stdout = result.stdout[:80] if result.stdout else "empty"
             stderr = result.stderr[:80] if result.stderr else "empty"

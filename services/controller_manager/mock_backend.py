@@ -250,7 +250,7 @@ class MockBackend(ControllerBackend):
         # Create new mock controller
         self.controllers[serial] = {
             StateKey.SERIAL: serial,
-            StateKey.BATTERY: 5,
+            StateKey.BATTERY: 100,  # Full battery (percentage)
             StateKey.TRIGGER: 0,
             ButtonKey.MOVE: False,
             ButtonKey.TRIGGER: False,

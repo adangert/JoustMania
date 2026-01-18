@@ -40,7 +40,7 @@ class StateKey(str, Enum):
 
     # Inputs
     TRIGGER = "trigger"  # Trigger analog value (0-255)
-    BATTERY = "battery"  # Battery level (0-5)
+    BATTERY = "battery"  # Battery level (0-100 percentage)
     TEMPERATURE = "temperature"  # Controller temperature
 
     # Motion sensors (dicts with x, y, z)

@@ -444,9 +444,13 @@ class BluetoothBackend(ControllerBackend):
             logger.error(f"Error setting rumble {serial}: {e}", exc_info=True)
             return False
 
-    def get_connected_controllers(self) -> list[str]:
+    def get_connected_controllers(self, force_rescan: bool = False) -> list[str]:
         """
         Get list of connected Bluetooth controller serials.
+
+        Args:
+            force_rescan: If True, bypass count-based optimization and do full scan.
+                         Used by periodic discovery to catch externally paired controllers.
 
         Only rescans for new controllers when count_connected() changes to avoid
         creating duplicate PSMove handles that could invalidate existing ones.
@@ -455,9 +459,9 @@ class BluetoothBackend(ControllerBackend):
             # Check current count
             count = psmove.count_connected()
 
-            # Only rescan if count changed (new controller connected or one disconnected)
-            # This avoids creating duplicate PSMove handles every 60Hz poll
-            if count != self._last_controller_count:
+            # Rescan if count changed OR force_rescan requested (Phase 79)
+            # Force rescan is used by periodic discovery to catch externally paired controllers
+            if count != self._last_controller_count or force_rescan:
                 logger.info(
                     f"Controller count changed: {self._last_controller_count} -> {count}, "
                     f"tracked: {len(self.controllers)}"

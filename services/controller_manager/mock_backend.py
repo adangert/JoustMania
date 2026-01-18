@@ -220,8 +220,12 @@ class MockBackend(ControllerBackend):
         logger.debug(f"Mock: Set rumble {serial} to {intensity}")
         return True
 
-    def get_connected_controllers(self) -> list[str]:
-        """Get list of mock controller serials."""
+    def get_connected_controllers(self, _force_rescan: bool = False) -> list[str]:
+        """Get list of mock controller serials.
+
+        Args:
+            _force_rescan: Ignored for mock backend (no caching).
+        """
         return list(self.controllers.keys())
 
     def update_all_leds(self) -> int:

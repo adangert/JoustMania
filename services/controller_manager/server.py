@@ -47,6 +47,7 @@ from services.controller_manager import metrics
 
 # Phase 57: Backend abstraction for platform independence
 from services.controller_manager.backend_factory import create_backend
+from services.controller_manager.discovery import PeriodicRescanTimer
 from services.controller_manager.effects_base import ControllerEffectsBase
 from services.controller_manager.message_pool import MessagePool
 from services.controller_manager.monitoring import ControllerMonitoring
@@ -149,6 +150,9 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         self._active_poll_interval = 0.016  # ~60Hz
         self._idle_poll_interval = 0.100  # ~10Hz
         self._accel_movement_threshold = 0.05  # Minimum accel change to count as activity
+
+        # Phase 79: Periodic rescan timer for externally paired controllers
+        self.rescan_timer = PeriodicRescanTimer(interval=5.0)
 
         # Discovery thread
         self.running = True
@@ -253,13 +257,17 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         Phase 56: Event-driven spans - Only creates spans when NEW controllers are discovered.
         Routine checks are tracked via metrics only (no spans).
         Phase 57: Uses backend abstraction instead of direct psmove.
+        Phase 79: Periodic forced rescan to catch externally paired controllers.
         """
         if not self.backend_initialized:
             return
 
         try:
+            # Phase 79: Check if it's time for a forced rescan
+            force_rescan = self.rescan_timer.should_force_rescan()
+
             # Get list of connected controllers from backend
-            connected_serials = self.backend.get_connected_controllers()
+            connected_serials = self.backend.get_connected_controllers(force_rescan)
             connected_set = set(connected_serials)
 
             # Check for disconnected controllers (in tracked but not in connected)

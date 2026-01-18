@@ -2,7 +2,7 @@
 
 > **Status**: Future
 >
-> **Prerequisites**: Phase 66 (psmoveapi Rumble Contribution) complete
+> **Prerequisites**: Phase 66 (psmoveapi Protocol Extensions - Rumble + RSSI) complete
 >
 > **Blocks**: Phase 68 (Kubernetes Manifests)
 
@@ -21,6 +21,7 @@ The `moved2` backend adds:
 - **Network-based** controller access (UDP)
 - **No hardware dependencies** in container
 - **Edge/cloud separation** for Kubernetes
+- **RSSI support** - Signal strength from host without HCI access (Phase 66)
 
 ## Architecture
 
@@ -34,6 +35,7 @@ The `moved2` backend adds:
 │  │ - UDP client              │ │
 │  │ - Implements Backend ABC  │ │
 │  │ - Polls daemon for state  │ │
+│  │ - Receives RSSI in resp   │ │
 │  └─────────────┬─────────────┘ │
 │                │ UDP :17778    │
 └────────────────┼───────────────┘
@@ -41,6 +43,11 @@ The `moved2` backend adds:
           ┌──────▼──────┐
           │   moved2    │  (on host or edge node)
           │   daemon    │
+          │             │
+          │ - Controller│
+          │   I/O       │
+          │ - RSSI via  │
+          │   hcitool   │
           └──────┬──────┘
                  │
           ┌──────▼──────┐
@@ -84,6 +91,9 @@ CMD_SET_RUMBLE = 8  # Phase 66 addition
 
 REQUEST_SIZE = 16
 RESPONSE_SIZE = 64
+
+# Response byte offsets (Phase 66 protocol)
+RSSI_OFFSET = 61  # int8_t rssi at byte 61 (after 8 header + 4 poll_ret + 49 data)
 
 
 class Moved2Backend(ControllerBackend):
@@ -182,6 +192,10 @@ class Moved2Backend(ControllerBackend):
             # Battery
             battery = data[17]
 
+            # RSSI (Phase 66 - signal strength from daemon)
+            # Byte 61 is int8_t rssi in dBm (negative value, 0 = unavailable)
+            rssi = struct.unpack("b", response[RSSI_OFFSET:RSSI_OFFSET+1])[0]
+
             return {
                 "serial": serial,
                 "battery": battery,
@@ -191,12 +205,24 @@ class Moved2Backend(ControllerBackend):
                 "trigger_button": bool(buttons & 0x00100000),
                 "accel": {"x": ax, "y": ay, "z": az},
                 "gyro": {"x": gx, "y": gy, "z": gz},
+                "rssi": rssi if rssi != 0 else None,  # 0 means unavailable
                 "connection_type": "moved2",
             }
 
         except Exception as e:
             logger.error(f"Error reading state for {serial}: {e}")
             return None
+
+    async def get_rssi(self, serial: str) -> Optional[int]:
+        """Get RSSI for a controller (from daemon response).
+
+        The moved2 daemon queries hcitool on the host and includes
+        RSSI in the READ_INPUT response. This method extracts it.
+        """
+        state = await self.get_controller_state(serial)
+        if state:
+            return state.get("rssi")
+        return None
 
     async def set_led_color(self, serial: str, r: int, g: int, b: int) -> bool:
         """Set LED color via daemon."""
@@ -327,6 +353,8 @@ environment:
 - [ ] Implement all ControllerBackend methods
 - [ ] Add backend selection in main.py
 - [ ] Parse moved2 protocol responses correctly
+- [ ] **Parse RSSI from byte 61 of READ_INPUT response (Phase 66)**
+- [ ] **Implement `get_rssi()` method using parsed response data**
 - [ ] Handle connection failures gracefully
 - [ ] Add reconnection logic
 - [ ] Write unit tests with mocked UDP

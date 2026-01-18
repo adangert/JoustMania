@@ -4,7 +4,20 @@
 
 Move RSSI (signal strength) collection from the containerized controller-manager to the host-side pairing daemon. This enables reliable Bluetooth signal monitoring in containerized and Kubernetes environments.
 
-**Status:** Planned
+**Status:** Planned (Alternative to moved2 approach)
+
+---
+
+## Alternative Approach: moved2 Protocol
+
+**Preferred solution**: Phase 66 extends the psmoveapi `moved2` protocol to include RSSI in controller responses. This is cleaner because:
+- Uses existing moved2 daemon (no separate RSSI service)
+- RSSI delivered with controller data in single UDP response
+- No Redis dependency for RSSI
+
+See: `planning/phases/future/phase-xx-psmoveapi-rumble-contribution.md`
+
+This pairing daemon approach remains viable for deployments not using moved2.
 
 ---
 
@@ -16,7 +29,7 @@ Current workaround: RSSI panel shows "Host Only" and filters out 0 values.
 
 ---
 
-## Proposed Solution
+## Proposed Solution (Redis-based)
 
 The **pairing daemon** already runs on the host (outside Docker) to handle Bluetooth pairing. Extend it to:
 

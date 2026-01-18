@@ -794,6 +794,9 @@ class BaseGameMode(ABC):
         # Phase 70: Track deaths for music tempo timing
         self.dead_count += 1
 
+        # Clear acceleration metric so dead players show as 0 on dashboard
+        metrics.player_accel_magnitude.labels(serial=serial).set(0)
+
         # Play death explosion sound (Phase 29)
         await self._play_sound("Joust/sounds/Explosion34.wav", priority=2)
 

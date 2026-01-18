@@ -150,8 +150,9 @@ while true; do
         debug "Pair output: $pair_output"
         debug "Pair exit code: $pair_exit"
 
-        if echo "$pair_output" | grep -qi "paired\|success\|master"; then
-            # Trust in BlueZ
+        # Check for success - includes "already" for already-paired controllers
+        if echo "$pair_output" | grep -qi "paired\|success\|master\|already"; then
+            # Trust in BlueZ (idempotent - safe to run again)
             debug "Trusting device in BlueZ: $serial_upper"
             bluetoothctl trust "$serial_upper" &>/dev/null
 
@@ -165,9 +166,21 @@ while true; do
             systemctl restart bluetooth
             sleep 2
 
-            log "Paired and calibrated $serial - unplug USB and press PS button to connect"
+            log "Controller ready: $serial - unplug USB and press PS button to connect"
+        elif [ $pair_exit -eq 0 ]; then
+            # Exit code 0 but no recognized output - assume success
+            debug "Trusting device in BlueZ: $serial_upper"
+            bluetoothctl trust "$serial_upper" &>/dev/null
+
+            log "Calibrating controller..."
+            $PSMOVE calibrate &>/dev/null || true
+
+            systemctl restart bluetooth
+            sleep 2
+
+            log "Controller ready: $serial - unplug USB and press PS button to connect"
         else
-            log "Failed to pair $serial"
+            log "Failed to pair $serial (exit code: $pair_exit)"
             debug "Pair output was: $pair_output"
         fi
     done

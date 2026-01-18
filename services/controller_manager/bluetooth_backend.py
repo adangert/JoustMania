@@ -457,32 +457,38 @@ class BluetoothBackend(ControllerBackend):
                 )
                 self._last_controller_count = count
 
-                # Scan for new controllers only
+                # Scan for new controllers - enumerate all and check which are new
+                seen_serials = []
                 for move_num in range(count):
                     try:
                         with suppress_stderr():
                             move = psmove.PSMove(move_num)
                         if move is None:
-                            logger.warning(f"Controller {move_num}: PSMove() returned None")
+                            logger.warning(f"Controller {move_num}/{count}: PSMove() returned None")
                             continue
 
                         serial = move.get_serial()
                         if not serial:
-                            logger.warning(f"Controller {move_num}: no serial returned")
+                            logger.warning(f"Controller {move_num}/{count}: no serial returned")
                             continue
+
+                        seen_serials.append(serial)
 
                         if serial not in self.controllers:
                             # New controller detected - store the handle
                             self.controllers[serial] = move
                             self.controller_states[serial] = ControllerState()
-                            logger.info(f"New controller connected: {serial}")
-                        else:
-                            logger.debug(f"Controller {move_num}: {serial} already tracked")
+                            logger.info(f"New controller connected: {serial} (index {move_num})")
                         # If serial already tracked, let the PSMove object be garbage collected
                         # to avoid invalidating the existing handle
                     except Exception as e:
-                        logger.warning(f"Error reading controller {move_num}: {e}")
+                        logger.warning(f"Error reading controller {move_num}/{count}: {e}")
                         continue
+
+                logger.info(
+                    f"Scan complete: found {len(seen_serials)} serials: {seen_serials}, "
+                    f"now tracking {len(self.controllers)}: {list(self.controllers.keys())}"
+                )
 
         except Exception as e:
             logger.error(f"Error scanning controllers: {e}")

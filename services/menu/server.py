@@ -105,6 +105,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.admin_mode_controller = None  # Serial of controller that activated admin mode
         self.admin_mode_entry_time = 0
         self.admin_combo_shown = False  # Track if we've shown combo feedback
+        self.admin_mode_span: trace.Span | None = None  # Parent span for admin session
+        self.admin_mode_span_context = None  # Context for child spans
 
         # Admin mode option navigation (Phase 23 - enhanced)
         self.admin_current_option = 0  # 0=num_teams, 1=force_all_start
@@ -392,7 +394,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         """Publish an event to all subscribers (Phase 34: async, Phase 59: metrics)."""
         metrics.stream_events_published_total.labels(event_type=event_type).inc()  # Phase 59
 
-        with tracer.start_as_current_span("publish_menu_event") as span:
+        # Use descriptive span name with event type
+        span_name = f"menu_publish:{event_type}"
+        with tracer.start_as_current_span(span_name) as span:
             span.set_attribute("event.type", event_type)
 
             # Inject W3C Trace Context into event data for cross-service propagation
@@ -1662,6 +1666,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
         Phase XX: Uses GAME_EFFECT_ADMIN_ENTER via bidirectional stream.
 
+        Creates a parent admin_mode_session span that encompasses all admin actions.
+        The span is ended when _exit_admin_mode is called.
+
         Args:
             serial: Controller serial number
         """
@@ -1669,7 +1676,13 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
         metrics.button_presses_total.labels(button="admin_combo", action="hold").inc()
 
-        with tracer.start_as_current_span("enter_admin_mode") as span:
+        # Create parent span for entire admin mode session (ended in _exit_admin_mode)
+        self.admin_mode_span = tracer.start_span("admin_mode_session")
+        self.admin_mode_span.set_attribute("controller.serial", serial)
+        self.admin_mode_span_context = trace.set_span_in_context(self.admin_mode_span)
+
+        # Create child span for the entry operation
+        with tracer.start_as_current_span("enter_admin_mode", context=self.admin_mode_span_context) as span:
             span.set_attribute("controller.serial", serial)
 
             self.admin_mode_active = True
@@ -1727,13 +1740,17 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         Exit admin mode and restore lobby color (Phase 23 & 39).
 
         Phase XX: Uses GAME_EFFECT_ADMIN_EXIT via bidirectional stream.
+        Ends the admin_mode_session parent span.
         """
         if self.admin_mode_active:
             from proto import controller_manager_pb2
 
-            with tracer.start_as_current_span("exit_admin_mode") as span:
+            duration = time.time() - self.admin_mode_entry_time
+
+            # Create child span for exit operation (under admin_mode_session)
+            with tracer.start_as_current_span("exit_admin_mode", context=self.admin_mode_span_context) as span:
                 span.set_attribute("controller.serial", self.admin_mode_controller)
-                span.set_attribute("duration_seconds", time.time() - self.admin_mode_entry_time)
+                span.set_attribute("duration_seconds", duration)
 
                 logger.info(f"Admin mode exited by controller {self.admin_mode_controller}")
 
@@ -1794,6 +1811,13 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 self.admin_mode_controller = None
                 self.admin_mode_entry_time = 0
                 span.add_event("admin_mode_exited")
+
+            # End the parent admin_mode_session span
+            if self.admin_mode_span:
+                self.admin_mode_span.set_attribute("session.duration_seconds", duration)
+                self.admin_mode_span.end()
+                self.admin_mode_span = None
+                self.admin_mode_span_context = None
 
     async def _process_admin_commands(self, controller, prev_state: dict[str, bool], current_time: float):
         """
@@ -1927,7 +1951,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         Args:
             serial: Controller serial number
         """
-        with tracer.start_as_current_span("admin_sensitivity") as span:
+        # Use admin mode context so this appears as child of admin_mode_session
+        ctx = self.admin_mode_span_context if self.admin_mode_span_context else None
+        with tracer.start_as_current_span("admin_sensitivity", context=ctx) as span:
             span.set_attribute("controller.serial", serial)
 
             from proto import (
@@ -2024,7 +2050,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         Args:
             serial: Controller serial number
         """
-        with tracer.start_as_current_span("admin_battery") as span:
+        # Use admin mode context so this appears as child of admin_mode_session
+        ctx = self.admin_mode_span_context if self.admin_mode_span_context else None
+        with tracer.start_as_current_span("admin_battery", context=ctx) as span:
             span.set_attribute("controller.serial", serial)
 
             from proto import controller_manager_pb2, controller_manager_pb2_grpc
@@ -2074,7 +2102,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         Args:
             serial: Controller serial number
         """
-        with tracer.start_as_current_span("admin_instructions") as span:
+        # Use admin mode context so this appears as child of admin_mode_session
+        ctx = self.admin_mode_span_context if self.admin_mode_span_context else None
+        with tracer.start_as_current_span("admin_instructions", context=ctx) as span:
             span.set_attribute("controller.serial", serial)
 
             from proto import (
@@ -2144,7 +2174,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         Args:
             serial: Controller serial number
         """
-        with tracer.start_as_current_span("admin_force_start") as span:
+        # Use admin mode context so this appears as child of admin_mode_session
+        ctx = self.admin_mode_span_context if self.admin_mode_span_context else None
+        with tracer.start_as_current_span("admin_force_start", context=ctx) as span:
             span.set_attribute("controller.serial", serial)
             span.set_attribute("game.name", self.current_selection)
 
@@ -2257,7 +2289,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             serial: Controller serial number
             forward: True to go forward through modes, False to go backward
         """
-        with tracer.start_as_current_span("admin_game_mode_change") as span:
+        # Use admin mode context so this appears as child of admin_mode_session
+        ctx = self.admin_mode_span_context if self.admin_mode_span_context else None
+        with tracer.start_as_current_span("admin_game_mode_change", context=ctx) as span:
             span.set_attribute("controller.serial", serial)
             span.set_attribute("direction", "forward" if forward else "backward")
 
@@ -2338,7 +2372,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         Args:
             serial: Controller serial number
         """
-        with tracer.start_as_current_span("admin_cycle_option") as span:
+        # Use admin mode context so this appears as child of admin_mode_session
+        ctx = self.admin_mode_span_context if self.admin_mode_span_context else None
+        with tracer.start_as_current_span("admin_cycle_option", context=ctx) as span:
             span.set_attribute("controller.serial", serial)
 
             # Cycle to next option
@@ -2394,7 +2430,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         Args:
             serial: Controller serial number
         """
-        with tracer.start_as_current_span("admin_increase_value") as span:
+        # Use admin mode context so this appears as child of admin_mode_session
+        ctx = self.admin_mode_span_context if self.admin_mode_span_context else None
+        with tracer.start_as_current_span("admin_increase_value", context=ctx) as span:
             span.set_attribute("controller.serial", serial)
 
             option_name = self.admin_option_names[self.admin_current_option]
@@ -2455,7 +2493,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         Args:
             serial: Controller serial number
         """
-        with tracer.start_as_current_span("admin_decrease_value") as span:
+        # Use admin mode context so this appears as child of admin_mode_session
+        ctx = self.admin_mode_span_context if self.admin_mode_span_context else None
+        with tracer.start_as_current_span("admin_decrease_value", context=ctx) as span:
             span.set_attribute("controller.serial", serial)
 
             option_name = self.admin_option_names[self.admin_current_option]

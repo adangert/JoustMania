@@ -31,6 +31,9 @@ from lib.types import Sound
 from services.menu.handlers import AdminModeHandler, ConnectedHandler, ReadyHandler
 from services.menu.state_manager import StateManager
 from services.menu.utils import AudioHelper, LedController, SettingsHelper
+from services.menu.utils.audio import GAME_MODE_VOICE
+from services.menu.utils.led import GAME_MODE_COLORS
+from services.menu.utils.settings import GAME_MODES
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -94,7 +97,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.game_event_task = None
         self.game_event_monitor_running = False
         self.controller_button_states: dict[str, dict[str, bool]] = {}  # {serial: {trigger: bool, move: bool, ...}}
-        self.last_button_press_time: dict[str, dict[str, float]] = {}  # {serial: {button: timestamp}}
 
         # Lobby state feedback (Phase 39)
         self.ready_controllers: set[str] = set()  # Controllers with trigger pressed (ready)
@@ -189,7 +191,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 await self._load_current_game_setting()
 
                 # Phase 70: Start lobby music
-                await self._start_lobby_music()
+                await self.audio.start_lobby_music()
 
                 # Publish menu_started event (Phase 34: await)
                 await self._publish_event("menu_started", {})
@@ -307,11 +309,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
                     elif button == "select":
                         # Move to next game (Phase 59: use GAME_MODES constant)
-                        if self.current_selection in self.GAME_MODES:
-                            current_index = self.GAME_MODES.index(self.current_selection)
+                        if self.current_selection in GAME_MODES:
+                            current_index = GAME_MODES.index(self.current_selection)
                         else:
                             current_index = 0
-                        self.current_selection = self.GAME_MODES[(current_index + 1) % len(self.GAME_MODES)]
+                        self.current_selection = GAME_MODES[(current_index + 1) % len(GAME_MODES)]
                         self.state_manager.set_game_mode(self.current_selection)
                         await self._publish_event("selection_changed", {"game_name": self.current_selection})
                         await self._save_current_game_setting()
@@ -334,15 +336,15 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     # Phase 59: Add select_game command for web UI
                     elif command == "select_game":
                         game_name = data.get("game_name", "")
-                        if game_name in self.GAME_MODES:
+                        if game_name in GAME_MODES:
                             self.current_selection = game_name
                             self.state_manager.set_game_mode(game_name)
                             await self._publish_event("selection_changed", {"game_name": game_name, "source": "web"})
                             await self._save_current_game_setting()
                             # Phase 60: Play game mode voice announcement
-                            voice_file = self.GAME_MODE_VOICE.get(game_name)
+                            voice_file = GAME_MODE_VOICE.get(game_name)
                             if voice_file:
-                                await self._play_voice(voice_file)
+                                await self.audio.play_voice(voice_file)
                             # Clear lobby state to trigger color update on next frame
                             self.controller_lobby_state.clear()
                             self.last_lobby_feedback_update.clear()
@@ -528,7 +530,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         if self.button_monitor_running:
                             logger.info(f"Game event '{event.event_type}' - stopping button monitor and lobby music")
                             self.state = menu_pb2.MenuState.GAME_STARTING
-                            await self._stop_lobby_music()  # Phase 70: Stop lobby music
+                            await self.audio.stop_lobby_music()  # Phase 70: Stop lobby music
                             await self.stop_button_monitor()
                             logger.info("Button monitor and lobby music stopped")
 
@@ -544,10 +546,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         self.last_lobby_feedback_update.clear()
                         self.ready_controller_count = 0
                         self.controller_button_states.clear()
-                        self.last_button_press_time.clear()
 
                         # Phase 70: Restart lobby music
-                        await self._start_lobby_music()
+                        await self.audio.start_lobby_music()
 
                         # Restart button monitor
                         await self.start_button_monitor()
@@ -577,44 +578,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         await self.audio_channel.close()
         logger.info("Menu service gRPC channels closed")
 
-    # Phase 60: Audio feedback helpers
-    async def _play_sound(self, sound: str | Sound, volume: float = 0.8):
-        """
-        Play a sound effect via the audio service (fire-and-forget).
-
-        Args:
-            sound: Sound enum or relative path to audio file
-            volume: Volume level 0.0-1.0
-        """
-        try:
-            from proto import audio_pb2, audio_pb2_grpc
-
-            # Convert Sound enum to string value if needed
-            sound_name = sound.value if isinstance(sound, Sound) else sound
-
-            stub = audio_pb2_grpc.AudioServiceStub(self.audio_channel)
-            # Send sound name - audio service resolves to its assets directory
-            await stub.PlaySound(
-                audio_pb2.PlaySoundRequest(
-                    file_path=sound_name,
-                    volume=volume,
-                    priority=audio_pb2.AudioPriority.HIGH,
-                )
-            )
-            logger.debug(f"Played sound: {sound_name}")
-        except Exception as e:
-            logger.debug(f"Could not play sound {sound}: {e}")
-
-    async def _play_voice(self, voice: str | Sound, volume: float = 0.9):
-        """
-        Play a voice announcement.
-
-        Args:
-            voice: Sound enum or voice file name (audio service resolves the path)
-            volume: Volume level 0.0-1.0
-        """
-        await self._play_sound(voice, volume)
-
     async def _load_voice_actor_setting(self):
         """
         Load voice actor preference from settings service (Phase 60).
@@ -642,7 +605,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
             response = await stub.GetSetting(settings_pb2.GetSettingRequest(key="current_game"))
 
-            if response.value and response.value in self.GAME_MODES:
+            if response.value and response.value in GAME_MODES:
                 self.current_selection = response.value
                 self.state_manager.set_game_mode(response.value)
                 logger.info(f"Loaded current game mode: {self.current_selection}")
@@ -674,55 +637,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         except Exception as e:
             logger.debug(f"Could not save current game setting: {e}")
 
-    # Phase 70: Lobby music control
-    async def _start_lobby_music(self):
-        """
-        Start quiet background music for the lobby/menu.
-
-        Uses a lower volume than game music for a relaxed atmosphere.
-        """
-        try:
-            from proto import audio_pb2, audio_pb2_grpc
-
-            stub = audio_pb2_grpc.AudioServiceStub(self.audio_channel)
-
-            # Set lobby volume (quieter than game)
-            await stub.SetVolume(audio_pb2.SetVolumeRequest(volume=0.4))
-
-            # Start lobby music
-            response = await stub.PlayMusic(
-                audio_pb2.PlayMusicRequest(
-                    file_pattern="Menu/music/*.wav",
-                    loop=True,
-                    tempo=1.0,
-                    priority=audio_pb2.AudioPriority.LOW,
-                )
-            )
-
-            if response.success:
-                self.lobby_music_track_id = response.track_id
-                logger.info(f"Lobby music started: {response.track_id}")
-            else:
-                logger.warning(f"Failed to start lobby music: {response.error}")
-
-        except Exception as e:
-            logger.debug(f"Could not start lobby music: {e}")
-
-    async def _stop_lobby_music(self):
-        """Stop lobby music when game starts."""
-        try:
-            from proto import audio_pb2, audio_pb2_grpc
-
-            stub = audio_pb2_grpc.AudioServiceStub(self.audio_channel)
-
-            # Stop music (empty track_id stops any playing music)
-            await stub.StopMusic(audio_pb2.StopMusicRequest(track_id=""))
-            self.lobby_music_track_id = None
-            logger.info("Lobby music stopped")
-
-        except Exception as e:
-            logger.debug(f"Could not stop lobby music: {e}")
-
     async def _handle_controller_disconnect(self, serial: str):
         """
         Clean up state for a disconnected controller (Phase 58).
@@ -733,7 +647,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.connected_controllers.discard(serial)
         self.ready_controllers.discard(serial)
         self.controller_button_states.pop(serial, None)
-        self.last_button_press_time.pop(serial, None)
         self.controller_lobby_state.pop(serial, None)
         self.last_lobby_feedback_update.pop(serial, None)
 
@@ -834,7 +747,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             return
 
         # Get base color for current game mode
-        base_color = self.GAME_MODE_COLORS.get(
+        base_color = GAME_MODE_COLORS.get(
             self.current_selection,
             (255, 140, 0),  # Default to orange
         )
@@ -850,7 +763,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             )
 
         # Try to send via bidirectional stream first, fall back to RPC
-        if await self._send_base_color(serial, final_color):
+        if await self.led.send_base_color(serial, final_color):
             self.controller_lobby_state[serial] = target_state
             logger.debug(f"Controller {serial} LED: {target_state} via stream")
         else:
@@ -992,117 +905,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     self._button_stream_queue = None
                     self.led.set_stream(None)
 
-    async def _send_base_color(self, serial: str, color: tuple[int, int, int]) -> bool:
-        """
-        Send base color via bidirectional button stream (Phase XX).
-
-        Args:
-            serial: Controller serial number
-            color: RGB tuple (r, g, b)
-
-        Returns:
-            True if sent successfully, False if stream not available
-        """
-        from proto import controller_manager_pb2
-
-        async with self.button_stream_lock:
-            if self._button_stream_queue is None:
-                return False
-
-            try:
-                msg = controller_manager_pb2.ButtonEventStreamControl(
-                    base_color=controller_manager_pb2.ControllerColorConfig(
-                        serial=serial,
-                        color=controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]),
-                    )
-                )
-                self._button_stream_queue.put_nowait(msg)
-                logger.debug(f"Sent base color for {serial}: {color}")
-                return True
-            except asyncio.QueueFull:
-                logger.warning(f"Button stream queue full, could not send base color for {serial}")
-                return False
-
-    async def _send_game_effect(self, serial: str, effect: int) -> bool:
-        """
-        Send game effect via bidirectional button stream (Phase XX).
-
-        Args:
-            serial: Controller serial number
-            effect: GameEffect enum value
-
-        Returns:
-            True if sent successfully, False if stream not available
-        """
-        from proto import controller_manager_pb2
-
-        async with self.button_stream_lock:
-            if self._button_stream_queue is None:
-                return False
-
-            try:
-                msg = controller_manager_pb2.ButtonEventStreamControl(
-                    game_effect=controller_manager_pb2.GameEffectCommand(
-                        serial=serial,
-                        effect=effect,
-                    )
-                )
-                self._button_stream_queue.put_nowait(msg)
-                logger.debug(f"Sent game effect for {serial}: {effect}")
-                return True
-            except asyncio.QueueFull:
-                logger.warning(f"Button stream queue full, could not send game effect for {serial}")
-                return False
-
-    # Game modes available in the menu (Phase 59: single source of truth)
-    GAME_MODES = [
-        "JoustFFA",
-        "JoustTeams",
-        "JoustRandomTeams",
-        "Swapper",
-        "Werewolf",
-        "Traitor",
-        "Zombie",
-        "Commander",
-        "FightClub",
-        "Tournament",
-        "NonstopJoust",
-        "SpeedBomb",
-    ]
-
-    # Game mode voice announcements (Phase 60)
-    GAME_MODE_VOICE = {
-        "JoustFFA": Sound.MENU_VOX_JOUST_FFA,
-        "JoustTeams": Sound.MENU_VOX_JOUST_TEAMS,
-        "JoustRandomTeams": Sound.MENU_VOX_RANDOM_TEAMS,
-        "Swapper": Sound.MENU_VOX_SWAPPER,
-        "Werewolf": Sound.MENU_VOX_WEREWOLVES,
-        "Traitor": Sound.MENU_VOX_TRAITOR,
-        "Zombie": Sound.MENU_VOX_ZOMBIES,
-        "Commander": Sound.MENU_VOX_COMMANDER,
-        "FightClub": Sound.MENU_VOX_FIGHT_CLUB,
-        "Tournament": Sound.MENU_VOX_TOURNAMENT,
-        "NonstopJoust": Sound.MENU_VOX_NONSTOP_JOUST,
-        "SpeedBomb": Sound.MENU_VOX_NINJABOMB,
-    }
-
-    # Game mode lobby colors (Phase 39)
-    # Each game mode has a distinct color in the lobby
-    GAME_MODE_COLORS = {
-        "JoustFFA": (255, 140, 0),  # Orange - FFA
-        "JoustTeams": (0, 100, 255),  # Blue - Team play
-        "JoustRandomTeams": (0, 200, 255),  # Cyan - Random teams
-        "Swapper": (255, 0, 255),  # Magenta - Team switching
-        "Werewolf": (0, 255, 100),  # Green - Mysterious
-        "Traitor": (128, 0, 128),  # Dark purple - Betrayal
-        "Zombie": (100, 100, 100),  # Gray - Undead
-        "Commander": (255, 0, 0),  # Red - Leadership
-        "FightClub": (255, 255, 0),  # Yellow - Arena combat
-        "Tournament": (150, 0, 255),  # Purple - Competitive
-        "NonstopJoust": (255, 50, 120),  # Pink - Intense/energetic
-        "SpeedBomb": (255, 100, 0),  # Orange-red - Explosive
-    }
-
     async def _update_lobby_feedback(self, controller, stub):
         """
         Update controller LED feedback based on lobby state and selected game mode (Phase 39).
@@ -1174,7 +976,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             self.ready_controllers.add(serial)
             self.ready_controller_count = len(self.ready_controllers)
             # Phase 60: Play ready sound
-            await self._play_sound(Sound.SFX_BEEP_LOUD, volume=0.5)
+            await self.audio.play_sound(Sound.SFX_BEEP_LOUD, volume=0.5)
             logger.info(f"Controller {serial} ready ({self.ready_controller_count} total)")
 
             # Sync with controller manager to detect disconnects before checking ready
@@ -1196,7 +998,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             logger.info(f"Controller {serial} unready ({self.ready_controller_count} total)")
 
         # Get base color for current game mode
-        base_color = self.GAME_MODE_COLORS.get(
+        base_color = GAME_MODE_COLORS.get(
             self.current_selection,
             (255, 140, 0),  # Default to orange if game mode not found
         )
@@ -1214,7 +1016,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             )
 
         # Phase XX: Try to send via bidirectional stream first
-        if await self._send_base_color(serial, final_color):
+        if await self.led.send_base_color(serial, final_color):
             # Update state tracking
             self.controller_lobby_state[serial] = target_state
             self.last_lobby_feedback_update[serial] = current_time
@@ -1269,7 +1071,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     self.ready_controllers.discard(serial)
                     self.controller_lobby_state.pop(serial, None)
                     self.controller_button_states.pop(serial, None)
-                    self.last_button_press_time.pop(serial, None)
                     self.last_lobby_feedback_update.pop(serial, None)
 
                 self.ready_controller_count = len(self.ready_controllers)
@@ -1279,24 +1080,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
         except Exception as e:
             logger.warning(f"Failed to sync controllers: {e}")
-
-    def _should_process_button(self, serial: str, button: str, current_time: float) -> bool:
-        """
-        Check if button press should be processed (debouncing).
-
-        Args:
-            serial: Controller serial number
-            button: Button name ('trigger' or 'move')
-            current_time: Current timestamp
-
-        Returns:
-            True if button press should be processed, False if debouncing
-        """
-        last_press = self.last_button_press_time[serial].get(button, 0)
-        if current_time - last_press < 0.1:  # 100ms debounce (original had none)
-            return False
-        self.last_button_press_time[serial][button] = current_time
-        return True
 
     async def _handle_trigger_press(self, serial: str):
         """

@@ -6,16 +6,19 @@ Wants=bluetooth.service
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/psmove-pairing-daemon.sh
+ExecStart=/usr/bin/python3 /opt/joustmania/scripts/pairing-daemon/psmove_pairing_daemon.py
 Restart=always
 RestartSec=10
 
 # Environment
 Environment=POLL_INTERVAL=10
-Environment=DEBUG=1
+Environment=DEBUG=0
 # psmoveapi binary location - set PSMOVE_PATH if built elsewhere
 Environment=PSMOVE_PATH=/home/joustmania/psmoveapi/build/psmove
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
+# Metrics and tracing
+Environment=METRICS_PORT=8002
+Environment=OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 
 # Logging
 StandardOutput=journal

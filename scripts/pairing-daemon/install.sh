@@ -12,6 +12,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_DIR="/opt/joustmania/scripts/pairing-daemon"
 
 echo "Installing PS Move Pairing Daemon..."
 
@@ -27,8 +28,20 @@ EOF
 udevadm control --reload-rules
 udevadm trigger
 
-# Copy daemon script
-echo "  Installing daemon script..."
+# Install Python dependencies
+echo "  Installing Python dependencies..."
+pip3 install --quiet -r "$SCRIPT_DIR/requirements.txt"
+
+# Create installation directory
+echo "  Creating installation directory..."
+mkdir -p "$INSTALL_DIR"
+
+# Copy Python daemon
+echo "  Installing Python daemon..."
+cp "$SCRIPT_DIR/psmove_pairing_daemon.py" "$INSTALL_DIR/"
+chmod +x "$INSTALL_DIR/psmove_pairing_daemon.py"
+
+# Keep bash daemon for backward compatibility (can be removed later)
 cp "$SCRIPT_DIR/psmove-pairing-daemon.sh" /usr/local/bin/
 chmod +x /usr/local/bin/psmove-pairing-daemon.sh
 
@@ -46,7 +59,7 @@ systemctl enable psmove-pairing.service
 
 # Start service
 echo "  Starting service..."
-systemctl start psmove-pairing.service
+systemctl restart psmove-pairing.service
 
 echo ""
 echo "PS Move Pairing Daemon installed and running!"
@@ -56,6 +69,7 @@ echo "  View logs:    journalctl -u psmove-pairing -f"
 echo "  Status:       systemctl status psmove-pairing"
 echo "  Restart:      sudo systemctl restart psmove-pairing"
 echo "  Stop:         sudo systemctl stop psmove-pairing"
+echo "  Metrics:      curl http://localhost:8002/metrics"
 echo ""
 echo "To pair a controller:"
 echo "  1. Plug in PS Move via USB"

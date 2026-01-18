@@ -73,7 +73,8 @@ services:
     ports:
       # Only expose Prometheus metrics for external monitoring
       - "8889:8889"   # Prometheus metrics (Jaeger uses 8888)
-      # OTLP ports (4317, 4318) and health check (13133) are only used internally
+      # OTLP port exposed for host services (e.g., psmove-pairing daemon)
+      - "4317:4317"   # OTLP gRPC receiver
     depends_on:
       jaeger:
         condition: service_healthy
@@ -370,6 +371,8 @@ services:
       - ./services/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./services/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus-data:/prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Access host services (e.g., psmove-pairing daemon)
     networks:
       - joustmania
     restart: unless-stopped

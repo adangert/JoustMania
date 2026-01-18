@@ -25,8 +25,9 @@ from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
 # OpenTelemetry (trace API for span operations)
 from opentelemetry import trace
-from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
+from services.menu.controller_events import ControllerEventLoop
+from services.menu.event_publisher import EventPublisher
 from services.menu.handlers import AdminModeHandler, ConnectedHandler, ReadyHandler
 from services.menu.state_manager import StateManager
 from services.menu.utils import AudioHelper, LedController, SettingsHelper
@@ -52,21 +53,6 @@ logger = logging.getLogger(__name__)
 tracer = init_telemetry(instrument_grpc_client=True)
 
 
-# Button type enum to name mapping (for state tracking)
-# Maps controller_manager_pb2.BUTTON_* enum values to state dict keys
-BUTTON_TYPE_NAMES = {
-    0: "trigger",  # BUTTON_TRIGGER
-    1: "move",  # BUTTON_MOVE
-    2: "cross",  # BUTTON_CROSS
-    3: "circle",  # BUTTON_CIRCLE
-    4: "square",  # BUTTON_SQUARE
-    5: "triangle",  # BUTTON_TRIANGLE
-    6: "ps",  # BUTTON_PS
-    7: "select",  # BUTTON_SELECT
-    8: "start",  # BUTTON_START
-}
-
-
 class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
     """
     Menu gRPC servicer.
@@ -83,33 +69,17 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.current_selection = "JoustFFA"
         self.ready_controller_count = 0
 
-        # Event streaming (Phase 34: async queue and lock)
-        self.event_subscribers: dict[str, asyncio.Queue] = {}
-        self.event_lock = asyncio.Lock()
-
-        # Controller button monitoring (Phase 21)
-        self.button_event_task = None
-        self.button_monitor_running = False
-
-        # Game event monitoring - stops button monitor during games
+        # Game event monitoring - stops controller event loop during games
         self.game_event_task = None
         self.game_event_monitor_running = False
 
-        # Lobby state feedback (Phase 39)
-        self.ready_controllers: set[str] = set()  # Controllers with trigger pressed (ready)
-        self.connected_controllers: set[str] = set()  # All connected controllers
-        self.controller_lobby_state: dict[str, str] = {}  # {serial: "connected"|"ready"|"admin"}
-        self.last_lobby_feedback_update: dict[str, float] = {}  # {serial: timestamp}
-        self.last_controller_seen: dict[str, float] = {}  # {serial: timestamp} for timeout-based disconnect
-
-        # Phase XX: Bidirectional button event stream for LED state ownership
-        self.button_stream: grpc.aio.StreamStreamCall | None = None
-        self.button_stream_lock = asyncio.Lock()
-        self._button_stream_queue: asyncio.Queue | None = None
+        # Lobby state tracking (Phase 39)
+        self.ready_controllers: set[str] = set()
+        self.connected_controllers: set[str] = set()
+        self.controller_lobby_state: dict[str, str] = {}
+        self.last_lobby_feedback_update: dict[str, float] = {}
 
         # Persistent gRPC channels (Phase 26 - Performance, Phase 33 - shared utilities)
-        # Create channels once and reuse throughout service lifecycle
-        # Use environment variables for service addresses (supports mock environment)
         from lib.grpc_utils import create_channel
 
         controller_host = os.getenv("CONTROLLER_MANAGER_HOST", "controller-manager")
@@ -126,23 +96,25 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.game_coordinator_channel = create_channel(f"{game_coordinator_host}:{game_coordinator_port}")
         self.audio_channel = create_channel(f"{audio_host}:{audio_port}")
 
-        # Utility classes (Phase XX: SOLID refactor)
+        # Utility classes (SOLID refactor)
         self.led = LedController(self.controller_channel)
         self.audio = AudioHelper(self.audio_channel)
         self.settings_helper = SettingsHelper(self.settings_channel)
 
+        # Event publisher for streaming menu events
+        self.event_publisher = EventPublisher(tracer, metrics)
+
         # State manager and handlers (SOLID refactor)
-        # StateManager handles button events for all controller states (connected, ready, admin)
         self.state_manager = StateManager(
             led=self.led,
             audio=self.audio,
             settings=self.settings_helper,
-            publish_event=self._publish_event,
+            publish_event=self.event_publisher.publish,
         )
 
         # Register handlers with state manager
         self.connected_handler = ConnectedHandler()
-        self.ready_handler = ReadyHandler(start_game_callback=self._handle_trigger_press)
+        self.ready_handler = ReadyHandler(start_game_callback=self._start_game)
         self.state_manager.register_handler(self.connected_handler)
         self.state_manager.register_handler(self.ready_handler)
 
@@ -153,15 +125,22 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.admin_handler = AdminModeHandler(
             controller_channel=self.controller_channel,
             tracer=tracer,
-            callbacks=self,  # Menu implements AdminModeCallbacks (set_menu_state, get_game_options)
+            callbacks=self,  # Menu implements AdminModeCallbacks
             metrics=metrics,
         )
-        # Register admin handler with state manager
         self.state_manager.register_handler(self.admin_handler)
+
+        # Controller event loop (handles button and connection events)
+        self.controller_events = ControllerEventLoop(
+            controller_channel=self.controller_channel,
+            led=self.led,
+            callbacks=self,  # Menu implements ControllerEventCallbacks
+            metrics=metrics,
+        )
 
         logger.info("Menu service initialized with persistent gRPC channels")
 
-    # AdminModeCallbacks protocol implementation (Menu-specific methods only)
+    # AdminModeCallbacks protocol implementation
 
     def set_menu_state(self, state) -> None:
         """Set the menu state (AdminModeCallbacks)."""
@@ -171,8 +150,53 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         """Get list of available game options (AdminModeCallbacks)."""
         return self.game_options if hasattr(self, "game_options") else []
 
+    # ControllerEventCallbacks protocol implementation
+
+    def get_menu_state(self) -> int:
+        """Get current menu state (ControllerEventCallbacks)."""
+        return self.state
+
+    async def on_connect(self, serial: str) -> None:
+        """Handle controller connect event (ControllerEventCallbacks)."""
+        self.connected_controllers.add(serial)
+        await self.state_manager.on_controller_connected(serial)
+
+    async def on_disconnect(self, serial: str) -> None:
+        """Handle controller disconnect event (ControllerEventCallbacks)."""
+        await self.state_manager.on_controller_disconnected(serial)
+        self.connected_controllers.discard(serial)
+        self.ready_controllers.discard(serial)
+        self.controller_lobby_state.pop(serial, None)
+        self.last_lobby_feedback_update.pop(serial, None)
+        self.ready_controller_count = len(self.ready_controllers)
+
+    async def on_button(self, serial: str, button: str, is_press: bool) -> None:
+        """Handle button event (ControllerEventCallbacks)."""
+        # Check for admin mode combo (all 4 face buttons pressed)
+        button_state = self.state_manager.button_states.get(serial, {})
+        if is_press and button in ["cross", "circle", "square", "triangle"]:
+            # Preview what button state will be after this press
+            preview_state = dict(button_state)
+            preview_state[button] = True
+            if self.admin_handler.check_combo_from_state(preview_state):
+                if not self.admin_handler.combo_shown:
+                    self.admin_handler.combo_shown = True
+                    from services.menu.handlers.base import ControllerState
+
+                    await self.state_manager.transition_to(serial, ControllerState.ADMIN)
+                # Update button state but don't process as individual button
+                await self.state_manager.handle_button_event(serial, button, is_press)
+                return
+
+        # Reset admin combo flag when any face button released
+        if not is_press and button in ["cross", "circle", "square", "triangle"]:
+            self.admin_handler.combo_shown = False
+
+        # Route to StateManager
+        await self.state_manager.handle_button_event(serial, button, is_press)
+
     async def StartMenu(self, request, context):
-        """Start the menu (Phase 34: async for _publish_event)."""
+        """Start the menu (async)."""
         start_time = time.time()
         with tracer.start_as_current_span("StartMenu") as span:
             try:
@@ -191,7 +215,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 await self.audio.start_lobby_music()
 
                 # Publish menu_started event (Phase 34: await)
-                await self._publish_event("menu_started", {})
+                await self.event_publisher.publish("menu_started", {})
 
                 logger.info("Menu started")
 
@@ -210,7 +234,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 metrics.grpc_request_duration_seconds.labels(method="StartMenu").observe(time.time() - start_time)
 
     async def StopMenu(self, request, context):
-        """Stop the menu (Phase 34: async for _publish_event)."""
+        """Stop the menu (async)."""
         start_time = time.time()
         with tracer.start_as_current_span("StopMenu") as span:
             try:
@@ -228,7 +252,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 self.ready_controller_count = 0
 
                 # Publish menu_stopped event (Phase 34: await)
-                await self._publish_event("menu_stopped", {})
+                await self.event_publisher.publish("menu_stopped", {})
 
                 logger.info("Menu stopped")
 
@@ -280,7 +304,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 metrics.grpc_request_duration_seconds.labels(method="GetMenuStatus").observe(time.time() - start_time)
 
     async def ProcessInput(self, request, context):
-        """Process menu input (Phase 34: async for _publish_event)."""
+        """Process menu input (async)."""
         start_time = time.time()
         with tracer.start_as_current_span("ProcessInput") as span:
             span.set_attribute("input.type", request.input_type)
@@ -298,7 +322,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         # Game requested - pass ready controllers
                         controllers = list(self.ready_controllers)
                         self.state = menu_pb2.MenuState.GAME_STARTING
-                        await self._publish_event(
+                        await self.event_publisher.publish(
                             "game_requested",
                             {"game_name": self.current_selection, "controllers": controllers},
                         )
@@ -312,7 +336,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                             current_index = 0
                         self.current_selection = GAME_MODES[(current_index + 1) % len(GAME_MODES)]
                         self.state_manager.set_game_mode(self.current_selection)
-                        await self._publish_event("selection_changed", {"game_name": self.current_selection})
+                        await self.event_publisher.publish("selection_changed", {"game_name": self.current_selection})
                         await self._save_current_game_setting()
                         logger.info(f"Selection changed to: {self.current_selection}")
 
@@ -324,7 +348,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         # Web start - use ready controllers
                         controllers = list(self.ready_controllers)
                         self.state = menu_pb2.MenuState.GAME_STARTING
-                        await self._publish_event(
+                        await self.event_publisher.publish(
                             "game_requested",
                             {"game_name": self.current_selection, "source": "web", "controllers": controllers},
                         )
@@ -336,7 +360,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         if game_name in GAME_MODES:
                             self.current_selection = game_name
                             self.state_manager.set_game_mode(game_name)
-                            await self._publish_event("selection_changed", {"game_name": game_name, "source": "web"})
+                            await self.event_publisher.publish(
+                                "selection_changed", {"game_name": game_name, "source": "web"}
+                            )
                             await self._save_current_game_setting()
                             # Phase 60: Play game mode voice announcement
                             voice_file = GAME_MODE_VOICE.get(game_name)
@@ -353,7 +379,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 elif input_type == "reset_menu":
                     if self.state == menu_pb2.MenuState.GAME_STARTING:
                         self.state = menu_pb2.MenuState.RUNNING
-                        await self._publish_event("game_start_cancelled", {})
+                        await self.event_publisher.publish("game_start_cancelled", {})
                         logger.info("Menu reset to RUNNING state (game start cancelled)")
 
                 metrics.grpc_requests_total.labels(method="ProcessInput", status="ok").inc()
@@ -369,104 +395,36 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 metrics.grpc_request_duration_seconds.labels(method="ProcessInput").observe(time.time() - start_time)
 
     async def StreamMenuEvents(self, request, context):
-        """
-        Stream menu events in real-time (async).
-        Phase 34: Converted to asyncio.Queue.
-        Phase 59: Added connection metrics.
-        """
+        """Stream menu events in real-time."""
         subscriber_id = f"menu_events_{time.time()}"
-        metrics.stream_connections_active.inc()  # Phase 59: Track active connections
+        metrics.stream_connections_active.inc()
 
         with tracer.start_as_current_span("StreamMenuEvents") as span:
             span.set_attribute("subscriber.id", subscriber_id)
 
-            # Create queue for this subscriber (Phase 34: asyncio.Queue)
-            event_queue = asyncio.Queue(maxsize=100)
-
-            async with self.event_lock:  # Phase 34: async lock
-                self.event_subscribers[subscriber_id] = event_queue
-
-            logger.info(f"New menu event subscriber: {subscriber_id}")
+            event_queue = await self.event_publisher.subscribe(subscriber_id)
 
             try:
                 while not context.cancelled():
                     try:
-                        # Phase 34: async wait with timeout
                         event = await asyncio.wait_for(event_queue.get(), timeout=1.0)
                         yield event
-
-                    except TimeoutError:  # Phase 34: asyncio exception
-                        # Keep connection alive
+                    except TimeoutError:
                         continue
                     except Exception as e:
                         logger.error(f"Stream error for {subscriber_id}: {e}")
                         break
-
             finally:
-                # Cleanup (Phase 34: async lock)
-                async with self.event_lock:
-                    if subscriber_id in self.event_subscribers:
-                        del self.event_subscribers[subscriber_id]
-
-                metrics.stream_connections_active.dec()  # Phase 59: Decrement on disconnect
-                logger.info(f"Menu event subscriber disconnected: {subscriber_id}")
-
-    async def _publish_event(self, event_type: str, data: dict[str, str]):
-        """Publish an event to all subscribers (Phase 34: async, Phase 59: metrics)."""
-        metrics.stream_events_published_total.labels(event_type=event_type).inc()  # Phase 59
-
-        # Use descriptive span name with event type
-        span_name = f"menu_publish:{event_type}"
-        with tracer.start_as_current_span(span_name) as span:
-            span.set_attribute("event.type", event_type)
-
-            # Inject W3C Trace Context into event data for cross-service propagation
-            # This allows the Supervisor to link its spans to this trace
-            event_data = dict(data)  # Copy to avoid mutating original
-            propagator = TraceContextTextMapPropagator()
-            carrier: dict[str, str] = {}
-            propagator.inject(carrier)
-            if "traceparent" in carrier:
-                event_data["_traceparent"] = carrier["traceparent"]
-            if "tracestate" in carrier:
-                event_data["_tracestate"] = carrier["tracestate"]
-
-            event = menu_pb2.MenuEvent(event_type=event_type, data=event_data, timestamp=int(time.time() * 1000))
-
-            async with self.event_lock:  # Phase 34: async lock
-                subscriber_count = len(self.event_subscribers)
-                span.set_attribute("subscribers.count", subscriber_count)
-
-                for sub_id, event_queue in self.event_subscribers.items():
-                    try:
-                        event_queue.put_nowait(event)
-                        logger.debug(f"Published {event_type} to subscriber {sub_id}")
-                    except asyncio.QueueFull:  # Phase 34: asyncio exception
-                        logger.warning(f"Subscriber {sub_id} queue full, skipping event")
-                    except Exception as e:
-                        logger.error(f"Error publishing to subscriber {sub_id}: {e}")
+                await self.event_publisher.unsubscribe(subscriber_id)
+                metrics.stream_connections_active.dec()
 
     async def start_button_monitor(self):
-        """Start the controller button monitoring task.
-
-        Single event-driven loop handles:
-        - Button events (edge-triggered presses/releases)
-        - Connection events (connect/disconnect notifications)
-        - LED state via bidirectional stream
-        """
-        if not self.button_monitor_running:
-            self.button_monitor_running = True
-            self.button_event_task = asyncio.create_task(self._button_event_loop())
-            logger.info("Button event monitor started")
+        """Start the controller event loop."""
+        await self.controller_events.start()
 
     async def stop_button_monitor(self):
-        """Stop the controller button monitoring task."""
-        self.button_monitor_running = False
-        if hasattr(self, "button_event_task") and self.button_event_task:
-            self.button_event_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self.button_event_task
-        logger.info("Controller button monitor stopped")
+        """Stop the controller event loop."""
+        await self.controller_events.stop()
 
     async def start_game_event_monitor(self):
         """Start the game event monitoring task."""
@@ -544,7 +502,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         await self.start_button_monitor()
 
                         # Publish event so UI knows game ended
-                        await self._publish_event(GameEvent.GAME_ENDED, event.data)
+                        await self.event_publisher.publish(GameEvent.GAME_ENDED, event.data)
 
                 if self.game_event_monitor_running:
                     logger.warning("Game event stream ended, reconnecting...")
@@ -647,185 +605,18 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
         logger.info(f"Controller {serial} disconnected, state cleaned up")
 
-    async def _handle_connect_event(self, serial: str) -> None:
+    async def _start_game(self, serial: str):
         """
-        Handle a controller connect event.
+        Start the game when all players are ready.
+
+        Called by ReadyHandler when all controllers are ready.
 
         Args:
-            serial: Controller serial number
-        """
-        logger.info(f"Controller {serial} connected (via button event stream)")
-        self.connected_controllers.add(serial)
-        await self.state_manager.on_controller_connected(serial)
-        metrics.button_frames_processed_total.inc()
-
-    async def _handle_disconnect_event(self, serial: str) -> None:
-        """
-        Handle a controller disconnect event.
-
-        Args:
-            serial: Controller serial number
-        """
-        logger.info(f"Controller {serial} disconnected (via button event stream)")
-        await self.state_manager.on_controller_disconnected(serial)
-        self.connected_controllers.discard(serial)
-        self.ready_controllers.discard(serial)
-        self.controller_lobby_state.pop(serial, None)
-        self.last_lobby_feedback_update.pop(serial, None)
-        self.ready_controller_count = len(self.ready_controllers)
-        metrics.button_frames_processed_total.inc()
-
-    async def _handle_button_event(self, serial: str, button_name: str, is_press: bool) -> None:
-        """
-        Handle a button press/release event.
-
-        Args:
-            serial: Controller serial number
-            button_name: Name of the button
-            is_press: True if button press, False if release
-        """
-        # Log button events for debugging
-        action_str = "PRESS" if is_press else "RELEASE"
-        logger.debug(f"Button event: {serial} {button_name}={action_str}")
-
-        # Only process when menu is running
-        if self.state != menu_pb2.MenuState.RUNNING:
-            return
-
-        # Check for admin mode combo (all 4 face buttons pressed)
-        # This needs to happen before StateManager processes the event
-        # so we can intercept the combo and transition to admin state
-        button_state = self.state_manager.button_states.get(serial, {})
-        if is_press and button_name in ["cross", "circle", "square", "triangle"]:
-            # Preview what button state will be after this press
-            preview_state = dict(button_state)
-            preview_state[button_name] = True
-            if self.admin_handler.check_combo_from_state(preview_state):
-                if not self.admin_handler.combo_shown:
-                    self.admin_handler.combo_shown = True
-                    # Transition to admin state via StateManager
-                    from services.menu.handlers.base import ControllerState
-
-                    await self.state_manager.transition_to(serial, ControllerState.ADMIN)
-                # Update button state but don't process as individual button
-                await self.state_manager.handle_button_event(serial, button_name, is_press)
-                return
-
-        # Reset admin combo flag when any face button released
-        if not is_press and button_name in ["cross", "circle", "square", "triangle"]:
-            self.admin_handler.combo_shown = False
-
-        # Route all button events through StateManager
-        await self.state_manager.handle_button_event(serial, button_name, is_press)
-
-    async def _button_event_loop(self):
-        """
-        Primary handler for button events and connection events.
-
-        This is the main event handling loop - all button actions and
-        connection events (connect/disconnect) go through here.
-
-        Handles:
-        - Connection events: Controller connect/disconnect notifications
-        - Button events: Trigger, Move, face buttons, admin mode combo
-
-        Phase XX: Bidirectional - sends base colors and effects to controller manager.
-        """
-        from proto import (
-            controller_manager_pb2,
-            controller_manager_pb2_grpc,
-        )
-
-        retry_delay = 1.0
-        max_retry_delay = 30.0
-
-        while self.button_monitor_running:
-            try:
-                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
-
-                logger.info("Button event loop connecting to Controller Manager (bidirectional)...")
-
-                # Create bidirectional stream with async generator for outbound messages
-                request_queue = asyncio.Queue()
-
-                async def request_generator(queue=request_queue):
-                    """Async generator that yields ButtonEventStreamControl messages."""
-                    # Send initial config
-                    initial_config = controller_manager_pb2.ButtonEventStreamControl(
-                        config=controller_manager_pb2.ButtonEventStreamConfig()
-                    )
-                    yield initial_config
-
-                    # Then yield messages from queue
-                    while self.button_monitor_running:
-                        try:
-                            msg = await asyncio.wait_for(queue.get(), timeout=1.0)
-                            yield msg
-                        except TimeoutError:
-                            continue
-                        except asyncio.CancelledError:
-                            return
-
-                # Start bidirectional stream
-                stream = stub.StreamButtonEvents(request_generator())
-
-                # Store stream reference and queue for sending messages
-                async with self.button_stream_lock:
-                    self.button_stream = stream
-                    self._button_stream_queue = request_queue
-                    # Wire LED controller to use the same stream
-                    self.led.set_stream(request_queue, self.button_stream_lock)
-
-                logger.info("Button event loop connected to Controller Manager")
-                retry_delay = 1.0
-
-                # Process incoming events (button events and connection events)
-                async for event in stream:
-                    if not self.button_monitor_running:
-                        return
-
-                    serial = event.serial
-
-                    # Dispatch to appropriate handler based on event type
-                    if event.event_type == controller_manager_pb2.EVENT_CONNECT:
-                        await self._handle_connect_event(serial)
-                    elif event.event_type == controller_manager_pb2.EVENT_DISCONNECT:
-                        await self._handle_disconnect_event(serial)
-                    else:
-                        # Regular button event (EVENT_BUTTON is default, 0)
-                        is_press = event.action == controller_manager_pb2.ACTION_PRESS
-                        button_name = BUTTON_TYPE_NAMES.get(event.button, "unknown")
-                        await self._handle_button_event(serial, button_name, is_press)
-
-                if self.button_monitor_running:
-                    logger.warning("Button event stream ended, reconnecting...")
-
-            except asyncio.CancelledError:
-                logger.info("Button event loop task cancelled")
-                raise
-            except Exception as e:
-                if not self.button_monitor_running:
-                    return
-                logger.error(f"Button event loop error: {e}, reconnecting in {retry_delay:.1f}s")
-                await asyncio.sleep(retry_delay)
-                retry_delay = min(retry_delay * 2, max_retry_delay)
-            finally:
-                # Clear stream reference on disconnect
-                async with self.button_stream_lock:
-                    self.button_stream = None
-                    self._button_stream_queue = None
-                    self.led.set_stream(None)
-
-    async def _handle_trigger_press(self, serial: str):
-        """
-        Handle trigger button press - start game (Phase 21).
-
-        Args:
-            serial: Controller serial number
+            serial: Serial of controller that triggered the start
         """
         metrics.button_presses_total.labels(button="trigger", action="press").inc()
 
-        with tracer.start_as_current_span("handle_trigger_press") as span:
+        with tracer.start_as_current_span("start_game") as span:
             span.set_attribute("controller.serial", serial)
             span.set_attribute("game.name", self.current_selection)
 
@@ -834,7 +625,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             span.set_attribute("controller.count", len(controllers))
 
             self.state = menu_pb2.MenuState.GAME_STARTING
-            await self._publish_event(  # Phase 34: await
+            await self.event_publisher.publish(
                 "game_requested",
                 {
                     "game_name": self.current_selection,

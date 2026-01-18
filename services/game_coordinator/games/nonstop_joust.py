@@ -225,7 +225,7 @@ class NonstopJoustGame(BaseGameMode):
                 "player_death",
                 attributes={
                     "accel_magnitude": accel_mag,
-                    "threshold": self.sensitivity.value[1],
+                    "sensitivity": self.sensitivity.name,
                     "kills": player.kills,
                     "deaths": player.deaths,
                     "score": player.score,

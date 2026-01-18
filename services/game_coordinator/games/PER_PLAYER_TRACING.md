@@ -252,7 +252,7 @@ async def _warn_player(self, serial: str, accel_mag: float):
             "player_warning",
             attributes={
                 "accel_magnitude": accel_mag,
-                "threshold": self.sensitivity.value[0],
+                "sensitivity": self.sensitivity.name,
                 "team": player.team
             }
         )
@@ -270,7 +270,7 @@ async def _kill_player(self, serial: str, accel_mag: float):
             "player_death",
             attributes={
                 "accel_magnitude": accel_mag,
-                "threshold": self.sensitivity.value[1],
+                "sensitivity": self.sensitivity.name,
                 "alive_count": alive_count,
                 "team_eliminated": team_eliminated  # Teams only
             }

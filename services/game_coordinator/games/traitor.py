@@ -346,7 +346,7 @@ class TraitorGame(TeamsGameBase):
                 "player_death",
                 attributes={
                     "accel_magnitude": accel_mag,
-                    "threshold": self.sensitivity.value[1],
+                    "sensitivity": self.sensitivity.name,
                     "alive_count": alive_count,
                     "team_eliminated": team_eliminated,
                     "is_traitor": traitor_player.is_traitor,

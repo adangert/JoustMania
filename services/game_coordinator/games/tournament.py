@@ -622,7 +622,7 @@ class TournamentGame(BaseGameMode):
                 attributes={
                     "match_id": self.current_match.match_id,
                     "accel_magnitude": accel_mag,
-                    "threshold": self.sensitivity.value[1],
+                    "sensitivity": self.sensitivity.name,
                 },
             )
 

@@ -31,6 +31,7 @@ from services.game_coordinator.games import (
     random_teams,
     swapper,
     teams,
+    tournament,
     traitor,
     werewolf,
     zombie,
@@ -73,6 +74,8 @@ GAME_MODE_ALIASES: dict[str, str] = {
     "fightclub": "fight_club",
     "fight_club": "fight_club",
     "fight club": "fight_club",
+    # Tournament
+    "tournament": "tournament",
 }
 
 
@@ -166,6 +169,10 @@ class GameFactory:
         if canonical_name == "fight_club":
             logger.info("Creating Fight Club game")
             return fight_club.FightClubGame(**common_args)
+
+        if canonical_name == "tournament":
+            logger.info("Creating Tournament game")
+            return tournament.TournamentGame(**common_args)
 
         # Should never reach here due to alias check above
         raise ValueError(f"Game mode '{canonical_name}' not implemented")

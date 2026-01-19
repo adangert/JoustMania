@@ -19,12 +19,9 @@ project_root = service_dir.parent.parent
 
 # Add paths for imports
 sys.path.insert(0, str(project_root))
-sys.path.insert(0, str(project_root / "services" / "controller_manager"))
-sys.path.insert(0, str(project_root / "services" / "settings"))
 
-# Import protobufs (must be after path setup)
-import controller_manager_pb2  # noqa: E402
-import settings_pb2  # noqa: E402
+# Import protobufs from proto package (must be after path setup)
+from proto import controller_manager_pb2, settings_pb2  # noqa: E402
 
 
 class MockBidirectionalStream:

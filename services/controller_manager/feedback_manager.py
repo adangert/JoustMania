@@ -369,20 +369,12 @@ class FeedbackManager(ControllerEffectsBase):
                         restore_color=restore_color,
                     )
 
-                elif effect == controller_manager_pb2.GAME_EFFECT_COUNTDOWN_3:
-                    # Red (instant)
-                    self.active_effect_types.pop(target_serial, None)
-                    await self.set_controller_color(target_serial, (255, 0, 0))
-
-                elif effect == controller_manager_pb2.GAME_EFFECT_COUNTDOWN_2:
-                    # Yellow (instant)
-                    self.active_effect_types.pop(target_serial, None)
-                    await self.set_controller_color(target_serial, (255, 255, 0))
-
-                elif effect == controller_manager_pb2.GAME_EFFECT_COUNTDOWN_1:
-                    # Green (instant)
-                    self.active_effect_types.pop(target_serial, None)
-                    await self.set_controller_color(target_serial, (0, 255, 0))
+                elif effect == controller_manager_pb2.GAME_EFFECT_COUNTDOWN:
+                    # Full countdown sequence: Red(750ms) → Yellow(750ms) → Green(750ms)
+                    # Controller manager handles all timing internally
+                    task = asyncio.create_task(self._countdown_sequence(target_serial, restore_color))
+                    async with self.effect_lock:
+                        self.active_effects[target_serial] = task
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_ADMIN_ENTER:
                     # White flash 3x, then persistent white
@@ -476,3 +468,40 @@ class FeedbackManager(ControllerEffectsBase):
         """Clear feedback state for a disconnected controller."""
         # Note: Keep base_colors[serial] so we can restore on reconnect
         self.active_effect_types.pop(serial, None)
+
+    async def _countdown_sequence(self, serial: str, restore_color: tuple[int, int, int] | None) -> None:
+        """
+        Run the full countdown sequence on a single controller.
+
+        Red (750ms) → Yellow (750ms) → Green (750ms) → restore to base color
+
+        Args:
+            serial: Controller serial
+            restore_color: Color to restore to after sequence (base color)
+        """
+        try:
+            # Mark effect as active (polling skips LED refresh)
+            self.backend.set_effect_active(serial, True)
+
+            # Red - "3"
+            await self.set_controller_color(serial, (255, 0, 0))
+            await asyncio.sleep(0.75)
+
+            # Yellow - "2"
+            await self.set_controller_color(serial, (255, 255, 0))
+            await asyncio.sleep(0.75)
+
+            # Green - "1" / GO!
+            await self.set_controller_color(serial, (0, 255, 0))
+            await asyncio.sleep(0.75)
+
+        except asyncio.CancelledError:
+            raise
+        finally:
+            # Clear effect active flag and tracking
+            self.backend.set_effect_active(serial, False)
+            self.active_effect_types.pop(serial, None)
+            # Restore to base color
+            current_restore = self.base_colors.get(serial) if restore_color else None
+            if current_restore:
+                await self._set_led_color(serial, current_restore)

@@ -398,37 +398,36 @@ class BaseGameMode(ABC):
             raise
 
     async def _countdown(self):
-        """Run countdown before game starts using game effects via stream."""
+        """Run countdown before game starts using unified countdown effect."""
         from proto import controller_manager_pb2
 
         logger.info("Starting countdown...")
         self.event_publisher(GameEvent.COUNTDOWN_START, {"duration": COUNTDOWN_DURATION})
 
-        # Countdown effects: Red (3) -> Yellow (2) -> Green (1 - GO!)
-        # Uses semantic game effects via the gameplay stream
-        countdown_effects = [
-            controller_manager_pb2.GAME_EFFECT_COUNTDOWN_3,  # Red
-            controller_manager_pb2.GAME_EFFECT_COUNTDOWN_2,  # Yellow
-            controller_manager_pb2.GAME_EFFECT_COUNTDOWN_1,  # Green
-        ]
+        if not self.running:
+            logger.info("Countdown interrupted by force_end")
+            return
 
-        for effect in countdown_effects:
+        # Send unified countdown effect via gameplay stream (broadcast to all controllers)
+        # Controller manager handles the full Red(750ms)→Yellow(750ms)→Green(750ms) sequence
+        if self.gameplay_stream:
+            effect_cmd = controller_manager_pb2.GameplayStreamControl(
+                game_effect=controller_manager_pb2.GameEffectCommand(
+                    serial="",  # Empty = all controllers
+                    effect=controller_manager_pb2.GAME_EFFECT_COUNTDOWN,
+                )
+            )
+            await self.gameplay_stream.write(effect_cmd)
+
+        # Play countdown beeps in sync with the visual countdown
+        # Red (3), Yellow (2), Green (1 - GO!)
+        for _ in range(3):
             if not self.running:
                 logger.info("Countdown interrupted by force_end")
                 return
 
             # Play countdown beep (Phase 29)
             await self._play_sound(Sound.SFX_BEEP_LOUD, priority=2)
-
-            # Send countdown effect via gameplay stream (broadcast to all controllers)
-            if self.gameplay_stream:
-                effect_cmd = controller_manager_pb2.GameplayStreamControl(
-                    game_effect=controller_manager_pb2.GameEffectCommand(
-                        serial="",  # Empty = all controllers
-                        effect=effect,
-                    )
-                )
-                await self.gameplay_stream.write(effect_cmd)
 
             # Wait 0.75 seconds (matches original JoustMania timing)
             for _ in range(15):  # 15 * 50ms = 750ms

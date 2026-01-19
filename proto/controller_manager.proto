@@ -261,13 +261,11 @@ enum GameEffect {
   GAME_EFFECT_PLAYER_DEATH = 2;     // Red + vibrate, stays red (dead)
   GAME_EFFECT_PLAYER_RESPAWN = 3;   // White during spawn protection
   GAME_EFFECT_WINNER_RAINBOW = 4;   // Rainbow 3s, restore to base color
-  GAME_EFFECT_COUNTDOWN_3 = 5;      // Red (broadcast to all)
-  GAME_EFFECT_COUNTDOWN_2 = 6;      // Yellow (broadcast to all)
-  GAME_EFFECT_COUNTDOWN_1 = 7;      // Green (broadcast to all)
-  GAME_EFFECT_ADMIN_ENTER = 8;      // White flash 3x, then persistent white
-  GAME_EFFECT_ADMIN_EXIT = 9;       // Restore to base color
-  GAME_EFFECT_LOW_BATTERY = 10;     // Red flash 2x warning
-  GAME_EFFECT_FORCE_START_CHARGE = 11;  // Fade white→dim over 2s (force start countdown)
+  GAME_EFFECT_COUNTDOWN = 5;        // Full countdown: Red(750ms)→Yellow(750ms)→Green(750ms), restore to base
+  GAME_EFFECT_ADMIN_ENTER = 6;      // White flash 3x, then persistent white
+  GAME_EFFECT_ADMIN_EXIT = 7;       // Restore to base color
+  GAME_EFFECT_LOW_BATTERY = 8;      // Red flash 2x warning
+  GAME_EFFECT_FORCE_START_CHARGE = 9;  // Fade white→dim over 2s (force start countdown)
 }
 
 // Trigger a game effect via stream

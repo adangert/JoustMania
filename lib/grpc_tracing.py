@@ -50,12 +50,32 @@ def _prepare_metadata(existing_metadata: Any) -> tuple:
     """Prepare metadata with trace context injection.
 
     Args:
-        existing_metadata: Existing metadata (can be None, tuple, or Metadata object)
+        existing_metadata: Existing metadata (can be None, tuple, list, or grpc.aio.Metadata)
 
     Returns:
         Tuple of (key, value) pairs with trace context injected
     """
-    metadata = dict(existing_metadata or [])
+    # Convert existing metadata to dict, handling various input types
+    # IMPORTANT: Do NOT use dict(metadata) - grpc.aio.Metadata has broken dict() behavior
+    # that causes KeyError when iterating because it yields (key, value) tuples but
+    # dict() treats them as keys to look up.
+    metadata: dict[str, str] = {}
+    if existing_metadata is not None:
+        # Check for grpc.aio.Metadata or similar objects that iterate over (key, value) tuples
+        # but shouldn't be passed to dict() constructor
+        type_name = type(existing_metadata).__name__
+        if type_name == "Metadata" or isinstance(existing_metadata, list | tuple):
+            # Iterate and unpack tuples directly
+            for item in existing_metadata:
+                if isinstance(item, tuple | list) and len(item) >= 2:
+                    metadata[str(item[0])] = str(item[1])
+        elif isinstance(existing_metadata, dict):
+            metadata = dict(existing_metadata)
+        elif hasattr(existing_metadata, "items"):
+            # Dict-like object with items() method
+            for key, value in existing_metadata.items():
+                metadata[str(key)] = str(value)
+
     inject(metadata)
     return tuple(metadata.items())
 

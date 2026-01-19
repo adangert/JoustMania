@@ -273,6 +273,10 @@ async def start_game_via_menu(
     game_channel = grpc.aio.insecure_channel(f"{game_host}:{game_port}")
     game_client = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(game_channel)
 
+    # Force-end any previous game to ensure clean state
+    await game_client.ForceEndGame(game_coordinator_pb2.ForceEndGameRequest(reason="test_cleanup"))
+    await asyncio.sleep(0.5)  # Allow cleanup to complete
+
     # Start the Menu service if not already running
     start_response = await menu_client.StartMenu(menu_pb2.StartMenuRequest())
     if not start_response.success and "already running" not in start_response.error.lower():

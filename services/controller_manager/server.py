@@ -327,7 +327,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             color = self.base_colors[serial]
                             logger.info(f"Restoring base color for reconnected controller {serial}: {color}")
                             asyncio.run_coroutine_threadsafe(
-                                self._set_controller_color_internal(serial, color),
+                                self.feedback_manager.set_controller_color(serial, color),
                                 self._discovery_loop,
                             )
 
@@ -640,7 +640,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                             # Only set LED immediately if no effect is running
                             if serial not in self.active_effects:
-                                await self._set_controller_color_internal(serial, color)
+                                await self.feedback_manager.set_controller_color(serial, color)
 
                             logger.debug(f"[{subscriber_id}] Base color set: serial={serial}, rgb={color}")
 
@@ -649,7 +649,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     elif control_msg.HasField("game_effect"):
                         # Phase XX: Trigger semantic game effect
                         cmd = control_msg.game_effect
-                        await self._handle_game_effect(cmd.serial, cmd.effect, subscriber_id)
+                        await self.feedback_manager.handle_game_effect(cmd.serial, cmd.effect, subscriber_id)
 
                         effect_name = controller_manager_pb2.GameEffect.Name(cmd.effect)
                         logger.debug(
@@ -823,7 +823,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                                     color = (color_config.color.r, color_config.color.g, color_config.color.b)
                                     self.base_colors[serial] = color
                                     if serial in self.tracked_controllers:
-                                        await self._set_controller_color_internal(serial, color)
+                                        await self.feedback_manager.set_controller_color(serial, color)
                             logger.info(f"[{subscriber_id}] Set base colors for {len(current_filter)} controllers")
                         elif control_msg.config.serials:
                             # Legacy: use serials field directly
@@ -871,7 +871,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                         for serial in serials_to_update:
                             if serial in self.tracked_controllers:
-                                await self._set_controller_color_internal(
+                                await self.feedback_manager.set_controller_color(
                                     serial, (cmd.color.r, cmd.color.g, cmd.color.b)
                                 )
 
@@ -901,7 +901,9 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                         for serial in serials_to_update:
                             if serial in self.tracked_controllers:
-                                await self._play_effect_internal(serial, cmd.effect, color_rgb, duration_ms, speed=5)
+                                await self.feedback_manager.play_effect(
+                                    serial, cmd.effect, color_rgb, duration_ms, speed=5
+                                )
 
                         effect_name = controller_manager_pb2.ControllerEffect.Name(cmd.effect)
                         logger.debug(
@@ -921,7 +923,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                         for serial in serials_to_update:
                             if serial in self.tracked_controllers:
-                                await self._set_vibration_internal(serial, cmd.intensity, cmd.duration_ms)
+                                await self.feedback_manager.set_vibration(serial, cmd.intensity, cmd.duration_ms)
 
                         logger.debug(
                             f"[{subscriber_id}] Vibration command: "
@@ -943,11 +945,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         for serial in serials_to_update:
                             if serial in self.tracked_controllers:
                                 # Set color and vibration atomically
-                                await self._set_controller_color_internal(
+                                await self.feedback_manager.set_controller_color(
                                     serial, (cmd.color.r, cmd.color.g, cmd.color.b)
                                 )
                                 if cmd.vibration_intensity > 0:
-                                    await self._set_vibration_internal(
+                                    await self.feedback_manager.set_vibration(
                                         serial,
                                         cmd.vibration_intensity,
                                         cmd.vibration_duration_ms,
@@ -989,7 +991,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                             # Only set LED immediately if no effect is running
                             if serial not in self.active_effects:
-                                await self._set_controller_color_internal(serial, color)
+                                await self.feedback_manager.set_controller_color(serial, color)
 
                             logger.debug(f"[{subscriber_id}] Base color set: serial={serial}, rgb={color}")
 
@@ -998,7 +1000,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     elif control_msg.HasField("game_effect"):
                         # Phase XX: Trigger semantic game effect (LED state ownership)
                         cmd = control_msg.game_effect
-                        await self._handle_game_effect(cmd.serial, cmd.effect, subscriber_id)
+                        await self.feedback_manager.handle_game_effect(cmd.serial, cmd.effect, subscriber_id)
 
                         effect_name = controller_manager_pb2.GameEffect.Name(cmd.effect)
                         logger.debug(
@@ -1244,7 +1246,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     # Start the appropriate effect (methods inherited from ControllerEffectsBase - Phase 40)
                     if request.effect == controller_manager_pb2.EFFECT_NONE:
                         # Solid color (no animation)
-                        await self._set_led_color(serial, color)
+                        await self.feedback_manager._set_led_color(serial, color)
 
                     elif request.effect == controller_manager_pb2.EFFECT_FLASH:
                         task = asyncio.create_task(self._effect_flash(serial, color, duration_ms, speed))
@@ -1358,7 +1360,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
             # Start the appropriate effect
             if effect == controller_manager_pb2.EFFECT_NONE:
-                await self._set_led_color(serial, color_rgb)
+                await self.feedback_manager._set_led_color(serial, color_rgb)
 
             elif effect == controller_manager_pb2.EFFECT_FLASH:
                 task = asyncio.create_task(self._effect_flash(serial, color_rgb, duration_ms, speed))
@@ -1435,7 +1437,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_PLAYER_WARNING:
                     # White flash + vibrate, restore to base color
-                    await self._play_effect_with_restore(
+                    await self.feedback_manager.play_effect_with_restore(
                         target_serial,
                         effect_type="flash",
                         color=(255, 255, 255),
@@ -1443,13 +1445,13 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         speed=5,
                         restore_color=restore_color,
                     )
-                    await self._set_vibration_internal(target_serial, 100, 200)
+                    await self.feedback_manager.set_vibration(target_serial, 100, 200)
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_PLAYER_DEATH:
                     # Red + vibrate, then LED off to signal player is out
                     # Red stays for 1.5s (visible feedback), vibration is short (250ms)
-                    await self._set_vibration_internal(target_serial, 255, 250)
-                    await self._play_effect_with_restore(
+                    await self.feedback_manager.set_vibration(target_serial, 255, 250)
+                    await self.feedback_manager.play_effect_with_restore(
                         target_serial,
                         effect_type="flash",
                         color=(255, 0, 0),
@@ -1463,12 +1465,12 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 elif effect == controller_manager_pb2.GAME_EFFECT_PLAYER_RESPAWN:
                     # White during spawn protection (no effect task, clear tracking)
                     self.active_effect_types.pop(target_serial, None)
-                    await self._set_controller_color_internal(target_serial, (255, 255, 255))
+                    await self.feedback_manager.set_controller_color(target_serial, (255, 255, 255))
                     self.base_colors[target_serial] = (255, 255, 255)
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_WINNER_RAINBOW:
                     # Rainbow 3s at slow speed, restore to base color
-                    await self._play_effect_with_restore(
+                    await self.feedback_manager.play_effect_with_restore(
                         target_serial,
                         effect_type="rainbow",
                         color=(255, 255, 255),
@@ -1480,21 +1482,21 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 elif effect == controller_manager_pb2.GAME_EFFECT_COUNTDOWN_3:
                     # Red (instant, no effect task)
                     self.active_effect_types.pop(target_serial, None)
-                    await self._set_controller_color_internal(target_serial, (255, 0, 0))
+                    await self.feedback_manager.set_controller_color(target_serial, (255, 0, 0))
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_COUNTDOWN_2:
                     # Yellow (instant, no effect task)
                     self.active_effect_types.pop(target_serial, None)
-                    await self._set_controller_color_internal(target_serial, (255, 255, 0))
+                    await self.feedback_manager.set_controller_color(target_serial, (255, 255, 0))
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_COUNTDOWN_1:
                     # Green (instant, no effect task)
                     self.active_effect_types.pop(target_serial, None)
-                    await self._set_controller_color_internal(target_serial, (0, 255, 0))
+                    await self.feedback_manager.set_controller_color(target_serial, (0, 255, 0))
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_ADMIN_ENTER:
                     # White flash 3x, then persistent white
-                    await self._play_effect_internal(
+                    await self.feedback_manager.play_effect(
                         target_serial,
                         controller_manager_pb2.EFFECT_FLASH,
                         (255, 255, 255),
@@ -1503,31 +1505,31 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     )
                     await asyncio.sleep(0.7)
                     self.active_effect_types.pop(target_serial, None)
-                    await self._set_controller_color_internal(target_serial, (255, 255, 255))
+                    await self.feedback_manager.set_controller_color(target_serial, (255, 255, 255))
                     self.base_colors[target_serial] = (255, 255, 255)
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_ADMIN_EXIT:
                     # Restore to base color (instant, no effect task)
                     self.active_effect_types.pop(target_serial, None)
                     if restore_color:
-                        await self._set_controller_color_internal(target_serial, restore_color)
+                        await self.feedback_manager.set_controller_color(target_serial, restore_color)
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_LOW_BATTERY:
                     # Red flash 2x warning (inline blocking animation)
                     for _ in range(2):
-                        await self._set_controller_color_internal(target_serial, (255, 0, 0))
+                        await self.feedback_manager.set_controller_color(target_serial, (255, 0, 0))
                         await asyncio.sleep(0.15)
-                        await self._set_controller_color_internal(target_serial, (50, 0, 0))
+                        await self.feedback_manager.set_controller_color(target_serial, (50, 0, 0))
                         await asyncio.sleep(0.15)
                     # Restore to base color
                     self.active_effect_types.pop(target_serial, None)
                     if restore_color:
-                        await self._set_controller_color_internal(target_serial, restore_color)
+                        await self.feedback_manager.set_controller_color(target_serial, restore_color)
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_FORCE_START_CHARGE:
                     # Fade from white to dim over 2s (admin force start countdown)
                     # No auto-restore - stays dim when complete. Cancel via base_color.
-                    await self._play_effect_with_restore(
+                    await self.feedback_manager.play_effect_with_restore(
                         target_serial,
                         effect_type="fade_out",
                         color=(255, 255, 255),  # Start white
@@ -1601,7 +1603,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 # This ensures menu color updates during effects take precedence
                 current_restore = self.base_colors.get(serial) if restore_color else None
                 if current_restore:
-                    await self._set_led_color(serial, current_restore)
+                    await self.feedback_manager._set_led_color(serial, current_restore)
 
         task = asyncio.create_task(effect_with_restore())
         async with self.effect_lock:
@@ -1636,7 +1638,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                 # Schedule vibration stop if duration is specified
                 if duration_ms > 0 and intensity > 0:
-                    asyncio.create_task(self._delayed_stop_vibration(serial, duration_ms))
+                    asyncio.create_task(self.feedback_manager._delayed_stop_vibration(serial, duration_ms))
             else:
                 logger.warning(f"Failed to set vibration on {serial}")
             return success

@@ -1,7 +1,7 @@
 # JoustMania Shared Builder Image
 #
 # Pre-installs common build dependencies and Python packages to speed up
-# service builds. Services extend from this image instead of python:3.11-slim.
+# service builds. Services extend from this image instead of python:3.12-slim.
 #
 # Build:
 #   docker build -t joustmania/builder:latest images/builder/
@@ -12,7 +12,7 @@
 #
 # Build time savings: ~30-60 seconds per service (more on slow hardware like Pi)
 
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 LABEL org.opencontainers.image.source="https://github.com/adangert/JoustMania"
 LABEL org.opencontainers.image.description="JoustMania shared builder base image"

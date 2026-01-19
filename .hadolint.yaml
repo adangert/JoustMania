@@ -36,7 +36,7 @@ failure-threshold: warning
 # Override specific rules
 override:
   # DL3006: Always tag the version of an image explicitly
-  # Keep this enabled - we want explicit python:3.11-slim tags
+  # Keep this enabled - we want explicit python:3.12-slim tags
   error:
     - DL3006
 

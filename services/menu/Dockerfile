@@ -30,12 +30,12 @@ WORKDIR /app/services/menu
 RUN uv pip install --system -e .
 
 # Runtime stage - slim image without build tools
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
 # Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code

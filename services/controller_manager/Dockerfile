@@ -54,7 +54,7 @@ RUN uv pip install --system -e .
 # =============================================================================
 # Stage 3: Runtime image
 # =============================================================================
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Install runtime dependencies (bluetooth for PS Move controllers)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -68,12 +68,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy installed packages from python-builder
-COPY --from=python-builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=python-builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=python-builder /usr/local/bin /usr/local/bin
 
 # Copy psmove Python bindings from pre-built psmove-builder
-COPY --from=psmove-builder /psmove/psmove.py /usr/local/lib/python3.11/site-packages/
-COPY --from=psmove-builder /psmove/_psmove.so /usr/local/lib/python3.11/site-packages/
+COPY --from=psmove-builder /psmove/psmove.py /usr/local/lib/python3.12/site-packages/
+COPY --from=psmove-builder /psmove/_psmove.so /usr/local/lib/python3.12/site-packages/
 COPY --from=psmove-builder /psmove/libpsmoveapi.so /usr/local/lib/
 
 # Update library cache so _psmove.so can find libpsmoveapi.so

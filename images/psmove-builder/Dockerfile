@@ -12,14 +12,14 @@
 # Usage in controller_manager Dockerfile:
 #   FROM joustmania/psmove-builder:latest AS psmove-builder
 #   ...
-#   COPY --from=psmove-builder /psmove/psmove.py /usr/local/lib/python3.11/site-packages/
-#   COPY --from=psmove-builder /psmove/_psmove.so /usr/local/lib/python3.11/site-packages/
+#   COPY --from=psmove-builder /psmove/psmove.py /usr/local/lib/python3.12/site-packages/
+#   COPY --from=psmove-builder /psmove/_psmove.so /usr/local/lib/python3.12/site-packages/
 #   COPY --from=psmove-builder /psmove/libpsmoveapi.so /usr/local/lib/
 #
 # Build time: ~10-15 minutes on Pi, ~2-3 minutes on fast hardware
 # Output size: ~2MB of compiled libraries
 
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 LABEL org.opencontainers.image.source="https://github.com/adangert/JoustMania"
 LABEL org.opencontainers.image.description="JoustMania PS Move API builder image"

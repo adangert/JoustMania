@@ -338,7 +338,7 @@ ci-integration: ci-build-test
 		-w /workspace \
 		-e DOCKER_HOST=unix:///var/run/docker.sock \
 		joustmania/ci-test:latest \
-		uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v
+		uv run --package joustmania-integration-tests pytest tests/integration/ -v
 	@echo "✅ Integration tests passed!"
 
 .PHONY: ci-help
@@ -446,7 +446,7 @@ ci-build-test:
 test:
 	@echo "Running integration tests with mock environment (fresh venv)..."
 	@rm -rf .venv-test 2>/dev/null || true
-	@UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v
+	@UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/ -v
 
 .PHONY: test-docker
 test-docker: ci-build-test
@@ -457,7 +457,7 @@ test-docker: ci-build-test
 		-w /workspace \
 		-e DOCKER_HOST=unix:///var/run/docker.sock \
 		joustmania/ci-test:latest \
-		uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v
+		uv run --package joustmania-integration-tests pytest tests/integration/ -v
 
 .PHONY: test-mock-pause
 test-mock-pause:
@@ -465,7 +465,7 @@ test-mock-pause:
 	@echo "Note: Tests will pause before teardown. Press Enter to continue."
 	@echo ""
 	@rm -rf .venv-test 2>/dev/null || true
-	@PAUSE_BEFORE_TEARDOWN=1 UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v -s
+	@PAUSE_BEFORE_TEARDOWN=1 UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/ -v -s
 
 .PHONY: test-mock-pause-docker
 test-mock-pause-docker: ci-build-test
@@ -478,13 +478,13 @@ test-mock-pause-docker: ci-build-test
 		-e DOCKER_HOST=unix:///var/run/docker.sock \
 		-e PAUSE_BEFORE_TEARDOWN=1 \
 		joustmania/ci-test:latest \
-		uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v -s
+		uv run --package joustmania-integration-tests pytest tests/integration/ -v -s
 
 .PHONY: test-ffa
 test-ffa:
 	@echo "Running FFA integration test (fresh venv)..."
 	@rm -rf .venv-test 2>/dev/null || true
-	@UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_ffa_game_with_mock_controllers -v
+	@UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/test_game_flow.py::test_ffa_game_with_mock_controllers -v
 
 .PHONY: test-ffa-docker
 test-ffa-docker: ci-build-test
@@ -495,13 +495,13 @@ test-ffa-docker: ci-build-test
 		-w /workspace \
 		-e DOCKER_HOST=unix:///var/run/docker.sock \
 		joustmania/ci-test:latest \
-		uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_ffa_game_with_mock_controllers -v
+		uv run --package joustmania-integration-tests pytest tests/integration/test_game_flow.py::test_ffa_game_with_mock_controllers -v
 
 .PHONY: test-teams
 test-teams:
 	@echo "Running Teams integration test (fresh venv)..."
 	@rm -rf .venv-test 2>/dev/null || true
-	@UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_teams_game_with_mock_controllers -v
+	@UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/test_game_flow.py::test_teams_game_with_mock_controllers -v
 
 .PHONY: test-teams-docker
 test-teams-docker: ci-build-test
@@ -512,13 +512,13 @@ test-teams-docker: ci-build-test
 		-w /workspace \
 		-e DOCKER_HOST=unix:///var/run/docker.sock \
 		joustmania/ci-test:latest \
-		uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_teams_game_with_mock_controllers -v
+		uv run --package joustmania-integration-tests pytest tests/integration/test_game_flow.py::test_teams_game_with_mock_controllers -v
 
 .PHONY: test-random-teams
 test-random-teams:
 	@echo "Running Random Teams integration test (fresh venv)..."
 	@rm -rf .venv-test 2>/dev/null || true
-	@UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_random_teams_game_with_mock_controllers -v
+	@UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/test_game_colors.py::test_random_teams_color_pulse -v
 
 .PHONY: test-random-teams-docker
 test-random-teams-docker: ci-build-test
@@ -529,12 +529,12 @@ test-random-teams-docker: ci-build-test
 		-w /workspace \
 		-e DOCKER_HOST=unix:///var/run/docker.sock \
 		joustmania/ci-test:latest \
-		uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py::test_random_teams_game_with_mock_controllers -v
+		uv run --package joustmania-integration-tests pytest tests/integration/test_game_colors.py::test_random_teams_color_pulse -v
 
 .PHONY: test-watch
 test-watch:
 	@echo "Running tests in watch mode (re-runs on file changes)..."
-	@uv run --package joustmania-integration-tests pytest tests/integration/test_mock_environment.py -v --looponfail
+	@uv run --package joustmania-integration-tests pytest tests/integration/ -v --looponfail
 
 .PHONY: test-help
 test-help:

@@ -105,10 +105,10 @@ async def wait_for_game_running(game_client, timeout=15):
 async def wait_for_game_end(game_client, timeout=10):
     """Wait for game to reach ENDED state.
 
-    Waits for "game_ended" or "game_error" events which indicate the game
-    has finished.
+    Waits for "game_ended", "game_force_ended", or "game_error" events which
+    indicate the game has finished.
     """
-    await wait_for_game_event(game_client, ["game_ended", "game_error"], timeout)
+    await wait_for_game_event(game_client, ["game_ended", "game_force_ended", "game_error"], timeout)
 
 
 # =============================================================================
@@ -162,22 +162,59 @@ async def select_game_mode(menu_client, game_mode: str):
     return response.success
 
 
+async def connect_all_controllers(mock_client, serials: list[str]):
+    """Ensure all controllers are known to the Menu by sending an initial event.
+
+    The Menu only tracks controllers that have sent button events. This function
+    sends a dummy button release event to make each controller "connected" in
+    the Menu's view before marking them ready.
+
+    Args:
+        mock_client: Mock controller service gRPC client
+        serials: List of controller serial numbers to connect
+    """
+    for serial in serials:
+        # Press and release SELECT button to generate a button event
+        # SELECT has no handler in connected state, so it only registers the controller
+        await mock_client.SimulateButton(
+            controller_manager_mock_pb2.ButtonRequest(
+                serial=serial,
+                button=controller_manager_mock_pb2.ButtonRequest.Button.SELECT,
+                pressed=True,
+            )
+        )
+        await asyncio.sleep(0.05)
+        await mock_client.SimulateButton(
+            controller_manager_mock_pb2.ButtonRequest(
+                serial=serial,
+                button=controller_manager_mock_pb2.ButtonRequest.Button.SELECT,
+                pressed=False,
+            )
+        )
+    # Small delay to ensure all events are processed
+    await asyncio.sleep(0.5)
+
+
 async def mark_controllers_ready(mock_client, serials: list[str]):
     """Mark controllers as ready by simulating button presses.
 
-    In the Menu system, pressing Move button marks controller as ready.
+    In the Menu system, pressing TRIGGER marks controller as ready.
+    (MOVE cycles game modes instead)
+
+    NOTE: Call connect_all_controllers() first to ensure all controllers
+    are known to the Menu, otherwise "all ready" triggers prematurely.
 
     Args:
         mock_client: Mock controller service gRPC client
         serials: List of controller serial numbers to mark ready
     """
     for serial in serials:
-        # Simulate Move button press to mark ready
-        # MOVE = 1 in the proto enum
+        # Simulate Trigger button press to mark ready
+        # TRIGGER = 0 in the proto enum
         await mock_client.SimulateButton(
             controller_manager_mock_pb2.ButtonRequest(
                 serial=serial,
-                button=controller_manager_mock_pb2.ButtonRequest.Button.MOVE,
+                button=controller_manager_mock_pb2.ButtonRequest.Button.TRIGGER,
                 pressed=True,
             )
         )
@@ -186,7 +223,7 @@ async def mark_controllers_ready(mock_client, serials: list[str]):
         await mock_client.SimulateButton(
             controller_manager_mock_pb2.ButtonRequest(
                 serial=serial,
-                button=controller_manager_mock_pb2.ButtonRequest.Button.MOVE,
+                button=controller_manager_mock_pb2.ButtonRequest.Button.TRIGGER,
                 pressed=False,
             )
         )
@@ -284,15 +321,37 @@ async def start_game_via_menu(
     await select_game_mode(menu_client, game_mode)
     await asyncio.sleep(0.5)
 
-    # Mark all controllers as ready - game auto-starts when all are ready
-    print(f"Marking {len(serials)} controllers as ready: {serials}")
-    await mark_controllers_ready(mock_client, serials)
-    print("Controllers marked as ready, waiting for game start...")
+    # Connect and mark controllers ready, with retry logic for button stream reconnection
+    # After a game ends, the Menu's button stream may take time to reconnect
+    max_attempts = 5
+    for attempt in range(max_attempts):
+        # First, ensure all controllers are known to the Menu
+        # (The Menu only tracks controllers that have sent button events)
+        print(f"Connecting {len(serials)} controllers to Menu: {serials}")
+        await connect_all_controllers(mock_client, serials)
 
-    # Check menu status after marking ready
-    await asyncio.sleep(2)
-    status = await menu_client.GetMenuStatus(menu_pb2.GetMenuStatusRequest())
-    print(f"Menu status: state={status.state}, selection={status.current_selection}, ready_count={status.ready_controller_count}")
+        # Mark all controllers as ready - game auto-starts when all are ready
+        print(f"Marking {len(serials)} controllers as ready: {serials}")
+        await mark_controllers_ready(mock_client, serials)
+        print("Controllers marked as ready, waiting for game start...")
+
+        # Check menu status after marking ready
+        await asyncio.sleep(2)
+        status = await menu_client.GetMenuStatus(menu_pb2.GetMenuStatusRequest())
+        print(f"Menu status: state={status.state}, selection={status.current_selection}, ready_count={status.ready_controller_count}")
+
+        # Game auto-starts when ALL controllers are ready
+        # If state is GAME_STARTING (2), the game has already started starting
+        # If ready_count matches total controllers, we're good
+        if status.state == menu_pb2.MenuState.GAME_STARTING:
+            break
+        if status.ready_controller_count >= len(serials):
+            break
+
+        # Button stream may not be connected yet, or not all events processed
+        if attempt < max_attempts - 1:
+            print(f"Ready count is {status.ready_controller_count}/{len(serials)}, retrying (attempt {attempt + 2}/{max_attempts})...")
+            await asyncio.sleep(2)
 
     # Wait for game to start (game_started event)
     # Game auto-starts after 0.3s delay when all controllers become ready
@@ -367,8 +426,9 @@ async def ensure_game_stopped(docker_compose):
             # Try to force end any running game
             await client.ForceEndGame(game_coordinator_pb2.ForceEndGameRequest())
 
-            # Wait a moment for cleanup
-            await asyncio.sleep(0.5)
+            # Wait for Menu to receive game_force_ended event and reset
+            # This includes: state reset, button monitor restart, stream reconnection
+            await asyncio.sleep(3)
 
             await channel.close()
         except Exception:
@@ -567,11 +627,32 @@ async def test_distributed_tracing_propagation(docker_compose):
     # Wait for game to run briefly
     await asyncio.sleep(2)
 
+    # Start streaming before calling ForceEndGame to avoid race condition
+    # where the event is published before the stream is established
+    end_events = ["game_ended", "game_force_ended", "game_error"]
+
+    async def wait_for_end():
+        async for event in game_client.StreamGameEvents(
+            game_coordinator_pb2.StreamEventsRequest()
+        ):
+            if event.event_type in end_events:
+                return event
+
+    # Start the stream task, then call ForceEndGame
+    stream_task = asyncio.create_task(wait_for_end())
+
+    # Give the stream a moment to establish
+    await asyncio.sleep(0.1)
+
     # Force end game
     await game_client.ForceEndGame(game_coordinator_pb2.ForceEndGameRequest())
 
-    # Wait for game to fully end
-    await wait_for_game_end(game_client, timeout=10)
+    # Wait for the end event with timeout
+    try:
+        await asyncio.wait_for(stream_task, timeout=10)
+    except asyncio.TimeoutError:
+        stream_task.cancel()
+        raise TimeoutError(f"Game did not emit event {end_events} within 10 seconds")
 
     # Note: To verify tracing, check Jaeger UI at http://localhost:16686
     # Search for service="menu-service" and verify the complete trace chain:
@@ -589,6 +670,8 @@ async def test_distributed_tracing_propagation(docker_compose):
 async def test_multiple_games_sequence(docker_compose):
     """Test running multiple games in sequence via Menu flow."""
 
+    end_events = ["game_ended", "game_force_ended", "game_error"]
+
     # Run 3 games in sequence, each started via Menu
     for i in range(3):
         # Start game via Menu flow
@@ -603,17 +686,32 @@ async def test_multiple_games_sequence(docker_compose):
         )
         await asyncio.sleep(1)
 
+        # Start streaming before calling ForceEndGame to avoid race condition
+        async def wait_for_end():
+            async for event in game_client.StreamGameEvents(
+                game_coordinator_pb2.StreamEventsRequest()
+            ):
+                if event.event_type in end_events:
+                    return event
+
+        stream_task = asyncio.create_task(wait_for_end())
+        await asyncio.sleep(0.1)
+
         # End game
         await game_client.ForceEndGame(game_coordinator_pb2.ForceEndGameRequest())
 
         # Wait for game to fully end before starting next game
-        await wait_for_game_end(game_client, timeout=10)
+        try:
+            await asyncio.wait_for(stream_task, timeout=10)
+        except asyncio.TimeoutError:
+            stream_task.cancel()
+            raise TimeoutError(f"Game {i+1} did not emit end event within 10 seconds")
 
         # Close channels for this iteration
         await game_channel.close()
         await mock_channel.close()
 
-        # Reset controllers for next game
+        # Reset controllers for next game (releases all buttons)
         mock_client_reset, mock_channel_reset = await get_mock_client(docker_compose)
         for j in range(4):
             await mock_client_reset.ResetController(
@@ -621,8 +719,9 @@ async def test_multiple_games_sequence(docker_compose):
             )
         await mock_channel_reset.close()
 
-        # Brief pause between games
-        await asyncio.sleep(1)
+        # Wait for Menu to fully reset after game end
+        # The Menu receives game_force_ended and resets its state
+        await asyncio.sleep(2)
 
 
 @pytest.mark.asyncio

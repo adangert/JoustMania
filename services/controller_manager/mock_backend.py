@@ -130,26 +130,9 @@ class MockBackend(ControllerBackend):
         current_time = time.time()
         time_since_update = current_time - controller["last_update"]
 
-        # Simulate random button presses (10% chance per second)
-        if random.random() < 0.1 * time_since_update:
-            button = random.choice(
-                [
-                    ButtonKey.MOVE,
-                    ButtonKey.TRIGGER,
-                    ButtonKey.TRIANGLE,
-                    ButtonKey.CIRCLE,
-                    ButtonKey.CROSS,
-                    ButtonKey.SQUARE,
-                ]
-            )
-            controller[button] = not controller[button]
-
-        # Simulate trigger movement (occasionally)
-        if random.random() < 0.05:
-            controller[StateKey.TRIGGER] = random.randint(0, 255)
-        else:
-            # Drift back to zero
-            controller[StateKey.TRIGGER] = max(0, controller[StateKey.TRIGGER] - 10)
+        # NOTE: Random button presses and trigger movement removed for predictable testing.
+        # Buttons and triggers are now only changed via SimulateButton RPC.
+        _ = time_since_update  # Silence unused variable warning
 
         # Check if we're holding death acceleration
         death_accel = None

@@ -234,6 +234,7 @@ class GameEvent(str, Enum):
     GAME_STARTING = "game_starting"  # Game setup begins (pre-countdown)
     GAME_STARTED = "game_started"  # Game loop begins (post-countdown)
     GAME_ENDED = "game_ended"  # Game finished normally
+    GAME_FORCE_ENDED = "game_force_ended"  # Game ended via ForceEndGame RPC
     GAME_ERROR = "game_error"  # Game ended due to error
 
     # Player events - published by games
@@ -265,7 +266,7 @@ class GameEvent(str, Enum):
     @classmethod
     def is_game_ending(cls, event_type: str) -> bool:
         """Check if event indicates game is ending."""
-        return event_type in (cls.GAME_ENDED, cls.GAME_ERROR)
+        return event_type in (cls.GAME_ENDED, cls.GAME_FORCE_ENDED, cls.GAME_ERROR)
 
 
 # Game name normalization mapping for display in UI and tracing

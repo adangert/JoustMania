@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import json
 import logging
 import os
 import time
@@ -241,15 +242,18 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         start_time = time.time()
         with tracer.start_as_current_span("GetMenuStatus") as span:
             try:
+                # Get ready count from state_manager (source of truth)
+                ready_count = len(self.state_manager.ready_controllers)
+
                 span.set_attribute("menu.state", self.state)
                 span.set_attribute("menu.selection", self.current_selection)
-                span.set_attribute("menu.ready_controllers", self.ready_controller_count)
+                span.set_attribute("menu.ready_controllers", ready_count)
                 metrics.grpc_requests_total.labels(method="GetMenuStatus", status="ok").inc()
 
                 return menu_pb2.GetMenuStatusResponse(
                     state=self.state,
                     current_selection=self.current_selection,
-                    ready_controller_count=self.ready_controller_count,
+                    ready_controller_count=ready_count,
                     success=True,
                     error="",
                 )
@@ -330,11 +334,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         span.set_attribute("button", button)
 
         if button == "trigger":
-            controllers = list(self.ready_controllers)
+            controllers = list(self.state_manager.ready_controllers)
             self.state = menu_pb2.MenuState.GAME_STARTING
             await self.event_publisher.publish(
                 "game_requested",
-                {"game_name": self.current_selection, "controllers": controllers},
+                {"game_name": self.current_selection, "controllers": json.dumps(controllers)},
             )
             logger.info(f"Game requested: {self.current_selection} with {len(controllers)} players")
 
@@ -352,11 +356,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         span.set_attribute("command", command)
 
         if command == "start_game":
-            controllers = list(self.ready_controllers)
+            controllers = list(self.state_manager.ready_controllers)
             self.state = menu_pb2.MenuState.GAME_STARTING
             await self.event_publisher.publish(
                 "game_requested",
-                {"game_name": self.current_selection, "source": "web", "controllers": controllers},
+                {"game_name": self.current_selection, "source": "web", "controllers": json.dumps(controllers)},
             )
             logger.info(f"Game requested via web: {self.current_selection} with {len(controllers)} players")
 
@@ -451,12 +455,13 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         logger.info(f"Game event '{event.event_type}' - restarting button monitor and lobby music")
                         self.state = menu_pb2.MenuState.RUNNING
 
-                        # Reset lobby state
+                        # Reset lobby state - both servicer state and state_manager
                         self.ready_controllers.clear()
                         self.connected_controllers.clear()
                         self.controller_lobby_state.clear()
                         self.last_lobby_feedback_update.clear()
                         self.ready_controller_count = 0
+                        self.state_manager.reset()  # Reset state_manager too
 
                         await self.audio.start_lobby_music()
                         await self.start_button_monitor()
@@ -492,7 +497,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             span.set_attribute("controller.serial", serial)
             span.set_attribute("game.name", self.current_selection)
 
-            controllers = list(self.ready_controllers)
+            # Get controllers from state_manager (source of truth)
+            controllers = list(self.state_manager.ready_controllers)
             span.set_attribute("controller.count", len(controllers))
 
             self.state = menu_pb2.MenuState.GAME_STARTING
@@ -502,7 +508,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     "game_name": self.current_selection,
                     "source": "controller",
                     "serial": serial,
-                    "controllers": controllers,
+                    "controllers": json.dumps(controllers),
                 },
             )
             logger.info(

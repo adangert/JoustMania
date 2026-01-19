@@ -11,6 +11,7 @@ This replaces the Queue-based IPC with gRPC (Phase 8a).
 """
 
 import asyncio
+import json
 import logging
 import os
 import queue
@@ -34,6 +35,7 @@ import contextlib
 
 from prometheus_client import start_http_server
 
+from lib.grpc_utils import create_channel
 from lib.system_metrics import start_system_metrics_collector
 from lib.telemetry import init_telemetry
 from proto import (
@@ -348,22 +350,22 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
     # ========================================================================
 
     async def _init_grpc_clients(self):
-        """Initialize gRPC clients for orchestration."""
+        """Initialize gRPC clients for orchestration with trace propagation."""
         try:
-            # Menu service
-            self.menu_channel = grpc.aio.insecure_channel("menu:50054")
+            # Menu service (with tracing for context propagation)
+            self.menu_channel = create_channel("menu:50054")
             self.menu_stub = menu_pb2_grpc.MenuServiceStub(self.menu_channel)
             logger.info("Connected to Menu service for orchestration")
 
-            # Game Coordinator service
-            self.game_coordinator_channel = grpc.aio.insecure_channel("game-coordinator:50053")
+            # Game Coordinator service (with tracing for StartGame calls)
+            self.game_coordinator_channel = create_channel("game-coordinator:50053")
             self.game_coordinator_stub = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(
                 self.game_coordinator_channel
             )
             logger.info("Connected to Game Coordinator service for orchestration")
 
-            # Controller Manager service
-            self.controller_manager_channel = grpc.aio.insecure_channel("controller-manager:50052")
+            # Controller Manager service (with tracing for controller queries)
+            self.controller_manager_channel = create_channel("controller-manager:50052")
             self.controller_manager_stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(
                 self.controller_manager_channel
             )
@@ -449,7 +451,13 @@ class SupervisorServicer(supervisor_pb2_grpc.SupervisorServiceServicer):
                 logger.info(f"Orchestrating game start: {game_name} (source: {source})")
 
                 # Get controllers from event - menu is source of truth
-                controller_serials = event.data.get("controllers", [])
+                # Controllers are JSON-encoded since MenuEvent.data is map<string, string>
+                controllers_json = event.data.get("controllers", "[]")
+                try:
+                    controller_serials = json.loads(controllers_json) if controllers_json else []
+                except json.JSONDecodeError:
+                    logger.error(f"Failed to decode controllers JSON: {controllers_json}")
+                    controller_serials = []
 
                 if not controller_serials:
                     logger.error("No controllers in event - Menu must provide controller list")

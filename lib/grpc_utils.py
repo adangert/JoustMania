@@ -3,10 +3,14 @@ Shared gRPC utilities for JoustMania services (Phase 33).
 
 Provides standardized channel options and factory functions to eliminate
 code duplication across services.
+
+Phase 80: Added tracing interceptors for distributed trace propagation
+across async gRPC calls.
 """
 
+from typing import Any
+
 import grpc
-from typing import Optional
 
 
 def get_optimized_channel_options() -> list[tuple[str, any]]:
@@ -67,34 +71,46 @@ def get_server_options() -> list[tuple[str, any]]:
 
 def create_channel(
     address: str,
-    options: Optional[list[tuple[str, any]]] = None,
-    **kwargs
+    options: list[tuple[str, Any]] | None = None,
+    enable_tracing: bool = True,
+    **kwargs,
 ) -> grpc.aio.Channel:
     """
-    Create an async gRPC channel with standard JoustMania options.
+    Create an async gRPC channel with standard JoustMania options and tracing.
 
     Args:
         address: Target address in format "host:port"
         options: Optional custom channel options (defaults to optimized options)
+        enable_tracing: Whether to add OpenTelemetry tracing interceptors (default: True).
+                       When enabled, all RPC calls through this channel will create
+                       spans and propagate trace context to downstream services.
         **kwargs: Additional arguments passed to grpc.aio.insecure_channel
 
     Returns:
-        Configured async gRPC channel
+        Configured async gRPC channel with optional tracing interceptors
 
     Example:
         >>> channel = create_channel("localhost:50051")
         >>> stub = MyServiceStub(channel)
+        >>> # All calls through stub will now be traced
     """
     if options is None:
         options = get_optimized_channel_options()
+
+    if enable_tracing:
+        from lib.grpc_tracing import get_tracing_interceptors
+
+        interceptors = get_tracing_interceptors()
+        return grpc.aio.insecure_channel(address, options=options, interceptors=interceptors, **kwargs)
 
     return grpc.aio.insecure_channel(address, options=options, **kwargs)
 
 
 def create_channel_with_custom_options(
     address: str,
-    extra_options: list[tuple[str, any]],
-    **kwargs
+    extra_options: list[tuple[str, Any]],
+    enable_tracing: bool = True,
+    **kwargs,
 ) -> grpc.aio.Channel:
     """
     Create an async gRPC channel with standard options plus custom additions.
@@ -102,14 +118,15 @@ def create_channel_with_custom_options(
     Args:
         address: Target address in format "host:port"
         extra_options: Additional channel options to merge with standard options
+        enable_tracing: Whether to add OpenTelemetry tracing interceptors (default: True)
         **kwargs: Additional arguments passed to grpc.aio.insecure_channel
 
     Returns:
-        Configured async gRPC channel with merged options
+        Configured async gRPC channel with merged options and optional tracing
 
     Example:
         >>> extra = [("grpc.max_connection_idle_ms", 60000)]
         >>> channel = create_channel_with_custom_options("localhost:50051", extra)
     """
     options = get_optimized_channel_options() + extra_options
-    return grpc.aio.insecure_channel(address, options=options, **kwargs)
+    return create_channel(address, options=options, enable_tracing=enable_tracing, **kwargs)

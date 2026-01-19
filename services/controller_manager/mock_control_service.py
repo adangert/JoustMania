@@ -135,10 +135,10 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
             if serial not in self.backend.controllers:
                 return controller_manager_mock_pb2.ResetResponse(success=False, error=f"Controller {serial} not found")
 
-            # Reset to idle
+            # Reset to idle - all buttons released
             controller = self.backend.controllers[serial]
-            controller[ButtonKey.MOVE] = True  # Keep ready for tests
-            controller[ButtonKey.TRIGGER] = True  # Keep trigger pressed (marks as ready)
+            controller[ButtonKey.MOVE] = False
+            controller[ButtonKey.TRIGGER] = False
             controller[ButtonKey.PS] = False
             controller[ButtonKey.SELECT] = False
             controller[ButtonKey.START] = False

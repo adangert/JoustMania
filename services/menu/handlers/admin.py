@@ -16,6 +16,7 @@ Admin mode allows changing settings like:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from typing import TYPE_CHECKING, Protocol
@@ -587,7 +588,7 @@ class AdminModeHandler:
                         "game_name": self._current_game_mode,
                         "source": "admin_force_start",
                         "serial": serial,
-                        "controllers": controllers,
+                        "controllers": json.dumps(controllers),
                     },
                 )
 

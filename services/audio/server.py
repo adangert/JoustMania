@@ -397,14 +397,13 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
     async def _load_audio_setting(self):
         """Load audio settings from settings service."""
         try:
-            import grpc.aio
-
+            from lib.grpc_utils import create_channel
             from proto import settings_pb2, settings_pb2_grpc
 
             settings_host = os.getenv("SETTINGS_HOST", "settings")
             settings_port = os.getenv("SETTINGS_PORT", "50051")
 
-            async with grpc.aio.insecure_channel(f"{settings_host}:{settings_port}") as channel:
+            async with create_channel(f"{settings_host}:{settings_port}") as channel:
                 stub = settings_pb2_grpc.SettingsServiceStub(channel)
 
                 # Load play_audio setting

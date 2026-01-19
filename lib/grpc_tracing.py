@@ -30,6 +30,36 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 logger = logging.getLogger(__name__)
 
 
+def _extract_method_name(method: str | bytes) -> str:
+    """Extract clean method name from gRPC method path.
+
+    Args:
+        method: Method path like "/package.Service/Method" (can be bytes or str)
+
+    Returns:
+        Clean method name like "package.Service/Method"
+    """
+    if isinstance(method, bytes):
+        method = method.decode("utf-8")
+    if method.startswith("/"):
+        method = method[1:]
+    return method
+
+
+def _prepare_metadata(existing_metadata: Any) -> tuple:
+    """Prepare metadata with trace context injection.
+
+    Args:
+        existing_metadata: Existing metadata (can be None, tuple, or Metadata object)
+
+    Returns:
+        Tuple of (key, value) pairs with trace context injected
+    """
+    metadata = dict(existing_metadata or [])
+    inject(metadata)
+    return tuple(metadata.items())
+
+
 class TracingClientInterceptor(grpc.aio.UnaryUnaryClientInterceptor):
     """
     Async unary-unary client interceptor for OpenTelemetry tracing.
@@ -53,40 +83,18 @@ class TracingClientInterceptor(grpc.aio.UnaryUnaryClientInterceptor):
         client_call_details: grpc.aio.ClientCallDetails,
         request: Any,
     ) -> Any:
-        """
-        Intercept unary-unary RPC calls to add tracing.
+        """Intercept unary-unary RPC calls to add tracing."""
+        method = _extract_method_name(client_call_details.method)
 
-        Args:
-            continuation: Function to continue the RPC call
-            client_call_details: RPC method details (method name, metadata, etc.)
-            request: The RPC request message
-
-        Returns:
-            The RPC response
-        """
-        # Extract method name for span name (e.g., "/package.Service/Method" -> "Service/Method")
-        method = client_call_details.method
-        if method.startswith("/"):
-            method = method[1:]
-
-        # Create span for the outgoing call
         with self._tracer.start_as_current_span(
             method,
             kind=SpanKind.CLIENT,
-            attributes={
-                "rpc.system": "grpc",
-                "rpc.method": client_call_details.method,
-            },
+            attributes={"rpc.system": "grpc", "rpc.method": method},
         ) as span:
-            # Inject trace context into metadata
-            metadata = dict(client_call_details.metadata or [])
-            inject(metadata)
-
-            # Create new call details with trace metadata
             new_details = grpc.aio.ClientCallDetails(
                 method=client_call_details.method,
                 timeout=client_call_details.timeout,
-                metadata=list(metadata.items()),
+                metadata=_prepare_metadata(client_call_details.metadata),
                 credentials=client_call_details.credentials,
                 wait_for_ready=client_call_details.wait_for_ready,
             )
@@ -113,22 +121,18 @@ class TracingStreamUnaryInterceptor(grpc.aio.StreamUnaryClientInterceptor):
         client_call_details: grpc.aio.ClientCallDetails,
         request_iterator: Any,
     ) -> Any:
-        method = client_call_details.method
-        if method.startswith("/"):
-            method = method[1:]
+        """Intercept stream-unary RPC calls to add tracing."""
+        method = _extract_method_name(client_call_details.method)
 
         with self._tracer.start_as_current_span(
             method,
             kind=SpanKind.CLIENT,
-            attributes={"rpc.system": "grpc", "rpc.method": client_call_details.method},
+            attributes={"rpc.system": "grpc", "rpc.method": method},
         ) as span:
-            metadata = dict(client_call_details.metadata or [])
-            inject(metadata)
-
             new_details = grpc.aio.ClientCallDetails(
                 method=client_call_details.method,
                 timeout=client_call_details.timeout,
-                metadata=list(metadata.items()),
+                metadata=_prepare_metadata(client_call_details.metadata),
                 credentials=client_call_details.credentials,
                 wait_for_ready=client_call_details.wait_for_ready,
             )
@@ -155,31 +159,24 @@ class TracingUnaryStreamInterceptor(grpc.aio.UnaryStreamClientInterceptor):
         client_call_details: grpc.aio.ClientCallDetails,
         request: Any,
     ) -> Any:
-        method = client_call_details.method
-        if method.startswith("/"):
-            method = method[1:]
+        """Intercept unary-stream RPC calls to add tracing."""
+        method = _extract_method_name(client_call_details.method)
 
-        # For streaming responses, we create a span but don't wait for completion
-        # The span covers the initial call setup
+        # For streaming responses, span covers initial call setup only
         with self._tracer.start_as_current_span(
             method,
             kind=SpanKind.CLIENT,
-            attributes={"rpc.system": "grpc", "rpc.method": client_call_details.method},
+            attributes={"rpc.system": "grpc", "rpc.method": method},
         ) as span:
-            metadata = dict(client_call_details.metadata or [])
-            inject(metadata)
-
             new_details = grpc.aio.ClientCallDetails(
                 method=client_call_details.method,
                 timeout=client_call_details.timeout,
-                metadata=list(metadata.items()),
+                metadata=_prepare_metadata(client_call_details.metadata),
                 credentials=client_call_details.credentials,
                 wait_for_ready=client_call_details.wait_for_ready,
             )
 
             try:
-                # Note: For streaming, we return the call object immediately
-                # The span ends when the with block exits, not when streaming completes
                 call = await continuation(new_details, request)
                 span.set_status(Status(StatusCode.OK))
                 return call
@@ -201,22 +198,18 @@ class TracingStreamStreamInterceptor(grpc.aio.StreamStreamClientInterceptor):
         client_call_details: grpc.aio.ClientCallDetails,
         request_iterator: Any,
     ) -> Any:
-        method = client_call_details.method
-        if method.startswith("/"):
-            method = method[1:]
+        """Intercept stream-stream RPC calls to add tracing."""
+        method = _extract_method_name(client_call_details.method)
 
         with self._tracer.start_as_current_span(
             method,
             kind=SpanKind.CLIENT,
-            attributes={"rpc.system": "grpc", "rpc.method": client_call_details.method},
+            attributes={"rpc.system": "grpc", "rpc.method": method},
         ) as span:
-            metadata = dict(client_call_details.metadata or [])
-            inject(metadata)
-
             new_details = grpc.aio.ClientCallDetails(
                 method=client_call_details.method,
                 timeout=client_call_details.timeout,
-                metadata=list(metadata.items()),
+                metadata=_prepare_metadata(client_call_details.metadata),
                 credentials=client_call_details.credentials,
                 wait_for_ready=client_call_details.wait_for_ready,
             )

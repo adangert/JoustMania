@@ -22,8 +22,8 @@ from services.menu.utils.settings import GAME_MODES
 
 logger = logging.getLogger(__name__)
 
-# Initialize OpenTelemetry with gRPC client instrumentation
-tracer = init_telemetry(instrument_grpc_client=True)
+# Initialize OpenTelemetry
+tracer = init_telemetry()
 
 
 class MenuServicer(menu_pb2_grpc.MenuServiceServicer):

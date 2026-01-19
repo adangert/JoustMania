@@ -162,47 +162,14 @@ async def select_game_mode(menu_client, game_mode: str):
     return response.success
 
 
-async def connect_all_controllers(mock_client, serials: list[str]):
-    """Ensure all controllers are known to the Menu by sending an initial event.
-
-    The Menu only tracks controllers that have sent button events. This function
-    sends a dummy button release event to make each controller "connected" in
-    the Menu's view before marking them ready.
-
-    Args:
-        mock_client: Mock controller service gRPC client
-        serials: List of controller serial numbers to connect
-    """
-    for serial in serials:
-        # Press and release SELECT button to generate a button event
-        # SELECT has no handler in connected state, so it only registers the controller
-        await mock_client.SimulateButton(
-            controller_manager_mock_pb2.ButtonRequest(
-                serial=serial,
-                button=controller_manager_mock_pb2.ButtonRequest.Button.SELECT,
-                pressed=True,
-            )
-        )
-        await asyncio.sleep(0.05)
-        await mock_client.SimulateButton(
-            controller_manager_mock_pb2.ButtonRequest(
-                serial=serial,
-                button=controller_manager_mock_pb2.ButtonRequest.Button.SELECT,
-                pressed=False,
-            )
-        )
-    # Small delay to ensure all events are processed
-    await asyncio.sleep(0.5)
-
-
 async def mark_controllers_ready(mock_client, serials: list[str]):
     """Mark controllers as ready by simulating button presses.
 
     In the Menu system, pressing TRIGGER marks controller as ready.
     (MOVE cycles game modes instead)
 
-    NOTE: Call connect_all_controllers() first to ensure all controllers
-    are known to the Menu, otherwise "all ready" triggers prematurely.
+    Controllers are automatically known to the Menu via initial connection
+    events sent when the Menu subscribes to the button stream.
 
     Args:
         mock_client: Mock controller service gRPC client
@@ -321,37 +288,16 @@ async def start_game_via_menu(
     await select_game_mode(menu_client, game_mode)
     await asyncio.sleep(0.5)
 
-    # Connect and mark controllers ready, with retry logic for button stream reconnection
-    # After a game ends, the Menu's button stream may take time to reconnect
-    max_attempts = 5
-    for attempt in range(max_attempts):
-        # First, ensure all controllers are known to the Menu
-        # (The Menu only tracks controllers that have sent button events)
-        print(f"Connecting {len(serials)} controllers to Menu: {serials}")
-        await connect_all_controllers(mock_client, serials)
+    # Mark all controllers as ready - game auto-starts when all are ready
+    # Controllers are automatically known to Menu via initial connection events
+    print(f"Marking {len(serials)} controllers as ready: {serials}")
+    await mark_controllers_ready(mock_client, serials)
+    print("Controllers marked as ready, waiting for game start...")
 
-        # Mark all controllers as ready - game auto-starts when all are ready
-        print(f"Marking {len(serials)} controllers as ready: {serials}")
-        await mark_controllers_ready(mock_client, serials)
-        print("Controllers marked as ready, waiting for game start...")
-
-        # Check menu status after marking ready
-        await asyncio.sleep(2)
-        status = await menu_client.GetMenuStatus(menu_pb2.GetMenuStatusRequest())
-        print(f"Menu status: state={status.state}, selection={status.current_selection}, ready_count={status.ready_controller_count}")
-
-        # Game auto-starts when ALL controllers are ready
-        # If state is GAME_STARTING (2), the game has already started starting
-        # If ready_count matches total controllers, we're good
-        if status.state == menu_pb2.MenuState.GAME_STARTING:
-            break
-        if status.ready_controller_count >= len(serials):
-            break
-
-        # Button stream may not be connected yet, or not all events processed
-        if attempt < max_attempts - 1:
-            print(f"Ready count is {status.ready_controller_count}/{len(serials)}, retrying (attempt {attempt + 2}/{max_attempts})...")
-            await asyncio.sleep(2)
+    # Check menu status after marking ready
+    await asyncio.sleep(1)
+    status = await menu_client.GetMenuStatus(menu_pb2.GetMenuStatusRequest())
+    print(f"Menu status: state={status.state}, selection={status.current_selection}, ready_count={status.ready_controller_count}")
 
     # Wait for game to start (game_started event)
     # Game auto-starts after 0.3s delay when all controllers become ready

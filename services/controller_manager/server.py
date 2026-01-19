@@ -708,6 +708,24 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Update stream metrics (Phase 38)
         metrics.active_streams.inc()
 
+        # Send initial connection events for all currently tracked controllers
+        # This allows new subscribers to immediately know about existing controllers
+        for serial, info in self.tracked_controllers.items():
+            battery = info.get(ControllerInfoKey.BATTERY, 0)
+            connect_event = controller_manager_pb2.ButtonEvent(
+                serial=serial,
+                timestamp=int(time.time() * 1000),
+                battery=battery,
+                event_type=controller_manager_pb2.EVENT_CONNECT,
+            )
+            try:
+                event_queue.put_nowait(connect_event)
+                logger.debug(f"[{subscriber_id}] Sent initial connection event for {serial}")
+            except asyncio.QueueFull:
+                logger.warning(f"[{subscriber_id}] Queue full, skipping initial event for {serial}")
+
+        logger.info(f"[{subscriber_id}] Sent initial connection events for {len(self.tracked_controllers)} controllers")
+
         # Phase XX: Background task to read client control messages
         async def read_client_controls():
             try:

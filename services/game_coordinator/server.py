@@ -82,8 +82,8 @@ logger.info("=" * 60)
 logger.info("GAME COORDINATOR BUILD: 2026-01-17 last-player-win-fix")
 logger.info("=" * 60)
 
-# Initialize OpenTelemetry (game coordinator calls other services, so instrument client too)
-tracer = init_telemetry(instrument_grpc_client=True)
+# Initialize OpenTelemetry
+tracer = init_telemetry()
 
 
 class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceServicer):

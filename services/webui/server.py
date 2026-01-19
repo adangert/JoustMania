@@ -34,15 +34,12 @@ from wtforms import (
 
 from lib import colors
 from lib.system_metrics import start_system_metrics_collector_thread
-from lib.types import Games, Opts
+from lib.types import Games
 from proto import (
-    controller_manager_pb2,
-    controller_manager_pb2_grpc,
     menu_pb2,
     menu_pb2_grpc,
     settings_pb2,
     settings_pb2_grpc,
-    supervisor_pb2_grpc,
 )
 from services.webui import metrics
 
@@ -137,39 +134,15 @@ class GrpcClients:
     """Manager for gRPC client connections."""
 
     def __init__(self):
-        # gRPC channel options for better performance and reliability
-        [
-            # Keep-alive settings to detect dead connections
-            ("grpc.keepalive_time_ms", 30000),  # Send keepalive ping every 30s
-            ("grpc.keepalive_timeout_ms", 5000),  # Wait 5s for keepalive ack
-            ("grpc.keepalive_permit_without_calls", True),  # Allow keepalive pings when no calls
-            ("grpc.http2.max_pings_without_data", 2),  # Allow 2 pings without data
-            # Connection and timeout settings
-            ("grpc.initial_reconnect_backoff_ms", 1000),  # 1s initial backoff
-            ("grpc.max_reconnect_backoff_ms", 5000),  # 5s max backoff
-            # Message size limits (10MB for large messages)
-            ("grpc.max_receive_message_length", 10 * 1024 * 1024),
-            ("grpc.max_send_message_length", 10 * 1024 * 1024),
-            # Compression (Phase 26 - Performance)
-            ("grpc.default_compression_algorithm", grpc.Compression.Gzip),
-            ("grpc.grpc.default_compression_level", grpc.Compression.Gzip),
-        ]
-
         # Service addresses from environment or defaults
         self.settings_addr = os.getenv("SETTINGS_SERVICE", "settings:50051")
-        self.controller_mgr_addr = os.getenv("CONTROLLER_MANAGER_SERVICE", "controller-manager:50052")
         self.menu_addr = os.getenv("MENU_SERVICE", "menu:50054")
-        self.supervisor_addr = os.getenv("SUPERVISOR_SERVICE", "supervisor:50055")
 
         # Initialize channels and stubs
         self.settings_channel = None
         self.settings_stub = None
-        self.controller_channel = None
-        self.controller_stub = None
         self.menu_channel = None
         self.menu_stub = None
-        self.supervisor_channel = None
-        self.supervisor_stub = None
 
         self.connect_all()
 
@@ -181,17 +154,9 @@ class GrpcClients:
         self.settings_channel = grpc.insecure_channel(self.settings_addr)
         self.settings_stub = settings_pb2_grpc.SettingsServiceStub(self.settings_channel)
 
-        # ControllerManager service
-        self.controller_channel = grpc.insecure_channel(self.controller_mgr_addr)
-        self.controller_stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
-
         # Menu service
         self.menu_channel = grpc.insecure_channel(self.menu_addr)
         self.menu_stub = menu_pb2_grpc.MenuServiceStub(self.menu_channel)
-
-        # Supervisor service
-        self.supervisor_channel = grpc.insecure_channel(self.supervisor_addr)
-        self.supervisor_stub = supervisor_pb2_grpc.SupervisorServiceStub(self.supervisor_channel)
 
         logger.info("Connected to all gRPC services")
 
@@ -200,12 +165,8 @@ class GrpcClients:
         logger.info("Closing gRPC connections...")
         if self.settings_channel:
             self.settings_channel.close()
-        if self.controller_channel:
-            self.controller_channel.close()
         if self.menu_channel:
             self.menu_channel.close()
-        if self.supervisor_channel:
-            self.supervisor_channel.close()
 
 
 class WebUI:
@@ -226,7 +187,6 @@ class WebUI:
         self.app.add_url_rule("/startgame", "start_game", self.start_game)
         self.app.add_url_rule("/killgame", "kill_game", self.kill_game)
         self.app.add_url_rule("/updateStatus", "update", self.update)
-        self.app.add_url_rule("/battery", "battery_status", self.battery_status)
         self.app.add_url_rule("/settings", "settings", self.settings, methods=["GET", "POST"])
         self.app.add_url_rule("/rand<num_teams>", "randomize", self.randomize_teams)
         self.app.add_url_rule("/power", "power", self.power)
@@ -326,69 +286,6 @@ class WebUI:
             except grpc.RpcError as e:
                 logger.error(f"gRPC error in kill_game: {e}")
                 return f"{{'status':'Error','message':'{str(e)}'}}"
-
-    def battery_status(self):
-        """Get controller battery status."""
-        with tracer.start_as_current_span("battery_status") as span:
-            try:
-                # Get controllers from ControllerManager
-                req = controller_manager_pb2.GetControllersRequest()
-                response = self.grpc.controller_stub.GetControllers(req, timeout=2.0)
-
-                if response.success:
-                    # Build battery status dict
-                    battery_status = {}
-                    rssi_display = {}  # Phase 48: RSSI display text
-                    rssi_classes = {}  # Phase 48: CSS classes for RSSI
-
-                    for controller in response.controllers:
-                        battery_status[controller.serial] = controller.battery
-
-                        # Phase 48: Add RSSI display
-                        rssi = controller.rssi
-                        if rssi == 0:
-                            rssi_display[controller.serial] = "USB"
-                            rssi_classes[controller.serial] = "rssi-usb"
-                        elif rssi >= -55:
-                            rssi_display[controller.serial] = f"{rssi} dBm (Excellent)"
-                            rssi_classes[controller.serial] = "rssi-excellent"
-                        elif rssi >= -70:
-                            rssi_display[controller.serial] = f"{rssi} dBm (Good)"
-                            rssi_classes[controller.serial] = "rssi-good"
-                        elif rssi >= -80:
-                            rssi_display[controller.serial] = f"{rssi} dBm (Fair)"
-                            rssi_classes[controller.serial] = "rssi-fair"
-                        else:
-                            rssi_display[controller.serial] = f"{rssi} dBm (Poor)"
-                            rssi_classes[controller.serial] = "rssi-poor"
-
-                    span.set_attribute("controllers.count", len(battery_status))
-
-                    return render_template(
-                        "battery.html",
-                        battery_status=battery_status,
-                        rssi_display=rssi_display,
-                        rssi_classes=rssi_classes,
-                        levels=Opts.battery_levels_dict(),
-                    )
-                logger.error(f"GetControllers failed: {response.error}")
-                return render_template(
-                    "battery.html",
-                    battery_status={},
-                    rssi_display={},
-                    rssi_classes={},
-                    levels=Opts.battery_levels_dict(),
-                )
-
-            except grpc.RpcError as e:
-                logger.error(f"gRPC error in battery_status: {e}")
-                return render_template(
-                    "battery.html",
-                    battery_status={},
-                    rssi_display={},
-                    rssi_classes={},
-                    levels=Opts.battery_levels_dict(),
-                )
 
     def power(self):
         """Power management page."""

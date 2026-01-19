@@ -10,7 +10,6 @@ Services:
 - controller_manager_mock_pb2: Mock controller control API
 - game_coordinator_pb2: Game lifecycle and events
 - menu_pb2: Menu interactions
-- supervisor_pb2: Process health monitoring
 - audio_pb2: Audio playback control
 """
 

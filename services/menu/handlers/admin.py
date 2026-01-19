@@ -748,54 +748,14 @@ class AdminModeHandler:
         """
         Handle battery display in admin mode.
 
-        Shows battery level via LED color:
-        - Green: >66%
-        - Yellow: 33-66%
-        - Red: <33%
+        Note: Battery display feature has been removed as GetControllers
+        endpoint was deprecated. Triangle button now does nothing in admin mode.
 
         Args:
             serial: Controller serial number
         """
-        from proto import controller_manager_pb2, controller_manager_pb2_grpc
-
-        ctx = self._get_span_context()
-        with self.tracer.start_as_current_span("admin_battery", context=ctx) as span:
-            span.set_attribute("controller.serial", serial)
-
-            try:
-                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
-
-                # Get all controllers to show battery levels
-                controllers_request = controller_manager_pb2.GetControllersRequest()
-                controllers_response = await stub.GetControllers(controllers_request)
-
-                # Show battery for each controller
-                for ctrl in controllers_response.controllers:
-                    battery_percent = ctrl.battery
-
-                    # Determine color based on battery level
-                    if battery_percent > 66:
-                        color = controller_manager_pb2.RGB(r=0, g=255, b=0)  # Green
-                    elif battery_percent > 33:
-                        color = controller_manager_pb2.RGB(r=255, g=255, b=0)  # Yellow
-                    else:
-                        color = controller_manager_pb2.RGB(r=255, g=0, b=0)  # Red
-
-                    # Show battery color for 2 seconds
-                    color_request = controller_manager_pb2.SetControllerColorRequest(
-                        serial=ctrl.serial, color=color, duration_ms=2000
-                    )
-                    await stub.SetControllerColor(color_request)
-
-                    span.add_event(
-                        "battery_displayed",
-                        {"controller.serial": ctrl.serial, "battery.percent": battery_percent},
-                    )
-
-                logger.info(f"Battery levels displayed by admin controller {serial}")
-
-            except Exception as e:
-                logger.error(f"Error displaying battery: {e}", exc_info=True)
+        # Feature removed - GetControllers endpoint deprecated
+        logger.debug(f"Battery display feature removed, ignoring triangle button from {serial}")
 
     async def handle_instructions(self, serial: str) -> None:
         """

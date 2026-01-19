@@ -35,21 +35,6 @@ class ControllerManagerServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.GetControllerCount = channel.unary_unary(
-                '/joustmania.controller_manager.ControllerManagerService/GetControllerCount',
-                request_serializer=controller__manager__pb2.GetControllerCountRequest.SerializeToString,
-                response_deserializer=controller__manager__pb2.GetControllerCountResponse.FromString,
-                _registered_method=True)
-        self.GetControllers = channel.unary_unary(
-                '/joustmania.controller_manager.ControllerManagerService/GetControllers',
-                request_serializer=controller__manager__pb2.GetControllersRequest.SerializeToString,
-                response_deserializer=controller__manager__pb2.GetControllersResponse.FromString,
-                _registered_method=True)
-        self.StreamControllerStates = channel.unary_stream(
-                '/joustmania.controller_manager.ControllerManagerService/StreamControllerStates',
-                request_serializer=controller__manager__pb2.StreamRequest.SerializeToString,
-                response_deserializer=controller__manager__pb2.ControllerStateUpdate.FromString,
-                _registered_method=True)
         self.StreamButtonEvents = channel.stream_stream(
                 '/joustmania.controller_manager.ControllerManagerService/StreamButtonEvents',
                 request_serializer=controller__manager__pb2.ButtonEventStreamControl.SerializeToString,
@@ -95,28 +80,6 @@ class ControllerManagerServiceStub(object):
 class ControllerManagerServiceServicer(object):
     """ControllerManager Service - Manages PS Move controllers
     """
-
-    def GetControllerCount(self, request, context):
-        """Get controller count
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetControllers(self, request, context):
-        """Get all controller states
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def StreamControllerStates(self, request, context):
-        """Stream controller states (real-time updates)
-        DEPRECATED: Use StreamButtonEvents for menu/UI and StreamGameplayData for games
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
 
     def StreamButtonEvents(self, request_iterator, context):
         """Stream button press/release events (Phase 41 - event-driven for menu/UI)
@@ -179,21 +142,6 @@ class ControllerManagerServiceServicer(object):
 
 def add_ControllerManagerServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'GetControllerCount': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetControllerCount,
-                    request_deserializer=controller__manager__pb2.GetControllerCountRequest.FromString,
-                    response_serializer=controller__manager__pb2.GetControllerCountResponse.SerializeToString,
-            ),
-            'GetControllers': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetControllers,
-                    request_deserializer=controller__manager__pb2.GetControllersRequest.FromString,
-                    response_serializer=controller__manager__pb2.GetControllersResponse.SerializeToString,
-            ),
-            'StreamControllerStates': grpc.unary_stream_rpc_method_handler(
-                    servicer.StreamControllerStates,
-                    request_deserializer=controller__manager__pb2.StreamRequest.FromString,
-                    response_serializer=controller__manager__pb2.ControllerStateUpdate.SerializeToString,
-            ),
             'StreamButtonEvents': grpc.stream_stream_rpc_method_handler(
                     servicer.StreamButtonEvents,
                     request_deserializer=controller__manager__pb2.ButtonEventStreamControl.FromString,
@@ -245,87 +193,6 @@ def add_ControllerManagerServiceServicer_to_server(servicer, server):
 class ControllerManagerService(object):
     """ControllerManager Service - Manages PS Move controllers
     """
-
-    @staticmethod
-    def GetControllerCount(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/joustmania.controller_manager.ControllerManagerService/GetControllerCount',
-            controller__manager__pb2.GetControllerCountRequest.SerializeToString,
-            controller__manager__pb2.GetControllerCountResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def GetControllers(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/joustmania.controller_manager.ControllerManagerService/GetControllers',
-            controller__manager__pb2.GetControllersRequest.SerializeToString,
-            controller__manager__pb2.GetControllersResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def StreamControllerStates(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_stream(
-            request,
-            target,
-            '/joustmania.controller_manager.ControllerManagerService/StreamControllerStates',
-            controller__manager__pb2.StreamRequest.SerializeToString,
-            controller__manager__pb2.ControllerStateUpdate.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
 
     @staticmethod
     def StreamButtonEvents(request_iterator,

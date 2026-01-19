@@ -8,7 +8,7 @@
 ## Quick Start for New Sessions
 
 **Current State:** Production-ready microservices with full observability stack
-**Completed Phases:** 71 phases (see `planning/phases/completed/`)
+**Completed Work:** 71 phases completed (see GitHub issues #12-#20 for milestones)
 **Latest Work:** Observability improvements, Menu refactoring, Audio span naming
 **Branch:** `dev-refactor`
 
@@ -16,7 +16,7 @@
 1. Read this file completely
 2. Review recent commits: `git log --oneline -10`
 3. Check current working directory: `git status`
-4. Check phase status: `ls planning/phases/in-progress/`
+4. Check GitHub issues: `gh issue list`
 5. Verify Docker services: `make up` or `docker-compose ps`
 
 ---
@@ -84,9 +84,9 @@ docker-compose.yml
 
 ---
 
-## Major Completed Phases
+## Major Completed Work
 
-**71 phases completed** - See `planning/phases/completed/` for full details.
+**71 phases completed** - See GitHub milestone issues #12-#20 for details.
 
 ### Foundation (Phases 1-17)
 - Microservices extraction (Settings, ControllerManager, GameCoordinator, Menu, Supervisor, Audio)
@@ -364,14 +364,14 @@ uv.lock                   # Dependency lock
 
 ### Documentation
 ```
-planning/
-├── phases/
-│   ├── completed/        # 71 completed phase files
-│   ├── in-progress/      # Active phases
-│   └── planned/          # ~10 planned phase files
-└── archive/              # Legacy documents
+docs/                     # Technical documentation
 README.md                 # User documentation
-claude.md                 # This file
+claude.md                 # This file (session continuity)
+
+# Planning is now tracked via GitHub Issues:
+# - Milestones #12-#20: Completed work (71 phases)
+# - Issues #21-#26: Planned features
+# - See: gh issue list
 ```
 
 ---
@@ -537,36 +537,39 @@ for message in pubsub.listen():
 
 ---
 
-## Phase Management Workflow
+## Task Tracking (GitHub Issues)
 
-**Three-Stage Process:**
-```
-📋 planned/ → 🏗️ in-progress/ → ✅ completed/
-```
+**All planning is now tracked via GitHub Issues:**
 
-**Before Starting Work on a Phase:**
-1. Check current status: `./scripts/planning/phase-status.sh`
-2. Move phase to in-progress: `./scripts/planning/phase-start.sh <number>`
-3. Update `planning/IMPLEMENTATION_STATUS.md` with 🏗️ In Progress status
-4. Review the phase tasks in `planning/phases/in-progress/phase-XX-name.md`
-
-**While Working:**
-- Phase file stays in `in-progress/` directory
-- Update task checkboxes as you complete them
-- Commit regularly with phase context in commit messages
-
-**When Complete:**
-1. Mark phase complete: `./scripts/planning/phase-complete.sh <number>`
-2. Update `planning/IMPLEMENTATION_STATUS.md` status to ✅ Complete
-3. Update `claude.md` Recent Achievements section if significant
-4. Create final commit documenting completion
-
-**Helper Scripts:**
 ```bash
-./scripts/planning/phase-status.sh       # Show current status
-./scripts/planning/phase-start.sh 36     # Start Phase 36
-./scripts/planning/phase-complete.sh 36  # Mark Phase 36 complete
+# View all issues
+gh issue list
+
+# View open planned features
+gh issue list --state open
+
+# View completed milestones
+gh issue list --state closed --label milestone
 ```
+
+**Milestone Issues (Completed Work):**
+- #12: Microservices Architecture
+- #13: Observability Stack
+- #14: Controller Manager Evolution
+- #15: Game System
+- #16: Menu & User Interface
+- #17: Audio System
+- #18: Infrastructure & DevOps
+- #19: Performance Optimization
+- #20: Code Quality & Maintenance
+
+**Planned Feature Issues:**
+- #21: Feature Flags & Dynamic Configuration
+- #22: OpenTelemetry Optimization for Raspberry Pi
+- #23: Redis Player Profiles
+- #24: Game Mode-Specific Tracking
+- #25: Web UI Enhancements
+- #26: Experimentation Framework & Tools
 
 ---
 
@@ -576,23 +579,23 @@ When starting a new session:
 
 - [ ] Read this file (focus on Recent Work section)
 - [ ] Run `git status` and `git log --oneline -10`
-- [ ] Check in-progress phases: `ls planning/phases/in-progress/`
+- [ ] Check GitHub issues: `gh issue list`
 - [ ] Start services if needed: `make up`
 - [ ] Check Jaeger: http://localhost:16686
 - [ ] Check Grafana: http://localhost:3000
 
 **Recent Work (Jan 2026):**
+- Migrated planning to GitHub issues (#12-#26)
 - Removed `GetGameStatus` RPC - now using `StreamGameEvents` for efficiency
 - Audio span naming improvements (`PlaySound:congratulations`)
 - Centralized enums in `lib/types.py` (Games, Sensitivity, GameEvent)
 - Menu service SOLID refactoring (StateManager, handlers)
-- Removed redundant `mock_server.py`
 - Game coordinator color_assignment phase normalization
 
-**Planned Work:**
-- Phase 27 (OpenTelemetry Optimization) - reduce tracing overhead
-- Phase 20 (Production Optimization) - RPi performance
-- Planning directory cleanup - consolidate docs
+**Planned Work (see GitHub issues):**
+- #21: Feature Flags & Dynamic Configuration
+- #22: OpenTelemetry Optimization for Raspberry Pi
+- #23: Redis Player Profiles
 
 ---
 
@@ -710,12 +713,13 @@ docker-compose exec settings bash
 **Container Orchestration:** docker-compose
 
 **Current Status:**
-- Production-ready microservices (71 phases completed)
+- Production-ready microservices (see milestone issues #12-#20)
 - Full observability stack (Jaeger, Prometheus, Grafana, Loki)
 - Backend abstraction for controllers (Bluetooth/USB/Mock)
 - Event streaming architecture (no polling)
+- Planning tracked via GitHub issues (#21-#26 for planned features)
 
 ---
 
 *This document is maintained by Claude and updated at the end of significant sessions.*
-*Last major update: 2026-01-19 - Comprehensive update covering Phases 25-79*
+*Last major update: 2026-01-19 - Migrated planning to GitHub issues, removed phase management scripts*

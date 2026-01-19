@@ -124,40 +124,32 @@ class AudioManager:
         # Resolve relative path to full path
         full_path = self._resolve_path(file_path)
 
-        with tracer.start_as_current_span("play_sound") as span:
-            span.set_attribute("audio.file", file_path)
-            span.set_attribute("audio.full_path", full_path)
-            span.set_attribute("audio.volume", volume)
-            span.set_attribute("audio.priority", priority)
+        if self.mock_mode:
+            logger.debug(f"MOCK: Would play sound: {file_path}")
+            return True
 
-            if self.mock_mode:
-                logger.debug(f"MOCK: Would play sound: {file_path}")
+        try:
+            if not os.path.exists(full_path):
+                logger.error(f"Audio file not found: {full_path} (requested: {file_path})")
+                return False
+
+            # Load and play sound effect
+            sound = pygame.mixer.Sound(full_path)
+            adjusted_volume = volume * self.master_volume
+            sound.set_volume(adjusted_volume)
+
+            # Find available channel (or force if critical priority)
+            channel = pygame.mixer.find_channel(priority == 3)
+            if channel:
+                channel.play(sound)
+                logger.debug(f"Playing sound: {file_path} (volume={adjusted_volume:.2f})")
                 return True
+            logger.warning(f"No available channel for sound: {file_path}")
+            return False
 
-            try:
-                if not os.path.exists(full_path):
-                    logger.error(f"Audio file not found: {full_path} (requested: {file_path})")
-                    return False
-
-                # Load and play sound effect
-                sound = pygame.mixer.Sound(full_path)
-                adjusted_volume = volume * self.master_volume
-                sound.set_volume(adjusted_volume)
-
-                # Find available channel (or force if critical priority)
-                channel = pygame.mixer.find_channel(priority == 3)
-                if channel:
-                    channel.play(sound)
-                    logger.info(f"Playing sound: {file_path} (volume={adjusted_volume:.2f}, priority={priority})")
-                    span.add_event("sound_played")
-                    return True
-                logger.warning(f"No available channel for sound: {file_path}")
-                return False
-
-            except Exception as e:
-                logger.error(f"Error playing sound {file_path}: {e}", exc_info=True)
-                span.record_exception(e)
-                return False
+        except Exception as e:
+            logger.error(f"Error playing sound {file_path}: {e}", exc_info=True)
+            return False
 
     def play_music(self, file_pattern: str, loop: bool = True, tempo: float = 1.0, priority: int = 1) -> str | None:
         """
@@ -175,36 +167,27 @@ class AudioManager:
         # Resolve pattern to full path
         full_pattern = self._resolve_path(file_pattern)
 
-        with tracer.start_as_current_span("play_music") as span:
-            span.set_attribute("audio.pattern", file_pattern)
-            span.set_attribute("audio.full_pattern", full_pattern)
-            span.set_attribute("audio.loop", loop)
-            span.set_attribute("audio.tempo", tempo)
+        try:
+            with self.music_lock:
+                # Stop current music if playing
+                if self.music_player.is_playing:
+                    self.music_player.stop()
 
-            try:
-                with self.music_lock:
-                    # Stop current music if playing
-                    if self.music_player.is_playing:
-                        self.music_player.stop()
+                # Load and configure music
+                self.music_player.load(full_pattern)
+                self.music_player.set_volume(self.master_volume)
+                self.music_player.set_ratio(tempo)
 
-                    # Load and configure music
-                    self.music_player.load(full_pattern)
-                    self.music_player.set_volume(self.master_volume)
-                    self.music_player.set_ratio(tempo)
+                # Start playback
+                track_id = self.music_player.start()
+                self.current_music_file = full_pattern
 
-                    # Start playback
-                    track_id = self.music_player.start()
-                    self.current_music_file = full_pattern
+                logger.info(f"Playing music: {file_pattern} (track_id={track_id}, tempo={tempo})")
+                return track_id
 
-                    logger.info(f"Playing music: {file_pattern} (track_id={track_id}, tempo={tempo})")
-                    span.add_event("music_started", {"track_id": track_id})
-
-                    return track_id
-
-            except Exception as e:
-                logger.error(f"Error playing music {file_pattern}: {e}", exc_info=True)
-                span.record_exception(e)
-                return None
+        except Exception as e:
+            logger.error(f"Error playing music {file_pattern}: {e}", exc_info=True)
+            return None
 
     def stop_music(self, track_id: str = "") -> bool:
         """
@@ -216,27 +199,22 @@ class AudioManager:
         Returns:
             True if stopped successfully
         """
-        with tracer.start_as_current_span("stop_music") as span:
-            span.set_attribute("audio.track_id", track_id)
+        try:
+            with self.music_lock:
+                current_track = self.music_player.track_id
+                # Stop if no track_id specified or if it matches
+                if not track_id or current_track == track_id:
+                    self.music_player.stop()
+                    self.current_music_file = None
+                    logger.info(f"Stopped music track: {current_track}")
+                    return True
 
-            try:
-                with self.music_lock:
-                    current_track = self.music_player.track_id
-                    # Stop if no track_id specified or if it matches
-                    if not track_id or current_track == track_id:
-                        self.music_player.stop()
-                        self.current_music_file = None
-                        logger.info(f"Stopped music track: {current_track}")
-                        span.add_event("music_stopped")
-                        return True
-
-                    logger.warning(f"Track ID mismatch: {track_id} != {current_track}")
-                    return False
-
-            except Exception as e:
-                logger.error(f"Error stopping music {track_id}: {e}", exc_info=True)
-                span.record_exception(e)
+                logger.warning(f"Track ID mismatch: {track_id} != {current_track}")
                 return False
+
+        except Exception as e:
+            logger.error(f"Error stopping music {track_id}: {e}", exc_info=True)
+            return False
 
     def change_tempo(self, track_id: str, new_tempo: float, transition_duration: float = 1.0) -> bool:
         """
@@ -252,35 +230,28 @@ class AudioManager:
         Returns:
             True if tempo change started successfully
         """
-        with tracer.start_as_current_span("change_tempo") as span:
-            span.set_attribute("audio.track_id", track_id)
-            span.set_attribute("audio.new_tempo", new_tempo)
-            span.set_attribute("audio.transition_duration", transition_duration)
-
-            try:
-                current_track = self.music_player.track_id
-                if track_id and current_track != track_id:
-                    logger.warning(f"Track ID mismatch: {track_id} != {current_track}")
-                    return False
-
-                # Start async tempo transition using stored event loop
-                if self.event_loop is None:
-                    logger.error("Event loop not set - cannot change tempo")
-                    return False
-
-                asyncio.run_coroutine_threadsafe(
-                    self.music_player.transition_ratio(new_tempo, transition_duration),
-                    self.event_loop,
-                )
-
-                logger.info(f"Tempo transition started: {self.music_player.ratio:.2f} -> {new_tempo:.2f}")
-                span.add_event("tempo_transition_started")
-                return True
-
-            except Exception as e:
-                logger.error(f"Error changing tempo: {e}", exc_info=True)
-                span.record_exception(e)
+        try:
+            current_track = self.music_player.track_id
+            if track_id and current_track != track_id:
+                logger.warning(f"Track ID mismatch: {track_id} != {current_track}")
                 return False
+
+            # Start async tempo transition using stored event loop
+            if self.event_loop is None:
+                logger.error("Event loop not set - cannot change tempo")
+                return False
+
+            asyncio.run_coroutine_threadsafe(
+                self.music_player.transition_ratio(new_tempo, transition_duration),
+                self.event_loop,
+            )
+
+            logger.debug(f"Tempo transition started: {self.music_player.ratio:.2f} -> {new_tempo:.2f}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error changing tempo: {e}", exc_info=True)
+            return False
 
     def set_volume(self, volume: float) -> bool:
         """
@@ -292,18 +263,14 @@ class AudioManager:
         Returns:
             True if volume set successfully
         """
-        with tracer.start_as_current_span("set_volume") as span:
-            span.set_attribute("audio.volume", volume)
-
-            try:
-                self.master_volume = max(0.0, min(1.0, volume))
-                self.music_player.set_volume(self.master_volume)
-                logger.info(f"Master volume set to {self.master_volume:.2f}")
-                return True
-            except Exception as e:
-                logger.error(f"Error setting volume: {e}", exc_info=True)
-                span.record_exception(e)
-                return False
+        try:
+            self.master_volume = max(0.0, min(1.0, volume))
+            self.music_player.set_volume(self.master_volume)
+            logger.debug(f"Master volume set to {self.master_volume:.2f}")
+            return True
+        except Exception as e:
+            logger.error(f"Error setting volume: {e}", exc_info=True)
+            return False
 
     def get_status(self) -> dict:
         """
@@ -459,14 +426,18 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
 
     def PlaySound(self, request, context):
         """Play a sound effect."""
-        with tracer.start_as_current_span("PlaySound_RPC") as span:
-            # Resolve sound name/path to full path with voice selection (Phase 77)
-            resolved_path = self._resolve_sound_path(request.file_path)
+        # Resolve sound name/path to full path with voice selection (Phase 77)
+        resolved_path = self._resolve_sound_path(request.file_path)
+
+        # Extract sound name for span (e.g., "congratulations" from "Joust/vox/ivy/congratulations.wav")
+        sound_name = Path(resolved_path).stem
+
+        with tracer.start_as_current_span(f"PlaySound:{sound_name}") as span:
             span.set_attribute("audio.file", resolved_path)
-            span.set_attribute("audio.original_file", request.file_path)
 
             # Check if audio is disabled via settings
             if not self.audio_enabled:
+                span.set_attribute("audio.muted", True)
                 return audio_pb2.PlaySoundResponse(success=True, error="")  # Silently succeed
 
             success = self.audio_manager.play_sound(
@@ -477,11 +448,15 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
 
     def PlayMusic(self, request, context):
         """Play background music."""
-        with tracer.start_as_current_span("PlayMusic_RPC") as span:
+        # Extract music directory for span (e.g., "Joust" from "Joust/music/*.wav")
+        music_dir = request.file_pattern.split("/")[0] if "/" in request.file_pattern else "music"
+
+        with tracer.start_as_current_span(f"PlayMusic:{music_dir}") as span:
             span.set_attribute("audio.pattern", request.file_pattern)
 
             # Check if audio is disabled via settings
             if not self.audio_enabled:
+                span.set_attribute("audio.muted", True)
                 return audio_pb2.PlayMusicResponse(track_id="muted", success=True, error="")
 
             track_id = self.audio_manager.play_music(
@@ -497,44 +472,40 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
 
     def StopMusic(self, request, context):
         """Stop music track."""
-        with tracer.start_as_current_span("StopMusic_RPC"):
+        with tracer.start_as_current_span("StopMusic"):
             success = self.audio_manager.stop_music(request.track_id)
-
             return audio_pb2.StopMusicResponse(success=success, error="" if success else "Failed to stop music")
 
     def ChangeTempo(self, request, context):
         """Change music tempo."""
-        with tracer.start_as_current_span("ChangeTempo_RPC"):
+        with tracer.start_as_current_span(f"ChangeTempo:{request.new_tempo:.1f}x") as span:
+            span.set_attribute("audio.new_tempo", request.new_tempo)
             success = self.audio_manager.change_tempo(
                 track_id=request.track_id,
                 new_tempo=request.new_tempo,
                 transition_duration=request.transition_duration or 1.0,
             )
-
             return audio_pb2.ChangeTempoResponse(success=success, error="" if success else "Failed to change tempo")
 
     def SetVolume(self, request, context):
         """Set master volume."""
-        with tracer.start_as_current_span("SetVolume_RPC"):
+        with tracer.start_as_current_span(f"SetVolume:{request.volume:.0%}"):
             success = self.audio_manager.set_volume(request.volume)
-
             return audio_pb2.SetVolumeResponse(success=success, error="" if success else "Failed to set volume")
 
     def GetStatus(self, request, context):
         """Get current playback status."""
-        with tracer.start_as_current_span("GetStatus_RPC"):
-            status = self.audio_manager.get_status()
-
-            return audio_pb2.GetStatusResponse(
-                current_track_id=status["current_track_id"],
-                current_track_file=status["current_track_file"],
-                is_playing=status["is_playing"],
-                volume=status["volume"],
-                tempo=status["tempo"],
-                queued_sounds_count=status["queued_sounds_count"],
-                success=True,
-                error="",
-            )
+        status = self.audio_manager.get_status()
+        return audio_pb2.GetStatusResponse(
+            current_track_id=status["current_track_id"],
+            current_track_file=status["current_track_file"],
+            is_playing=status["is_playing"],
+            volume=status["volume"],
+            tempo=status["tempo"],
+            queued_sounds_count=status["queued_sounds_count"],
+            success=True,
+            error="",
+        )
 
 
 async def serve(metrics_port=8000):

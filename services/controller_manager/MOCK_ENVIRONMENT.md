@@ -28,10 +28,10 @@ ControllerManager (server.py)
 ### Mock Hardware (Testing/Development)
 
 ```
-MockControllerManager (mock_server.py)
+ControllerManager (server.py with MockBackend)
 ├── Mock Controller Pool (configurable count)
-├── Simulated State Generation
-├── gRPC Control API (SimulateMovement, SimulateDeath)
+├── Simulated State Generation (mock_backend.py)
+├── gRPC Control API (mock_control_service.py)
 └── gRPC Server (same interface as real)
 ```
 

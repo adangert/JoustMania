@@ -107,7 +107,6 @@ ignore = [
 # gRPC service methods MUST use PascalCase per protobuf convention
 # context parameter required by gRPC but often unused
 "services/*/server.py" = ["N802", "ARG002"]
-"services/*/mock_server.py" = ["N802", "ASYNC110", "ARG002"]  # Mock servers use sleep in loops
 
 # Integration tests need to modify sys.path before imports and mock gRPC methods (PascalCase)
 "services/game_coordinator/test_*_integration.py" = ["E402", "N802", "ARG001", "ARG002"]

@@ -289,9 +289,9 @@ services/
 │   └── pyproject.toml    # Dependencies
 ├── controller_manager/
 │   ├── server.py         # gRPC server (async)
-│   ├── mock_server.py    # Mock for testing without hardware
+│   ├── mock_backend.py   # Mock backend for testing without hardware
+│   ├── mock_control_service.py  # Control API for mock testing
 │   ├── Dockerfile        # Container definition
-│   ├── Dockerfile.mock   # Mock container
 │   └── pyproject.toml    # Dependencies
 ├── game_coordinator/
 │   ├── server.py         # gRPC server (async)

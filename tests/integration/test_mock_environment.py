@@ -304,62 +304,6 @@ async def start_game_via_menu(
     return game_client, game_channel, mock_client, mock_channel
 
 
-async def start_game_direct(
-    docker_compose, game_mode: str = "JoustFFA", timeout: float = 20.0
-) -> tuple:
-    """Start a game by directly calling GameCoordinator (bypasses Menu).
-
-    This directly calls GameCoordinator.StartGame with all connected controllers.
-    Use this while the Menu-based flow has threading issues.
-
-    Args:
-        docker_compose: Docker compose fixture
-        game_mode: Game mode to start (JoustFFA, JoustTeams, JoustRandomTeams, NonstopJoust)
-        timeout: Timeout for game to start
-
-    Returns:
-        Tuple of (game_client, game_channel, mock_client, mock_channel)
-    """
-    # Get mock client
-    mock_client, mock_channel = await get_mock_client(docker_compose)
-
-    # Get game coordinator client
-    game_host = docker_compose.get_service_host("game-coordinator", 50053)
-    game_port = docker_compose.get_service_port("game-coordinator", 50053)
-    game_channel = grpc.aio.insecure_channel(f"{game_host}:{game_port}")
-    game_client = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(game_channel)
-
-    # Get players from controller manager
-    players = await get_ready_players(docker_compose)
-    if not players:
-        raise RuntimeError("No controllers connected")
-
-    # Map game_mode names to proto enum values
-    mode_map = {
-        "JoustFFA": game_coordinator_pb2.GAME_MODE_FFA,
-        "JoustTeams": game_coordinator_pb2.GAME_MODE_TEAMS,
-        "JoustRandomTeams": game_coordinator_pb2.GAME_MODE_RANDOM_TEAMS,
-        "NonstopJoust": game_coordinator_pb2.GAME_MODE_NONSTOP,
-    }
-    proto_mode = mode_map.get(game_mode, game_coordinator_pb2.GAME_MODE_FFA)
-
-    # Start game directly
-    start_response = await game_client.StartGame(
-        game_coordinator_pb2.StartGameRequest(
-            game_mode=proto_mode,
-            players=players,
-        )
-    )
-
-    if not start_response.success:
-        raise RuntimeError(f"Failed to start game: {start_response.error}")
-
-    # Wait for game to reach RUNNING state (after countdown)
-    await wait_for_game_running(game_client, timeout=timeout)
-
-    return game_client, game_channel, mock_client, mock_channel
-
-
 @pytest.fixture(scope="module")
 def docker_compose():
     """Fixture to start docker-compose mock environment.

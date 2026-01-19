@@ -145,6 +145,10 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Shared event loop for discovery thread (avoids creating new loop per call)
         self._discovery_loop_handle: asyncio.AbstractEventLoop | None = None
 
+        # Main event loop reference (for cross-thread queue operations)
+        # Set lazily when first gRPC handler runs
+        self._main_loop: asyncio.AbstractEventLoop | None = None
+
         # Phase 72: LED update timing (separated from polling)
         self._last_led_update = 0.0
 
@@ -684,6 +688,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         change state (press or release), not on every frame.
         """
         subscriber_id = f"button_stream_{time.time()}"
+
+        # Capture main event loop for cross-thread queue operations
+        # The discovery thread needs this to safely publish events to async queues
+        if self._main_loop is None:
+            self._main_loop = asyncio.get_running_loop()
 
         # Note: We manually manage the span instead of using context manager
         # because GeneratorExit during stream disconnect causes context token issues
@@ -2161,10 +2170,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             subscriber_queues = list(self.button_event_subscribers.values())
             for subscriber_queue in subscriber_queues:
                 for event in events:
-                    try:
-                        subscriber_queue.put_nowait(event)
-                    except asyncio.QueueFull:
-                        logger.warning("Button event queue full for subscriber")
+                    self._publish_to_queue_threadsafe(subscriber_queue, event, "button")
 
     def _publish_connection_event(self, serial: str, is_connect: bool, battery: int = 0) -> None:
         """
@@ -2191,13 +2197,38 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Snapshot subscriber queues to avoid race conditions during iteration
         subscriber_queues = list(self.button_event_subscribers.values())
         for subscriber_queue in subscriber_queues:
-            try:
-                subscriber_queue.put_nowait(event)
-            except asyncio.QueueFull:
-                logger.warning(f"Connection event queue full for subscriber (serial={serial}, connect={is_connect})")
+            self._publish_to_queue_threadsafe(subscriber_queue, event, "connection")
 
         action_str = "connected" if is_connect else "disconnected"
         logger.info(f"Published connection event: {serial} {action_str}")
+
+    def _publish_to_queue_threadsafe(self, queue: asyncio.Queue, event: Any, event_type: str) -> None:
+        """
+        Publish an event to an asyncio.Queue from any thread.
+
+        This method safely publishes events to async queues from the discovery
+        thread by using call_soon_threadsafe() when the main event loop is known.
+
+        Args:
+            queue: The asyncio.Queue to publish to
+            event: The event object to publish
+            event_type: Description for logging (e.g., "button", "connection")
+        """
+
+        def _put_event():
+            try:
+                queue.put_nowait(event)
+            except asyncio.QueueFull:
+                logger.warning(f"{event_type.capitalize()} event queue full for subscriber")
+
+        if self._main_loop is not None:
+            # Safe cross-thread publishing via event loop
+            self._main_loop.call_soon_threadsafe(_put_event)
+        else:
+            # Fallback: direct put (may work if called from main loop context)
+            # This shouldn't happen in practice since _main_loop is set when
+            # the first subscriber connects
+            _put_event()
 
     def shutdown(self):
         """Shutdown the controller manager."""

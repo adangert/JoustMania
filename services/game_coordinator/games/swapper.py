@@ -17,7 +17,7 @@ from opentelemetry.trace import Status, StatusCode
 
 from lib.types import Sound
 from proto import controller_manager_pb2
-from services.game_coordinator.games.base import Player
+from services.game_coordinator.games.base import Phase, Player
 from services.game_coordinator.games.teams_base import TEAM_WIN_SOUNDS, TeamsGameBase
 
 logger = logging.getLogger(__name__)
@@ -82,13 +82,12 @@ class SwapperGame(TeamsGameBase):
         """
         for idx, controller in enumerate(controllers):
             team_num = idx % self.num_teams
-            team_color = self.team_colors[team_num]["rgb"]
 
             player = Player(
                 serial=controller.serial,
                 team=team_num,
                 alive=True,
-                color=team_color,
+                color=(255, 255, 255),  # Default white, assigned in color_assignment phase
             )
             self.players[controller.serial] = player
             logger.debug(f"Added player: {controller.serial} to team {team_num}")
@@ -107,9 +106,28 @@ class SwapperGame(TeamsGameBase):
             },
         )
 
+    async def _assign_team_colors(self):
+        """
+        Assign team colors to each player.
+
+        Colors are assigned to player objects but NOT displayed yet.
+        Players see their colors when the game starts (after countdown).
+        """
+        logger.info("Assigning team colors...")
+
+        try:
+            for _serial, player in self.players.items():
+                team_color = self.team_colors[player.team]["rgb"]
+                player.color = team_color
+
+            logger.info(f"Assigned team colors to {len(self.players)} players")
+
+        except Exception as e:
+            logger.error(f"Failed to assign colors: {e}", exc_info=True)
+
     def _get_additional_phases(self) -> list:
-        """No additional phases for Swapper."""
-        return []
+        """Return color assignment phase."""
+        return [Phase(name="color_assignment", execute=self._assign_team_colors)]
 
     async def _kill_player_impl(self, serial: str, accel_mag: float):
         """

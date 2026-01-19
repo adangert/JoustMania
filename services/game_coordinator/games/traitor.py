@@ -125,13 +125,12 @@ class TraitorGame(TeamsGameBase):
         player_list = []
         for idx, controller in enumerate(controllers):
             team_num = idx % self.num_teams
-            team_color = self.team_colors[team_num]["rgb"]
 
             player = TraitorPlayer(
                 serial=controller.serial,
                 team=team_num,
                 alive=True,
-                color=team_color,
+                color=(255, 255, 255),  # Default white, assigned in traitor_signal phase
                 is_traitor=False,
                 secret_team=team_num,  # Default: loyal to visible team
             )

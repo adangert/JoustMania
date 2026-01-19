@@ -12,7 +12,7 @@ import random
 import time
 
 from services.game_coordinator.games.analytics import PlayerAnalytics
-from services.game_coordinator.games.base import Player
+from services.game_coordinator.games.base import Phase, Player
 from services.game_coordinator.games.teams_base import TeamsGameBase
 from services.game_coordinator.runtime_config import get_config_manager
 
@@ -67,7 +67,6 @@ class SimpleTeamsGame(TeamsGameBase):
         # Assign players to teams (round-robin)
         for idx, controller in enumerate(controller_list):
             team_num = idx % self.num_teams
-            team_color = self.team_colors[team_num]["rgb"]
 
             # Initialize analytics if enabled
             analytics = None
@@ -81,7 +80,7 @@ class SimpleTeamsGame(TeamsGameBase):
                 serial=controller.serial,
                 team=team_num,
                 alive=True,
-                color=team_color,
+                color=(255, 255, 255),  # Default white, assigned in color_assignment phase
                 analytics=analytics,
             )
             self.players[controller.serial] = player
@@ -102,11 +101,30 @@ class SimpleTeamsGame(TeamsGameBase):
             },
         )
 
+    async def _assign_team_colors(self):
+        """
+        Assign team colors to each player.
+
+        Colors are assigned to player objects but NOT displayed yet.
+        Players see their colors when the game starts (after countdown).
+        """
+        logger.info("Assigning team colors...")
+
+        try:
+            for _serial, player in self.players.items():
+                team_color = self.team_colors[player.team]["rgb"]
+                player.color = team_color
+
+            logger.info(f"Assigned team colors to {len(self.players)} players")
+
+        except Exception as e:
+            logger.error(f"Failed to assign colors: {e}", exc_info=True)
+
     def _get_additional_phases(self) -> list:
         """
         Return phases to execute before countdown.
 
-        Teams mode has no additional phases - team colors are shown at game start
-        (after countdown), matching original JoustMania behavior.
+        Teams mode assigns team colors silently - players see them at game start
+        (after countdown).
         """
-        return []
+        return [Phase(name="color_assignment", execute=self._assign_team_colors)]

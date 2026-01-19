@@ -398,21 +398,21 @@ class BaseGameMode(ABC):
             raise
 
     async def _countdown(self):
-        """Run countdown before game starts."""
+        """Run countdown before game starts using game effects via stream."""
         from proto import controller_manager_pb2
 
         logger.info("Starting countdown...")
         self.event_publisher(GameEvent.COUNTDOWN_START, {"duration": COUNTDOWN_DURATION})
 
-        # Countdown colors: Red -> Yellow -> Green (matches original JoustMania)
-        # High contrast sequence that's unmistakable
-        countdown_colors = [
-            (80, 0, 0),  # Red (3) - dimmed to match original
-            (70, 100, 0),  # Orange-Yellow (2)
-            (0, 70, 0),  # Green (1 - GO!) - dimmed to match original
+        # Countdown effects: Red (3) -> Yellow (2) -> Green (1 - GO!)
+        # Uses semantic game effects via the gameplay stream
+        countdown_effects = [
+            controller_manager_pb2.GAME_EFFECT_COUNTDOWN_3,  # Red
+            controller_manager_pb2.GAME_EFFECT_COUNTDOWN_2,  # Yellow
+            controller_manager_pb2.GAME_EFFECT_COUNTDOWN_1,  # Green
         ]
 
-        for _i, (r, g, b) in enumerate(countdown_colors):
+        for effect in countdown_effects:
             if not self.running:
                 logger.info("Countdown interrupted by force_end")
                 return
@@ -420,13 +420,15 @@ class BaseGameMode(ABC):
             # Play countdown beep (Phase 29)
             await self._play_sound(Sound.SFX_BEEP_LOUD, priority=2)
 
-            # Set color on all controllers
-            color_request = controller_manager_pb2.SetControllerColorRequest(
-                serial="",  # Empty = all controllers
-                color=controller_manager_pb2.RGB(r=r, g=g, b=b),
-                duration_ms=0,  # Permanent until next color
-            )
-            await self.controller_client.SetControllerColor(color_request)
+            # Send countdown effect via gameplay stream (broadcast to all controllers)
+            if self.gameplay_stream:
+                effect_cmd = controller_manager_pb2.GameplayStreamControl(
+                    game_effect=controller_manager_pb2.GameEffectCommand(
+                        serial="",  # Empty = all controllers
+                        effect=effect,
+                    )
+                )
+                await self.gameplay_stream.write(effect_cmd)
 
             # Wait 0.75 seconds (matches original JoustMania timing)
             for _ in range(15):  # 15 * 50ms = 750ms
@@ -852,13 +854,13 @@ class BaseGameMode(ABC):
                 with tracer.start_as_current_span(phase.name):
                     await phase.execute()
 
-            # Phase 3: Countdown
-            with tracer.start_as_current_span("countdown_phase"):
-                await self._countdown()
-
-            # Start gameplay stream after countdown
+            # Start gameplay stream before countdown (needed for countdown effects)
             # EMA will be primed with first readings in game loop
             await self._start_gameplay_stream()
+
+            # Phase 3: Countdown (uses game effects via stream)
+            with tracer.start_as_current_span("countdown_phase"):
+                await self._countdown()
 
             # Phase 4: Game starts
             self.state = GameState.RUNNING

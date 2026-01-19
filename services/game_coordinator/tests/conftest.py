@@ -54,6 +54,9 @@ class MockBidirectionalStream:
             self.start_time = time.time()
         elif message.HasField("filter_update"):
             self.filter_serials = set(message.filter_update.serials) if message.filter_update.serials else None
+        elif message.HasField("game_effect"):
+            # Game effects (countdown, death, etc.) - just log in mock
+            pass
 
     def __aiter__(self):
         return self

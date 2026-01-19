@@ -22,7 +22,7 @@ ControllerManager (server.py)
 ├── Bluetooth/USB Hardware Detection
 ├── PSMove Library (libpsmoveapi)
 ├── Real Controller State Reading (60Hz)
-└── gRPC Server (StreamControllerStates)
+└── gRPC Server (StreamGameplayDataDynamic)
 ```
 
 ### Mock Hardware (Testing/Development)
@@ -342,7 +342,7 @@ The mock environment includes full distributed tracing support via OpenTelemetry
        ├── ffa_initialize_players
        │   └── GetReadyControllers → controller-manager-service
        ├── ffa_game_loop
-       │   ├── StreamControllerStates → controller-manager-service
+       │   ├── StreamGameplayDataDynamic → controller-manager-service
        │   ├── player_mock_controller_0_lifecycle
        │   │   ├── player_warning (event)
        │   │   └── player_death (event)

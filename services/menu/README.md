@@ -277,7 +277,7 @@ sequenceDiagram
     participant Game
 
     Note over Menu: RUNNING state
-    Menu->>CM: StreamControllerStates (60Hz)
+    Menu->>CM: StreamButtonEvents (60Hz)
 
     loop Button Monitoring
         CM-->>Menu: Controller states
@@ -293,7 +293,7 @@ sequenceDiagram
     Note over Menu: GAME_STARTING state
 
     GC->>Game: Run game
-    Game->>CM: StreamControllerStates
+    Game->>CM: StreamButtonEvents
 
     Note over Game: Game running...
 
@@ -301,7 +301,7 @@ sequenceDiagram
     GC-->>Menu: game_ended event
 
     Menu->>Menu: Reset lobby state
-    Menu->>CM: StreamControllerStates (restart)
+    Menu->>CM: StreamButtonEvents (restart)
     Note over Menu: RUNNING state
 ```
 

@@ -40,18 +40,104 @@ sys.path.insert(0, settings_pb_path)
 import settings_pb2
 
 
+class MockBidirectionalStream:
+    """Mock bidirectional gRPC stream for StreamGameplayDataDynamic."""
+
+    def __init__(self, controller_manager, death_schedule=None, infinite=False):
+        """
+        Initialize mock bidirectional stream.
+
+        Args:
+            controller_manager: Parent MockControllerManagerService
+            death_schedule: Dict mapping time offset to controller index for deaths
+            infinite: If True, stream indefinitely (for force_end tests)
+        """
+        self.controller_manager = controller_manager
+        # Default: Kill 3 players to guarantee one team eliminated
+        self.death_schedule = death_schedule or {2.0: 1, 3.0: 2, 4.0: 3}
+        self.start_time = None
+        self.running = True
+        self.filter_serials = None
+        self.infinite = infinite
+
+    async def write(self, message):
+        """Handle client messages (config, filter updates, effects)."""
+        if message.HasField("config"):
+            self.start_time = time.time()
+        elif message.HasField("filter_update"):
+            self.filter_serials = set(message.filter_update.serials) if message.filter_update.serials else None
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        """Yield next gameplay data update."""
+        if not self.running:
+            raise StopAsyncIteration
+
+        if self.start_time is None:
+            await asyncio.sleep(0.01)
+            return controller_manager_pb2.GameplayDataUpdate(controllers=[], timestamp=int(time.time() * 1000))
+
+        elapsed = time.time() - self.start_time
+
+        if not self.infinite and elapsed > 7.0:
+            self.running = False
+            raise StopAsyncIteration
+
+        gameplay_data_list = []
+        for i, controller in enumerate(self.controller_manager.controllers):
+            died = False
+            for death_time, death_index in self.death_schedule.items():
+                if elapsed > death_time and i == death_index:
+                    controller.accel.x = 5.0 + i
+                    controller.accel.y = 3.0 + i
+                    controller.accel.z = 4.0
+                    died = True
+                    break
+
+            if not died:
+                controller.accel.x = 0.1
+                controller.accel.y = 0.0
+                controller.accel.z = 1.0
+
+            if self.filter_serials is not None and controller.serial not in self.filter_serials:
+                continue
+
+            gd = controller_manager_pb2.GameplayData(
+                serial=controller.serial,
+                move_num=i,
+                battery=controller.battery,
+                team=controller.team,
+                color=controller.color,
+                accel=controller.accel,
+                gyro=controller.gyro,
+            )
+            gameplay_data_list.append(gd)
+
+        await asyncio.sleep(1.0 / 60.0)
+        return controller_manager_pb2.GameplayDataUpdate(
+            controllers=gameplay_data_list, timestamp=int(time.time() * 1000)
+        )
+
+
 class MockControllerManagerService:
     """Mock ControllerManager gRPC service for testing."""
 
-    def __init__(self, num_controllers: int = 4):
+    def __init__(self, num_controllers: int = 4, death_schedule=None, infinite=False):
         """
         Initialize mock controller manager.
 
         Args:
             num_controllers: Number of mock controllers to simulate
+            death_schedule: Dict mapping time offset to controller index for deaths
+            infinite: If True, stream indefinitely (for force_end tests)
         """
         self.num_controllers = num_controllers
         self.controllers = []
+        # Default: Kill 3 players to guarantee one team eliminated
+        self.death_schedule = death_schedule or {2.0: 1, 3.0: 2, 4.0: 3}
+        self.infinite = infinite
         self._initialize_controllers()
 
     def _initialize_controllers(self):
@@ -63,7 +149,6 @@ class MockControllerManagerService:
                 battery=80,
                 trigger_pressed=False,
                 move_pressed=False,
-                ready=True,
                 team=0,
                 color=controller_manager_pb2.RGB(r=255, g=255, b=255),
                 accel=controller_manager_pb2.Vector3(x=0.0, y=0.0, z=1.0),
@@ -71,111 +156,13 @@ class MockControllerManagerService:
             )
             self.controllers.append(controller)
 
-    def GetReadyControllers(self, request):
-        """Mock GetReadyControllers RPC."""
-        return controller_manager_pb2.GetReadyControllersResponse(controllers=self.controllers, success=True, error="")
+    def StreamGameplayDataDynamic(self):
+        """Return a mock bidirectional stream for gameplay data."""
+        return MockBidirectionalStream(self, self.death_schedule, self.infinite)
 
-    async def StreamControllerStates(self, request):
-        """
-        Mock StreamControllerStates RPC.
-
-        Simulates random teams game where some players die.
-        Kill 3 out of 4 players to guarantee one team is eliminated.
-        """
-        start_time = time.time()
-        frame = 0
-
-        # Simulate game for 7 seconds
-        while time.time() - start_time < 7.0:
-            frame += 1
-
-            # Update controller states
-            for i, controller in enumerate(self.controllers):
-                # Kill controllers 1, 2, and 3 at different times
-                # This guarantees at least one team is fully eliminated
-                if time.time() - start_time > 2.0 and i == 1:
-                    controller.accel.x = 5.0  # High acceleration = death
-                    controller.accel.y = 3.0
-                    controller.accel.z = 4.0
-                elif time.time() - start_time > 3.0 and i == 2:
-                    controller.accel.x = 6.0
-                    controller.accel.y = 4.0
-                    controller.accel.z = 3.0
-                elif time.time() - start_time > 4.0 and i == 3:
-                    controller.accel.x = 7.0
-                    controller.accel.y = 5.0
-                    controller.accel.z = 4.0
-                else:
-                    # Normal idle state (small movements)
-                    controller.accel.x = 0.1
-                    controller.accel.y = 0.0
-                    controller.accel.z = 1.0
-
-            # Yield state update
-            yield controller_manager_pb2.ControllerStateUpdate(
-                controllers=self.controllers, timestamp=int(time.time() * 1000)
-            )
-
-            # 60 FPS = ~16.67ms per frame
-            await asyncio.sleep(1.0 / 60.0)
-
-    async def StreamGameplayData(self, request):
-        """
-        Mock StreamGameplayData RPC (Phase 41).
-
-        Simulates random teams game where some players die.
-        Kill 3 out of 4 players to guarantee one team is eliminated.
-        """
-        start_time = time.time()
-        frame = 0
-
-        # Simulate game for 7 seconds
-        while time.time() - start_time < 7.0:
-            frame += 1
-
-            # Update controller states
-            gameplay_data_list = []
-            for i, controller in enumerate(self.controllers):
-                # Kill controllers 1, 2, and 3 at different times
-                # This guarantees at least one team is fully eliminated
-                if time.time() - start_time > 2.0 and i == 1:
-                    controller.accel.x = 5.0  # High acceleration = death
-                    controller.accel.y = 3.0
-                    controller.accel.z = 4.0
-                elif time.time() - start_time > 3.0 and i == 2:
-                    controller.accel.x = 6.0
-                    controller.accel.y = 4.0
-                    controller.accel.z = 3.0
-                elif time.time() - start_time > 4.0 and i == 3:
-                    controller.accel.x = 7.0
-                    controller.accel.y = 5.0
-                    controller.accel.z = 4.0
-                else:
-                    # Normal idle state (small movements)
-                    controller.accel.x = 0.1
-                    controller.accel.y = 0.0
-                    controller.accel.z = 1.0
-
-                # Convert to GameplayData (no buttons)
-                gd = controller_manager_pb2.GameplayData(
-                    serial=controller.serial,
-                    move_num=int(controller.serial.split("_")[-1]),
-                    battery=controller.battery,
-                    ready=controller.ready,
-                    team=controller.team,
-                    color=controller.color,
-                    accel=controller.accel,
-                    gyro=controller.gyro,
-                )
-                gameplay_data_list.append(gd)
-
-            # Yield gameplay data update
-            yield controller_manager_pb2.GameplayDataUpdate(
-                controllers=gameplay_data_list, timestamp=int(time.time() * 1000)
-            )
-
-            # 60 FPS = ~16.67ms per frame
-            await asyncio.sleep(1.0 / 60.0)
+    async def SetControllerColor(self, request):
+        """Mock SetControllerColor RPC."""
+        return controller_manager_pb2.SetControllerColorResponse(success=True)
 
 
 class MockSettingsService:
@@ -385,18 +372,12 @@ async def test_random_teams_game_settings_loaded(mock_controller_manager, mock_s
 @pytest.mark.asyncio
 async def test_random_teams_game_force_end(mock_settings, event_collector):
     """Test that force_end() stops the Random Teams game."""
-    # Create mock controller manager that streams forever
-    mock_cm = MockControllerManagerService(num_controllers=4)
-
-    async def infinite_stream(request):
-        """Stream indefinitely (until force_end)."""
-        while True:
-            yield controller_manager_pb2.ControllerStateUpdate(
-                controllers=mock_cm.controllers, timestamp=int(time.time() * 1000)
-            )
-            await asyncio.sleep(1.0 / 60.0)
-
-    mock_cm.StreamControllerStates = infinite_stream
+    # Create mock controller manager that streams forever (no deaths)
+    mock_cm = MockControllerManagerService(
+        num_controllers=4,
+        death_schedule={},  # No deaths
+        infinite=True,  # Stream indefinitely until force_end
+    )
 
     # Create game
     game = random_teams.RandomTeamsGame(
@@ -430,39 +411,11 @@ async def test_random_teams_game_force_end(mock_settings, event_collector):
 async def test_random_teams_with_three_teams(mock_settings, event_collector):
     """Test Random Teams game with 3 teams and 6 players."""
     # Create mock controller manager with 6 controllers
-    mock_cm = MockControllerManagerService(num_controllers=6)
-
-    # Make some controllers die to end the game
-    async def three_team_stream(request):
-        """Stream with some controllers dying."""
-        start_time = time.time()
-
-        for _i in range(200):  # Run for ~3.3 seconds
-            elapsed = time.time() - start_time
-
-            for idx, controller in enumerate(mock_cm.controllers):
-                # Kill controllers 1 and 4 (likely on same team due to random assignment)
-                if elapsed > 1.5 and idx == 1:
-                    controller.accel.x = 8.0
-                    controller.accel.y = 6.0
-                    controller.accel.z = 5.0
-                elif elapsed > 2.0 and idx == 4:
-                    controller.accel.x = 7.0
-                    controller.accel.y = 5.0
-                    controller.accel.z = 4.0
-                else:
-                    # Normal idle state
-                    controller.accel.x = 0.1
-                    controller.accel.y = 0.0
-                    controller.accel.z = 1.0
-
-            yield controller_manager_pb2.ControllerStateUpdate(
-                controllers=mock_cm.controllers, timestamp=int(time.time() * 1000)
-            )
-            await asyncio.sleep(1.0 / 60.0)
-
-    # Replace stream method
-    mock_cm.StreamControllerStates = three_team_stream
+    # Kill controllers 1 and 4 to guarantee some deaths
+    mock_cm = MockControllerManagerService(
+        num_controllers=6,
+        death_schedule={1.5: 1, 2.0: 4},  # Kill controllers 1 and 4
+    )
 
     # Create and run game
     game = random_teams.RandomTeamsGame(

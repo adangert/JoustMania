@@ -44,18 +44,113 @@ import settings_pb2
 from proto import game_coordinator_pb2
 
 
+class MockBidirectionalStream:
+    """Mock bidirectional gRPC stream for StreamGameplayDataDynamic."""
+
+    def __init__(self, controller_manager, death_schedule=None, infinite=False):
+        """
+        Initialize mock bidirectional stream.
+
+        Args:
+            controller_manager: Parent MockControllerManagerService
+            death_schedule: Dict mapping time offset to controller index for deaths
+            infinite: If True, stream indefinitely (for force_end tests)
+        """
+        self.controller_manager = controller_manager
+        self.death_schedule = death_schedule or {2.0: 1, 3.0: 2}  # Default: controller 1 at 2s, 2 at 3s
+        self.start_time = None
+        self.running = True
+        self.filter_serials = None  # None = all controllers
+        self.infinite = infinite
+
+    async def write(self, message):
+        """Handle client messages (config, filter updates, effects)."""
+        # Process config
+        if message.HasField("config"):
+            # Initial configuration received
+            self.start_time = time.time()
+        # Process filter updates
+        elif message.HasField("filter_update"):
+            self.filter_serials = set(message.filter_update.serials) if message.filter_update.serials else None
+        # Ignore game effects (they're just visual feedback)
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        """Yield next gameplay data update."""
+        if not self.running:
+            raise StopAsyncIteration
+
+        # Wait for config to be received
+        if self.start_time is None:
+            await asyncio.sleep(0.01)
+            return controller_manager_pb2.GameplayDataUpdate(controllers=[], timestamp=int(time.time() * 1000))
+
+        elapsed = time.time() - self.start_time
+
+        # Stop after 5 seconds (unless infinite mode)
+        if not self.infinite and elapsed > 5.0:
+            self.running = False
+            raise StopAsyncIteration
+
+        # Update controller states based on death schedule
+        gameplay_data_list = []
+        for i, controller in enumerate(self.controller_manager.controllers):
+            # Check if this controller should die based on schedule
+            died = False
+            for death_time, death_index in self.death_schedule.items():
+                if elapsed > death_time and i == death_index:
+                    controller.accel.x = 5.0 + i  # High acceleration = death
+                    controller.accel.y = 3.0 + i
+                    controller.accel.z = 4.0
+                    died = True
+                    break
+
+            if not died:
+                # Normal idle state (small movements)
+                controller.accel.x = 0.1
+                controller.accel.y = 0.0
+                controller.accel.z = 1.0
+
+            # Apply filter if set
+            if self.filter_serials is not None and controller.serial not in self.filter_serials:
+                continue
+
+            # Convert to GameplayData
+            gd = controller_manager_pb2.GameplayData(
+                serial=controller.serial,
+                move_num=i,
+                battery=controller.battery,
+                team=controller.team,
+                color=controller.color,
+                accel=controller.accel,
+                gyro=controller.gyro,
+            )
+            gameplay_data_list.append(gd)
+
+        await asyncio.sleep(1.0 / 60.0)  # 60 FPS
+        return controller_manager_pb2.GameplayDataUpdate(
+            controllers=gameplay_data_list, timestamp=int(time.time() * 1000)
+        )
+
+
 class MockControllerManagerService:
     """Mock ControllerManager gRPC service for testing."""
 
-    def __init__(self, num_controllers: int = 3):
+    def __init__(self, num_controllers: int = 3, death_schedule=None, infinite=False):
         """
         Initialize mock controller manager.
 
         Args:
             num_controllers: Number of mock controllers to simulate
+            death_schedule: Dict mapping time offset to controller index for deaths
+            infinite: If True, stream indefinitely (for force_end tests)
         """
         self.num_controllers = num_controllers
         self.controllers = []
+        self.death_schedule = death_schedule or {2.0: 1, 3.0: 2}
+        self.infinite = infinite
         self._initialize_controllers()
 
     def _initialize_controllers(self):
@@ -74,96 +169,19 @@ class MockControllerManagerService:
             )
             self.controllers.append(controller)
 
-    async def StreamControllerStates(self, request):
+    def StreamGameplayDataDynamic(self):
         """
-        Mock StreamControllerStates RPC.
+        Return a mock bidirectional stream for gameplay data.
 
-        Simulates controller state updates with one controller dying after 2 seconds.
+        Games call this to get the stream, then:
+        - await stream.write(config) to configure
+        - async for update in stream: to receive data
         """
-        start_time = time.time()
-        frame = 0
+        return MockBidirectionalStream(self, self.death_schedule, self.infinite)
 
-        # Simulate game for 5 seconds
-        while time.time() - start_time < 5.0:
-            frame += 1
-
-            # Update controller states
-            for i, controller in enumerate(self.controllers):
-                # After 2 seconds, make controller 1 move violently (dies)
-                if time.time() - start_time > 2.0 and i == 1:
-                    controller.accel.x = 5.0  # High acceleration = death
-                    controller.accel.y = 3.0
-                    controller.accel.z = 4.0
-                # After 3 seconds, make controller 2 move violently (dies)
-                elif time.time() - start_time > 3.0 and i == 2:
-                    controller.accel.x = 6.0
-                    controller.accel.y = 4.0
-                    controller.accel.z = 3.0
-                else:
-                    # Normal idle state (small movements)
-                    controller.accel.x = 0.1
-                    controller.accel.y = 0.0
-                    controller.accel.z = 1.0
-
-            # Yield state update
-            yield controller_manager_pb2.ControllerStateUpdate(
-                controllers=self.controllers, timestamp=int(time.time() * 1000)
-            )
-
-            # 60 FPS = ~16.67ms per frame
-            await asyncio.sleep(1.0 / 60.0)
-
-    async def StreamGameplayData(self, request):
-        """
-        Mock StreamGameplayData RPC (Phase 41).
-
-        Simulates gameplay data updates with one controller dying after 2 seconds.
-        """
-        start_time = time.time()
-        frame = 0
-
-        # Simulate game for 5 seconds
-        while time.time() - start_time < 5.0:
-            frame += 1
-
-            # Update controller states
-            gameplay_data_list = []
-            for i, controller in enumerate(self.controllers):
-                # After 2 seconds, make controller 1 move violently (dies)
-                if time.time() - start_time > 2.0 and i == 1:
-                    controller.accel.x = 5.0  # High acceleration = death
-                    controller.accel.y = 3.0
-                    controller.accel.z = 4.0
-                # After 3 seconds, make controller 2 move violently (dies)
-                elif time.time() - start_time > 3.0 and i == 2:
-                    controller.accel.x = 6.0
-                    controller.accel.y = 4.0
-                    controller.accel.z = 3.0
-                else:
-                    # Normal idle state (small movements)
-                    controller.accel.x = 0.1
-                    controller.accel.y = 0.0
-                    controller.accel.z = 1.0
-
-                # Convert to GameplayData (no buttons)
-                gd = controller_manager_pb2.GameplayData(
-                    serial=controller.serial,
-                    move_num=int(controller.serial.split("_")[-1]),
-                    battery=controller.battery,
-                    team=controller.team,
-                    color=controller.color,
-                    accel=controller.accel,
-                    gyro=controller.gyro,
-                )
-                gameplay_data_list.append(gd)
-
-            # Yield gameplay data update
-            yield controller_manager_pb2.GameplayDataUpdate(
-                controllers=gameplay_data_list, timestamp=int(time.time() * 1000)
-            )
-
-            # 60 FPS = ~16.67ms per frame
-            await asyncio.sleep(1.0 / 60.0)
+    async def SetControllerColor(self, request):
+        """Mock SetControllerColor RPC."""
+        return controller_manager_pb2.SetControllerColorResponse(success=True)
 
 
 class MockSettingsService:
@@ -289,25 +307,11 @@ async def test_ffa_game_full_lifecycle(mock_controller_manager, mock_settings, e
 @pytest.mark.asyncio
 async def test_ffa_game_with_two_players(mock_settings, event_collector):
     """Test FFA game with minimum 2 players."""
-    # Create mock controller manager with 2 controllers
-    mock_cm = MockControllerManagerService(num_controllers=2)
-
-    # Make controller 1 die quickly
-    async def quick_death_stream(request):
-        """Stream with controller 1 dying immediately."""
-        for i in range(10):  # Just 10 frames
-            if i > 3:  # After 3 frames, controller 1 dies
-                mock_cm.controllers[1].accel.x = 10.0
-                mock_cm.controllers[1].accel.y = 8.0
-                mock_cm.controllers[1].accel.z = 6.0
-
-            yield controller_manager_pb2.ControllerStateUpdate(
-                controllers=mock_cm.controllers, timestamp=int(time.time() * 1000)
-            )
-            await asyncio.sleep(1.0 / 60.0)
-
-    # Replace stream method
-    mock_cm.StreamControllerStates = quick_death_stream
+    # Create mock controller manager with 2 controllers and quick death
+    mock_cm = MockControllerManagerService(
+        num_controllers=2,
+        death_schedule={0.1: 1},  # Controller 1 dies quickly (at 0.1s)
+    )
 
     # Create and run game
     game = ffa.FFAGame(
@@ -362,18 +366,12 @@ async def test_ffa_game_settings_loaded(mock_controller_manager, mock_settings, 
 @pytest.mark.asyncio
 async def test_ffa_game_force_end(mock_settings, event_collector):
     """Test that force_end() stops the game."""
-    # Create mock controller manager that streams forever
-    mock_cm = MockControllerManagerService(num_controllers=3)
-
-    async def infinite_stream(request):
-        """Stream indefinitely (until force_end)."""
-        while True:
-            yield controller_manager_pb2.ControllerStateUpdate(
-                controllers=mock_cm.controllers, timestamp=int(time.time() * 1000)
-            )
-            await asyncio.sleep(1.0 / 60.0)
-
-    mock_cm.StreamControllerStates = infinite_stream
+    # Create mock controller manager that streams forever (no deaths)
+    mock_cm = MockControllerManagerService(
+        num_controllers=3,
+        death_schedule={},  # No deaths
+        infinite=True,  # Stream indefinitely until force_end
+    )
 
     # Create game
     game = ffa.FFAGame(

@@ -48,7 +48,6 @@ import grpc.aio  # noqa: E402
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc  # noqa: E402
 
 # OpenTelemetry (trace API for span operations)
-from opentelemetry import trace  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -327,61 +326,6 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 logger.info("Closed gRPC channels")
 
                 # game_session span will automatically end here
-
-    def GetGameStatus(self, request, context):
-        """Get current game status."""
-        with tracer.start_as_current_span("GetGameStatus") as span:
-            try:
-                # Phase 56: Thread-safe state snapshot
-                with self._state_lock:
-                    current_state = self.game_state
-                    current_game = self.current_game
-                    game_name = self.game_name
-                    players_initial = list(self.players)  # Copy
-                    start_time = self.game_start_time
-
-                elapsed = 0
-                if start_time and current_state == game_coordinator_pb2.GameState.RUNNING:
-                    elapsed = int(time.time() - start_time)
-
-                span.set_attribute("game.state", current_state)
-                span.set_attribute("game.elapsed_seconds", elapsed)
-
-                # Get live player data from current game if running
-                players_status = players_initial  # Default to initial state
-                if current_game and hasattr(current_game, "players"):
-                    # Convert game's player dict to protobuf Player list with live state
-                    players_status = []
-                    for serial, player in current_game.players.items():
-                        players_status.append(
-                            game_coordinator_pb2.Player(
-                                serial=serial,
-                                team=player.team,
-                                alive=player.alive,
-                            )
-                        )
-
-                return game_coordinator_pb2.GetGameStatusResponse(
-                    state=current_state,
-                    game_name=game_name,
-                    players=players_status,
-                    elapsed_seconds=elapsed,
-                    success=True,
-                    error="",
-                )
-
-            except Exception as e:
-                span.record_exception(e)
-                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-                logger.error(f"GetGameStatus error: {e}", exc_info=True)
-                return game_coordinator_pb2.GetGameStatusResponse(
-                    state=game_coordinator_pb2.GameState.IDLE,
-                    game_name="",
-                    players=[],
-                    elapsed_seconds=0,
-                    success=False,
-                    error=str(e),
-                )
 
     async def ForceEndGame(self, request, context):
         """Force end the current game (Phase 56: async to avoid blocking)."""

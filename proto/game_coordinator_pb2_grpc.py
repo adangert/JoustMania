@@ -40,11 +40,6 @@ class GameCoordinatorServiceStub(object):
                 request_serializer=game__coordinator__pb2.StartGameRequest.SerializeToString,
                 response_deserializer=game__coordinator__pb2.StartGameResponse.FromString,
                 _registered_method=True)
-        self.GetGameStatus = channel.unary_unary(
-                '/joustmania.game_coordinator.GameCoordinatorService/GetGameStatus',
-                request_serializer=game__coordinator__pb2.GetGameStatusRequest.SerializeToString,
-                response_deserializer=game__coordinator__pb2.GetGameStatusResponse.FromString,
-                _registered_method=True)
         self.ForceEndGame = channel.unary_unary(
                 '/joustmania.game_coordinator.GameCoordinatorService/ForceEndGame',
                 request_serializer=game__coordinator__pb2.ForceEndGameRequest.SerializeToString,
@@ -63,13 +58,6 @@ class GameCoordinatorServiceServicer(object):
 
     def StartGame(self, request, context):
         """Start a game
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetGameStatus(self, request, context):
-        """Get current game status
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -96,11 +84,6 @@ def add_GameCoordinatorServiceServicer_to_server(servicer, server):
                     servicer.StartGame,
                     request_deserializer=game__coordinator__pb2.StartGameRequest.FromString,
                     response_serializer=game__coordinator__pb2.StartGameResponse.SerializeToString,
-            ),
-            'GetGameStatus': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetGameStatus,
-                    request_deserializer=game__coordinator__pb2.GetGameStatusRequest.FromString,
-                    response_serializer=game__coordinator__pb2.GetGameStatusResponse.SerializeToString,
             ),
             'ForceEndGame': grpc.unary_unary_rpc_method_handler(
                     servicer.ForceEndGame,
@@ -141,33 +124,6 @@ class GameCoordinatorService(object):
             '/joustmania.game_coordinator.GameCoordinatorService/StartGame',
             game__coordinator__pb2.StartGameRequest.SerializeToString,
             game__coordinator__pb2.StartGameResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def GetGameStatus(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/joustmania.game_coordinator.GameCoordinatorService/GetGameStatus',
-            game__coordinator__pb2.GetGameStatusRequest.SerializeToString,
-            game__coordinator__pb2.GetGameStatusResponse.FromString,
             options,
             channel_credentials,
             insecure,

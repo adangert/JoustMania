@@ -66,24 +66,47 @@ async def get_ready_players(docker_compose):
     return players
 
 
-async def wait_for_game_state(game_client, target_state, timeout=10):
-    """Wait for game to reach a specific state."""
-    for _ in range(timeout * 10):  # Check every 0.1 seconds
-        status = await game_client.GetGameStatus(game_coordinator_pb2.GetGameStatusRequest())
-        if status.state == target_state:
-            return
-        await asyncio.sleep(0.1)
-    raise TimeoutError(f"Game did not reach state {target_state} within {timeout} seconds")
+async def wait_for_game_event(game_client, target_events: list[str], timeout=10):
+    """Wait for a specific game event via StreamGameEvents.
+
+    Args:
+        game_client: The GameCoordinator gRPC client
+        target_events: List of event types to wait for (e.g., ["game_started"])
+        timeout: Maximum time to wait in seconds
+
+    Raises:
+        TimeoutError: If the event is not received within the timeout
+    """
+
+    async def wait():
+        async for event in game_client.StreamGameEvents(
+            game_coordinator_pb2.StreamEventsRequest()
+        ):
+            if event.event_type in target_events:
+                return event
+
+    try:
+        return await asyncio.wait_for(wait(), timeout=timeout)
+    except asyncio.TimeoutError:
+        raise TimeoutError(f"Game did not emit event {target_events} within {timeout} seconds")
 
 
 async def wait_for_game_running(game_client, timeout=15):
-    """Wait for game to reach RUNNING state (after countdown)."""
-    await wait_for_game_state(game_client, game_coordinator_pb2.GameState.RUNNING, timeout)
+    """Wait for game to reach RUNNING state (after countdown).
+
+    Waits for the "game_started" event which is emitted when the game loop
+    begins after the countdown completes.
+    """
+    await wait_for_game_event(game_client, ["game_started"], timeout)
 
 
 async def wait_for_game_end(game_client, timeout=10):
-    """Wait for game to reach ENDED state."""
-    await wait_for_game_state(game_client, game_coordinator_pb2.GameState.ENDED, timeout)
+    """Wait for game to reach ENDED state.
+
+    Waits for "game_ended" or "game_error" events which indicate the game
+    has finished.
+    """
+    await wait_for_game_event(game_client, ["game_ended", "game_error"], timeout)
 
 
 @pytest.fixture(scope="module")
@@ -271,10 +294,6 @@ async def test_ffa_game_with_mock_controllers(docker_compose):
     # 12s auto-end + 1s winner delay + 2s teardown = ~15s total
     await wait_for_game_end(game_client, timeout=20)
 
-    # Check game status
-    status_response = await game_client.GetGameStatus(game_coordinator_pb2.GetGameStatusRequest())
-    assert status_response.state == game_coordinator_pb2.GameState.ENDED
-
     await game_channel.close()
     await mock_channel.close()
 
@@ -331,9 +350,6 @@ async def test_teams_game_with_mock_controllers(docker_compose):
     # Game should auto-end when one team is eliminated (only player 3 remains)
     # Wait for game to end (with extra time for winner celebration)
     await wait_for_game_end(game_client, timeout=15)
-
-    status_response = await game_client.GetGameStatus(game_coordinator_pb2.GetGameStatusRequest())
-    assert status_response.state == game_coordinator_pb2.GameState.ENDED
 
     await game_channel.close()
     await mock_channel.close()
@@ -670,13 +686,6 @@ async def test_staggered_player_deaths(docker_compose, game_mode):
     # Player 3 wins (longest span) - wait for game to end naturally
     # Game will: detect win → sleep 1 second (showing winner) → teardown
     await wait_for_game_end(game_client, timeout=15)
-
-    # Check game status
-    status_response = await game_client.GetGameStatus(game_coordinator_pb2.GetGameStatusRequest())
-    # Game should have ended automatically
-    # FFA: when only 1 player remains
-    # Teams/Random Teams: when only 1 team remains
-    assert status_response.state == game_coordinator_pb2.GameState.ENDED
 
     print("  Game ended with player 3 as winner")
     print("  Check Jaeger UI: http://localhost:16686")

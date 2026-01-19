@@ -7,9 +7,6 @@ service GameCoordinatorService {
   // Start a game
   rpc StartGame(StartGameRequest) returns (StartGameResponse);
 
-  // Get current game status
-  rpc GetGameStatus(GetGameStatusRequest) returns (GetGameStatusResponse);
-
   // Force end current game
   rpc ForceEndGame(ForceEndGameRequest) returns (ForceEndGameResponse);
 
@@ -44,17 +41,6 @@ message StartGameResponse {
   bool success = 1;
   string error = 2;
   string game_id = 3;  // Unique game identifier
-}
-
-message GetGameStatusRequest {}
-
-message GetGameStatusResponse {
-  GameState state = 1;
-  string game_name = 2;
-  repeated Player players = 3;
-  int32 elapsed_seconds = 4;
-  bool success = 5;
-  string error = 6;
 }
 
 message ForceEndGameRequest {

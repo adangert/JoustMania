@@ -149,7 +149,7 @@ class FFAGame(BaseGameMode):
         """
         from lib.colors import generate_colors
 
-        logger.info("Assigning unique FFA colors...")
+        logger.info("Assigning unique colors...")
 
         try:
             # Generate unique colors for each player
@@ -163,7 +163,7 @@ class FFAGame(BaseGameMode):
             logger.info(f"Assigned {len(self.players)} unique colors (will display at game start)")
 
         except Exception as e:
-            logger.error(f"Failed to assign FFA colors: {e}", exc_info=True)
+            logger.error(f"Failed to assign colors: {e}", exc_info=True)
 
     def _get_additional_phases(self) -> list:
         """
@@ -172,7 +172,7 @@ class FFAGame(BaseGameMode):
         FFA assigns colors silently - players see them at game start (after countdown),
         matching original JoustMania behavior.
         """
-        return [Phase(name="ffa_color_assignment", execute=self._assign_ffa_colors)]
+        return [Phase(name="color_assignment", execute=self._assign_ffa_colors)]
 
     async def _end_game_impl(self):
         """Handle game ending - show winner, cleanup."""

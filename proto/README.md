@@ -80,7 +80,6 @@ proto/
 
 **Key RPCs:**
 - `StartGame` - Start a game with specified mode and settings
-- `GetGameStatus` - Get current game state
 - `ForceEndGame` - Terminate current game
 - `StreamGameEvents` - Stream game events (server streaming)
 

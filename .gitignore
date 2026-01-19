@@ -11,10 +11,6 @@ conf/supervisor/conf.d/joust.conf
 __pycache__/
 *.py[cod]
 
-# EXCEPTION: Track proto bytecode for startup optimization (Phase 47)
-!proto/__pycache__/
-!proto/__pycache__/*.pyc
-
 # C extensions
 *.so
 

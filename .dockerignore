@@ -2,11 +2,6 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
-# EXCEPTION: Include proto bytecode for startup optimization (Phase 47)
-!proto/__pycache__/
-!proto/__pycache__/*.opt-2.pyc
-
 *.so
 .Python
 *.egg-info/

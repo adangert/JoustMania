@@ -20,7 +20,7 @@ COPY pyproject.toml /app/
 # Copy proto package (shared protocol buffer contracts)
 COPY proto/pyproject.toml /app/proto/
 COPY proto/*.py /app/proto/
-COPY proto/__pycache__/ /app/proto/__pycache__/
+RUN python -m compileall -q proto/
 
 # Copy service dependencies
 COPY services/menu/pyproject.toml /app/services/menu/

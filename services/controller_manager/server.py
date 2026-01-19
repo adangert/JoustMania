@@ -51,6 +51,7 @@ from services.controller_manager.button_detector import ButtonDetector
 from services.controller_manager.discovery import PeriodicRescanTimer
 from services.controller_manager.effects_base import ControllerEffectsBase
 from services.controller_manager.event_publisher import EventPublisher as EventPublisherHelper
+from services.controller_manager.feedback_manager import FeedbackManager
 from services.controller_manager.monitoring import ControllerMonitoring
 from services.controller_manager.state_cache import StateCache
 
@@ -115,27 +116,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         self.button_detector = ButtonDetector(self.event_publisher)
         self.button_detector.set_subscribers(self.button_event_subscribers)
 
-        # Backward compatibility property for button_states
-        # button_states is now managed by button_detector
-
-        # Controller effects (Phase 31 / Phase 40)
-        # active_effects dict inherited from ControllerEffectsBase
-        # Phase 34: Use async lock since effects are managed from async gRPC methods
-        self.effect_lock = asyncio.Lock()
-
-        # Phase XX: LED State Ownership - base colors per controller
-        # Clients set base colors via streams, effects auto-restore to these
-        self.base_colors: dict[str, tuple[int, int, int]] = {}
-
-        # Track which GameEffect type is active per controller (for cancellability check)
-        self.active_effect_types: dict[str, int] = {}
-
-        # Effects that can be cancelled by a base_color message
-        # (e.g., force start countdown should be cancellable, winner rainbow should not)
-        self.cancellable_effects: set[int] = {
-            controller_manager_pb2.GAME_EFFECT_FORCE_START_CHARGE,
-        }
-
         # Monitoring (battery and RSSI) - Phase 39, Phase 48, extracted to monitoring.py
         self.monitoring = ControllerMonitoring(
             low_battery_threshold=1,
@@ -143,10 +123,22 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             weak_signal_threshold=-80,
         )
 
+        # Feedback manager for LED colors, vibration, and effects (Phase refactor)
+        self.feedback_manager = FeedbackManager(
+            backend=self.backend,
+            tracked_controllers=self.tracked_controllers,
+            state_lock=self.state_lock,
+        )
+
+        # Backward compatibility aliases (will be removed in later phases)
+        self.effect_lock = self.feedback_manager.effect_lock
+        self.base_colors = self.feedback_manager.base_colors
+        self.active_effects = self.feedback_manager.active_effects
+        self.active_effect_types = self.feedback_manager.active_effect_types
+        self.cancellable_effects = self.feedback_manager.cancellable_effects
+
         # Vibration duration timers - tracks active vibration timers per controller
         self.vibration_timers: dict[str, threading.Timer] = {}
-        # Vibration duration tasks - tracks active asyncio tasks for vibration stop (Phase 57 async migration)
-        self.vibration_tasks: dict[str, asyncio.Task] = {}
 
         # Shared event loop for discovery thread (avoids creating new loop per call)
         self._discovery_loop_handle: asyncio.AbstractEventLoop | None = None

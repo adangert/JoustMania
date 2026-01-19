@@ -44,6 +44,8 @@ from proto import (
     controller_manager_pb2_grpc,
     game_coordinator_pb2,
     game_coordinator_pb2_grpc,
+    menu_pb2,
+    menu_pb2_grpc,
 )
 
 
@@ -54,7 +56,7 @@ async def get_ready_players(docker_compose):
     channel = grpc.aio.insecure_channel(f"{host}:{port}")
     client = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
 
-    response = await client.GetReadyControllers(controller_manager_pb2.GetReadyControllersRequest())
+    response = await client.GetControllers(controller_manager_pb2.GetControllersRequest())
     await channel.close()
 
     # Convert controllers to players
@@ -107,6 +109,255 @@ async def wait_for_game_end(game_client, timeout=10):
     has finished.
     """
     await wait_for_game_event(game_client, ["game_ended", "game_error"], timeout)
+
+
+# =============================================================================
+# Menu-based game start helpers
+# =============================================================================
+
+
+async def get_controller_serials(docker_compose) -> list[str]:
+    """Get list of connected controller serials from ControllerManager."""
+    host = docker_compose.get_service_host("controller-manager", 50052)
+    port = docker_compose.get_service_port("controller-manager", 50052)
+    channel = grpc.aio.insecure_channel(f"{host}:{port}")
+    client = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
+
+    response = await client.GetControllers(controller_manager_pb2.GetControllersRequest())
+    await channel.close()
+
+    return [c.serial for c in response.controllers]
+
+
+async def get_menu_client(docker_compose):
+    """Get Menu service gRPC client."""
+    host = docker_compose.get_service_host("menu", 50054)
+    port = docker_compose.get_service_port("menu", 50054)
+    channel = grpc.aio.insecure_channel(f"{host}:{port}")
+    return menu_pb2_grpc.MenuServiceStub(channel), channel
+
+
+async def get_mock_client(docker_compose):
+    """Get Mock controller control gRPC client."""
+    host = docker_compose.get_service_host("controller-manager", 50062)
+    port = docker_compose.get_service_port("controller-manager", 50062)
+    channel = grpc.aio.insecure_channel(f"{host}:{port}")
+    return controller_manager_mock_pb2_grpc.MockControllerServiceStub(channel), channel
+
+
+async def select_game_mode(menu_client, game_mode: str):
+    """Navigate menu to select a specific game mode.
+
+    Args:
+        menu_client: Menu service gRPC client
+        game_mode: Game mode name (e.g., "JoustFFA", "JoustTeams", "JoustRandomTeams")
+    """
+    # Send web command to select game mode directly
+    response = await menu_client.ProcessInput(
+        menu_pb2.ProcessInputRequest(
+            input_type="web_command",
+            data={"command": "select_game", "game_name": game_mode},
+        )
+    )
+    return response.success
+
+
+async def mark_controllers_ready(mock_client, serials: list[str]):
+    """Mark controllers as ready by simulating button presses.
+
+    In the Menu system, pressing Move button marks controller as ready.
+
+    Args:
+        mock_client: Mock controller service gRPC client
+        serials: List of controller serial numbers to mark ready
+    """
+    for serial in serials:
+        # Simulate Move button press to mark ready
+        # MOVE = 1 in the proto enum
+        await mock_client.SimulateButton(
+            controller_manager_mock_pb2.ButtonRequest(
+                serial=serial,
+                button=controller_manager_mock_pb2.ButtonRequest.Button.MOVE,
+                pressed=True,
+            )
+        )
+        await asyncio.sleep(0.1)
+        # Release button
+        await mock_client.SimulateButton(
+            controller_manager_mock_pb2.ButtonRequest(
+                serial=serial,
+                button=controller_manager_mock_pb2.ButtonRequest.Button.MOVE,
+                pressed=False,
+            )
+        )
+        await asyncio.sleep(0.1)
+
+
+async def trigger_game_start(mock_client, serial: str):
+    """Trigger game start by simulating trigger press from a ready controller.
+
+    NOTE: This is typically not needed - the game auto-starts when all
+    controllers become ready. This function is only needed if you want
+    to manually trigger a game start when not all controllers are ready.
+
+    Args:
+        mock_client: Mock controller service gRPC client
+        serial: Serial of a ready controller to trigger the game start
+    """
+    # Simulate trigger press to start game
+    # TRIGGER = 0 in the proto enum
+    await mock_client.SimulateButton(
+        controller_manager_mock_pb2.ButtonRequest(
+            serial=serial,
+            button=controller_manager_mock_pb2.ButtonRequest.Button.TRIGGER,
+            pressed=True,
+        )
+    )
+    await asyncio.sleep(0.1)
+    # Release trigger
+    await mock_client.SimulateButton(
+        controller_manager_mock_pb2.ButtonRequest(
+            serial=serial,
+            button=controller_manager_mock_pb2.ButtonRequest.Button.TRIGGER,
+            pressed=False,
+        )
+    )
+
+
+async def reset_all_controllers(mock_client, serials: list[str]):
+    """Reset all controllers to non-ready state.
+
+    This is useful between tests to ensure clean state.
+
+    Args:
+        mock_client: Mock controller service gRPC client
+        serials: List of controller serial numbers to reset
+    """
+    # The Menu's StateManager resets on game end, but we can force
+    # a state reset by reconnecting or using admin mode
+    pass  # Controllers reset automatically when game ends
+
+
+async def start_game_via_menu(
+    docker_compose, game_mode: str = "JoustFFA", timeout: float = 20.0
+) -> tuple:
+    """Start a game through the Menu service (full flow).
+
+    This simulates the real user flow:
+    1. Start the Menu service
+    2. Controllers connect and see menu
+    3. Controllers mark themselves as ready (Move button)
+    4. Game auto-starts when all controllers are ready
+    5. Menu requests game from Supervisor
+    6. Supervisor calls GameCoordinator.StartGame
+
+    Args:
+        docker_compose: Docker compose fixture
+        game_mode: Game mode to select (default: "JoustFFA")
+        timeout: Timeout for game to start
+
+    Returns:
+        Tuple of (game_client, game_channel, mock_client, mock_channel)
+    """
+    # Get clients
+    menu_client, menu_channel = await get_menu_client(docker_compose)
+    mock_client, mock_channel = await get_mock_client(docker_compose)
+
+    # Get game coordinator client to wait for game start
+    game_host = docker_compose.get_service_host("game-coordinator", 50053)
+    game_port = docker_compose.get_service_port("game-coordinator", 50053)
+    game_channel = grpc.aio.insecure_channel(f"{game_host}:{game_port}")
+    game_client = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(game_channel)
+
+    # Start the Menu service if not already running
+    start_response = await menu_client.StartMenu(menu_pb2.StartMenuRequest())
+    if not start_response.success and "already running" not in start_response.error.lower():
+        raise RuntimeError(f"Failed to start Menu: {start_response.error}")
+    await asyncio.sleep(1)  # Allow Menu to initialize and receive controller events
+
+    # Get controller serials
+    serials = await get_controller_serials(docker_compose)
+    if not serials:
+        raise RuntimeError("No controllers connected")
+
+    # Select game mode
+    await select_game_mode(menu_client, game_mode)
+    await asyncio.sleep(0.5)
+
+    # Mark all controllers as ready - game auto-starts when all are ready
+    print(f"Marking {len(serials)} controllers as ready: {serials}")
+    await mark_controllers_ready(mock_client, serials)
+    print("Controllers marked as ready, waiting for game start...")
+
+    # Check menu status after marking ready
+    await asyncio.sleep(2)
+    status = await menu_client.GetMenuStatus(menu_pb2.GetMenuStatusRequest())
+    print(f"Menu status: state={status.state}, selection={status.current_selection}, ready_count={status.ready_controller_count}")
+
+    # Wait for game to start (game_started event)
+    # Game auto-starts after 0.3s delay when all controllers become ready
+    await wait_for_game_running(game_client, timeout=timeout)
+
+    # Close menu channel (not needed anymore)
+    await menu_channel.close()
+
+    return game_client, game_channel, mock_client, mock_channel
+
+
+async def start_game_direct(
+    docker_compose, game_mode: str = "JoustFFA", timeout: float = 20.0
+) -> tuple:
+    """Start a game by directly calling GameCoordinator (bypasses Menu).
+
+    This directly calls GameCoordinator.StartGame with all connected controllers.
+    Use this while the Menu-based flow has threading issues.
+
+    Args:
+        docker_compose: Docker compose fixture
+        game_mode: Game mode to start (JoustFFA, JoustTeams, JoustRandomTeams, NonstopJoust)
+        timeout: Timeout for game to start
+
+    Returns:
+        Tuple of (game_client, game_channel, mock_client, mock_channel)
+    """
+    # Get mock client
+    mock_client, mock_channel = await get_mock_client(docker_compose)
+
+    # Get game coordinator client
+    game_host = docker_compose.get_service_host("game-coordinator", 50053)
+    game_port = docker_compose.get_service_port("game-coordinator", 50053)
+    game_channel = grpc.aio.insecure_channel(f"{game_host}:{game_port}")
+    game_client = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(game_channel)
+
+    # Get players from controller manager
+    players = await get_ready_players(docker_compose)
+    if not players:
+        raise RuntimeError("No controllers connected")
+
+    # Map game_mode names to proto enum values
+    mode_map = {
+        "JoustFFA": game_coordinator_pb2.GAME_MODE_FFA,
+        "JoustTeams": game_coordinator_pb2.GAME_MODE_TEAMS,
+        "JoustRandomTeams": game_coordinator_pb2.GAME_MODE_RANDOM_TEAMS,
+        "NonstopJoust": game_coordinator_pb2.GAME_MODE_NONSTOP,
+    }
+    proto_mode = mode_map.get(game_mode, game_coordinator_pb2.GAME_MODE_FFA)
+
+    # Start game directly
+    start_response = await game_client.StartGame(
+        game_coordinator_pb2.StartGameRequest(
+            game_mode=proto_mode,
+            players=players,
+        )
+    )
+
+    if not start_response.success:
+        raise RuntimeError(f"Failed to start game: {start_response.error}")
+
+    # Wait for game to reach RUNNING state (after countdown)
+    await wait_for_game_running(game_client, timeout=timeout)
+
+    return game_client, game_channel, mock_client, mock_channel
 
 
 @pytest.fixture(scope="module")
@@ -199,7 +450,7 @@ async def test_mock_controller_manager_connection(docker_compose):
     client = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
 
     # Get ready controllers
-    response = await client.GetReadyControllers(controller_manager_pb2.GetReadyControllersRequest())
+    response = await client.GetControllers(controller_manager_pb2.GetControllersRequest())
 
     assert response.success
     assert len(response.controllers) == 4  # Default MOCK_CONTROLLER_COUNT
@@ -259,19 +510,10 @@ async def test_mock_controller_control_api(docker_compose):
 
 @pytest.mark.asyncio
 async def test_ffa_game_with_mock_controllers(docker_compose):
-    """Test full FFA game lifecycle with mock controllers."""
+    """Test full FFA game lifecycle starting via Menu."""
 
-    # Connect to game coordinator
-    game_host = docker_compose.get_service_host("game-coordinator", 50053)
-    game_port = docker_compose.get_service_port("game-coordinator", 50053)
-    game_channel = grpc.aio.insecure_channel(f"{game_host}:{game_port}")
-    game_client = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(game_channel)
-
-    # Connect to mock controller control
-    mock_host = docker_compose.get_service_host("controller-manager", 50062)
-    mock_port = docker_compose.get_service_port("controller-manager", 50062)
-    mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
-    mock_client = controller_manager_mock_pb2_grpc.MockControllerServiceStub(mock_channel)
+    # Get mock client first to set up auto-end
+    mock_client, mock_channel = await get_mock_client(docker_compose)
 
     # Enable auto game end: kill players after 12 seconds (3s countdown + 9s gameplay)
     auto_end_response = await mock_client.SetAutoGameEnd(
@@ -279,16 +521,10 @@ async def test_ffa_game_with_mock_controllers(docker_compose):
     )
     assert auto_end_response.success
 
-    # Get ready players
-    players = await get_ready_players(docker_compose)
-
-    # Start FFA game
-    start_response = await game_client.StartGame(
-        game_coordinator_pb2.StartGameRequest(game_name="FFA", players=players)
+    # Start game via Menu flow (handles ready state, game selection, and start)
+    game_client, game_channel, _, _ = await start_game_via_menu(
+        docker_compose, game_mode="JoustFFA", timeout=25.0
     )
-
-    assert start_response.success
-    assert start_response.game_id != ""
 
     # Wait for auto-end to trigger and game to finish
     # 12s auto-end + 1s winner delay + 2s teardown = ~15s total
@@ -300,33 +536,12 @@ async def test_ffa_game_with_mock_controllers(docker_compose):
 
 @pytest.mark.asyncio
 async def test_teams_game_with_mock_controllers(docker_compose):
-    """Test full Teams game lifecycle with mock controllers."""
+    """Test full Teams game lifecycle starting via Menu."""
 
-    # Connect to game coordinator
-    game_host = docker_compose.get_service_host("game-coordinator", 50053)
-    game_port = docker_compose.get_service_port("game-coordinator", 50053)
-    game_channel = grpc.aio.insecure_channel(f"{game_host}:{game_port}")
-    game_client = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(game_channel)
-
-    # Connect to mock controller control
-    mock_host = docker_compose.get_service_host("controller-manager", 50062)
-    mock_port = docker_compose.get_service_port("controller-manager", 50062)
-    mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
-    mock_client = controller_manager_mock_pb2_grpc.MockControllerServiceStub(mock_channel)
-
-    # Get ready players
-    players = await get_ready_players(docker_compose)
-
-    # Start Teams game
-    start_response = await game_client.StartGame(
-        game_coordinator_pb2.StartGameRequest(game_name="Teams", players=players)
+    # Start game via Menu flow
+    game_client, game_channel, mock_client, mock_channel = await start_game_via_menu(
+        docker_compose, game_mode="JoustTeams", timeout=25.0
     )
-
-    assert start_response.success
-    assert start_response.game_id != ""
-
-    # Wait for game to reach RUNNING state (after team colors + countdown)
-    await wait_for_game_running(game_client)
 
     # Simulate deaths - kill 3 players to ensure one team wins
     # Note: With random_teams=true (default), team assignment is randomized,
@@ -394,26 +609,19 @@ async def test_controller_state_streaming(docker_compose):
 
 @pytest.mark.asyncio
 async def test_distributed_tracing_propagation(docker_compose):
-    """Test that distributed tracing works end-to-end."""
+    """Test that distributed tracing works end-to-end via Menu flow.
 
-    # Connect to game coordinator
-    game_host = docker_compose.get_service_host("game-coordinator", 50053)
-    game_port = docker_compose.get_service_port("game-coordinator", 50053)
-    game_channel = grpc.aio.insecure_channel(f"{game_host}:{game_port}")
-    game_client = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(game_channel)
+    This test verifies the complete trace chain:
+    Menu -> Supervisor -> GameCoordinator -> Game
+    """
 
-    # Get ready players
-    players = await get_ready_players(docker_compose)
-
-    # Start game (this should create a trace spanning all services)
-    start_response = await game_client.StartGame(
-        game_coordinator_pb2.StartGameRequest(game_name="FFA", players=players)
+    # Start game via Menu flow - this creates a complete trace chain
+    game_client, game_channel, mock_client, mock_channel = await start_game_via_menu(
+        docker_compose, game_mode="JoustFFA", timeout=25.0
     )
 
-    assert start_response.success
-
-    # Wait for game to initialize
-    await asyncio.sleep(3)
+    # Wait for game to run briefly
+    await asyncio.sleep(2)
 
     # Force end game
     await game_client.ForceEndGame(game_coordinator_pb2.ForceEndGameRequest())
@@ -422,41 +630,27 @@ async def test_distributed_tracing_propagation(docker_compose):
     await wait_for_game_end(game_client, timeout=10)
 
     # Note: To verify tracing, check Jaeger UI at http://localhost:16686
-    # Search for service="game-coordinator-service" and verify:
-    # - StartGame span exists
-    # - GetSettings span is a child of ffa_load_settings
-    # - GetReadyControllers span is a child of ffa_initialize_players
-    # - StreamControllerStates span is a child of ffa_game_loop
+    # Search for service="menu-service" and verify the complete trace chain:
+    # - Menu: select_game_mode span
+    # - Menu: game_requested event with trace context
+    # - Supervisor: orchestrate_game_start span
+    # - GameCoordinator: StartGame span (child of orchestrate_game_start)
+    # - GameCoordinator: game_lifecycle span (child of StartGame)
 
     await game_channel.close()
+    await mock_channel.close()
 
 
 @pytest.mark.asyncio
 async def test_multiple_games_sequence(docker_compose):
-    """Test running multiple games in sequence."""
+    """Test running multiple games in sequence via Menu flow."""
 
-    # Connect to game coordinator
-    game_host = docker_compose.get_service_host("game-coordinator", 50053)
-    game_port = docker_compose.get_service_port("game-coordinator", 50053)
-    game_channel = grpc.aio.insecure_channel(f"{game_host}:{game_port}")
-    game_client = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(game_channel)
-
-    # Connect to mock controller control
-    mock_host = docker_compose.get_service_host("controller-manager", 50062)
-    mock_port = docker_compose.get_service_port("controller-manager", 50062)
-    mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
-    mock_client = controller_manager_mock_pb2_grpc.MockControllerServiceStub(mock_channel)
-
-    # Get ready players once
-    players = await get_ready_players(docker_compose)
-
-    # Run 3 games in sequence
-    for _i in range(3):
-        # Start game
-        start_response = await game_client.StartGame(
-            game_coordinator_pb2.StartGameRequest(game_name="FFA", players=players)
+    # Run 3 games in sequence, each started via Menu
+    for i in range(3):
+        # Start game via Menu flow
+        game_client, game_channel, mock_client, mock_channel = await start_game_via_menu(
+            docker_compose, game_mode="JoustFFA", timeout=25.0
         )
-        assert start_response.success
 
         # Wait and simulate death
         await asyncio.sleep(1)
@@ -471,14 +665,20 @@ async def test_multiple_games_sequence(docker_compose):
         # Wait for game to fully end before starting next game
         await wait_for_game_end(game_client, timeout=10)
 
+        # Close channels for this iteration
+        await game_channel.close()
+        await mock_channel.close()
+
         # Reset controllers for next game
+        mock_client_reset, mock_channel_reset = await get_mock_client(docker_compose)
         for j in range(4):
-            await mock_client.ResetController(
+            await mock_client_reset.ResetController(
                 controller_manager_mock_pb2.ResetRequest(serial=f"mock_controller_{j}")
             )
+        await mock_channel_reset.close()
 
-    await game_channel.close()
-    await mock_channel.close()
+        # Brief pause between games
+        await asyncio.sleep(1)
 
 
 @pytest.mark.asyncio
@@ -611,9 +811,9 @@ async def test_controller_effects(docker_compose):
 @pytest.mark.parametrize(
     "game_mode",
     [
-        "FFA",
-        "Teams",
-        "Random Teams",
+        "JoustFFA",
+        "JoustTeams",
+        "JoustRandomTeams",
         # Note: Nonstop Joust not included - players respawn so spans don't end on death
     ],
 )
@@ -629,32 +829,12 @@ async def test_staggered_player_deaths(docker_compose, game_mode):
     Note: Nonstop Joust is excluded because players respawn - deaths don't end spans.
     """
 
-    # Connect to game coordinator
-    game_host = docker_compose.get_service_host("game-coordinator", 50053)
-    game_port = docker_compose.get_service_port("game-coordinator", 50053)
-    game_channel = grpc.aio.insecure_channel(f"{game_host}:{game_port}")
-    game_client = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(game_channel)
-
-    # Connect to mock controller control
-    mock_host = docker_compose.get_service_host("controller-manager", 50062)
-    mock_port = docker_compose.get_service_port("controller-manager", 50062)
-    mock_channel = grpc.aio.insecure_channel(f"{mock_host}:{mock_port}")
-    mock_client = controller_manager_mock_pb2_grpc.MockControllerServiceStub(mock_channel)
-
-    # Get ready players
-    players = await get_ready_players(docker_compose)
-    assert len(players) == 4
-
-    # Start game
-    start_response = await game_client.StartGame(
-        game_coordinator_pb2.StartGameRequest(game_name=game_mode, players=players)
+    # Start game via Menu flow
+    game_client, game_channel, mock_client, mock_channel = await start_game_via_menu(
+        docker_compose, game_mode=game_mode, timeout=25.0
     )
-    assert start_response.success
 
     print(f"\n=== Starting {game_mode} game with staggered deaths ===")
-
-    # Wait for game to reach RUNNING state (handles all modes: FFA, Teams, Random Teams)
-    await wait_for_game_running(game_client)
 
     # Simulate deaths at different times to create varied span lengths
     # For team games, kill players from different teams to avoid early game end

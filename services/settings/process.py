@@ -34,7 +34,7 @@ SETTINGS_SCHEMA = {
         "type": int,
         "min": 0,
         "max": 4,
-        "default": Sensitivity.MID.value,
+        "default": Sensitivity.MEDIUM.value,
         "description": "Controller sensitivity (0=ultra slow, 4=ultra fast)",
     },
     "instructions": {

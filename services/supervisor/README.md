@@ -4,85 +4,72 @@
 
 ## Overview
 
-The Supervisor Service monitors the health of all JoustMania microservices and provides system-wide health status. It tracks process states, handles restarts, and exposes health metrics for observability.
+The Supervisor Service orchestrates game lifecycle by subscribing to Menu events and starting games via the GameCoordinator. It acts as a bridge between the Menu UI and game execution.
 
 ## Quick Reference
 
 | Property | Value |
 |----------|-------|
-| **Port** | 50055 |
-| **Proto** | `proto/supervisor.proto` |
+| **Port** | 50055 (health only) |
 | **Container** | `joustmania-supervisor` |
+| **Type** | Orchestrator (gRPC client) |
 
-## gRPC API
+## Architecture
 
-### GetProcessStatus
-Gets the status of a specific service.
+The Supervisor is a **pure gRPC client** - it consumes other services but doesn't expose any RPCs itself. It only maintains a health service for Kubernetes liveness/readiness probes.
 
-```bash
-grpcurl -plaintext -d '{"name": "ControllerManager"}' \
-  localhost:50055 joustmania.supervisor.SupervisorService/GetProcessStatus
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Supervisor Orchestrator                   │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│   Menu ──StreamMenuEvents──▶ Supervisor ──StartGame──▶ Game  │
+│                                                              │
+│   Subscribes to:           Calls:                           │
+│   - game_requested event   - GameCoordinator.StartGame      │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### GetAllProcessStatus
-Gets the status of all monitored services.
+## Game Flow
 
-```bash
-grpcurl -plaintext localhost:50055 \
-  joustmania.supervisor.SupervisorService/GetAllProcessStatus
+1. **Menu** receives controller ready signals and emits `game_requested` event
+2. **Supervisor** receives the event via `StreamMenuEvents`
+3. **Supervisor** extracts controller list and game mode from event data
+4. **Supervisor** calls `GameCoordinator.StartGame` with players
+5. **GameCoordinator** starts the game and manages lifecycle
+
+### Trace Propagation
+
+The Supervisor propagates distributed tracing context between services:
+
+```
+Menu (game_requested event with trace context)
+    └── Supervisor (orchestrate_game_start span)
+        └── GameCoordinator (StartGame span)
+            └── Game (game_lifecycle span)
 ```
 
-### RestartProcess
-Restarts a failed or unhealthy service.
+## Configuration
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GRPC_PORT` | `50055` | gRPC health server port |
+| `PROMETHEUS_PORT` | `8000` | Prometheus metrics port |
+| `MENU_SERVICE` | `menu:50054` | Menu service address |
+| `GAME_COORDINATOR_SERVICE` | `game-coordinator:50053` | GameCoordinator address |
+| `LOG_LEVEL` | `INFO` | Logging level |
+
+## Health Service
+
+The Supervisor exposes only the standard gRPC Health service for container orchestration:
 
 ```bash
-grpcurl -plaintext -d '{"name": "Audio"}' \
-  localhost:50055 joustmania.supervisor.SupervisorService/RestartProcess
+# Check health
+grpcurl -plaintext localhost:50055 grpc.health.v1.Health/Check
 ```
-
-### GetHealthSummary
-Gets a summary of system health.
-
-```bash
-grpcurl -plaintext localhost:50055 \
-  joustmania.supervisor.SupervisorService/GetHealthSummary
-```
-
-### StreamProcessUpdates
-Streams real-time process status updates.
-
-```bash
-grpcurl -plaintext localhost:50055 \
-  joustmania.supervisor.SupervisorService/StreamProcessUpdates
-```
-
-## Process States
-
-| State | Description |
-|-------|-------------|
-| `UNKNOWN` | Process state not determined |
-| `STARTING` | Process is starting up |
-| `RUNNING` | Process is healthy and running |
-| `STOPPING` | Process is shutting down |
-| `STOPPED` | Process has stopped |
-| `FAILED` | Process has failed |
-
-## Monitored Services
-
-| Service | Critical | Port |
-|---------|----------|------|
-| Settings | Yes | 50051 |
-| Controller Manager | Yes | 50052 |
-| Game Coordinator | Yes | 50053 |
-| Menu | Yes | 50054 |
-| Audio | No | 50056 |
-
-## Health Checks
-
-The Supervisor performs periodic health checks via gRPC Health protocol:
-- Check interval: 5 seconds
-- Timeout: 2 seconds
-- Failure threshold: 3 consecutive failures
 
 ## Development
 
@@ -98,5 +85,5 @@ pytest tests/
 ## See Also
 
 - [Architecture](../../docs/ARCHITECTURE.md) - System architecture
-- [Proto Definition](../../proto/supervisor.proto) - Full API specification
-- [Development Guide](../../docs/DEVELOPMENT.md) - Development workflow
+- [Menu Service](../menu/README.md) - Event source
+- [GameCoordinator](../game_coordinator/README.md) - Game execution

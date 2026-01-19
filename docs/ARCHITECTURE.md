@@ -130,12 +130,11 @@ graph TB
 - OpenTelemetry instrumentation
 
 **Key RPCs:**
-- `GetControllerCount` - Number of connected controllers
-- `GetReadyControllers` - Controllers in ready state
-- `GetControllers` - All controller information
-- `StreamControllerStates` - Real-time state stream (configurable Hz)
-- `PairController` - Trigger pairing for specific controller
-- `RemoveController` - Disconnect controller
+- `StreamButtonEvents` - Bidirectional stream for button events and LED control
+- `StreamGameplayData` - Gameplay data stream (acceleration/gyro)
+- `StreamGameplayDataDynamic` - Bidirectional stream with dynamic filtering
+- `SetControllerColor` - Set LED color
+- `PlayControllerEffect` - Visual effects (flash, pulse, rainbow)
 
 **Hardware Requirements:**
 - PS Move controllers
@@ -364,15 +363,17 @@ service SettingsService {
 Three streaming patterns used:
 
 1. **Server Streaming** - Service streams data to client
-   - `StreamControllerStates` - 60Hz controller state updates
+   - `StreamGameplayData` - Controller data for games
    - `StreamGameEvents` - Real-time game events
+   - `StreamMenuEvents` - Menu event notifications
    - `SubscribeToChanges` - Setting change notifications
 
 2. **Client Streaming** - Client streams data to service
-   - Not currently used
+   - Not currently used directly
 
 3. **Bidirectional Streaming** - Both directions
-   - Not currently used
+   - `StreamButtonEvents` - Button events + LED control
+   - `StreamGameplayDataDynamic` - Adaptive controller filtering
 
 ### Service Discovery
 
@@ -401,7 +402,7 @@ sequenceDiagram
 
     HW->>CM: USB/Bluetooth input (1000Hz)
     CM->>CM: Update shared memory state
-    Game->>CM: StreamControllerStates (60Hz)
+    Game->>CM: StreamGameplayDataDynamic (60Hz)
     CM-->>Game: Controller state stream
     Game->>Game: Process game logic
     Game->>Audio: PlaySound (death detected)
@@ -415,14 +416,17 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Menu as Menu Service
+    participant Supervisor as Supervisor
     participant Game as Game Coordinator
     participant CM as Controller Manager
     participant Settings as Settings Service
 
-    Menu->>Game: StartGame(mode="JoustFFA")
+    Menu->>Menu: All controllers ready
+    Menu->>Supervisor: StreamMenuEvents (game_requested)
+    Supervisor->>Game: StartGame(mode="JoustFFA")
     Game->>Settings: GetSettings()
     Settings-->>Game: Settings response
-    Game->>CM: StreamControllerStates()
+    Game->>CM: StreamGameplayDataDynamic()
     CM-->>Game: State stream starts
     Game->>Game: Game loop (60 FPS)
     Game->>Menu: StreamGameEvents()

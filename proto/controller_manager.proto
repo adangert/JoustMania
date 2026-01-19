@@ -14,12 +14,6 @@ service ControllerManagerService {
   // Stream gameplay data with dynamic filtering (Phase 45 - bidirectional streaming)
   rpc StreamGameplayDataDynamic(stream GameplayStreamControl) returns (stream GameplayDataUpdate);
 
-  // Pair a new controller
-  rpc PairController(PairControllerRequest) returns (PairControllerResponse);
-
-  // Remove a controller
-  rpc RemoveController(RemoveControllerRequest) returns (RemoveControllerResponse);
-
   // Controller feedback RPCs (Phase 19)
   // Set LED color
   rpc SetControllerColor(SetControllerColorRequest) returns (SetControllerColorResponse);
@@ -70,26 +64,6 @@ message Vector3 {
   float x = 1;
   float y = 2;
   float z = 3;
-}
-
-// Request/Response messages
-message PairControllerRequest {
-  int32 color_index = 1;  // Team color index
-}
-
-message PairControllerResponse {
-  bool success = 1;
-  string error = 2;
-  string serial = 3;  // Serial of paired controller
-}
-
-message RemoveControllerRequest {
-  string serial = 1;
-}
-
-message RemoveControllerResponse {
-  bool success = 1;
-  string error = 2;
 }
 
 // Controller feedback messages (Phase 19)

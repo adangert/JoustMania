@@ -20,7 +20,6 @@ proto/
 ├── controller_manager_mock.proto       # Mock controller control API
 ├── game_coordinator.proto              # Game coordinator service schema
 ├── menu.proto                          # Menu service schema
-├── supervisor.proto                    # Supervisor service schema
 ├── audio.proto                         # Audio service schema
 │
 └── *_pb2.py, *_pb2_grpc.py            # Generated Python code (auto-generated)
@@ -49,18 +48,19 @@ proto/
 **Purpose:** PS Move controller lifecycle management and real-time state streaming
 
 **Key RPCs:**
-- `GetControllerCount` - Get number of active controllers
-- `GetControllers` - Get all controller info
-- `GetReadyControllers` - Get controllers ready for gameplay
-- `StreamControllerStates` - Stream controller state updates (server streaming, configurable Hz)
-- `PairController` - Initiate controller pairing
-- `RemoveController` - Remove a controller
+- `StreamButtonEvents` - Bidirectional stream for button events and LED control
+- `StreamGameplayData` - Stream gameplay data (acceleration/gyro) for games
+- `StreamGameplayDataDynamic` - Bidirectional stream with dynamic filtering
+- `SetControllerColor` - Set LED color on a controller
+- `SetControllerVibration` - Set vibration intensity
+- `PlayControllerEffect` - Play visual effects (flash, pulse, rainbow)
 
 **Features:**
 - Background hardware discovery (1Hz polling)
 - High-frequency state streaming (up to 1000Hz)
 - Graceful mock mode when hardware unavailable
 - Automatic controller health monitoring
+- LED state ownership via bidirectional streaming
 
 ### 3. Controller Manager Mock API (`controller_manager_mock.proto`)
 **Port:** 50062
@@ -106,26 +106,7 @@ proto/
 - Button presses (trigger, select, middle)
 - Web commands (start game, mode selection)
 
-### 6. Supervisor Service (`supervisor.proto`)
-**Port:** 50055
-**Purpose:** System health monitoring and process management
-
-**Key RPCs:**
-- `GetProcessStatus` - Get status of a specific process
-- `GetAllProcessStatus` - Get status of all processes
-- `RestartProcess` - Restart a failed process
-- `GetHealthSummary` - Get system-wide health summary
-- `StreamProcessUpdates` - Stream process status changes (server streaming)
-
-**Monitored Services:**
-- Settings, ControllerManager, GameCoordinator, Menu
-
-**Health Metrics:**
-- Uptime tracking
-- Restart count
-- Health check results
-
-### 7. Audio Service (`audio.proto`)
+### 6. Audio Service (`audio.proto`)
 **Port:** 50056
 **Purpose:** Audio playback management
 
@@ -286,7 +267,8 @@ RUN uv sync --frozen
 - RPC names use imperative verbs: `GetSettings`, `StartGame`, `UpdateSetting`
 
 ### Streaming RPCs
-- Server streaming for real-time updates (e.g., `StreamControllerStates`)
+- Server streaming for real-time updates (e.g., `StreamGameEvents`, `StreamMenuEvents`)
+- Bidirectional streaming for interactive control (e.g., `StreamButtonEvents`, `StreamGameplayDataDynamic`)
 - Use `stream` keyword in proto definition
 - Handle disconnections gracefully
 

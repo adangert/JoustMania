@@ -24,10 +24,10 @@ The Controller Manager service is the central component for managing PS Move con
 │                  Controller Manager Service                  │
 ├─────────────────────────────────────────────────────────────┤
 │                      gRPC API Layer                          │
-│  - GetControllerCount, GetControllers, GetReadyControllers   │
-│  - StreamControllerStates, StreamButtonEvents                │
+│  - StreamButtonEvents (bidirectional - buttons + LED ctrl)   │
+│  - StreamGameplayData, StreamGameplayDataDynamic             │
 │  - SetControllerColor, SetControllerVibration                │
-│  - PlayControllerEffect, PairController, RemoveController    │
+│  - PlayControllerEffect                                      │
 ├─────────────────────────────────────────────────────────────┤
 │                    Backend Abstraction                       │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
@@ -71,18 +71,10 @@ See `proto/controller_manager.proto` for complete API specification.
 ### Key RPCs
 
 ```protobuf
-// Query controllers
-rpc GetControllerCount(Empty) returns (GetControllerCountResponse);
-rpc GetControllers(Empty) returns (GetControllersResponse);
-rpc GetReadyControllers(Empty) returns (GetReadyControllersResponse);
-
-// Real-time streaming
-rpc StreamControllerStates(StreamRequest) returns (stream ControllerStateUpdate);
-rpc StreamButtonEvents(StreamRequest) returns (stream ButtonEvent);
-
-// Controller management
-rpc PairController(PairControllerRequest) returns (PairControllerResponse);
-rpc RemoveController(RemoveControllerRequest) returns (RemoveControllerResponse);
+// Real-time streaming (bidirectional)
+rpc StreamButtonEvents(stream ButtonEventStreamControl) returns (stream ButtonEvent);
+rpc StreamGameplayData(GameplayStreamRequest) returns (stream GameplayDataUpdate);
+rpc StreamGameplayDataDynamic(stream GameplayStreamControl) returns (stream GameplayDataUpdate);
 
 // Feedback
 rpc SetControllerColor(SetControllerColorRequest) returns (SetControllerColorResponse);
@@ -95,12 +87,6 @@ rpc PlayControllerEffect(PlayControllerEffectRequest) returns (PlayControllerEff
 ```bash
 # List available services
 grpcurl -plaintext localhost:50052 list
-
-# Get controller count
-grpcurl -plaintext localhost:50052 joustmania.ControllerManagerService/GetControllerCount
-
-# Get all controllers
-grpcurl -plaintext localhost:50052 joustmania.ControllerManagerService/GetControllers
 
 # Set LED color (all controllers to red)
 grpcurl -plaintext -d '{"color": {"r": 255, "g": 0, "b": 0}}' \

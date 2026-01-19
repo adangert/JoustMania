@@ -304,7 +304,6 @@ Game-specific controls are announced at game start.
 Controllers can be paired via:
 1. **Web UI** - http://localhost:80 (recommended)
 2. **Physical pairing mode** - Hold PlayStation button until LED blinks
-3. **gRPC API** - `ControllerManagerService/PairController`
 
 ---
 

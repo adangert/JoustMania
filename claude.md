@@ -1,22 +1,23 @@
 # Claude Session Continuity Guide
 
-**Last Updated:** 2026-01-11 (Integration tests fixed, phase management workflow added)
+**Last Updated:** 2026-01-19
 **Project:** JoustMania - Multi-player gaming system using PS Move controllers
 
 ---
 
 ## Quick Start for New Sessions
 
-**Current State:** Production-ready microservices architecture (Phases 1-17, 19, 21-22, 24-25 complete)
-**Latest Achievement:** Phase 25 - Type Safety & Code Quality with Astral Tools (ty + ruff)
+**Current State:** Production-ready microservices with full observability stack
+**Completed Phases:** 71 phases (see `planning/phases/completed/`)
+**Latest Work:** Observability improvements, Menu refactoring, Audio span naming
 **Branch:** `dev-refactor`
 
 ### What to do first:
 1. Read this file completely
-2. Check `planning/IMPLEMENTATION_STATUS.md` for phase overview (links to 34 individual phase files)
-3. Review recent commits: `git log --oneline -10`
-4. Check current working directory: `git status`
-5. Verify Docker services are healthy: `docker-compose ps`
+2. Review recent commits: `git log --oneline -10`
+3. Check current working directory: `git status`
+4. Check phase status: `ls planning/phases/in-progress/`
+5. Verify Docker services: `make up` or `docker-compose ps`
 
 ---
 
@@ -28,14 +29,18 @@ JoustMania is a local multiplayer party game system that runs on Raspberry Pi an
 
 ### Architecture Status
 
-**✅ COMPLETE:** The monolithic codebase has been successfully refactored into a production-ready microservices architecture with:
-- gRPC communication between services
-- Docker containerization with docker-compose
-- OpenTelemetry observability (Jaeger tracing)
-- Redis pub/sub for events
-- Health checks (gRPC Health protocol + HTTP)
-- Type safety with ty and code quality with ruff
-- Comprehensive documentation
+**✅ COMPLETE:** Production-ready microservices architecture with full observability:
+- **gRPC communication** between all services (async, streaming)
+- **Docker containerization** with docker-compose and Makefile
+- **Full observability stack:**
+  - OpenTelemetry → Jaeger (distributed tracing)
+  - Prometheus (metrics collection)
+  - Grafana (dashboards: game analytics, controller health, host metrics)
+  - Loki (log aggregation)
+- **Backend abstraction** for controllers (Bluetooth/USB/Mock)
+- **Event streaming** via gRPC (no polling for game state)
+- Health checks (gRPC Health protocol)
+- Type safety with ruff linting
 
 ---
 
@@ -55,139 +60,139 @@ piparty.py (3000+ lines)
 ```
 docker-compose.yml
   ├─ redis (pub/sub for events, port 6379 internal)
-  ├─ jaeger (distributed tracing UI, port 16686)
-  ├─ otel-collector (OpenTelemetry, port 8889)
   ├─ settings (gRPC server, port 50051)
   ├─ controller-manager (gRPC server, port 50052, privileged for USB/BT)
   ├─ game-coordinator (gRPC server, port 50053)
   ├─ menu (gRPC server, port 50054)
   ├─ supervisor (gRPC server, port 50055)
+  ├─ audio (gRPC server, port 50056, privileged for /dev/snd)
   ├─ webui (HTTP server, port 80)
-  └─ audio (gRPC server, port 50056, privileged for /dev/snd)
+  │
+  │  Observability Stack:
+  ├─ otel-collector (OpenTelemetry, port 4317 gRPC, 8889 metrics)
+  ├─ jaeger (distributed tracing UI, port 16686)
+  ├─ prometheus (metrics collection, port 9090)
+  ├─ grafana (dashboards, port 3000)
+  └─ loki (log aggregation, port 3100)
 ```
 
 **Network:** All services run on `joustmania` bridge network
 **Health:** All services implement gRPC Health protocol
 **Tracing:** All gRPC calls instrumented with OpenTelemetry spans
+**Metrics:** Prometheus scrapes all services on port 8000
+**Dashboards:** Grafana at http://localhost:3000 (game-analytics, controller-health, host-metrics)
 
 ---
 
 ## Major Completed Phases
 
-### ✅ Phase 1-5: Microservices Foundation
-- **Phase 1:** ControllerManager - Extracted controller polling to separate process
-- **Phase 2:** GameCoordinator - Game lifecycle management
-- **Phase 3:** Settings - Centralized settings with pub/sub
-- **Phase 4:** ProcessSupervisor - Process management and health monitoring
-- **Phase 5:** Menu - Menu UI as separate microservice
-- **Phase 7:** Code restructuring with uv workspace
+**71 phases completed** - See `planning/phases/completed/` for full details.
 
-### ✅ Phase 8a-c: gRPC + Docker + OpenTelemetry
-- **Phase 8a:** Converted all services from multiprocessing.Queue to gRPC
-- **Phase 8b:** Dockerized all services with docker-compose
-- **Phase 8c:** Integrated OpenTelemetry with Jaeger for distributed tracing
-
-**Key Achievements:**
-- All 7 services running in containers
-- gRPC communication (100-500μs latency)
-- Redis pub/sub for events
+### Foundation (Phases 1-17)
+- Microservices extraction (Settings, ControllerManager, GameCoordinator, Menu, Supervisor, Audio)
+- gRPC communication with async servers
+- Docker containerization with docker-compose
+- OpenTelemetry integration with Jaeger tracing
 - Health checks on all services
-- Jaeger UI at http://localhost:16686
 
-### ✅ Phase 9-17: Architecture Refinement
-- **Phase 9:** Architecture cleanup - Root directory organized, legacy code archived
-- **Phase 10:** Scripts organization - Bash scripts in logical directories
-- **Phase 11:** Comprehensive documentation - Architecture docs, READMEs
-- **Phase 12:** Dependency modernization - All dependencies pinned to latest versions
-- **Phase 14:** Shared protocol buffer package - Centralized proto contracts
-- **Phase 15:** Docker Compose optimization - Port mappings without host binding
-- **Phase 16:** Critical performance fixes - All services converted to async gRPC
-- **Phase 17:** Network architecture improvements - Fixed Docker networking, gRPC channel options
+### Observability (Phases 36-46, 70-79)
+- **Prometheus metrics** on all services (port 8000)
+- **Grafana dashboards:** game-analytics, controller-health, host-metrics, system-performance
+- **Loki** for log aggregation
+- **Dynamic filtering** for gameplay data streams (Phase 45-46)
+- **Span naming improvements** - descriptive spans like `PlaySound:congratulations`
+- **Event streaming** - replaced polling with `StreamGameEvents`
 
-### ✅ Phase 19: Controller Feedback System
-- LED color control for game states
-- Vibration/rumble effects
-- Flash effects for events
-- Complete game UX with physical feedback
+### Controller Manager (Phases 57, 62, 71-73, 77)
+- **Backend abstraction** - Bluetooth, USB, and Mock backends via factory pattern
+- **Parallel controller polling** - improved throughput
+- **Immediate LED updates** - no batching delay
+- **Controller reconnection** - LED color restoration on reconnect
+- **Docker hotplug** - USB controller detection in containers
 
-### ✅ Phase 21-22: Game Mode Improvements
-- **Phase 21:** Menu controller integration - Physical button navigation (MOVE/TRIGGER)
-- **Phase 22:** Nonstop Joust game mode - Endless respawn with scoring and spawn protection
+### Menu Service (Phases 58-60, 79)
+- **SOLID refactoring** - StateManager, handlers, event loop extraction
+- **Battery display** in lobby
+- **Audio feedback** for navigation
+- **Admin mode** - game selection via Select+Start buttons
 
-### ✅ Phase 24: Proper Service Health Checks
-- gRPC Health protocol implemented on all services
-- HTTP health endpoints for webui
-- PSMove dependencies refactored (core/types.py split from core/common.py)
-- Docker health checks using gRPC Health protocol
-- All 9 services healthy and properly monitored
+### Game Coordinator (Phases 61, 70)
+- **Normalized game flow** - consistent color_assignment phase across all modes
+- **Dynamic music system** - tempo changes based on game state
+- **Sensitivity metrics** - thresholds visible in Grafana
 
-### ✅ Phase 25: Type Safety & Code Quality (LATEST)
-- **ty 0.0.11** - Exceptionally fast type checker (10x-100x faster than mypy)
-- **ruff 0.14.11** - Lightning-fast linter and formatter
-- Comprehensive ruff configuration with 13 rule sets
-- Helper scripts: `scripts/lint/check-types.sh`, `check-lint.sh`, `format.sh`, `check-all.sh`
-- 119 files reformatted with consistent style
-- 812 linting issues auto-fixed
-- Type hints added to core/types.py, core/common.py, utils/colors.py
-- Complete Astral tooling stack: uv + ruff + ty
+### Infrastructure (Phases 73-76, 78)
+- **GHCR builder images** - faster CI builds
+- **Host metrics dashboard** - Raspberry Pi monitoring (CPU, memory, temperature)
+- **Pairing daemon observability** - Python rewrite with tracing
+- **Centralized enums** - `lib/types.py` for Games, Sensitivity, GameEvent
 
 ---
 
 ## Current Architecture Details
 
-### Service Breakdown
+### Application Services
 
-**Settings Service (port 50051)**
+**Settings Service (port 50051, metrics 8000)**
 - Settings management with YAML persistence
-- Schema validation
 - Streaming subscriptions for real-time updates
-- Dependencies: pyyaml, grpcio, grpcio-health-checking
 
-**Controller Manager Service (port 50052)**
-- Controller discovery (USB/Bluetooth)
-- State streaming at 60Hz
-- Battery monitoring
-- Controller pairing
+**Controller Manager Service (port 50052, metrics 8000)**
+- Backend abstraction: Bluetooth, USB, or Mock (via `CONTROLLER_BACKEND` env var)
+- State streaming at 60Hz with dynamic filtering
+- Button event streaming (separate from state for efficiency)
+- LED color control with immediate updates
+- Controller effects (flash, pulse, rainbow, fade)
 - Privileged mode for Bluetooth/USB access
-- Dependencies: psmove, dbus-python, grpcio, grpcio-health-checking
 
-**Game Coordinator Service (port 50053)**
-- Game lifecycle management
-- All 13 game modes (Joust FFA, Teams, Random Teams, Traitor, Werewolf, Zombies, Commander, Swapper, Fight Club, Tournament, Non Stop, Ninja, Random)
-- Event streaming
-- Dependencies: pygame, grpcio, grpcio-health-checking
+**Game Coordinator Service (port 50053, metrics 8000)**
+- 13 game modes (FFA, Teams, Random Teams, Traitor, Werewolf, Zombies, Commander, Swapper, Fight Club, Tournament, Nonstop, Ninja, Random)
+- Event streaming via `StreamGameEvents` (game_started, game_ended, player_death)
+- Sensitivity-based thresholds with metrics
 
-**Menu Service (port 50054)**
-- Menu UI rendering
-- Controller navigation (MOVE/TRIGGER buttons)
-- Game selection
-- Admin settings
-- Dependencies: pygame, grpcio, grpcio-health-checking
+**Menu Service (port 50054, metrics 8000)**
+- SOLID architecture with StateManager and handlers
+- Controller navigation (MOVE/TRIGGER/SELECT/START buttons)
+- Admin mode for game selection and force-start
+- Battery display in lobby
 
-**Supervisor Service (port 50055)**
-- Process orchestration
+**Supervisor Service (port 50055, metrics 8000)**
+- Game orchestration between Menu and GameCoordinator
 - Service health monitoring
-- Lifecycle management
-- Dependencies: grpcio, grpcio-health-checking
 
-**Audio Service (port 50056)**
-- Audio playback
-- Sound effects
-- Music management
+**Audio Service (port 50056, metrics 8000)**
+- Sound effects with descriptive span names (`PlaySound:congratulations`)
+- Dynamic music with tempo control
+- Voice selection system
 - Privileged mode for /dev/snd access
-- Dependencies: pygame, pyalsaaudio, grpcio, grpcio-health-checking
 
 **WebUI Service (port 80)**
-- Flask web interface
-- Game configuration
-- Controller status
-- HTTP health endpoint at /health
-- Dependencies: flask, grpcio
+- Flask web interface for game configuration
 
-**Infrastructure Services**
-- Redis (port 6379 internal) - Pub/sub messaging
-- Jaeger (port 16686) - Distributed tracing UI
-- OpenTelemetry Collector (port 8889) - Metrics export
+### Observability Stack
+
+**OpenTelemetry Collector (port 4317 gRPC, 8889 metrics)**
+- Receives traces from all services
+- Forwards to Jaeger and Prometheus
+
+**Jaeger (port 16686)**
+- Distributed tracing UI
+- Search by service, operation, or tags
+
+**Prometheus (port 9090)**
+- Metrics collection from all services
+- Scrapes /metrics endpoints on port 8000
+
+**Grafana (port 3000)**
+- Dashboards: game-analytics, controller-health, host-metrics, system-performance
+- Default credentials: admin/admin
+
+**Loki (port 3100)**
+- Log aggregation from all containers
+- Query via Grafana
+
+**Redis (port 6379 internal)**
+- Pub/sub for cross-service events
 
 ---
 
@@ -195,7 +200,22 @@ docker-compose.yml
 
 ### Running the System
 
-**Docker Compose (Recommended):**
+**Using Makefile (Recommended):**
+```bash
+# Start all services (builds images first)
+make up
+
+# Regenerate protobuf files
+make protos
+
+# Clean proto files
+make clean-protos
+
+# Show all targets
+make help
+```
+
+**Docker Compose directly:**
 ```bash
 # Start all services
 docker-compose up -d
@@ -204,7 +224,7 @@ docker-compose up -d
 docker-compose ps
 
 # View logs
-docker-compose logs -f
+docker-compose logs -f [service-name]
 
 # Stop all services
 docker-compose down
@@ -215,41 +235,36 @@ docker-compose up -d --build
 
 **Mock Environment (No Hardware):**
 ```bash
-# Use mock controller manager (no real PS Move controllers needed)
-docker-compose -f docker-compose.mock.yml up -d
+# Set mock backend
+CONTROLLER_BACKEND=mock docker-compose up -d
 
-# Configure mock controller count
-# Edit docker-compose.mock.yml: MOCK_CONTROLLER_COUNT=4
+# Or edit docker-compose.override.yml
+# environment:
+#   - CONTROLLER_BACKEND=mock
+#   - MOCK_CONTROLLER_COUNT=4
 ```
 
 **Access Points:**
 - Web UI: http://localhost:80
 - Jaeger UI: http://localhost:16686
-- Prometheus metrics: http://localhost:8889/metrics
+- Grafana: http://localhost:3000 (admin/admin)
+- Prometheus: http://localhost:9090
 
 ### Development Commands
 
-**IMPORTANT: Always use `uv run` for Python commands!**
-
 ```bash
-# Run tests
-uv run pytest services/settings/tests/ -v
+# Run unit tests
+make test  # or: uv run pytest tests/unit/ -v
 
-# Type checking
-./scripts/lint/check-types.sh
+# Run integration tests (requires Docker)
+uv run pytest tests/integration/ -v
 
-# Linting
-./scripts/lint/check-lint.sh
+# Linting and formatting (via pre-commit)
+uv run ruff check .
+uv run ruff format .
 
-# Code formatting
-./scripts/lint/format.sh
-
-# All quality checks
-./scripts/lint/check-all.sh
-
-# Generate proto files (if .proto changed)
-cd proto
-./generate.sh
+# Generate proto files
+make protos
 ```
 
 ### Git Workflow
@@ -284,41 +299,44 @@ git push origin dev-refactor
 ```
 services/
 ├── settings/
-│   ├── server.py         # gRPC server (async)
-│   ├── Dockerfile        # Container definition
-│   └── pyproject.toml    # Dependencies
+│   └── server.py         # Settings management
 ├── controller_manager/
-│   ├── server.py         # gRPC server (async)
-│   ├── mock_backend.py   # Mock backend for testing without hardware
-│   ├── mock_control_service.py  # Control API for mock testing
-│   ├── Dockerfile        # Container definition
-│   └── pyproject.toml    # Dependencies
+│   ├── server.py         # Main gRPC server
+│   ├── backend.py        # Abstract backend interface
+│   ├── backend_factory.py # Creates Bluetooth/USB/Mock backend
+│   ├── mock_backend.py   # Mock controller simulation
+│   ├── mock_control_service.py  # Test control API
+│   └── effects_base.py   # LED effects (flash, pulse, rainbow)
 ├── game_coordinator/
-│   ├── server.py         # gRPC server (async)
-│   ├── games/           # Game mode implementations
-│   └── pyproject.toml
+│   ├── server.py         # Game lifecycle management
+│   ├── games/            # Game mode implementations (ffa.py, teams.py, etc.)
+│   └── metrics.py        # Prometheus metrics
 ├── menu/
-│   ├── server.py         # gRPC server (async)
-│   └── pyproject.toml
+│   ├── server.py         # Entry point
+│   ├── servicer.py       # gRPC servicer
+│   ├── state_manager.py  # Controller state tracking
+│   └── handlers/         # Connected, Ready, Admin handlers
 ├── supervisor/
-│   ├── server.py         # gRPC server (async)
-│   └── pyproject.toml
+│   └── server.py         # Orchestration
 ├── audio/
-│   ├── server.py         # gRPC server (async)
-│   ├── assets/          # Sound files
-│   └── pyproject.toml
-└── webui/
-    ├── server.py         # Flask HTTP server
-    └── pyproject.toml
+│   ├── server.py         # Audio playback
+│   └── music_player.py   # Dynamic music with tempo control
+├── grafana/
+│   └── dashboards/       # JSON dashboard definitions
+├── prometheus/
+│   └── prometheus.yml    # Scrape configuration
+└── loki/
+    └── loki-config.yaml  # Log aggregation config
 ```
 
-### Core Infrastructure
+### Core Libraries
 ```
-core/
-├── types.py              # Pure data types (no PSMove dependencies)
-├── common.py             # PSMove utilities (requires psmove)
-├── controller_state.py   # Controller state management
-└── grpc_clients.py       # gRPC client helpers
+lib/
+├── types.py              # Centralized enums (Games, Sensitivity, GameEvent)
+├── colors.py             # Color definitions
+├── telemetry.py          # OpenTelemetry initialization
+├── system_metrics.py     # CPU/memory/temperature metrics
+└── controller_constants.py  # Button/state key constants
 ```
 
 ### Protocol Buffers
@@ -326,53 +344,34 @@ core/
 proto/
 ├── settings.proto
 ├── controller_manager.proto
+├── controller_manager_mock.proto  # Mock control API
 ├── game_coordinator.proto
 ├── menu.proto
 ├── supervisor.proto
 ├── audio.proto
-├── generate.sh          # Generates Python code from .proto files
-└── pyproject.toml       # Shared proto package
+└── generate_proto.sh     # Regenerates *_pb2.py files
 ```
 
 ### Configuration
 ```
-docker-compose.yml        # Production compose file
-docker-compose.mock.yml   # Mock environment (no hardware)
-otel-collector-config.yaml # OpenTelemetry configuration
-joustsettings.yaml       # Settings file (user-editable)
-pyproject.toml           # Root workspace configuration
-uv.lock                  # Dependency lock file
+Makefile                  # Build targets (protos, up, test)
+docker-compose.yml        # Production compose
+docker-compose.override.yml  # Development overrides
+docker-compose.ci.yml     # CI/CD configuration
+pyproject.toml            # Root workspace + ruff config
+uv.lock                   # Dependency lock
 ```
 
 ### Documentation
 ```
 planning/
-├── IMPLEMENTATION_STATUS.md   # Quick status summary with links to all phases
 ├── phases/
-│   ├── completed/            # 22 completed phase files
-│   ├── in-progress/          # Active phases
-│   └── planned/              # 12 planned phase files
-├── archive/                  # Legacy planning documents
-├── CONTAINERIZATION_PLAN.md   # gRPC/Docker architecture
-└── [other architecture docs]
-README.md                 # User-facing documentation
-claude.md                 # This file (session continuity)
-```
-
-**Phase Documentation Structure:**
-- Each phase has its own markdown file with full implementation details
-- `IMPLEMENTATION_STATUS.md` provides a quick overview table with links
-- Completed phases: `planning/phases/completed/phase-{number}-{name}.md`
-- Planned phases: `planning/phases/planned/phase-{number}-{name}.md`
-- Legacy phase files moved to `planning/archive/`
-
-### Linting & Type Checking
-```
-scripts/lint/
-├── check-types.sh       # Run ty type checker
-├── check-lint.sh        # Run ruff linter
-├── format.sh            # Run ruff formatter
-└── check-all.sh         # Run all quality checks
+│   ├── completed/        # 71 completed phase files
+│   ├── in-progress/      # Active phases
+│   └── planned/          # ~10 planned phase files
+└── archive/              # Legacy documents
+README.md                 # User documentation
+claude.md                 # This file
 ```
 
 ---
@@ -575,31 +574,25 @@ for message in pubsub.listen():
 
 When starting a new session:
 
-- [ ] Read this entire file
-- [ ] Check phase status: `./scripts/planning/phase-status.sh`
-- [ ] Check `planning/IMPLEMENTATION_STATUS.md` for latest status
-- [ ] Run `git status` to see current state
-- [ ] Run `git log --oneline -10` to see recent commits
-- [ ] Check Docker services: `docker-compose ps`
-- [ ] Review Jaeger traces: http://localhost:16686
-- [ ] Verify uv is working: `uv --version`
-- [ ] Check Python version: `python3 --version` (should be 3.9-3.12)
+- [ ] Read this file (focus on Recent Work section)
+- [ ] Run `git status` and `git log --oneline -10`
+- [ ] Check in-progress phases: `ls planning/phases/in-progress/`
+- [ ] Start services if needed: `make up`
+- [ ] Check Jaeger: http://localhost:16686
+- [ ] Check Grafana: http://localhost:3000
 
-**Recent Achievements:**
-- Phase 35 (Logging Optimization) - COMPLETE ✅
-- Phase 28 (Admin Mode Completion) - COMPLETE ✅
-- Phase 26 (Performance Fixes Part 1/3) - COMPLETE ✅
-- Phase 25 (Type Safety & Code Quality) - COMPLETE ✅
-- Integration tests - ALL PASSING ✅ (7/7 tests)
+**Recent Work (Jan 2026):**
+- Removed `GetGameStatus` RPC - now using `StreamGameEvents` for efficiency
+- Audio span naming improvements (`PlaySound:congratulations`)
+- Centralized enums in `lib/types.py` (Games, Sensitivity, GameEvent)
+- Menu service SOLID refactoring (StateManager, handlers)
+- Removed redundant `mock_server.py`
+- Game coordinator color_assignment phase normalization
 
-**Current Work:**
-- Check `./scripts/planning/phase-status.sh` for in-progress phases
-
-**Potential Next Tasks:**
-- Phase 36 (Span Hierarchy Rework) - HIGH priority, better observability
-- Phase 26 Part 2/3 (Finish performance fixes) - CRITICAL for RPi
-- Phase 18 (Game Loop Optimization) - HIGH priority, CPU reduction
-- Phase 27 (OpenTelemetry Optimization) - HIGH priority, overhead reduction
+**Planned Work:**
+- Phase 27 (OpenTelemetry Optimization) - reduce tracing overhead
+- Phase 20 (Production Optimization) - RPi performance
+- Planning directory cleanup - consolidate docs
 
 ---
 
@@ -717,12 +710,12 @@ docker-compose exec settings bash
 **Container Orchestration:** docker-compose
 
 **Current Status:**
-- Production-ready microservices architecture
-- All services containerized and healthy
-- Type safety and code quality tools integrated
-- Comprehensive observability with OpenTelemetry
+- Production-ready microservices (71 phases completed)
+- Full observability stack (Jaeger, Prometheus, Grafana, Loki)
+- Backend abstraction for controllers (Bluetooth/USB/Mock)
+- Event streaming architecture (no polling)
 
 ---
 
 *This document is maintained by Claude and updated at the end of significant sessions.*
-*Last major update: 2026-01-11 - Post Phase 25 completion*
+*Last major update: 2026-01-19 - Comprehensive update covering Phases 25-79*

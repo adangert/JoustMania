@@ -50,16 +50,6 @@ class ControllerManagerServiceStub(object):
                 request_serializer=controller__manager__pb2.GameplayStreamControl.SerializeToString,
                 response_deserializer=controller__manager__pb2.GameplayDataUpdate.FromString,
                 _registered_method=True)
-        self.PairController = channel.unary_unary(
-                '/joustmania.controller_manager.ControllerManagerService/PairController',
-                request_serializer=controller__manager__pb2.PairControllerRequest.SerializeToString,
-                response_deserializer=controller__manager__pb2.PairControllerResponse.FromString,
-                _registered_method=True)
-        self.RemoveController = channel.unary_unary(
-                '/joustmania.controller_manager.ControllerManagerService/RemoveController',
-                request_serializer=controller__manager__pb2.RemoveControllerRequest.SerializeToString,
-                response_deserializer=controller__manager__pb2.RemoveControllerResponse.FromString,
-                _registered_method=True)
         self.SetControllerColor = channel.unary_unary(
                 '/joustmania.controller_manager.ControllerManagerService/SetControllerColor',
                 request_serializer=controller__manager__pb2.SetControllerColorRequest.SerializeToString,
@@ -98,20 +88,6 @@ class ControllerManagerServiceServicer(object):
 
     def StreamGameplayDataDynamic(self, request_iterator, context):
         """Stream gameplay data with dynamic filtering (Phase 45 - bidirectional streaming)
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def PairController(self, request, context):
-        """Pair a new controller
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def RemoveController(self, request, context):
-        """Remove a controller
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -156,16 +132,6 @@ def add_ControllerManagerServiceServicer_to_server(servicer, server):
                     servicer.StreamGameplayDataDynamic,
                     request_deserializer=controller__manager__pb2.GameplayStreamControl.FromString,
                     response_serializer=controller__manager__pb2.GameplayDataUpdate.SerializeToString,
-            ),
-            'PairController': grpc.unary_unary_rpc_method_handler(
-                    servicer.PairController,
-                    request_deserializer=controller__manager__pb2.PairControllerRequest.FromString,
-                    response_serializer=controller__manager__pb2.PairControllerResponse.SerializeToString,
-            ),
-            'RemoveController': grpc.unary_unary_rpc_method_handler(
-                    servicer.RemoveController,
-                    request_deserializer=controller__manager__pb2.RemoveControllerRequest.FromString,
-                    response_serializer=controller__manager__pb2.RemoveControllerResponse.SerializeToString,
             ),
             'SetControllerColor': grpc.unary_unary_rpc_method_handler(
                     servicer.SetControllerColor,
@@ -265,60 +231,6 @@ class ControllerManagerService(object):
             '/joustmania.controller_manager.ControllerManagerService/StreamGameplayDataDynamic',
             controller__manager__pb2.GameplayStreamControl.SerializeToString,
             controller__manager__pb2.GameplayDataUpdate.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def PairController(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/joustmania.controller_manager.ControllerManagerService/PairController',
-            controller__manager__pb2.PairControllerRequest.SerializeToString,
-            controller__manager__pb2.PairControllerResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def RemoveController(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/joustmania.controller_manager.ControllerManagerService/RemoveController',
-            controller__manager__pb2.RemoveControllerRequest.SerializeToString,
-            controller__manager__pb2.RemoveControllerResponse.FromString,
             options,
             channel_credentials,
             insecure,

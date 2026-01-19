@@ -47,10 +47,12 @@ from services.controller_manager import metrics
 
 # Phase 57: Backend abstraction for platform independence
 from services.controller_manager.backend_factory import create_backend
+from services.controller_manager.button_detector import ButtonDetector
 from services.controller_manager.discovery import PeriodicRescanTimer
 from services.controller_manager.effects_base import ControllerEffectsBase
-from services.controller_manager.message_pool import MessagePool
+from services.controller_manager.event_publisher import EventPublisher as EventPublisherHelper
 from services.controller_manager.monitoring import ControllerMonitoring
+from services.controller_manager.state_cache import StateCache
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +97,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
         # Button event streaming (Phase 41, Phase 34: async queue and lock)
         self.button_event_subscribers: dict[str, asyncio.Queue] = {}
-        self.button_states: dict[str, dict[str, bool]] = {}  # {serial: {button_name: pressed}}
         self.button_event_lock = asyncio.Lock()
 
         # Delta update tracking (Phase 26 - Part 3)
@@ -103,14 +104,19 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Format: {subscriber_id: {serial: ControllerState}}
         self.last_sent_states: dict[str, dict[str, Any]] = {}
 
-        # State caching (Phase 18 - Task 1)
-        # Cache protobuf messages to avoid rebuilding on every frame
-        # Format: {serial: {'cached_state': ControllerState, 'snapshot_hash': str, 'dirty': bool}}
-        self.state_cache: dict[str, dict] = {}
+        # Event publisher for cross-thread communication (Phase refactor)
+        self.event_publisher = EventPublisherHelper()
 
-        # Protobuf object pools (Phase 18 - Task 3)
-        self.controller_state_pool = MessagePool(controller_manager_pb2.ControllerState, pool_size=10)
-        self.vector3_pool = MessagePool(controller_manager_pb2.Vector3, pool_size=20)
+        # State caching (Phase 18 - Task 1, refactored)
+        self.state_cache_manager = StateCache(self.monitoring)
+        self.state_cache_manager.set_controller_states(self.controller_states)
+
+        # Button detector for button transitions (Phase 41, refactored)
+        self.button_detector = ButtonDetector(self.event_publisher)
+        self.button_detector.set_subscribers(self.button_event_subscribers)
+
+        # Backward compatibility property for button_states
+        # button_states is now managed by button_detector
 
         # Controller effects (Phase 31 / Phase 40)
         # active_effects dict inherited from ControllerEffectsBase
@@ -146,8 +152,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         self._discovery_loop_handle: asyncio.AbstractEventLoop | None = None
 
         # Main event loop reference (for cross-thread queue operations)
-        # Set lazily when first gRPC handler runs
-        self._main_loop: asyncio.AbstractEventLoop | None = None
+        # Set lazily when first gRPC handler runs via event_publisher
 
         # Phase 72: LED update timing (separated from polling)
         self._last_led_update = 0.0
@@ -295,17 +300,15 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         del self.tracked_controllers[serial]
                     if serial in self.controller_states:
                         del self.controller_states[serial]
-                    if serial in self.state_cache:
-                        del self.state_cache[serial]
-                    if serial in self.button_states:
-                        del self.button_states[serial]
+                    self.state_cache_manager.clear_controller(serial)
+                    self.button_detector.clear_controller(serial)
                     # Note: Keep base_colors[serial] so we can restore on reconnect!
                     # Adaptive polling cleanup
                     self._last_activity_time.pop(serial, None)
                     self._previous_accel.pop(serial, None)
                     self._last_poll_time.pop(serial, None)
                 # Publish disconnect event to button event stream subscribers
-                self._publish_connection_event(serial, is_connect=False)
+                self.button_detector.publish_connection_event(serial, is_connect=False)
                 metrics.controller_disconnect_total.labels(serial=serial).inc()
 
             # Check for new controllers
@@ -325,7 +328,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                         # Publish connect event to button event stream subscribers
                         battery = self.tracked_controllers.get(serial, {}).get(ControllerInfoKey.BATTERY, 0)
-                        self._publish_connection_event(serial, is_connect=True, battery=battery)
+                        self.button_detector.publish_connection_event(serial, is_connect=True, battery=battery)
 
                         # Restore base color if we had one before (reconnection case)
                         if serial in self.base_colors:
@@ -449,7 +452,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                 # Detect button transitions immediately after polling (not in gRPC handlers)
                 # This ensures button events are detected at polling frequency, not stream frequency
-                self._detect_button_transitions_from_state(serial, state)
+                self.button_detector.detect_transitions_from_state(serial, state, self.tracked_controllers)
 
                 # Adaptive polling: Detect activity to update polling rate
                 self._update_activity_tracking(serial, state, current_time)
@@ -576,8 +579,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
         # Capture main event loop for cross-thread queue operations
         # The discovery thread needs this to safely publish events to async queues
-        if self._main_loop is None:
-            self._main_loop = asyncio.get_running_loop()
+        if self.event_publisher.main_loop is None:
+            self.event_publisher.set_main_loop(asyncio.get_running_loop())
 
         # Note: We manually manage the span instead of using context manager
         # because GeneratorExit during stream disconnect causes context token issues
@@ -738,7 +741,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                     gameplay_data = []
                     for serial, info in self.tracked_controllers.items():
                         # Get full controller state
-                        full_state = self._build_or_get_cached_state(serial, info)
+                        full_state = self.state_cache_manager.build_or_get_cached_state(serial, info)
 
                         # Convert to GameplayData (no buttons)
                         gd = controller_manager_pb2.GameplayData(
@@ -1035,7 +1038,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             continue  # Skip filtered controller
 
                         # Get full controller state
-                        full_state = self._build_or_get_cached_state(serial, info)
+                        full_state = self.state_cache_manager.build_or_get_cached_state(serial, info)
 
                         # Convert to GameplayData (no buttons)
                         gd = controller_manager_pb2.GameplayData(
@@ -1081,125 +1084,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             metrics.active_streams.dec()
 
             logger.info(f"Dynamic gameplay subscriber disconnected: {subscriber_id}")
-
-    async def PairController(self, request, context):
-        """Pair a new controller via backend (async)."""
-        with tracer.start_as_current_span("PairController") as span:
-            span.set_attribute("color_index", request.color_index)
-
-            try:
-                # Scan for available controllers
-                available = await self.backend.scan_controllers()
-
-                if not available:
-                    span.add_event("no_controllers_found")
-                    return controller_manager_pb2.PairControllerResponse(
-                        success=False, error="No controllers found. Put controller in pairing mode.", serial=""
-                    )
-
-                # Filter out already-tracked controllers
-                with self.state_lock:
-                    new_controllers = [c for c in available if c.get("serial") not in self.tracked_controllers]
-
-                if not new_controllers:
-                    span.add_event("all_controllers_already_paired")
-                    return controller_manager_pb2.PairControllerResponse(
-                        success=False, error="All discovered controllers are already paired.", serial=""
-                    )
-
-                # Connect to first available controller
-                controller = new_controllers[0]
-                address = controller.get("address", controller.get("serial"))
-
-                success = await self.backend.connect_controller(address)
-
-                if success:
-                    serial = controller.get("serial", address)
-                    span.add_event("controller_paired", {"serial": serial, "color_index": request.color_index})
-                    logger.info(f"Paired new controller: {serial}")
-                    return controller_manager_pb2.PairControllerResponse(success=True, error="", serial=serial)
-                span.add_event("connection_failed", {"address": address})
-                return controller_manager_pb2.PairControllerResponse(
-                    success=False, error=f"Failed to connect to controller at {address}", serial=""
-                )
-
-            except Exception as e:
-                span.record_exception(e)
-                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-                logger.error(f"PairController error: {e}", exc_info=True)
-                return controller_manager_pb2.PairControllerResponse(success=False, error=str(e), serial="")
-
-    async def RemoveController(self, request, context):
-        """Remove a controller (Phase 34: async for effect_lock)."""
-        with tracer.start_as_current_span("RemoveController") as span:
-            span.set_attribute("controller.serial", request.serial)
-
-            try:
-                serial = request.serial
-
-                with self.state_lock:
-                    if serial not in self.tracked_controllers:
-                        return controller_manager_pb2.RemoveControllerResponse(
-                            success=False, error=f"Controller {serial} not found"
-                        )
-
-                    # Stop process if running
-                    if serial in self.controller_processes:
-                        proc = self.controller_processes[serial]
-                        if proc.is_alive():
-                            proc.terminate()
-                            proc.join(timeout=2.0)
-                        del self.controller_processes[serial]
-
-                    # Cancel any active vibration timer
-                    if serial in self.vibration_timers:
-                        self.vibration_timers[serial].cancel()
-                        del self.vibration_timers[serial]
-
-                    # Remove from tracking
-                    del self.tracked_controllers[serial]
-
-                    if serial in self.controller_states:
-                        del self.controller_states[serial]
-
-                    # Clean up state cache (Phase 18 - Task 1)
-                    if serial in self.state_cache:
-                        del self.state_cache[serial]
-
-                    # Clean up button states
-                    if serial in self.button_states:
-                        del self.button_states[serial]
-
-                    # Phase XX: Clean up base colors
-                    if serial in self.base_colors:
-                        del self.base_colors[serial]
-
-                    # Clean up adaptive polling tracking data
-                    self._last_activity_time.pop(serial, None)
-                    self._previous_accel.pop(serial, None)
-                    self._last_poll_time.pop(serial, None)
-
-                # Cancel any active effects (Phase 31, Phase 34: async lock - outside state_lock)
-                async with self.effect_lock:
-                    if serial in self.active_effects:
-                        self.active_effects[serial].cancel()
-                        del self.active_effects[serial]
-
-                # Update metrics (Phase 38)
-                metrics.active_controllers.dec()
-                metrics.controller_connected.labels(serial=serial).set(0)
-                metrics.controller_disconnect_total.labels(serial=serial).inc()
-
-                span.add_event("controller_removed", {"serial": serial})
-                logger.info(f"Removed controller {serial}")
-
-                return controller_manager_pb2.RemoveControllerResponse(success=True, error="")
-
-            except Exception as e:
-                span.record_exception(e)
-                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-                logger.error(f"RemoveController error: {e}", exc_info=True)
-                return controller_manager_pb2.RemoveControllerResponse(success=False, error=str(e))
 
     async def SetControllerColor(self, request, context):
         """Set LED color on controller(s) - Phase 19 feedback feature, Phase 57 backend (async)."""
@@ -1990,8 +1874,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             trigger, move, cross, circle, square, triangle, ps, select, start: Current button states
         """
         # Initialize button state tracking for this controller if needed (no lock - atomic dict ops)
-        if serial not in self.button_states:
-            self.button_states[serial] = {
+        if serial not in self.button_detector.button_states:
+            self.button_detector.button_states[serial] = {
                 ButtonTrackingKey.TRIGGER: False,
                 ButtonTrackingKey.MOVE: False,
                 ButtonTrackingKey.CROSS: False,
@@ -2004,7 +1888,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             }
             logger.info(f"Initialized button tracking for {serial} (current: move={move}, trigger={trigger})")
 
-        prev_states = self.button_states[serial]
+        prev_states = self.button_detector.button_states[serial]
 
         current_states = {
             ButtonTrackingKey.TRIGGER: trigger,

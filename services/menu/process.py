@@ -256,12 +256,18 @@ class MenuProcess(Process):
         # Stop menu
         self.menu_running = False
 
+        # Import Games enum to check for Random mode
+        from common import Games
+
+        # Detect if Random mode is selected
+        is_random_mode = self.game_mode == Games.Random if self.game_mode else False
+
         # Send game_requested event
         self.send_event(
             "game_requested",
             {
                 "game_mode": self.game_mode.name if self.game_mode else "JoustFFA",
-                "random_mode": False,  # TODO: Detect random mode
+                "random_mode": is_random_mode,
                 "force_all": False,  # TODO: Get from settings
             },
         )

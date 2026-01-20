@@ -16,6 +16,14 @@ ARG BUILDER_IMAGE=joustmania/builder:latest
 ARG PSMOVE_BUILDER_IMAGE=joustmania/psmove-builder:latest
 
 # =============================================================================
+# Stage 0: Download grpc-health-probe binary
+# =============================================================================
+FROM busybox:1.36 AS healthprobe
+ARG GRPC_HEALTH_PROBE_VERSION=v0.4.25
+RUN wget -qO/grpc_health_probe https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-amd64 && \
+    chmod +x /grpc_health_probe
+
+# =============================================================================
 # Stage 1: PS Move API - use pre-built image
 # =============================================================================
 FROM ${PSMOVE_BUILDER_IMAGE} AS psmove-builder
@@ -79,6 +87,9 @@ COPY --from=psmove-builder /psmove/libpsmoveapi.so /usr/local/lib/
 # Update library cache so _psmove.so can find libpsmoveapi.so
 RUN ldconfig
 
+# Copy grpc-health-probe binary
+COPY --from=healthprobe /grpc_health_probe /bin/grpc_health_probe
+
 # Copy application code
 COPY --from=python-builder /app/pyproject.toml /app/
 COPY proto/ /app/proto/
@@ -106,9 +117,9 @@ EXPOSE 8000
 # Note: Controller manager needs privileged access for bluetooth
 # Run with: docker run --privileged or docker-compose privileged: true
 
-# Health check
+# Health check using grpc-health-probe
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import grpc; channel = grpc.insecure_channel('localhost:50052'); channel.channel_ready()" || exit 1
+    CMD ["/bin/grpc_health_probe", "-addr=:50052"]
 
 # Run the server
 CMD ["python", "services/controller_manager/server.py"]

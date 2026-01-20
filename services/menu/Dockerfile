@@ -9,6 +9,12 @@
 # Builder image - override with --build-arg BUILDER_IMAGE=...
 ARG BUILDER_IMAGE=joustmania/builder:latest
 
+# Download grpc-health-probe for health checks
+FROM busybox:1.36 AS healthprobe
+ARG GRPC_HEALTH_PROBE_VERSION=v0.4.25
+RUN wget -qO/grpc_health_probe https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-amd64 && \
+    chmod +x /grpc_health_probe
+
 # Build stage - uses pre-cached builder with common dependencies
 FROM ${BUILDER_IMAGE} AS builder
 
@@ -29,13 +35,16 @@ COPY services/menu/pyproject.toml /app/services/menu/
 WORKDIR /app/services/menu
 RUN uv pip install --system -e .
 
-# Runtime stage - slim image without build tools
-FROM python:3.11-slim
+# Runtime stage - distroless image for minimal size and attack surface
+FROM gcr.io/distroless/python3-debian12
 
 WORKDIR /app
 
-# Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+# Copy grpc-health-probe for health checks
+COPY --from=healthprobe /grpc_health_probe /bin/grpc_health_probe
+
+# Copy installed packages from builder to distroless stdlib location
+COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/lib/python3.11/
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
@@ -44,7 +53,7 @@ COPY proto/ /app/proto/
 COPY lib/ /app/lib/
 COPY services/menu/ /app/services/menu/
 
-# Set Python path
+# Set Python path for application code
 ENV PYTHONPATH=/app
 # Ensure Python uses bytecode cache for faster imports (Phase 47)
 ENV PYTHONDONTWRITEBYTECODE=0
@@ -62,9 +71,9 @@ EXPOSE 50054
 # Expose Prometheus metrics port (Phase 38)
 EXPOSE 8000
 
-# Health check
+# Health check using grpc-health-probe (proper gRPC health checking)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import grpc; channel = grpc.insecure_channel('localhost:50054'); channel.channel_ready()" || exit 1
+    CMD ["/bin/grpc_health_probe", "-addr=:50054"]
 
-# Run the server
-CMD ["python", "services/menu/server.py"]
+# Run the server (distroless has python as entrypoint)
+CMD ["services/menu/server.py"]

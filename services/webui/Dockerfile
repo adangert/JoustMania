@@ -9,6 +9,9 @@
 # Builder image - override with --build-arg BUILDER_IMAGE=...
 ARG BUILDER_IMAGE=joustmania/builder:latest
 
+# Get wget for HTTP health checks (static binary from busybox)
+FROM busybox:1.36 AS healthcheck-tools
+
 # Build stage - uses pre-cached builder with common dependencies
 FROM ${BUILDER_IMAGE} AS builder
 
@@ -29,13 +32,16 @@ COPY services/webui/pyproject.toml /app/services/webui/
 WORKDIR /app/services/webui
 RUN uv pip install --system -e .
 
-# Runtime stage - slim image without build tools
-FROM python:3.11-slim
+# Runtime stage - distroless image for minimal size and attack surface
+FROM gcr.io/distroless/python3-debian12
 
 WORKDIR /app
 
-# Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+# Copy wget for health checks
+COPY --from=healthcheck-tools /bin/wget /bin/wget
+
+# Copy installed packages from builder to distroless stdlib location
+COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/lib/python3.11/
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
@@ -45,7 +51,7 @@ COPY lib/ /app/lib/
 # Includes templates/ and static/
 COPY services/webui/ /app/services/webui/
 
-# Set Python path
+# Set Python path for application code
 ENV PYTHONPATH=/app
 # Ensure Python uses bytecode cache for faster imports (Phase 47)
 ENV PYTHONDONTWRITEBYTECODE=0
@@ -69,9 +75,9 @@ EXPOSE 80
 # Expose Prometheus metrics port (Phase 38)
 EXPOSE 8000
 
-# Health check
+# Health check using wget (HTTP)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:80/').read()" || exit 1
+    CMD ["/bin/wget", "-q", "--spider", "http://localhost:80/"]
 
-# Run the server
-CMD ["python", "services/webui/server.py"]
+# Run the server (distroless has python as entrypoint)
+CMD ["services/webui/server.py"]

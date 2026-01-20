@@ -88,6 +88,14 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Event publisher for cross-thread communication (Phase refactor)
         self.event_publisher = EventPublisherHelper()
 
+        # Monitoring (battery and RSSI) - Phase 39, Phase 48, extracted to monitoring.py
+        # NOTE: Must be initialized before StateCache which depends on it
+        self.monitoring = ControllerMonitoring(
+            low_battery_threshold=1,
+            rssi_check_interval=10.0,
+            weak_signal_threshold=-80,
+        )
+
         # State caching (Phase 18 - Task 1, refactored)
         self.state_cache_manager = StateCache(self.monitoring)
         self.state_cache_manager.set_controller_states(self.controller_states)
@@ -95,13 +103,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Button detector for button transitions (Phase 41, refactored)
         self.button_detector = ButtonDetector(self.event_publisher)
         self.button_detector.set_subscribers(self.button_event_subscribers)
-
-        # Monitoring (battery and RSSI) - Phase 39, Phase 48, extracted to monitoring.py
-        self.monitoring = ControllerMonitoring(
-            low_battery_threshold=1,
-            rssi_check_interval=10.0,
-            weak_signal_threshold=-80,
-        )
 
         # Feedback manager for LED colors, vibration, and effects (Phase refactor)
         self.feedback_manager = FeedbackManager(
@@ -117,8 +118,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         self.active_effect_types = self.feedback_manager.active_effect_types
         self.cancellable_effects = self.feedback_manager.cancellable_effects
 
-        # Vibration duration timers - tracks active vibration timers per controller
-        self.vibration_timers: dict[str, threading.Timer] = {}
+        # Vibration tasks - tracks active asyncio vibration tasks per controller (Phase 57)
+        self.vibration_tasks: dict[str, asyncio.Task] = {}
 
         # Phase 79: Periodic rescan timer for externally paired controllers
         self.rescan_timer = PeriodicRescanTimer(interval=5.0)
@@ -145,6 +146,18 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         self.backend_initialized = self.discovery_loop.backend_initialized
 
         logger.info("ControllerManager initialized")
+
+    async def _set_led_color(self, serial: str, color: tuple[int, int, int]):
+        """Set LED color on a controller (async).
+
+        Implements abstract method from ControllerEffectsBase.
+        Delegates to feedback_manager for actual LED control.
+
+        Args:
+            serial: Controller serial number
+            color: RGB tuple (0-255, 0-255, 0-255)
+        """
+        await self.feedback_manager._set_led_color(serial, color)
 
     async def StreamButtonEvents(self, request_iterator, context):  # noqa: N802, ARG002
         """
@@ -736,11 +749,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         controller_exists = serial in self.tracked_controllers
                         if not controller_exists:
                             continue
-
-                        # Cancel any existing vibration timer for this controller (under lock)
-                        if serial in self.vibration_timers:
-                            self.vibration_timers[serial].cancel()
-                            del self.vibration_timers[serial]
 
                     success = await self.backend.set_rumble(serial, request.intensity)
                     if success:

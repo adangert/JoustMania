@@ -12,12 +12,12 @@
 # Usage in audio Dockerfile:
 #   FROM joustmania/pygame-builder:latest AS pygame-builder
 #   ...
-#   COPY --from=pygame-builder /pygame /usr/local/lib/python3.12/site-packages/pygame
+#   COPY --from=pygame-builder /pygame /usr/local/lib/python3.11/site-packages/pygame
 #
 # Build time: ~2-5 minutes on Pi, ~30 seconds on fast hardware
 # Output size: ~15MB of compiled libraries
 
-FROM python:3.12-slim
+FROM python:3.11-slim
 
 LABEL org.opencontainers.image.source="https://github.com/adangert/JoustMania"
 LABEL org.opencontainers.image.description="JoustMania Pygame builder image"
@@ -52,7 +52,7 @@ RUN python -c "import pygame; print(f'pygame version: {pygame.version.ver}')"
 # Stage output files to a clean location for easy COPY
 # Copy the entire pygame package including bundled SDL2 libs
 RUN mkdir -p /pygame && \
-    cp -r /usr/local/lib/python3.12/site-packages/pygame/* /pygame/
+    cp -r /usr/local/lib/python3.11/site-packages/pygame/* /pygame/
 
 # The output directory for consumers
 WORKDIR /pygame

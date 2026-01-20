@@ -56,7 +56,7 @@ RUN pip install --no-cache-dir \
     pyalsaaudio>=0.11.0
 
 # Runtime stage - slim image without build tools
-FROM python:3.12-slim
+FROM python:3.11-slim
 
 # Install runtime dependencies for SDL audio and tempo control
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -71,11 +71,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy installed packages from builder (everything except pygame)
-COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy pre-compiled pygame from pygame-builder
-COPY --from=pygame-builder /pygame /usr/local/lib/python3.12/site-packages/pygame
+COPY --from=pygame-builder /pygame /usr/local/lib/python3.11/site-packages/pygame
 
 # Copy application code
 COPY proto/ /app/proto/

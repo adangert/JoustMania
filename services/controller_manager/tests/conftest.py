@@ -1,5 +1,15 @@
+"""
+Pytest fixtures for controller_manager tests.
+"""
+
+import pytest
+
+
 class FakeMove:
-    """Mock Move controller for testing."""
+    """Mock PS Move controller for testing without hardware.
+
+    Simulates the psmove API for unit testing controller logic.
+    """
 
     def __init__(self):
         self.accel = (0, 0, 0)
@@ -14,8 +24,8 @@ class FakeMove:
         self.rumble_intensity = 0
         self.leds_updated = False
 
-    # Alternate yes/no returns to simulate draining the move's event queue.
     def poll(self):
+        """Alternate yes/no returns to simulate draining the move's event queue."""
         self.last_poll_ = not self.last_poll_
         return self.last_poll_
 
@@ -45,10 +55,25 @@ class FakeMove:
     def set_rumble(self, intensity):
         self.rumble_intensity = intensity
 
+    # Test helpers
     def set_accelerometer(self, x, y, z):
-        """Test helper to set accelerometer values."""
+        """Set accelerometer values for testing."""
         self.accel = (x, y, z)
 
     def set_gyroscope(self, x, y, z):
-        """Test helper to set gyroscope values."""
+        """Set gyroscope values for testing."""
         self.gyro = (x, y, z)
+
+    def set_buttons(self, buttons):
+        """Set button state for testing."""
+        self.buttons = buttons
+
+    def set_trigger(self, value):
+        """Set trigger value for testing."""
+        self.trigger = value
+
+
+@pytest.fixture
+def fake_move():
+    """Provide a FakeMove instance for testing."""
+    return FakeMove()

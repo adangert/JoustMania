@@ -111,13 +111,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             state_lock=self.state_lock,
         )
 
-        # Backward compatibility aliases (will be removed in later phases)
-        self.effect_lock = self.feedback_manager.effect_lock
-        self.base_colors = self.feedback_manager.base_colors
-        self.active_effects = self.feedback_manager.active_effects
-        self.active_effect_types = self.feedback_manager.active_effect_types
-        self.cancellable_effects = self.feedback_manager.cancellable_effects
-
         # Vibration tasks - tracks active asyncio vibration tasks per controller (Phase 57)
         self.vibration_tasks: dict[str, asyncio.Task] = {}
 
@@ -136,14 +129,10 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             monitoring=self.monitoring,
             rescan_timer=self.rescan_timer,
             paired_serials=self.paired_serials,
-            base_colors=self.base_colors,
+            base_colors=self.feedback_manager.base_colors,
             event_publisher=self.event_publisher,
         )
         self.discovery_loop.start()
-
-        # Backward compatibility aliases
-        self.running = self.discovery_loop.running
-        self.backend_initialized = self.discovery_loop.backend_initialized
 
         logger.info("ControllerManager initialized")
 
@@ -222,24 +211,24 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                         if serial and serial in self.tracked_controllers:
                             # Only cancel effect if it's marked as cancellable
-                            async with self.effect_lock:
-                                if serial in self.active_effects:
-                                    effect_type = self.active_effect_types.get(serial)
-                                    if effect_type in self.cancellable_effects:
-                                        self.active_effects[serial].cancel()
+                            async with self.feedback_manager.effect_lock:
+                                if serial in self.feedback_manager.active_effects:
+                                    effect_type = self.feedback_manager.active_effect_types.get(serial)
+                                    if effect_type in self.feedback_manager.cancellable_effects:
+                                        self.feedback_manager.active_effects[serial].cancel()
                                         with contextlib.suppress(asyncio.CancelledError):
-                                            await self.active_effects[serial]
-                                        del self.active_effects[serial]
-                                        self.active_effect_types.pop(serial, None)
+                                            await self.feedback_manager.active_effects[serial]
+                                        del self.feedback_manager.active_effects[serial]
+                                        self.feedback_manager.active_effect_types.pop(serial, None)
                                         # Clear effect active flag
                                         self.backend.set_effect_active(serial, False)
                                         logger.debug(f"Cancelled cancellable effect for {serial}")
 
                             # Store base color (will be used when effect completes)
-                            self.base_colors[serial] = color
+                            self.feedback_manager.base_colors[serial] = color
 
                             # Only set LED immediately if no effect is running
-                            if serial not in self.active_effects:
+                            if serial not in self.feedback_manager.active_effects:
                                 await self.feedback_manager.set_controller_color(serial, color)
 
                             logger.debug(f"[{subscriber_id}] Base color set: serial={serial}, rgb={color}")
@@ -421,7 +410,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                                     current_filter.add(serial)
                                     # Store base color and set LED
                                     color = (color_config.color.r, color_config.color.g, color_config.color.b)
-                                    self.base_colors[serial] = color
+                                    self.feedback_manager.base_colors[serial] = color
                                     if serial in self.tracked_controllers:
                                         await self.feedback_manager.set_controller_color(serial, color)
                             logger.info(f"[{subscriber_id}] Set base colors for {len(current_filter)} controllers")
@@ -570,24 +559,24 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                         if serial and serial in self.tracked_controllers:
                             # Only cancel effect if it's marked as cancellable
-                            async with self.effect_lock:
-                                if serial in self.active_effects:
-                                    effect_type = self.active_effect_types.get(serial)
-                                    if effect_type in self.cancellable_effects:
-                                        self.active_effects[serial].cancel()
+                            async with self.feedback_manager.effect_lock:
+                                if serial in self.feedback_manager.active_effects:
+                                    effect_type = self.feedback_manager.active_effect_types.get(serial)
+                                    if effect_type in self.feedback_manager.cancellable_effects:
+                                        self.feedback_manager.active_effects[serial].cancel()
                                         with contextlib.suppress(asyncio.CancelledError):
-                                            await self.active_effects[serial]
-                                        del self.active_effects[serial]
-                                        self.active_effect_types.pop(serial, None)
+                                            await self.feedback_manager.active_effects[serial]
+                                        del self.feedback_manager.active_effects[serial]
+                                        self.feedback_manager.active_effect_types.pop(serial, None)
                                         # Clear effect active flag
                                         self.backend.set_effect_active(serial, False)
                                         logger.debug(f"Cancelled cancellable effect for {serial}")
 
                             # Store base color (will be used when effect completes)
-                            self.base_colors[serial] = color
+                            self.feedback_manager.base_colors[serial] = color
 
                             # Only set LED immediately if no effect is running
-                            if serial not in self.active_effects:
+                            if serial not in self.feedback_manager.active_effects:
                                 await self.feedback_manager.set_controller_color(serial, color)
 
                             logger.debug(f"[{subscriber_id}] Base color set: serial={serial}, rgb={color}")
@@ -828,12 +817,12 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         continue
 
                     # Cancel any existing effect on this controller (Phase 34: async lock)
-                    async with self.effect_lock:
-                        if serial in self.active_effects:
-                            self.active_effects[serial].cancel()
+                    async with self.feedback_manager.effect_lock:
+                        if serial in self.feedback_manager.active_effects:
+                            self.feedback_manager.active_effects[serial].cancel()
                             with contextlib.suppress(asyncio.CancelledError):
-                                await self.active_effects[serial]
-                            del self.active_effects[serial]
+                                await self.feedback_manager.active_effects[serial]
+                            del self.feedback_manager.active_effects[serial]
 
                     # Start the appropriate effect (methods inherited from ControllerEffectsBase - Phase 40)
                     if request.effect == controller_manager_pb2.EFFECT_NONE:
@@ -842,28 +831,28 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                     elif request.effect == controller_manager_pb2.EFFECT_FLASH:
                         task = asyncio.create_task(self._effect_flash(serial, color, duration_ms, speed))
-                        async with self.effect_lock:  # Phase 34: async lock
-                            self.active_effects[serial] = task
+                        async with self.feedback_manager.effect_lock:  # Phase 34: async lock
+                            self.feedback_manager.active_effects[serial] = task
 
                     elif request.effect == controller_manager_pb2.EFFECT_PULSE:
                         task = asyncio.create_task(self._effect_pulse(serial, color, duration_ms, speed))
-                        async with self.effect_lock:  # Phase 34: async lock
-                            self.active_effects[serial] = task
+                        async with self.feedback_manager.effect_lock:  # Phase 34: async lock
+                            self.feedback_manager.active_effects[serial] = task
 
                     elif request.effect == controller_manager_pb2.EFFECT_RAINBOW:
                         task = asyncio.create_task(self._effect_rainbow(serial, duration_ms, speed))
-                        async with self.effect_lock:  # Phase 34: async lock
-                            self.active_effects[serial] = task
+                        async with self.feedback_manager.effect_lock:  # Phase 34: async lock
+                            self.feedback_manager.active_effects[serial] = task
 
                     elif request.effect == controller_manager_pb2.EFFECT_FADE_OUT:
                         task = asyncio.create_task(self._effect_fade_out(serial, color, duration_ms))
-                        async with self.effect_lock:  # Phase 34: async lock
-                            self.active_effects[serial] = task
+                        async with self.feedback_manager.effect_lock:  # Phase 34: async lock
+                            self.feedback_manager.active_effects[serial] = task
 
                     elif request.effect == controller_manager_pb2.EFFECT_FADE_IN:
                         task = asyncio.create_task(self._effect_fade_in(serial, color, duration_ms))
-                        async with self.effect_lock:  # Phase 34: async lock
-                            self.active_effects[serial] = task
+                        async with self.feedback_manager.effect_lock:  # Phase 34: async lock
+                            self.feedback_manager.active_effects[serial] = task
 
                     else:
                         logger.warning(f"Unknown effect: {effect_name}")

@@ -1,780 +1,422 @@
 # JoustMania Architecture
 
-**Cloud-Native Microservices Architecture for PS Move Motion Gaming**
-
----
+This document provides a comprehensive overview of the JoustMania microservices architecture.
 
 ## Overview
 
-JoustMania is a cloud-native microservices-based motion gaming platform for PlayStation Move controllers. This document describes the architecture, design decisions, and communication patterns of the refactored system.
+JoustMania is a party game system for PS Move controllers, built as a collection of microservices communicating via gRPC. The architecture supports:
 
-### Key Characteristics
+- Real-time controller input processing (1000Hz hardware polling)
+- Multiple game modes with different rules
+- Web-based administration
+- Distributed tracing and observability
 
-- **Microservices:** 7 independent services with clear boundaries
-- **Communication:** gRPC with Protocol Buffers for inter-service communication
-- **Observability:** OpenTelemetry instrumentation with Jaeger distributed tracing
-- **Deployment:** Docker Compose (development), Kubernetes-ready (future)
-- **Hardware Integration:** Privileged containers for PS Move controller access
+## Service Diagram
 
----
-
-## High-Level Architecture
-
-```mermaid
-graph TB
-    subgraph "User Interfaces"
-        WebUI[Web UI :80]
-        Controllers[PS Move Controllers]
-    end
-
-    subgraph "Application Services"
-        Menu[Menu Service :50054]
-        GameCoordinator[Game Coordinator :50053]
-    end
-
-    subgraph "Infrastructure Services"
-        Settings[Settings Service :50051]
-        ControllerManager[Controller Manager :50052<br/>privileged]
-        Supervisor[Supervisor :50055]
-        Audio[Audio Service :50056<br/>privileged]
-    end
-
-    subgraph "Observability Stack"
-        OTel[OpenTelemetry Collector]
-        Jaeger[Jaeger UI :16686]
-        Prometheus[Prometheus Metrics :8888]
-    end
-
-    subgraph "Data Layer"
-        Redis[(Redis :6379)]
-    end
-
-    Controllers -->|USB/Bluetooth| ControllerManager
-    WebUI --> Settings
-    WebUI --> ControllerManager
-    WebUI --> Menu
-    WebUI --> Supervisor
-    Menu --> Settings
-    Menu --> ControllerManager
-    Menu --> GameCoordinator
-    GameCoordinator --> Settings
-    GameCoordinator --> ControllerManager
-    GameCoordinator --> Audio
-    Supervisor --> Settings
-    Supervisor --> ControllerManager
-    Supervisor --> GameCoordinator
-    Supervisor --> Menu
-
-    Settings -.->|traces| OTel
-    ControllerManager -.->|traces| OTel
-    GameCoordinator -.->|traces| OTel
-    Menu -.->|traces| OTel
-    Supervisor -.->|traces| OTel
-    WebUI -.->|traces| OTel
-    Audio -.->|traces| OTel
-
-    OTel --> Jaeger
-    OTel --> Prometheus
-
-    style ControllerManager fill:#ff9999
-    style Audio fill:#ff9999
+```
+                              ┌──────────────┐
+                              │   Web UI     │ :80
+                              │   (Flask)    │
+                              └──────┬───────┘
+                                     │ HTTP + gRPC
+       ┌─────────────────────────────┼─────────────────────────────┐
+       │                             │                             │
+       ▼                             ▼                             ▼
+┌──────────────┐          ┌──────────────────┐          ┌──────────────┐
+│   Settings   │◄─────────│    Supervisor    │─────────►│    Menu      │
+│   :50051     │          │    :50055        │          │   :50054     │
+└──────────────┘          └────────┬─────────┘          └──────┬───────┘
+       ▲                           │                           │
+       │                           │ orchestrates              │
+       │                           ▼                           │
+       │                  ┌──────────────────┐                 │
+       └──────────────────│ Game Coordinator │◄────────────────┘
+                          │     :50053       │
+                          └────────┬─────────┘
+                                   │
+              ┌────────────────────┼────────────────────┐
+              │                    │                    │
+              ▼                    ▼                    ▼
+     ┌──────────────┐    ┌──────────────────┐   ┌──────────────┐
+     │    Audio     │    │ Controller Mgr   │   │  Bluetooth   │
+     │   :50056     │    │     :50052       │   │  Hardware    │
+     └──────────────┘    └────────┬─────────┘   └──────────────┘
+                                  │
+                           USB/Bluetooth
+                                  │
+                         ┌────────┴────────┐
+                         │  PS Move        │
+                         │  Controllers    │
+                         └─────────────────┘
 ```
 
----
+## Services
 
-## Microservices
+### Settings Service (Port 50051)
 
-### 1. Settings Service (Port 50051)
+**Purpose**: Centralized configuration management
 
-**Purpose:** Centralized settings management with validation and change notifications
-
-**Responsibilities:**
-- Load/save settings from YAML file atomically
+**Responsibilities**:
+- Load/save settings from YAML file
 - Schema-based validation
-- Publish setting changes via gRPC streaming
-- Maintain settings as source of truth
+- Publish setting changes via streaming
+- Single source of truth for configuration
 
-**Technology:**
-- Python 3.11
-- gRPC server
-- YAML persistence
-- OpenTelemetry instrumentation
+**Key RPCs**:
+| RPC | Type | Description |
+|-----|------|-------------|
+| `GetSettings` | Unary | Get all settings |
+| `GetSetting` | Unary | Get single setting by key |
+| `UpdateSetting` | Unary | Update a setting value |
+| `SubscribeToChanges` | Server Stream | Real-time setting change notifications |
 
-**Key RPCs:**
-- `GetSettings` - Retrieve all settings
-- `GetSetting` - Retrieve specific setting
-- `UpdateSetting` - Update with validation
-- `SubscribeToChanges` - Stream setting changes
-
-**Dependencies:** None (foundational service)
+**Dependencies**: None (foundational service)
 
 ---
 
-### 2. Controller Manager Service (Port 50052, Privileged)
+### Controller Manager Service (Port 50052)
 
-**Purpose:** PS Move controller I/O and lifecycle management
+**Purpose**: PS Move controller hardware management
 
-**Responsibilities:**
+**Responsibilities**:
 - Hardware discovery (USB/Bluetooth)
-- Controller pairing via BlueZ (D-Bus)
-- Real-time controller state streaming (1000Hz hardware polling)
-- Controller process spawning and lifecycle
-- Graceful mock mode when hardware unavailable
+- Controller pairing via BlueZ
+- Real-time state streaming (1000Hz polling → 60Hz stream)
+- LED control and visual effects
+- Vibration feedback
+- Button event detection
 
-**Technology:**
-- Python 3.11
-- gRPC server with streaming
-- PS Move API (C library, Python bindings)
-- BlueZ/D-Bus for Bluetooth
-- Privileged container (USB, Bluetooth access)
-- OpenTelemetry instrumentation
+**Key RPCs**:
+| RPC | Type | Description |
+|-----|------|-------------|
+| `StreamButtonEvents` | Bidirectional | Button events + LED control commands |
+| `StreamGameplayData` | Server Stream | Motion data (accel/gyro) |
+| `StreamGameplayDataDynamic` | Bidirectional | Filtered motion data + feedback commands |
+| `SetControllerColor` | Unary | Set LED color |
+| `PlayControllerEffect` | Unary | Trigger visual effect (flash, pulse, rainbow) |
+| `SetControllerVibration` | Unary | Set rumble intensity |
 
-**Key RPCs:**
-- `StreamButtonEvents` - Bidirectional stream for button events and LED control
-- `StreamGameplayData` - Gameplay data stream (acceleration/gyro)
-- `StreamGameplayDataDynamic` - Bidirectional stream with dynamic filtering
-- `SetControllerColor` - Set LED color
-- `PlayControllerEffect` - Visual effects (flash, pulse, rainbow)
+**Backends**:
+- `bluetooth` - Linux BlueZ (production)
+- `windows` - psmoveapi (Windows)
+- `mock` - Simulated controllers (testing)
 
-**Hardware Requirements:**
-- PS Move controllers
-- USB Bluetooth adapter (recommended)
-- `/dev/bus/usb` access
-- D-Bus system bus access
+**Special Features**:
+- Adaptive polling: 60Hz active, 10Hz idle
+- LED batch updates at 20Hz
+- Effect priority system (cancellable vs non-cancellable)
 
-**Dependencies:** Settings (for configuration)
+**Dependencies**: Settings
 
 ---
 
-### 3. Game Coordinator Service (Port 50053)
+### Game Coordinator Service (Port 50053)
 
-**Purpose:** Game lifecycle management and event publishing
+**Purpose**: Game lifecycle and rules management
 
-**Responsibilities:**
+**Responsibilities**:
 - Start/stop games
-- Game state machine management
-- Game event streaming (player deaths, wins, etc.)
-- Game mode selection (13 modes supported)
-- Game timer and pace management
+- Game state machine (IDLE → STARTING → RUNNING → ENDING → ENDED)
+- Death detection based on movement thresholds
+- Game event streaming
+- Support for 13 game modes
 
-**Technology:**
-- Python 3.11
-- gRPC server with streaming
-- OpenTelemetry instrumentation
-- Game implementations in `games/` directory
+**Game Modes**:
+- JoustFFA, JoustTeams, JoustRandomTeams
+- Werewolf, Traitor, Zombies
+- Commander, Swapper
+- Tournament, FightClub
+- NonStop, Ninja
+- Random
 
-**Key RPCs:**
-- `StartGame` - Start game with specific mode
-- `GetGameStatus` - Current game state
-- `ForceEndGame` - Terminate running game
-- `StreamGameEvents` - Real-time game event stream
+**Key RPCs**:
+| RPC | Type | Description |
+|-----|------|-------------|
+| `StartGame` | Unary | Start a game with specified mode |
+| `ForceEndGame` | Unary | Force end current game |
+| `StreamGameEvents` | Server Stream | Game lifecycle events |
 
-**Game State Machine:**
-```mermaid
-stateDiagram-v2
-    [*] --> IDLE
-    IDLE --> STARTING: StartGame()
-    STARTING --> RUNNING: Countdown complete
-    RUNNING --> ENDING: Win condition met
-    RUNNING --> ENDING: ForceEndGame()
-    ENDING --> ENDED: Cleanup complete
-    ENDED --> IDLE: Ready for next game
-```
-
-**Supported Game Modes:**
-- Joust FFA (Free-for-All)
-- Joust Teams
-- Joust Random Teams
-- Traitor
-- Swapper
-- Fight Club
-- Tournament
-- Werewolf
-- Zombies
-- Commander
-- Non-Stop Joust
-- Ninja/Speed Bomb
-- Random (picks random mode)
-
-**Dependencies:** Settings, ControllerManager, Audio
+**Dependencies**: Settings, ControllerManager, Audio
 
 ---
 
-### 4. Menu Service (Port 50054)
+### Menu Service (Port 50054)
 
-**Purpose:** Menu UI and game selection navigation
+**Purpose**: Menu UI and game selection
 
-**Responsibilities:**
+**Responsibilities**:
 - Menu state management
-- Process controller inputs (button presses)
-- Game mode selection
-- Team selection
-- Admin controls
-- Menu event publishing
+- Process controller button inputs
+- Game mode selection cycling
+- Team assignment
+- Admin mode controls
+- LED feedback based on state
+- Auto-start when all players ready
 
-**Technology:**
-- Python 3.11
-- gRPC server with streaming
-- OpenTelemetry instrumentation
+**Key RPCs**:
+| RPC | Type | Description |
+|-----|------|-------------|
+| `StartMenu` | Unary | Start menu mode |
+| `StopMenu` | Unary | Stop menu mode |
+| `GetMenuStatus` | Unary | Get current menu state |
+| `ProcessInput` | Unary | Process button input |
+| `StreamMenuEvents` | Server Stream | Menu state change events |
 
-**Key RPCs:**
-- `StartMenu` - Start menu loop
-- `StopMenu` - Stop menu
-- `GetMenuStatus` - Current menu state
-- `ProcessInput` - Handle button press or web command
-- `StreamMenuEvents` - Real-time menu event stream
+**Admin Mode**: Press all 4 face buttons simultaneously
+- White LED indicator
+- 60 second timeout
+- Configure teams, sensitivity, force_all_start
 
-**Menu State Machine:**
-```mermaid
-stateDiagram-v2
-    [*] --> STOPPED
-    STOPPED --> RUNNING: StartMenu()
-    RUNNING --> GAME_STARTING: Game selected
-    GAME_STARTING --> RUNNING: Game ends
-    RUNNING --> STOPPED: StopMenu()
-```
-
-**Dependencies:** Settings, ControllerManager, GameCoordinator
+**Dependencies**: Settings, ControllerManager, GameCoordinator
 
 ---
 
-### 5. Supervisor Service (Port 50055)
+### Supervisor Service (Port 50055)
 
-**Purpose:** Service health monitoring and orchestration
+**Purpose**: Service orchestration and health monitoring
 
-**Responsibilities:**
-- Monitor service health (5s interval)
-- Track service uptime and restart counts
-- Provide system-wide health summary
-- Stream process status updates
+**Type**: Pure gRPC client (orchestrator)
 
-**Technology:**
-- Python 3.11
-- gRPC server with streaming
-- OpenTelemetry instrumentation
+**Responsibilities**:
+- Subscribe to Menu events
+- Orchestrate game starts via GameCoordinator
+- Propagate distributed tracing context
+- Expose gRPC Health service for probes
 
-**Key RPCs:**
-- `GetProcessStatus` - Status of specific service
-- `GetAllProcessStatus` - Status of all monitored services
-- `RestartProcess` - Trigger service restart (future)
-- `GetHealthSummary` - System-wide health overview
-- `StreamProcessUpdates` - Real-time health updates
-
-**Monitored Services:**
-- Settings
-- ControllerManager
-- GameCoordinator
-- Menu
-
-**Dependencies:** All application services (monitors them)
+**Dependencies**: All services
 
 ---
 
-### 6. Web UI Service (Port 80)
+### Audio Service (Port 50056)
 
-**Purpose:** HTTP web interface for JoustMania control
+**Purpose**: Audio playback and mixing
 
-**Responsibilities:**
-- Serve web UI (HTML/CSS/JS)
-- Provide REST-like HTTP endpoints
-- Act as gRPC client to backend services
-- Display battery status, game selection, settings
-
-**Technology:**
-- Python 3.11
-- Flask web framework
-- gRPC clients for all backend services
-- OpenTelemetry instrumentation
-
-**Key Routes:**
-- `/` - Main dashboard
-- `/settings` - Settings management
-- `/battery` - Controller battery status
-- `/start_game/<mode>` - Start game via HTTP
-- `/kill_game` - Stop game via HTTP
-
-**Dependencies:** All services (acts as aggregator)
-
----
-
-### 7. Audio Service (Port 50056, Privileged)
-
-**Purpose:** Audio playback and priority-based mixing
-
-**Responsibilities:**
-- Play sound effects
-- Play background music
-- Priority-based audio mixing (game sounds > menu music)
-- Tempo control for dynamic music
+**Responsibilities**:
+- Play sound effects with priorities
+- Play background music with tempo control
 - Audio device management
 
-**Technology:**
-- Python 3.11
-- gRPC server
-- pygame.mixer for audio
-- Privileged container (`/dev/snd` access)
-- OpenTelemetry instrumentation
+**Priority Levels**:
+| Priority | Value | Use Case |
+|----------|-------|----------|
+| LOW | 0 | Background effects |
+| MEDIUM | 1 | Normal game sounds |
+| HIGH | 2 | Important events |
+| CRITICAL | 3 | System announcements |
 
-**Key RPCs:**
-- `PlaySound` - Play sound effect with priority
-- `PlayMusic` - Play background music
-- `StopMusic` - Stop background music
-- `ChangeTempo` - Adjust music tempo
-- `SetVolume` - Master volume control
-- `GetStatus` - Current audio status
+**Key RPCs**:
+| RPC | Type | Description |
+|-----|------|-------------|
+| `PlaySound` | Unary | Play sound effect |
+| `PlayMusic` | Unary | Start background music |
+| `StopMusic` | Unary | Stop music |
+| `ChangeTempo` | Unary | Adjust music speed |
+| `SetVolume` | Unary | Set volume level |
 
-**Audio Priorities:**
-1. **CRITICAL (3)** - Victory/death sounds (interrupt everything)
-2. **HIGH (2)** - Game sound effects
-3. **MEDIUM (1)** - Game music
-4. **LOW (0)** - Menu music
+**Dependencies**: None (foundational)
 
-**Hardware Requirements:**
-- ALSA audio device (`/dev/snd`)
+---
 
-**Dependencies:** None (foundational service)
+### Web UI Service (Port 80)
+
+**Purpose**: HTTP web interface
+
+**Framework**: Flask
+
+**Routes**:
+| Route | Description |
+|-------|-------------|
+| `/` | Main dashboard |
+| `/battery` | Controller battery status |
+| `/settings` | Settings management |
+| `/admin` | Administration panel |
+| `/start_game/<mode>` | Start specific game |
+| `/kill_game` | Force end game |
+
+**Dependencies**: All services (gRPC client)
 
 ---
 
 ## Communication Patterns
 
-### gRPC with Protocol Buffers
+### Protocol: gRPC with Protocol Buffers
 
-All inter-service communication uses gRPC:
-
-**Benefits:**
+JoustMania uses gRPC for all inter-service communication:
 - Binary protocol (3-10x faster than REST/JSON)
-- Strong typing with Protocol Buffers
-- Bi-directional streaming support
-- Automatic code generation
+- Strong typing with Protocol Buffers v3
 - HTTP/2 multiplexing
-
-**Example Service Definition:**
-```protobuf
-service SettingsService {
-  rpc GetSettings(GetSettingsRequest) returns (GetSettingsResponse);
-  rpc UpdateSetting(UpdateSettingRequest) returns (UpdateSettingResponse);
-  rpc SubscribeToChanges(SubscribeRequest) returns (stream SettingChange);
-}
-```
-
-### Streaming RPCs
-
-Three streaming patterns used:
-
-1. **Server Streaming** - Service streams data to client
-   - `StreamGameplayData` - Controller data for games
-   - `StreamGameEvents` - Real-time game events
-   - `StreamMenuEvents` - Menu event notifications
-   - `SubscribeToChanges` - Setting change notifications
-
-2. **Client Streaming** - Client streams data to service
-   - Not currently used directly
-
-3. **Bidirectional Streaming** - Both directions
-   - `StreamButtonEvents` - Button events + LED control
-   - `StreamGameplayDataDynamic` - Adaptive controller filtering
+- Bidirectional streaming support
 
 ### Service Discovery
 
-Services communicate via Docker Compose service names:
-- `settings:50051`
-- `controller-manager:50052`
-- `game-coordinator:50053`
-- `menu:50054`
-- `supervisor:50055`
-- `audio:50056`
+Services discover each other via Docker Compose DNS:
+```
+settings:50051
+controller-manager:50052
+game-coordinator:50053
+menu:50054
+supervisor:50055
+audio:50056
+```
 
-Kubernetes-ready: Service names resolve via DNS in both environments.
+### Streaming Patterns
+
+**Server Streaming** (Service → Client):
+- `SubscribeToChanges` - Setting notifications
+- `StreamGameplayData` - Controller motion
+- `StreamGameEvents` - Game lifecycle
+- `StreamMenuEvents` - Menu state
+
+**Bidirectional Streaming** (Both directions):
+- `StreamButtonEvents` - Buttons ↔ LED commands
+- `StreamGameplayDataDynamic` - Motion ↔ Feedback
 
 ---
 
-## Data Flow
+## Data Flows
 
-### Controller State Flow
+### Controller Connection
 
-```mermaid
-sequenceDiagram
-    participant HW as PS Move Hardware
-    participant CM as Controller Manager
-    participant Game as Game Coordinator
-    participant Audio as Audio Service
-
-    HW->>CM: USB/Bluetooth input (1000Hz)
-    CM->>CM: Update shared memory state
-    Game->>CM: StreamGameplayDataDynamic (60Hz)
-    CM-->>Game: Controller state stream
-    Game->>Game: Process game logic
-    Game->>Audio: PlaySound (death detected)
-    Audio-->>Game: Sound playing
-    Game->>CM: Set LED color (red flash)
-    CM->>HW: Apply LED output
+```
+1. PS Move hardware (1000Hz) → Controller Manager
+2. Controller Manager updates internal state
+3. Menu/Game subscribes via StreamButtonEvents
+4. Controller Manager sends button events
+5. Menu/Game sends LED commands back
+6. Controller Manager applies LED to hardware
 ```
 
-### Game Lifecycle Flow
+### Game Start
 
-```mermaid
-sequenceDiagram
-    participant Menu as Menu Service
-    participant Supervisor as Supervisor
-    participant Game as Game Coordinator
-    participant CM as Controller Manager
-    participant Settings as Settings Service
-
-    Menu->>Menu: All controllers ready
-    Menu->>Supervisor: StreamMenuEvents (game_requested)
-    Supervisor->>Game: StartGame(mode="JoustFFA")
-    Game->>Settings: GetSettings()
-    Settings-->>Game: Settings response
-    Game->>CM: StreamGameplayDataDynamic()
-    CM-->>Game: State stream starts
-    Game->>Game: Game loop (60 FPS)
-    Game->>Menu: StreamGameEvents()
-    Game-->>Menu: game_started event
-    Note over Game: Game running...
-    Game-->>Menu: player_death event
-    Game-->>Menu: game_ended event
-    Game->>CM: Stop streaming
+```
+1. Menu detects all controllers ready (≥2 players)
+2. Menu publishes "game_requested" event
+3. Supervisor receives via StreamMenuEvents
+4. Supervisor calls GameCoordinator.StartGame
+5. GameCoordinator initializes game instance
+6. Game streams events back via StreamGameEvents
+7. Game runs until win condition
+8. Menu receives "game_ended", resets to lobby
 ```
 
-### Settings Update Flow
+### Settings Update
 
-```mermaid
-sequenceDiagram
-    participant WebUI as Web UI
-    participant Settings as Settings Service
-    participant Menu as Menu Service
-    participant Game as Game Coordinator
-
-    WebUI->>Settings: UpdateSetting(key="sensitivity", value=3)
-    Settings->>Settings: Validate against schema
-    Settings->>Settings: Save to YAML file
-    Settings-->>WebUI: Success response
-    Settings->>Menu: SettingChange notification
-    Settings->>Game: SettingChange notification
-    Menu->>Menu: Update cached settings
-    Game->>Game: Update cached settings
+```
+1. Web UI calls Settings.UpdateSetting
+2. Settings validates against schema
+3. Settings saves to YAML file
+4. Settings publishes SettingChangeEvent
+5. Subscribed services receive notification
+6. Services update cached settings
 ```
 
 ---
 
-## Technology Stack
+## Configuration
 
-### Core Technologies
+### Environment Variables
 
-| Component | Technology | Version | Purpose |
-|-----------|-----------|---------|---------|
-| **Language** | Python | 3.11 | All services |
-| **RPC Framework** | gRPC | Latest | Inter-service communication |
-| **Serialization** | Protocol Buffers | v3 | Message format |
-| **Containerization** | Docker | Latest | Service isolation |
-| **Orchestration** | Docker Compose | v2 | Local deployment |
-| **Web Framework** | Flask | 3.x | Web UI service |
-| **Audio** | pygame.mixer | Latest | Audio playback |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `CONTROLLER_BACKEND` | Controller backend type | `bluetooth` |
+| `MOCK_CONTROLLER_COUNT` | Simulated controllers | `4` |
+| `AUDIO_MOCK_MODE` | Silent audio mode | `false` |
+| `LOG_LEVEL` | Logging verbosity | `INFO` |
 
-### Observability Stack
+### Docker Compose Variants
 
-| Component | Technology | Version | Purpose |
-|-----------|-----------|---------|---------|
-| **Tracing** | OpenTelemetry | Latest | Distributed tracing |
-| **Trace Backend** | Jaeger | 1.x | Trace visualization |
-| **Collector** | OTel Collector | Latest | Trace collection |
-| **Metrics** | Prometheus | Latest | Metrics export |
+| File | Purpose |
+|------|---------|
+| `docker-compose.yml` | Full stack with observability |
+| `docker-compose.lite.yml` | Minimal stack |
+| `docker-compose.hardware.yml` | Hardware overrides |
+| `docker-compose.ci.yml` | CI/CD testing |
 
-### Infrastructure
+### Persistence
 
-| Component | Technology | Version | Purpose |
-|-----------|-----------|---------|---------|
-| **Messaging** | Redis | 7.x | Pub/sub (future use) |
-| **Persistence** | YAML files | - | Settings storage |
-
-### Hardware Integration
-
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| **PS Move API** | C library + Python bindings | Controller I/O |
-| **BlueZ** | Linux Bluetooth stack | Controller pairing |
-| **ALSA** | Linux audio | Audio output |
+- `joustsettings.yaml` - Settings storage (Docker volume)
+- `~/.psmoveapi/` - Controller calibration (Linux)
 
 ---
 
-## Design Decisions
+## Observability
 
-### Why Microservices?
+### Stack
 
-**Original Architecture:** Monolithic Python script with multiprocessing
-**Problems:**
-- Tight coupling between components
-- Difficult to scale
-- Hard to test in isolation
-- No observability
-- Single point of failure
+| Component | Purpose | Port |
+|-----------|---------|------|
+| Jaeger | Distributed tracing | 16686 |
+| Prometheus | Metrics collection | 9090 |
+| Grafana | Visualization | 3000 |
+| Loki | Log aggregation | 3100 |
 
-**Microservices Benefits:**
-- Independent scaling (future Kubernetes)
-- Service isolation and fault tolerance
-- Technology flexibility per service
-- Better observability with distributed tracing
-- Easier testing and development
+### Tracing
 
-### Why gRPC?
-
-**Alternatives Considered:**
-- REST/JSON (HTTP)
-- Message queues (RabbitMQ, Kafka)
-- Shared memory (multiprocessing.Queue)
-
-**gRPC Benefits:**
-- Performance: Binary protocol, 3-10x faster than JSON
-- Streaming: Native support for real-time data (controller states, events)
-- Type safety: Protocol Buffers schema validation
-- Code generation: Automatic client/server stubs
-- HTTP/2: Multiplexing, header compression
-
-**Trade-offs:**
-- Requires code generation step
-- Less human-readable than JSON
-- Learning curve for developers
-
-**Decision:** gRPC chosen for performance and streaming capabilities.
-
-### Why OpenTelemetry?
-
-**Goal:** Understand system behavior and debug distributed issues
-
-**OpenTelemetry Benefits:**
-- Vendor-neutral (not locked into Jaeger)
+- OpenTelemetry SDK with Jaeger exporter
 - Automatic gRPC instrumentation
-- Distributed context propagation
-- Rich ecosystem (exporters, SDKs)
-
-**Implementation:**
-- Automatic spans for all gRPC calls
+- W3C Trace Context propagation
 - Manual spans for critical operations
-- Trace context propagation across services
-- Jaeger backend for visualization
 
-### Why Privileged Containers?
+### Metrics
 
-**Services requiring privileges:**
-- **ControllerManager:** USB (`/dev/bus/usb`) and Bluetooth (D-Bus, `/var/run/dbus`) access
-- **Audio:** Audio device (`/dev/snd`) access
-
-**Security Considerations:**
-- Only 2/7 services are privileged
-- Other services run unprivileged
-- Principle of least privilege applied
-
-**Alternatives Considered:**
-- Device passthrough (cleaner but complex in Docker Compose)
-- Host networking (works but overly broad)
-
-**Decision:** Privileged containers acceptable for development/demo. Production deployment would use device passthrough.
-
-### Why Docker Compose First?
-
-**Alternatives:**
-- Direct Kubernetes deployment
-- systemd services on host
-
-**Docker Compose Benefits:**
-- Fast local development
-- Easy to understand (single YAML file)
-- Reproducible environments
-- Cross-platform (Linux, macOS, Windows)
-
-**Kubernetes Migration Path:**
-- Services designed to be Kubernetes-ready
-- No Docker Compose-specific dependencies
-- Service discovery via DNS (works in both)
-
-**Decision:** Docker Compose for development, Kubernetes for production (future).
+Each service exposes Prometheus metrics at `/metrics`:
+- Request counts and latencies
+- Active stream counts
+- Controller counts
+- Game statistics
 
 ---
 
-## Deployment Architecture
+## Build & Deployment
 
-### Docker Compose (Current)
+### Build Commands
 
-```
-                ┌─────────────────┐
-                │   Developer     │
-                │    Machine      │
-                └────────┬────────┘
-                         │
-         ┌───────────────┴────────────────┐
-         │     Docker Compose Stack       │
-         │  ┌──────────────────────────┐  │
-         │  │  Application Services    │  │
-         │  │  - Settings              │  │
-         │  │  - ControllerManager     │  │
-         │  │  - GameCoordinator       │  │
-         │  │  - Menu                  │  │
-         │  │  - Supervisor            │  │
-         │  │  - WebUI                 │  │
-         │  │  - Audio                 │  │
-         │  └──────────────────────────┘  │
-         │  ┌──────────────────────────┐  │
-         │  │  Infrastructure          │  │
-         │  │  - Redis                 │  │
-         │  │  - Jaeger                │  │
-         │  │  - OTel Collector        │  │
-         │  └──────────────────────────┘  │
-         └─────────────────────────────────┘
-                         │
-         ┌───────────────┴────────────────┐
-         │    PS Move Controllers         │
-         │    (USB/Bluetooth)             │
-         └────────────────────────────────┘
+```bash
+make builders   # Build base images (~15min on Pi)
+make images     # Build all service images
+make up         # Start full stack
+make up-mock    # Start with mock controllers
+make test       # Run integration tests
+make lint       # Run linting
 ```
 
-### Kubernetes (Future)
+### Container Privileges
 
+| Service | Privileged | Reason |
+|---------|------------|--------|
+| Controller Manager | Yes | Bluetooth/USB access |
+| Audio | Yes | Audio device access |
+| Others | No | Standard containers |
+
+---
+
+## Shared Libraries
+
+Located in `/lib/`:
+
+| Module | Purpose |
+|--------|---------|
+| `grpc_tracing.py` | OpenTelemetry gRPC interceptor |
+| `types.py` | Shared type definitions |
+| `colors.py` | Color constants |
+| `controller_constants.py` | Controller constants |
+| `telemetry.py` | Telemetry helpers |
+
+---
+
+## Proto Files
+
+Located in `/proto/`:
+
+| File | Service |
+|------|---------|
+| `settings.proto` | SettingsService |
+| `controller_manager.proto` | ControllerManagerService |
+| `game_coordinator.proto` | GameCoordinatorService |
+| `menu.proto` | MenuService |
+| `audio.proto` | AudioService |
+
+Regenerate after changes:
+```bash
+make protos
 ```
-         ┌─────────────────────────────┐
-         │    Kubernetes Cluster       │
-         │                             │
-         │  ┌────────────────────┐     │
-         │  │  Ingress           │     │
-         │  │  (External Access) │     │
-         │  └─────────┬──────────┘     │
-         │            │                │
-         │  ┌─────────▼──────────┐     │
-         │  │  Service Mesh      │     │
-         │  │  (Istio/Linkerd)   │     │
-         │  └─────────┬──────────┘     │
-         │            │                │
-         │  ┌─────────▼──────────┐     │
-         │  │  Microservices     │     │
-         │  │  (Deployments)     │     │
-         │  │  - Auto-scaling    │     │
-         │  │  - Health checks   │     │
-         │  │  - Rolling updates │     │
-         │  └────────────────────┘     │
-         │                             │
-         │  ┌────────────────────┐     │
-         │  │  DaemonSet         │     │
-         │  │  ControllerManager │     │
-         │  │  (Hardware Access) │     │
-         │  └────────────────────┘     │
-         └─────────────────────────────┘
-```
-
-**Key Kubernetes Considerations:**
-- ControllerManager as DaemonSet (one per node with hardware)
-- StatefulSet for services needing persistent identity
-- Service mesh for advanced traffic management
-- Horizontal Pod Autoscaling for game coordinators
-- PersistentVolumes for settings storage
-
----
-
-## Security Considerations
-
-### Current Implementation
-
-- No authentication between services (trusted network assumption)
-- Privileged containers for hardware access
-- Settings stored in plain YAML (no encryption)
-- No TLS for gRPC (plaintext communication)
-
-### Production Recommendations
-
-1. **Service Authentication:** Mutual TLS (mTLS) for gRPC
-2. **Secrets Management:** Kubernetes secrets or HashiCorp Vault
-3. **Network Policies:** Restrict inter-service communication
-4. **Least Privilege:** Device passthrough instead of privileged containers
-5. **Settings Encryption:** Encrypt sensitive settings at rest
-
----
-
-## Performance Characteristics
-
-### Latency
-
-| Operation | Latency | Notes |
-|-----------|---------|-------|
-| gRPC call (same host) | <1ms | Local network |
-| Controller state update | <5ms | 1000Hz hardware → 60Hz stream |
-| Setting update | <10ms | Includes YAML write |
-| Game event publish | <2ms | In-memory to stream |
-
-### Throughput
-
-| Metric | Value | Notes |
-|--------|-------|-------|
-| Controller state updates | 1000 Hz | Hardware polling rate |
-| Controller state stream | 60 Hz | Configurable per client |
-| Game events | Variable | Depends on game |
-| Concurrent games | 1 | Current limitation |
-
-### Resource Usage
-
-| Service | CPU | Memory | Notes |
-|---------|-----|--------|-------|
-| Settings | <1% | 50 MB | Idle most of the time |
-| ControllerManager | 2-5% | 100 MB | Per controller overhead |
-| GameCoordinator | 5-10% | 150 MB | During active game |
-| Menu | 2-3% | 80 MB | Processing inputs |
-| Supervisor | <1% | 50 MB | Periodic health checks |
-| WebUI | 1-2% | 80 MB | Flask overhead |
-| Audio | 1-3% | 100 MB | pygame.mixer |
-
----
-
-## Future Enhancements
-
-### Short-term (Phases 12-13)
-
-1. **Dependency Updates** (Phase 12)
-   - Upgrade to Jaeger v2
-   - Python 3.12 or 3.13
-   - Latest gRPC and OpenTelemetry
-
-2. **Game Modes Refactoring** (Phase 13)
-   - Migrate games to gRPC-based architecture
-   - Remove legacy multiprocessing patterns
-   - Enhance OpenTelemetry spans
-
-### Long-term
-
-1. **Kubernetes Deployment**
-   - Helm charts
-   - StatefulSets and DaemonSets
-   - Service mesh integration
-
-2. **Advanced Observability**
-   - Custom metrics (Prometheus)
-   - Distributed tracing enhancements
-   - Real-time dashboards (Grafana)
-
-3. **Multi-Game Support**
-   - Run multiple games concurrently
-   - Game instance pooling
-   - Load balancing
-
-4. **Authentication & Authorization**
-   - User accounts
-   - Role-based access control
-   - OAuth2 integration
-
-5. **Replay System**
-   - Record game sessions
-   - Replay functionality
-   - Analytics and statistics
-
----
-
-## References
-
-- [gRPC Documentation](https://grpc.io/docs/)
-- [OpenTelemetry Documentation](https://opentelemetry.io/docs/)
-- [Protocol Buffers Guide](https://developers.google.com/protocol-buffers)
-- [Docker Compose Documentation](https://docs.docker.com/compose/)
-- [PS Move API](https://github.com/thp/psmoveapi)
-
----
-
-## Contributing
-
-See [DEVELOPMENT.md](DEVELOPMENT.md) for instructions on setting up a development environment and contributing to the project.

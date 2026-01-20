@@ -263,12 +263,12 @@ class MenuProcess(Process):
         is_random_mode = self.game_mode == Games.Random if self.game_mode else False
 
         # Send game_requested event
+        # Note: force_all_start is handled in admin.py when determining controller list
         self.send_event(
             "game_requested",
             {
                 "game_mode": self.game_mode.name if self.game_mode else "JoustFFA",
                 "random_mode": is_random_mode,
-                "force_all": False,  # TODO: Get from settings
             },
         )
 

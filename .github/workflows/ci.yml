@@ -58,12 +58,36 @@ jobs:
       - name: Validate packages
         run: make validate-packages
 
+  # Detect which builder images need rebuilding based on file changes
+  detect-builder-changes:
+    name: Detect Builder Changes
+    runs-on: ubuntu-latest
+    outputs:
+      builder: ${{ steps.filter.outputs.builder }}
+      psmove: ${{ steps.filter.outputs.psmove }}
+      pygame: ${{ steps.filter.outputs.pygame }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            builder:
+              - 'images/builder/**'
+            psmove:
+              - 'images/psmove-builder/**'
+            pygame:
+              - 'images/pygame-builder/**'
+
   # Build and push builder images to GHCR (Phase 75)
   # Multi-platform builds for amd64 (CI/dev) and arm64 (Raspberry Pi)
   # Builder images are always pushed (needed for integration tests)
+  # Optimization: Skip rebuild if files unchanged, re-tag stable image instead
   build-builder:
     name: Build builder
     runs-on: ubuntu-latest
+    needs: [detect-builder-changes]
     permissions:
       contents: read
       packages: write
@@ -71,6 +95,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up QEMU
+        if: needs.detect-builder-changes.outputs.builder == 'true'
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
@@ -83,7 +108,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Full build when files changed
       - name: Build and push builder
+        if: needs.detect-builder-changes.outputs.builder == 'true'
         uses: docker/build-push-action@v5
         with:
           context: images/builder
@@ -95,9 +122,18 @@ jobs:
           cache-from: type=gha,scope=builder
           cache-to: type=gha,mode=max,scope=builder
 
+      # Re-tag stable image when unchanged (much faster)
+      - name: Reuse stable image (unchanged)
+        if: needs.detect-builder-changes.outputs.builder != 'true'
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ env.IMAGE_PREFIX }}/builder:${{ github.sha }} \
+            ${{ env.IMAGE_PREFIX }}/builder:dev-refactor
+
   build-psmove-builder:
     name: Build psmove-builder
     runs-on: ubuntu-latest
+    needs: [detect-builder-changes]
     permissions:
       contents: read
       packages: write
@@ -105,6 +141,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up QEMU
+        if: needs.detect-builder-changes.outputs.psmove == 'true'
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
@@ -117,7 +154,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Full build when files changed
       - name: Build and push psmove-builder
+        if: needs.detect-builder-changes.outputs.psmove == 'true'
         uses: docker/build-push-action@v5
         with:
           context: images/psmove-builder
@@ -129,9 +168,18 @@ jobs:
           cache-from: type=gha,scope=psmove-builder
           cache-to: type=gha,mode=max,scope=psmove-builder
 
+      # Re-tag stable image when unchanged (much faster)
+      - name: Reuse stable image (unchanged)
+        if: needs.detect-builder-changes.outputs.psmove != 'true'
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ env.IMAGE_PREFIX }}/psmove-builder:${{ github.sha }} \
+            ${{ env.IMAGE_PREFIX }}/psmove-builder:dev-refactor
+
   build-pygame-builder:
     name: Build pygame-builder
     runs-on: ubuntu-latest
+    needs: [detect-builder-changes]
     permissions:
       contents: read
       packages: write
@@ -139,6 +187,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up QEMU
+        if: needs.detect-builder-changes.outputs.pygame == 'true'
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
@@ -151,7 +200,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Full build when files changed
       - name: Build and push pygame-builder
+        if: needs.detect-builder-changes.outputs.pygame == 'true'
         uses: docker/build-push-action@v5
         with:
           context: images/pygame-builder
@@ -162,6 +213,14 @@ jobs:
             ${{ github.event_name != 'pull_request' && format('{0}/pygame-builder:{1}', env.IMAGE_PREFIX, github.ref_name) || '' }}
           cache-from: type=gha,scope=pygame-builder
           cache-to: type=gha,mode=max,scope=pygame-builder
+
+      # Re-tag stable image when unchanged (much faster)
+      - name: Reuse stable image (unchanged)
+        if: needs.detect-builder-changes.outputs.pygame != 'true'
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ env.IMAGE_PREFIX }}/pygame-builder:${{ github.sha }} \
+            ${{ env.IMAGE_PREFIX }}/pygame-builder:dev-refactor
 
   # Build service images - only push on direct pushes (not PRs)
   docker-build:

@@ -4,26 +4,15 @@ import logging
 
 import grpc.aio
 
+from lib.types import Games
+
 logger = logging.getLogger(__name__)
 
 
-# Game modes available in the menu (single source of truth)
-GAME_MODES: list[str] = [
-    "JoustFFA",
-    "JoustTeams",
-    "JoustRandomTeams",
-    "Swapper",
-    "Werewolf",
-    "Traitor",
-    "Zombie",
-    "Commander",
-    "FightClub",
-    "Tournament",
-    "NonstopJoust",
-    "SpeedBomb",
-]
+# Game modes available in the menu (from Games enum, excluding Random which is meta)
+GAME_MODES: list[str] = [g.name for g in Games if g != Games.Random]
 
-DEFAULT_GAME_MODE: str = "JoustFFA"
+DEFAULT_GAME_MODE: Games = Games.JoustFFA
 DEFAULT_VOICE_ACTOR: str = "ivy"
 
 
@@ -111,14 +100,17 @@ class SettingsHelper:
         Load current game mode from settings.
 
         Returns:
-            Game mode name
+            Game mode name (enum name string)
         """
         value = await self.get_setting("current_game")
-        if value and value in GAME_MODES:
-            logger.info(f"Loaded current game mode: {value}")
-            return value
-        logger.debug(f"Current game setting not found, using default: {DEFAULT_GAME_MODE}")
-        return DEFAULT_GAME_MODE
+        if value:
+            # Try to resolve to a valid game mode
+            game = Games.from_name(value)
+            if game and game.name in GAME_MODES:
+                logger.info(f"Loaded current game mode: {game.name}")
+                return game.name
+        logger.debug(f"Current game setting not found, using default: {DEFAULT_GAME_MODE.name}")
+        return DEFAULT_GAME_MODE.name
 
     async def save_current_game(self, game_mode: str) -> bool:
         """

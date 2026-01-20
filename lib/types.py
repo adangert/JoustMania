@@ -7,11 +7,18 @@ No hardware dependencies.
 
 from enum import Enum
 
-SETTINGSFILE = "joustsettings.yaml"
-
 
 class Games(Enum):
-    """Available game modes."""
+    """
+    Available game modes.
+
+    Each member has:
+    - value: Integer ID for serialization
+    - pretty_name: Human-readable display name
+    - minimum_players: Minimum players required
+
+    Use Games.from_name() to resolve any alias to a Games member.
+    """
 
     JoustFFA = (0, "Joust Free-for-All", 2)
     JoustTeams = (1, "Joust Teams", 3)
@@ -36,20 +43,118 @@ class Games(Enum):
         obj.minimum_players = min_players
         return obj
 
-    def next(self) -> "Games":
-        """Return the next game mode after this one in the list. Wraps around after hitting bottom."""
-        return Games((self.value + 1) % len(Games))
+    @classmethod
+    def from_name(cls, name: str) -> "Games | None":
+        """
+        Resolve any game name alias to a Games enum member.
 
-    def previous(self) -> "Games":
-        """Return the previous game mode after this one in the list. Wraps around after hitting bottom."""
-        return Games((self.value - 1) % len(Games))
+        Supports various naming formats (case-insensitive):
+        - Enum names: "JoustFFA", "NonStop"
+        - Pretty names: "Joust Free-for-All", "Non Stop Joust"
+        - Short names: "FFA", "Teams", "Nonstop"
+        - Snake case: "fight_club", "random_teams"
 
-    def find(self, str_name: str) -> "Games | None":
-        """Find game by pretty name."""
-        for game in Games:
-            if game.pretty_name == str_name:
+        Args:
+            name: Game name in any supported format
+
+        Returns:
+            Games enum member or None if not found
+
+        Examples:
+            >>> Games.from_name("FFA")
+            Games.JoustFFA
+            >>> Games.from_name("joust free-for-all")
+            Games.JoustFFA
+            >>> Games.from_name("NonStop")
+            Games.NonStop
+        """
+        if not name:
+            return None
+
+        name_lower = name.lower()
+
+        # Check each game mode for direct matches
+        for game in cls:
+            # Direct enum name match
+            if name_lower == game.name.lower():
                 return game
-        return None
+            # Pretty name match (exact)
+            if name_lower == game.pretty_name.lower():
+                return game
+
+        # Normalize for alias lookup (underscores/dashes -> spaces)
+        name_normalized = name_lower.replace("_", " ").replace("-", " ")
+
+        # Check alias mappings
+        return _GAME_ALIASES.get(name_normalized)
+
+    @classmethod
+    def is_valid(cls, name: str) -> bool:
+        """Check if a game name is valid (resolves to a Games member)."""
+        return cls.from_name(name) is not None
+
+    @classmethod
+    def all_names(cls) -> list[str]:
+        """Get list of all enum member names."""
+        return [game.name for game in cls]
+
+
+# Alias mappings for Games.from_name() - maps lowercase aliases to Games members
+# Built after class definition to reference enum members
+_GAME_ALIASES: dict[str, "Games"] = {}
+
+
+def _init_game_aliases() -> None:
+    """Initialize game alias mappings."""
+    aliases = {
+        # FFA aliases
+        "ffa": Games.JoustFFA,
+        "free for all": Games.JoustFFA,
+        "joust ffa": Games.JoustFFA,
+        # Teams aliases
+        "teams": Games.JoustTeams,
+        "joust teams": Games.JoustTeams,
+        # Random Teams aliases
+        "random teams": Games.JoustRandomTeams,
+        "joust random teams": Games.JoustRandomTeams,
+        "randomteams": Games.JoustRandomTeams,
+        # Traitor aliases
+        "traitor": Games.Traitor,
+        "traitors": Games.Traitor,
+        # Werewolf aliases
+        "werewolf": Games.Werewolf,
+        "werewolves": Games.Werewolf,
+        # Zombies aliases
+        "zombie": Games.Zombies,
+        "zombies": Games.Zombies,
+        # Commander aliases
+        "commander": Games.Commander,
+        # Swapper aliases
+        "swapper": Games.Swapper,
+        # Fight Club aliases
+        "fight club": Games.FightClub,
+        "fightclub": Games.FightClub,
+        "fight_club": Games.FightClub,
+        # Tournament aliases
+        "tournament": Games.Tournament,
+        # NonStop aliases
+        "nonstop": Games.NonStop,
+        "nonstop joust": Games.NonStop,
+        "nonstopjoust": Games.NonStop,
+        "non stop joust": Games.NonStop,
+        "non stop": Games.NonStop,
+        # Ninja aliases
+        "ninja": Games.Ninja,
+        "ninja bomb": Games.Ninja,
+        "ninjabomb": Games.Ninja,
+        "speedbomb": Games.Ninja,
+        # Random aliases
+        "random": Games.Random,
+    }
+    _GAME_ALIASES.update(aliases)
+
+
+_init_game_aliases()
 
 
 class Status(Enum):
@@ -180,10 +285,11 @@ class Sound(str, Enum):
     VOX_FIGHT_CLUB_GAME_OVER = "game_over"
     VOX_FIGHT_CLUB_TIE_GAME = "tie_game"
 
-    # Menu sound effects (in Menu/sounds/)
-    MENU_SFX_SLOW_SENSITIVITY = "slow_sensitivity"
-    MENU_SFX_MID_SENSITIVITY = "mid_sensitivity"
-    MENU_SFX_FAST_SENSITIVITY = "fast_sensitivity"
+    # Menu sensitivity sounds (in Menu/sounds/)
+    # Only 3 audio files exist, so ultra levels map to slow/fast
+    MENU_SFX_SENSITIVITY_SLOW = "slow_sensitivity"
+    MENU_SFX_SENSITIVITY_MID = "mid_sensitivity"
+    MENU_SFX_SENSITIVITY_FAST = "fast_sensitivity"
 
     # Menu voice announcements - game mode selection (in Menu/vox/)
     MENU_VOX_JOUST_FFA = "menu Joust FFA"
@@ -269,42 +375,21 @@ class GameEvent(str, Enum):
         return event_type in (cls.GAME_ENDED, cls.GAME_FORCE_ENDED, cls.GAME_ERROR)
 
 
-# Game name normalization mapping for display in UI and tracing
-# Maps various input formats to canonical display names
-GAME_DISPLAY_NAMES = {
-    # FFA variants
-    "ffa": "Free-For-All",
-    "free-for-all": "Free-For-All",
-    "joust free-for-all": "Free-For-All",
-    # Teams variants
-    "teams": "Teams",
-    "joust teams": "Teams",
-    # Random Teams variants
-    "random teams": "Random Teams",
-    "joust random teams": "Random Teams",
-    "random_teams": "Random Teams",
-    # Nonstop Joust variants
-    "nonstop": "Nonstop Joust",
-    "nonstop joust": "Nonstop Joust",
-    "nonstopjoust": "Nonstop Joust",
-    "non stop joust": "Nonstop Joust",
-}
-
-
 def get_game_display_name(game_name: str) -> str:
     """
-    Get canonical display name for a game mode.
+    Get display name for a game mode using the Games enum.
 
     Args:
         game_name: Game name in any format (case-insensitive)
 
     Returns:
-        Canonical display name, or original name if not found
+        The game's pretty_name, or original name if not found
 
     Examples:
         >>> get_game_display_name("FFA")
-        "Free-For-All"
-        >>> get_game_display_name("joust teams")
-        "Teams"
+        "Joust Free-for-All"
+        >>> get_game_display_name("JoustTeams")
+        "Joust Teams"
     """
-    return GAME_DISPLAY_NAMES.get(game_name.lower(), game_name)
+    game = Games.from_name(game_name)
+    return game.pretty_name if game else game_name

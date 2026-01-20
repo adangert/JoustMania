@@ -62,7 +62,7 @@ SETTINGS_SCHEMA = {
     },
     "random_modes": {
         "type": list,
-        "default": ["JoustFFA", "JoustRandomTeams", "Werewolf", "Nonstop"],
+        "default": [Games.JoustFFA.name, Games.JoustRandomTeams.name, Games.Werewolf.name, Games.NonStop.name],
         "description": "Game modes included in random selection (for future Random game mode)",
     },
     "menu_voice": {
@@ -78,22 +78,8 @@ SETTINGS_SCHEMA = {
     },
     "current_game": {
         "type": str,
-        "allowed_values": [
-            "JoustFFA",
-            "JoustTeams",
-            "JoustRandomTeams",
-            "Traitor",
-            "Werewolf",
-            "Zombies",
-            "Commander",
-            "Swapper",
-            "FightClub",
-            "Tournament",
-            "NonStop",
-            "Ninja",
-            "Random",
-        ],
-        "default": "JoustFFA",
+        "allowed_values": Games.all_names(),
+        "default": Games.JoustFFA.name,
         "description": "Currently selected game mode",
     },
     "random_teams": {

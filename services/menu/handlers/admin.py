@@ -199,6 +199,12 @@ class AdminModeHandler:
             return
         await self._state_manager.audio.play_voice(sound)
 
+    async def _play_sound(self, sound: Sound) -> None:
+        """Play sound effect via StateManager's audio helper."""
+        if self._state_manager is None:
+            return
+        await self._state_manager.audio.play_sound(sound)
+
     # Original properties
 
     @property
@@ -709,15 +715,15 @@ class AdminModeHandler:
                 )
                 await controller_stub.PlayControllerEffect(effect_request)
 
-                # Play voice announcement for sensitivity level
+                # Play sound for sensitivity level (3 sounds for 5 levels)
                 sensitivity_sounds = [
-                    Sound.MENU_VOX_ULTRA_SLOW,
-                    Sound.MENU_VOX_SLOW,
-                    Sound.MENU_VOX_MEDIUM,
-                    Sound.MENU_VOX_FAST,
-                    Sound.MENU_VOX_ULTRA_FAST,
+                    Sound.MENU_SFX_SENSITIVITY_SLOW,  # ULTRA_SLOW
+                    Sound.MENU_SFX_SENSITIVITY_SLOW,  # SLOW
+                    Sound.MENU_SFX_SENSITIVITY_MID,  # MEDIUM
+                    Sound.MENU_SFX_SENSITIVITY_FAST,  # FAST
+                    Sound.MENU_SFX_SENSITIVITY_FAST,  # ULTRA_FAST
                 ]
-                await self._play_voice(sensitivity_sounds[int(new_value)])
+                await self._play_sound(sensitivity_sounds[int(new_value)])
 
                 # Restore white after feedback
                 async def restore_white():

@@ -141,21 +141,6 @@ class GameState(Enum):
     ENDED = "ended"
 
 
-def get_game_display_name(mode: str) -> str:
-    """
-    Convert game mode identifier to human-readable display name.
-
-    Phase 36: Standardized human-readable names for spans.
-    """
-    mapping = {
-        "FFA": "Free-For-All",
-        "Teams": "Teams",
-        "Random Teams": "Random Teams",
-        "Nonstop Joust": "Nonstop Joust",
-    }
-    return mapping.get(mode, mode)
-
-
 class BaseGameMode(ABC):
     """
     Abstract base class for all game modes.

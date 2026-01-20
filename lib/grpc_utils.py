@@ -104,29 +104,3 @@ def create_channel(
         return grpc.aio.insecure_channel(address, options=options, interceptors=interceptors, **kwargs)
 
     return grpc.aio.insecure_channel(address, options=options, **kwargs)
-
-
-def create_channel_with_custom_options(
-    address: str,
-    extra_options: list[tuple[str, Any]],
-    enable_tracing: bool = True,
-    **kwargs,
-) -> grpc.aio.Channel:
-    """
-    Create an async gRPC channel with standard options plus custom additions.
-
-    Args:
-        address: Target address in format "host:port"
-        extra_options: Additional channel options to merge with standard options
-        enable_tracing: Whether to add OpenTelemetry tracing interceptors (default: True)
-        **kwargs: Additional arguments passed to grpc.aio.insecure_channel
-
-    Returns:
-        Configured async gRPC channel with merged options and optional tracing
-
-    Example:
-        >>> extra = [("grpc.max_connection_idle_ms", 60000)]
-        >>> channel = create_channel_with_custom_options("localhost:50051", extra)
-    """
-    options = get_optimized_channel_options() + extra_options
-    return create_channel(address, options=options, enable_tracing=enable_tracing, **kwargs)

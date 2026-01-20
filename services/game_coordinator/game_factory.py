@@ -2,7 +2,7 @@
 Game Factory - Creates game instances based on game mode name.
 
 Centralizes game instantiation logic with:
-- Name alias resolution (e.g., "ffa" -> "FFA", "joust teams" -> "Teams")
+- Name alias resolution via Games enum (e.g., "ffa" -> Games.JoustFFA)
 - Consistent argument passing
 - Clear error messages for unknown modes
 
@@ -24,6 +24,7 @@ Usage:
 import logging
 from collections.abc import Callable
 
+from lib.types import Games
 from services.game_coordinator.games import (
     ffa,
     fight_club,
@@ -41,49 +42,30 @@ from services.game_coordinator.games.base import BaseGameMode
 logger = logging.getLogger(__name__)
 
 
-# Game mode name mappings (lowercase -> canonical name)
-GAME_MODE_ALIASES: dict[str, str] = {
-    # FFA (Free-for-All)
-    "ffa": "ffa",
-    "free-for-all": "ffa",
-    "joust free-for-all": "ffa",
-    "joustffa": "ffa",  # Menu service name
-    # Teams
-    "teams": "teams",
-    "joust teams": "teams",
-    "joustteams": "teams",  # Menu service name
-    # Random Teams
-    "random teams": "random_teams",
-    "joust random teams": "random_teams",
-    "random_teams": "random_teams",
-    # Nonstop Joust
-    "nonstop": "nonstop_joust",
-    "nonstop joust": "nonstop_joust",
-    "nonstopjoust": "nonstop_joust",  # Menu service name
-    # Swapper
-    "swapper": "swapper",
-    # Traitor
-    "traitor": "traitor",
-    # Werewolf
-    "werewolf": "werewolf",
-    "werewolves": "werewolf",
-    # Zombie
-    "zombie": "zombie",
-    "zombies": "zombie",
-    # Fight Club
-    "fightclub": "fight_club",
-    "fight_club": "fight_club",
-    "fight club": "fight_club",
-    # Tournament
-    "tournament": "tournament",
+# Mapping from Games enum to game class
+_GAME_CLASSES: dict[Games, type[BaseGameMode]] = {
+    Games.JoustFFA: ffa.FFAGame,
+    Games.JoustTeams: teams.SimpleTeamsGame,
+    Games.JoustRandomTeams: random_teams.RandomTeamsGame,
+    Games.Traitor: traitor.TraitorGame,
+    Games.Werewolf: werewolf.WerewolfGame,
+    Games.Zombies: zombie.ZombieGame,
+    Games.Swapper: swapper.SwapperGame,
+    Games.FightClub: fight_club.FightClubGame,
+    Games.Tournament: tournament.TournamentGame,
+    Games.NonStop: nonstop_joust.NonstopJoustGame,
 }
+
+# Games that support num_teams setting
+_TEAM_GAMES: set[Games] = {Games.JoustTeams, Games.JoustRandomTeams}
 
 
 class GameFactory:
     """
     Factory for creating game instances.
 
-    Supports all JoustMania game modes with flexible name matching.
+    Supports all JoustMania game modes with flexible name matching
+    via the Games enum.
     """
 
     @staticmethod
@@ -117,10 +99,16 @@ class GameFactory:
             ValueError: If game mode is not recognized
         """
         game_settings = game_settings or {}
-        canonical_name = GAME_MODE_ALIASES.get(game_name.lower())
 
-        if canonical_name is None:
+        # Resolve name to Games enum
+        game_mode = Games.from_name(game_name)
+        if game_mode is None:
             raise ValueError(f"Unknown game mode: '{game_name}'")
+
+        # Check if game mode is implemented
+        game_class = _GAME_CLASSES.get(game_mode)
+        if game_class is None:
+            raise ValueError(f"Game mode '{game_mode.name}' not implemented")
 
         # Common arguments for all game types
         common_args = {
@@ -132,93 +120,48 @@ class GameFactory:
             "initial_players": initial_players,
         }
 
-        if canonical_name == "ffa":
-            logger.info("Creating FFA game")
-            return ffa.FFAGame(**common_args)
-
-        if canonical_name == "teams":
+        # Handle team games with num_teams setting
+        if game_mode in _TEAM_GAMES:
             num_teams = int(game_settings.get("num_teams", "2"))
-            logger.info(f"Creating Teams game with {num_teams} teams")
-            return teams.SimpleTeamsGame(num_teams=num_teams, **common_args)
+            logger.info(f"Creating {game_mode.pretty_name} with {num_teams} teams")
+            return game_class(num_teams=num_teams, **common_args)
 
-        if canonical_name == "random_teams":
-            num_teams = int(game_settings.get("num_teams", "2"))
-            logger.info(f"Creating Random Teams game with {num_teams} teams")
-            return random_teams.RandomTeamsGame(num_teams=num_teams, **common_args)
-
-        if canonical_name == "nonstop_joust":
-            logger.info("Creating Nonstop Joust game")
-            return nonstop_joust.NonstopJoustGame(**common_args)
-
-        if canonical_name == "swapper":
-            logger.info("Creating Swapper game")
-            return swapper.SwapperGame(**common_args)
-
-        if canonical_name == "traitor":
-            logger.info("Creating Traitor game")
-            return traitor.TraitorGame(**common_args)
-
-        if canonical_name == "werewolf":
-            logger.info("Creating Werewolf game")
-            return werewolf.WerewolfGame(**common_args)
-
-        if canonical_name == "zombie":
-            logger.info("Creating Zombie game")
-            return zombie.ZombieGame(**common_args)
-
-        if canonical_name == "fight_club":
-            logger.info("Creating Fight Club game")
-            return fight_club.FightClubGame(**common_args)
-
-        if canonical_name == "tournament":
-            logger.info("Creating Tournament game")
-            return tournament.TournamentGame(**common_args)
-
-        # Should never reach here due to alias check above
-        raise ValueError(f"Game mode '{canonical_name}' not implemented")
+        logger.info(f"Creating {game_mode.pretty_name}")
+        return game_class(**common_args)
 
     @staticmethod
     def get_supported_modes() -> list[str]:
         """
-        Get list of canonical game mode names.
+        Get list of supported game mode names.
 
         Returns:
-            List of unique canonical mode names (e.g., ["ffa", "teams", ...])
+            List of Games enum member names that are implemented
         """
-        return sorted(set(GAME_MODE_ALIASES.values()))
-
-    @staticmethod
-    def get_all_aliases() -> dict[str, str]:
-        """
-        Get all supported game name aliases.
-
-        Returns:
-            Dict mapping alias -> canonical name
-        """
-        return dict(GAME_MODE_ALIASES)
+        return [game.name for game in _GAME_CLASSES]
 
     @staticmethod
     def is_valid_mode(game_name: str) -> bool:
         """
-        Check if a game mode name is valid.
+        Check if a game mode name is valid and implemented.
 
         Args:
-            game_name: Game mode name to check (case-insensitive)
+            game_name: Game mode name to check (case-insensitive, supports aliases)
 
         Returns:
-            True if the name is a valid game mode or alias
+            True if the name resolves to an implemented game mode
         """
-        return game_name.lower() in GAME_MODE_ALIASES
+        game_mode = Games.from_name(game_name)
+        return game_mode is not None and game_mode in _GAME_CLASSES
 
     @staticmethod
-    def get_canonical_name(game_name: str) -> str | None:
+    def get_game_mode(game_name: str) -> Games | None:
         """
-        Get the canonical name for a game mode.
+        Resolve a game name to its Games enum member.
 
         Args:
             game_name: Game mode name or alias (case-insensitive)
 
         Returns:
-            Canonical name or None if not found
+            Games enum member or None if not found
         """
-        return GAME_MODE_ALIASES.get(game_name.lower())
+        return Games.from_name(game_name)

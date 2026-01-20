@@ -177,6 +177,7 @@ class WebUI:
             static_folder="/app/services/webui/static",
         )
         self.app.secret_key = os.getenv("FLASK_SECRET_KEY", "MAGFest is a donut")
+        self.port = int(os.getenv("WEBUI_PORT", "80"))
 
         # Initialize gRPC clients
         self.grpc = GrpcClients()
@@ -199,10 +200,10 @@ class WebUI:
         FlaskInstrumentor().instrument_app(self.app)
 
     def web_loop(self):
-        self.app.run(host="0.0.0.0", port=80, debug=False)
+        self.app.run(host="0.0.0.0", port=self.port, debug=False)
 
     def web_loop_with_debug(self):
-        self.app.run(host="0.0.0.0", port=80, debug=True)
+        self.app.run(host="0.0.0.0", port=self.port, debug=True)
 
     def index(self):
         """Main page."""
@@ -441,7 +442,7 @@ def serve(metrics_port=8000):
 
     webui = WebUI()
 
-    logger.info("Web UI service ready on port 80")
+    logger.info(f"Web UI service ready on port {webui.port}")
 
     try:
         webui.web_loop()

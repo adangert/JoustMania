@@ -464,6 +464,13 @@ dependencies = [
     { name = "resampy" },
 ]
 
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "grpcio", specifier = ">=1.70.0" },
@@ -479,8 +486,12 @@ requires-dist = [
     { name = "psutil", specifier = ">=5.9.0" },
     { name = "pyalsaaudio", marker = "sys_platform == 'linux'", specifier = ">=0.11.0" },
     { name = "pydub", specifier = ">=0.25.0" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0.0" },
+    { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=0.23.0" },
+    { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=4.1.0" },
     { name = "resampy", specifier = ">=0.4.0" },
 ]
+provides-extras = ["test"]
 
 [[package]]
 name = "joustmania-controller-manager"
@@ -501,6 +512,13 @@ dependencies = [
     { name = "uvloop", marker = "sys_platform == 'linux'" },
 ]
 
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "dbus-python", marker = "sys_platform == 'linux'", specifier = ">=1.2.0" },
@@ -512,10 +530,14 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-grpc", specifier = ">=0.49b0" },
     { name = "prometheus-client", specifier = ">=0.19.0" },
     { name = "psutil", specifier = ">=5.9.0" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0.0" },
+    { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=0.23.0" },
+    { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=4.1.0" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "redis", specifier = ">=5.0.0" },
     { name = "uvloop", marker = "sys_platform == 'linux'", specifier = ">=0.19.0" },
 ]
+provides-extras = ["test"]
 
 [[package]]
 name = "joustmania-game-coordinator"
@@ -533,6 +555,13 @@ dependencies = [
     { name = "pyyaml" },
 ]
 
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "grpcio", specifier = ">=1.70.0" },
@@ -543,8 +572,12 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-grpc", specifier = ">=0.49b0" },
     { name = "prometheus-client", specifier = ">=0.19.0" },
     { name = "psutil", specifier = ">=5.9.0" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0.0" },
+    { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=0.23.0" },
+    { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=4.1.0" },
     { name = "pyyaml", specifier = ">=6.0" },
 ]
+provides-extras = ["test"]
 
 [[package]]
 name = "joustmania-integration-tests"
@@ -586,9 +619,10 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-dev = [
+test = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
 ]
 
 [package.metadata]
@@ -601,11 +635,12 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-grpc", specifier = ">=0.49b0" },
     { name = "prometheus-client", specifier = ">=0.19.0" },
     { name = "psutil", specifier = ">=5.9.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.21.0" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0.0" },
+    { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=0.23.0" },
+    { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=4.1.0" },
     { name = "pyyaml", specifier = ">=6.0" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["test"]
 
 [[package]]
 name = "joustmania-proto"

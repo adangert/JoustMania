@@ -323,9 +323,7 @@ class ControllerStateManager:
         Returns:
             Dictionary of serial -> state for fresh controllers
         """
-        return {
-            serial: state for serial, state in self.states.items() if state.is_fresh(max_age_ms)
-        }
+        return {serial: state for serial, state in self.states.items() if state.is_fresh(max_age_ms)}
 
     def get_stale_controllers(self, max_age_ms: float = 100.0) -> list:
         """

@@ -16,10 +16,10 @@ import time
 from multiprocessing import Array, Process, Value
 
 import psmove
-
 from core import controller_process
-from lib.controller_state import ControllerState
+
 from lib.types import Opts, Status
+from services.controller_manager.controller_state import ControllerState
 
 from . import pairing as pair
 

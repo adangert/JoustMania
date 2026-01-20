@@ -37,8 +37,8 @@ try:
     with suppress_stderr():
         import psmove
 
-    from lib.controller_state import ControllerState
     from services.controller_manager import bluetooth
+    from services.controller_manager.controller_state import ControllerState
 
     LINUX_DEPS_AVAILABLE = True
 except ImportError:

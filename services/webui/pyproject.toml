@@ -38,3 +38,20 @@ build-backend = "setuptools.build_meta"
 # Service package - no installable modules, just dependency management
 packages = []
 py-modules = []
+
+# ruff - Linting configuration for this service
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "ASYNC", "B", "C4", "RET", "SIM", "ARG"]
+ignore = ["ANN"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Unused imports OK in __init__
+"server.py" = ["N802", "ARG002"]  # gRPC methods use PascalCase, context often unused
+"tests/*.py" = ["ARG002"]  # Test fixtures
+
+[tool.ruff.lint.isort]
+known-first-party = ["lib", "proto", "services"]

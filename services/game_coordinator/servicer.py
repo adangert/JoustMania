@@ -209,9 +209,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
             try:
                 # Check if gRPC clients are available
                 if not self.clients.is_connected:
-                    error_msg = (
-                        "gRPC clients not initialized - " "ControllerManager and Settings services must be running"
-                    )
+                    error_msg = "gRPC clients not initialized - ControllerManager and Settings services must be running"
                     logger.error(error_msg)
                     # Thread-safe state transition
                     with self._state_lock:

@@ -13,23 +13,101 @@ env:
   IMAGE_PREFIX: ghcr.io/watchmejoustmyflags/joustmania
 
 jobs:
-  lint:
-    name: Lint & Format Check
+  # Lint shared code (lib/, root files) and check formatting
+  lint-shared:
+    name: Lint Shared Code & Format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run linting and format check
-        run: make ci-quick
+      - uses: astral-sh/setup-uv@v5
 
-  typecheck:
-    name: Type Check
+      - name: Lint lib/
+        run: |
+          uv tool install ruff
+          ruff check lib/ --output-format=github
+
+      - name: Format check (entire codebase)
+        run: ruff format --check .
+
+  # Per-service matrix checks with path filtering
+  # Runs lint/typecheck for all services, unit tests only for services with tests
+  service-checks:
+    name: ${{ matrix.service }} checks
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - controller_manager
+          - game_coordinator
+          - settings
+          - menu
+          - audio
+          - supervisor
+          - webui
+        include:
+          - service: controller_manager
+            has_tests: true
+          - service: game_coordinator
+            has_tests: true
+          - service: settings
+            has_tests: true
+          - service: menu
+            has_tests: true
+          - service: audio
+            has_tests: true
+          - service: supervisor
+            has_tests: false
+          - service: webui
+            has_tests: false
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run type checking
-        run: make typecheck
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            service:
+              - 'services/${{ matrix.service }}/**'
+              - 'proto/**'
+              - 'lib/**'
+
+      - name: Install uv
+        if: steps.changes.outputs.service == 'true'
+        uses: astral-sh/setup-uv@v5
+
+      # Install system dependencies for services with native Python packages
+      - name: Install system dependencies
+        if: steps.changes.outputs.service == 'true' && (matrix.service == 'controller_manager' || matrix.service == 'audio')
+        run: |
+          sudo apt-get update
+          # controller_manager: dbus-python needs libdbus-1-dev and libglib2.0-dev
+          # audio: pyalsaaudio needs libasound2-dev
+          sudo apt-get install -y libdbus-1-dev libglib2.0-dev libasound2-dev pkg-config
+
+      - name: Lint
+        if: steps.changes.outputs.service == 'true'
+        run: |
+          uv tool install ruff
+          cd services/${{ matrix.service }}
+          ruff check .
+
+      - name: Typecheck
+        if: steps.changes.outputs.service == 'true'
+        continue-on-error: true  # ty is immature, don't block CI
+        run: |
+          uv tool install ty
+          cd services/${{ matrix.service }}
+          uv sync
+          ty check .
+
+      - name: Unit tests
+        if: steps.changes.outputs.service == 'true' && matrix.has_tests
+        run: |
+          cd services/${{ matrix.service }}
+          uv sync --extra test
+          uv run pytest tests/ -v --tb=short
 
   lint-dockerfiles:
     name: Lint Dockerfiles
@@ -79,22 +157,6 @@ jobs:
               - 'images/psmove-builder/**'
             pygame:
               - 'images/pygame-builder/**'
-
-  unit-test:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: Run unit tests
-        run: |
-          uv venv .venv
-          source .venv/bin/activate
-          uv pip install pytest pytest-asyncio grpcio grpcio-health-checking pyyaml psutil
-          python -m pytest services/controller_manager/tests/ services/audio/tests/ services/settings/tests/ services/game_coordinator/tests/ -v
 
   # Build and push builder images to GHCR (Phase 75)
   # Multi-platform builds for amd64 (CI/dev) and arm64 (Raspberry Pi)

@@ -1,7 +1,6 @@
 import colorsys
 import random
 from enum import Enum
-from typing import Any
 
 color_range = 255
 
@@ -29,9 +28,8 @@ def generate_colors(color_num: int) -> list[tuple[int, int, int]]:
     hue_end = 0.9  # Avoid red (ends at magenta-pink)
     hue_range = hue_end - hue_start
 
-    Hue = [(hue_start + (num * hue_range / color_num), 1, 1) for num in range(color_num)]
-    colors = [hsv2rgb(*hsv_color) for hsv_color in Hue]
-    return colors
+    hue_values = [(hue_start + (num * hue_range / color_num), 1, 1) for num in range(color_num)]
+    return [hsv2rgb(*hsv_color) for hsv_color in hue_values]
 
 
 def generate_team_colors(

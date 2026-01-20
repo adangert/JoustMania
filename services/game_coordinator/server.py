@@ -54,8 +54,9 @@ from services.game_coordinator.servicer import GameCoordinatorServicer  # noqa: 
 # Legacy game imports (optional for testing)
 try:
     # Import legacy modules to test availability
-    import games  # noqa: F401
     import piaudio  # noqa: F401
+
+    import games  # noqa: F401
 
     GAMES_AVAILABLE = True
 except ImportError:

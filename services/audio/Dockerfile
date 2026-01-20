@@ -1,21 +1,35 @@
 # Multi-stage build for JoustMania Audio Service
 #
-# Uses pre-built pygame from pygame-builder image for faster builds
-# Build the pygame builder first: docker build -t joustmania/pygame-builder:latest images/pygame-builder/
+# Phase 80: Migrated to distroless with miniaudio (replaces pygame)
+# - miniaudio for sound effects (distroless compatible)
+# - resampy for tempo control (replaces scipy)
+# - pyalsaaudio for ALSA music output
 #
-# Phase 70: Added scipy, numpy, pydub, pyalsaaudio for tempo control
 # Phase 75: Builder images can be overridden for CI/CD
 # --build-arg BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/builder:latest
-# --build-arg PYGAME_BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/pygame-builder:latest
 
-# Builder images - override with --build-arg for CI/CD
+# Builder image - override with --build-arg for CI/CD
 ARG BUILDER_IMAGE=joustmania/builder:latest
-ARG PYGAME_BUILDER_IMAGE=joustmania/pygame-builder:latest
 
-# Pygame builder - pre-compiled pygame with SDL2 support
-FROM ${PYGAME_BUILDER_IMAGE} AS pygame-builder
+# =============================================================================
+# Stage 0: Download grpc-health-probe binary
+# =============================================================================
+FROM busybox:1.36 AS healthprobe
+ARG GRPC_HEALTH_PROBE_VERSION=v0.4.25
+RUN wget -qO/grpc_health_probe https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-amd64 && \
+    chmod +x /grpc_health_probe
 
-# Build stage - uses pre-cached builder with common dependencies
+# =============================================================================
+# Stage 1: Extract ALSA shared libraries for distroless
+# =============================================================================
+FROM debian:bookworm-slim AS alsa-libs
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libasound2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# =============================================================================
+# Stage 2: Build Python dependencies
+# =============================================================================
 FROM ${BUILDER_IMAGE} AS builder
 
 # Install ALSA dev libraries for pyalsaaudio compilation
@@ -40,49 +54,34 @@ COPY services/audio/pyproject.toml /app/services/audio/
 WORKDIR /app/proto
 RUN pip install --no-cache-dir -e .
 
-# Install service-specific dependencies EXCEPT pygame (comes from pygame-builder)
+# Install service-specific dependencies (miniaudio + resampy instead of pygame + scipy)
 WORKDIR /app/services/audio
-RUN pip install --no-cache-dir \
-    grpcio>=1.70.0 \
-    grpcio-health-checking>=1.70.0 \
-    opentelemetry-distro>=0.49b0 \
-    opentelemetry-exporter-otlp>=1.28.0 \
-    opentelemetry-instrumentation-grpc>=0.49b0 \
-    prometheus-client>=0.19.0 \
-    psutil>=5.9.0 \
-    scipy>=1.11.0 \
-    numpy>=1.24.0 \
-    pydub>=0.25.0 \
-    pyalsaaudio>=0.11.0
+RUN uv pip install --system -e .
 
-# Runtime stage - slim image without build tools
-FROM python:3.11-slim
-
-# Install runtime dependencies for SDL audio and tempo control
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libglib2.0-0 \
-    libsdl2-2.0-0 \
-    libsdl2-mixer-2.0-0 \
-    libasound2 \
-    alsa-utils \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+# =============================================================================
+# Stage 3: Runtime image - distroless for minimal size
+# =============================================================================
+FROM gcr.io/distroless/python3-debian12
 
 WORKDIR /app
 
-# Copy installed packages from builder (everything except pygame)
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# Copy grpc-health-probe binary
+COPY --from=healthprobe /grpc_health_probe /bin/grpc_health_probe
 
-# Copy pre-compiled pygame from pygame-builder
-COPY --from=pygame-builder /pygame /usr/local/lib/python3.11/site-packages/pygame
+# Copy ALSA shared libraries for pyalsaaudio
+COPY --from=alsa-libs /usr/lib/x86_64-linux-gnu/libasound.so* /usr/lib/x86_64-linux-gnu/
 
-# Copy application code
+# Copy installed packages from builder to distroless stdlib location
+COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/lib/python3.11/
+
+# Copy application code (assets mounted as volume in docker-compose)
+COPY --from=builder /app/pyproject.toml /app/
 COPY proto/ /app/proto/
 COPY lib/ /app/lib/
-COPY services/audio/ /app/services/audio/
+COPY services/audio/*.py /app/services/audio/
+COPY services/audio/tests/ /app/services/audio/tests/
 
-# Set Python path
+# Set Python path for application code
 ENV PYTHONPATH=/app
 # Ensure Python uses bytecode cache for faster imports (Phase 47)
 ENV PYTHONDONTWRITEBYTECODE=0
@@ -100,9 +99,9 @@ EXPOSE 50056
 # Expose Prometheus metrics port (Phase 38)
 EXPOSE 8000
 
-# Health check
+# Health check using grpc-health-probe
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import grpc; channel = grpc.insecure_channel('localhost:50056'); channel.channel_ready()" || exit 1
+    CMD ["/bin/grpc_health_probe", "-addr=:50056"]
 
 # Run the server
-CMD ["python", "services/audio/server.py"]
+CMD ["services/audio/server.py"]

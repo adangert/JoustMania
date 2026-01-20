@@ -2,8 +2,9 @@
 Music Player with Real-Time Tempo Control
 
 Phase 70: Dynamic Music System
+Phase 80: Migrated from scipy to resampy for distroless compatibility
 
-Uses scipy.signal.resample for real-time tempo changes without pitch shifting.
+Uses resampy for real-time tempo changes without pitch shifting.
 Runs audio playback in a separate process to avoid blocking the gRPC server.
 """
 
@@ -20,7 +21,7 @@ from multiprocessing import Manager, Process, Value
 from sys import platform
 
 import numpy as np
-import scipy.signal as signal
+import resampy
 from pydub import AudioSegment
 
 logger = logging.getLogger(__name__)
@@ -142,27 +143,41 @@ def _linux_audio_loop(fname: dict, ratio: Value, volume: Value, stop_proc: Value
                                 return
 
                     def resample_audio(samples, ratio_val, vol_val):
-                        """Resample audio data for tempo change with volume."""
+                        """Resample audio data for tempo change with volume using resampy."""
                         for data in samples:
                             try:
                                 array = np.frombuffer(data, dtype=np.int16)
 
-                                # Split stereo channels and resample
-                                num_output_frames = int(array.size / (ratio_val.value * 2)) & (~0x1F)
+                                # Calculate output frames based on ratio
+                                # ratio > 1 means faster playback = fewer output samples
+                                ratio = ratio_val.value
+                                if ratio <= 0.5 or ratio > 2.0:
+                                    ratio = 1.0  # Safety clamp
+
+                                num_input_frames = len(array) // 2  # Stereo
+                                num_output_frames = int(num_input_frames / ratio) & (~0x1F)
                                 if num_output_frames < 32:
                                     yield data
                                     continue
 
-                                left = signal.resample(array[0::2], num_output_frames)
-                                right = signal.resample(array[1::2], num_output_frames)
+                                # Split stereo channels and convert to float for resampy
+                                left_in = array[0::2].astype(np.float64)
+                                right_in = array[1::2].astype(np.float64)
 
-                                # Apply volume
+                                # Resample using resampy (audio-quality resampling)
+                                # Use 'kaiser_fast' for real-time performance
+                                sr_in = 44100
+                                sr_out = int(44100 / ratio)
+                                left = resampy.resample(left_in, sr_in, sr_out, filter="kaiser_fast")
+                                right = resampy.resample(right_in, sr_in, sr_out, filter="kaiser_fast")
+
+                                # Apply volume and convert back to int16
                                 vol = vol_val.value
                                 left = (left * vol).astype(np.int16)
                                 right = (right * vol).astype(np.int16)
 
                                 # Interleave channels
-                                final = np.empty(num_output_frames * 2, dtype=np.int16)
+                                final = np.empty(len(left) * 2, dtype=np.int16)
                                 final[0::2] = left
                                 final[1::2] = right
 
@@ -210,7 +225,7 @@ class MusicPlayer:
     """
     Music player with real-time tempo control.
 
-    Uses a separate process for audio playback with scipy resampling.
+    Uses a separate process for audio playback with resampy resampling.
     """
 
     def __init__(self, name: str = "music"):

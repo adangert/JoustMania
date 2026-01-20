@@ -20,7 +20,6 @@ version: '3.8'
 # - IMAGE_TAG: Image tag to use [default: latest]
 # - BUILDER_IMAGE: Base builder image for local builds [default: joustmania/builder:latest]
 # - PSMOVE_BUILDER_IMAGE: PSMove builder image [default: joustmania/psmove-builder:latest]
-# - PYGAME_BUILDER_IMAGE: Pygame builder image [default: joustmania/pygame-builder:latest]
 # - CONTROLLER_BACKEND: Controller backend type (bluetooth, mock, windows) [default: bluetooth]
 # - MOCK_CONTROLLER_COUNT: Number of mock controllers when CONTROLLER_BACKEND=mock [default: 4]
 # - AUDIO_MOCK_MODE: Disable audio output for testing [default: false]
@@ -327,7 +326,6 @@ services:
       dockerfile: services/audio/Dockerfile
       args:
         BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
-        PYGAME_BUILDER_IMAGE: ${PYGAME_BUILDER_IMAGE:-joustmania/pygame-builder:latest}
     container_name: joustmania-audio
     # Sound device access for real audio output
     devices:

@@ -96,7 +96,6 @@ up-mock: images
 # Marker files to track when builders were last built
 BUILDER_MARKER := .builder-built
 PSMOVE_BUILDER_MARKER := .psmove-builder-built
-PYGAME_BUILDER_MARKER := .pygame-builder-built
 
 .PHONY: builder
 builder: $(BUILDER_MARKER)
@@ -117,7 +116,7 @@ $(PSMOVE_BUILDER_MARKER): images/psmove-builder/Dockerfile
 	@echo "✓ PS Move builder image ready"
 
 .PHONY: builders
-builders: builder psmove-builder pygame-builder
+builders: builder psmove-builder
 	@echo ""
 	@echo "✓ All builder images ready!"
 
@@ -135,26 +134,10 @@ psmove-builder-force:
 	@touch $(PSMOVE_BUILDER_MARKER)
 	@echo "✓ PS Move builder image rebuilt"
 
-.PHONY: pygame-builder
-pygame-builder: $(PYGAME_BUILDER_MARKER)
-
-$(PYGAME_BUILDER_MARKER): images/pygame-builder/Dockerfile
-	@echo "Building pygame builder image (this takes 2-5 minutes on Pi)..."
-	@docker build -t joustmania/pygame-builder:latest images/pygame-builder/
-	@touch $(PYGAME_BUILDER_MARKER)
-	@echo "✓ Pygame builder image ready"
-
-.PHONY: pygame-builder-force
-pygame-builder-force:
-	@echo "Force rebuilding pygame builder image..."
-	@docker build --no-cache -t joustmania/pygame-builder:latest images/pygame-builder/
-	@touch $(PYGAME_BUILDER_MARKER)
-	@echo "✓ Pygame builder image rebuilt"
-
 .PHONY: clean-builders
 clean-builders:
 	@echo "Removing builder marker files..."
-	@rm -f $(BUILDER_MARKER) $(PSMOVE_BUILDER_MARKER) $(PYGAME_BUILDER_MARKER)
+	@rm -f $(BUILDER_MARKER) $(PSMOVE_BUILDER_MARKER)
 	@echo "✓ Builder markers cleaned (images still exist)"
 
 # ============================================================================
@@ -218,8 +201,7 @@ image-audio: builders
 	@echo "Building audio service..."
 	@docker build -f services/audio/Dockerfile \
 		-t joustmania/audio-service:latest \
-		--build-arg BUILDER_IMAGE=joustmania/builder:latest \
-		--build-arg PYGAME_BUILDER_IMAGE=joustmania/pygame-builder:latest .
+		--build-arg BUILDER_IMAGE=joustmania/builder:latest .
 	@echo "✓ audio-service:latest built"
 
 # Build all service images (parallel)
@@ -231,7 +213,7 @@ images: builders
 	docker build -f services/menu/Dockerfile -t joustmania/menu-service:latest --build-arg BUILDER_IMAGE=joustmania/builder:latest . & \
 	docker build -f services/supervisor/Dockerfile -t joustmania/supervisor-service:latest --build-arg BUILDER_IMAGE=joustmania/builder:latest . & \
 	docker build -f services/webui/Dockerfile -t joustmania/webui-service:latest --build-arg BUILDER_IMAGE=joustmania/builder:latest . & \
-	docker build -f services/audio/Dockerfile -t joustmania/audio-service:latest --build-arg BUILDER_IMAGE=joustmania/builder:latest --build-arg PYGAME_BUILDER_IMAGE=joustmania/pygame-builder:latest . & \
+	docker build -f services/audio/Dockerfile -t joustmania/audio-service:latest --build-arg BUILDER_IMAGE=joustmania/builder:latest . & \
 	docker build -f services/controller_manager/Dockerfile -t joustmania/controller-manager-service:latest --build-arg BUILDER_IMAGE=joustmania/builder:latest --build-arg PSMOVE_BUILDER_IMAGE=joustmania/psmove-builder:latest . & \
 	wait
 	@echo ""
@@ -378,7 +360,6 @@ ci-help:
 # Builder image defaults (can be overridden for CI/CD)
 BUILDER_IMAGE ?= joustmania/builder:latest
 PSMOVE_BUILDER_IMAGE ?= joustmania/psmove-builder:latest
-PYGAME_BUILDER_IMAGE ?= joustmania/pygame-builder:latest
 
 .PHONY: build-service
 build-service:
@@ -389,7 +370,6 @@ endif
 	@docker build \
 		--build-arg BUILDER_IMAGE=$(BUILDER_IMAGE) \
 		--build-arg PSMOVE_BUILDER_IMAGE=$(PSMOVE_BUILDER_IMAGE) \
-		--build-arg PYGAME_BUILDER_IMAGE=$(PYGAME_BUILDER_IMAGE) \
 		-t joustmania/$(SERVICE)-service:latest \
 		-f services/$(SERVICE)/Dockerfile \
 		.
@@ -423,7 +403,6 @@ pull-builders:
 	@echo "Pulling builder images from GHCR..."
 	@docker pull $(GHCR_PREFIX)/builder:$(GHCR_TAG)
 	@docker pull $(GHCR_PREFIX)/psmove-builder:$(GHCR_TAG)
-	@docker pull $(GHCR_PREFIX)/pygame-builder:$(GHCR_TAG)
 	@echo "✓ All builder images pulled from GHCR"
 
 .PHONY: up-ghcr

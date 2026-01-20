@@ -2,8 +2,8 @@
 Audio gRPC Servicer for JoustMania
 
 Handles audio playback with priority-based mixing and real-time tempo control.
-- Sound effects: pygame.mixer (8 channels, priority-based)
-- Background music: MusicPlayer with scipy resampling for tempo control
+- Sound effects: miniaudio for distroless compatibility (Phase 80)
+- Background music: MusicPlayer with resampy for real-time tempo control
 """
 
 import asyncio
@@ -12,7 +12,8 @@ import os
 import threading
 from pathlib import Path
 
-import pygame
+import miniaudio
+import numpy as np
 from opentelemetry import trace
 
 from proto import audio_pb2, audio_pb2_grpc
@@ -22,13 +23,101 @@ logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
 
 
+class SoundChannel:
+    """
+    Represents a single sound channel for concurrent playback.
+
+    Handles decoding and streaming of a single sound effect using miniaudio.
+    """
+
+    def __init__(self, channel_id: int):
+        """Initialize a sound channel."""
+        self.channel_id = channel_id
+        self.device: miniaudio.PlaybackDevice | None = None
+        self.is_playing = False
+        self.priority = 0
+        self._lock = threading.Lock()
+
+    def play(self, file_path: str, volume: float = 1.0, priority: int = 2) -> bool:
+        """
+        Play a sound on this channel.
+
+        Args:
+            file_path: Path to the audio file
+            volume: Volume level (0.0 to 1.0)
+            priority: Priority level for channel selection
+
+        Returns:
+            True if sound started successfully
+        """
+        with self._lock:
+            # Stop any currently playing sound
+            self.stop()
+
+            try:
+                # Decode the audio file (supports WAV, MP3, FLAC, OGG)
+                decoded = miniaudio.decode_file(file_path)
+
+                # Create a generator that yields the audio samples
+                def audio_generator():
+                    samples = np.frombuffer(decoded.samples, dtype=np.int16).astype(np.float32) / 32768.0
+                    samples = samples * volume  # Apply volume
+                    yield samples.astype(np.float32).tobytes()
+
+                # Create playback device
+                self.device = miniaudio.PlaybackDevice(
+                    output_format=miniaudio.SampleFormat.FLOAT32,
+                    nchannels=decoded.nchannels,
+                    sample_rate=decoded.sample_rate,
+                )
+
+                # Start playback in a separate thread
+                self.priority = priority
+                self.is_playing = True
+
+                def play_thread():
+                    try:
+                        # Use stream_memory for one-shot playback
+                        stream = miniaudio.stream_memory(decoded.samples, decoded.nchannels, decoded.sample_rate)
+                        with self.device:
+                            self.device.start(stream)
+                            # Wait for stream to finish
+                            for _ in stream:
+                                if not self.is_playing:
+                                    break
+                    except Exception as e:
+                        logger.warning(f"Playback error on channel {self.channel_id}: {e}")
+                    finally:
+                        self.is_playing = False
+
+                threading.Thread(target=play_thread, daemon=True).start()
+                return True
+
+            except Exception as e:
+                logger.error(f"Error playing sound on channel {self.channel_id}: {e}")
+                self.is_playing = False
+                return False
+
+    def stop(self):
+        """Stop playback on this channel."""
+        import contextlib
+
+        self.is_playing = False
+        if self.device:
+            with contextlib.suppress(Exception):
+                self.device.close()
+            self.device = None
+
+
 class AudioManager:
     """
     Manages audio playback with priority-based mixing and tempo control.
 
-    - Sound effects: pygame.mixer (8 channels, priority-based)
-    - Background music: MusicPlayer with scipy resampling for real-time tempo control
+    - Sound effects: miniaudio with multi-channel support (Phase 80)
+    - Background music: MusicPlayer with resampy for real-time tempo control
     """
+
+    MAX_CHANNELS = 8  # Maximum concurrent sound effects
 
     def __init__(self):
         """Initialize audio systems."""
@@ -37,13 +126,11 @@ class AudioManager:
         # Assets directory - clients send relative paths, we resolve to full path
         self.assets_dir = os.getenv("AUDIO_ASSETS_DIR", "services/audio/assets")
 
-        # Initialize pygame for sound effects
+        # Initialize sound channels for concurrent playback
+        self.channels: list[SoundChannel] = []
         if not self.mock_mode:
-            # Force SDL/pygame to use ALSA and the default device from asound.conf
-            os.environ.setdefault("SDL_AUDIODRIVER", "alsa")
-            pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
-            pygame.mixer.set_num_channels(8)  # Allow up to 8 simultaneous sounds
-            logger.info(f"Pygame mixer initialized (SDL_AUDIODRIVER={os.environ.get('SDL_AUDIODRIVER', 'default')})")
+            self.channels = [SoundChannel(i) for i in range(self.MAX_CHANNELS)]
+            logger.info(f"Miniaudio initialized with {self.MAX_CHANNELS} channels")
         else:
             logger.info("AudioManager running in MOCK_MODE - no actual audio playback")
 
@@ -75,6 +162,30 @@ class AudioManager:
             return relative_path
         return os.path.join(self.assets_dir, relative_path)
 
+    def _find_channel(self, force_priority: bool = False, priority: int = 2) -> SoundChannel | None:
+        """
+        Find an available channel for sound playback.
+
+        Args:
+            force_priority: If True, steal lowest priority channel if all busy
+            priority: Priority of the new sound
+
+        Returns:
+            Available SoundChannel or None if no channel available
+        """
+        # First, look for a free channel
+        for channel in self.channels:
+            if not channel.is_playing:
+                return channel
+
+        # If force_priority (critical sound), steal lowest priority channel
+        if force_priority:
+            lowest_priority_channel = min(self.channels, key=lambda c: c.priority)
+            if lowest_priority_channel.priority < priority:
+                return lowest_priority_channel
+
+        return None
+
     def play_sound(self, file_path: str, volume: float = 1.0, priority: int = 2) -> bool:
         """
         Play a sound effect (one-shot).
@@ -99,17 +210,17 @@ class AudioManager:
                 logger.error(f"Audio file not found: {full_path} (requested: {file_path})")
                 return False
 
-            # Load and play sound effect
-            sound = pygame.mixer.Sound(full_path)
-            adjusted_volume = volume * self.master_volume
-            sound.set_volume(adjusted_volume)
-
             # Find available channel (or force if critical priority)
-            channel = pygame.mixer.find_channel(priority == 3)
+            channel = self._find_channel(force_priority=(priority == 3), priority=priority)
             if channel:
-                channel.play(sound)
-                logger.debug(f"Playing sound: {file_path} (volume={adjusted_volume:.2f})")
-                return True
+                adjusted_volume = volume * self.master_volume
+                if channel.play(full_path, volume=adjusted_volume, priority=priority):
+                    logger.debug(
+                        f"Playing sound: {file_path} (channel={channel.channel_id}, volume={adjusted_volume:.2f})"
+                    )
+                    return True
+                return False
+
             logger.warning(f"No available channel for sound: {file_path}")
             return False
 
@@ -192,7 +303,7 @@ class AudioManager:
         """
         Change music tempo with smooth transition.
 
-        Uses scipy.signal.resample for real-time tempo changes.
+        Uses resampy for real-time tempo changes (Phase 80).
 
         Args:
             track_id: ID of track to modify
@@ -264,8 +375,9 @@ class AudioManager:
     def cleanup(self):
         """Clean up audio resources."""
         self.music_player.cleanup()
-        if not self.mock_mode:
-            pygame.mixer.quit()
+        # Stop all sound channels
+        for channel in self.channels:
+            channel.stop()
 
 
 class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):

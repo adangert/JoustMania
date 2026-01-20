@@ -170,9 +170,9 @@ class Status(Enum):
 
 
 class Opts(Enum):
-    """Common options (0-5 for common, 6+ for custom)."""
+    """Common options for controller state tracking."""
 
-    BUTTON = 0  # Buttons that are currently pressed TODO - Not being used
+    # Note: Value 0 was previously BUTTON, removed as unused
     HOLDING = 1  # Whether buttons are being held
     SELECTION = 2  # What those buttons represent for this game
     STATUS = 3  # Status of the move

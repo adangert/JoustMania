@@ -86,8 +86,8 @@ async def serve(metrics_port=8000):
     await health_servicer.set("audio.AudioService", health_pb2.HealthCheckResponse.SERVING)
     await health_servicer.set("", health_pb2.HealthCheckResponse.SERVING)  # Overall health
 
-    # Bind to port
-    port = "50056"
+    # Bind to port (configurable via AUDIO_PORT env var)
+    port = int(os.environ.get("AUDIO_PORT", "50056"))
     server.add_insecure_port(f"[::]:{port}")
 
     logger.info(f"Audio service listening on port {port}")

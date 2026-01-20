@@ -9,9 +9,6 @@
 # Builder image - override with --build-arg BUILDER_IMAGE=...
 ARG BUILDER_IMAGE=joustmania/builder:latest
 
-# Get wget for HTTP health checks (static binary from busybox)
-FROM busybox:1.36 AS healthcheck-tools
-
 # Build stage - uses pre-cached builder with common dependencies
 FROM ${BUILDER_IMAGE} AS builder
 
@@ -36,9 +33,6 @@ RUN uv pip install --system -e .
 FROM gcr.io/distroless/python3-debian12
 
 WORKDIR /app
-
-# Copy wget for health checks
-COPY --from=healthcheck-tools /bin/wget /bin/wget
 
 # Copy installed packages from builder to distroless stdlib location
 COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/lib/python3.11/
@@ -75,9 +69,9 @@ EXPOSE 80
 # Expose Prometheus metrics port (Phase 38)
 EXPOSE 8000
 
-# Health check using wget (HTTP)
+# Health check using Python urllib (distroless has Python at /usr/bin/python3.11)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD ["/bin/wget", "-q", "--spider", "http://localhost:80/"]
+    CMD ["/usr/bin/python3.11", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:80/health', timeout=5)"]
 
 # Run the server (distroless has python as entrypoint)
 CMD ["services/webui/server.py"]

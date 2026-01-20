@@ -9,12 +9,6 @@
 # Builder image - override with --build-arg BUILDER_IMAGE=...
 ARG BUILDER_IMAGE=joustmania/builder:latest
 
-# Download grpc-health-probe for health checks
-FROM busybox:1.36 AS healthprobe
-ARG GRPC_HEALTH_PROBE_VERSION=v0.4.25
-RUN wget -qO/grpc_health_probe https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-amd64 && \
-    chmod +x /grpc_health_probe
-
 # Build stage - uses pre-cached builder with common dependencies
 FROM ${BUILDER_IMAGE} AS builder
 
@@ -40,8 +34,8 @@ FROM gcr.io/distroless/python3-debian12
 
 WORKDIR /app
 
-# Copy grpc-health-probe for health checks
-COPY --from=healthprobe /grpc_health_probe /bin/grpc_health_probe
+# Copy grpc-health-probe from official multi-arch image
+COPY --from=ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.38 /ko-app/grpc-health-probe /bin/grpc_health_probe
 
 # Copy installed packages from builder to distroless stdlib location
 # (packages are merged into /usr/lib/python3.11/ where distroless Python looks)

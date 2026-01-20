@@ -80,6 +80,22 @@ jobs:
             pygame:
               - 'images/pygame-builder/**'
 
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run unit tests
+        run: |
+          uv venv .venv
+          source .venv/bin/activate
+          uv pip install pytest pytest-asyncio grpcio grpcio-health-checking pyyaml psutil
+          python -m pytest services/controller_manager/tests/ services/audio/tests/ services/settings/tests/ services/game_coordinator/tests/ -v
+
   # Build and push builder images to GHCR (Phase 75)
   # Multi-platform builds for amd64 (CI/dev) and arm64 (Raspberry Pi)
   # Builder images are always pushed (needed for integration tests)
@@ -167,6 +183,14 @@ jobs:
             ${{ github.event_name != 'pull_request' && format('{0}/psmove-builder:{1}', env.IMAGE_PREFIX, github.ref_name) || '' }}
           cache-from: type=gha,scope=psmove-builder
           cache-to: type=gha,mode=max,scope=psmove-builder
+
+      # Re-tag stable image when unchanged (much faster)
+      - name: Reuse stable image (unchanged)
+        if: needs.detect-builder-changes.outputs.psmove != 'true'
+        run: |
+          docker buildx imagetools create \
+            --tag ${{ env.IMAGE_PREFIX }}/psmove-builder:${{ github.sha }} \
+            ${{ env.IMAGE_PREFIX }}/psmove-builder:dev-refactor
 
   docker-build:
     name: Build ${{ matrix.service }}

@@ -421,6 +421,11 @@ ci-build-test:
 	@docker build -t joustmania/ci-test:latest tools/ci-test/
 	@echo "✓ Test runner image built"
 
+.PHONY: unit-test
+unit-test:
+	@echo "Running service unit tests..."
+	@uv run --extra test python -m pytest services/controller_manager/tests/ services/audio/tests/ services/settings/tests/ services/game_coordinator/tests/ -v
+
 .PHONY: test
 test:
 	@echo "Running integration tests with mock environment (fresh venv)..."
@@ -521,6 +526,7 @@ test-help:
 	@echo "===================="
 	@echo ""
 	@echo "Run Tests (Local - Recommended):"
+	@echo "  make unit-test           - Run service unit tests (fast, no Docker)"
 	@echo "  make test                - Run all integration tests"
 	@echo "  make test-mock-pause     - Run with pause before teardown (for Jaeger)"
 	@echo "  make test-ffa            - Run FFA integration test only"

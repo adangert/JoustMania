@@ -16,14 +16,6 @@ ARG BUILDER_IMAGE=joustmania/builder:latest
 ARG PSMOVE_BUILDER_IMAGE=joustmania/psmove-builder:latest
 
 # =============================================================================
-# Stage 0: Download grpc-health-probe binary
-# =============================================================================
-FROM busybox:1.36 AS healthprobe
-ARG GRPC_HEALTH_PROBE_VERSION=v0.4.25
-RUN wget -qO/grpc_health_probe https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-amd64 && \
-    chmod +x /grpc_health_probe
-
-# =============================================================================
 # Stage 1: PS Move API - use pre-built image
 # =============================================================================
 FROM ${PSMOVE_BUILDER_IMAGE} AS psmove-builder
@@ -88,7 +80,8 @@ COPY --from=psmove-builder /psmove/libpsmoveapi.so /usr/local/lib/
 RUN ldconfig
 
 # Copy grpc-health-probe binary
-COPY --from=healthprobe /grpc_health_probe /bin/grpc_health_probe
+# Copy grpc-health-probe from official multi-arch image
+COPY --from=ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.38 /ko-app/grpc-health-probe /bin/grpc_health_probe
 
 # Copy application code
 COPY --from=python-builder /app/pyproject.toml /app/

@@ -110,12 +110,7 @@ services:
     networks:
       - joustmania
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50051'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+    # Healthcheck defined in Dockerfile (uses grpc_health_probe)
 
   # Controller Manager Service
   controller-manager:
@@ -157,12 +152,7 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50052'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+    # Healthcheck defined in Dockerfile (uses grpc_health_probe)
 
   # Game Coordinator Service
   game-coordinator:
@@ -192,12 +182,7 @@ services:
     networks:
       - joustmania
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50053'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+    # Healthcheck defined in Dockerfile (uses grpc_health_probe)
 
   # Menu Service
   menu:
@@ -232,12 +217,7 @@ services:
     networks:
       - joustmania
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50054'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+    # Healthcheck defined in Dockerfile (uses grpc_health_probe)
 
   # Supervisor Service
   supervisor:
@@ -269,12 +249,7 @@ services:
     networks:
       - joustmania
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50055'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+    # Healthcheck defined in Dockerfile (uses grpc_health_probe)
 
   # Web UI Service
   webui:
@@ -311,12 +286,7 @@ services:
     networks:
       - joustmania
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:80/health', timeout=2); exit(0)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+    # Healthcheck defined in Dockerfile (uses wget)
 
   # Audio Service
   audio:
@@ -346,12 +316,7 @@ services:
     networks:
       - joustmania
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50056'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+    # Healthcheck defined in Dockerfile (uses grpc_health_probe)
 
   # Prometheus for metrics collection (Phase 38)
   prometheus:

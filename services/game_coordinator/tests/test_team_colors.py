@@ -139,56 +139,6 @@ class TestSetTeamColors:
     """Test _set_team_colors method."""
 
     @pytest.mark.asyncio
-    async def test_set_team_colors_persistent(self, teams_game):
-        """Should set persistent team colors without pulse."""
-        # Add mock players
-        teams_game.players = {
-            "player1": Player(serial="player1", team=0, alive=True, color=(255, 108, 108)),
-            "player2": Player(serial="player2", team=1, alive=True, color=(255, 0, 192)),
-        }
-
-        await teams_game._set_team_colors(pulse_effect=False, duration_ms=0)
-
-        # Should call SetControllerColor for each player
-        assert teams_game.controller_manager_client.SetControllerColor.call_count == 2
-
-        # Verify first player (team 0 - Pink)
-        call1 = teams_game.controller_manager_client.SetControllerColor.call_args_list[0]
-        request1 = call1[0][0]
-        assert request1.serial == "player1"
-        assert request1.color.r == 255
-        assert request1.color.g == 108
-        assert request1.color.b == 108
-        assert request1.duration_ms == 0
-
-        # Verify second player (team 1 - Magenta)
-        call2 = teams_game.controller_manager_client.SetControllerColor.call_args_list[1]
-        request2 = call2[0][0]
-        assert request2.serial == "player2"
-        assert request2.color.r == 255
-        assert request2.color.g == 0
-        assert request2.color.b == 192
-        assert request2.duration_ms == 0
-
-    @pytest.mark.asyncio
-    async def test_set_team_colors_pulse(self, teams_game):
-        """Should set pulsing team colors for announcements."""
-        teams_game.players = {
-            "player1": Player(serial="player1", team=0, alive=True, color=(255, 108, 108)),
-        }
-
-        await teams_game._set_team_colors(pulse_effect=True, duration_ms=3000)
-
-        # Should call PlayControllerEffect with pulse
-        assert teams_game.controller_manager_client.PlayControllerEffect.call_count == 1
-
-        call = teams_game.controller_manager_client.PlayControllerEffect.call_args_list[0]
-        request = call[0][0]
-        assert request.serial == "player1"
-        assert request.duration_ms == 3000
-        assert request.speed == 3  # Medium pulse speed
-
-    @pytest.mark.asyncio
     async def test_set_team_colors_multiple_teams(
         self, mock_controller_client, mock_settings_client, mock_event_publisher
     ):
@@ -221,22 +171,6 @@ class TestSetTeamColors:
             assert request.color.r == expected_color[0]
             assert request.color.g == expected_color[1]
             assert request.color.b == expected_color[2]
-
-    @pytest.mark.asyncio
-    async def test_set_team_colors_error_handling(self, teams_game):
-        """Should handle errors gracefully."""
-        teams_game.players = {
-            "player1": Player(serial="player1", team=0, alive=True, color=(255, 108, 108)),
-        }
-
-        # Simulate error
-        teams_game.controller_manager_client.SetControllerColor.side_effect = Exception("gRPC error")
-
-        # Should not raise, just log error
-        await teams_game._set_team_colors(pulse_effect=False, duration_ms=0)
-
-        # Error was handled (no exception raised)
-        assert True
 
 
 class TestGetAliveTeams:

@@ -12,20 +12,19 @@
 ARG BUILDER_IMAGE=joustmania/builder:latest
 
 # =============================================================================
-# Stage 0: Download grpc-health-probe binary
-# =============================================================================
-FROM busybox:1.36 AS healthprobe
-ARG GRPC_HEALTH_PROBE_VERSION=v0.4.25
-RUN wget -qO/grpc_health_probe https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-amd64 && \
-    chmod +x /grpc_health_probe
-
-# =============================================================================
-# Stage 1: Extract ALSA shared libraries for distroless
+# Stage 0: Extract ALSA shared libraries for distroless
 # =============================================================================
 FROM debian:bookworm-slim AS alsa-libs
+ARG TARGETARCH
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libasound2 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir /alsa-libs \
+    && if [ "$TARGETARCH" = "arm64" ]; then \
+         cp /usr/lib/aarch64-linux-gnu/libasound.so* /alsa-libs/; \
+       else \
+         cp /usr/lib/x86_64-linux-gnu/libasound.so* /alsa-libs/; \
+       fi
 
 # =============================================================================
 # Stage 2: Build Python dependencies
@@ -66,10 +65,11 @@ FROM gcr.io/distroless/python3-debian12
 WORKDIR /app
 
 # Copy grpc-health-probe binary
-COPY --from=healthprobe /grpc_health_probe /bin/grpc_health_probe
+# Copy grpc-health-probe from official multi-arch image
+COPY --from=ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.38 /ko-app/grpc-health-probe /bin/grpc_health_probe
 
-# Copy ALSA shared libraries for pyalsaaudio
-COPY --from=alsa-libs /usr/lib/x86_64-linux-gnu/libasound.so* /usr/lib/x86_64-linux-gnu/
+# Copy ALSA shared libraries for pyalsaaudio (from arch-agnostic location)
+COPY --from=alsa-libs /alsa-libs/ /usr/lib/
 
 # Copy installed packages from builder to distroless stdlib location
 COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/lib/python3.11/

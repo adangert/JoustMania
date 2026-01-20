@@ -91,7 +91,7 @@ jobs:
           push: true
           tags: |
             ${{ env.IMAGE_PREFIX }}/builder:${{ github.sha }}
-            ${{ env.IMAGE_PREFIX }}/builder:${{ github.ref_name }}
+            ${{ github.event_name != 'pull_request' && format('{0}/builder:{1}', env.IMAGE_PREFIX, github.ref_name) || '' }}
           cache-from: type=gha,scope=builder
           cache-to: type=gha,mode=max,scope=builder
 
@@ -125,7 +125,7 @@ jobs:
           push: true
           tags: |
             ${{ env.IMAGE_PREFIX }}/psmove-builder:${{ github.sha }}
-            ${{ env.IMAGE_PREFIX }}/psmove-builder:${{ github.ref_name }}
+            ${{ github.event_name != 'pull_request' && format('{0}/psmove-builder:{1}', env.IMAGE_PREFIX, github.ref_name) || '' }}
           cache-from: type=gha,scope=psmove-builder
           cache-to: type=gha,mode=max,scope=psmove-builder
 
@@ -159,7 +159,7 @@ jobs:
           push: true
           tags: |
             ${{ env.IMAGE_PREFIX }}/pygame-builder:${{ github.sha }}
-            ${{ env.IMAGE_PREFIX }}/pygame-builder:${{ github.ref_name }}
+            ${{ github.event_name != 'pull_request' && format('{0}/pygame-builder:{1}', env.IMAGE_PREFIX, github.ref_name) || '' }}
           cache-from: type=gha,scope=pygame-builder
           cache-to: type=gha,mode=max,scope=pygame-builder
 
@@ -215,7 +215,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ env.IMAGE_PREFIX }}/${{ steps.image_name.outputs.name }}:${{ github.sha }}
-            ${{ env.IMAGE_PREFIX }}/${{ steps.image_name.outputs.name }}:${{ github.ref_name }}
+            ${{ github.event_name != 'pull_request' && format('{0}/{1}:{2}', env.IMAGE_PREFIX, steps.image_name.outputs.name, github.ref_name) || '' }}
           build-args: |
             BUILDER_IMAGE=${{ env.IMAGE_PREFIX }}/builder:${{ github.sha }}
             PSMOVE_BUILDER_IMAGE=${{ env.IMAGE_PREFIX }}/psmove-builder:${{ github.sha }}

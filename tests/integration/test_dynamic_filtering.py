@@ -93,51 +93,7 @@ class TestProtoMessages:
         assert not control_msg.HasField("config")
 
 
-class TestMetrics:
-    """Test that Phase 45 metrics are defined and accessible."""
-
-    def test_game_coordinator_metrics_exist(self):
-        """Test that game coordinator filtering metrics exist."""
-        from services.game_coordinator import metrics
-
-        # Check Phase 45 metrics exist
-        assert hasattr(metrics, "filtered_controllers")
-        assert hasattr(metrics, "filter_updates_total")
-        assert hasattr(metrics, "active_controllers")
-
-        # Check metrics are the correct type
-        from prometheus_client import Counter, Gauge
-
-        assert isinstance(metrics.filtered_controllers, Gauge)
-        assert isinstance(metrics.filter_updates_total, Counter)
-        assert isinstance(metrics.active_controllers, Gauge)
-
-    def test_controller_manager_metrics_exist(self):
-        """Test that controller manager filtering metrics exist."""
-        from services.controller_manager import metrics
-
-        # Check Phase 45 metric exists
-        assert hasattr(metrics, "streamed_controllers")
-
-        # Check metric is the correct type
-        from prometheus_client import Histogram
-
-        assert isinstance(metrics.streamed_controllers, Histogram)
-
-    def test_metrics_can_be_updated(self):
-        """Test that metrics can be updated without errors."""
-        from services.controller_manager import metrics as cm_metrics
-        from services.game_coordinator import metrics as gc_metrics
-
-        # Game coordinator metrics
-        gc_metrics.active_controllers.set(10)
-        gc_metrics.filtered_controllers.set(15)
-        gc_metrics.filter_updates_total.labels(game_mode="FFA").inc()
-
-        # Controller manager metrics
-        cm_metrics.streamed_controllers.observe(10)
-        cm_metrics.streamed_controllers.observe(5)
-        cm_metrics.streamed_controllers.observe(2)
+# TestMetrics moved to service-level unit tests (requires prometheus_client)
 
 
 class TestFilterLogic:

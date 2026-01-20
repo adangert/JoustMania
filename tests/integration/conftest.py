@@ -28,7 +28,7 @@ from proto import (
 )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def docker_compose():
     """Fixture to start docker-compose mock environment.
 
@@ -73,11 +73,11 @@ def docker_compose():
     compose.stop()
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 async def ensure_game_stopped(docker_compose):
     """Ensure no game is running before and after each test.
 
-    This fixture runs automatically for every test to prevent
+    Use this fixture explicitly in tests that start games to prevent
     'Game already in progress' errors between tests.
     """
     async def force_end_game():
@@ -91,9 +91,8 @@ async def ensure_game_stopped(docker_compose):
             # Try to force end any running game
             await client.ForceEndGame(game_coordinator_pb2.ForceEndGameRequest())
 
-            # Wait for Menu to receive game_force_ended event and reset
-            # This includes: state reset, button monitor restart, stream reconnection
-            await asyncio.sleep(3)
+            # Brief wait for cleanup
+            await asyncio.sleep(0.5)
 
             await channel.close()
         except Exception:

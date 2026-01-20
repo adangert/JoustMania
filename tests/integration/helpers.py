@@ -311,17 +311,17 @@ async def start_game_via_menu(
 
     # Force-end any previous game to ensure clean state
     await game_client.ForceEndGame(game_coordinator_pb2.ForceEndGameRequest(reason="test_cleanup"))
-    await asyncio.sleep(2.0)  # Allow game cleanup to complete
+    await asyncio.sleep(0.5)  # Allow game cleanup to complete
 
     # Stop Menu first to clear any stale controller state, then restart fresh
     await menu_client.StopMenu(menu_pb2.StopMenuRequest())
-    await asyncio.sleep(0.5)
+    await asyncio.sleep(0.2)
 
     # Start the Menu service
     start_response = await menu_client.StartMenu(menu_pb2.StartMenuRequest())
     if not start_response.success:
         raise RuntimeError(f"Failed to start Menu: {start_response.error}")
-    await asyncio.sleep(1)  # Allow Menu to initialize and receive controller events
+    await asyncio.sleep(0.5)  # Allow Menu to initialize and receive controller events
 
     # Get controller serials
     serials = await get_controller_serials(docker_compose)
@@ -330,14 +330,14 @@ async def start_game_via_menu(
 
     # Select game mode
     await select_game_mode(menu_client, game_mode)
-    await asyncio.sleep(0.5)
+    await asyncio.sleep(0.2)
 
     # Mark all controllers as ready - game auto-starts when all are ready
     # Controllers are automatically known to Menu via initial connection events
     print(f"Marking {len(serials)} controllers as ready: {serials}")
     await mark_controllers_ready(mock_client, serials)
     print("Controllers marked as ready, waiting for game start...")
-    await asyncio.sleep(1)
+    await asyncio.sleep(0.3)
 
     # Wait for game to start (game_started event)
     # Game auto-starts after 0.3s delay when all controllers become ready

@@ -11,28 +11,39 @@ class TestProtoMessages:
     """Test Phase 45 proto message creation and manipulation."""
 
     def test_gameplay_stream_config_creation(self):
-        """Test creating GameplayStreamConfig message."""
+        """Test creating GameplayStreamConfig message with colors."""
         from proto import controller_manager_pb2
 
         config = controller_manager_pb2.GameplayStreamConfig(
-            update_frequency_hz=30, serials=["controller_1", "controller_2", "controller_3"]
+            update_frequency_hz=30,
+            colors=[
+                controller_manager_pb2.ControllerColorConfig(
+                    serial="controller_1", color=controller_manager_pb2.RGB(r=255, g=0, b=0)
+                ),
+                controller_manager_pb2.ControllerColorConfig(
+                    serial="controller_2", color=controller_manager_pb2.RGB(r=0, g=255, b=0)
+                ),
+                controller_manager_pb2.ControllerColorConfig(
+                    serial="controller_3", color=controller_manager_pb2.RGB(r=0, g=0, b=255)
+                ),
+            ],
         )
 
         assert config.update_frequency_hz == 30
-        assert len(config.serials) == 3
-        assert "controller_1" in config.serials
+        assert len(config.colors) == 3
+        assert config.colors[0].serial == "controller_1"
 
-    def test_gameplay_stream_config_empty_serials(self):
-        """Test GameplayStreamConfig with empty serials (all controllers)."""
+    def test_gameplay_stream_config_empty_colors(self):
+        """Test GameplayStreamConfig with empty colors (all controllers)."""
         from proto import controller_manager_pb2
 
         config = controller_manager_pb2.GameplayStreamConfig(
             update_frequency_hz=60,
-            serials=[],  # Empty = all controllers
+            colors=[],  # Empty = all controllers
         )
 
         assert config.update_frequency_hz == 60
-        assert len(config.serials) == 0
+        assert len(config.colors) == 0
 
     def test_filter_update_creation(self):
         """Test creating FilterUpdate message."""
@@ -50,7 +61,12 @@ class TestProtoMessages:
         from proto import controller_manager_pb2
 
         config = controller_manager_pb2.GameplayStreamConfig(
-            update_frequency_hz=30, serials=["controller_1"]
+            update_frequency_hz=30,
+            colors=[
+                controller_manager_pb2.ControllerColorConfig(
+                    serial="controller_1", color=controller_manager_pb2.RGB(r=255, g=0, b=0)
+                ),
+            ],
         )
 
         control_msg = controller_manager_pb2.GameplayStreamControl(config=config)
@@ -79,7 +95,7 @@ class TestProtoMessages:
 
         # Set config first
         control_msg = controller_manager_pb2.GameplayStreamControl(
-            config=controller_manager_pb2.GameplayStreamConfig(update_frequency_hz=30, serials=[])
+            config=controller_manager_pb2.GameplayStreamConfig(update_frequency_hz=30, colors=[])
         )
 
         assert control_msg.HasField("config")

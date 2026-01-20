@@ -411,7 +411,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         # Initial configuration
                         current_hz = control_msg.config.update_frequency_hz or 30
 
-                        # Phase XX: Extract filter from colors if provided, fallback to serials
+                        # Extract filter from colors if provided
                         if control_msg.config.colors:
                             # Use serials from colors as filter
                             current_filter = set()
@@ -425,9 +425,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                                     if serial in self.tracked_controllers:
                                         await self.feedback_manager.set_controller_color(serial, color)
                             logger.info(f"[{subscriber_id}] Set base colors for {len(current_filter)} controllers")
-                        elif control_msg.config.serials:
-                            # Legacy: use serials field directly
-                            current_filter = set(control_msg.config.serials)
                         else:
                             current_filter = None  # All controllers
 

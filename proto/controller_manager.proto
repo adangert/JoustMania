@@ -204,8 +204,9 @@ message GameplayStreamControl {
 // Initial stream configuration (sent once at start)
 message GameplayStreamConfig {
   int32 update_frequency_hz = 1;            // Game loop frequency
-  repeated string serials = 2;              // DEPRECATED: Use colors instead. Filter derived from colors.
-  repeated ControllerColorConfig colors = 3; // Phase XX: Initial base colors for players (serials derived from this)
+  reserved 2;                               // Removed: serials field (use colors instead)
+  reserved "serials";
+  repeated ControllerColorConfig colors = 3; // Initial base colors for players (serials derived from this)
 }
 
 // Filter update (sent when alive players change)

@@ -121,6 +121,10 @@ class Player:
     warning_until: float = 0.0
     # Analytics tracker for this player (initialized when game starts)
     analytics: "PlayerAnalytics | None" = None
+    # Per-player sensitivity multiplier (Phase 3: Per-Player Sensitivity Infrastructure)
+    # 1.0 = default, >1.0 = more sensitive (easier to die), <1.0 = less sensitive (harder to die)
+    # Thresholds are divided by this factor: higher factor = lower threshold = easier to trigger
+    sensitivity_factor: float = 1.0
 
 
 @dataclass
@@ -643,8 +647,15 @@ class BaseGameMode(ABC):
         speed_percent = max(0.0, min(1.0, speed_percent))  # Clamp to [0, 1]
 
         # LERP between slow and fast thresholds
-        effective_warn = self._lerp(SLOW_WARNING[sens_idx], FAST_WARNING[sens_idx], speed_percent)
-        effective_death = self._lerp(SLOW_MAX[sens_idx], FAST_MAX[sens_idx], speed_percent)
+        base_warn = self._lerp(SLOW_WARNING[sens_idx], FAST_WARNING[sens_idx], speed_percent)
+        base_death = self._lerp(SLOW_MAX[sens_idx], FAST_MAX[sens_idx], speed_percent)
+
+        # Apply per-player sensitivity factor (Phase 3: Per-Player Sensitivity Infrastructure)
+        # Clamp factor to [0.5, 2.0] for safety, then divide thresholds
+        # Higher factor = lower threshold = easier to die
+        clamped_factor = max(0.5, min(2.0, player.sensitivity_factor))
+        effective_warn = base_warn / clamped_factor
+        effective_death = base_death / clamped_factor
 
         smoothed = player.smoothed_accel
         current_time = time.time()
@@ -734,6 +745,7 @@ class BaseGameMode(ABC):
                     "accel_magnitude": accel_mag,
                     "threshold": threshold,
                     "sensitivity": self.sensitivity.name,
+                    "sensitivity_factor": player.sensitivity_factor,
                     "music_speed": self.music_speed,
                 },
             )
@@ -772,6 +784,19 @@ class BaseGameMode(ABC):
 
         # Play death explosion sound (Phase 29)
         await self._play_sound(Sound.SFX_EXPLOSION, priority=2)
+
+        # Add death event to player's lifecycle span (Phase 3: Per-Player Sensitivity)
+        if player.span:
+            player.span.add_event(
+                "player_death",
+                attributes={
+                    "accel_magnitude": accel_mag,
+                    "sensitivity": self.sensitivity.name,
+                    "sensitivity_factor": player.sensitivity_factor,
+                    "music_speed": self.music_speed,
+                    "alive_remaining": alive_count_before - 1,
+                },
+            )
 
         # Call subclass-specific death handling
         await self._kill_player_impl(serial, accel_mag)

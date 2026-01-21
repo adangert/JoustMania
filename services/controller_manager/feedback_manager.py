@@ -62,6 +62,7 @@ class FeedbackManager(ControllerEffectsBase):
         # Effects that can be cancelled by a base_color message
         self.cancellable_effects: set[int] = {
             controller_manager_pb2.GAME_EFFECT_FORCE_START_CHARGE,
+            controller_manager_pb2.GAME_EFFECT_SHOW_BATTERY,
         }
 
         # Vibration duration tasks
@@ -418,6 +419,15 @@ class FeedbackManager(ControllerEffectsBase):
                         restore_color=None,
                     )
 
+                elif effect == controller_manager_pb2.GAME_EFFECT_SHOW_BATTERY:
+                    # Show battery level on this controller
+                    # Battery is stored as 0-100 percentage
+                    battery = self.tracked_controllers.get(target_serial, {}).get("battery", 0)
+                    color = self._get_battery_color(battery)
+                    # Set color directly (stays until cancelled)
+                    await self.set_controller_color(target_serial, color)
+                    logger.debug(f"Battery display: {target_serial} level={battery}% color={color}")
+
                 else:
                     effect_name = controller_manager_pb2.GameEffect.Name(effect)
                     logger.warning(f"Unknown game effect: {effect_name}")
@@ -468,6 +478,33 @@ class FeedbackManager(ControllerEffectsBase):
         """Clear feedback state for a disconnected controller."""
         # Note: Keep base_colors[serial] so we can restore on reconnect
         self.active_effect_types.pop(serial, None)
+
+    def _get_battery_color(self, battery_percent: int) -> tuple[int, int, int]:
+        """
+        Get LED color for battery level.
+
+        Color scheme matches original JoustMania:
+        - 100%: Green
+        - 80%: Turquoise
+        - 60%: Blue
+        - 40%: Yellow
+        - <40%: Red
+
+        Args:
+            battery_percent: Battery level as percentage (0-100)
+
+        Returns:
+            RGB tuple for battery indicator color
+        """
+        if battery_percent >= 100:
+            return (0, 255, 0)  # Green - full
+        if battery_percent >= 80:
+            return (6, 194, 172)  # Turquoise - 80%
+        if battery_percent >= 60:
+            return (0, 0, 255)  # Blue - 60%
+        if battery_percent >= 40:
+            return (255, 255, 20)  # Yellow - 40%
+        return (255, 0, 0)  # Red - low battery
 
     async def _countdown_sequence(self, serial: str, restore_color: tuple[int, int, int] | None) -> None:
         """

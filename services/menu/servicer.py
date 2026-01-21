@@ -143,6 +143,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.last_lobby_feedback_update.pop(serial, None)
         self.ready_controller_count = len(self.ready_controllers)
 
+    def update_battery(self, serial: str, battery: int) -> None:
+        """Update battery level for a controller (ControllerEventCallbacks)."""
+        self.state_manager.update_battery(serial, battery)
+
     async def on_button(self, serial: str, button: str, is_press: bool) -> None:
         """Handle button event (ControllerEventCallbacks)."""
         # Check for admin mode combo (all 4 face buttons pressed)
@@ -162,6 +166,10 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         # Reset admin combo flag when any face button released
         if not is_press and button in ["cross", "circle", "square", "triangle"]:
             self.admin_handler.combo_shown = False
+
+        # Handle triangle release in admin mode (ends battery display)
+        if not is_press and button == "triangle" and self.admin_handler.is_admin_controller(serial):
+            await self.admin_handler.handle_battery_release(serial)
 
         await self.state_manager.handle_button_event(serial, button, is_press)
 

@@ -752,16 +752,62 @@ class AdminModeHandler:
 
     async def handle_battery(self, serial: str) -> None:
         """
-        Handle battery display in admin mode.
+        Handle battery display in admin mode (triangle press).
 
-        Note: Battery display feature has been removed as GetControllers
-        endpoint was deprecated. Triangle button now does nothing in admin mode.
+        Sends GAME_EFFECT_SHOW_BATTERY to controller_manager which shows
+        battery levels on ALL connected controllers using color-coded LEDs.
+        Colors are restored when handle_battery_release is called.
+
+        Color scheme (from original JoustMania):
+        - 100%: Green
+        - 80%: Turquoise
+        - 60%: Blue
+        - 40%: Yellow
+        - <40%: Red
 
         Args:
             serial: Controller serial number
         """
-        # Feature removed - GetControllers endpoint deprecated
-        logger.debug(f"Battery display feature removed, ignoring triangle button from {serial}")
+        from proto import controller_manager_pb2
+
+        ctx = self._get_span_context()
+        with self.tracer.start_as_current_span("admin_battery_display", context=ctx) as span:
+            span.set_attribute("controller.serial", serial)
+
+            try:
+                # Send SHOW_BATTERY effect with empty serial to affect all controllers
+                if await self._send_game_effect("", controller_manager_pb2.GAME_EFFECT_SHOW_BATTERY):
+                    logger.info(f"Battery display started by admin controller {serial}")
+                    span.add_event("battery_display_started")
+                else:
+                    logger.warning("Could not start battery display - stream not available")
+
+            except Exception as e:
+                logger.error(f"Error starting battery display: {e}", exc_info=True)
+
+    async def handle_battery_release(self, serial: str) -> None:
+        """
+        Handle battery display release in admin mode (triangle release).
+
+        Restores normal colors by sending base colors back to all controllers.
+
+        Args:
+            serial: Controller serial number
+        """
+        ctx = self._get_span_context()
+        with self.tracer.start_as_current_span("admin_battery_release", context=ctx) as span:
+            span.set_attribute("controller.serial", serial)
+
+            try:
+                # Restore admin controller to white
+                if await self._send_base_color(serial, (255, 255, 255)):
+                    logger.debug(f"Battery display ended, restored admin controller {serial}")
+                    span.add_event("battery_display_ended")
+                else:
+                    logger.warning("Could not restore colors - stream not available")
+
+            except Exception as e:
+                logger.error(f"Error ending battery display: {e}", exc_info=True)
 
     async def handle_instructions(self, serial: str) -> None:
         """

@@ -44,6 +44,9 @@ class StateManager:
         self.connected_controllers: set[str] = set()
         self.ready_controllers: set[str] = set()
 
+        # Battery level tracking (0-5 scale, updated from button events)
+        self.battery_levels: dict[str, int] = {}
+
         # Button state tracking (for combo detection)
         self.button_states: dict[str, dict[str, bool]] = {}
 
@@ -202,8 +205,19 @@ class StateManager:
         self.ready_controllers.discard(serial)
         self.controller_states.pop(serial, None)
         self.button_states.pop(serial, None)
+        self.battery_levels.pop(serial, None)
 
         logger.info(f"Controller {serial} disconnected")
+
+    def update_battery(self, serial: str, battery: int) -> None:
+        """
+        Update battery level for a controller.
+
+        Args:
+            serial: Controller serial number
+            battery: Battery level (0-5 scale from psmove)
+        """
+        self.battery_levels[serial] = battery
 
     def get_ready_count(self) -> int:
         """Get number of ready controllers."""

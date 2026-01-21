@@ -267,6 +267,7 @@ enum GameEffect {
   GAME_EFFECT_ADMIN_EXIT = 7;       // Restore to base color
   GAME_EFFECT_LOW_BATTERY = 8;      // Red flash 2x warning
   GAME_EFFECT_FORCE_START_CHARGE = 9;  // Fade white→dim over 2s (force start countdown)
+  GAME_EFFECT_SHOW_BATTERY = 10;    // Show battery level on ALL controllers (green/orange/red based on level)
 }
 
 // Trigger a game effect via stream

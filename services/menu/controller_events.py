@@ -40,6 +40,10 @@ class ControllerEventCallbacks(Protocol):
         """Called when a button event occurs."""
         ...
 
+    def update_battery(self, serial: str, battery: int) -> None:
+        """Update battery level for a controller."""
+        ...
+
     def get_menu_state(self) -> int:
         """Get current menu state."""
         ...
@@ -188,6 +192,10 @@ class ControllerEventLoop:
             event: ButtonEvent from the stream
         """
         serial = event.serial
+
+        # Update battery level from event (available on all event types)
+        if event.battery > 0:
+            self._callbacks.update_battery(serial, event.battery)
 
         if event.event_type == controller_manager_pb2.EVENT_CONNECT:
             await self._callbacks.on_connect(serial)

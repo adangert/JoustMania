@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from services.controller_manager.event_publisher import EventPublisher
     from services.controller_manager.feedback_manager import FeedbackManager
     from services.controller_manager.monitoring import ControllerMonitoring
+    from services.controller_manager.name_manager import NameManager
     from services.controller_manager.state_cache import StateCache
 
 logger = logging.getLogger(__name__)
@@ -62,6 +63,7 @@ class DiscoveryLoop:
         paired_serials: list[str],
         base_colors: dict[str, tuple[int, int, int]],
         event_publisher: "EventPublisher",
+        name_manager: "NameManager | None" = None,
     ):
         """
         Initialize the discovery loop.
@@ -79,6 +81,7 @@ class DiscoveryLoop:
             paired_serials: List of paired controller serials
             base_colors: Dict of serial -> base LED color
             event_publisher: Event publisher for cross-thread communication
+            name_manager: Name manager for human-readable controller names (Issue #7)
         """
         self.backend = backend
         self.tracked_controllers = tracked_controllers
@@ -92,6 +95,7 @@ class DiscoveryLoop:
         self.paired_serials = paired_serials
         self.base_colors = base_colors
         self.event_publisher = event_publisher
+        self.name_manager = name_manager
 
         # Discovery thread state
         self.running = True
@@ -242,8 +246,11 @@ class DiscoveryLoop:
             disconnected_serials = tracked_serials - connected_set
             for serial in disconnected_serials:
                 logger.info(f"Controller {serial} disconnected - cleaning up server tracking")
+                # Capture name before removing from tracked_controllers
+                name = ""
                 with self.state_lock:
                     if serial in self.tracked_controllers:
+                        name = self.tracked_controllers[serial].get(ControllerInfoKey.NAME, "")
                         del self.tracked_controllers[serial]
                     if serial in self.controller_states:
                         del self.controller_states[serial]
@@ -255,7 +262,7 @@ class DiscoveryLoop:
                     self._previous_accel.pop(serial, None)
                     self._last_poll_time.pop(serial, None)
                 # Publish disconnect event to button event stream subscribers
-                self.button_detector.publish_connection_event(serial, is_connect=False)
+                self.button_detector.publish_connection_event(serial, is_connect=False, name=name)
                 metrics.controller_disconnect_total.labels(serial=serial).inc()
 
             # Check for new controllers
@@ -274,8 +281,12 @@ class DiscoveryLoop:
                             self._spawn_controller_process(serial)
 
                         # Publish connect event to button event stream subscribers
-                        battery = self.tracked_controllers.get(serial, {}).get(ControllerInfoKey.BATTERY, 0)
-                        self.button_detector.publish_connection_event(serial, is_connect=True, battery=battery)
+                        info = self.tracked_controllers.get(serial, {})
+                        battery = info.get(ControllerInfoKey.BATTERY, 0)
+                        name = info.get(ControllerInfoKey.NAME, "")
+                        self.button_detector.publish_connection_event(
+                            serial, is_connect=True, battery=battery, name=name
+                        )
 
                         # Restore base color if we had one before (reconnection case)
                         if serial in self.base_colors:
@@ -475,6 +486,11 @@ class DiscoveryLoop:
 
             battery = state.get(StateKey.BATTERY, 5)
 
+            # Issue #7: Get human-readable name for controller
+            name = ""
+            if self.name_manager:
+                name = self.name_manager.get_name(serial)
+
             # Track controller under lock
             with self.state_lock:
                 self.tracked_controllers[serial] = {
@@ -482,6 +498,7 @@ class DiscoveryLoop:
                     ControllerInfoKey.BATTERY: battery,
                     ControllerInfoKey.TEAM: 0,
                     ControllerInfoKey.CONNECTED_AT: time.time(),
+                    ControllerInfoKey.NAME: name,
                 }
 
                 # Store initial state
@@ -491,12 +508,13 @@ class DiscoveryLoop:
             current_span = trace.get_current_span()
             current_span.set_attribute("controller.serial", serial)
             current_span.set_attribute("controller.battery", battery)
+            current_span.set_attribute("controller.name", name)
             current_span.add_event(
                 "controller_added_to_tracking",
-                {"serial": serial, "battery": battery},
+                {"serial": serial, "battery": battery, "name": name},
             )
 
-            logger.info(f"Spawned tracking for controller {serial}")
+            logger.info(f"Spawned tracking for controller {serial} ({name})")
 
             # Update metrics (Phase 38)
             metrics.active_controllers.inc()

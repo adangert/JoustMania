@@ -24,6 +24,9 @@ service ControllerManagerService {
   // Play predefined effect (flash, pulse, rainbow, etc.)
   rpc PlayControllerEffect(PlayControllerEffectRequest) returns (PlayControllerEffectResponse);
 
+  // Rename a controller (set custom human-readable name)
+  rpc RenameController(RenameControllerRequest) returns (RenameControllerResponse);
+
 }
 
 // Controller state data
@@ -52,6 +55,9 @@ message ControllerState {
   // Additional button states (Phase 79 - Admin Mode Game Selection)
   bool select_pressed = 17;     // Select button
   bool start_pressed = 18;      // Start button
+
+  // Human-readable name (Issue #7)
+  string name = 19;             // Auto-generated or user-assigned name
 }
 
 message RGB {
@@ -145,6 +151,7 @@ message ButtonEvent {
   int32 battery = 5;       // Battery level at time of event
   RGB color = 6;           // Current controller color
   ControllerEventType event_type = 7;  // Event type (default EVENT_BUTTON for backwards compat)
+  string name = 8;         // Human-readable controller name (Issue #7)
 }
 
 // Phase XX: Bidirectional control for button event stream (menu/UI)
@@ -175,6 +182,7 @@ message GameplayData {
   Vector3 gyro = 8;   // Secondary gameplay data
   // NO button states - use StreamButtonEvents if buttons are needed
   int32 rssi = 9;     // Signal strength in dBm (-100 to 0, 0 = USB/unavailable)
+  string name = 10;   // Human-readable controller name (Issue #7)
 }
 
 message GameplayDataUpdate {
@@ -274,4 +282,15 @@ enum GameEffect {
 message GameEffectCommand {
   string serial = 1;      // Controller serial (empty = all controllers for broadcast)
   GameEffect effect = 2;  // Effect to trigger
+}
+
+// Rename controller request/response (Issue #7)
+message RenameControllerRequest {
+  string serial = 1;      // Controller serial to rename
+  string name = 2;        // New human-readable name
+}
+
+message RenameControllerResponse {
+  bool success = 1;
+  string error = 2;       // Error message if success is false
 }

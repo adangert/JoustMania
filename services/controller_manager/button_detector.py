@@ -12,7 +12,7 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-from lib.controller_constants import ButtonKey, ButtonTrackingKey
+from lib.controller_constants import ButtonKey, ButtonTrackingKey, ControllerInfoKey
 from proto import controller_manager_pb2
 from services.controller_manager import metrics
 from services.controller_manager.event_publisher import EventPublisher
@@ -170,8 +170,9 @@ class ButtonDetector:
                     timestamp=int(time.time() * 1000),
                     button=button_type,
                     action=action,
-                    battery=info.get("battery", 0),
+                    battery=info.get(ControllerInfoKey.BATTERY, 0),
                     color=controller_manager_pb2.RGB(r=0, g=0, b=255),
+                    name=info.get(ControllerInfoKey.NAME, ""),
                 )
                 events.append(event)
 
@@ -193,7 +194,7 @@ class ButtonDetector:
             for event in events:
                 self.event_publisher.publish_to_subscribers(self._subscribers, event, "button")
 
-    def publish_connection_event(self, serial: str, is_connect: bool, battery: int = 0) -> None:
+    def publish_connection_event(self, serial: str, is_connect: bool, battery: int = 0, name: str = "") -> None:
         """
         Publish a connection or disconnection event to all button event subscribers.
 
@@ -204,6 +205,7 @@ class ButtonDetector:
             serial: Controller serial number
             is_connect: True for connect, False for disconnect
             battery: Battery level (only available for connect events)
+            name: Human-readable controller name (Issue #7)
         """
         event_type = controller_manager_pb2.EVENT_CONNECT if is_connect else controller_manager_pb2.EVENT_DISCONNECT
 
@@ -212,10 +214,11 @@ class ButtonDetector:
             timestamp=int(time.time() * 1000),
             battery=battery,
             event_type=event_type,
+            name=name,
             # button and action fields are left unset for connection events
         )
 
         self.event_publisher.publish_to_subscribers(self._subscribers, event, "connection")
 
         action_str = "connected" if is_connect else "disconnected"
-        logger.info(f"Published connection event: {serial} {action_str}")
+        logger.info(f"Published connection event: {serial} ({name}) {action_str}")

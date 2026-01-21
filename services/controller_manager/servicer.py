@@ -33,6 +33,7 @@ from services.controller_manager.effects_base import ControllerEffectsBase
 from services.controller_manager.event_publisher import EventPublisher as EventPublisherHelper
 from services.controller_manager.feedback_manager import FeedbackManager
 from services.controller_manager.monitoring import ControllerMonitoring
+from services.controller_manager.name_manager import NameManager
 from services.controller_manager.state_cache import StateCache
 
 logger = logging.getLogger(__name__)
@@ -117,6 +118,9 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Phase 79: Periodic rescan timer for externally paired controllers
         self.rescan_timer = PeriodicRescanTimer(interval=5.0)
 
+        # Issue #7: Name manager for human-readable controller names
+        self.name_manager = NameManager()
+
         # Discovery loop (extracted to discovery_loop.py)
         self.discovery_loop = DiscoveryLoop(
             backend=self.backend,
@@ -131,6 +135,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             paired_serials=self.paired_serials,
             base_colors=self.feedback_manager.base_colors,
             event_publisher=self.event_publisher,
+            name_manager=self.name_manager,
         )
         self.discovery_loop.start()
 
@@ -181,15 +186,17 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # This allows new subscribers to immediately know about existing controllers
         for serial, info in self.tracked_controllers.items():
             battery = info.get(ControllerInfoKey.BATTERY, 0)
+            name = info.get(ControllerInfoKey.NAME, "")
             connect_event = controller_manager_pb2.ButtonEvent(
                 serial=serial,
                 timestamp=int(time.time() * 1000),
                 battery=battery,
                 event_type=controller_manager_pb2.EVENT_CONNECT,
+                name=name,
             )
             try:
                 event_queue.put_nowait(connect_event)
-                logger.debug(f"[{subscriber_id}] Sent initial connection event for {serial}")
+                logger.debug(f"[{subscriber_id}] Sent initial connection event for {serial} ({name})")
             except asyncio.QueueFull:
                 logger.warning(f"[{subscriber_id}] Queue full, skipping initial event for {serial}")
 
@@ -334,6 +341,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             accel=full_state.accel,
                             gyro=full_state.gyro,
                             rssi=full_state.rssi,  # Signal strength for gameplay adaptation
+                            name=full_state.name,  # Human-readable name (Issue #7)
                         )
                         gameplay_data.append(gd)
 
@@ -630,6 +638,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             accel=full_state.accel,
                             gyro=full_state.gyro,
                             rssi=full_state.rssi,  # Signal strength for gameplay adaptation
+                            name=full_state.name,  # Human-readable name (Issue #7)
                         )
                         gameplay_data.append(gd)
 
@@ -874,6 +883,36 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
     # NOTE: State cache methods moved to state_cache.py
     # NOTE: Button detection methods moved to button_detector.py
     # NOTE: Event publishing methods moved to event_publisher.py
+
+    async def RenameController(self, request, context):  # noqa: N802, ARG002
+        """Rename a controller with a custom human-readable name (Issue #7)."""
+        with tracer.start_as_current_span("RenameController") as span:
+            span.set_attribute("serial", request.serial)
+            span.set_attribute("name", request.name)
+
+            try:
+                if not request.serial:
+                    return controller_manager_pb2.RenameControllerResponse(
+                        success=False, error="Serial number is required"
+                    )
+                if not request.name:
+                    return controller_manager_pb2.RenameControllerResponse(success=False, error="Name is required")
+
+                # Update the name
+                self.name_manager.set_name(request.serial, request.name)
+
+                # Update tracked_controllers if the controller is currently connected
+                with self.state_lock:
+                    if request.serial in self.tracked_controllers:
+                        self.tracked_controllers[request.serial][ControllerInfoKey.NAME] = request.name
+
+                logger.info(f"Renamed controller {request.serial} to '{request.name}'")
+                return controller_manager_pb2.RenameControllerResponse(success=True, error="")
+
+            except Exception as e:
+                span.record_exception(e)
+                logger.error(f"RenameController error: {e}", exc_info=True)
+                return controller_manager_pb2.RenameControllerResponse(success=False, error=str(e))
 
     def shutdown(self):
         """Shutdown the controller manager."""

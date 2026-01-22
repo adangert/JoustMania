@@ -457,7 +457,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                             self.state = menu_pb2.MenuState.GAME_STARTING
                             await self.audio.stop_lobby_music()
                             await self.stop_button_monitor()
-                            logger.info("Button monitor and lobby music stopped")
+                            # Clear menu_player_ready metrics so dashboard only shows game_player_alive
+                            metrics.player_ready._metrics.clear()
+                            logger.info("Button monitor and lobby music stopped, player_ready metrics cleared")
 
                     elif GameEvent.is_game_ending(event.event_type):
                         logger.info(f"Game event '{event.event_type}' - restarting button monitor and lobby music")

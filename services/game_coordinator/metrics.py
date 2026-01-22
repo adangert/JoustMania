@@ -171,6 +171,12 @@ player_playstyle = Gauge(
     ["serial"],
 )
 
+player_alive = Gauge(
+    "game_player_alive",
+    "Player alive status (1=alive, 0=dead)",
+    ["serial"],
+)
+
 # Counters (incremented on events)
 near_death_events_total = Counter(
     "game_near_death_events_total",
@@ -223,6 +229,9 @@ def clear_player_analytics(serial: str, game_id: str = "") -> None:
     with suppress(KeyError):
         player_playstyle.remove(serial)
 
+    with suppress(KeyError):
+        player_alive.remove(serial)
+
     # peak_accel has both serial and game_id labels
     if game_id:
         with suppress(KeyError):
@@ -240,6 +249,7 @@ def clear_all_player_analytics() -> None:
     player_movement_zone._metrics.clear()
     player_playstyle._metrics.clear()
     player_peak_accel._metrics.clear()
+    player_alive._metrics.clear()
     # Reset game state gauges to 0 to indicate no game running
     music_tempo.set(0)
     game_sensitivity.set(0)

@@ -51,3 +51,10 @@ stream_events_published_total = Counter(
     "Total events published to stream subscribers",
     ["event_type"],
 )
+
+# Player ready state metrics (Phase 75: Per-player insights)
+player_ready = Gauge(
+    "menu_player_ready",
+    "Player ready status in lobby (1=ready, 0=not ready)",
+    ["serial"],
+)

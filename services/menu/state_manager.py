@@ -3,6 +3,7 @@
 import logging
 from collections.abc import Callable, Coroutine
 
+from services.menu import metrics
 from services.menu.handlers.base import ControllerHandler, ControllerState
 from services.menu.utils import AudioHelper, LedController, SettingsHelper
 
@@ -157,11 +158,15 @@ class StateManager:
         # Update state
         self.controller_states[serial] = new_state
 
-        # Update ready set
+        # Update ready set and emit metrics
         if new_state == ControllerState.READY:
             self.ready_controllers.add(serial)
+            metrics.player_ready.labels(serial=serial).set(1)
         else:
             self.ready_controllers.discard(serial)
+            # Only set to 0 if transitioning FROM ready
+            if old_state == ControllerState.READY:
+                metrics.player_ready.labels(serial=serial).set(0)
 
         # Call enter handler
         new_handler = self._handlers.get(new_state)
@@ -199,6 +204,10 @@ class StateManager:
         handler = self._handlers.get(state)
         if handler:
             await handler.on_exit(serial)
+
+        # Clear ready metric if player was ready
+        if serial in self.ready_controllers:
+            metrics.player_ready.labels(serial=serial).set(0)
 
         # Clean up state
         self.connected_controllers.discard(serial)
@@ -246,4 +255,6 @@ class StateManager:
         self.connected_controllers.clear()
         self.ready_controllers.clear()
         self.button_states.clear()
+        # Clear all player ready metrics
+        metrics.player_ready._metrics.clear()
         logger.info("StateManager reset")

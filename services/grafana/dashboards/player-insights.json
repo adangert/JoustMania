@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "Per-player detailed view with individual acceleration charts and threshold visualization",
+  "description": "Per-player detailed view with acceleration gauge, thresholds, and real-time status",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -48,7 +48,7 @@
       "panels": [],
       "repeat": "controller",
       "repeatDirection": "h",
-      "title": "Controller: $controller",
+      "title": "🎮 $controller",
       "type": "row"
     },
     {
@@ -56,16 +56,248 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Real-time acceleration with dynamic warning (yellow) and death (red) threshold lines",
+      "description": "Controller LED color indicator",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "dark-gray",
+                  "index": 0,
+                  "text": ""
+                },
+                "255": {
+                  "color": "blue",
+                  "index": 1,
+                  "text": ""
+                },
+                "65280": {
+                  "color": "green",
+                  "index": 2,
+                  "text": ""
+                },
+                "65535": {
+                  "color": "super-light-blue",
+                  "index": 3,
+                  "text": ""
+                },
+                "16711680": {
+                  "color": "red",
+                  "index": 4,
+                  "text": ""
+                },
+                "16711935": {
+                  "color": "purple",
+                  "index": 5,
+                  "text": ""
+                },
+                "16776960": {
+                  "color": "yellow",
+                  "index": 6,
+                  "text": ""
+                },
+                "16777215": {
+                  "color": "white",
+                  "index": 7,
+                  "text": ""
+                },
+                "16753920": {
+                  "color": "orange",
+                  "index": 8,
+                  "text": ""
+                }
+              },
+              "type": "value"
+            },
+            {
+              "options": {
+                "from": 1,
+                "to": 65279,
+                "result": {
+                  "color": "blue",
+                  "index": 10,
+                  "text": ""
+                }
+              },
+              "type": "range"
+            },
+            {
+              "options": {
+                "from": 65281,
+                "to": 8388607,
+                "result": {
+                  "color": "green",
+                  "index": 11,
+                  "text": ""
+                }
+              },
+              "type": "range"
+            },
+            {
+              "options": {
+                "from": 8388608,
+                "to": 16711679,
+                "result": {
+                  "color": "orange",
+                  "index": 12,
+                  "text": ""
+                }
+              },
+              "type": "range"
+            },
+            {
+              "options": {
+                "from": 16711681,
+                "to": 16777214,
+                "result": {
+                  "color": "red",
+                  "index": 13,
+                  "text": ""
+                }
+              },
+              "type": "range"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-gray",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 2,
+        "x": 0,
+        "y": 1
+      },
+      "id": 14,
+      "options": {
+        "colorMode": "background_solid",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "none"
+      },
+      "pluginVersion": "10.2.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "controller_color_hex{serial=\"$controller\"}",
+          "legendFormat": "Color",
+          "refId": "A"
+        }
+      ],
+      "title": "",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Real-time acceleration gauge with warning (yellow) and death (red) zones",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 4,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1.6
+              },
+              {
+                "color": "orange",
+                "value": 2.0
+              },
+              {
+                "color": "red",
+                "value": 2.5
+              }
+            ]
+          },
+          "unit": "g"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 3,
+        "x": 2,
+        "y": 1
+      },
+      "id": 10,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "10.2.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "game_player_accel_magnitude{serial=\"$controller\"}",
+          "legendFormat": "Accel",
+          "refId": "A"
+        }
+      ],
+      "title": "Acceleration",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Real-time acceleration with warning (yellow) and death (red) threshold lines",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
-            "axisLabel": "Acceleration (g)",
+            "axisLabel": "",
             "axisPlacement": "auto",
             "axisSoftMin": 0.8,
             "axisSoftMax": 3.5,
@@ -91,7 +323,7 @@
               "mode": "none"
             },
             "thresholdsStyle": {
-              "mode": "off"
+              "mode": "area"
             }
           },
           "mappings": [],
@@ -99,8 +331,16 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "rgba(50, 172, 45, 0.15)",
                 "value": null
+              },
+              {
+                "color": "rgba(237, 129, 40, 0.15)",
+                "value": 1.6
+              },
+              {
+                "color": "rgba(245, 54, 54, 0.2)",
+                "value": 2.5
               }
             ]
           },
@@ -122,14 +362,14 @@
               },
               {
                 "id": "custom.fillOpacity",
-                "value": 20
+                "value": 25
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Warning Threshold"
+              "options": "Warning"
             },
             "properties": [
               {
@@ -149,13 +389,17 @@
               {
                 "id": "custom.fillOpacity",
                 "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Death Threshold"
+              "options": "Death"
             },
             "properties": [
               {
@@ -175,24 +419,28 @@
               {
                 "id": "custom.fillOpacity",
                 "value": 0
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 1
               }
             ]
           }
         ]
       },
       "gridPos": {
-        "h": 8,
-        "w": 16,
-        "x": 0,
+        "h": 7,
+        "w": 11,
+        "x": 5,
         "y": 1
       },
       "id": 1,
       "options": {
         "legend": {
-          "calcs": ["mean", "max", "lastNotNull"],
-          "displayMode": "table",
-          "placement": "right",
-          "showLegend": true
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
         },
         "tooltip": {
           "mode": "multi",
@@ -216,7 +464,7 @@
             "uid": "prometheus"
           },
           "expr": "game_effective_warning_threshold",
-          "legendFormat": "Warning Threshold",
+          "legendFormat": "Warning",
           "refId": "B"
         },
         {
@@ -225,11 +473,11 @@
             "uid": "prometheus"
           },
           "expr": "game_effective_death_threshold",
-          "legendFormat": "Death Threshold",
+          "legendFormat": "Death",
           "refId": "C"
         }
       ],
-      "title": "Acceleration vs Thresholds - $controller",
+      "title": "",
       "type": "timeseries"
     },
     {
@@ -237,7 +485,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Current movement zone: Still (blue), Active (green), Warning (yellow), Danger (red)",
+      "description": "Current movement zone",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -248,19 +496,23 @@
               "options": {
                 "0": {
                   "color": "blue",
-                  "text": "Still"
+                  "index": 0,
+                  "text": "😴 STILL"
                 },
                 "1": {
                   "color": "green",
-                  "text": "Active"
+                  "index": 1,
+                  "text": "✓ ACTIVE"
                 },
                 "2": {
-                  "color": "yellow",
-                  "text": "Warning"
+                  "color": "#FF9800",
+                  "index": 2,
+                  "text": "⚠ WARNING"
                 },
                 "3": {
-                  "color": "red",
-                  "text": "Danger"
+                  "color": "#F44336",
+                  "index": 3,
+                  "text": "☠ DANGER"
                 }
               },
               "type": "value"
@@ -292,20 +544,20 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
+        "w": 2,
         "x": 16,
         "y": 1
       },
       "id": 2,
       "options": {
-        "colorMode": "background",
+        "colorMode": "background_solid",
         "graphMode": "none",
         "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {
-          "values": false,
           "calcs": ["lastNotNull"],
-          "fields": ""
+          "fields": "",
+          "values": false
         },
         "textMode": "value"
       },
@@ -321,99 +573,7 @@
           "refId": "A"
         }
       ],
-      "title": "Movement Zone",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "description": "Playstyle classification: Calm, Balanced, Active, Aggressive",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "color": "blue",
-                  "text": "Calm"
-                },
-                "1": {
-                  "color": "green",
-                  "text": "Balanced"
-                },
-                "2": {
-                  "color": "yellow",
-                  "text": "Active"
-                },
-                "3": {
-                  "color": "orange",
-                  "text": "Aggressive"
-                }
-              },
-              "type": "value"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              },
-              {
-                "color": "yellow",
-                "value": 2
-              },
-              {
-                "color": "orange",
-                "value": 3
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 20,
-        "y": 1
-      },
-      "id": 3,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "values": false,
-          "calcs": ["lastNotNull"],
-          "fields": ""
-        },
-        "textMode": "value"
-      },
-      "pluginVersion": "10.2.3",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "game_player_playstyle{serial=\"$controller\"}",
-          "legendFormat": "Playstyle",
-          "refId": "A"
-        }
-      ],
-      "title": "Playstyle",
+      "title": "",
       "type": "stat"
     },
     {
@@ -451,20 +611,20 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 16,
-        "y": 5
+        "w": 2,
+        "x": 18,
+        "y": 1
       },
       "id": 4,
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
+        "graphMode": "none",
+        "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {
-          "values": false,
           "calcs": ["lastNotNull"],
-          "fields": ""
+          "fields": "",
+          "values": false
         },
         "textMode": "auto"
       },
@@ -480,7 +640,7 @@
           "refId": "A"
         }
       ],
-      "title": "Peak Accel",
+      "title": "Peak",
       "type": "stat"
     },
     {
@@ -488,27 +648,67 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Total warnings triggered this session",
+      "description": "Battery level (0-5)",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "thresholds"
           },
-          "mappings": [],
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 0,
+                  "text": "EMPTY"
+                },
+                "1": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "▮░░░░"
+                },
+                "2": {
+                  "color": "orange",
+                  "index": 2,
+                  "text": "▮▮░░░"
+                },
+                "3": {
+                  "color": "yellow",
+                  "index": 3,
+                  "text": "▮▮▮░░"
+                },
+                "4": {
+                  "color": "green",
+                  "index": 4,
+                  "text": "▮▮▮▮░"
+                },
+                "5": {
+                  "color": "green",
+                  "index": 5,
+                  "text": "▮▮▮▮▮"
+                }
+              },
+              "type": "value"
+            }
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
               },
               {
-                "color": "yellow",
-                "value": 5
+                "color": "orange",
+                "value": 2
               },
               {
-                "color": "red",
-                "value": 15
+                "color": "yellow",
+                "value": 3
+              },
+              {
+                "color": "green",
+                "value": 4
               }
             ]
           }
@@ -517,22 +717,22 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
+        "w": 2,
         "x": 20,
-        "y": 5
+        "y": 1
       },
-      "id": 5,
+      "id": 11,
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
+        "graphMode": "none",
+        "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {
-          "values": false,
           "calcs": ["lastNotNull"],
-          "fields": ""
+          "fields": "",
+          "values": false
         },
-        "textMode": "auto"
+        "textMode": "value"
       },
       "pluginVersion": "10.2.3",
       "targets": [
@@ -541,12 +741,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "game_player_warnings_total{serial=\"$controller\"}",
-          "legendFormat": "Warnings",
+          "expr": "controller_battery_level{serial=\"$controller\"}",
+          "legendFormat": "Battery",
           "refId": "A"
         }
       ],
-      "title": "Warnings",
+      "title": "Battery",
       "type": "stat"
     },
     {
@@ -554,14 +754,184 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Movement zone history for this controller",
+      "description": "Margin to death threshold - how much headroom before death",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "continuous-GrYlRd"
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 20
+              },
+              {
+                "color": "yellow",
+                "value": 40
+              },
+              {
+                "color": "green",
+                "value": 60
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 22,
+        "y": 1
+      },
+      "id": 12,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": false,
+        "sizing": "auto"
+      },
+      "pluginVersion": "10.2.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "clamp_min((game_effective_death_threshold - game_player_accel_magnitude{serial=\"$controller\"}) / game_effective_death_threshold * 100, 0)",
+          "legendFormat": "Margin",
+          "refId": "A"
+        }
+      ],
+      "title": "Margin",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Playstyle classification",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "blue",
+                  "index": 0,
+                  "text": "Calm"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "Balanced"
+                },
+                "2": {
+                  "color": "yellow",
+                  "index": 2,
+                  "text": "Active"
+                },
+                "3": {
+                  "color": "orange",
+                  "index": 3,
+                  "text": "Aggressive"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
+                "color": "orange",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 2,
+        "x": 16,
+        "y": 5
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "pluginVersion": "10.2.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "game_player_playstyle{serial=\"$controller\"}",
+          "legendFormat": "Playstyle",
+          "refId": "A"
+        }
+      ],
+      "title": "Style",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Zone history timeline",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
           },
           "custom": {
-            "fillOpacity": 70,
+            "fillOpacity": 80,
             "lineWidth": 0,
             "spanNulls": false
           },
@@ -570,18 +940,22 @@
               "options": {
                 "0": {
                   "color": "blue",
+                  "index": 0,
                   "text": "Still"
                 },
                 "1": {
                   "color": "green",
+                  "index": 1,
                   "text": "Active"
                 },
                 "2": {
                   "color": "yellow",
+                  "index": 2,
                   "text": "Warning"
                 },
                 "3": {
                   "color": "red",
+                  "index": 3,
                   "text": "Danger"
                 }
               },
@@ -614,13 +988,13 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 24,
-        "x": 0,
-        "y": 9
+        "w": 6,
+        "x": 18,
+        "y": 5
       },
       "id": 6,
       "options": {
-        "alignValue": "left",
+        "alignValue": "center",
         "legend": {
           "displayMode": "hidden",
           "placement": "bottom",
@@ -661,15 +1035,15 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "definition": "label_values(game_player_accel_magnitude, serial)",
+        "definition": "label_values({__name__=~\"game_player_alive|menu_player_ready\"} == 1, serial)",
         "hide": 0,
         "includeAll": true,
-        "label": "Controller",
+        "label": "Controller (Ready/Alive)",
         "multi": true,
         "name": "controller",
         "options": [],
         "query": {
-          "query": "label_values(game_player_accel_magnitude, serial)",
+          "query": "label_values({__name__=~\"game_player_alive|menu_player_ready\"} == 1, serial)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
@@ -688,6 +1062,6 @@
   "timezone": "",
   "title": "Player Insights",
   "uid": "player-insights",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

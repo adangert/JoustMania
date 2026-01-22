@@ -371,6 +371,10 @@ class BaseGameMode(ABC):
             controllers = [ControllerStub(p.serial) for p in self.initial_players]
             await self._initialize_players_impl(controllers)
 
+            # Set alive metric for all initialized players (Phase 75: filter dead from dashboard)
+            for serial in self.players:
+                metrics.player_alive.labels(serial=serial).set(1)
+
             logger.info(f"Initialized {len(self.players)} players from StartGame RPC")
 
             # Publish event
@@ -781,6 +785,9 @@ class BaseGameMode(ABC):
 
         # Clear analytics metrics so dead players don't appear on dashboard
         metrics.clear_player_analytics(serial, self.game_id)
+
+        # Mark player as dead in metrics (Phase 75: filter dead players from dashboard)
+        metrics.player_alive.labels(serial=serial).set(0)
 
         # Play death explosion sound (Phase 29)
         await self._play_sound(Sound.SFX_EXPLOSION, priority=2)

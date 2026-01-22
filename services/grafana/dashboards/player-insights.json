@@ -865,15 +865,15 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "definition": "label_values({__name__=~\"game_player_alive|menu_player_ready\"} == 1, serial)",
+        "definition": "label_values(game_player_alive, serial)",
         "hide": 0,
         "includeAll": true,
-        "label": "Controller (Ready/Alive)",
+        "label": "Controller",
         "multi": true,
         "name": "controller",
         "options": [],
         "query": {
-          "query": "label_values({__name__=~\"game_player_alive|menu_player_ready\"} == 1, serial)",
+          "query": "label_values(game_player_alive, serial)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,

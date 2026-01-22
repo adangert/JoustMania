@@ -82,6 +82,12 @@ class FeedbackManager(ControllerEffectsBase):
 
         try:
             await self.backend.set_led_color(serial, color[0], color[1], color[2])
+            # Update color metrics for Grafana dashboard
+            metrics.controller_color_r.labels(serial=serial).set(color[0])
+            metrics.controller_color_g.labels(serial=serial).set(color[1])
+            metrics.controller_color_b.labels(serial=serial).set(color[2])
+            hex_color = (color[0] << 16) | (color[1] << 8) | color[2]
+            metrics.controller_color_hex.labels(serial=serial).set(hex_color)
         except Exception as e:
             logger.error(f"Error setting LED color on {serial}: {e}", exc_info=True)
 

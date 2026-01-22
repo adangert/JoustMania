@@ -175,10 +175,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
-        "w": 2,
+        "h": 1,
+        "w": 3,
         "x": 0,
-        "y": 1
+        "y": 0
       },
       "id": 14,
       "options": {
@@ -248,9 +248,9 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
-        "w": 3,
-        "x": 2,
+        "h": 10,
+        "w": 5,
+        "x": 0,
         "y": 1
       },
       "id": 10,
@@ -430,7 +430,7 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 11,
+        "w": 13,
         "x": 5,
         "y": 1
       },
@@ -485,102 +485,6 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Current movement zone",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "color": "blue",
-                  "index": 0,
-                  "text": "😴 STILL"
-                },
-                "1": {
-                  "color": "green",
-                  "index": 1,
-                  "text": "✓ ACTIVE"
-                },
-                "2": {
-                  "color": "#FF9800",
-                  "index": 2,
-                  "text": "⚠ WARNING"
-                },
-                "3": {
-                  "color": "#F44336",
-                  "index": 3,
-                  "text": "☠ DANGER"
-                }
-              },
-              "type": "value"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              },
-              {
-                "color": "yellow",
-                "value": 2
-              },
-              {
-                "color": "red",
-                "value": 3
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 2,
-        "x": 16,
-        "y": 1
-      },
-      "id": 2,
-      "options": {
-        "colorMode": "background_solid",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value"
-      },
-      "pluginVersion": "10.2.3",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "game_player_movement_zone{serial=\"$controller\"}",
-          "legendFormat": "Zone",
-          "refId": "A"
-        }
-      ],
-      "title": "",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
       "description": "Peak acceleration reached this game",
       "fieldConfig": {
         "defaults": {
@@ -610,8 +514,8 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 2,
+        "h": 10,
+        "w": 3,
         "x": 18,
         "y": 1
       },
@@ -716,10 +620,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 2,
-        "x": 20,
-        "y": 1
+        "h": 1,
+        "w": 3,
+        "x": 21,
+        "y": 0
       },
       "id": 11,
       "options": {
@@ -748,80 +652,6 @@
       ],
       "title": "Battery",
       "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "description": "Margin to death threshold - how much headroom before death",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "max": 100,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 20
-              },
-              {
-                "color": "yellow",
-                "value": 40
-              },
-              {
-                "color": "green",
-                "value": 60
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 2,
-        "x": 22,
-        "y": 1
-      },
-      "id": 12,
-      "options": {
-        "minVizHeight": 75,
-        "minVizWidth": 75,
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": false,
-        "sizing": "auto"
-      },
-      "pluginVersion": "10.2.3",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "clamp_min((game_effective_death_threshold - game_player_accel_magnitude{serial=\"$controller\"}) / game_effective_death_threshold * 100, 0)",
-          "legendFormat": "Margin",
-          "refId": "A"
-        }
-      ],
-      "title": "Margin",
-      "type": "gauge"
     },
     {
       "datasource": {
@@ -886,10 +716,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 3,
-        "w": 2,
-        "x": 16,
-        "y": 5
+        "h": 10,
+        "w": 3,
+        "x": 21,
+        "y": 1
       },
       "id": 3,
       "options": {
@@ -988,9 +818,9 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 6,
-        "x": 18,
-        "y": 5
+        "w": 13,
+        "x": 5,
+        "y": 8
       },
       "id": 6,
       "options": {

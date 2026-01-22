@@ -1,9 +1,11 @@
 # Multi-stage build for JoustMania Audio Service
 #
 # Phase 80: Migrated to distroless with miniaudio (replaces pygame)
-# - miniaudio for sound effects (distroless compatible)
+# - miniaudio for sound effects (requires libmvec from glibc)
 # - resampy for tempo control (replaces scipy)
 # - pyalsaaudio for ALSA music output
+#
+# Issue #79: Fixed libmvec.so.1 missing error by copying glibc math libs
 #
 # Phase 75: Builder images can be overridden for CI/CD
 # --build-arg BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/builder:latest
@@ -12,19 +14,22 @@
 ARG BUILDER_IMAGE=joustmania/builder:latest
 
 # =============================================================================
-# Stage 0: Extract ALSA shared libraries for distroless
+# Stage 0: Extract shared libraries for distroless
 # =============================================================================
-FROM debian:bookworm-slim AS alsa-libs
+FROM debian:bookworm-slim AS system-libs
 ARG TARGETARCH
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libasound2 \
     && rm -rf /var/lib/apt/lists/* \
-    && mkdir /alsa-libs \
+    && mkdir /extra-libs \
     && if [ "$TARGETARCH" = "arm64" ]; then \
-         cp /usr/lib/aarch64-linux-gnu/libasound.so* /alsa-libs/; \
+         LIB_DIR=/usr/lib/aarch64-linux-gnu; \
        else \
-         cp /usr/lib/x86_64-linux-gnu/libasound.so* /alsa-libs/; \
-       fi
+         LIB_DIR=/usr/lib/x86_64-linux-gnu; \
+       fi \
+    && cp $LIB_DIR/libasound.so* /extra-libs/ \
+    && cp $LIB_DIR/libmvec.so* /extra-libs/ 2>/dev/null || true \
+    && cp /lib/*-linux-gnu/libmvec.so* /extra-libs/ 2>/dev/null || true
 
 # =============================================================================
 # Stage 2: Build Python dependencies
@@ -68,8 +73,8 @@ WORKDIR /app
 # Copy grpc-health-probe from official multi-arch image
 COPY --from=ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.38 /ko-app/grpc-health-probe /bin/grpc_health_probe
 
-# Copy ALSA shared libraries for pyalsaaudio (from arch-agnostic location)
-COPY --from=alsa-libs /alsa-libs/ /usr/lib/
+# Copy system shared libraries (ALSA + glibc math/vector libs for miniaudio)
+COPY --from=system-libs /extra-libs/ /usr/lib/
 
 # Copy installed packages from builder to distroless stdlib location
 COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/lib/python3.11/

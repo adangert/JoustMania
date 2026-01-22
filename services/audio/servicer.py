@@ -78,10 +78,15 @@ class SoundChannel:
                         stream = miniaudio.stream_memory(file_data)
                         with self.device:
                             self.device.start(stream)
-                            # Wait for stream to finish
-                            for _ in stream:
-                                if not self.is_playing:
-                                    break
+                            # Wait for playback to complete (device callback consumes the stream)
+                            # Poll is_playing flag which can be set to False by stop()
+                            import time
+
+                            duration = file_info.duration
+                            elapsed = 0.0
+                            while self.is_playing and elapsed < duration + 1.0:
+                                time.sleep(0.1)
+                                elapsed += 0.1
                     except Exception as e:
                         logger.warning(f"Playback error on channel {self.channel_id}: {e}")
                     finally:

@@ -276,7 +276,9 @@
           },
           "expr": "game_player_accel_magnitude{serial=\"$controller\"}",
           "legendFormat": "Accel",
-          "refId": "A"
+          "refId": "A",
+          "instant": false,
+          "interval": "1s"
         }
       ],
       "title": "Acceleration",
@@ -456,7 +458,9 @@
           },
           "expr": "game_player_accel_magnitude{serial=\"$controller\"}",
           "legendFormat": "Acceleration",
-          "refId": "A"
+          "refId": "A",
+          "instant": false,
+          "interval": "1s"
         },
         {
           "datasource": {
@@ -465,7 +469,9 @@
           },
           "expr": "game_effective_warning_threshold",
           "legendFormat": "Warning",
-          "refId": "B"
+          "refId": "B",
+          "instant": false,
+          "interval": "1s"
         },
         {
           "datasource": {
@@ -474,7 +480,9 @@
           },
           "expr": "game_effective_death_threshold",
           "legendFormat": "Death",
-          "refId": "C"
+          "refId": "C",
+          "instant": false,
+          "interval": "1s"
         }
       ],
       "title": "",

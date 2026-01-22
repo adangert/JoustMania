@@ -17,12 +17,13 @@
 ARG BUILDER_IMAGE=joustmania/builder:latest
 
 # =============================================================================
-# Stage 0: Extract shared libraries for distroless
+# Stage 0: Extract shared libraries and config for distroless
 # =============================================================================
 FROM debian:bookworm-slim AS system-libs
 ARG TARGETARCH
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libasound2 \
+    libasound2-data \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir /extra-libs \
     && if [ "$TARGETARCH" = "arm64" ]; then \
@@ -80,8 +81,11 @@ WORKDIR /app
 # Copy grpc-health-probe from official multi-arch image
 COPY --from=ghcr.io/grpc-ecosystem/grpc-health-probe:v0.4.38 /ko-app/grpc-health-probe /bin/grpc_health_probe
 
-# Copy system shared libraries (ALSA + glibc math/vector libs for miniaudio)
+# Copy system shared libraries (ALSA libs for miniaudio/pyalsaaudio)
 COPY --from=system-libs /extra-libs/ /usr/lib/
+
+# Copy ALSA configuration files (required for PCM device resolution)
+COPY --from=system-libs /usr/share/alsa/ /usr/share/alsa/
 
 # Copy installed packages from builder to distroless stdlib location
 COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/lib/python3.11/

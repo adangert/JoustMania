@@ -544,9 +544,9 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
 
             track_id = self.audio_manager.play_music(
                 file_pattern=request.file_pattern,
-                loop=request.loop,
+                _loop=request.loop,
                 tempo=request.tempo or 1.0,
-                priority=request.priority,
+                _priority=request.priority,
             )
 
             if track_id:

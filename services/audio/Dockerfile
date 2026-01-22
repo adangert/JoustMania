@@ -31,7 +31,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
        else \
          LIB_DIR=/usr/lib/x86_64-linux-gnu; \
        fi \
-    && cp $LIB_DIR/libasound.so* /extra-libs/
+    && cp $LIB_DIR/libasound.so* /extra-libs/ \
+    && mkdir -p /extra-etc \
+    && grep -E "^(root|audio):" /etc/group > /extra-etc/group
 
 # =============================================================================
 # Stage 2: Build Python dependencies
@@ -86,6 +88,9 @@ COPY --from=system-libs /extra-libs/ /usr/lib/
 
 # Copy ALSA configuration files (required for PCM device resolution)
 COPY --from=system-libs /usr/share/alsa/ /usr/share/alsa/
+
+# Copy group file with audio group (required for ALSA dmix IPC)
+COPY --from=system-libs /extra-etc/group /etc/group
 
 # Copy installed packages from builder to distroless stdlib location
 COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/lib/python3.11/

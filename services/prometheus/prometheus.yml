@@ -9,15 +9,17 @@ rule_files:
   - 'alerts.yml'
 
 scrape_configs:
-  # Controller Manager
+  # Controller Manager - fast scraping for real-time acceleration data
   - job_name: 'controller-manager'
+    scrape_interval: 1s
     static_configs:
       - targets: ['controller-manager:8000']
         labels:
           service: 'controller-manager'
 
-  # Game Coordinator
+  # Game Coordinator - fast scraping for game state metrics
   - job_name: 'game-coordinator'
+    scrape_interval: 1s
     static_configs:
       - targets: ['game-coordinator:8000']
         labels:

@@ -182,6 +182,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Update stream metrics (Phase 38)
         metrics.active_streams.inc()
 
+        # Clear stale base_colors from previous session (e.g., game that just ended)
+        # This ensures fresh color state when menu reconnects after a game
+        self.feedback_manager.base_colors.clear()
+        logger.debug(f"[{subscriber_id}] Cleared stale base_colors for fresh session")
+
         # Send initial connection events for all currently tracked controllers
         # This allows new subscribers to immediately know about existing controllers
         for serial, info in self.tracked_controllers.items():

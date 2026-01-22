@@ -175,7 +175,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
+        "h": 4,
         "w": 1,
         "x": 0,
         "y": 1
@@ -248,7 +248,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
+        "h": 4,
         "w": 4,
         "x": 1,
         "y": 1
@@ -429,7 +429,7 @@
         ]
       },
       "gridPos": {
-        "h": 4,
+        "h": 3,
         "w": 13,
         "x": 5,
         "y": 1
@@ -514,7 +514,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
+        "h": 4,
         "w": 2,
         "x": 18,
         "y": 1
@@ -620,7 +620,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
+        "h": 4,
         "w": 2,
         "x": 20,
         "y": 1
@@ -716,7 +716,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
+        "h": 4,
         "w": 2,
         "x": 22,
         "y": 1
@@ -817,10 +817,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 3,
+        "h": 1,
         "w": 13,
         "x": 5,
-        "y": 5
+        "y": 4
       },
       "id": 6,
       "options": {
@@ -850,7 +850,7 @@
           "refId": "A"
         }
       ],
-      "title": "Zone History",
+      "title": "",
       "type": "state-timeline"
     }
   ],

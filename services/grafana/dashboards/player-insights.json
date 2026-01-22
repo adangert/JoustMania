@@ -865,7 +865,7 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "definition": "label_values(game_player_alive, serial)",
+        "definition": "label_values({__name__=~\"game_player_alive|menu_player_ready\"}, serial)",
         "hide": 0,
         "includeAll": true,
         "label": "Controller",
@@ -873,7 +873,7 @@
         "name": "controller",
         "options": [],
         "query": {
-          "query": "label_values(game_player_alive, serial)",
+          "query": "label_values({__name__=~\"game_player_alive|menu_player_ready\"}, serial)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,

@@ -89,7 +89,11 @@ COPY --from=system-libs /extra-libs/ /usr/lib/
 # Copy ALSA configuration files (required for PCM device resolution)
 COPY --from=system-libs /usr/share/alsa/ /usr/share/alsa/
 
-# Copy group file with audio group (required for ALSA dmix IPC)
+# Copy simple ALSA config that uses hw:0,0 directly (bypasses dmix)
+# Can be overridden by mounting: -v /path/to/asound.conf:/etc/asound.conf:ro
+COPY services/audio/asound.conf /etc/asound.conf
+
+# Copy group file with audio group (for ALSA IPC if dmix is used via override)
 COPY --from=system-libs /extra-etc/group /etc/group
 
 # Copy installed packages from builder to distroless stdlib location

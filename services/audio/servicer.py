@@ -32,7 +32,6 @@ class SoundChannel:
     def __init__(self, channel_id: int):
         """Initialize a sound channel."""
         self.channel_id = channel_id
-        self.device: miniaudio.PlaybackDevice | None = None
         self.is_playing = False
         self.priority = 0
         self._lock = threading.Lock()
@@ -54,39 +53,30 @@ class SoundChannel:
             self.stop()
 
             try:
-                # Read raw file bytes for stream_memory (it handles decoding)
-                with open(file_path, "rb") as f:
-                    file_data = f.read()
-
-                # Get file info to configure device
+                # Get file info for duration
                 file_info = miniaudio.get_file_info(file_path)
-
-                # Create playback device matching file format
-                self.device = miniaudio.PlaybackDevice(
-                    output_format=miniaudio.SampleFormat.SIGNED16,
-                    nchannels=file_info.nchannels,
-                    sample_rate=file_info.sample_rate,
-                )
 
                 # Start playback in a separate thread
                 self.priority = priority
                 self.is_playing = True
 
                 def play_thread():
-                    try:
-                        # stream_memory decodes the file bytes and streams audio
-                        stream = miniaudio.stream_memory(file_data)
-                        with self.device:
-                            self.device.start(stream)
-                            # Wait for playback to complete (device callback consumes the stream)
-                            # Poll is_playing flag which can be set to False by stop()
-                            import time
+                    import time
 
+                    try:
+                        # Use stream_file - it handles decoding and format matching
+                        stream = miniaudio.stream_file(file_path)
+
+                        # Create device without specifying format - let miniaudio handle it
+                        device = miniaudio.PlaybackDevice()
+                        with device:
+                            device.start(stream)
+                            # Wait for playback to complete based on duration
                             duration = file_info.duration
                             elapsed = 0.0
-                            while self.is_playing and elapsed < duration + 1.0:
-                                time.sleep(0.1)
-                                elapsed += 0.1
+                            while self.is_playing and elapsed < duration + 0.5:
+                                time.sleep(0.05)
+                                elapsed += 0.05
                     except Exception as e:
                         logger.warning(f"Playback error on channel {self.channel_id}: {e}")
                     finally:
@@ -102,13 +92,7 @@ class SoundChannel:
 
     def stop(self):
         """Stop playback on this channel."""
-        import contextlib
-
         self.is_playing = False
-        if self.device:
-            with contextlib.suppress(Exception):
-                self.device.close()
-            self.device = None
 
 
 class AudioManager:

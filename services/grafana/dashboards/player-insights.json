@@ -447,6 +447,9 @@
         "tooltip": {
           "mode": "multi",
           "sort": "desc"
+        },
+        "xAxis": {
+          "show": false
         }
       },
       "pluginVersion": "10.2.3",
@@ -844,6 +847,9 @@
         "tooltip": {
           "mode": "single",
           "sort": "none"
+        },
+        "xAxis": {
+          "show": false
         }
       },
       "pluginVersion": "10.2.3",

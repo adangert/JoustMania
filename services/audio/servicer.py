@@ -78,9 +78,9 @@ class SoundChannel:
                 def play_thread():
                     try:
                         # Use stream_memory for one-shot playback
-                        # Args: audio_data, output_format, nchannels, sample_rate
+                        # Args: audio_data (bytes), output_format, nchannels, sample_rate
                         stream = miniaudio.stream_memory(
-                            decoded.samples, decoded.sample_format, decoded.nchannels, decoded.sample_rate
+                            decoded.samples.tobytes(), decoded.sample_format, decoded.nchannels, decoded.sample_rate
                         )
                         with self.device:
                             self.device.start(stream)

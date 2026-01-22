@@ -13,7 +13,6 @@ import threading
 from pathlib import Path
 
 import miniaudio
-import numpy as np
 from opentelemetry import trace
 
 from proto import audio_pb2, audio_pb2_grpc
@@ -38,7 +37,7 @@ class SoundChannel:
         self.priority = 0
         self._lock = threading.Lock()
 
-    def play(self, file_path: str, volume: float = 1.0, priority: int = 2) -> bool:
+    def play(self, file_path: str, volume: float = 1.0, priority: int = 2) -> bool:  # noqa: ARG002
         """
         Play a sound on this channel.
 
@@ -55,20 +54,18 @@ class SoundChannel:
             self.stop()
 
             try:
-                # Decode the audio file (supports WAV, MP3, FLAC, OGG)
-                decoded = miniaudio.decode_file(file_path)
+                # Read raw file bytes for stream_memory (it handles decoding)
+                with open(file_path, "rb") as f:
+                    file_data = f.read()
 
-                # Create a generator that yields the audio samples
-                def audio_generator():
-                    samples = np.frombuffer(decoded.samples, dtype=np.int16).astype(np.float32) / 32768.0
-                    samples = samples * volume  # Apply volume
-                    yield samples.astype(np.float32).tobytes()
+                # Get file info to configure device
+                file_info = miniaudio.get_file_info(file_path)
 
-                # Create playback device
+                # Create playback device matching file format
                 self.device = miniaudio.PlaybackDevice(
-                    output_format=miniaudio.SampleFormat.FLOAT32,
-                    nchannels=decoded.nchannels,
-                    sample_rate=decoded.sample_rate,
+                    output_format=miniaudio.SampleFormat.SIGNED16,
+                    nchannels=file_info.nchannels,
+                    sample_rate=file_info.sample_rate,
                 )
 
                 # Start playback in a separate thread
@@ -77,11 +74,8 @@ class SoundChannel:
 
                 def play_thread():
                     try:
-                        # Use stream_memory for one-shot playback
-                        # Args: audio_data (bytes), output_format, nchannels, sample_rate
-                        stream = miniaudio.stream_memory(
-                            decoded.samples.tobytes(), decoded.sample_format, decoded.nchannels, decoded.sample_rate
-                        )
+                        # stream_memory decodes the file bytes and streams audio
+                        stream = miniaudio.stream_memory(file_data)
                         with self.device:
                             self.device.start(stream)
                             # Wait for stream to finish

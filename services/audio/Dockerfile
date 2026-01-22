@@ -1,11 +1,14 @@
 # Multi-stage build for JoustMania Audio Service
 #
 # Phase 80: Migrated to distroless with miniaudio (replaces pygame)
-# - miniaudio for sound effects (requires libmvec from glibc)
+# - miniaudio for sound effects
 # - resampy for tempo control (replaces scipy)
 # - pyalsaaudio for ALSA music output
 #
-# Issue #79: Fixed libmvec.so.1 missing error by copying glibc math libs
+# Issue #79: Fixed libmvec.so.1 missing on ARM64
+# - libmvec is x86-only in glibc (provides SIMD math functions)
+# - QEMU cross-compilation incorrectly links to it on ARM64
+# - Fix: disable GCC auto-vectorization for ARM64 builds
 #
 # Phase 75: Builder images can be overridden for CI/CD
 # --build-arg BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/builder:latest
@@ -27,9 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
        else \
          LIB_DIR=/usr/lib/x86_64-linux-gnu; \
        fi \
-    && cp $LIB_DIR/libasound.so* /extra-libs/ \
-    && cp $LIB_DIR/libmvec.so* /extra-libs/ 2>/dev/null || true \
-    && cp /lib/*-linux-gnu/libmvec.so* /extra-libs/ 2>/dev/null || true
+    && cp $LIB_DIR/libasound.so* /extra-libs/
 
 # =============================================================================
 # Stage 2: Build Python dependencies
@@ -59,8 +60,14 @@ WORKDIR /app/proto
 RUN pip install --no-cache-dir -e .
 
 # Install service-specific dependencies (miniaudio + resampy instead of pygame + scipy)
+# Disable GCC auto-vectorization to prevent libmvec.so dependency on ARM64 cross-compile
+# (libmvec is x86-only in glibc, but QEMU cross-compilation incorrectly links to it)
 WORKDIR /app/services/audio
-RUN uv pip install --system -e .
+ARG TARGETARCH
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+      export CFLAGS="-fno-tree-loop-vectorize -fno-tree-slp-vectorize"; \
+    fi && \
+    uv pip install --system --no-binary miniaudio -e .
 
 # =============================================================================
 # Stage 3: Runtime image - distroless for minimal size

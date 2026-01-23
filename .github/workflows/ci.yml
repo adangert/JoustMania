@@ -384,3 +384,50 @@ jobs:
           BUILDER_IMAGE: ${{ env.IMAGE_PREFIX }}/builder:${{ github.sha }}
           PSMOVE_BUILDER_IMAGE: ${{ env.IMAGE_PREFIX }}/psmove-builder:${{ github.sha }}
         run: make test
+
+  # Final status check job for branch protection
+  # This job depends on all other jobs and provides a single status check
+  # that represents the entire CI pipeline's health
+  ci-complete:
+    name: CI Complete
+    runs-on: ubuntu-latest
+    needs:
+      - lint-shared
+      - service-checks
+      - lint-dockerfiles
+      - validate-protos
+      - validate-packages
+      - build-builder
+      - build-psmove-builder
+      - docker-build
+      - docker-build-extra
+      - integration-test
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        run: |
+          # Check if any job failed or was cancelled
+          FAILED="${{ contains(needs.*.result, 'failure') }}"
+          CANCELLED="${{ contains(needs.*.result, 'cancelled') }}"
+          if [[ "$FAILED" == "true" || "$CANCELLED" == "true" ]]; then
+            echo "❌ One or more CI jobs failed or were cancelled"
+            echo "Job results:"
+            echo "  lint-shared: ${{ needs.lint-shared.result }}"
+            echo "  service-checks: ${{ needs.service-checks.result }}"
+            echo "  lint-dockerfiles: \
+          ${{ needs.lint-dockerfiles.result }}"
+            echo "  validate-protos: \
+          ${{ needs.validate-protos.result }}"
+            echo "  validate-packages: \
+          ${{ needs.validate-packages.result }}"
+            echo "  build-builder: ${{ needs.build-builder.result }}"
+            echo "  build-psmove-builder: \
+          ${{ needs.build-psmove-builder.result }}"
+            echo "  docker-build: ${{ needs.docker-build.result }}"
+            echo "  docker-build-extra: \
+          ${{ needs.docker-build-extra.result }}"
+            echo "  integration-test: \
+          ${{ needs.integration-test.result }}"
+            exit 1
+          fi
+          echo "✅ All CI checks passed successfully!"

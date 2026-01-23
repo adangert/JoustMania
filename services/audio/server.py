@@ -2,10 +2,10 @@
 JoustMania Audio Microservice
 
 Handles audio playback with priority-based mixing and real-time tempo control.
-- Sound effects: pygame.mixer (8 channels, priority-based)
-- Background music: MusicPlayer with scipy resampling for tempo control
+- Sound effects: miniaudio for distroless compatibility
+- Background music: MusicPlayer with resampy for real-time tempo control
 
-See services/audio/servicer.py for the AudioManager and AudioServiceServicer implementations.
+See services/audio/servicer.py for the AudioServiceServicer implementation.
 """
 
 import asyncio
@@ -14,12 +14,6 @@ import os
 
 import grpc.aio
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc
-from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.grpc import GrpcInstrumentorServer
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from prometheus_client import start_http_server
 
 from lib.system_metrics import start_system_metrics_collector
@@ -27,31 +21,18 @@ from proto import audio_pb2_grpc
 from services.audio import metrics
 from services.audio.servicer import AudioServiceServicer
 
-# Configure logging with environment variable support
-log_level = os.getenv("LOG_LEVEL", "INFO").upper()
-logging.basicConfig(
-    level=getattr(logging, log_level, logging.INFO),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
 logger = logging.getLogger(__name__)
-
-# OpenTelemetry setup
-resource = Resource(attributes={"service.name": os.getenv("OTEL_SERVICE_NAME", "audio-service")})
-trace.set_tracer_provider(TracerProvider(resource=resource))
-
-# Configure OTLP exporter
-otlp_exporter = OTLPSpanExporter(
-    endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
-    insecure=True,
-)
-trace.get_tracer_provider().add_span_processor(BatchSpanProcessor(otlp_exporter))
-
-# Instrument gRPC server
-GrpcInstrumentorServer().instrument()
 
 
 async def serve(metrics_port=8000):
     """Start the Audio gRPC server."""
+    # Configure logging
+    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(
+        level=getattr(logging, log_level, logging.INFO),
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
     logger.info("Starting JoustMania Audio service...")
 
     # Start Prometheus metrics HTTP server

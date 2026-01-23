@@ -1,0 +1,12 @@
+version: v2
+plugins:
+  # Generate TypeScript message types
+  - remote: buf.build/bufbuild/es:v2.2.3
+    out: ../services/dashboard/src/gen
+    opt:
+      - target=ts
+  # Generate Connect-Web client code
+  - remote: buf.build/connectrpc/es:v2.0.0
+    out: ../services/dashboard/src/gen
+    opt:
+      - target=ts

@@ -31,3 +31,13 @@ services:
       MOCK_CONTROLLER_COUNT: "4"
       OTEL_SERVICE_NAME: controller-manager-service
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+
+  # Connect-proxy - Not required for integration tests
+  connect-proxy:
+    profiles:
+      - dashboard  # Only starts when 'dashboard' profile is active
+
+  # Dashboard - Not required for integration tests
+  dashboard:
+    profiles:
+      - dashboard  # Only starts when 'dashboard' profile is active

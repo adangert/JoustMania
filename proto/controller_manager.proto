@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package joustmania.controller_manager;
 
+option go_package = "github.com/joustmania/connect-proxy/gen/controller_manager";
+
 // ControllerManager Service - Manages PS Move controllers
 service ControllerManagerService {
   // Stream button press/release events (Phase 41 - event-driven for menu/UI)

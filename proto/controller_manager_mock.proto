@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package controller_manager_mock;
 
+option go_package = "github.com/joustmania/connect-proxy/gen/controller_manager_mock";
+
 // Additional RPCs for mock controller control
 service MockControllerService {
     // Simulate controller movement

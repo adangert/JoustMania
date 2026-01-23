@@ -1,0 +1,13 @@
+version: v2
+modules:
+  - path: .
+    name: buf.build/joustmania/proto
+lint:
+  use:
+    - DEFAULT
+  except:
+    # Allow Go-style package naming (joustmania.foo)
+    - PACKAGE_DIRECTORY_MATCH
+breaking:
+  use:
+    - FILE

@@ -23,7 +23,10 @@ help:
 	@echo "  (etc. for all services)"
 	@echo ""
 	@echo "Protos:"
-	@echo "  make protos          - Generate protobuf files"
+	@echo "  make protos          - Generate Python protobuf files"
+	@echo "  make protos-ts       - Generate TypeScript for dashboard"
+	@echo "  make protos-go       - Generate Go for connect-proxy"
+	@echo "  make protos-all      - Generate all protobuf files"
 	@echo "  make clean-protos    - Remove generated protos"
 	@echo ""
 	@echo "Testing:  make test-help"
@@ -35,11 +38,29 @@ protos:
 	@bash proto/generate_proto.sh
 	@echo "✓ Done! Protobuf files are ready with optimized bytecode."
 
+.PHONY: protos-ts
+protos-ts:
+	@echo "Generating TypeScript protobuf files for dashboard..."
+	@cd proto && buf generate --template buf.gen.yaml
+	@echo "✓ Done! TypeScript protobuf files generated in services/dashboard/src/gen/"
+
+.PHONY: protos-go
+protos-go:
+	@echo "Generating Go protobuf files for connect-proxy..."
+	@cd proto && buf generate --template buf.gen.go.yaml
+	@echo "✓ Done! Go protobuf files generated in services/connect-proxy/gen/"
+
+.PHONY: protos-all
+protos-all: protos protos-ts protos-go
+	@echo "✓ All protobuf files generated!"
+
 .PHONY: clean-protos
 clean-protos:
 	@echo "Cleaning generated protobuf files..."
 	@rm -f proto/*_pb2.py proto/*_pb2_grpc.py
 	@rm -rf proto/__pycache__
+	@rm -rf services/dashboard/src/gen/*
+	@rm -rf services/connect-proxy/gen/*
 	@echo "✓ Done! Protobuf files cleaned."
 
 # ============================================================================
@@ -54,10 +75,11 @@ up: images
 	@echo "=========================================="
 	@echo "JoustMania is running!"
 	@echo "=========================================="
-	@echo "  Web UI:     http://localhost:80"
-	@echo "  Jaeger:     http://localhost:16686"
-	@echo "  Prometheus: http://localhost:9090"
-	@echo "  Grafana:    http://localhost:3000"
+	@echo "  Dashboard:  http://localhost:8080"
+	@echo "  Jaeger:     http://localhost:8080/jaeger/"
+	@echo "  Prometheus: http://localhost:8080/prometheus/"
+	@echo "  Grafana:    http://localhost:8080/grafana/"
+	@echo "  Legacy UI:  http://localhost:8080/legacy/"
 
 .PHONY: down
 down:
@@ -84,8 +106,10 @@ up-mock: images
 	@echo "=========================================="
 	@echo "JoustMania is running (MOCK MODE)"
 	@echo "=========================================="
-	@echo "  Web UI:     http://localhost:80"
-	@echo "  Jaeger:     http://localhost:16686"
+	@echo "  Dashboard:  http://localhost:8080"
+	@echo "  Jaeger:     http://localhost:8080/jaeger/"
+	@echo "  Prometheus: http://localhost:8080/prometheus/"
+	@echo "  Grafana:    http://localhost:8080/grafana/"
 
 # ============================================================================
 # Builder Images (Phase 69)
@@ -204,6 +228,20 @@ image-audio: builders
 		--build-arg BUILDER_IMAGE=joustmania/builder:latest .
 	@echo "✓ audio-service:latest built"
 
+.PHONY: image-connect-proxy
+image-connect-proxy:
+	@echo "Building connect-proxy service..."
+	@docker build -f services/connect-proxy/Dockerfile \
+		-t joustmania/connect-proxy:latest .
+	@echo "✓ connect-proxy:latest built"
+
+.PHONY: image-dashboard
+image-dashboard:
+	@echo "Building dashboard service..."
+	@docker build -f services/dashboard/Dockerfile \
+		-t joustmania/dashboard:latest .
+	@echo "✓ dashboard:latest built"
+
 # Build all service images (parallel)
 .PHONY: images
 images: builders
@@ -215,6 +253,8 @@ images: builders
 	docker build -f services/webui/Dockerfile -t joustmania/webui-service:latest --build-arg BUILDER_IMAGE=joustmania/builder:latest . & \
 	docker build -f services/audio/Dockerfile -t joustmania/audio-service:latest --build-arg BUILDER_IMAGE=joustmania/builder:latest . & \
 	docker build -f services/controller_manager/Dockerfile -t joustmania/controller-manager-service:latest --build-arg BUILDER_IMAGE=joustmania/builder:latest --build-arg PSMOVE_BUILDER_IMAGE=joustmania/psmove-builder:latest . & \
+	docker build -f services/connect-proxy/Dockerfile -t joustmania/connect-proxy:latest . & \
+	docker build -f services/dashboard/Dockerfile -t joustmania/dashboard:latest . & \
 	wait
 	@echo ""
 	@echo "✓ All service images built!"
@@ -223,8 +263,10 @@ images: builders
 # CI/CD Targets (Phase 55)
 # ============================================================================
 
-# Services list for build targets
+# Services list for build targets (Python services)
 SERVICES := controller_manager game_coordinator settings supervisor menu audio webui
+# Additional services (Go/Node)
+EXTRA_SERVICES := connect-proxy dashboard
 
 .PHONY: ci-build-tools
 ci-build-tools:

@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package joustmania.game_coordinator;
 
+option go_package = "github.com/joustmania/connect-proxy/gen/game_coordinator";
+
 // GameCoordinator Service - Manages game lifecycle and coordination
 service GameCoordinatorService {
   // Start a game

@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package joustmania.audio;
 
+option go_package = "github.com/joustmania/connect-proxy/gen/audio";
+
 // Audio Service - Manages audio playback and mixing
 service AudioService {
   rpc PlaySound(PlaySoundRequest) returns (PlaySoundResponse);

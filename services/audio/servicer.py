@@ -13,13 +13,13 @@ import threading
 from pathlib import Path
 
 import miniaudio
-from opentelemetry import trace
 
+from lib.telemetry import init_telemetry
 from proto import audio_pb2, audio_pb2_grpc
 from services.audio.music_player import DummyMusicPlayer, MusicPlayer
 
 logger = logging.getLogger(__name__)
-tracer = trace.get_tracer(__name__)
+tracer = init_telemetry()
 
 
 class SoundChannel:

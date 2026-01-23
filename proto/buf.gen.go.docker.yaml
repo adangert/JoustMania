@@ -1,0 +1,13 @@
+version: v2
+# Docker build version - outputs to /workspace/gen
+# Note: Without paths=source_relative, files are organized by go_package path
+plugins:
+  # Generate Go message types
+  - remote: buf.build/protocolbuffers/go:v1.35.1
+    out: ../gen
+  # Generate Go gRPC client code
+  - remote: buf.build/grpc/go:v1.5.1
+    out: ../gen
+  # Generate Connect-Go server stubs
+  - remote: buf.build/connectrpc/go:v1.17.0
+    out: ../gen

@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package joustmania.settings;
 
+option go_package = "github.com/joustmania/connect-proxy/gen/settings";
+
 // Settings Service - Manages game configuration and settings
 service SettingsService {
   // Get all settings as a map

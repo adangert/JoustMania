@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package joustmania.menu;
 
+option go_package = "github.com/joustmania/connect-proxy/gen/menu";
+
 // Menu Service - Manages menu UI and user interactions
 service MenuService {
   // Start menu

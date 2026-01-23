@@ -45,10 +45,9 @@ services:
   jaeger:
     image: jaegertracing/jaeger:2.14.1
     container_name: joustmania-jaeger
-    ports:
-      - "16686:16686"  # Jaeger UI (exposed to host for browser access)
-    # Collector ports (14268, 14250) exposed only within Docker network
+    # All ports exposed only within Docker network (dashboard proxies to it)
     expose:
+      - "16686"  # Jaeger UI
       - "14268"  # Jaeger collector HTTP
       - "14250"  # Jaeger collector gRPC
     environment:
@@ -251,7 +250,7 @@ services:
     restart: unless-stopped
     # Healthcheck defined in Dockerfile (uses grpc_health_probe)
 
-  # Web UI Service
+  # Web UI Service (legacy - accessed via /legacy/ through dashboard proxy)
   webui:
     image: ${IMAGE_PREFIX:-joustmania}/webui-service:${IMAGE_TAG:-latest}
     build:
@@ -260,10 +259,9 @@ services:
       args:
         BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
     container_name: joustmania-webui
-    ports:
-      - "80:80"  # WebUI exposed to host for browser access
-    # Metrics port exposed only within Docker network (Phase 38)
+    # All ports exposed only within Docker network (dashboard proxies to /legacy/)
     expose:
+      - "80"    # WebUI (proxied through dashboard)
       - "8000"  # Prometheus metrics
     environment:
       - OTEL_SERVICE_NAME=webui-service
@@ -328,8 +326,11 @@ services:
       - '--storage.tsdb.retention.time=30d'
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
-    ports:
-      - "9090:9090"  # Prometheus UI exposed to host for browser access
+      - '--web.external-url=/prometheus/'
+      - '--web.route-prefix=/'
+    # Port exposed only within Docker network (dashboard proxies to it)
+    expose:
+      - "9090"
     volumes:
       - ./services/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./services/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
@@ -398,13 +399,15 @@ services:
   grafana:
     image: grafana/grafana:10.2.3
     container_name: joustmania-grafana
-    ports:
-      - "3000:3000"  # Grafana UI exposed to host for browser access
+    # Port exposed only within Docker network (dashboard proxies to it)
+    expose:
+      - "3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=joustmania
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
       - GF_INSTALL_PLUGINS=
     volumes:
       - ./services/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -432,8 +435,9 @@ services:
     image: grafana/loki:2.9.3
     container_name: joustmania-loki
     user: "0"  # Run as root to avoid permission issues with volume
-    ports:
-      - "3100:3100"  # Loki HTTP API (for queries and ingestion)
+    # Port exposed only within Docker network (dashboard proxies to it)
+    expose:
+      - "3100"
     volumes:
       - ./services/loki/config.yaml:/etc/loki/config.yaml:ro
       - loki-data:/tmp/loki
@@ -447,6 +451,70 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
+  # Connect-Web Proxy (gRPC to Connect protocol translation)
+  connect-proxy:
+    image: ${IMAGE_PREFIX:-joustmania}/connect-proxy:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: services/connect-proxy/Dockerfile
+    container_name: joustmania-connect-proxy
+    # Port exposed only within Docker network (dashboard proxies to it)
+    expose:
+      - "8080"
+    environment:
+      - CONTROLLER_MANAGER_SERVICE=controller-manager:50052
+      - GAME_COORDINATOR_SERVICE=game-coordinator:50053
+      - MENU_SERVICE=menu:50054
+      - SETTINGS_SERVICE=settings:50051
+    depends_on:
+      controller-manager:
+        condition: service_healthy
+      game-coordinator:
+        condition: service_healthy
+      menu:
+        condition: service_healthy
+      settings:
+        condition: service_healthy
+    networks:
+      - joustmania
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # Dashboard (Real-time controller visualization + unified proxy)
+  dashboard:
+    image: ${IMAGE_PREFIX:-joustmania}/dashboard:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: services/dashboard/Dockerfile
+    container_name: joustmania-dashboard
+    ports:
+      - "8080:80"  # Main entry point (dashboard + all proxied services)
+    depends_on:
+      connect-proxy:
+        condition: service_healthy
+      jaeger:
+        condition: service_healthy
+      prometheus:
+        condition: service_healthy
+      grafana:
+        condition: service_healthy
+      webui:
+        condition: service_healthy
+    networks:
+      - joustmania
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
 networks:
   joustmania:

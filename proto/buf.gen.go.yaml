@@ -1,0 +1,17 @@
+version: v2
+plugins:
+  # Generate Go message types
+  - remote: buf.build/protocolbuffers/go:v1.35.1
+    out: ../services/connect-proxy/gen
+    opt:
+      - paths=source_relative
+  # Generate Go gRPC client code
+  - remote: buf.build/grpc/go:v1.5.1
+    out: ../services/connect-proxy/gen
+    opt:
+      - paths=source_relative
+  # Generate Connect-Go server stubs
+  - remote: buf.build/connectrpc/go:v1.17.0
+    out: ../services/connect-proxy/gen
+    opt:
+      - paths=source_relative

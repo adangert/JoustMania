@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JoustMania Dashboard</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="header">
+        <h1>JoustMania Dashboard</h1>
+        <div class="header-controls">
+          <button id="settings-btn" class="icon-btn" title="Settings">
+            <span class="icon">&#9881;</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="controls-bar">
+        <div class="mode-selector">
+          <label for="game-mode">Mode:</label>
+          <select id="game-mode">
+            <option value="JoustFFA">Joust FFA</option>
+            <option value="JoustTeams">Joust Teams</option>
+            <option value="JoustRandomTeams">Random Teams</option>
+            <option value="Werewolf">Werewolf</option>
+            <option value="Zombies">Zombies</option>
+            <option value="Commander">Commander</option>
+            <option value="Ninja">Ninja</option>
+            <option value="Swapper">Swapper</option>
+            <option value="Tournament">Tournament</option>
+          </select>
+        </div>
+        <div class="game-actions">
+          <button id="start-btn" class="btn btn-primary">
+            <span class="icon">&#9654;</span> Start Game
+          </button>
+          <button id="stop-btn" class="btn btn-danger" disabled>
+            <span class="icon">&#9632;</span> Stop
+          </button>
+        </div>
+      </div>
+
+      <main class="main-content">
+        <div id="controller-grid" class="controller-grid">
+          <!-- Controller cards will be rendered here -->
+          <div class="loading">Connecting to controller manager...</div>
+        </div>
+      </main>
+
+      <footer class="status-bar">
+        <div class="game-status">
+          <span id="game-state">Game: <strong>Idle</strong></span>
+          <span class="separator">|</span>
+          <span id="player-count">Players: <strong>0</strong> connected</span>
+          <span class="separator">|</span>
+          <span id="alive-count">Alive: <strong>-</strong></span>
+        </div>
+        <div id="event-log" class="event-log">
+          <!-- Recent events will appear here -->
+        </div>
+      </footer>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Settings</h2>
+          <button id="close-settings" class="close-btn">&times;</button>
+        </div>
+        <div id="settings-list" class="settings-list">
+          <!-- Settings will be loaded here -->
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

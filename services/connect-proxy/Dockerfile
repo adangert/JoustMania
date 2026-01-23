@@ -32,7 +32,10 @@ RUN mv gen/github.com/joustmania/connect-proxy/gen/* gen/ && \
     done
 
 # Stage 2: Build the Go binary
-FROM golang:1.22-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.22-alpine AS builder
+
+# Build arguments for cross-compilation
+ARG TARGETARCH
 
 # Install git for go mod (needed for some dependencies)
 RUN apk add --no-cache git
@@ -52,8 +55,8 @@ COPY services/connect-proxy/*.go ./
 # Download dependencies (after proto files are in place)
 RUN go mod tidy && go mod download
 
-# Build the binary
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /connect-proxy .
+# Build the binary (cross-compile for target architecture)
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -ldflags="-s -w" -o /connect-proxy .
 
 # Stage 3: Runtime image (alpine for wget healthcheck support)
 FROM alpine:3.19

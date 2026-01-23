@@ -10,7 +10,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"connectrpc.com/connect"
 	"github.com/rs/cors"
@@ -200,33 +199,9 @@ func (p *ControllerManagerProxy) StreamButtonEvents(
 
 func (p *ControllerManagerProxy) StreamGameplayData(
 	ctx context.Context,
-	req *connect.Request[controllerpb.GameplayStreamRequest],
-	stream *connect.ServerStream[controllerpb.GameplayDataUpdate],
-) error {
-	grpcStream, err := p.client.StreamGameplayData(ctx, req.Msg)
-	if err != nil {
-		return connect.NewError(connect.CodeInternal, err)
-	}
-
-	for {
-		msg, err := grpcStream.Recv()
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return connect.NewError(connect.CodeInternal, err)
-		}
-		if err := stream.Send(msg); err != nil {
-			return err
-		}
-	}
-}
-
-func (p *ControllerManagerProxy) StreamGameplayDataDynamic(
-	ctx context.Context,
 	stream *connect.BidiStream[controllerpb.GameplayStreamControl, controllerpb.GameplayDataUpdate],
 ) error {
-	grpcStream, err := p.client.StreamGameplayDataDynamic(ctx)
+	grpcStream, err := p.client.StreamGameplayData(ctx)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, err)
 	}
@@ -273,28 +248,6 @@ func (p *ControllerManagerProxy) StreamGameplayDataDynamic(
 	}()
 
 	return <-errCh
-}
-
-func (p *ControllerManagerProxy) SetControllerColor(
-	ctx context.Context,
-	req *connect.Request[controllerpb.SetControllerColorRequest],
-) (*connect.Response[controllerpb.SetControllerColorResponse], error) {
-	resp, err := p.client.SetControllerColor(ctx, req.Msg)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	return connect.NewResponse(resp), nil
-}
-
-func (p *ControllerManagerProxy) SetControllerVibration(
-	ctx context.Context,
-	req *connect.Request[controllerpb.SetControllerVibrationRequest],
-) (*connect.Response[controllerpb.SetControllerVibrationResponse], error) {
-	resp, err := p.client.SetControllerVibration(ctx, req.Msg)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	return connect.NewResponse(resp), nil
 }
 
 func (p *ControllerManagerProxy) PlayControllerEffect(
@@ -391,19 +344,6 @@ func (p *MenuProxy) StopMenu(
 	req *connect.Request[menupb.StopMenuRequest],
 ) (*connect.Response[menupb.StopMenuResponse], error) {
 	resp, err := p.client.StopMenu(ctx, req.Msg)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	return connect.NewResponse(resp), nil
-}
-
-func (p *MenuProxy) GetMenuStatus(
-	ctx context.Context,
-	req *connect.Request[menupb.GetMenuStatusRequest],
-) (*connect.Response[menupb.GetMenuStatusResponse], error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	resp, err := p.client.GetMenuStatus(ctx, req.Msg)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}

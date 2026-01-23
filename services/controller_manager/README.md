@@ -26,7 +26,6 @@ The Controller Manager service is the central component for managing PS Move con
 │                      gRPC API Layer                          │
 │  - StreamButtonEvents (bidirectional - buttons + LED ctrl)   │
 │  - StreamGameplayData, StreamGameplayDataDynamic             │
-│  - SetControllerColor, SetControllerVibration                │
 │  - PlayControllerEffect                                      │
 ├─────────────────────────────────────────────────────────────┤
 │                    Backend Abstraction                       │
@@ -77,8 +76,6 @@ rpc StreamGameplayData(GameplayStreamRequest) returns (stream GameplayDataUpdate
 rpc StreamGameplayDataDynamic(stream GameplayStreamControl) returns (stream GameplayDataUpdate);
 
 // Feedback
-rpc SetControllerColor(SetControllerColorRequest) returns (SetControllerColorResponse);
-rpc SetControllerVibration(SetControllerVibrationRequest) returns (SetControllerVibrationResponse);
 rpc PlayControllerEffect(PlayControllerEffectRequest) returns (PlayControllerEffectResponse);
 ```
 
@@ -88,13 +85,9 @@ rpc PlayControllerEffect(PlayControllerEffectRequest) returns (PlayControllerEff
 # List available services
 grpcurl -plaintext localhost:50052 list
 
-# Set LED color (all controllers to red)
-grpcurl -plaintext -d '{"color": {"r": 255, "g": 0, "b": 0}}' \
-  localhost:50052 joustmania.ControllerManagerService/SetControllerColor
-
-# Set vibration with duration
-grpcurl -plaintext -d '{"serial": "CTRL001", "intensity": 200, "duration_ms": 500}' \
-  localhost:50052 joustmania.ControllerManagerService/SetControllerVibration
+# Play effect on controller
+grpcurl -plaintext -d '{"serial": "CTRL001", "effect": 2, "color": {"r": 255, "g": 0, "b": 0}, "duration_ms": 500}' \
+  localhost:50052 joustmania.ControllerManagerService/PlayControllerEffect
 ```
 
 ## Metrics

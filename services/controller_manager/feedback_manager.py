@@ -131,7 +131,7 @@ class FeedbackManager(ControllerEffectsBase):
         """
         Set controller vibration (internal method).
 
-        Can be called from both SetControllerVibration RPC and stream-based VibrationCommand.
+        Called from stream-based VibrationCommand.
 
         Args:
             serial: Controller serial number

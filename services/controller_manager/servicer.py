@@ -679,57 +679,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
             logger.info(f"Dynamic gameplay subscriber disconnected: {subscriber_id}")
 
-    async def SetControllerVibration(self, request, context):  # noqa: N802, ARG002
-        """Set vibration on controller(s) - Phase 19 feedback feature, Phase 57 async."""
-        with tracer.start_as_current_span("SetControllerVibration") as span:
-            span.set_attribute("serial", request.serial or "all")
-            span.set_attribute("intensity", request.intensity)
-            span.set_attribute("duration_ms", request.duration_ms)
-
-            try:
-                # Determine which controllers to update
-                with self.state_lock:
-                    serials = [request.serial] if request.serial else list(self.tracked_controllers.keys())
-
-                controllers_updated = 0
-                controllers_failed = 0
-
-                for serial in serials:
-                    with self.state_lock:
-                        controller_exists = serial in self.tracked_controllers
-                        if not controller_exists:
-                            continue
-
-                    success = await self.backend.set_rumble(serial, request.intensity)
-                    if success:
-                        controllers_updated += 1
-                        logger.debug(f"Set vibration on {serial}: intensity={request.intensity}")
-
-                        # Schedule vibration stop if duration is specified (using asyncio task)
-                        if request.duration_ms > 0 and request.intensity > 0:
-                            await self._schedule_vibration_stop(serial, request.duration_ms)
-                    else:
-                        controllers_failed += 1
-
-                span.set_attribute("controllers_updated", controllers_updated)
-                span.set_attribute("controllers_failed", controllers_failed)
-
-                # Return success only if at least one controller was updated and none failed
-                if controllers_failed > 0:
-                    return controller_manager_pb2.SetControllerVibrationResponse(
-                        success=False, error=f"Failed to set vibration on {controllers_failed} controller(s)"
-                    )
-                if controllers_updated == 0 and len(serials) > 0:
-                    return controller_manager_pb2.SetControllerVibrationResponse(
-                        success=False, error="No controllers found to update"
-                    )
-                return controller_manager_pb2.SetControllerVibrationResponse(success=True, error="")
-
-            except Exception as e:
-                span.record_exception(e)
-                logger.error(f"SetControllerVibration error: {e}", exc_info=True)
-                return controller_manager_pb2.SetControllerVibrationResponse(success=False, error=str(e))
-
     async def _schedule_vibration_stop(self, serial: str, duration_ms: int):
         """Schedule vibration to stop after duration using asyncio task (Phase 57 async migration)."""
         # Cancel existing task for this controller

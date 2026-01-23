@@ -92,9 +92,7 @@ JoustMania is a party game system for PS Move controllers, built as a collection
 | `StreamButtonEvents` | Bidirectional | Button events + LED control commands |
 | `StreamGameplayData` | Server Stream | Motion data (accel/gyro) |
 | `StreamGameplayDataDynamic` | Bidirectional | Filtered motion data + feedback commands |
-| `SetControllerColor` | Unary | Set LED color |
 | `PlayControllerEffect` | Unary | Trigger visual effect (flash, pulse, rainbow) |
-| `SetControllerVibration` | Unary | Set rumble intensity |
 
 **Backends**:
 - `bluetooth` - Linux BlueZ (production)

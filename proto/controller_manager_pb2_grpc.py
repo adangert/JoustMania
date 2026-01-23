@@ -50,11 +50,6 @@ class ControllerManagerServiceStub(object):
                 request_serializer=controller__manager__pb2.GameplayStreamControl.SerializeToString,
                 response_deserializer=controller__manager__pb2.GameplayDataUpdate.FromString,
                 _registered_method=True)
-        self.SetControllerVibration = channel.unary_unary(
-                '/joustmania.controller_manager.ControllerManagerService/SetControllerVibration',
-                request_serializer=controller__manager__pb2.SetControllerVibrationRequest.SerializeToString,
-                response_deserializer=controller__manager__pb2.SetControllerVibrationResponse.FromString,
-                _registered_method=True)
         self.PlayControllerEffect = channel.unary_unary(
                 '/joustmania.controller_manager.ControllerManagerService/PlayControllerEffect',
                 request_serializer=controller__manager__pb2.PlayControllerEffectRequest.SerializeToString,
@@ -93,16 +88,9 @@ class ControllerManagerServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def SetControllerVibration(self, request, context):
-        """Controller feedback RPCs (Phase 19)
-        Set vibration intensity
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
     def PlayControllerEffect(self, request, context):
-        """Play predefined effect (flash, pulse, rainbow, etc.)
+        """Controller feedback RPCs (Phase 19)
+        Play predefined effect (flash, pulse, rainbow, etc.)
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -132,11 +120,6 @@ def add_ControllerManagerServiceServicer_to_server(servicer, server):
                     servicer.StreamGameplayDataDynamic,
                     request_deserializer=controller__manager__pb2.GameplayStreamControl.FromString,
                     response_serializer=controller__manager__pb2.GameplayDataUpdate.SerializeToString,
-            ),
-            'SetControllerVibration': grpc.unary_unary_rpc_method_handler(
-                    servicer.SetControllerVibration,
-                    request_deserializer=controller__manager__pb2.SetControllerVibrationRequest.FromString,
-                    response_serializer=controller__manager__pb2.SetControllerVibrationResponse.SerializeToString,
             ),
             'PlayControllerEffect': grpc.unary_unary_rpc_method_handler(
                     servicer.PlayControllerEffect,
@@ -231,33 +214,6 @@ class ControllerManagerService(object):
             '/joustmania.controller_manager.ControllerManagerService/StreamGameplayDataDynamic',
             controller__manager__pb2.GameplayStreamControl.SerializeToString,
             controller__manager__pb2.GameplayDataUpdate.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def SetControllerVibration(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/joustmania.controller_manager.ControllerManagerService/SetControllerVibration',
-            controller__manager__pb2.SetControllerVibrationRequest.SerializeToString,
-            controller__manager__pb2.SetControllerVibrationResponse.FromString,
             options,
             channel_credentials,
             insecure,

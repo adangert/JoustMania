@@ -15,9 +15,6 @@ service ControllerManagerService {
   rpc StreamGameplayDataDynamic(stream GameplayStreamControl) returns (stream GameplayDataUpdate);
 
   // Controller feedback RPCs (Phase 19)
-  // Set vibration intensity
-  rpc SetControllerVibration(SetControllerVibrationRequest) returns (SetControllerVibrationResponse);
-
   // Play predefined effect (flash, pulse, rainbow, etc.)
   rpc PlayControllerEffect(PlayControllerEffectRequest) returns (PlayControllerEffectResponse);
 
@@ -67,18 +64,6 @@ message Vector3 {
   float x = 1;
   float y = 2;
   float z = 3;
-}
-
-// Controller feedback messages (Phase 19)
-message SetControllerVibrationRequest {
-  string serial = 1;  // Controller serial (empty = all controllers)
-  int32 intensity = 2;  // Vibration intensity (0-255)
-  int32 duration_ms = 3;  // Duration in milliseconds
-}
-
-message SetControllerVibrationResponse {
-  bool success = 1;
-  string error = 2;
 }
 
 // Controller effects

@@ -51,8 +51,6 @@ proto/
 - `StreamButtonEvents` - Bidirectional stream for button events and LED control
 - `StreamGameplayData` - Stream gameplay data (acceleration/gyro) for games
 - `StreamGameplayDataDynamic` - Bidirectional stream with dynamic filtering
-- `SetControllerColor` - Set LED color on a controller
-- `SetControllerVibration` - Set vibration intensity
 - `PlayControllerEffect` - Play visual effects (flash, pulse, rainbow)
 
 **Features:**

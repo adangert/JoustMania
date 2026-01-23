@@ -206,14 +206,14 @@ class TeamsGameBase(BaseGameMode):
                         f"Set {serial} to team {player.team} ({self.team_colors[player.team]['name']}) with pulse"
                     )
                 else:
-                    # Set persistent team color
-                    await self.controller_client.SetControllerColor(
-                        controller_manager_pb2.SetControllerColorRequest(
+                    # Set persistent team color via stream
+                    base_color_cmd = controller_manager_pb2.GameplayStreamControl(
+                        base_color=controller_manager_pb2.ControllerColorConfig(
                             serial=serial,
                             color=controller_manager_pb2.RGB(r=team_color[0], g=team_color[1], b=team_color[2]),
-                            duration_ms=duration_ms,
                         )
                     )
+                    await self.gameplay_stream.write(base_color_cmd)
                     logger.debug(f"Set {serial} to team {player.team} ({self.team_colors[player.team]['name']}) color")
 
             logger.info(
@@ -271,14 +271,16 @@ class TeamsGameBase(BaseGameMode):
                 # Set each player to their team color
                 await self._set_team_colors(pulse_effect=False, duration_ms=0)
             else:
-                # Set all players to same color (broadcast)
+                # Set all players to same color via stream
                 r, g, b = phase["color"]
-                color_request = controller_manager_pb2.SetControllerColorRequest(
-                    serial="",  # Empty = all controllers
-                    color=controller_manager_pb2.RGB(r=r, g=g, b=b),
-                    duration_ms=0,
-                )
-                await self.controller_client.SetControllerColor(color_request)
+                for serial in self.players:
+                    base_color_cmd = controller_manager_pb2.GameplayStreamControl(
+                        base_color=controller_manager_pb2.ControllerColorConfig(
+                            serial=serial,
+                            color=controller_manager_pb2.RGB(r=r, g=g, b=b),
+                        )
+                    )
+                    await self.gameplay_stream.write(base_color_cmd)
 
             # Wait 1 second (in 0.1s increments to allow interruption)
             for _ in range(10):

@@ -234,22 +234,13 @@ class ZombieGame(BaseGameMode):
             zombie_player = player
             color = ZOMBIE_COLOR if zombie_player.is_zombie else HUMAN_COLOR
 
-            if self.gameplay_stream:
-                color_cmd = controller_manager_pb2.GameplayStreamControl(
-                    color_update=controller_manager_pb2.ColorUpdate(
-                        serial=serial,
-                        color=controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]),
-                    )
+            base_color_cmd = controller_manager_pb2.GameplayStreamControl(
+                base_color=controller_manager_pb2.ControllerColorConfig(
+                    serial=serial,
+                    color=controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]),
                 )
-                await self.gameplay_stream.write(color_cmd)
-            else:
-                await self.controller_client.SetControllerColor(
-                    controller_manager_pb2.SetControllerColorRequest(
-                        serial=serial,
-                        color=controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]),
-                        duration_ms=0,
-                    )
-                )
+            )
+            await self.gameplay_stream.write(base_color_cmd)
 
         # Play intro sound (use start sound - no dedicated zombie intro exists)
         await self._play_sound(Sound.SFX_START3, priority=2)
@@ -389,34 +380,24 @@ class ZombieGame(BaseGameMode):
 
             logger.info(f"Human {serial} converted to zombie! {len(self.human_serials)} humans remain")
 
-            # Update color to zombie
-            if self.gameplay_stream:
-                # Death flash then zombie color
-                flash_cmd = controller_manager_pb2.GameplayStreamControl(
-                    game_effect=controller_manager_pb2.GameEffectCommand(
-                        serial=serial,
-                        effect=controller_manager_pb2.GAME_EFFECT_DEATH,
-                    )
+            # Update color to zombie - death flash then zombie color
+            flash_cmd = controller_manager_pb2.GameplayStreamControl(
+                game_effect=controller_manager_pb2.GameEffectCommand(
+                    serial=serial,
+                    effect=controller_manager_pb2.GAME_EFFECT_PLAYER_DEATH,
                 )
-                await self.gameplay_stream.write(flash_cmd)
+            )
+            await self.gameplay_stream.write(flash_cmd)
 
-                await asyncio.sleep(0.5)
+            await asyncio.sleep(0.5)
 
-                color_cmd = controller_manager_pb2.GameplayStreamControl(
-                    color_update=controller_manager_pb2.ColorUpdate(
-                        serial=serial,
-                        color=controller_manager_pb2.RGB(r=ZOMBIE_COLOR[0], g=ZOMBIE_COLOR[1], b=ZOMBIE_COLOR[2]),
-                    )
+            base_color_cmd = controller_manager_pb2.GameplayStreamControl(
+                base_color=controller_manager_pb2.ControllerColorConfig(
+                    serial=serial,
+                    color=controller_manager_pb2.RGB(r=ZOMBIE_COLOR[0], g=ZOMBIE_COLOR[1], b=ZOMBIE_COLOR[2]),
                 )
-                await self.gameplay_stream.write(color_cmd)
-            else:
-                await self.controller_client.SetControllerColor(
-                    controller_manager_pb2.SetControllerColorRequest(
-                        serial=serial,
-                        color=controller_manager_pb2.RGB(r=ZOMBIE_COLOR[0], g=ZOMBIE_COLOR[1], b=ZOMBIE_COLOR[2]),
-                        duration_ms=0,
-                    )
-                )
+            )
+            await self.gameplay_stream.write(base_color_cmd)
 
             # Play conversion sound (use zombie death sound for conversion)
             await self._play_sound(Sound.VOX_ZOMBIE_DEATH, priority=2)

@@ -156,49 +156,18 @@ class LedController:
                 logger.warning(f"Button stream queue full, could not send game effect for {serial}")
                 return False
 
-    async def set_color_rpc(self, serial: str, color: tuple[int, int, int], duration_ms: int = 0) -> bool:
-        """
-        Set controller color via RPC (fallback when stream not available).
-
-        Args:
-            serial: Controller serial number
-            color: RGB tuple (r, g, b)
-            duration_ms: Duration in milliseconds (0 = persistent)
-
-        Returns:
-            True if successful, False on error
-        """
-        from proto import controller_manager_pb2, controller_manager_pb2_grpc
-
-        try:
-            stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
-            await stub.SetControllerColor(
-                controller_manager_pb2.SetControllerColorRequest(
-                    serial=serial,
-                    color=controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]),
-                    duration_ms=duration_ms,
-                )
-            )
-            logger.debug(f"Set color for {serial}: {color} via RPC")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to set color for {serial}: {e}")
-            return False
-
     async def set_color(self, serial: str, color: tuple[int, int, int]) -> bool:
         """
-        Set controller color, preferring stream over RPC.
+        Set controller color via stream.
 
         Args:
             serial: Controller serial number
             color: RGB tuple (r, g, b)
 
         Returns:
-            True if successful via either method
+            True if successful, False if stream not available
         """
-        if await self.send_base_color(serial, color):
-            return True
-        return await self.set_color_rpc(serial, color)
+        return await self.send_base_color(serial, color)
 
     async def set_connected_color(self, serial: str, game_mode: str) -> bool:
         """

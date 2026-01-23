@@ -280,7 +280,7 @@ class AdminModeHandler:
         Args:
             serial: Controller serial number
         """
-        from proto import controller_manager_pb2, controller_manager_pb2_grpc
+        from proto import controller_manager_pb2
 
         self.metrics.button_presses_total.labels(button="admin_combo", action="hold").inc()
 
@@ -298,36 +298,12 @@ class AdminModeHandler:
             self.entry_time = time.time()
             self.current_option = 0  # Reset to first option (team_size)
 
-            # Try bidirectional stream first (Phase XX)
+            # Send admin enter effect via stream
             if await self._send_game_effect(serial, controller_manager_pb2.GAME_EFFECT_ADMIN_ENTER):
-                logger.info(f"Admin mode entered by controller {serial} (via stream)")
+                logger.info(f"Admin mode entered by controller {serial}")
                 span.add_event("admin_mode_entered")
             else:
-                # Fallback to unary RPC
-                try:
-                    stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
-                    effect_request = controller_manager_pb2.PlayControllerEffectRequest(
-                        serial=serial,
-                        effect=controller_manager_pb2.ControllerEffect.EFFECT_PULSE,
-                        color=controller_manager_pb2.RGB(r=255, g=255, b=255),
-                        duration_ms=500,
-                        speed=8,
-                    )
-                    await stub.PlayControllerEffect(effect_request)
-
-                    # Set to persistent white for admin mode
-                    color_request = controller_manager_pb2.SetControllerColorRequest(
-                        serial=serial,
-                        color=controller_manager_pb2.RGB(r=255, g=255, b=255),
-                        duration_ms=0,
-                    )
-                    await stub.SetControllerColor(color_request)
-
-                    logger.info(f"Admin mode entered by controller {serial} (via unary)")
-                    span.add_event("admin_mode_entered")
-
-                except Exception as e:
-                    logger.error(f"Failed to signal admin mode entry: {e}")
+                logger.warning(f"Failed to signal admin mode entry for {serial} - stream not available")
 
     async def exit(self) -> None:
         """
@@ -338,7 +314,7 @@ class AdminModeHandler:
         if not self.active:
             return
 
-        from proto import controller_manager_pb2, controller_manager_pb2_grpc
+        from proto import controller_manager_pb2
 
         duration = time.time() - self.entry_time
 
@@ -354,31 +330,7 @@ class AdminModeHandler:
             if await self._send_game_effect(serial, controller_manager_pb2.GAME_EFFECT_ADMIN_EXIT):
                 logger.debug(f"Admin exit effect sent via stream for {serial}")
             else:
-                # Fallback to unary RPC
-                try:
-                    stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
-
-                    # Flash effect for exit
-                    effect_request = controller_manager_pb2.PlayControllerEffectRequest(
-                        serial=serial,
-                        effect=controller_manager_pb2.ControllerEffect.EFFECT_FLASH,
-                        color=controller_manager_pb2.RGB(r=0, g=255, b=0),
-                        duration_ms=300,
-                        speed=10,
-                    )
-                    await stub.PlayControllerEffect(effect_request)
-
-                    # Restore dim lobby color
-                    await asyncio.sleep(0.4)
-                    color_request = controller_manager_pb2.SetControllerColorRequest(
-                        serial=serial,
-                        color=controller_manager_pb2.RGB(r=40, g=40, b=40),
-                        duration_ms=0,
-                    )
-                    await stub.SetControllerColor(color_request)
-
-                except Exception as e:
-                    logger.error(f"Failed to restore lobby color: {e}")
+                logger.warning(f"Failed to send admin exit effect for {serial} - stream not available")
 
             # Clear admin mode state
             self.active = False
@@ -509,15 +461,7 @@ class AdminModeHandler:
                 async def restore_white():
                     await asyncio.sleep(0.5)
                     if self.active and serial == self.controller_serial:
-                        try:
-                            white_request = controller_manager_pb2.SetControllerColorRequest(
-                                serial=serial,
-                                color=controller_manager_pb2.RGB(r=255, g=255, b=255),
-                                duration_ms=0,
-                            )
-                            await stub.SetControllerColor(white_request)
-                        except Exception:
-                            pass
+                        await self._send_base_color(serial, (255, 255, 255))
 
                 asyncio.create_task(restore_white())
 
@@ -729,15 +673,7 @@ class AdminModeHandler:
                 async def restore_white():
                     await asyncio.sleep(1.0)
                     if self.active and serial == self.controller_serial:
-                        try:
-                            white_request = controller_manager_pb2.SetControllerColorRequest(
-                                serial=serial,
-                                color=controller_manager_pb2.RGB(r=255, g=255, b=255),
-                                duration_ms=0,
-                            )
-                            await controller_stub.SetControllerColor(white_request)
-                        except Exception as e:
-                            logger.debug(f"Could not restore white LED: {e}")
+                        await self._send_base_color(serial, (255, 255, 255))
 
                 asyncio.create_task(restore_white())
 
@@ -886,8 +822,6 @@ class AdminModeHandler:
         Args:
             serial: Controller serial number
         """
-        from proto import controller_manager_pb2, controller_manager_pb2_grpc
-
         ctx = self._get_span_context()
         with self.tracer.start_as_current_span("admin_cycle_option", context=ctx) as span:
             span.set_attribute("controller.serial", serial)
@@ -900,29 +834,14 @@ class AdminModeHandler:
             span.set_attribute("admin.option", option_name)
 
             try:
-                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
-
                 # Show option color for 1 second
-                color_request = controller_manager_pb2.SetControllerColorRequest(
-                    serial=serial,
-                    color=controller_manager_pb2.RGB(r=option_color[0], g=option_color[1], b=option_color[2]),
-                    duration_ms=1000,
-                )
-                await stub.SetControllerColor(color_request)
+                await self._send_base_color(serial, option_color)
 
                 # Restore white after option color finishes
                 async def restore_white():
                     await asyncio.sleep(1.1)
                     if self.active and serial == self.controller_serial:
-                        try:
-                            white_request = controller_manager_pb2.SetControllerColorRequest(
-                                serial=serial,
-                                color=controller_manager_pb2.RGB(r=255, g=255, b=255),
-                                duration_ms=0,
-                            )
-                            await stub.SetControllerColor(white_request)
-                        except Exception as e:
-                            logger.debug(f"Could not restore white LED: {e}")
+                        await self._send_base_color(serial, (255, 255, 255))
 
                 asyncio.create_task(restore_white())
 
@@ -1100,15 +1019,7 @@ class AdminModeHandler:
             async def restore_white():
                 await asyncio.sleep(0.7)
                 if self.active and serial == self.controller_serial:
-                    try:
-                        white_request = controller_manager_pb2.SetControllerColorRequest(
-                            serial=serial,
-                            color=controller_manager_pb2.RGB(r=255, g=255, b=255),
-                            duration_ms=0,
-                        )
-                        await stub.SetControllerColor(white_request)
-                    except Exception as e:
-                        logger.debug(f"Could not restore white LED: {e}")
+                    await self._send_base_color(serial, (255, 255, 255))
 
             asyncio.create_task(restore_white())
 

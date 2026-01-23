@@ -356,13 +356,14 @@ class NonstopJoustGame(BaseGameMode):
             # Check spawn protection expiration
             if player.spawn_protected and current_time >= player.spawn_protection_end:
                 player.spawn_protected = False
-                # Return to normal white color
-                color_request = controller_manager_pb2.SetControllerColorRequest(
-                    serial=serial,
-                    color=controller_manager_pb2.RGB(r=255, g=255, b=255),  # White
-                    duration_ms=0,
+                # Return to normal white color via stream
+                base_color_cmd = controller_manager_pb2.GameplayStreamControl(
+                    base_color=controller_manager_pb2.ControllerColorConfig(
+                        serial=serial,
+                        color=controller_manager_pb2.RGB(r=255, g=255, b=255),  # White
+                    )
                 )
-                await self.controller_client.SetControllerColor(color_request)
+                await self.gameplay_stream.write(base_color_cmd)
 
     async def _show_respawn_countdown(self, serial: str, time_remaining: float):
         """
@@ -390,12 +391,14 @@ class NonstopJoustGame(BaseGameMode):
             # Play respawn countdown beep (Phase 29)
             await self._play_sound(Sound.SFX_BEEP_LOUD, priority=1)
 
-            color_request = controller_manager_pb2.SetControllerColorRequest(
-                serial=serial,
-                color=controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]),
-                duration_ms=0,
+            # Update color via stream
+            base_color_cmd = controller_manager_pb2.GameplayStreamControl(
+                base_color=controller_manager_pb2.ControllerColorConfig(
+                    serial=serial,
+                    color=controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]),
+                )
             )
-            await self.controller_client.SetControllerColor(color_request)
+            await self.gameplay_stream.write(base_color_cmd)
 
     async def _respawn_player(self, serial: str):
         """
@@ -426,13 +429,14 @@ class NonstopJoustGame(BaseGameMode):
         # Play respawn sound (Phase 29)
         await self._play_sound(Sound.SFX_JOIN, priority=2)
 
-        # White color during spawn protection
-        protection_color_request = controller_manager_pb2.SetControllerColorRequest(
-            serial=serial,
-            color=controller_manager_pb2.RGB(r=255, g=255, b=255),  # White
-            duration_ms=0,
+        # White color during spawn protection via stream
+        base_color_cmd = controller_manager_pb2.GameplayStreamControl(
+            base_color=controller_manager_pb2.ControllerColorConfig(
+                serial=serial,
+                color=controller_manager_pb2.RGB(r=255, g=255, b=255),  # White
+            )
         )
-        await self.controller_client.SetControllerColor(protection_color_request)
+        await self.gameplay_stream.write(base_color_cmd)
 
         # Publish respawn event
         self.event_publisher(

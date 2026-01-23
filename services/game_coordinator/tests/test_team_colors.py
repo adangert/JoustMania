@@ -42,7 +42,6 @@ class MockTeamsGame(TeamsGameBase):
 def mock_controller_client():
     """Create mock controller manager client."""
     client = AsyncMock()
-    client.SetControllerColor = AsyncMock()
     client.PlayControllerEffect = AsyncMock()
     return client
 
@@ -142,13 +141,17 @@ class TestSetTeamColors:
     async def test_set_team_colors_multiple_teams(
         self, mock_controller_client, mock_settings_client, mock_event_publisher
     ):
-        """Should handle multiple teams correctly."""
+        """Should handle multiple teams correctly via stream."""
         game = MockTeamsGame(
             controller_manager_client=mock_controller_client,
             settings_client=mock_settings_client,
             event_publisher=mock_event_publisher,
             num_teams=4,
         )
+
+        # Mock the gameplay stream
+        mock_stream = AsyncMock()
+        game.gameplay_stream = mock_stream
 
         # Add players across 4 teams
         game.players = {
@@ -160,17 +163,17 @@ class TestSetTeamColors:
 
         await game._set_team_colors(pulse_effect=False, duration_ms=0)
 
-        # Should set color for all 4 players
-        assert mock_controller_client.SetControllerColor.call_count == 4
+        # Should write base_color for all 4 players via stream
+        assert mock_stream.write.call_count == 4
 
-        # Verify each team got correct color
-        calls = mock_controller_client.SetControllerColor.call_args_list
+        # Verify each team got correct color via stream
+        calls = mock_stream.write.call_args_list
         for idx, call in enumerate(calls):
-            request = call[0][0]
+            msg = call[0][0]
             expected_color = TEAM_COLORS[idx]["rgb"]
-            assert request.color.r == expected_color[0]
-            assert request.color.g == expected_color[1]
-            assert request.color.b == expected_color[2]
+            assert msg.base_color.color.r == expected_color[0]
+            assert msg.base_color.color.g == expected_color[1]
+            assert msg.base_color.color.b == expected_color[2]
 
 
 class TestGetAliveTeams:

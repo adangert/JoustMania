@@ -50,11 +50,6 @@ class ControllerManagerServiceStub(object):
                 request_serializer=controller__manager__pb2.GameplayStreamControl.SerializeToString,
                 response_deserializer=controller__manager__pb2.GameplayDataUpdate.FromString,
                 _registered_method=True)
-        self.SetControllerColor = channel.unary_unary(
-                '/joustmania.controller_manager.ControllerManagerService/SetControllerColor',
-                request_serializer=controller__manager__pb2.SetControllerColorRequest.SerializeToString,
-                response_deserializer=controller__manager__pb2.SetControllerColorResponse.FromString,
-                _registered_method=True)
         self.SetControllerVibration = channel.unary_unary(
                 '/joustmania.controller_manager.ControllerManagerService/SetControllerVibration',
                 request_serializer=controller__manager__pb2.SetControllerVibrationRequest.SerializeToString,
@@ -98,16 +93,9 @@ class ControllerManagerServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def SetControllerColor(self, request, context):
-        """Controller feedback RPCs (Phase 19)
-        Set LED color
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
     def SetControllerVibration(self, request, context):
-        """Set vibration intensity
+        """Controller feedback RPCs (Phase 19)
+        Set vibration intensity
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -144,11 +132,6 @@ def add_ControllerManagerServiceServicer_to_server(servicer, server):
                     servicer.StreamGameplayDataDynamic,
                     request_deserializer=controller__manager__pb2.GameplayStreamControl.FromString,
                     response_serializer=controller__manager__pb2.GameplayDataUpdate.SerializeToString,
-            ),
-            'SetControllerColor': grpc.unary_unary_rpc_method_handler(
-                    servicer.SetControllerColor,
-                    request_deserializer=controller__manager__pb2.SetControllerColorRequest.FromString,
-                    response_serializer=controller__manager__pb2.SetControllerColorResponse.SerializeToString,
             ),
             'SetControllerVibration': grpc.unary_unary_rpc_method_handler(
                     servicer.SetControllerVibration,
@@ -248,33 +231,6 @@ class ControllerManagerService(object):
             '/joustmania.controller_manager.ControllerManagerService/StreamGameplayDataDynamic',
             controller__manager__pb2.GameplayStreamControl.SerializeToString,
             controller__manager__pb2.GameplayDataUpdate.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def SetControllerColor(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/joustmania.controller_manager.ControllerManagerService/SetControllerColor',
-            controller__manager__pb2.SetControllerColorRequest.SerializeToString,
-            controller__manager__pb2.SetControllerColorResponse.FromString,
             options,
             channel_credentials,
             insecure,

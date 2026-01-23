@@ -679,56 +679,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
             logger.info(f"Dynamic gameplay subscriber disconnected: {subscriber_id}")
 
-    async def SetControllerColor(self, request, context):  # noqa: N802, ARG002
-        """Set LED color on controller(s) - Phase 19 feedback feature, Phase 57 backend (async)."""
-        with tracer.start_as_current_span("SetControllerColor") as span:
-            span.set_attribute("serial", request.serial or "all")
-            span.set_attribute("color.r", request.color.r)
-            span.set_attribute("color.g", request.color.g)
-            span.set_attribute("color.b", request.color.b)
-
-            try:
-                # Determine which controllers to update (under lock)
-                with self.state_lock:
-                    serials = [request.serial] if request.serial else list(self.tracked_controllers.keys())
-
-                controllers_updated = 0
-                controllers_failed = 0
-
-                for serial in serials:
-                    with self.state_lock:
-                        controller_exists = serial in self.tracked_controllers
-                    if controller_exists:
-                        success = await self.backend.set_led_color(
-                            serial, request.color.r, request.color.g, request.color.b
-                        )
-                        if success:
-                            controllers_updated += 1
-                            logger.debug(
-                                f"Set color on {serial}: RGB({request.color.r},{request.color.g},{request.color.b})"
-                            )
-                        else:
-                            controllers_failed += 1
-
-                span.set_attribute("controllers_updated", controllers_updated)
-                span.set_attribute("controllers_failed", controllers_failed)
-
-                # Return success only if at least one controller was updated and none failed
-                if controllers_failed > 0:
-                    return controller_manager_pb2.SetControllerColorResponse(
-                        success=False, error=f"Failed to set color on {controllers_failed} controller(s)"
-                    )
-                if controllers_updated == 0 and len(serials) > 0:
-                    return controller_manager_pb2.SetControllerColorResponse(
-                        success=False, error="No controllers found to update"
-                    )
-                return controller_manager_pb2.SetControllerColorResponse(success=True, error="")
-
-            except Exception as e:
-                span.record_exception(e)
-                logger.error(f"SetControllerColor error: {e}", exc_info=True)
-                return controller_manager_pb2.SetControllerColorResponse(success=False, error=str(e))
-
     async def SetControllerVibration(self, request, context):  # noqa: N802, ARG002
         """Set vibration on controller(s) - Phase 19 feedback feature, Phase 57 async."""
         with tracer.start_as_current_span("SetControllerVibration") as span:

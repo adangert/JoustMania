@@ -239,25 +239,16 @@ class WerewolfGame(BaseGameMode):
         logger.info("Werewolf intro phase complete")
 
     async def _set_all_colors(self, color: tuple):
-        """Set all controllers to the same color."""
+        """Set all controllers to the same color via stream."""
         r, g, b = color
-        if self.gameplay_stream:
-            for serial in self.players:
-                color_cmd = controller_manager_pb2.GameplayStreamControl(
-                    color_update=controller_manager_pb2.ColorUpdate(
-                        serial=serial,
-                        color=controller_manager_pb2.RGB(r=r, g=g, b=b),
-                    )
-                )
-                await self.gameplay_stream.write(color_cmd)
-        else:
-            await self.controller_client.SetControllerColor(
-                controller_manager_pb2.SetControllerColorRequest(
-                    serial="",  # Broadcast
+        for serial in self.players:
+            base_color_cmd = controller_manager_pb2.GameplayStreamControl(
+                base_color=controller_manager_pb2.ControllerColorConfig(
+                    serial=serial,
                     color=controller_manager_pb2.RGB(r=r, g=g, b=b),
-                    duration_ms=0,
                 )
             )
+            await self.gameplay_stream.write(base_color_cmd)
 
     async def _reveal_werewolves(self):
         """
@@ -287,37 +278,24 @@ class WerewolfGame(BaseGameMode):
                 wolf_player.revealed = True
                 wolf_player.color = WEREWOLF_COLOR
 
-                if self.gameplay_stream:
-                    # Flash effect then set color
-                    flash_cmd = controller_manager_pb2.GameplayStreamControl(
-                        game_effect=controller_manager_pb2.GameEffectCommand(
-                            serial=serial,
-                            effect=controller_manager_pb2.GAME_EFFECT_FLASH,
-                        )
+                # Flash effect then set color
+                flash_cmd = controller_manager_pb2.GameplayStreamControl(
+                    game_effect=controller_manager_pb2.GameEffectCommand(
+                        serial=serial,
+                        effect=controller_manager_pb2.GAME_EFFECT_FLASH,
                     )
-                    await self.gameplay_stream.write(flash_cmd)
+                )
+                await self.gameplay_stream.write(flash_cmd)
 
-                    await asyncio.sleep(0.3)
+                await asyncio.sleep(0.3)
 
-                    color_cmd = controller_manager_pb2.GameplayStreamControl(
-                        color_update=controller_manager_pb2.ColorUpdate(
-                            serial=serial,
-                            color=controller_manager_pb2.RGB(
-                                r=WEREWOLF_COLOR[0], g=WEREWOLF_COLOR[1], b=WEREWOLF_COLOR[2]
-                            ),
-                        )
+                base_color_cmd = controller_manager_pb2.GameplayStreamControl(
+                    base_color=controller_manager_pb2.ControllerColorConfig(
+                        serial=serial,
+                        color=controller_manager_pb2.RGB(r=WEREWOLF_COLOR[0], g=WEREWOLF_COLOR[1], b=WEREWOLF_COLOR[2]),
                     )
-                    await self.gameplay_stream.write(color_cmd)
-                else:
-                    await self.controller_client.SetControllerColor(
-                        controller_manager_pb2.SetControllerColorRequest(
-                            serial=serial,
-                            color=controller_manager_pb2.RGB(
-                                r=WEREWOLF_COLOR[0], g=WEREWOLF_COLOR[1], b=WEREWOLF_COLOR[2]
-                            ),
-                            duration_ms=0,
-                        )
-                    )
+                )
+                await self.gameplay_stream.write(base_color_cmd)
 
         # Mark all werewolves as revealed
         for serial in self.werewolf_serials:

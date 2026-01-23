@@ -212,31 +212,18 @@ class SwapperGame(TeamsGameBase):
                 logger.debug(f"Created new player {serial} span under team {new_team}")
 
         # Update controller LED to new team color
-        if self.gameplay_stream:
-            color_cmd = controller_manager_pb2.GameplayStreamControl(
-                game_effect=controller_manager_pb2.GameEffectCommand(
-                    serial=serial,
-                    effect=controller_manager_pb2.GAME_EFFECT_DEATH,
-                )
+        # Death flash effect
+        effect_cmd = controller_manager_pb2.GameplayStreamControl(
+            game_effect=controller_manager_pb2.GameEffectCommand(
+                serial=serial,
+                effect=controller_manager_pb2.GAME_EFFECT_PLAYER_DEATH,
             )
-            await self.gameplay_stream.write(color_cmd)
+        )
+        await self.gameplay_stream.write(effect_cmd)
 
-            # After death flash, set new team color
-            await asyncio.sleep(0.5)
-            await self._set_player_color(serial, player.color)
-        else:
-            # Fallback to direct RPC
-            await self.controller_client.SetControllerColor(
-                controller_manager_pb2.SetControllerColorRequest(
-                    serial=serial,
-                    color=controller_manager_pb2.RGB(
-                        r=player.color[0],
-                        g=player.color[1],
-                        b=player.color[2],
-                    ),
-                    duration_ms=0,
-                )
-            )
+        # After death flash, set new team color
+        await asyncio.sleep(0.5)
+        await self._set_player_color(serial, player.color)
 
         # Publish swap event
         self.event_publisher(
@@ -253,24 +240,14 @@ class SwapperGame(TeamsGameBase):
         await self._play_sound(Sound.SFX_BEEP, priority=1)
 
     async def _set_player_color(self, serial: str, color: tuple):
-        """Set a player's controller LED color."""
-        if self.gameplay_stream:
-            # Use gameplay stream for color update
-            color_cmd = controller_manager_pb2.GameplayStreamControl(
-                color_update=controller_manager_pb2.ColorUpdate(
-                    serial=serial,
-                    color=controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]),
-                )
+        """Set a player's controller LED color via stream."""
+        base_color_cmd = controller_manager_pb2.GameplayStreamControl(
+            base_color=controller_manager_pb2.ControllerColorConfig(
+                serial=serial,
+                color=controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]),
             )
-            await self.gameplay_stream.write(color_cmd)
-        else:
-            await self.controller_client.SetControllerColor(
-                controller_manager_pb2.SetControllerColorRequest(
-                    serial=serial,
-                    color=controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]),
-                    duration_ms=0,
-                )
-            )
+        )
+        await self.gameplay_stream.write(base_color_cmd)
 
     def _get_team_counts(self) -> dict[int, int]:
         """Get count of players on each team."""

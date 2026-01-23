@@ -25,7 +25,7 @@ from proto import controller_manager_pb2, settings_pb2  # noqa: E402
 
 
 class MockBidirectionalStream:
-    """Mock bidirectional gRPC stream for StreamGameplayDataDynamic."""
+    """Mock bidirectional gRPC stream for StreamGameplayData."""
 
     def __init__(self, controller_manager, death_schedule=None, infinite=False, max_duration=5.0):
         """
@@ -151,7 +151,7 @@ class MockControllerManagerService:
             )
             self.controllers.append(controller)
 
-    def StreamGameplayDataDynamic(self):  # noqa: N802 - matches gRPC naming
+    def StreamGameplayData(self):  # noqa: N802 - matches gRPC naming
         """Return a mock bidirectional stream for gameplay data."""
         return MockBidirectionalStream(self, self.death_schedule, self.infinite, self.max_duration)
 

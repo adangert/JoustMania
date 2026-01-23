@@ -8,11 +8,9 @@ service ControllerManagerService {
   // Phase XX: Made bidirectional for LED state ownership - menu can send base colors and effects
   rpc StreamButtonEvents(stream ButtonEventStreamControl) returns (stream ButtonEvent);
 
-  // Stream gameplay data (acceleration/gyro only, Phase 41 - for game modes)
-  rpc StreamGameplayData(GameplayStreamRequest) returns (stream GameplayDataUpdate);
-
   // Stream gameplay data with dynamic filtering (Phase 45 - bidirectional streaming)
-  rpc StreamGameplayDataDynamic(stream GameplayStreamControl) returns (stream GameplayDataUpdate);
+  // Supports mid-stream filter changes, color commands, and game effects
+  rpc StreamGameplayData(stream GameplayStreamControl) returns (stream GameplayDataUpdate);
 
   // Controller feedback RPCs (Phase 19)
   // Play predefined effect (flash, pulse, rainbow, etc.)

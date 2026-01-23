@@ -451,7 +451,7 @@ class BaseGameMode(ABC):
         logger.info(f"Creating gameplay stream at {update_frequency_hz}Hz...")
 
         # Create bidirectional stream
-        self.gameplay_stream = self.controller_client.StreamGameplayDataDynamic()
+        self.gameplay_stream = self.controller_client.StreamGameplayData()
 
         # Build player colors for stream init
         player_colors = []

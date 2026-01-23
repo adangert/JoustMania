@@ -254,7 +254,6 @@ async def monitor_performance(frequency_hz: int, duration_sec: int):
     channel = grpc.aio.insecure_channel(grpc_host)
     stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
 
-    request = controller_manager_pb2.GameplayStreamRequest(update_frequency_hz=frequency_hz)
     monitor = MultiHubPerformanceMonitor()
 
     print(f"🔍 Monitoring multi-hub performance at {frequency_hz}Hz for {duration_sec} seconds")
@@ -263,8 +262,19 @@ async def monitor_performance(frequency_hz: int, duration_sec: int):
     start_time = time.time()
     last_print = 0
 
+    # Create bidirectional stream
+    stream = stub.StreamGameplayData()
+
+    # Send initial configuration
+    config_msg = controller_manager_pb2.GameplayStreamControl(
+        config=controller_manager_pb2.GameplayStreamConfig(
+            update_frequency_hz=frequency_hz,
+        )
+    )
+    await stream.write(config_msg)
+
     try:
-        async for update in stub.StreamGameplayData(request):
+        async for update in stream:
             monitor.record_update(update.controllers, update.timestamp)
 
             elapsed = time.time() - start_time

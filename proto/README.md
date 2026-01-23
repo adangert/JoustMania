@@ -49,8 +49,7 @@ proto/
 
 **Key RPCs:**
 - `StreamButtonEvents` - Bidirectional stream for button events and LED control
-- `StreamGameplayData` - Stream gameplay data (acceleration/gyro) for games
-- `StreamGameplayDataDynamic` - Bidirectional stream with dynamic filtering
+- `StreamGameplayData` - Bidirectional stream for gameplay data with dynamic filtering
 - `PlayControllerEffect` - Play visual effects (flash, pulse, rainbow)
 
 **Features:**
@@ -266,7 +265,7 @@ RUN uv sync --frozen
 
 ### Streaming RPCs
 - Server streaming for real-time updates (e.g., `StreamGameEvents`, `StreamMenuEvents`)
-- Bidirectional streaming for interactive control (e.g., `StreamButtonEvents`, `StreamGameplayDataDynamic`)
+- Bidirectional streaming for interactive control (e.g., `StreamButtonEvents`, `StreamGameplayData`)
 - Use `stream` keyword in proto definition
 - Handle disconnections gracefully
 

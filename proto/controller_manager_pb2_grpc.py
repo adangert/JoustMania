@@ -40,13 +40,8 @@ class ControllerManagerServiceStub(object):
                 request_serializer=controller__manager__pb2.ButtonEventStreamControl.SerializeToString,
                 response_deserializer=controller__manager__pb2.ButtonEvent.FromString,
                 _registered_method=True)
-        self.StreamGameplayData = channel.unary_stream(
+        self.StreamGameplayData = channel.stream_stream(
                 '/joustmania.controller_manager.ControllerManagerService/StreamGameplayData',
-                request_serializer=controller__manager__pb2.GameplayStreamRequest.SerializeToString,
-                response_deserializer=controller__manager__pb2.GameplayDataUpdate.FromString,
-                _registered_method=True)
-        self.StreamGameplayDataDynamic = channel.stream_stream(
-                '/joustmania.controller_manager.ControllerManagerService/StreamGameplayDataDynamic',
                 request_serializer=controller__manager__pb2.GameplayStreamControl.SerializeToString,
                 response_deserializer=controller__manager__pb2.GameplayDataUpdate.FromString,
                 _registered_method=True)
@@ -74,15 +69,9 @@ class ControllerManagerServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def StreamGameplayData(self, request, context):
-        """Stream gameplay data (acceleration/gyro only, Phase 41 - for game modes)
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def StreamGameplayDataDynamic(self, request_iterator, context):
+    def StreamGameplayData(self, request_iterator, context):
         """Stream gameplay data with dynamic filtering (Phase 45 - bidirectional streaming)
+        Supports mid-stream filter changes, color commands, and game effects
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -111,13 +100,8 @@ def add_ControllerManagerServiceServicer_to_server(servicer, server):
                     request_deserializer=controller__manager__pb2.ButtonEventStreamControl.FromString,
                     response_serializer=controller__manager__pb2.ButtonEvent.SerializeToString,
             ),
-            'StreamGameplayData': grpc.unary_stream_rpc_method_handler(
+            'StreamGameplayData': grpc.stream_stream_rpc_method_handler(
                     servicer.StreamGameplayData,
-                    request_deserializer=controller__manager__pb2.GameplayStreamRequest.FromString,
-                    response_serializer=controller__manager__pb2.GameplayDataUpdate.SerializeToString,
-            ),
-            'StreamGameplayDataDynamic': grpc.stream_stream_rpc_method_handler(
-                    servicer.StreamGameplayDataDynamic,
                     request_deserializer=controller__manager__pb2.GameplayStreamControl.FromString,
                     response_serializer=controller__manager__pb2.GameplayDataUpdate.SerializeToString,
             ),
@@ -171,34 +155,7 @@ class ControllerManagerService(object):
             _registered_method=True)
 
     @staticmethod
-    def StreamGameplayData(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_stream(
-            request,
-            target,
-            '/joustmania.controller_manager.ControllerManagerService/StreamGameplayData',
-            controller__manager__pb2.GameplayStreamRequest.SerializeToString,
-            controller__manager__pb2.GameplayDataUpdate.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def StreamGameplayDataDynamic(request_iterator,
+    def StreamGameplayData(request_iterator,
             target,
             options=(),
             channel_credentials=None,
@@ -211,7 +168,7 @@ class ControllerManagerService(object):
         return grpc.experimental.stream_stream(
             request_iterator,
             target,
-            '/joustmania.controller_manager.ControllerManagerService/StreamGameplayDataDynamic',
+            '/joustmania.controller_manager.ControllerManagerService/StreamGameplayData',
             controller__manager__pb2.GameplayStreamControl.SerializeToString,
             controller__manager__pb2.GameplayDataUpdate.FromString,
             options,

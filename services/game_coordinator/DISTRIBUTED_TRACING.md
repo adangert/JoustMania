@@ -16,7 +16,7 @@ GameCoordinator now has **full distributed tracing** with OpenTelemetry, trackin
 - `GrpcInstrumentorClient()` - Automatically traces all outgoing gRPC calls
 - Creates spans for calls to:
   - **Settings service**: `GetSettings`
-  - **ControllerManager service**: `GetReadyControllers`, `StreamGameplayDataDynamic`
+  - **ControllerManager service**: `GetReadyControllers`, `StreamGameplayData`
 
 ### Trace Hierarchy
 
@@ -33,7 +33,7 @@ StartGame (incoming RPC to GameCoordinator)
 │   │       └── controller_manager.get_ready_controllers
 │   ├── countdown_phase
 │   ├── gameplay_phase
-│   │   ├── StreamGameplayDataDynamic → ControllerManager (outgoing RPC)
+│   │   ├── StreamGameplayData → ControllerManager (outgoing RPC)
 │   │   │   └── controller_manager.stream_controller_states
 │   │   ├── player_mock_controller_0_lifecycle
 │   │   │   ├── player_warning (event)
@@ -58,7 +58,7 @@ StartGame (incoming RPC to GameCoordinator)
 │   │   └── display_team_colors (event)
 │   ├── countdown_phase
 │   ├── gameplay_phase
-│   │   ├── StreamGameplayDataDynamic → ControllerManager
+│   │   ├── StreamGameplayData → ControllerManager
 │   │   ├── team_0_lifecycle
 │   │   │   ├── player_mock_controller_0_lifecycle
 │   │   │   │   └── player_death (event)
@@ -84,7 +84,7 @@ StartGame (incoming RPC to GameCoordinator)
 │   │   └── GetReadyControllers → ControllerManager
 │   ├── countdown_phase
 │   ├── gameplay_phase
-│   │   ├── StreamGameplayDataDynamic → ControllerManager
+│   │   ├── StreamGameplayData → ControllerManager
 │   │   ├── player_mock_controller_0_lifecycle (stays open)
 │   │   │   ├── player_death (event)
 │   │   │   ├── player_respawn (event)
@@ -251,7 +251,7 @@ You should see:
 - **RPC spans** (automatic from instrumentation):
   - `GetSettings` (outgoing to Settings service)
   - `GetReadyControllers` (outgoing to ControllerManager)
-  - `StreamGameplayDataDynamic` (streaming from ControllerManager)
+  - `StreamGameplayData` (streaming from ControllerManager)
 
 ## Metrics Available
 
@@ -260,7 +260,7 @@ You should see:
 **Cross-Service Latency:**
 - Time from `initialization_phase` to `GetSettings` response
 - Time from `initialization_phase` to `GetReadyControllers` response
-- Time from `gameplay_phase` to first `StreamGameplayDataDynamic` frame
+- Time from `gameplay_phase` to first `StreamGameplayData` frame
 
 **Game Phase Latency:**
 - `initialization_phase` duration (settings + player setup)
@@ -397,7 +397,7 @@ provider = TracerProvider(
 
 2. **ControllerManager Service** (localhost:50052)
    - `GetReadyControllers` - Get available controllers
-   - `StreamGameplayDataDynamic` - Stream controller states at 60Hz
+   - `StreamGameplayData` - Stream controller states at 60Hz
    - Called in `_initialize_players()` and `_game_loop()`
 
 ### GameCoordinator Receives Server Calls From:

@@ -263,7 +263,7 @@ class NonstopJoustGame(BaseGameMode):
             logger.info(f"Starting Nonstop game loop at {update_frequency_hz}Hz")
 
             # Create bidirectional stream (Phase 45 - dynamic filtering, Phase 46 - feedback commands)
-            self.gameplay_stream = self.controller_client.StreamGameplayDataDynamic()
+            self.gameplay_stream = self.controller_client.StreamGameplayData()
 
             # Send initial configuration
             initial_config = controller_manager_pb2.GameplayStreamControl(

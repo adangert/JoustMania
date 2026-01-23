@@ -213,7 +213,7 @@ async def test_ffa_game_full_lifecycle(mock_controller_manager, mock_settings, e
 - [ ] State machine (IDLE → STARTING → RUNNING → ENDING → ENDED)
 - [ ] `_load_settings()` from Settings service
 - [ ] `_initialize_players()` from ControllerManager
-- [ ] `_game_loop()` with StreamGameplayDataDynamic
+- [ ] `_game_loop()` with StreamGameplayData
 - [ ] Event publishing for all game events
 - [ ] OpenTelemetry spans
 - [ ] `force_end()` method
@@ -240,7 +240,7 @@ self.game_loop()  # Blocks
 ### New Pattern (services/game_coordinator/games/)
 ```python
 # gRPC communication ✅
-controller_states = await self.controller_client.StreamGameplayDataDynamic()
+controller_states = await self.controller_client.StreamGameplayData()
 
 # Settings via gRPC ✅
 settings = await self.settings_client.GetSettings()

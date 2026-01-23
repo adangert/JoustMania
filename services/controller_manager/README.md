@@ -25,7 +25,7 @@ The Controller Manager service is the central component for managing PS Move con
 ├─────────────────────────────────────────────────────────────┤
 │                      gRPC API Layer                          │
 │  - StreamButtonEvents (bidirectional - buttons + LED ctrl)   │
-│  - StreamGameplayData, StreamGameplayDataDynamic             │
+│  - StreamGameplayData (bidirectional - motion + feedback)    │
 │  - PlayControllerEffect                                      │
 ├─────────────────────────────────────────────────────────────┤
 │                    Backend Abstraction                       │
@@ -72,8 +72,7 @@ See `proto/controller_manager.proto` for complete API specification.
 ```protobuf
 // Real-time streaming (bidirectional)
 rpc StreamButtonEvents(stream ButtonEventStreamControl) returns (stream ButtonEvent);
-rpc StreamGameplayData(GameplayStreamRequest) returns (stream GameplayDataUpdate);
-rpc StreamGameplayDataDynamic(stream GameplayStreamControl) returns (stream GameplayDataUpdate);
+rpc StreamGameplayData(stream GameplayStreamControl) returns (stream GameplayDataUpdate);
 
 // Feedback
 rpc PlayControllerEffect(PlayControllerEffectRequest) returns (PlayControllerEffectResponse);

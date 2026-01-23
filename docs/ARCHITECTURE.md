@@ -90,8 +90,7 @@ JoustMania is a party game system for PS Move controllers, built as a collection
 | RPC | Type | Description |
 |-----|------|-------------|
 | `StreamButtonEvents` | Bidirectional | Button events + LED control commands |
-| `StreamGameplayData` | Server Stream | Motion data (accel/gyro) |
-| `StreamGameplayDataDynamic` | Bidirectional | Filtered motion data + feedback commands |
+| `StreamGameplayData` | Bidirectional | Filtered motion data + feedback commands |
 | `PlayControllerEffect` | Unary | Trigger visual effect (flash, pulse, rainbow) |
 
 **Backends**:
@@ -267,7 +266,7 @@ audio:50056
 
 **Bidirectional Streaming** (Both directions):
 - `StreamButtonEvents` - Buttons ↔ LED commands
-- `StreamGameplayDataDynamic` - Motion ↔ Feedback
+- `StreamGameplayData` - Motion ↔ Feedback
 
 ---
 

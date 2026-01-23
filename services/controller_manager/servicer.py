@@ -304,83 +304,13 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
             logger.info(f"Button event subscriber disconnected: {subscriber_id}")
 
-    async def StreamGameplayData(self, request, context):  # noqa: N802, ARG002
-        """
-        Stream gameplay data (acceleration/gyro only) in real-time (Phase 41).
-
-        This stream excludes button states and is optimized for game modes
-        that only need motion data.
-        """
-        subscriber_id = f"gameplay_stream_{time.time()}"
-
-        # Note: We manually manage the span instead of using context manager
-        # because GeneratorExit during stream disconnect causes context token issues
-        span = tracer.start_span("StreamGameplayData")
-        span.set_attribute("subscriber.id", subscriber_id)
-        span.set_attribute("update_frequency_hz", request.update_frequency_hz or 60)
-
-        # Update stream metrics (Phase 38)
-        metrics.active_streams.inc()
-
-        logger.info(f"New gameplay data subscriber: {subscriber_id}")
-
-        try:
-            frequency = request.update_frequency_hz or 60
-            interval = 1.0 / frequency
-
-            while not context.cancelled():
-                try:
-                    # Build gameplay data for all controllers
-                    gameplay_data = []
-                    for serial, info in self.tracked_controllers.items():
-                        # Get full controller state
-                        full_state = self.state_cache_manager.build_or_get_cached_state(serial, info)
-
-                        # Convert to GameplayData (no buttons)
-                        gd = controller_manager_pb2.GameplayData(
-                            serial=full_state.serial,
-                            move_num=full_state.move_num,
-                            battery=full_state.battery,
-                            team=full_state.team,
-                            color=full_state.color,
-                            accel=full_state.accel,
-                            gyro=full_state.gyro,
-                            rssi=full_state.rssi,  # Signal strength for gameplay adaptation
-                            name=full_state.name,  # Human-readable name (Issue #7)
-                        )
-                        gameplay_data.append(gd)
-
-                    # Send update
-                    update = controller_manager_pb2.GameplayDataUpdate(
-                        controllers=gameplay_data, timestamp=int(time.time() * 1000)
-                    )
-                    yield update
-
-                    # Track stream update (Phase 38)
-                    if gameplay_data:
-                        metrics.stream_updates_total.labels(stream_type="gameplay_data").inc()
-
-                    await asyncio.sleep(interval)
-
-                except Exception as e:
-                    logger.error(f"Gameplay stream error for {subscriber_id}: {e}")
-                    break
-
-        finally:
-            # End span manually (avoids context token issues on GeneratorExit)
-            span.end()
-
-            # Update stream metrics (Phase 38)
-            metrics.active_streams.dec()
-
-            logger.info(f"Gameplay data subscriber disconnected: {subscriber_id}")
-
-    async def StreamGameplayDataDynamic(self, request_iterator, context):  # noqa: N802, ARG002
+    async def StreamGameplayData(self, request_iterator, context):  # noqa: N802, ARG002
         """
         Stream gameplay data with dynamic filtering via bidirectional communication (Phase 45).
 
         Client can send filter updates at any time to adjust which controllers
-        are being monitored without restarting the stream.
+        are being monitored without restarting the stream. Supports color commands,
+        game effects, and other stream-based feedback.
 
         Args:
             request_iterator: AsyncIterator of GameplayStreamControl messages from client
@@ -389,11 +319,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         Yields:
             GameplayDataUpdate messages with filtered controller data
         """
-        subscriber_id = f"gameplay_dynamic_stream_{time.time()}"
+        subscriber_id = f"gameplay_stream_{time.time()}"
 
         # Note: We manually manage the span instead of using context manager
         # because GeneratorExit during stream disconnect causes context token issues
-        span = tracer.start_span("StreamGameplayDataDynamic")
+        span = tracer.start_span("StreamGameplayData")
         span.set_attribute("subscriber.id", subscriber_id)
 
         # Update stream metrics
@@ -614,7 +544,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Start background task to read client updates
         update_task = asyncio.create_task(read_client_updates())
 
-        logger.info(f"New dynamic gameplay subscriber: {subscriber_id}")
+        logger.info(f"New gameplay subscriber: {subscriber_id}")
 
         try:
             # Stream gameplay data
@@ -655,7 +585,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                     # Track stream update
                     if gameplay_data:
-                        metrics.stream_updates_total.labels(stream_type="gameplay_data_dynamic").inc()
+                        metrics.stream_updates_total.labels(stream_type="gameplay_data").inc()
                         # Track number of controllers streamed per frame (Phase 45)
                         metrics.streamed_controllers.observe(len(gameplay_data))
 
@@ -677,7 +607,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             # Update stream metrics
             metrics.active_streams.dec()
 
-            logger.info(f"Dynamic gameplay subscriber disconnected: {subscriber_id}")
+            logger.info(f"Gameplay subscriber disconnected: {subscriber_id}")
 
     async def _schedule_vibration_stop(self, serial: str, duration_ms: int):
         """Schedule vibration to stop after duration using asyncio task (Phase 57 async migration)."""

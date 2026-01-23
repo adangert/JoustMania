@@ -225,7 +225,6 @@ async def run_dashboard(frequency_hz: int, duration_sec: int = 300):
     channel = grpc.aio.insecure_channel(grpc_host)
     stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(channel)
 
-    request = controller_manager_pb2.GameplayStreamRequest(update_frequency_hz=frequency_hz)
     dashboard = LiveDashboard(max_history=60)
 
     print(f"🚀 Starting live dashboard at {frequency_hz}Hz...")
@@ -234,8 +233,19 @@ async def run_dashboard(frequency_hz: int, duration_sec: int = 300):
     start_time = time.time()
     last_render = 0
 
+    # Create bidirectional stream
+    stream = stub.StreamGameplayData()
+
+    # Send initial configuration
+    config_msg = controller_manager_pb2.GameplayStreamControl(
+        config=controller_manager_pb2.GameplayStreamConfig(
+            update_frequency_hz=frequency_hz,
+        )
+    )
+    await stream.write(config_msg)
+
     try:
-        async for update in stub.StreamGameplayData(request):
+        async for update in stream:
             # Calculate update size
             update_size = len(update.SerializeToString())
 

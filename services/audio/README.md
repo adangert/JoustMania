@@ -56,13 +56,6 @@ grpcurl -plaintext -d '{"volume": 0.8}' \
   localhost:50056 joustmania.audio.AudioService/SetVolume
 ```
 
-### GetStatus
-Gets current audio system status.
-
-```bash
-grpcurl -plaintext localhost:50056 joustmania.audio.AudioService/GetStatus
-```
-
 ## Audio Priority
 
 | Priority | Use Case |

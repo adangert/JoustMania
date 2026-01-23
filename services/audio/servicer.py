@@ -341,23 +341,6 @@ class AudioManager:
             logger.error(f"Error setting volume: {e}", exc_info=True)
             return False
 
-    def get_status(self) -> dict:
-        """
-        Get current playback status.
-
-        Returns:
-            Dictionary with current status
-        """
-        with self.music_lock:
-            return {
-                "current_track_id": self.music_player.track_id or "",
-                "current_track_file": self.current_music_file or "",
-                "is_playing": self.music_player.is_playing,
-                "volume": self.master_volume,
-                "tempo": self.music_player.ratio,
-                "queued_sounds_count": 0,
-            }
-
     def cleanup(self):
         """Clean up audio resources."""
         self.music_player.cleanup()
@@ -561,17 +544,3 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
         with tracer.start_as_current_span(f"SetVolume:{request.volume:.0%}"):
             success = self.audio_manager.set_volume(request.volume)
             return audio_pb2.SetVolumeResponse(success=success, error="" if success else "Failed to set volume")
-
-    def GetStatus(self, request, context):  # noqa: N802, ARG002
-        """Get current playback status."""
-        status = self.audio_manager.get_status()
-        return audio_pb2.GetStatusResponse(
-            current_track_id=status["current_track_id"],
-            current_track_file=status["current_track_file"],
-            is_playing=status["is_playing"],
-            volume=status["volume"],
-            tempo=status["tempo"],
-            queued_sounds_count=status["queued_sounds_count"],
-            success=True,
-            error="",
-        )

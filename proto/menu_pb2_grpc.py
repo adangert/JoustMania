@@ -45,11 +45,6 @@ class MenuServiceStub(object):
                 request_serializer=menu__pb2.StopMenuRequest.SerializeToString,
                 response_deserializer=menu__pb2.StopMenuResponse.FromString,
                 _registered_method=True)
-        self.GetMenuStatus = channel.unary_unary(
-                '/joustmania.menu.MenuService/GetMenuStatus',
-                request_serializer=menu__pb2.GetMenuStatusRequest.SerializeToString,
-                response_deserializer=menu__pb2.GetMenuStatusResponse.FromString,
-                _registered_method=True)
         self.StreamMenuEvents = channel.unary_stream(
                 '/joustmania.menu.MenuService/StreamMenuEvents',
                 request_serializer=menu__pb2.StreamMenuEventsRequest.SerializeToString,
@@ -75,13 +70,6 @@ class MenuServiceServicer(object):
 
     def StopMenu(self, request, context):
         """Stop menu
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def GetMenuStatus(self, request, context):
-        """Get menu status
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -113,11 +101,6 @@ def add_MenuServiceServicer_to_server(servicer, server):
                     servicer.StopMenu,
                     request_deserializer=menu__pb2.StopMenuRequest.FromString,
                     response_serializer=menu__pb2.StopMenuResponse.SerializeToString,
-            ),
-            'GetMenuStatus': grpc.unary_unary_rpc_method_handler(
-                    servicer.GetMenuStatus,
-                    request_deserializer=menu__pb2.GetMenuStatusRequest.FromString,
-                    response_serializer=menu__pb2.GetMenuStatusResponse.SerializeToString,
             ),
             'StreamMenuEvents': grpc.unary_stream_rpc_method_handler(
                     servicer.StreamMenuEvents,
@@ -185,33 +168,6 @@ class MenuService(object):
             '/joustmania.menu.MenuService/StopMenu',
             menu__pb2.StopMenuRequest.SerializeToString,
             menu__pb2.StopMenuResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def GetMenuStatus(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/joustmania.menu.MenuService/GetMenuStatus',
-            menu__pb2.GetMenuStatusRequest.SerializeToString,
-            menu__pb2.GetMenuStatusResponse.FromString,
             options,
             channel_credentials,
             insecure,

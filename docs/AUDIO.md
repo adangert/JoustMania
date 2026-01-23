@@ -193,6 +193,5 @@ The audio service exposes a gRPC API on port 50056:
 | `StopMusic` | Stop current music track |
 | `ChangeTempo` | Change music playback speed |
 | `SetVolume` | Set master volume |
-| `GetStatus` | Get current playback status |
 
 See `proto/audio.proto` for full API definition.

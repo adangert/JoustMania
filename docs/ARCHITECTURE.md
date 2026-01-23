@@ -155,7 +155,6 @@ JoustMania is a party game system for PS Move controllers, built as a collection
 |-----|------|-------------|
 | `StartMenu` | Unary | Start menu mode |
 | `StopMenu` | Unary | Stop menu mode |
-| `GetMenuStatus` | Unary | Get current menu state |
 | `ProcessInput` | Unary | Process button input |
 | `StreamMenuEvents` | Server Stream | Menu state change events |
 

@@ -120,18 +120,6 @@ class TestMenuServicerRPCs:
         context.cancelled = MagicMock(return_value=False)
         return context
 
-    async def test_get_menu_status(self, menu_servicer, mock_context):
-        """Test GetMenuStatus RPC."""
-        menu_servicer.state = menu_pb2.MenuState.RUNNING
-        menu_servicer.current_selection = "JoustFFA"
-
-        request = menu_pb2.GetMenuStatusRequest()
-        response = await menu_servicer.GetMenuStatus(request, mock_context)
-
-        assert response.state == menu_pb2.MenuState.RUNNING
-        assert response.current_selection == "JoustFFA"
-        assert response.success is True
-
     async def test_start_menu(self, menu_servicer, mock_context):
         """Test StartMenu RPC."""
         request = menu_pb2.StartMenuRequest()

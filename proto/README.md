@@ -95,7 +95,6 @@ proto/
 **Key RPCs:**
 - `StartMenu` - Start menu with controller count
 - `StopMenu` - Stop menu
-- `GetMenuStatus` - Get current menu state
 - `ProcessInput` - Process button press or web command
 - `StreamMenuEvents` - Stream menu events (server streaming)
 
@@ -111,13 +110,14 @@ proto/
 - `PlaySound` - Play a sound effect
 - `PlayMusic` - Play background music with looping
 - `StopMusic` - Stop current music
+- `ChangeTempo` - Change music playback speed
 - `SetVolume` - Adjust volume
-- `GetAudioStatus` - Get playback status
 
 **Features:**
 - Mock mode for headless testing
 - Volume control
 - Music looping
+- Dynamic tempo control
 
 ## Generating Python Code
 

@@ -245,42 +245,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             finally:
                 metrics.grpc_request_duration_seconds.labels(method="StopMenu").observe(time.time() - start_time)
 
-    async def GetMenuStatus(self, request, context):  # noqa: N802, ARG002
-        """Get current menu status."""
-        start_time = time.time()
-        with tracer.start_as_current_span("GetMenuStatus") as span:
-            try:
-                # Get ready count from state_manager (source of truth)
-                ready_count = len(self.state_manager.ready_controllers)
-
-                span.set_attribute("menu.state", self.state)
-                span.set_attribute("menu.selection", self.current_selection)
-                span.set_attribute("menu.ready_controllers", ready_count)
-                metrics.grpc_requests_total.labels(method="GetMenuStatus", status="ok").inc()
-
-                return menu_pb2.GetMenuStatusResponse(
-                    state=self.state,
-                    current_selection=self.current_selection,
-                    ready_controller_count=ready_count,
-                    success=True,
-                    error="",
-                )
-
-            except Exception as e:
-                span.record_exception(e)
-                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-                logger.error(f"GetMenuStatus error: {e}", exc_info=True)
-                metrics.grpc_requests_total.labels(method="GetMenuStatus", status="error").inc()
-                return menu_pb2.GetMenuStatusResponse(
-                    state=menu_pb2.MenuState.STOPPED,
-                    current_selection="",
-                    ready_controller_count=0,
-                    success=False,
-                    error=str(e),
-                )
-            finally:
-                metrics.grpc_request_duration_seconds.labels(method="GetMenuStatus").observe(time.time() - start_time)
-
     async def ProcessInput(self, request, context):  # noqa: N802, ARG002
         """Process menu input."""
         start_time = time.time()

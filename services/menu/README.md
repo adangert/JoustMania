@@ -43,19 +43,6 @@ Stops the menu and clears all lobby state.
 rpc StopMenu(StopMenuRequest) returns (StopMenuResponse);
 ```
 
-### GetMenuStatus
-
-Returns current menu state.
-
-```protobuf
-rpc GetMenuStatus(GetMenuStatusRequest) returns (GetMenuStatusResponse);
-```
-
-**Response:**
-- `state`: STOPPED (0), RUNNING (1), or GAME_STARTING (2)
-- `current_selection`: Currently selected game mode
-- `ready_controller_count`: Number of controllers that have pressed trigger
-
 ### ProcessInput
 
 Process menu input from controllers or web UI.

@@ -211,27 +211,15 @@ class WebUI:
         return render_template("joustmania.html", form=form)
 
     def update(self):
-        """Get current menu status."""
-        with tracer.start_as_current_span("update_status") as span:
-            try:
-                # Get menu status
-                request = menu_pb2.GetMenuStatusRequest()
-                response = self.grpc.menu_stub.GetMenuStatus(request, timeout=2.0)
-
-                if response.success:
-                    status = {
-                        "state": menu_pb2.MenuState.Name(response.state),
-                        "current_selection": response.current_selection,
-                        "ready_controller_count": response.ready_controller_count,
-                    }
-                    span.set_attribute("status.state", status["state"])
-                    return status
-                logger.error(f"GetMenuStatus failed: {response.error}")
-                return {"error": response.error}
-
-            except grpc.RpcError as e:
-                logger.error(f"gRPC error in update: {e}")
-                return {"error": str(e)}
+        """Get current menu status (deprecated - WebUI is deprecated)."""
+        # WebUI is deprecated - GetMenuStatus RPC has been removed
+        # This endpoint is kept for backwards compatibility but returns stub data
+        return {
+            "state": "DEPRECATED",
+            "current_selection": "",
+            "ready_controller_count": 0,
+            "error": "WebUI is deprecated - use StreamMenuEvents instead",
+        }
 
     def change_mode_str(self):
         """Change game mode selection."""

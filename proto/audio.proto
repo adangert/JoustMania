@@ -9,7 +9,6 @@ service AudioService {
   rpc StopMusic(StopMusicRequest) returns (StopMusicResponse);
   rpc ChangeTempo(ChangeTempoRequest) returns (ChangeTempoResponse);
   rpc SetVolume(SetVolumeRequest) returns (SetVolumeResponse);
-  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse);
 }
 
 enum AudioPriority {
@@ -70,17 +69,4 @@ message SetVolumeRequest {
 message SetVolumeResponse {
   bool success = 1;
   string error = 2;
-}
-
-message GetStatusRequest {}
-
-message GetStatusResponse {
-  string current_track_id = 1;
-  string current_track_file = 2;
-  bool is_playing = 3;
-  float volume = 4;
-  float tempo = 5;
-  int32 queued_sounds_count = 6;
-  bool success = 7;
-  string error = 8;
 }

@@ -339,12 +339,17 @@ audio:50056
 
 ### Stack
 
-| Component | Purpose | Port |
-|-----------|---------|------|
-| Jaeger | Distributed tracing | 16686 |
-| Prometheus | Metrics collection | 9090 |
-| Grafana | Visualization | 3000 |
-| Loki | Log aggregation | 3100 |
+All observability tools are accessed through the unified dashboard reverse proxy at `http://localhost:8080/`:
+
+| Component | Purpose | Dashboard Path | Internal Port |
+|-----------|---------|----------------|---------------|
+| Dashboard | Unified entry point | `/` | 80 |
+| Jaeger | Distributed tracing | `/jaeger/` | 16686 |
+| Prometheus | Metrics collection | `/prometheus/` | 9090 |
+| Grafana | Visualization | `/grafana/` | 3000 |
+| Loki | Log aggregation | `/loki/` | 3100 |
+
+**Note:** The dashboard uses Caddy as a reverse proxy to provide a single entry point for all services. See `docs/CADDY_PROXY.md` for configuration details.
 
 ### Tracing
 

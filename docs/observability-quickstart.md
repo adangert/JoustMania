@@ -67,11 +67,14 @@ python3 tools/monitor_multi_hub_performance.py
 
 **Access:**
 ```bash
-# Metrics endpoint
-curl http://localhost:9090/metrics | grep game_
+# Metrics endpoint (via dashboard reverse proxy)
+curl http://localhost:8080/prometheus/api/v1/targets | jq .
 
-# Or view in Grafana
-open http://localhost:3000
+# Or view in Grafana (via dashboard reverse proxy)
+open http://localhost:8080/grafana/
+
+# Direct access (if needed for debugging)
+curl http://localhost:9090/metrics | grep game_
 ```
 
 **When to use:**
@@ -252,8 +255,10 @@ curl http://localhost:9090/metrics | grep game_configured_update_frequency_hz
 
 ### Grafana Dashboards
 
+**Access Grafana:** `http://localhost:8080/grafana/`
+
 **Create custom dashboard:**
-1. Open Grafana: `http://localhost:3000`
+1. Open Grafana: `http://localhost:8080/grafana/`
 2. Create new dashboard
 3. Add panels:
 
@@ -322,7 +327,7 @@ process_cpu_percent
 **Symptom:** Grafana shows old/stale metrics
 
 **Fix:**
-1. Check Prometheus scraping: `curl http://localhost:9090/targets`
+1. Check Prometheus scraping: `curl http://localhost:8080/prometheus/api/v1/targets | jq .`
 2. Verify scrape interval (default: 15s)
 3. Refresh Grafana dashboard (Ctrl+R)
 

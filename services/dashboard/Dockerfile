@@ -18,15 +18,15 @@ COPY services/dashboard/ ./
 # Build the application
 RUN npm run build
 
-# Stage 2: Serve with nginx
-FROM nginx:alpine
+# Stage 2: Serve with Caddy
+FROM caddy:2.8-alpine
 
-# Copy built files to nginx html directory
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Copy built files to Caddy html directory
+COPY --from=builder /app/dist /usr/share/caddy
 
-# Copy custom nginx config
-COPY services/dashboard/nginx.conf /etc/nginx/conf.d/default.conf
+# Copy Caddyfile
+COPY services/dashboard/Caddyfile /etc/caddy/Caddyfile
 
 EXPOSE 80
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

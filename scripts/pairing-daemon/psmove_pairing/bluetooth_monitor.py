@@ -1,4 +1,4 @@
-"""Bluetooth monitoring for connected PS Move controllers."""
+"""Bluetooth monitoring for connected devices."""
 
 import logging
 import re
@@ -19,45 +19,18 @@ logger = logging.getLogger("psmove-pairing")
 
 
 class BluetoothMonitor:
-    """Monitors Bluetooth-connected controllers for RSSI and connection status.
+    """Monitors Bluetooth-connected devices for RSSI and connection status.
 
-    Uses psmove list to get known controller MACs and monitors only those.
+    Uses hcitool to monitor all HCI connections - no psmove dependency.
+    This avoids conflicts with controller_manager which uses psmoveapi.
     """
 
-    def __init__(self, tracer: trace.Tracer, psmove_path: str = ""):
+    def __init__(self, tracer: trace.Tracer):
         self.tracer = tracer
-        self.psmove = psmove_path
         self.monitor_count = 0
-        # Track known controllers for disconnect detection
+        # Track known devices for disconnect detection
         # Key: (serial, hci_adapter), Value: last_seen_timestamp
-        self._known_controllers: dict[tuple[str, str], float] = {}
-        # Cache of known controller MACs from psmove list
-        self._psmove_known_macs: set[str] = set()
-        self._psmove_list_interval = 30  # Refresh psmove list every 30 seconds
-        self._last_psmove_list = 0.0
-
-    async def get_psmove_known_controllers(self) -> set[str]:
-        """Get set of MAC addresses known to psmoveapi."""
-        if not self.psmove:
-            logger.debug("psmove path not set, cannot get known controllers")
-            return set()
-
-        exit_code, output = await run_command([self.psmove, "list"], capture_stderr=False)
-        if exit_code != 0:
-            logger.debug("psmove list failed")
-            return set()
-
-        # Parse MAC addresses from output
-        # Format: "Controller 0: aa:bb:cc:dd:ee:ff (USB)" or "(Bluetooth)"
-        mac_pattern = re.compile(r"([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}")
-        macs = set()
-        for line in output.split("\n"):
-            match = mac_pattern.search(line)
-            if match:
-                macs.add(match.group(0).upper())
-
-        logger.debug(f"psmove list knows {len(macs)} controllers: {macs}")
-        return macs
+        self._known_devices: dict[tuple[str, str], float] = {}
 
     async def get_bluetooth_adapters(self) -> list[str]:
         """Get list of available HCI adapters (hci0, hci1, etc.)."""
@@ -111,41 +84,27 @@ class BluetoothMonitor:
         return None
 
     async def monitor(self) -> None:
-        """Monitor all Bluetooth-connected controllers known to psmove."""
+        """Monitor all Bluetooth-connected devices."""
         self.monitor_count += 1
         logger.debug(f"Bluetooth monitor #{self.monitor_count}")
 
         with self.tracer.start_as_current_span("bluetooth_monitor_cycle") as span:
             span.set_attribute("monitor.count", self.monitor_count)
 
-            # Periodically refresh psmove known controllers
-            now = time.time()
-            if now - self._last_psmove_list > self._psmove_list_interval:
-                self._psmove_known_macs = await self.get_psmove_known_controllers()
-                self._last_psmove_list = now
-                span.set_attribute("psmove.known_count", len(self._psmove_known_macs))
-
-            if not self._psmove_known_macs:
-                logger.debug("No known controllers from psmove list, skipping monitor")
-                return
-
             adapters = await self.get_bluetooth_adapters()
             span.set_attribute("adapters.count", len(adapters))
 
-            # Track currently seen controllers this cycle
+            # Track currently seen devices this cycle
             currently_seen: set[tuple[str, str]] = set()
 
             for hci in adapters:
                 connections = await self.get_adapter_connections(hci)
 
-                # Filter to controllers known to psmove
-                known_connections = [addr for addr in connections if addr.upper() in self._psmove_known_macs]
-
                 # Update adapter connection count
-                bluetooth_adapter_connections.labels(hci_adapter=hci).set(len(known_connections))
-                logger.debug(f"{hci}: {len(known_connections)} known controllers (of {len(connections)} total)")
+                bluetooth_adapter_connections.labels(hci_adapter=hci).set(len(connections))
+                logger.debug(f"{hci}: {len(connections)} devices connected")
 
-                for serial in known_connections:
+                for serial in connections:
                     currently_seen.add((serial, hci))
                     ts = time.time()
 
@@ -163,17 +122,17 @@ class BluetoothMonitor:
                         logger.debug(f"  {serial} on {hci}: RSSI unavailable")
 
                     # Track for disconnect detection
-                    self._known_controllers[(serial, hci)] = ts
+                    self._known_devices[(serial, hci)] = ts
 
-            # Check for disconnected controllers
-            for (serial, hci), _last_seen in list(self._known_controllers.items()):
+            # Check for disconnected devices
+            for (serial, hci), _last_seen in list(self._known_devices.items()):
                 if (serial, hci) not in currently_seen:
-                    # Controller disconnected
+                    # Device disconnected
                     bluetooth_device_connected.labels(serial=serial, hci_adapter=hci).set(0)
-                    logger.debug(f"Controller {serial} disconnected from {hci}")
+                    logger.debug(f"Device {serial} disconnected from {hci}")
                     # Keep last_seen timestamp as-is for staleness detection
 
-            span.set_attribute("controllers.total", len(currently_seen))
+            span.set_attribute("devices.total", len(currently_seen))
 
     async def run_loop(self) -> None:
         """Bluetooth monitoring loop."""

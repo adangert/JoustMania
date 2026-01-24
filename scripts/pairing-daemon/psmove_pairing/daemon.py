@@ -20,7 +20,7 @@ class PairingDaemon:
         self.tracer = tracer
         self.psmove = psmove_path
         self.usb_pairing = USBPairing(tracer, psmove_path)
-        self.bt_monitor = BluetoothMonitor(tracer, psmove_path)
+        self.bt_monitor = BluetoothMonitor(tracer)
         logger.info(f"PairingDaemon initialized with psmove: {self.psmove}")
 
     async def run(self) -> None:

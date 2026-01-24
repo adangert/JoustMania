@@ -33,7 +33,7 @@ class AnalyticsConfig:
     # > 2.0g = danger zone
 
     # Metrics emission interval (emit Prometheus gauges every N frames)
-    metrics_emit_interval_frames: int = 60  # ~1 second at 60Hz
+    metrics_emit_interval_frames: int = 6  # ~100ms at 60Hz (10Hz updates)
 
 
 @dataclass

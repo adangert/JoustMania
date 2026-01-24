@@ -896,6 +896,10 @@ class BaseGameMode(ABC):
                         with contextlib.suppress(asyncio.CancelledError):
                             await self.music_loop_task
 
+                    # Close all player spans before gameplay_phase ends
+                    # This ensures player spans are children of gameplay_phase, not teardown
+                    self._close_all_player_spans()
+
             # Phase 70: Stop game music
             await self._stop_game_music()
 
@@ -952,6 +956,32 @@ class BaseGameMode(ABC):
                 "game.mode": self.get_game_name(),
             },
         )
+
+    def _close_all_player_spans(self):
+        """
+        Close all open player lifecycle spans.
+
+        Called at the end of gameplay_phase to ensure all player spans
+        end with the gameplay phase, not during teardown.
+        Subclasses can override to add custom attributes before closing.
+        """
+        from opentelemetry.trace import Status, StatusCode
+
+        for serial, player in self.players.items():
+            if player.span:
+                # Add final event based on player state
+                if player.alive:
+                    player.span.add_event(
+                        "game_ended",
+                        attributes={
+                            "survived": True,
+                            "game_duration": time.time() - self.start_time if self.start_time else 0,
+                        },
+                    )
+                player.span.set_status(Status(StatusCode.OK))
+                player.span.end()
+                player.span = None  # Mark as closed
+                logger.debug(f"Closed lifecycle span for player {serial}")
 
     async def _play_sound(self, sound: str | Sound, priority: int = 2):
         """

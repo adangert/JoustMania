@@ -174,6 +174,39 @@ class FFAGame(BaseGameMode):
         """
         return [Phase(name="color_assignment", execute=self._assign_ffa_colors)]
 
+    def _close_all_player_spans(self):
+        """
+        Close all player lifecycle spans with analytics data.
+
+        Override base implementation to add victory event and analytics
+        summary to surviving players' spans.
+        """
+        # Find winner for victory event
+        alive_players = [p for p in self.players.values() if p.alive]
+        winner_serial = alive_players[0].serial if len(alive_players) == 1 else None
+
+        for serial, player in self.players.items():
+            if player.span:
+                # Build attributes including analytics summary if available
+                if player.alive:
+                    victory_attrs = {
+                        "game_duration": time.time() - self.start_time if self.start_time else 0,
+                        "winner": serial == winner_serial,
+                    }
+
+                    # Add analytics summary to span
+                    if player.analytics is not None:
+                        analytics_summary = player.analytics.get_summary()
+                        for key, value in analytics_summary.items():
+                            victory_attrs[f"analytics.{key}"] = value
+
+                    player.span.add_event("victory", attributes=victory_attrs)
+
+                player.span.set_status(Status(StatusCode.OK))
+                player.span.end()
+                player.span = None  # Mark as closed
+                logger.debug(f"Closed lifecycle span for player {serial}")
+
     async def _end_game_impl(self):
         """Handle game ending - show winner, cleanup."""
         from proto import controller_manager_pb2
@@ -218,26 +251,8 @@ class FFAGame(BaseGameMode):
                 break
             await asyncio.sleep(0.1)
 
-        # End spans for surviving players AFTER the celebration
-        # This ensures winner's span is longer than losers'
-        for serial, player in self.players.items():
-            if player.span and player.alive:
-                # Build attributes including analytics summary if available
-                victory_attrs = {
-                    "game_duration": time.time() - self.start_time if self.start_time else 0,
-                    "winner": serial == winner_serial,
-                }
-
-                # Add analytics summary to span
-                if player.analytics is not None:
-                    analytics_summary = player.analytics.get_summary()
-                    for key, value in analytics_summary.items():
-                        victory_attrs[f"analytics.{key}"] = value
-
-                player.span.add_event("victory", attributes=victory_attrs)
-                player.span.set_status(Status(StatusCode.OK))
-                player.span.end()
-                logger.debug(f"Ended lifecycle span for surviving player {serial}")
+        # Note: Player spans are already closed by _close_all_player_spans()
+        # at the end of gameplay_phase (before teardown_phase starts)
 
         # Publish analytics summaries for all players
         for serial, player in self.players.items():

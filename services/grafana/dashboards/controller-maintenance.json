@@ -239,7 +239,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "count(controller_rssi_dbm < -80 and controller_rssi_dbm != 0) or vector(0)",
+          "expr": "count(bluetooth_device_rssi_dbm < -80) or vector(0)",
           "legendFormat": "Controllers",
           "refId": "A"
         }
@@ -682,6 +682,18 @@
                 "value": 180
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Adapter"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
           }
         ]
       },
@@ -748,7 +760,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_rssi_dbm != 0",
+          "expr": "bluetooth_device_rssi_dbm",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -823,15 +835,17 @@
             "indexByName": {
               "name": 0,
               "serial": 1,
-              "Value #Status": 2,
-              "Value #Battery": 3,
-              "Value #RSSI": 4,
-              "Value #Reconnects24h": 5,
-              "Value #Reconnects7d": 6
+              "hci_adapter": 2,
+              "Value #Status": 3,
+              "Value #Battery": 4,
+              "Value #RSSI": 5,
+              "Value #Reconnects24h": 6,
+              "Value #Reconnects7d": 7
             },
             "renameByName": {
               "name": "Name",
               "serial": "Serial",
+              "hci_adapter": "Adapter",
               "Value #Status": "Status",
               "Value #Battery": "Battery",
               "Value #RSSI": "RSSI (dBm)",
@@ -1026,7 +1040,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(controller_rssi_dbm != 0) * on(serial) group_left(name) controller_info",
+          "expr": "bluetooth_device_rssi_dbm * on(serial) group_left(name) controller_info",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -1364,7 +1378,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(controller_rssi_dbm != 0) * on(serial) group_left(name) controller_info",
+          "expr": "bluetooth_device_rssi_dbm * on(serial) group_left(name) controller_info",
           "legendFormat": "{{name}}",
           "refId": "A"
         }

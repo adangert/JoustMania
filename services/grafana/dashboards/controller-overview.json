@@ -217,7 +217,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "count(controller_rssi_dbm != 0 and controller_rssi_dbm < -70) or vector(0)",
+          "expr": "count(bluetooth_device_rssi_dbm < -70) or vector(0)",
           "legendFormat": "Weak Signal",
           "refId": "A"
         }
@@ -457,7 +457,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_rssi_dbm",
+          "expr": "bluetooth_device_rssi_dbm",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -1047,7 +1047,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_rssi_dbm{serial=\"$controller\"} != 0 or vector(0) * controller_connected{serial=\"$controller\"}",
+          "expr": "bluetooth_device_rssi_dbm{serial=\"$controller\"} or vector(0) * controller_connected{serial=\"$controller\"}",
           "legendFormat": "RSSI",
           "refId": "A"
         }
@@ -1420,7 +1420,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(controller_rssi_dbm != 0) * on(serial) group_left(name) controller_info",
+          "expr": "bluetooth_device_rssi_dbm * on(serial) group_left(name) controller_info",
           "legendFormat": "{{name}}",
           "refId": "A"
         }

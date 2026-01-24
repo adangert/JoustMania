@@ -28,42 +28,15 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "description": "Overall game activity level based on average player acceleration. Low: calm gameplay, Medium: moderate activity, High: intense action",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "Acceleration (g)",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "dashed"
-            }
+            "mode": "thresholds"
           },
           "mappings": [],
+          "max": 3,
+          "min": 0,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -73,11 +46,11 @@
               },
               {
                 "color": "yellow",
-                "value": 1.5
+                "value": 1.0
               },
               {
                 "color": "red",
-                "value": 2.0
+                "value": 1.5
               }
             ]
           },
@@ -87,113 +60,23 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 16,
+        "w": 6,
         "x": 0,
         "y": 0
       },
-      "id": 1,
+      "id": 16,
       "options": {
-        "legend": {
-          "calcs": ["mean", "max"],
-          "displayMode": "table",
-          "placement": "right",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "pluginVersion": "10.2.3",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "game_player_accel_magnitude",
-          "legendFormat": "{{serial}}",
-          "refId": "A"
-        }
-      ],
-      "title": "Real-time Acceleration per Player",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "color": "blue",
-                  "text": "Still"
-                },
-                "1": {
-                  "color": "green",
-                  "text": "Active"
-                },
-                "2": {
-                  "color": "yellow",
-                  "text": "Warning"
-                },
-                "3": {
-                  "color": "red",
-                  "text": "Danger"
-                }
-              },
-              "type": "value"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              },
-              {
-                "color": "yellow",
-                "value": 2
-              },
-              {
-                "color": "red",
-                "value": 3
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 8,
-        "x": 16,
-        "y": 0
-      },
-      "id": 2,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "vertical",
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
         "reduceOptions": {
-          "values": false,
           "calcs": ["lastNotNull"],
-          "fields": ""
+          "fields": "",
+          "values": false
         },
-        "textMode": "value_and_name"
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
       },
       "pluginVersion": "10.2.3",
       "targets": [
@@ -202,104 +85,13 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "game_player_movement_zone",
-          "legendFormat": "{{serial}}",
+          "expr": "avg(game_player_accel_magnitude)",
+          "legendFormat": "Intensity",
           "refId": "A"
         }
       ],
-      "title": "Current Movement Zone",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "color": "blue",
-                  "text": "Calm"
-                },
-                "1": {
-                  "color": "green",
-                  "text": "Balanced"
-                },
-                "2": {
-                  "color": "yellow",
-                  "text": "Active"
-                },
-                "3": {
-                  "color": "orange",
-                  "text": "Aggressive"
-                }
-              },
-              "type": "value"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              },
-              {
-                "color": "yellow",
-                "value": 2
-              },
-              {
-                "color": "orange",
-                "value": 3
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 8,
-        "x": 16,
-        "y": 4
-      },
-      "id": 3,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "vertical",
-        "reduceOptions": {
-          "values": false,
-          "calcs": ["lastNotNull"],
-          "fields": ""
-        },
-        "textMode": "value_and_name"
-      },
-      "pluginVersion": "10.2.3",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "game_player_playstyle",
-          "legendFormat": "{{serial}}",
-          "refId": "A"
-        }
-      ],
-      "title": "Player Playstyle",
-      "type": "stat"
+      "title": "Game Intensity",
+      "type": "gauge"
     },
     {
       "datasource": {
@@ -356,10 +148,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 0,
-        "y": 8
+        "h": 8,
+        "w": 9,
+        "x": 6,
+        "y": 0
       },
       "id": 4,
       "options": {
@@ -443,10 +235,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 8
+        "h": 8,
+        "w": 9,
+        "x": 15,
+        "y": 0
       },
       "id": 5,
       "options": {
@@ -533,7 +325,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 14
+        "y": 8
       },
       "id": 6,
       "options": {
@@ -588,7 +380,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 14
+        "y": 8
       },
       "id": 7,
       "options": {
@@ -678,7 +470,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 20
+        "y": 14
       },
       "id": 8,
       "options": {
@@ -743,7 +535,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 20
+        "y": 14
       },
       "id": 9,
       "options": {
@@ -800,7 +592,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 20
+        "y": 14
       },
       "id": 10,
       "options": {
@@ -829,71 +621,6 @@
       ],
       "title": "Total Warning Events",
       "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "continuous-GrYlRd"
-          },
-          "custom": {
-            "fillOpacity": 70,
-            "lineWidth": 0,
-            "spanNulls": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 24,
-        "x": 0,
-        "y": 24
-      },
-      "id": 11,
-      "options": {
-        "alignValue": "left",
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "mergeValues": true,
-        "rowHeight": 0.9,
-        "showValue": "never",
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "10.2.3",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "game_player_accel_magnitude",
-          "legendFormat": "{{serial}}",
-          "refId": "A"
-        }
-      ],
-      "title": "Player Activity Heatmap",
-      "type": "state-timeline"
     },
     {
       "datasource": {
@@ -948,7 +675,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 20
+        "y": 14
       },
       "id": 12,
       "options": {
@@ -1032,7 +759,7 @@
         "h": 4,
         "w": 4,
         "x": 0,
-        "y": 30
+        "y": 18
       },
       "id": 14,
       "options": {
@@ -1154,7 +881,7 @@
         "h": 5,
         "w": 20,
         "x": 4,
-        "y": 30
+        "y": 18
       },
       "id": 15,
       "options": {
@@ -1254,7 +981,7 @@
         "h": 5,
         "w": 24,
         "x": 0,
-        "y": 35
+        "y": 23
       },
       "id": 13,
       "options": {

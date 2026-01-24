@@ -10,8 +10,12 @@ import hashlib
 import logging
 import os
 import threading
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# Default path, can be overridden by CONTROLLER_NAMES_FILE env var
+DEFAULT_NAMES_FILE = "controller_names.txt"
 
 ADJECTIVES = [
     "Red",
@@ -60,14 +64,21 @@ class NameManager:
     the generated ones and are persisted to a text file.
     """
 
-    def __init__(self, names_file: str = "controller_names.txt"):
+    def __init__(self, names_file: str | None = None):
         """
         Initialize the name manager.
 
         Args:
             names_file: Path to the file for persisting controller names.
+                       If None, uses CONTROLLER_NAMES_FILE env var or default.
         """
+        if names_file is None:
+            names_file = os.environ.get("CONTROLLER_NAMES_FILE", DEFAULT_NAMES_FILE)
         self.names_file = names_file
+        # Ensure parent directory exists
+        names_path = Path(self.names_file)
+        if names_path.parent != Path("."):
+            names_path.parent.mkdir(parents=True, exist_ok=True)
         self._names: dict[str, str] = {}
         self._lock = threading.Lock()
         self._load_names()

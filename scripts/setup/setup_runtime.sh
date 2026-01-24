@@ -142,11 +142,32 @@ else
     echo -e "  → ${YELLOW}psmove CLI not found${NC}"
     echo ""
     echo "    The pairing daemon needs the psmove CLI to pair controllers."
-    echo "    Options:"
-    echo "      1. Build psmoveapi: ./scripts/setup/build_psmoveapi.sh"
-    echo "      2. Pair manually: Connect via USB, use bluetoothctl"
-    echo "      3. Skip pairing daemon (existing paired controllers will work)"
+    echo "    Building psmoveapi takes ~10 minutes but is required for automatic pairing."
     echo ""
+    read -p "    Build psmoveapi now? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo ""
+        echo "  → Building psmoveapi (this takes ~10 minutes)..."
+        BUILD_SCRIPT="$JOUSTMANIA_DIR/scripts/setup/build_psmoveapi.sh"
+        if [ -f "$BUILD_SCRIPT" ]; then
+            bash "$BUILD_SCRIPT"
+            if [ $? -eq 0 ]; then
+                echo -e "  → ${GREEN}psmoveapi built successfully${NC}"
+                export PATH="$HOMEDIR/psmoveapi/build:$PATH"
+                PSMOVE_AVAILABLE=true
+            else
+                echo -e "  → ${RED}psmoveapi build failed${NC}"
+            fi
+        else
+            echo -e "  → ${RED}Build script not found: $BUILD_SCRIPT${NC}"
+        fi
+    else
+        echo ""
+        echo "    Skipping psmoveapi build."
+        echo "    You can build it later with: ./scripts/setup/build_psmoveapi.sh"
+        echo ""
+    fi
 fi
 
 # Step 5: Install pairing daemon

@@ -249,12 +249,31 @@ class StateManager:
         """
         self.current_game_mode = game_mode
 
-    def reset(self) -> None:
-        """Reset all controller states (e.g., after game ends)."""
+    async def reset(self) -> list[str]:
+        """
+        Reset all controller states (e.g., after game ends).
+
+        Re-registers all previously connected controllers, triggering on_enter
+        handlers to set appropriate lobby colors.
+
+        Returns:
+            List of controller serials that were re-registered
+        """
+        # Remember which controllers were connected before clearing
+        serials = list(self.controller_states.keys())
+
+        # Clear all state completely
         self.controller_states.clear()
         self.connected_controllers.clear()
         self.ready_controllers.clear()
         self.button_states.clear()
+
         # Clear all player ready metrics
         metrics.player_ready._metrics.clear()
-        logger.info("StateManager reset")
+
+        # Re-register each controller as CONNECTED (triggers on_enter → sets colors)
+        for serial in serials:
+            await self.on_controller_connected(serial)
+
+        logger.info(f"StateManager reset, re-registered {len(serials)} controllers")
+        return serials

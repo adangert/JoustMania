@@ -435,7 +435,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         self.controller_lobby_state.clear()
                         self.last_lobby_feedback_update.clear()
                         self.ready_controller_count = 0
-                        self.state_manager.reset()  # Reset state_manager too
+                        # Reset state_manager and re-register controllers (sets lobby colors)
+                        re_registered = await self.state_manager.reset()
+                        self.connected_controllers.update(re_registered)
 
                         await self.audio.start_lobby_music()
                         await self.start_button_monitor()

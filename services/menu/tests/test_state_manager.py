@@ -166,15 +166,24 @@ class TestStateManagerHelpers:
         state_manager.set_game_mode("Werewolf")
         assert state_manager.current_game_mode == "Werewolf"
 
+    @pytest.mark.asyncio
     @patch("services.menu.state_manager.metrics")
-    def test_reset(self, mock_metrics, state_manager):
-        """reset should clear all state."""
+    async def test_reset(self, mock_metrics, state_manager):
+        """reset should clear ready state and re-register controllers."""
         state_manager.connected_controllers = {"s1", "s2"}
         state_manager.ready_controllers = {"s1"}
-        state_manager.controller_states = {"s1": ControllerState.READY}
+        state_manager.controller_states = {"s1": ControllerState.READY, "s2": ControllerState.CONNECTED}
+        state_manager.button_states = {"s1": {"trigger": True}}
 
-        state_manager.reset()
+        re_registered = await state_manager.reset()
 
-        assert state_manager.connected_controllers == set()
+        # Controllers from controller_states should be re-registered
+        assert set(re_registered) == {"s1", "s2"}
+        # Re-registered controllers should be in connected set
+        assert state_manager.connected_controllers == {"s1", "s2"}
+        # All controllers should be in CONNECTED state (not READY)
+        assert state_manager.controller_states == {"s1": ControllerState.CONNECTED, "s2": ControllerState.CONNECTED}
+        # Ready controllers should be cleared
         assert state_manager.ready_controllers == set()
-        assert state_manager.controller_states == {}
+        # Button states should be cleared
+        assert state_manager.button_states == {}

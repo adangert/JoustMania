@@ -238,6 +238,8 @@ services:
     environment:
       - OTEL_SERVICE_NAME=supervisor-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    volumes:
+      - /tmp/joustmania:/tmp/joustmania:ro  # Host startup status (read-only)
     depends_on:
       otel-collector:
         condition: service_started

@@ -4,10 +4,21 @@ Prometheus metrics for Supervisor Service (Phase 38).
 Tracks system resources and gRPC request performance.
 """
 
-from prometheus_client import Counter, Gauge, Histogram
+from prometheus_client import Counter, Gauge, Histogram, Info
 
 # System metrics
 process_cpu_percent = Gauge("process_cpu_percent", "Process CPU usage percentage")
+
+# Host update status metrics
+service_update_pending = Gauge(
+    "joustmania_service_update_pending",
+    "Whether service files have changed and need reinstallation (1=pending, 0=up-to-date)",
+)
+
+service_update_info = Info(
+    "joustmania_service_update",
+    "Information about pending service updates",
+)
 
 process_memory_mb = Gauge("process_memory_mb", "Process memory usage in MB")
 

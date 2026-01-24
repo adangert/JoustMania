@@ -85,3 +85,13 @@ groups:
         annotations:
           summary: "High game crash rate"
           description: "{{$value | humanizePercentage}} of games are crashing."
+
+      # Host update alerts
+      - alert: ServiceUpdatePending
+        expr: joustmania_service_update_pending == 1
+        for: 1m
+        labels:
+          severity: info
+        annotations:
+          summary: "Service files have been updated"
+          description: "Run 'sudo ./scripts/setup/install_autostart.sh' to apply the new service configuration."

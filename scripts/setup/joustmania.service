@@ -8,10 +8,9 @@ Wants=network-online.target
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=/home/pi/JoustMania
-ExecStartPre=/usr/bin/docker compose down --remove-orphans
-ExecStart=/usr/bin/docker compose up -d
+ExecStart=/home/pi/JoustMania/scripts/setup/joustmania-start.sh
 ExecStop=/usr/bin/docker compose down
-TimeoutStartSec=300
+TimeoutStartSec=600
 User=pi
 Group=pi
 

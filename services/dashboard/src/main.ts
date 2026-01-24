@@ -46,6 +46,9 @@ async function init() {
     onModeChange: handleModeChange,
   });
 
+  // Set up tab navigation
+  setupTabs();
+
   // Set up settings modal
   setupSettingsModal();
 
@@ -56,6 +59,33 @@ async function init() {
   startGameEventStream();
 
   console.log("Dashboard initialized");
+}
+
+// Tab navigation
+function setupTabs() {
+  const tabButtons = document.querySelectorAll(".tab-btn");
+  const tabPanels = document.querySelectorAll(".tab-panel");
+
+  tabButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tabId = btn.getAttribute("data-tab");
+      if (!tabId) return;
+
+      // Update button states
+      tabButtons.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      // Update panel visibility
+      tabPanels.forEach((panel) => {
+        panel.classList.remove("active");
+        if (panel.id === `tab-${tabId}`) {
+          panel.classList.add("active");
+        }
+      });
+
+      console.log(`Switched to tab: ${tabId}`);
+    });
+  });
 }
 
 // Stream controller data at 30Hz

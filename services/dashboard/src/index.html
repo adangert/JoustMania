@@ -42,10 +42,56 @@
         </div>
       </div>
 
+      <!-- Tab Navigation -->
+      <nav class="tab-nav">
+        <button class="tab-btn active" data-tab="controllers">
+          <span class="tab-icon">&#127918;</span> Controllers
+        </button>
+        <button class="tab-btn" data-tab="metrics">
+          <span class="tab-icon">&#128200;</span> Metrics
+        </button>
+        <button class="tab-btn" data-tab="traces">
+          <span class="tab-icon">&#128269;</span> Traces
+        </button>
+      </nav>
+
       <main class="main-content">
-        <div id="controller-grid" class="controller-grid">
-          <!-- Controller cards will be rendered here -->
-          <div class="loading">Connecting to controller manager...</div>
+        <!-- Controllers Tab -->
+        <div id="tab-controllers" class="tab-panel active">
+          <div id="controller-grid" class="controller-grid">
+            <!-- Controller cards will be rendered here -->
+            <div class="loading">Connecting to controller manager...</div>
+          </div>
+        </div>
+
+        <!-- Metrics Tab (Grafana) -->
+        <div id="tab-metrics" class="tab-panel">
+          <div class="embed-container">
+            <div class="embed-header">
+              <h3>Controller Health</h3>
+              <a href="/grafana/d/controller-health" target="_blank" class="external-link">Open in Grafana &#8599;</a>
+            </div>
+            <iframe
+              id="grafana-embed"
+              src="/grafana/d/controller-health/controller-health?orgId=1&theme=dark&kiosk"
+              class="embed-iframe"
+            ></iframe>
+          </div>
+        </div>
+
+        <!-- Traces Tab (Jaeger) -->
+        <div id="tab-traces" class="tab-panel">
+          <div class="embed-container">
+            <div class="embed-header">
+              <h3>Game Traces</h3>
+              <a href="/jaeger/search?service=game_coordinator" target="_blank" class="external-link">Open in Jaeger &#8599;</a>
+            </div>
+            <iframe
+              id="jaeger-embed"
+              src="/jaeger/search?service=game_coordinator&limit=20"
+              class="embed-iframe"
+            ></iframe>
+          </div>
         </div>
       </main>
 

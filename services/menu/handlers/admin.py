@@ -2,7 +2,7 @@
 Admin mode handler for Menu service.
 
 Manages the admin mode state, commands, and visual feedback when a controller
-holds the admin combo (Move + Trigger + PS for 3 seconds).
+holds all 4 face buttons (Cross + Circle + Square + Triangle) simultaneously.
 
 Admin mode allows changing settings like:
 - Sensitivity level (Circle button)
@@ -48,8 +48,9 @@ class AdminModeHandler:
     """
     Handles admin mode state and commands.
 
-    Admin mode is activated by holding Move + Trigger + PS for 3 seconds.
-    While active, face buttons perform administrative actions.
+    Admin mode is activated by pressing all 4 face buttons simultaneously
+    (Cross + Circle + Square + Triangle). While active, buttons perform
+    administrative actions.
 
     Implements the ControllerHandler protocol for StateManager integration.
     """
@@ -229,9 +230,14 @@ class AdminModeHandler:
             button_state: Dictionary with button names as keys and pressed state as values
 
         Returns:
-            True if Move + Trigger + PS are all pressed
+            True if all 4 face buttons (Cross + Circle + Square + Triangle) are pressed
         """
-        return button_state.get("move", False) and button_state.get("trigger", False) and button_state.get("ps", False)
+        return (
+            button_state.get("cross", False)
+            and button_state.get("circle", False)
+            and button_state.get("square", False)
+            and button_state.get("triangle", False)
+        )
 
     def check_combo_from_controller(self, controller) -> bool:
         """
@@ -241,9 +247,14 @@ class AdminModeHandler:
             controller: Controller protobuf message with button fields
 
         Returns:
-            True if Move + Trigger + PS are all pressed
+            True if all 4 face buttons (Cross + Circle + Square + Triangle) are pressed
         """
-        return controller.move_pressed and controller.trigger_pressed and controller.ps_pressed
+        return (
+            controller.cross_pressed
+            and controller.circle_pressed
+            and controller.square_pressed
+            and controller.triangle_pressed
+        )
 
     def _should_process_button(self, serial: str, button: str, current_time: float) -> bool:
         """

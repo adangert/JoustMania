@@ -41,14 +41,14 @@ This version focuses on:
 git clone https://github.com/WatchMeJoustMyFlags/JoustMania.git
 cd JoustMania
 
-# Build CI tooling
-make ci-build-tools
-
-# Run quality checks
-make ci-quick
+# Run linting
+make lint
 
 # Format code
 make format
+
+# Run tests
+make test
 ```
 
 **See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for full development guide.**
@@ -134,15 +134,15 @@ make format
 git clone <repository-url>
 cd JoustMania
 
-# Start with GHCR images
-make up PULL=1
-# or
-make up-pull
+# Pull images from GHCR and start
+docker compose pull
+docker compose up -d
 ```
 
 To use a specific version:
 ```bash
-IMAGE_TAG=dev-refactor make up PULL=1
+IMAGE_TAG=dev-refactor docker compose pull
+IMAGE_TAG=dev-refactor docker compose up -d
 ```
 
 ### Option 2: Build and Start
@@ -152,24 +152,8 @@ git clone <repository-url>
 cd JoustMania
 
 # Build and start
-make up BUILD=1
-# or
-make up-build
+docker compose up -d --build
 ```
-
-### Option 3: Start with Existing Images
-
-```bash
-# Just start services (no build, no pull)
-make up
-```
-
-The `make up` target is flexible:
-- `make up` - Start with existing images
-- `make up BUILD=1` - Build and start
-- `make up PULL=1` - Pull and start
-- `make up-build` - Convenience alias for BUILD=1
-- `make up-pull` - Convenience alias for PULL=1
 
 ### GHCR Authentication (For Private Images)
 
@@ -206,9 +190,6 @@ This starts:
 
 ```bash
 # All services
-make logs
-
-# Or use docker compose directly
 docker compose logs -f
 
 # Specific service
@@ -239,10 +220,6 @@ grpcurl -plaintext -d '{}' localhost:50051 joustmania.SettingsService/GetSetting
 ### Stop Services
 
 ```bash
-# Stop all services
-make down
-
-# Or use docker compose directly
 docker compose down
 ```
 
@@ -398,8 +375,11 @@ Test and develop JoustMania **without PS Move controllers or Bluetooth hardware*
 ### Quick Start with Mock
 
 ```bash
-# Start all services with mock hardware (uses docker-compose.override.yml automatically)
-docker-compose up
+# Start all services with mock hardware
+make up-mock
+
+# Or manually:
+CONTROLLER_BACKEND=mock AUDIO_MOCK_MODE=true docker compose up -d
 
 # Simulate a game with 4 mock controllers
 python scripts/testing/simulate_game.py --mode FFA --controllers 4 --duration 30
@@ -474,20 +454,23 @@ For complete mock environment documentation, see:
 
 ```bash
 # Rebuild specific service
-docker-compose build settings
+docker compose build settings
 
 # Rebuild all
-docker-compose build --parallel
+docker compose build
 ```
 
 ### Running Tests
 
 ```bash
-# Unit tests
-scripts/testing/run_tests.sh
-
 # Integration tests
-pytest testing/test_settings_integration.py
+make test
+
+# Unit tests (fast)
+make test-unit
+
+# Specific test
+make test TEST=test_ffa
 ```
 
 ### Adding New Features

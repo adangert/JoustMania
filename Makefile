@@ -1,594 +1,221 @@
-# JoustMania Build Targets
-# Phase 47: Protobuf precompilation optimization
-# Phase 69: Shared builder images
+# JoustMania Makefile
+#
+# Most Docker operations are done directly with docker compose.
+# This Makefile provides shortcuts for common development tasks.
+#
+# Quick Start:
+#   docker compose up -d              # Start with existing images
+#   docker compose up -d --build      # Build and start
+#   docker compose pull && docker compose up -d  # Pull from GHCR and start
+#
+# Or use make targets for convenience:
+#   make up-mock                      # Start in mock mode (no hardware)
+#   make builders                     # Build base images (once)
+#   make test                         # Run integration tests
 
 .PHONY: help
 help:
-	@echo "JoustMania Build Targets"
-	@echo "========================"
+	@echo "JoustMania Development Targets"
+	@echo "=============================="
 	@echo ""
-	@echo "Quick Start:"
-	@echo "  make up              - Start all services (using existing images)"
-	@echo "  make up BUILD=1      - Start and build images"
-	@echo "  make up PULL=1       - Start and pull from GHCR"
-	@echo "  make up-build        - Alias for 'make up BUILD=1'"
-	@echo "  make up-pull         - Alias for 'make up PULL=1'"
-	@echo "  make down            - Stop all services"
-	@echo "  make logs            - Follow service logs"
-	@echo "  make restart         - Restart all services"
+	@echo "Docker (use docker compose directly for most operations):"
+	@echo "  make up-mock         - Start in mock mode (no hardware)"
+	@echo "  make builders        - Build base images (run once)"
 	@echo ""
-	@echo "Build:"
-	@echo "  make images          - Build all service images (via docker compose)"
-	@echo "  make builders        - Build base images (run once, ~15min on Pi)"
+	@echo "Code Quality:"
+	@echo "  make lint            - Run linting (ruff)"
+	@echo "  make format          - Format code (ruff)"
+	@echo "  make check           - Run all checks (lint + format)"
 	@echo ""
-	@echo "Individual Services:"
-	@echo "  make image-settings  - Build settings service image"
-	@echo "  make image-audio     - Build audio service image"
-	@echo "  (etc. for all services)"
+	@echo "Testing:"
+	@echo "  make test            - Run integration tests"
+	@echo "  make test-unit       - Run unit tests (fast)"
+	@echo "  make test TEST=name  - Run specific test"
 	@echo ""
 	@echo "Protos:"
 	@echo "  make protos          - Generate Python protobuf files"
-	@echo "  make protos-ts       - Generate TypeScript for dashboard"
-	@echo "  make protos-go       - Generate Go for connect-proxy"
-	@echo "  make protos-all      - Generate all protobuf files"
-	@echo "  make clean-protos    - Remove generated protos"
+	@echo "  make protos-all      - Generate all protobuf files (Python, TS, Go)"
 	@echo ""
-	@echo "Testing:  make test-help"
-	@echo "CI/CD:    make ci-help"
-
-.PHONY: protos
-protos:
-	@echo "Generating and compiling protobuf files..."
-	@bash proto/generate_proto.sh
-	@echo "✓ Done! Protobuf files are ready with optimized bytecode."
-
-.PHONY: protos-ts
-protos-ts:
-	@echo "Generating TypeScript protobuf files for dashboard..."
-	@cd proto && buf generate --template buf.gen.yaml
-	@echo "✓ Done! TypeScript protobuf files generated in services/dashboard/src/gen/"
-
-.PHONY: protos-go
-protos-go:
-	@echo "Generating Go protobuf files for connect-proxy..."
-	@cd proto && buf generate --template buf.gen.go.yaml
-	@echo "✓ Done! Go protobuf files generated in services/connect-proxy/gen/"
-
-.PHONY: protos-all
-protos-all: protos protos-ts protos-go
-	@echo "✓ All protobuf files generated!"
-
-.PHONY: clean-protos
-clean-protos:
-	@echo "Cleaning generated protobuf files..."
-	@rm -f proto/*_pb2.py proto/*_pb2_grpc.py
-	@rm -rf proto/__pycache__
-	@rm -rf services/dashboard/src/gen/*
-	@rm -rf services/connect-proxy/gen/*
-	@echo "✓ Done! Protobuf files cleaned."
+	@echo "Direct docker compose commands:"
+	@echo "  docker compose up -d              # Start services"
+	@echo "  docker compose up -d --build      # Build and start"
+	@echo "  docker compose down               # Stop services"
+	@echo "  docker compose logs -f            # Follow logs"
+	@echo "  docker compose ps                 # List services"
+	@echo "  docker compose pull               # Pull images from GHCR"
 
 # ============================================================================
-# Docker Compose Commands
+# Docker Convenience Targets
 # ============================================================================
 
-# Default behavior for make up (can be overridden with BUILD=1 or PULL=1)
-.PHONY: up
-up:
-	@echo "Starting JoustMania stack..."
-ifdef PULL
-	@echo "→ Pulling images from GHCR..."
-	@docker compose pull
-	@docker compose up -d
-else ifdef BUILD
-	@echo "→ Building images..."
-	@docker compose up -d --build
-else
-	@echo "→ Using existing images (use BUILD=1 to rebuild or PULL=1 to pull)..."
-	@docker compose up -d
-endif
-	@echo ""
-	@echo "=========================================="
-	@echo "JoustMania is running!"
-	@echo "=========================================="
-	@echo "  Dashboard:  http://localhost:8080"
-	@echo "  Jaeger:     http://localhost:8080/jaeger/"
-	@echo "  Prometheus: http://localhost:8080/prometheus/"
-	@echo "  Grafana:    http://localhost:8080/grafana/"
-	@echo "  Legacy UI:  http://localhost:8080/legacy/"
-
-# Convenience aliases for common workflows
-.PHONY: up-pull
-up-pull:
-	@$(MAKE) up PULL=1
-
-.PHONY: up-build
-up-build:
-	@$(MAKE) up BUILD=1
-
-.PHONY: down
-down:
-	@echo "Stopping JoustMania stack..."
-	@docker compose down
-
-.PHONY: logs
-logs:
-	@docker compose logs -f
-
-.PHONY: restart
-restart: down up
-
-.PHONY: ps
-ps:
-	@docker compose ps
-
-# Mock mode for testing (no real hardware required)
+# Mock mode sets environment variables - this is the main value-add over raw docker compose
 .PHONY: up-mock
 up-mock:
-	@echo "Starting JoustMania stack in MOCK mode..."
-	@CONTROLLER_BACKEND=mock AUDIO_MOCK_MODE=true docker compose up -d $(if $(BUILD),--build,)
+	CONTROLLER_BACKEND=mock AUDIO_MOCK_MODE=true docker compose up -d $(if $(BUILD),--build)
 	@echo ""
-	@echo "=========================================="
-	@echo "JoustMania is running (MOCK MODE)"
-	@echo "=========================================="
-	@echo "  Dashboard:  http://localhost:8080"
-	@echo "  Jaeger:     http://localhost:8080/jaeger/"
-	@echo "  Prometheus: http://localhost:8080/prometheus/"
-	@echo "  Grafana:    http://localhost:8080/grafana/"
+	@echo "JoustMania running in MOCK MODE"
+	@echo "Dashboard: http://localhost:8080"
 
 # ============================================================================
-# Builder Images (Phase 69)
+# Builder Images
 # ============================================================================
-# These images cache common dependencies to speed up service builds.
-# Build once, then service builds will be much faster.
+# Build once, then service builds are much faster.
 
-# Marker files to track when builders were last built
 BUILDER_MARKER := .builder-built
 PSMOVE_BUILDER_MARKER := .psmove-builder-built
 
-.PHONY: builder
-builder: $(BUILDER_MARKER)
+.PHONY: builders
+builders: $(BUILDER_MARKER) $(PSMOVE_BUILDER_MARKER)
+	@echo "✓ All builder images ready"
 
 $(BUILDER_MARKER): images/builder/Dockerfile images/builder/requirements-common.txt
 	@echo "Building shared Python builder image..."
-	@docker build -t ghcr.io/watchmejoustmyflags/joustmania/builder:latest images/builder/
+	docker build -t ghcr.io/watchmejoustmyflags/joustmania/builder:latest images/builder/
 	@touch $(BUILDER_MARKER)
-	@echo "✓ Builder image ready"
-
-.PHONY: psmove-builder
-psmove-builder: $(PSMOVE_BUILDER_MARKER)
 
 $(PSMOVE_BUILDER_MARKER): images/psmove-builder/Dockerfile
-	@echo "Building psmoveapi builder image (this takes 10-15 minutes on Pi)..."
-	@docker build -t ghcr.io/watchmejoustmyflags/joustmania/psmove-builder:latest images/psmove-builder/
+	@echo "Building psmoveapi builder image..."
+	docker build -t ghcr.io/watchmejoustmyflags/joustmania/psmove-builder:latest images/psmove-builder/
 	@touch $(PSMOVE_BUILDER_MARKER)
-	@echo "✓ PS Move builder image ready"
 
-.PHONY: builders
-builders: builder psmove-builder
-	@echo ""
-	@echo "✓ All builder images ready!"
-
-.PHONY: builder-force
-builder-force:
-	@echo "Force rebuilding shared Python builder image..."
-	@docker build --no-cache -t ghcr.io/watchmejoustmyflags/joustmania/builder:latest images/builder/
-	@touch $(BUILDER_MARKER)
-	@echo "✓ Builder image rebuilt"
-
-.PHONY: psmove-builder-force
-psmove-builder-force:
-	@echo "Force rebuilding psmoveapi builder image..."
-	@docker build --no-cache -t ghcr.io/watchmejoustmyflags/joustmania/psmove-builder:latest images/psmove-builder/
-	@touch $(PSMOVE_BUILDER_MARKER)
-	@echo "✓ PS Move builder image rebuilt"
+.PHONY: builders-force
+builders-force:
+	docker build --no-cache -t ghcr.io/watchmejoustmyflags/joustmania/builder:latest images/builder/
+	docker build --no-cache -t ghcr.io/watchmejoustmyflags/joustmania/psmove-builder:latest images/psmove-builder/
+	@touch $(BUILDER_MARKER) $(PSMOVE_BUILDER_MARKER)
 
 .PHONY: clean-builders
 clean-builders:
-	@echo "Removing builder marker files..."
-	@rm -f $(BUILDER_MARKER) $(PSMOVE_BUILDER_MARKER)
-	@echo "✓ Builder markers cleaned (images still exist)"
+	rm -f $(BUILDER_MARKER) $(PSMOVE_BUILDER_MARKER)
 
 # ============================================================================
-# Service Images
+# Code Quality (using uv directly - fast, no Docker overhead)
 # ============================================================================
-# Build service images using the shared builder images.
-# Each service image is tagged with canonical GHCR names for consistency.
-
-# Individual service image targets
-.PHONY: image-settings
-image-settings: builders
-	@echo "Building settings service..."
-	@docker build -f services/settings/Dockerfile \
-		-t ghcr.io/watchmejoustmyflags/joustmania/settings-service:latest \
-		--build-arg BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/builder:latest .
-	@echo "✓ settings-service:latest built"
-
-.PHONY: image-controller-manager
-image-controller-manager: builders
-	@echo "Building controller-manager service..."
-	@docker build -f services/controller_manager/Dockerfile \
-		-t ghcr.io/watchmejoustmyflags/joustmania/controller-manager-service:latest \
-		--build-arg BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/builder:latest \
-		--build-arg PSMOVE_BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/psmove-builder:latest .
-	@echo "✓ controller-manager-service:latest built"
-
-.PHONY: image-game-coordinator
-image-game-coordinator: builders
-	@echo "Building game-coordinator service..."
-	@docker build -f services/game_coordinator/Dockerfile \
-		-t ghcr.io/watchmejoustmyflags/joustmania/game-coordinator-service:latest \
-		--build-arg BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/builder:latest .
-	@echo "✓ game-coordinator-service:latest built"
-
-.PHONY: image-menu
-image-menu: builders
-	@echo "Building menu service..."
-	@docker build -f services/menu/Dockerfile \
-		-t ghcr.io/watchmejoustmyflags/joustmania/menu-service:latest \
-		--build-arg BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/builder:latest .
-	@echo "✓ menu-service:latest built"
-
-.PHONY: image-supervisor
-image-supervisor: builders
-	@echo "Building supervisor service..."
-	@docker build -f services/supervisor/Dockerfile \
-		-t ghcr.io/watchmejoustmyflags/joustmania/supervisor-service:latest \
-		--build-arg BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/builder:latest .
-	@echo "✓ supervisor-service:latest built"
-
-.PHONY: image-webui
-image-webui: builders
-	@echo "Building webui service..."
-	@docker build -f services/webui/Dockerfile \
-		-t ghcr.io/watchmejoustmyflags/joustmania/webui-service:latest \
-		--build-arg BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/builder:latest .
-	@echo "✓ webui-service:latest built"
-
-.PHONY: image-audio
-image-audio: builders
-	@echo "Building audio service..."
-	@docker build -f services/audio/Dockerfile \
-		-t ghcr.io/watchmejoustmyflags/joustmania/audio-service:latest \
-		--build-arg BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/builder:latest .
-	@echo "✓ audio-service:latest built"
-
-.PHONY: image-connect-proxy
-image-connect-proxy:
-	@echo "Building connect-proxy service..."
-	@docker build -f services/connect-proxy/Dockerfile \
-		-t ghcr.io/watchmejoustmyflags/joustmania/connect-proxy:latest .
-	@echo "✓ connect-proxy:latest built"
-
-.PHONY: image-dashboard
-image-dashboard:
-	@echo "Building dashboard service..."
-	@docker build -f services/dashboard/Dockerfile \
-		-t ghcr.io/watchmejoustmyflags/joustmania/dashboard:latest .
-	@echo "✓ dashboard:latest built"
-
-# Build all service images using docker compose
-.PHONY: images
-images: builders
-	@echo "Building all service images using docker compose..."
-	@docker compose build
-	@echo ""
-	@echo "✓ All service images built!"
-
-# ============================================================================
-# CI/CD Targets (Phase 55)
-# ============================================================================
-
-# Services list for build targets (Python services)
-SERVICES := controller_manager game_coordinator settings supervisor menu audio webui
-# Additional services (Go/Node)
-EXTRA_SERVICES := connect-proxy dashboard
-
-.PHONY: ci-build-tools
-ci-build-tools:
-	@echo "Building CI tooling images..."
-	@docker build -t joustmania/ci-lint:latest tools/ci-lint/
-	@docker build -t joustmania/ci-hadolint:latest tools/ci-hadolint/
-	@docker build -t joustmania/ci-proto:latest tools/ci-proto/
-	@echo "✓ CI tools built"
 
 .PHONY: lint
-lint: ci-build-tools
-	@echo "Running ruff linting..."
-	@docker run --rm \
-		-v "$(PWD):/workspace:ro" \
-		-w /workspace \
-		-e RUFF_CACHE_DIR=/tmp/ruff-cache \
-		joustmania/ci-lint:latest \
-		ruff check . --output-format=github
-	@echo "✅ Linting passed!"
+lint:
+	uv run ruff check .
 
 .PHONY: format
-format: ci-build-tools
-	@echo "Formatting code with ruff..."
-	@docker run --rm \
-		-v "$(PWD):/workspace" \
-		-w /workspace \
-		-e RUFF_CACHE_DIR=/tmp/ruff-cache \
-		joustmania/ci-lint:latest \
-		ruff format .
-	@echo "✓ Code formatted"
+format:
+	uv run ruff format .
 
 .PHONY: format-check
-format-check: ci-build-tools
-	@echo "Checking code formatting..."
-	@docker run --rm \
-		-v "$(PWD):/workspace:ro" \
-		-w /workspace \
-		-e RUFF_CACHE_DIR=/tmp/ruff-cache \
-		joustmania/ci-lint:latest \
-		ruff format --check .
-	@echo "✅ Formatting is correct!"
+format-check:
+	uv run ruff format --check .
 
-.PHONY: typecheck
-typecheck: ci-build-tools
-	@echo "Running ty type checking..."
-	@for service in $(SERVICES); do \
-		echo "Checking services/$$service..."; \
-		docker run --rm \
-			-v "$(PWD):/workspace:ro" \
-			-w /workspace \
-			joustmania/ci-lint:latest \
-			ty check "services/$$service" || true; \
-	done
-	@echo "✅ Type checking complete (warnings only)"
-
-.PHONY: lint-dockerfiles
-lint-dockerfiles: ci-build-tools
-	@echo "Linting Dockerfiles..."
-	@docker run --rm \
-		--entrypoint /bin/sh \
-		-v "$(PWD):/workspace:ro" \
-		-w /workspace \
-		joustmania/ci-hadolint:latest \
-		-c 'find . -name "Dockerfile" -type f -exec echo "Linting {}" \; -exec hadolint {} \;'
-	@echo "✅ All Dockerfiles passed linting!"
-
-.PHONY: validate-protos
-validate-protos: ci-build-tools
-	@bash scripts/ci/validate-protos.sh
-
-.PHONY: validate-packages
-validate-packages: ci-build-tools
-	@bash scripts/ci/validate-packages.sh
-
-.PHONY: ci-all
-ci-all: lint format-check typecheck lint-dockerfiles validate-protos validate-packages
-	@echo ""
-	@echo "=========================================="
-	@echo "✅ All CI checks passed!"
-	@echo "=========================================="
-
-.PHONY: ci-quick
-ci-quick: lint format-check
-	@echo ""
-	@echo "✅ Quick CI checks passed!"
-
-.PHONY: ci-integration
-ci-integration: ci-build-test
-	@echo "Running integration tests for CI..."
-	@docker run --rm \
-		-v "$(PWD):/workspace" \
-		-v /var/run/docker.sock:/var/run/docker.sock \
-		-w /workspace \
-		-e DOCKER_HOST=unix:///var/run/docker.sock \
-		joustmania/ci-test:latest \
-		uv run --package joustmania-integration-tests pytest tests/integration/ -v
-	@echo "✅ Integration tests passed!"
-
-.PHONY: ci-help
-ci-help:
-	@echo "CI/CD Make Targets"
-	@echo "=================="
-	@echo ""
-	@echo "Quality Checks:"
-	@echo "  make lint              - Run Python linting (ruff)"
-	@echo "  make format            - Format code with ruff"
-	@echo "  make format-check      - Check code formatting"
-	@echo "  make typecheck         - Run type checking (ty)"
-	@echo "  make lint-dockerfiles  - Lint all Dockerfiles"
-	@echo ""
-	@echo "Validation:"
-	@echo "  make validate-protos   - Validate proto generation"
-	@echo "  make validate-packages - Validate Python packages"
-	@echo ""
-	@echo "Testing:"
-	@echo "  make ci-integration    - Run integration tests in CI"
-	@echo ""
-	@echo "Building:"
-	@echo "  make build-service SERVICE=<name>  - Build single service"
-	@echo "  make build-all-services            - Build all services"
-	@echo ""
-	@echo "Combined:"
-	@echo "  make ci-all    - Run all CI checks (no integration tests)"
-	@echo "  make ci-quick  - Run quick checks (lint + format)"
-	@echo ""
-	@echo "Setup:"
-	@echo "  make ci-build-tools  - Build CI tooling images"
+.PHONY: check
+check: lint format-check
+	@echo "✓ All checks passed"
 
 # ============================================================================
-# CI Service Building Targets (Phase 75)
+# Protobuf Generation
 # ============================================================================
 
-# Builder image defaults (can be overridden for CI/CD)
+.PHONY: protos
+protos:
+	@echo "Generating Python protobuf files..."
+	bash proto/generate_proto.sh
+
+.PHONY: protos-ts
+protos-ts:
+	@echo "Generating TypeScript protobuf files..."
+	cd proto && buf generate --template buf.gen.yaml
+
+.PHONY: protos-go
+protos-go:
+	@echo "Generating Go protobuf files..."
+	cd proto && buf generate --template buf.gen.go.yaml
+
+.PHONY: protos-all
+protos-all: protos protos-ts protos-go
+	@echo "✓ All protobuf files generated"
+
+.PHONY: clean-protos
+clean-protos:
+	rm -f proto/*_pb2.py proto/*_pb2_grpc.py
+	rm -rf proto/__pycache__
+	rm -rf services/dashboard/src/gen/*
+	rm -rf services/connect-proxy/gen/*
+
+# ============================================================================
+# Testing
+# ============================================================================
+# Uses a separate venv (.venv-test) to avoid conflicts with Docker-created files.
+
+# Test environment setup
+TEST_VENV := .venv-test
+TEST_ENV := UV_PROJECT_ENVIRONMENT=$(TEST_VENV)
+
+# Clean test venv if it has wrong permissions (Docker root ownership issue)
+.PHONY: clean-test-venv
+clean-test-venv:
+	@if [ -d "$(TEST_VENV)" ] && [ ! -w "$(TEST_VENV)" ]; then \
+		echo "Removing $(TEST_VENV) (permission issue)..."; \
+		sudo rm -rf $(TEST_VENV); \
+	fi
+
+.PHONY: test
+test: clean-test-venv
+	$(TEST_ENV) uv run --package joustmania-integration-tests \
+		pytest tests/integration/ -v $(if $(TEST),-k "$(TEST)")
+
+.PHONY: test-unit
+test-unit:
+	uv run pytest services/*/tests/ -v $(if $(TEST),-k "$(TEST)")
+
+# Run with prebuilt images from GHCR instead of building
+.PHONY: test-pulled
+test-pulled: clean-test-venv
+	USE_PREBUILT_IMAGES=true IMAGE_TAG=$(or $(IMAGE_TAG),latest) \
+		$(TEST_ENV) uv run --package joustmania-integration-tests \
+		pytest tests/integration/ -v $(if $(TEST),-k "$(TEST)")
+
+# Pause before teardown for Jaeger inspection
+.PHONY: test-debug
+test-debug: clean-test-venv
+	PAUSE_BEFORE_TEARDOWN=1 $(TEST_ENV) uv run --package joustmania-integration-tests \
+		pytest tests/integration/ -v -s $(if $(TEST),-k "$(TEST)")
+
+# ============================================================================
+# CI Targets (used by GitHub Actions)
+# ============================================================================
+# These are optimized for CI - local development should use targets above.
+
+# Builder image defaults (CI overrides these)
 BUILDER_IMAGE ?= ghcr.io/watchmejoustmyflags/joustmania/builder:latest
 PSMOVE_BUILDER_IMAGE ?= ghcr.io/watchmejoustmyflags/joustmania/psmove-builder:latest
 
-.PHONY: build-service
-build-service:
+# Build a single service (used by CI matrix)
+.PHONY: ci-build-service
+ci-build-service:
 ifndef SERVICE
-	$(error SERVICE is required. Usage: make build-service SERVICE=settings)
+	$(error SERVICE is required. Usage: make ci-build-service SERVICE=settings)
 endif
-	@echo "Building service: $(SERVICE)..."
-	@docker build \
+	docker build \
 		--build-arg BUILDER_IMAGE=$(BUILDER_IMAGE) \
 		--build-arg PSMOVE_BUILDER_IMAGE=$(PSMOVE_BUILDER_IMAGE) \
 		-t ghcr.io/watchmejoustmyflags/joustmania/$(SERVICE)-service:latest \
-		-f services/$(SERVICE)/Dockerfile \
-		.
-	@echo "✓ Built ghcr.io/watchmejoustmyflags/joustmania/$(SERVICE)-service:latest"
+		-f services/$(SERVICE)/Dockerfile .
 
-.PHONY: build-all-services
-build-all-services:
-	@echo "Building all services..."
-	@for service in $(SERVICES); do \
-		echo "Building $$service..."; \
-		$(MAKE) build-service SERVICE=$$service || exit 1; \
-	done
-	@echo "✓ All services built"
+# Build CI proto image (used by validation scripts)
+.PHONY: ci-proto-image
+ci-proto-image:
+	docker build -t joustmania/ci-proto:latest tools/ci-proto/
 
-# Image tag for pulling/tagging (can be overridden for CI/CD)
-IMAGE_TAG ?= latest
+# Validate proto files match generated code
+.PHONY: ci-validate-protos
+ci-validate-protos: ci-proto-image
+	bash scripts/ci/validate-protos.sh
 
-# ============================================================================
-# Testing Targets
-# ============================================================================
+# Validate Python package dependencies
+.PHONY: ci-validate-packages
+ci-validate-packages: ci-proto-image
+	bash scripts/ci/validate-packages.sh
 
-.PHONY: ci-build-test
-ci-build-test:
-	@echo "Building test runner image..."
-	@docker build -t joustmania/ci-test:latest tools/ci-test/
-	@echo "✓ Test runner image built"
-
-.PHONY: unit-test
-unit-test:
-	@echo "Running service unit tests..."
-	@uv run --extra test python -m pytest services/controller_manager/tests/ services/audio/tests/ services/settings/tests/ services/game_coordinator/tests/ -v
-
-.PHONY: test
-test:
-	@echo "Running integration tests with mock environment (fresh venv)..."
-	@rm -rf .venv-test 2>/dev/null || true
-	@UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/ -v
-
-.PHONY: test-with-pulled
-test-with-pulled:
-	@echo "Running integration tests with prebuilt GHCR images (tag: $(IMAGE_TAG))..."
-	@rm -rf .venv-test 2>/dev/null || true
-	@USE_PREBUILT_IMAGES=true IMAGE_TAG=$(IMAGE_TAG) UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/ -v
-
-.PHONY: test-docker
-test-docker: ci-build-test
-	@echo "Running integration tests in Docker..."
-	@docker run --rm \
-		-v "$(PWD):/workspace" \
-		-v /var/run/docker.sock:/var/run/docker.sock \
-		-w /workspace \
-		-e DOCKER_HOST=unix:///var/run/docker.sock \
-		joustmania/ci-test:latest \
-		uv run --package joustmania-integration-tests pytest tests/integration/ -v
-
-.PHONY: test-mock-pause
-test-mock-pause:
-	@echo "Running integration tests with pause (for Jaeger inspection)..."
-	@echo "Note: Tests will pause before teardown. Press Enter to continue."
-	@echo ""
-	@rm -rf .venv-test 2>/dev/null || true
-	@PAUSE_BEFORE_TEARDOWN=1 UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/ -v -s
-
-.PHONY: test-mock-pause-docker
-test-mock-pause-docker: ci-build-test
-	@echo "Running integration tests in Docker with pause (for Jaeger inspection)..."
-	@echo "Note: Tests will pause before teardown. Press Enter in test output to continue."
-	@docker run --rm -it \
-		-v "$(PWD):/workspace" \
-		-v /var/run/docker.sock:/var/run/docker.sock \
-		-w /workspace \
-		-e DOCKER_HOST=unix:///var/run/docker.sock \
-		-e PAUSE_BEFORE_TEARDOWN=1 \
-		joustmania/ci-test:latest \
-		uv run --package joustmania-integration-tests pytest tests/integration/ -v -s
-
-.PHONY: test-ffa
-test-ffa:
-	@echo "Running FFA integration test (fresh venv)..."
-	@rm -rf .venv-test 2>/dev/null || true
-	@UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/test_game_flow.py::test_ffa_game_with_mock_controllers -v
-
-.PHONY: test-ffa-docker
-test-ffa-docker: ci-build-test
-	@echo "Running FFA integration test in Docker..."
-	@docker run --rm \
-		-v "$(PWD):/workspace" \
-		-v /var/run/docker.sock:/var/run/docker.sock \
-		-w /workspace \
-		-e DOCKER_HOST=unix:///var/run/docker.sock \
-		joustmania/ci-test:latest \
-		uv run --package joustmania-integration-tests pytest tests/integration/test_game_flow.py::test_ffa_game_with_mock_controllers -v
-
-.PHONY: test-teams
-test-teams:
-	@echo "Running Teams integration test (fresh venv)..."
-	@rm -rf .venv-test 2>/dev/null || true
-	@UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/test_game_flow.py::test_teams_game_with_mock_controllers -v
-
-.PHONY: test-teams-docker
-test-teams-docker: ci-build-test
-	@echo "Running Teams integration test in Docker..."
-	@docker run --rm \
-		-v "$(PWD):/workspace" \
-		-v /var/run/docker.sock:/var/run/docker.sock \
-		-w /workspace \
-		-e DOCKER_HOST=unix:///var/run/docker.sock \
-		joustmania/ci-test:latest \
-		uv run --package joustmania-integration-tests pytest tests/integration/test_game_flow.py::test_teams_game_with_mock_controllers -v
-
-.PHONY: test-random-teams
-test-random-teams:
-	@echo "Running Random Teams integration test (fresh venv)..."
-	@rm -rf .venv-test 2>/dev/null || true
-	@UV_PROJECT_ENVIRONMENT=.venv-test uv run --package joustmania-integration-tests pytest tests/integration/test_game_colors.py::test_random_teams_color_pulse -v
-
-.PHONY: test-random-teams-docker
-test-random-teams-docker: ci-build-test
-	@echo "Running Random Teams integration test in Docker..."
-	@docker run --rm \
-		-v "$(PWD):/workspace" \
-		-v /var/run/docker.sock:/var/run/docker.sock \
-		-w /workspace \
-		-e DOCKER_HOST=unix:///var/run/docker.sock \
-		joustmania/ci-test:latest \
-		uv run --package joustmania-integration-tests pytest tests/integration/test_game_colors.py::test_random_teams_color_pulse -v
-
-.PHONY: test-watch
-test-watch:
-	@echo "Running tests in watch mode (re-runs on file changes)..."
-	@uv run --package joustmania-integration-tests pytest tests/integration/ -v --looponfail
-
-.PHONY: test-help
-test-help:
-	@echo "Testing Make Targets"
-	@echo "===================="
-	@echo ""
-	@echo "Run Tests (Local - Recommended):"
-	@echo "  make unit-test           - Run service unit tests (fast, no Docker)"
-	@echo "  make test                - Run all integration tests (builds images)"
-	@echo "  make test-with-pulled    - Run tests with prebuilt GHCR images"
-	@echo "  make test-mock-pause     - Run with pause before teardown (for Jaeger)"
-	@echo "  make test-ffa            - Run FFA integration test only"
-	@echo "  make test-teams          - Run Teams integration test only"
-	@echo "  make test-random-teams   - Run Random Teams integration test only"
-	@echo ""
-	@echo "Run Tests (Docker):"
-	@echo "  make test-docker             - Run all tests in Docker container"
-	@echo "  make test-mock-pause-docker  - Run with pause in Docker (for Jaeger)"
-	@echo "  make test-ffa-docker         - Run FFA test in Docker"
-	@echo "  make test-teams-docker       - Run Teams test in Docker"
-	@echo "  make test-random-teams-docker - Run Random Teams test in Docker"
-	@echo ""
-	@echo "Development:"
-	@echo "  make test-watch       - Run tests in watch mode (re-runs on changes)"
-	@echo ""
-	@echo "Setup:"
-	@echo "  make ci-build-test    - Build test runner Docker image"
-	@echo ""
-	@echo "Notes:"
-	@echo "  - Local tests use fresh venv (.venv-test) - no permission issues"
-	@echo "  - Use test-with-pulled to test with GHCR images (set IMAGE_TAG=dev-refactor)"
-	@echo "  - Docker tests may have TTY issues with pause mode - use local for Jaeger"
-	@echo "  - For Jaeger inspection: make test-mock-pause"
-	@echo "  - Requirements: uv installed (local tests) or Docker (Docker tests)"
+# Lint Dockerfiles (CI uses hadolint container)
+.PHONY: ci-lint-dockerfiles
+ci-lint-dockerfiles:
+	docker run --rm -v "$(PWD):/workspace:ro" -w /workspace \
+		hadolint/hadolint:latest-alpine \
+		sh -c 'find . -name "Dockerfile" -type f -exec hadolint {} \;'

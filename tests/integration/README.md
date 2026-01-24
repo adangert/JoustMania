@@ -76,14 +76,17 @@ uv sync --package joustmania-integration-tests
 # From project root - builds images locally
 make test
 
+# Run specific test
+make test TEST=test_ffa
+
 # Using prebuilt images from GHCR (faster, no build required)
-make test-with-pulled
+make test-pulled
 
 # Using specific image tag
-IMAGE_TAG=dev-refactor make test-with-pulled
+IMAGE_TAG=dev-refactor make test-pulled
 
 # With pause for Jaeger inspection
-make test-mock-pause
+make test-debug
 ```
 
 ### Using pytest Directly

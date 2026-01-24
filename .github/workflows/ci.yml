@@ -116,7 +116,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Lint Dockerfiles
-        run: make lint-dockerfiles
+        run: make ci-lint-dockerfiles
 
   validate-protos:
     name: Validate Proto Files
@@ -125,7 +125,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Validate protos
-        run: make validate-protos
+        run: make ci-validate-protos
 
   validate-packages:
     name: Validate Python Packages
@@ -134,7 +134,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Validate packages
-        run: make validate-packages
+        run: make ci-validate-packages
 
   # Detect which builder images need rebuilding based on file changes
   detect-builder-changes:

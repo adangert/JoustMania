@@ -9,6 +9,10 @@ These fixtures provide:
 Usage:
     Fixtures are auto-discovered by pytest from this conftest.py file.
     Import helpers from helpers.py for shared utility functions.
+
+Environment Variables:
+    USE_PREBUILT_IMAGES: Set to "true" to pull images from GHCR instead of building
+    IMAGE_TAG: Specify image tag to pull (default: latest)
 """
 
 import asyncio
@@ -35,7 +39,13 @@ def docker_compose():
     Uses docker-compose.yml with overrides for testing:
     - docker-compose.override.yml: port exposures for testing
     - docker-compose.ci.yml: mock mode for audio/controllers (no hardware)
+
+    By default, builds images locally. Set USE_PREBUILT_IMAGES=true to pull from GHCR.
     """
+    # Check if we should use prebuilt images
+    use_prebuilt = os.getenv("USE_PREBUILT_IMAGES", "false").lower() == "true"
+    image_tag = os.getenv("IMAGE_TAG", "latest")
+
     compose = DockerCompose(
         context=".",
         compose_file_name=[
@@ -43,9 +53,18 @@ def docker_compose():
             "docker-compose.override.yml",
             "docker-compose.ci.yml",
         ],
-        pull=False,
-        build=True,
+        pull=use_prebuilt,
+        build=not use_prebuilt,
+        env_file=None,  # Avoid conflicts with .env (e.g., IMAGE_TAG from development)
     )
+
+    # Set IMAGE_TAG if using prebuilt images
+    # Note: This modifies the environment for docker-compose but is session-scoped
+    if use_prebuilt:
+        os.environ["IMAGE_TAG"] = image_tag
+        print(f"\n🐳 Using prebuilt images from GHCR (tag: {image_tag})")
+    else:
+        print("\n🔨 Building images locally")
 
     compose.start()
 

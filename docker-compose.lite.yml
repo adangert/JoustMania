@@ -7,6 +7,9 @@
 #
 # Memory savings: ~768MB compared to full stack
 # Recommended for: Raspberry Pi 5, production deployments without monitoring
+#
+# All images use canonical GHCR names for consistency.
+# Use IMAGE_TAG environment variable to specify version (default: latest)
 
 services:
   # Redis for pub/sub messaging (lightweight)
@@ -25,9 +28,12 @@ services:
 
   # Settings Service
   settings:
+    image: ghcr.io/watchmejoustmyflags/joustmania/settings-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/settings/Dockerfile
+      args:
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/builder:latest}
     container_name: joustmania-settings
     expose:
       - "50051"
@@ -52,9 +58,13 @@ services:
   # Requires access to Bluetooth via D-Bus for controller communication
   # Note: Controller pairing is handled by host psmove-pairing daemon
   controller-manager:
+    image: ghcr.io/watchmejoustmyflags/joustmania/controller-manager-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/controller_manager/Dockerfile
+      args:
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/builder:latest}
+        PSMOVE_BUILDER_IMAGE: ${PSMOVE_BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/psmove-builder:latest}
     container_name: joustmania-controller-manager
     privileged: true
     networks:
@@ -89,9 +99,12 @@ services:
 
   # Game Coordinator Service
   game-coordinator:
+    image: ghcr.io/watchmejoustmyflags/joustmania/game-coordinator-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/game_coordinator/Dockerfile
+      args:
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/builder:latest}
     container_name: joustmania-game-coordinator
     expose:
       - "50053"
@@ -116,9 +129,12 @@ services:
 
   # Menu Service
   menu:
+    image: ghcr.io/watchmejoustmyflags/joustmania/menu-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/menu/Dockerfile
+      args:
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/builder:latest}
     container_name: joustmania-menu
     expose:
       - "50054"
@@ -147,9 +163,12 @@ services:
 
   # Supervisor Service
   supervisor:
+    image: ghcr.io/watchmejoustmyflags/joustmania/supervisor-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/supervisor/Dockerfile
+      args:
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/builder:latest}
     container_name: joustmania-supervisor
     expose:
       - "50055"
@@ -176,9 +195,12 @@ services:
 
   # Web UI Service
   webui:
+    image: ghcr.io/watchmejoustmyflags/joustmania/webui-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/webui/Dockerfile
+      args:
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/builder:latest}
     container_name: joustmania-webui
     ports:
       - "80:80"
@@ -209,9 +231,12 @@ services:
 
   # Audio Service
   audio:
+    image: ghcr.io/watchmejoustmyflags/joustmania/audio-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/audio/Dockerfile
+      args:
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/builder:latest}
     container_name: joustmania-audio
     privileged: true
     volumes:

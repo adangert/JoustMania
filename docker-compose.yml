@@ -2,28 +2,29 @@ version: '3.8'
 
 # JoustMania Docker Compose Configuration
 #
+# Quick Start (pull from GHCR - no build needed):
+#   docker compose pull  # Pull all images from GHCR
+#   docker compose up -d # Start all services
+#   # Or: make up-pull
+#
 # Quick Start (local build):
-#   make builders   # Build base images once (~15min on Pi)
-#   make images     # Build all service images
-#   make up         # Start all services
-#
-# Quick Start (pull from GHCR - no local build needed):
-#   IMAGE_PREFIX=ghcr.io/watchmejoustmyflags/joustmania IMAGE_TAG=dev-refactor make up
-#
-# Or just: make up (builds everything automatically)
+#   make builders        # Build base images once (~15min on Pi)
+#   make up              # Build and start all services
 #
 # Base config defaults to bluetooth mode (real hardware).
 # For mock mode (testing): CONTROLLER_BACKEND=mock AUDIO_MOCK_MODE=true make up
 #
 # Environment Variables (can be set in shell or .env file):
-# - IMAGE_PREFIX: Image registry prefix [default: joustmania, or ghcr.io/watchmejoustmyflags/joustmania]
 # - IMAGE_TAG: Image tag to use [default: latest]
-# - BUILDER_IMAGE: Base builder image for local builds [default: joustmania/builder:latest]
-# - PSMOVE_BUILDER_IMAGE: PSMove builder image [default: joustmania/psmove-builder:latest]
 # - CONTROLLER_BACKEND: Controller backend type (bluetooth, mock, windows) [default: bluetooth]
 # - MOCK_CONTROLLER_COUNT: Number of mock controllers when CONTROLLER_BACKEND=mock [default: 4]
 # - AUDIO_MOCK_MODE: Disable audio output for testing [default: false]
 # - LOG_LEVEL: Logging level for all services (DEBUG, INFO, WARNING, ERROR) [default: INFO]
+#
+# Notes:
+# - All images default to ghcr.io/watchmejoustmyflags/joustmania registry
+# - Use IMAGE_TAG to specify version (e.g., IMAGE_TAG=dev-refactor docker compose up)
+# - Local builds tag images with GHCR names for consistency
 
 services:
   # Redis for pub/sub messaging
@@ -84,12 +85,12 @@ services:
 
   # Settings Service
   settings:
-    image: ${IMAGE_PREFIX:-joustmania}/settings-service:${IMAGE_TAG:-latest}
+    image: ghcr.io/watchmejoustmyflags/joustmania/settings-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/settings/Dockerfile
       args:
-        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/builder:latest}
     container_name: joustmania-settings
     # Ports exposed only within Docker network (no host binding)
     expose:
@@ -113,13 +114,13 @@ services:
 
   # Controller Manager Service
   controller-manager:
-    image: ${IMAGE_PREFIX:-joustmania}/controller-manager-service:${IMAGE_TAG:-latest}
+    image: ghcr.io/watchmejoustmyflags/joustmania/controller-manager-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/controller_manager/Dockerfile
       args:
-        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
-        PSMOVE_BUILDER_IMAGE: ${PSMOVE_BUILDER_IMAGE:-joustmania/psmove-builder:latest}
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/builder:latest}
+        PSMOVE_BUILDER_IMAGE: ${PSMOVE_BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/psmove-builder:latest}
     container_name: joustmania-controller-manager
     privileged: true
     # Required for controller hot-plug: run in host PID namespace to see new devices
@@ -155,12 +156,12 @@ services:
 
   # Game Coordinator Service
   game-coordinator:
-    image: ${IMAGE_PREFIX:-joustmania}/game-coordinator-service:${IMAGE_TAG:-latest}
+    image: ghcr.io/watchmejoustmyflags/joustmania/game-coordinator-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/game_coordinator/Dockerfile
       args:
-        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/builder:latest}
     container_name: joustmania-game-coordinator
     # Ports exposed only within Docker network (no host binding)
     expose:
@@ -185,12 +186,12 @@ services:
 
   # Menu Service
   menu:
-    image: ${IMAGE_PREFIX:-joustmania}/menu-service:${IMAGE_TAG:-latest}
+    image: ghcr.io/watchmejoustmyflags/joustmania/menu-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/menu/Dockerfile
       args:
-        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/builder:latest}
     container_name: joustmania-menu
     # Ports exposed only within Docker network (no host binding)
     expose:
@@ -220,12 +221,12 @@ services:
 
   # Supervisor Service
   supervisor:
-    image: ${IMAGE_PREFIX:-joustmania}/supervisor-service:${IMAGE_TAG:-latest}
+    image: ghcr.io/watchmejoustmyflags/joustmania/supervisor-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/supervisor/Dockerfile
       args:
-        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/builder:latest}
     container_name: joustmania-supervisor
     # Ports exposed only within Docker network (no host binding)
     expose:
@@ -252,12 +253,12 @@ services:
 
   # Web UI Service (legacy - accessed via /legacy/ through dashboard proxy)
   webui:
-    image: ${IMAGE_PREFIX:-joustmania}/webui-service:${IMAGE_TAG:-latest}
+    image: ghcr.io/watchmejoustmyflags/joustmania/webui-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/webui/Dockerfile
       args:
-        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/builder:latest}
     container_name: joustmania-webui
     # All ports exposed only within Docker network (dashboard proxies to /legacy/)
     expose:
@@ -288,12 +289,12 @@ services:
 
   # Audio Service
   audio:
-    image: ${IMAGE_PREFIX:-joustmania}/audio-service:${IMAGE_TAG:-latest}
+    image: ghcr.io/watchmejoustmyflags/joustmania/audio-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/audio/Dockerfile
       args:
-        BUILDER_IMAGE: ${BUILDER_IMAGE:-joustmania/builder:latest}
+        BUILDER_IMAGE: ${BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/builder:latest}
     container_name: joustmania-audio
     # Sound device access for real audio output
     devices:
@@ -454,7 +455,7 @@ services:
 
   # Connect-Web Proxy (gRPC to Connect protocol translation)
   connect-proxy:
-    image: ${IMAGE_PREFIX:-joustmania}/connect-proxy:${IMAGE_TAG:-latest}
+    image: ghcr.io/watchmejoustmyflags/joustmania/connect-proxy:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/connect-proxy/Dockerfile
@@ -488,7 +489,7 @@ services:
 
   # Dashboard (Real-time controller visualization + unified proxy)
   dashboard:
-    image: ${IMAGE_PREFIX:-joustmania}/dashboard:${IMAGE_TAG:-latest}
+    image: ghcr.io/watchmejoustmyflags/joustmania/dashboard:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/dashboard/Dockerfile

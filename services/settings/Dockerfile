@@ -1,13 +1,13 @@
 # Multi-stage build for JoustMania Settings Service
 #
 # Uses shared builder image for faster builds (Phase 69)
-# Build the builder first: docker build -t joustmania/builder:latest images/builder/
+# Build the builder first: docker build -t ghcr.io/watchmejoustmyflags/joustmania/builder:latest images/builder/
 #
 # Phase 75: Builder image can be overridden for CI/CD
-# --build-arg BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/builder:latest
+# --build-arg BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/builder:dev-refactor
 
 # Builder image - override with --build-arg BUILDER_IMAGE=...
-ARG BUILDER_IMAGE=joustmania/builder:latest
+ARG BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/builder:latest
 
 # Build stage - uses pre-cached builder with common dependencies
 FROM ${BUILDER_IMAGE} AS builder

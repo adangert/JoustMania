@@ -70,21 +70,33 @@ uv sync --package joustmania-integration-tests
 
 ## Running Tests
 
-### Using Scripts (Recommended)
+### Quick Start (Using Makefile)
 
 ```bash
-# From project root
-./scripts/testing/test-mock.py
+# From project root - builds images locally
+make test
+
+# Using prebuilt images from GHCR (faster, no build required)
+make test-with-pulled
+
+# Using specific image tag
+IMAGE_TAG=dev-refactor make test-with-pulled
 
 # With pause for Jaeger inspection
-./scripts/testing/test-mock-with-pause.py
+make test-mock-pause
 ```
 
 ### Using pytest Directly
 
 ```bash
-# From project root
+# From project root - builds images locally
 uv run --package joustmania-integration-tests pytest tests/integration/ -v
+
+# Using prebuilt images from GHCR
+USE_PREBUILT_IMAGES=true uv run --package joustmania-integration-tests pytest tests/integration/ -v
+
+# Using specific image tag
+USE_PREBUILT_IMAGES=true IMAGE_TAG=dev-refactor uv run --package joustmania-integration-tests pytest tests/integration/ -v
 
 # With pause for Jaeger inspection
 PAUSE_BEFORE_TEARDOWN=1 uv run --package joustmania-integration-tests pytest tests/integration/ -v -s
@@ -131,21 +143,32 @@ Tests use `testcontainers-python` to:
 ### Test Fixture
 
 The tests use `docker-compose.yml` which automatically includes `docker-compose.override.yml`
-when present. The override file enables mock mode (no hardware required).
+and `docker-compose.ci.yml` for testing. By default, images are built locally to test the current code.
+Set `USE_PREBUILT_IMAGES=true` to pull images from GHCR instead.
 
 ```python
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def docker_compose():
     """Fixture to start docker-compose mock environment.
 
-    Uses docker-compose.yml with docker-compose.override.yml which enables
-    mock mode (no hardware required).
+    Uses docker-compose.yml with overrides for testing.
+    
+    Environment Variables:
+        USE_PREBUILT_IMAGES: Set to "true" to pull images from GHCR
+        IMAGE_TAG: Specify image tag to pull (default: latest)
     """
+    use_prebuilt = os.getenv("USE_PREBUILT_IMAGES", "false").lower() == "true"
+    image_tag = os.getenv("IMAGE_TAG", "latest")
+    
     compose = DockerCompose(
         context=".",
-        compose_file_name="docker-compose.yml",
-        pull=False,
-        build=True
+        compose_file_name=[
+            "docker-compose.yml",
+            "docker-compose.override.yml",
+            "docker-compose.ci.yml",
+        ],
+        pull=use_prebuilt,
+        build=not use_prebuilt,
     )
     compose.start()
     yield compose

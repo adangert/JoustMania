@@ -2,18 +2,18 @@
 #
 # Uses pre-built psmoveapi image for faster builds (Phase 69)
 # Build the images first:
-#   docker build -t joustmania/psmove-builder:latest images/psmove-builder/
-#   docker build -t joustmania/builder:latest images/builder/
+#   docker build -t ghcr.io/watchmejoustmyflags/joustmania/psmove-builder:latest images/psmove-builder/
+#   docker build -t ghcr.io/watchmejoustmyflags/joustmania/builder:latest images/builder/
 #
 # Phase 75: Builder images can be overridden for CI/CD
-# --build-arg BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/builder:latest
-# --build-arg PSMOVE_BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/psmove-builder:latest
+# --build-arg BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/builder:dev-refactor
+# --build-arg PSMOVE_BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/psmove-builder:dev-refactor
 #
 # Build time: ~1-2 minutes (vs 10-15 minutes without pre-built psmoveapi)
 
 # Builder images - override with --build-arg for CI/CD
-ARG BUILDER_IMAGE=joustmania/builder:latest
-ARG PSMOVE_BUILDER_IMAGE=joustmania/psmove-builder:latest
+ARG BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/builder:latest
+ARG PSMOVE_BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/psmove-builder:latest
 
 # =============================================================================
 # Stage 1: PS Move API - use pre-built image

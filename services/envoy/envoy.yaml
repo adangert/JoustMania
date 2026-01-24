@@ -1,0 +1,219 @@
+# Envoy configuration for JoustMania
+# Entry point for all HTTP traffic on port 80
+#
+# Route configuration:
+#   /joustmania*    -> connect-proxy:8080 (PRESERVE prefix, gRPC-Web)
+#   /grafana/*      -> grafana:3000       (PRESERVE prefix, serve_from_sub_path=true)
+#   /prometheus/*   -> prometheus:9090    (STRIP prefix, --web.route-prefix=/)
+#   /jaeger/*       -> jaeger:16686       (PRESERVE prefix, --query.base-path=/jaeger/)
+#   /loki/*         -> loki:3100          (STRIP prefix, API expects root)
+#   /legacy/*       -> webui:80           (STRIP prefix, Flask at root)
+#   /health         -> envoy internal     (health check)
+#   /*              -> dashboard:8080     (SPA with fallback)
+
+static_resources:
+  listeners:
+    - name: listener_0
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 80
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: ingress_http
+                codec_type: AUTO
+                route_config:
+                  name: local_route
+                  virtual_hosts:
+                    - name: backend
+                      domains: ["*"]
+                      routes:
+                        # gRPC-Web API (Connect protocol)
+                        # PRESERVE prefix - connect-proxy expects /joustmania.* paths
+                        - match:
+                            prefix: "/joustmania"
+                          route:
+                            cluster: connect_proxy
+                            timeout: 3600s  # Long timeout for streaming RPCs
+
+                        # Grafana UI
+                        # PRESERVE prefix - Grafana configured with serve_from_sub_path=true
+                        - match:
+                            prefix: "/grafana/"
+                          route:
+                            cluster: grafana
+                        - match:
+                            path: "/grafana"
+                          redirect:
+                            path_redirect: "/grafana/"
+
+                        # Prometheus UI
+                        # STRIP prefix - configured with --web.route-prefix=/
+                        - match:
+                            prefix: "/prometheus/"
+                          route:
+                            cluster: prometheus
+                            prefix_rewrite: "/"
+                        - match:
+                            path: "/prometheus"
+                          redirect:
+                            path_redirect: "/prometheus/"
+
+                        # Jaeger UI
+                        # PRESERVE prefix - configured with --query.base-path=/jaeger/
+                        - match:
+                            prefix: "/jaeger/"
+                          route:
+                            cluster: jaeger
+                        - match:
+                            path: "/jaeger"
+                          redirect:
+                            path_redirect: "/jaeger/"
+
+                        # Loki API
+                        # STRIP prefix - API expects root paths
+                        - match:
+                            prefix: "/loki/"
+                          route:
+                            cluster: loki
+                            prefix_rewrite: "/"
+
+                        # Legacy WebUI
+                        # STRIP prefix - Flask app serves at root
+                        - match:
+                            prefix: "/legacy/"
+                          route:
+                            cluster: webui
+                            prefix_rewrite: "/"
+                        - match:
+                            path: "/legacy"
+                          redirect:
+                            path_redirect: "/legacy/"
+
+                        # Health check endpoint
+                        - match:
+                            path: "/health"
+                          direct_response:
+                            status: 200
+                            body:
+                              inline_string: "OK"
+
+                        # Dashboard SPA (catch-all)
+                        # static-web-server handles SPA fallback internally
+                        - match:
+                            prefix: "/"
+                          route:
+                            cluster: dashboard
+
+                http_filters:
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+  clusters:
+    # Connect-proxy for gRPC-Web
+    - name: connect_proxy
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: connect_proxy
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: connect-proxy
+                      port_value: 8080
+
+    # Grafana metrics visualization
+    - name: grafana
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: grafana
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: grafana
+                      port_value: 3000
+
+    # Prometheus metrics
+    - name: prometheus
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: prometheus
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: prometheus
+                      port_value: 9090
+
+    # Jaeger tracing UI
+    - name: jaeger
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: jaeger
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: jaeger
+                      port_value: 16686
+
+    # Loki log aggregation
+    - name: loki
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: loki
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: loki
+                      port_value: 3100
+
+    # Legacy WebUI
+    - name: webui
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: webui
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: webui
+                      port_value: 80
+
+    # Dashboard SPA (static-web-server)
+    - name: dashboard
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: dashboard
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: dashboard
+                      port_value: 8080
+
+admin:
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 9901

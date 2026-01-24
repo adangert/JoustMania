@@ -41,3 +41,8 @@ services:
   dashboard:
     profiles:
       - dashboard  # Only starts when 'dashboard' profile is active
+
+  # Envoy - Not required for integration tests (depends on dashboard)
+  envoy:
+    profiles:
+      - dashboard  # Only starts when 'dashboard' profile is active

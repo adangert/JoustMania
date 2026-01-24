@@ -46,13 +46,14 @@ services:
   jaeger:
     image: jaegertracing/jaeger:2.14.1
     container_name: joustmania-jaeger
-    # All ports exposed only within Docker network (dashboard proxies to it)
+    # All ports exposed only within Docker network (envoy proxies to it)
     expose:
       - "16686"  # Jaeger UI
-      - "14268"  # Jaeger collector HTTP
-      - "14250"  # Jaeger collector gRPC
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
+      - "4317"   # OTLP gRPC (used by otel-collector)
+      - "4318"   # OTLP HTTP
+    volumes:
+      - ./services/jaeger/config.yaml:/etc/jaeger/config.yaml:ro
+    command: ["--config", "/etc/jaeger/config.yaml"]
     networks:
       - joustmania
     healthcheck:
@@ -251,7 +252,7 @@ services:
     restart: unless-stopped
     # Healthcheck defined in Dockerfile (uses grpc_health_probe)
 
-  # Web UI Service (legacy - accessed via /legacy/ through dashboard proxy)
+  # Web UI Service (legacy - accessed via /legacy/ through envoy)
   webui:
     image: ghcr.io/watchmejoustmyflags/joustmania/webui-service:${IMAGE_TAG:-latest}
     build:
@@ -260,9 +261,9 @@ services:
       args:
         BUILDER_IMAGE: ${BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/builder:latest}
     container_name: joustmania-webui
-    # All ports exposed only within Docker network (dashboard proxies to /legacy/)
+    # All ports exposed only within Docker network (envoy proxies to /legacy/)
     expose:
-      - "80"    # WebUI (proxied through dashboard)
+      - "80"    # WebUI (proxied through envoy)
       - "8000"  # Prometheus metrics
     environment:
       - OTEL_SERVICE_NAME=webui-service
@@ -329,7 +330,7 @@ services:
       - '--web.console.templates=/usr/share/prometheus/consoles'
       - '--web.external-url=/prometheus/'
       - '--web.route-prefix=/'
-    # Port exposed only within Docker network (dashboard proxies to it)
+    # Port exposed only within Docker network (envoy proxies to it)
     expose:
       - "9090"
     volumes:
@@ -400,17 +401,12 @@ services:
   grafana:
     image: grafana/grafana:10.2.3
     container_name: joustmania-grafana
-    # Port exposed only within Docker network (dashboard proxies to it)
+    # Port exposed only within Docker network (envoy proxies to it)
     expose:
       - "3000"
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=joustmania
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s/grafana/
-      - GF_SERVER_SERVE_FROM_SUB_PATH=true
-      - GF_INSTALL_PLUGINS=
+    environment: []
     volumes:
+      - ./services/grafana/grafana.ini:/etc/grafana/grafana.ini
       - ./services/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./services/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
@@ -436,7 +432,7 @@ services:
     image: grafana/loki:2.9.3
     container_name: joustmania-loki
     user: "0"  # Run as root to avoid permission issues with volume
-    # Port exposed only within Docker network (dashboard proxies to it)
+    # Port exposed only within Docker network (envoy proxies to it)
     expose:
       - "3100"
     volumes:
@@ -460,7 +456,7 @@ services:
       context: .
       dockerfile: services/connect-proxy/Dockerfile
     container_name: joustmania-connect-proxy
-    # Port exposed only within Docker network (dashboard proxies to it)
+    # Port exposed only within Docker network (envoy proxies to it)
     expose:
       - "8080"
     environment:
@@ -487,15 +483,29 @@ services:
       retries: 5
       start_period: 5s
 
-  # Dashboard (Real-time controller visualization + unified proxy)
+  # Dashboard (Real-time controller visualization SPA)
   dashboard:
     image: ghcr.io/watchmejoustmyflags/joustmania/dashboard:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: services/dashboard/Dockerfile
     container_name: joustmania-dashboard
+    # Port exposed only within Docker network (envoy proxies to it)
+    expose:
+      - "8080"
+    networks:
+      - joustmania
+    restart: unless-stopped
+    # Healthcheck defined in Dockerfile
+
+  # Envoy - Main entry point (reverse proxy)
+  envoy:
+    image: envoyproxy/envoy:v1.31-latest
+    container_name: joustmania-envoy
     ports:
-      - "8080:80"  # Main entry point (dashboard + all proxied services)
+      - "80:80"  # Main entry point (all services proxied through envoy)
+    volumes:
+      - ./services/envoy/envoy.yaml:/etc/envoy/envoy.yaml:ro
     depends_on:
       connect-proxy:
         condition: service_healthy
@@ -507,11 +517,13 @@ services:
         condition: service_healthy
       webui:
         condition: service_healthy
+      dashboard:
+        condition: service_healthy
     networks:
       - joustmania
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/health"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:80/health"]
       interval: 10s
       timeout: 5s
       retries: 5

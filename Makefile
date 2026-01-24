@@ -53,8 +53,14 @@ help:
 up-mock:
 	CONTROLLER_BACKEND=mock AUDIO_MOCK_MODE=true docker compose up -d $(if $(BUILD),--build)
 	@echo ""
-	@echo "JoustMania running in MOCK MODE"
-	@echo "Dashboard: http://localhost:8080"
+	@echo "=========================================="
+	@echo "JoustMania is running (MOCK MODE)"
+	@echo "=========================================="
+	@echo "  Dashboard:  http://localhost/"
+	@echo "  Jaeger:     http://localhost/jaeger/"
+	@echo "  Prometheus: http://localhost/prometheus/"
+	@echo "  Grafana:    http://localhost/grafana/"
+	@echo "  Legacy UI:  http://localhost/legacy/"
 
 # ============================================================================
 # Builder Images

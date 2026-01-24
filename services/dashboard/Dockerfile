@@ -1,5 +1,8 @@
 # Dashboard Dockerfile
-# Multi-stage build: Node for build, nginx for serving
+# Multi-stage build: Node for build, static-web-server for serving
+#
+# static-web-server is a lightweight (~6MB) Rust-based HTTP server
+# with built-in SPA fallback support via environment variables
 
 # Stage 1: Build the TypeScript application
 FROM node:20-alpine AS builder
@@ -18,15 +21,20 @@ COPY services/dashboard/ ./
 # Build the application
 RUN npm run build
 
-# Stage 2: Serve with Caddy
-FROM caddy:2.8-alpine
+# Stage 2: Serve with static-web-server
+FROM joseluisq/static-web-server:2-alpine
 
-# Copy built files to Caddy html directory
-COPY --from=builder /app/dist /usr/share/caddy
+# Copy built files to the public directory
+COPY --from=builder /app/dist /public
 
-# Copy Caddyfile
-COPY services/dashboard/Caddyfile /etc/caddy/Caddyfile
+# Configure static-web-server via environment variables
+ENV SERVER_PORT=8080
+ENV SERVER_ROOT=/public
+ENV SERVER_FALLBACK_PAGE=/public/index.html
+ENV SERVER_COMPRESSION=true
 
-EXPOSE 80
+EXPOSE 8080
 
-CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+# Health check
+HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
+    CMD wget -q -O /dev/null http://localhost:8080/ || exit 1

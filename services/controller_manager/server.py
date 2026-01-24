@@ -43,11 +43,15 @@ async def serve(port=50052):
         threads_gauge=metrics.process_threads,
     )
 
-    # Create async server with keepalive options to match client settings
-    # Without these options, server rejects client pings as "too many pings"
+    # Create async server with keepalive options and tracing interceptors
+    # Without keepalive options, server rejects client pings as "too many pings"
+    from lib.grpc_tracing import get_server_interceptors
     from lib.grpc_utils import get_server_options
 
-    server = grpc.aio.server(options=get_server_options())
+    server = grpc.aio.server(
+        options=get_server_options(),
+        interceptors=get_server_interceptors(),
+    )
 
     # Add servicer
     controller_servicer = ControllerManagerServicer()

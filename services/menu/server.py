@@ -50,10 +50,14 @@ async def serve(port=50054, metrics_port=8000):
     )
     background_tasks.append(metrics_task)
 
-    # Create server
+    # Create server with tracing interceptors for distributed trace propagation
+    from lib.grpc_tracing import get_server_interceptors
     from lib.grpc_utils import get_server_options
 
-    server = grpc.aio.server(options=get_server_options())
+    server = grpc.aio.server(
+        options=get_server_options(),
+        interceptors=get_server_interceptors(),
+    )
 
     # Add servicer
     menu_servicer = MenuServicer()

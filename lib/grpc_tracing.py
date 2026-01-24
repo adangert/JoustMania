@@ -1,28 +1,28 @@
 """
-Async gRPC client interceptors for OpenTelemetry trace context propagation.
+Async gRPC interceptors for OpenTelemetry trace context propagation.
 
-The standard GrpcInstrumentorClient doesn't reliably work with grpc.aio async channels.
-This module provides manual interceptors that:
-- Inject W3C Trace Context (traceparent, tracestate) into gRPC metadata
-- Properly propagate context across async calls to downstream services
-- Optionally create client spans (disabled by default)
+The standard gRPC OpenTelemetry instrumentation doesn't reliably work with grpc.aio.
+This module provides manual interceptors for both client and server:
 
-By default, these interceptors do NOT create client spans. Server-side services
-create their own manual spans with descriptive names, and the interceptors only
-propagate the current trace context so server spans are linked to the parent trace.
+CLIENT INTERCEPTORS:
+- Inject W3C Trace Context (traceparent, tracestate) into outgoing gRPC metadata
+- Optionally create client spans (disabled by default, enable with OTEL_GRPC_CLIENT_SPANS=true)
 
-To enable client spans for debugging (e.g., measuring network latency):
-    export OTEL_GRPC_CLIENT_SPANS=true
+SERVER INTERCEPTORS:
+- Extract W3C Trace Context from incoming gRPC metadata
+- Attach extracted context so service spans are linked to the parent trace
 
-Usage:
+Usage (Client):
     from lib.grpc_tracing import get_context_propagation_interceptors
 
-    # Create a channel with context propagation
     interceptors = get_context_propagation_interceptors()
     channel = grpc.aio.insecure_channel("service:50051", interceptors=interceptors)
-    stub = MyServiceStub(channel)
 
-    # Server-side manual spans will be linked to the current trace
+Usage (Server):
+    from lib.grpc_tracing import get_server_interceptors
+
+    interceptors = get_server_interceptors()
+    server = grpc.aio.server(options=options, interceptors=interceptors)
 """
 
 import logging
@@ -32,8 +32,9 @@ from typing import Any
 
 import grpc
 import grpc.aio
+from opentelemetry import context as otel_context
 from opentelemetry import trace
-from opentelemetry.propagate import inject
+from opentelemetry.propagate import extract, inject
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
 logger = logging.getLogger(__name__)
@@ -263,3 +264,146 @@ def get_context_propagation_interceptors() -> list:
 def get_tracing_interceptors(_tracer=None) -> list:
     """Deprecated: Use get_context_propagation_interceptors() instead."""
     return get_context_propagation_interceptors()
+
+
+# =============================================================================
+# Server-side interceptors
+# =============================================================================
+
+
+def _extract_context_from_metadata(context: grpc.aio.ServicerContext) -> otel_context.Context:
+    """Extract OpenTelemetry context from gRPC metadata.
+
+    Args:
+        context: gRPC servicer context containing request metadata
+
+    Returns:
+        OpenTelemetry context with extracted trace information
+    """
+    metadata: dict[str, str] = {}
+    invocation_metadata = context.invocation_metadata()
+    if invocation_metadata:
+        for key, value in invocation_metadata:
+            metadata[key] = value
+    return extract(metadata)
+
+
+class ServerContextPropagationInterceptor(grpc.aio.ServerInterceptor):
+    """
+    Async server interceptor that extracts trace context from incoming requests.
+
+    Extracts W3C Trace Context (traceparent, tracestate) from gRPC metadata and
+    attaches it to the current context. This allows service spans to be linked
+    to the parent trace from the calling service.
+    """
+
+    async def intercept_service(
+        self,
+        continuation: Callable,
+        handler_call_details: grpc.HandlerCallDetails,
+    ) -> Any:
+        """Intercept incoming RPC to extract and attach trace context."""
+        # Note: We can't extract context here because we don't have ServicerContext yet.
+        # The actual context extraction happens in the handler wrapper below.
+        return await continuation(handler_call_details)
+
+
+class ServerUnaryUnaryInterceptor(grpc.aio.ServerInterceptor):
+    """Server interceptor for unary-unary RPCs that extracts trace context."""
+
+    async def intercept_service(
+        self,
+        continuation: Callable,
+        handler_call_details: grpc.HandlerCallDetails,
+    ) -> grpc.RpcMethodHandler:
+        """Wrap the handler to extract trace context."""
+        handler = await continuation(handler_call_details)
+
+        if handler is None:
+            return None
+
+        if handler.unary_unary:
+            original_handler = handler.unary_unary
+
+            async def wrapped_unary_unary(request, context):
+                parent_ctx = _extract_context_from_metadata(context)
+                token = otel_context.attach(parent_ctx)
+                try:
+                    return await original_handler(request, context)
+                finally:
+                    otel_context.detach(token)
+
+            return grpc.unary_unary_rpc_method_handler(
+                wrapped_unary_unary,
+                request_deserializer=handler.request_deserializer,
+                response_serializer=handler.response_serializer,
+            )
+
+        if handler.unary_stream:
+            original_handler = handler.unary_stream
+
+            async def wrapped_unary_stream(request, context):
+                parent_ctx = _extract_context_from_metadata(context)
+                token = otel_context.attach(parent_ctx)
+                try:
+                    async for response in original_handler(request, context):
+                        yield response
+                finally:
+                    otel_context.detach(token)
+
+            return grpc.unary_stream_rpc_method_handler(
+                wrapped_unary_stream,
+                request_deserializer=handler.request_deserializer,
+                response_serializer=handler.response_serializer,
+            )
+
+        if handler.stream_unary:
+            original_handler = handler.stream_unary
+
+            async def wrapped_stream_unary(request_iterator, context):
+                parent_ctx = _extract_context_from_metadata(context)
+                token = otel_context.attach(parent_ctx)
+                try:
+                    return await original_handler(request_iterator, context)
+                finally:
+                    otel_context.detach(token)
+
+            return grpc.stream_unary_rpc_method_handler(
+                wrapped_stream_unary,
+                request_deserializer=handler.request_deserializer,
+                response_serializer=handler.response_serializer,
+            )
+
+        if handler.stream_stream:
+            original_handler = handler.stream_stream
+
+            async def wrapped_stream_stream(request_iterator, context):
+                parent_ctx = _extract_context_from_metadata(context)
+                token = otel_context.attach(parent_ctx)
+                try:
+                    async for response in original_handler(request_iterator, context):
+                        yield response
+                finally:
+                    otel_context.detach(token)
+
+            return grpc.stream_stream_rpc_method_handler(
+                wrapped_stream_stream,
+                request_deserializer=handler.request_deserializer,
+                response_serializer=handler.response_serializer,
+            )
+
+        return handler
+
+
+def get_server_interceptors() -> list:
+    """
+    Get server-side interceptors for trace context extraction.
+
+    These interceptors extract W3C Trace Context from incoming gRPC metadata
+    and attach it to the current OpenTelemetry context. This allows spans
+    created in service handlers to be linked to the parent trace.
+
+    Returns:
+        List of server interceptors.
+    """
+    return [ServerUnaryUnaryInterceptor()]

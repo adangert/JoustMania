@@ -46,10 +46,14 @@ async def serve(metrics_port=8000):
         threads_gauge=metrics.process_threads,
     )
 
-    # Create gRPC server with keepalive options to match client settings
+    # Create gRPC server with keepalive options and tracing interceptors
+    from lib.grpc_tracing import get_server_interceptors
     from lib.grpc_utils import get_server_options
 
-    server = grpc.aio.server(options=get_server_options())
+    server = grpc.aio.server(
+        options=get_server_options(),
+        interceptors=get_server_interceptors(),
+    )
     audio_servicer = AudioServiceServicer()
     audio_pb2_grpc.add_AudioServiceServicer_to_server(audio_servicer, server)
 

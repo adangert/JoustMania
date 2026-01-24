@@ -64,7 +64,7 @@ class BluetoothMonitor:
         for line in output.split("\n"):
             match = mac_pattern.search(line)
             if match:
-                connections.append(match.group(0).upper())
+                connections.append(match.group(0).lower())
 
         return connections
 

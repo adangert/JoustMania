@@ -5,7 +5,7 @@
 #   /joustmania*    -> connect-proxy:8080 (PRESERVE prefix, gRPC-Web)
 #   /grafana/*      -> grafana:3000       (PRESERVE prefix, serve_from_sub_path=true)
 #   /prometheus/*   -> prometheus:9090    (STRIP prefix, --web.route-prefix=/)
-#   /jaeger/*       -> jaeger:16686       (PRESERVE prefix, --query.base-path=/jaeger/)
+#   /jaeger/*       -> jaeger:16686       (PRESERVE prefix, base_path=/jaeger in config.yaml)
 #   /loki/*         -> loki:3100          (STRIP prefix, API expects root)
 #   /legacy/*       -> webui:80           (STRIP prefix, Flask at root)
 #   /health         -> envoy internal     (health check)

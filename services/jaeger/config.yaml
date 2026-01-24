@@ -17,6 +17,7 @@ extensions:
         memory:
           max_traces: 100000
   jaeger_query:
+    base_path: /jaeger
     storage:
       traces: memory
 

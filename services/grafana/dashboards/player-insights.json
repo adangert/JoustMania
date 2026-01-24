@@ -101,7 +101,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_info{serial=\"$controller\"}",
+          "expr": "controller_info and on(serial) controller_info{name=\"$controller\"}",
           "format": "table",
           "instant": true,
           "legendFormat": "{{name}}",
@@ -260,7 +260,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_color_hex{serial=\"$controller\"}",
+          "expr": "controller_color_hex and on(serial) controller_info{name=\"$controller\"}",
           "legendFormat": "Color",
           "refId": "A"
         }
@@ -334,7 +334,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "game_player_accel_magnitude{serial=\"$controller\"}",
+          "expr": "game_player_accel_magnitude and on(serial) controller_info{name=\"$controller\"}",
           "legendFormat": "Accel",
           "refId": "A",
           "instant": false,
@@ -519,7 +519,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "game_player_accel_magnitude{serial=\"$controller\"}",
+          "expr": "game_player_accel_magnitude and on(serial) controller_info{name=\"$controller\"}",
           "legendFormat": "Acceleration",
           "refId": "A",
           "instant": false,
@@ -610,7 +610,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "game_player_peak_accel{serial=\"$controller\"}",
+          "expr": "game_player_peak_accel and on(serial) controller_info{name=\"$controller\"}",
           "legendFormat": "Peak",
           "refId": "A"
         }
@@ -680,7 +680,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "bluetooth_device_rssi_dbm{serial=\"$controller\"}",
+          "expr": "bluetooth_device_rssi_dbm and on(serial) controller_info{name=\"$controller\"}",
           "legendFormat": "RSSI",
           "refId": "A"
         }
@@ -786,7 +786,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_battery_level{serial=\"$controller\"}",
+          "expr": "controller_battery_level and on(serial) controller_info{name=\"$controller\"}",
           "legendFormat": "Battery",
           "refId": "A"
         }
@@ -882,7 +882,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "game_player_playstyle{serial=\"$controller\"}",
+          "expr": "game_player_playstyle and on(serial) controller_info{name=\"$controller\"}",
           "legendFormat": "Playstyle",
           "refId": "A"
         }
@@ -989,7 +989,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "game_player_movement_zone{serial=\"$controller\"}",
+          "expr": "game_player_movement_zone and on(serial) controller_info{name=\"$controller\"}",
           "legendFormat": "Zone",
           "refId": "A"
         }
@@ -1009,7 +1009,7 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "definition": "label_values({__name__=~\"game_player_alive|game_player_accel_magnitude|menu_player_ready\"}, serial)",
+        "definition": "label_values(controller_info, name)",
         "hide": 0,
         "includeAll": true,
         "label": "Controller",
@@ -1017,7 +1017,7 @@
         "name": "controller",
         "options": [],
         "query": {
-          "query": "label_values({__name__=~\"game_player_alive|game_player_accel_magnitude|menu_player_ready\"}, serial)",
+          "query": "label_values(controller_info, name)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,

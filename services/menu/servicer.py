@@ -429,6 +429,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         logger.info(f"Game event '{event.event_type}' - restarting button monitor and lobby music")
                         self.state = menu_pb2.MenuState.RUNNING
 
+                        # Start button monitor FIRST so stream is available for color commands
+                        await self.start_button_monitor()
+
                         # Reset lobby state - both servicer state and state_manager
                         self.ready_controllers.clear()
                         self.connected_controllers.clear()
@@ -440,7 +443,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         self.connected_controllers.update(re_registered)
 
                         await self.audio.start_lobby_music()
-                        await self.start_button_monitor()
                         await self.event_publisher.publish(GameEvent.GAME_ENDED, event.data)
 
                 if self.game_event_monitor_running:

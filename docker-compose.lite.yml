@@ -149,6 +149,8 @@ services:
         condition: service_healthy
       controller-manager:
         condition: service_healthy
+      game-coordinator:
+        condition: service_healthy
       audio:
         condition: service_healthy
     networks:

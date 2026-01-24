@@ -38,7 +38,7 @@ async function unaryCall<Req, Res>(
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": "application/connect+json",
     },
     body: JSON.stringify(request),
   });
@@ -60,7 +60,7 @@ async function* serverStream<Req, Res>(
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": "application/connect+json",
       Accept: "application/connect+json",
     },
     body: JSON.stringify(request),

@@ -55,8 +55,6 @@ class TestActivityTracking:
         feedback_manager = MagicMock()
         monitoring = MagicMock()
         monitoring.last_battery_check = 0
-        monitoring.last_rssi_check = 0
-        monitoring.rssi_check_interval = 10.0
         rescan_timer = MagicMock()
         paired_serials = []
         base_colors = {}
@@ -228,8 +226,6 @@ class TestAdaptivePollingLogic:
         feedback_manager = MagicMock()
         monitoring = MagicMock()
         monitoring.last_battery_check = 0
-        monitoring.last_rssi_check = 0
-        monitoring.rssi_check_interval = 10.0
         rescan_timer = MagicMock()
         paired_serials = []
         base_colors = {}
@@ -324,8 +320,6 @@ class TestDiscoveryLoopLifecycle:
         feedback_manager = MagicMock()
         monitoring = MagicMock()
         monitoring.last_battery_check = 0
-        monitoring.last_rssi_check = 0
-        monitoring.rssi_check_interval = 10.0
         rescan_timer = MagicMock()
         paired_serials = []
         base_colors = {}
@@ -389,8 +383,6 @@ class TestPollingStateCleanup:
         feedback_manager = MagicMock()
         monitoring = MagicMock()
         monitoring.last_battery_check = 0
-        monitoring.last_rssi_check = 0
-        monitoring.rssi_check_interval = 10.0
         rescan_timer = MagicMock()
         paired_serials = []
         base_colors = {}
@@ -465,8 +457,6 @@ class TestAccelerometerMovementCalculation:
         feedback_manager = MagicMock()
         monitoring = MagicMock()
         monitoring.last_battery_check = 0
-        monitoring.last_rssi_check = 0
-        monitoring.rssi_check_interval = 10.0
         rescan_timer = MagicMock()
         paired_serials = []
         base_colors = {}

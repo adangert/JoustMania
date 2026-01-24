@@ -89,12 +89,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Event publisher for cross-thread communication (Phase refactor)
         self.event_publisher = EventPublisherHelper()
 
-        # Monitoring (battery and RSSI) - Phase 39, Phase 48, extracted to monitoring.py
+        # Battery monitoring - Phase 39, extracted to monitoring.py
+        # NOTE: RSSI monitoring is handled by the host pairing-daemon
         # NOTE: Must be initialized before StateCache which depends on it
         self.monitoring = ControllerMonitoring(
             low_battery_threshold=1,
-            rssi_check_interval=10.0,
-            weak_signal_threshold=-80,
         )
 
         # State caching (Phase 18 - Task 1, refactored)

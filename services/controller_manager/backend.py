@@ -152,21 +152,6 @@ class ControllerBackend(ABC):
         """
         pass
 
-    async def get_rssi(self, serial: str) -> int | None:  # noqa: ARG002
-        """
-        Get RSSI (signal strength) for a Bluetooth controller.
-
-        This is optional - only BluetoothBackend implements meaningful RSSI.
-        Other backends return None by default.
-
-        Args:
-            serial: Controller serial number
-
-        Returns:
-            RSSI in dBm (-100 to 0), or None if not available/supported
-        """
-        return None
-
     def set_effect_active(self, serial: str, active: bool):  # noqa: ARG002, B027
         """
         Mark controller as having an active LED effect.

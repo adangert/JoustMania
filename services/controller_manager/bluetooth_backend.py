@@ -545,48 +545,6 @@ class BluetoothBackend(ControllerBackend):
 
         return list(self.controllers.keys())
 
-    async def get_rssi(self, serial: str) -> int | None:
-        """
-        Get RSSI (signal strength) for a controller.
-
-        Returns:
-            RSSI in dBm (-100 to 0), or None if not available
-        """
-        try:
-            move = self.controllers.get(serial)
-            if not move:
-                return None
-
-            # Try to get RSSI via BlueZ
-            # Serial from PSMove has colons (e.g., "00:06:f7:26:ed:5")
-            # BlueZ address also has colons (e.g., "00:06:F7:26:ED:5")
-            # Normalize both to uppercase without colons for reliable comparison
-            # Use get_connected_addresses() to only check devices with active connections
-            devices = bluetooth.get_connected_addresses(self.hci)
-            serial_normalized = serial.replace(":", "").upper()
-
-            for address in devices:
-                # Normalize both to uppercase without colons for comparison
-                addr_normalized = address.replace(":", "").upper()
-                if addr_normalized == serial_normalized:
-                    rssi = bluetooth.get_device_rssi(self.hci, address)
-                    if rssi is not None:
-                        logger.debug(f"RSSI for {serial}: {rssi} dBm")
-                    else:
-                        logger.info(f"RSSI: hcitool returned None for {serial} (address={address})")
-                    return rssi
-
-            # Log mismatch - this is the likely issue
-            logger.info(
-                f"RSSI: No BlueZ device matching {serial}. "
-                f"BlueZ knows {len(devices)} devices: {devices[:3]}{'...' if len(devices) > 3 else ''}"
-            )
-            return None
-
-        except Exception as e:
-            logger.debug(f"Error getting RSSI for {serial}: {e}")
-            return None
-
     async def shutdown(self):
         """Cleanup and shutdown."""
         logger.info("Shutting down Bluetooth backend")

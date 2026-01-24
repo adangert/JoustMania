@@ -15,7 +15,6 @@ The Controller Manager service is the central component for managing PS Move con
 - **Visual Effects**: Flash, pulse, rainbow, fade animations
 - **Button Events**: Stream button press/release events
 - **Battery Monitoring**: Low battery warnings with visual feedback
-- **Signal Strength**: RSSI monitoring for Bluetooth controllers (Linux only)
 
 ## Architecture
 
@@ -97,7 +96,6 @@ Prometheus metrics available on port 8001:
 |--------|------|-------------|
 | `controller_manager_active_controllers` | Gauge | Number of active controllers |
 | `controller_manager_controller_battery_level` | Gauge | Battery level per controller (0-5) |
-| `controller_manager_controller_rssi_dbm` | Gauge | Signal strength in dBm |
 | `controller_manager_button_events_total` | Counter | Button press/release events |
 | `controller_manager_discovery_checks_total` | Counter | Discovery loop iterations |
 
@@ -115,7 +113,6 @@ class ControllerBackend(ABC):
     async def set_led_color(self, serial: str, r: int, g: int, b: int) -> bool
     async def set_rumble(self, serial: str, intensity: int) -> bool
     def get_connected_controllers(self) -> List[str]
-    async def get_rssi(self, serial: str) -> Optional[int]  # Optional
     async def shutdown()
 ```
 

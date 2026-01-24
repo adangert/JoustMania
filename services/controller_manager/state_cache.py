@@ -223,7 +223,7 @@ class StateCache:
         controller_state.ps_pressed = ps_pressed
         controller_state.select_pressed = select_pressed
         controller_state.start_pressed = start_pressed
-        controller_state.rssi = self.monitoring.get_rssi(serial)
+        controller_state.rssi = 0  # RSSI monitoring handled by host pairing-daemon
         controller_state.name = info.get(ControllerInfoKey.NAME, "")
 
         # Return pooled Vector3 objects (ControllerState made copies with CopyFrom)

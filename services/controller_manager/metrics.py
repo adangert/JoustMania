@@ -41,19 +41,6 @@ controller_disconnect_total = Counter(
 
 controller_reconnect_total = Counter("controller_reconnect_total", "Total number of controller reconnects", ["serial"])
 
-# Connection strength metrics (Phase 48)
-controller_rssi_dbm = Gauge(
-    "controller_rssi_dbm",
-    "Controller Bluetooth signal strength in dBm (-100 to 0, 0 = USB/unavailable)",
-    ["serial"],
-)
-
-controller_weak_signal_warnings_total = Counter(
-    "controller_weak_signal_warnings_total",
-    "Total number of weak signal warnings displayed",
-    ["serial"],
-)
-
 active_controllers = Gauge("active_controllers_total", "Number of currently active controllers")
 
 # Input latency metrics
@@ -145,17 +132,6 @@ battery_checks_total = Counter(
 battery_check_duration_seconds = Histogram(
     "controller_battery_check_duration_seconds",
     "Duration of battery checks",
-    buckets=[0.001, 0.005, 0.010, 0.025, 0.050, 0.100],
-)
-
-rssi_checks_total = Counter(
-    "controller_rssi_checks_total",
-    "Total number of RSSI signal checks performed",
-)
-
-rssi_check_duration_seconds = Histogram(
-    "controller_rssi_check_duration_seconds",
-    "Duration of RSSI checks",
     buckets=[0.001, 0.005, 0.010, 0.025, 0.050, 0.100],
 )
 

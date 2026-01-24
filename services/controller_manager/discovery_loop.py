@@ -3,9 +3,12 @@ Discovery loop for ControllerManager.
 
 Background thread that handles:
 - Controller discovery and tracking
-- Battery and RSSI monitoring
+- Battery monitoring
 - State polling with adaptive frequency
 - LED updates
+
+Note: RSSI monitoring is handled by the host pairing-daemon which has
+direct access to hcitool for reliable signal strength readings.
 """
 
 import asyncio
@@ -76,7 +79,7 @@ class DiscoveryLoop:
             button_detector: Button transition detector
             state_cache_manager: State caching manager
             feedback_manager: LED/vibration feedback manager
-            monitoring: Battery and RSSI monitoring
+            monitoring: Battery monitoring
             rescan_timer: Periodic rescan timer
             paired_serials: List of paired controller serials
             base_colors: Dict of serial -> base LED color
@@ -193,17 +196,6 @@ class DiscoveryLoop:
                         self.monitoring.check_battery_levels(self.tracked_controllers)
                         metrics.battery_checks_total.inc()
                     self.monitoring.last_battery_check = current_time
-
-                # Check RSSI every 10 seconds (Phase 48)
-                if current_time - self.monitoring.last_rssi_check >= self.monitoring.rssi_check_interval:
-                    with metrics.rssi_check_duration_seconds.time():
-                        self.monitoring.check_rssi_levels(
-                            self.tracked_controllers,
-                            self.backend,
-                            self.run_coroutine,
-                        )
-                        metrics.rssi_checks_total.inc()
-                    self.monitoring.last_rssi_check = current_time
 
                 # Phase 72: Update LEDs at 20Hz (every 50ms) - separated from polling
                 if current_time - self._last_led_update >= 0.05:

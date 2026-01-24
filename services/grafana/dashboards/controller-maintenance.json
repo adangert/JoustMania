@@ -715,6 +715,17 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "expr": "controller_info",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "__auto",
+          "refId": "Info"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "controller_connected",
           "format": "table",
           "instant": true,
@@ -785,40 +796,48 @@
               "Time 3": true,
               "Time 4": true,
               "Time 5": true,
+              "Time 6": true,
               "__name__": true,
               "__name__ 1": true,
               "__name__ 2": true,
               "__name__ 3": true,
               "__name__ 4": true,
               "__name__ 5": true,
+              "__name__ 6": true,
               "instance": true,
               "instance 1": true,
               "instance 2": true,
               "instance 3": true,
               "instance 4": true,
               "instance 5": true,
+              "instance 6": true,
               "job": true,
               "job 1": true,
               "job 2": true,
               "job 3": true,
               "job 4": true,
-              "job 5": true
+              "job 5": true,
+              "job 6": true,
+              "Value #Info": true
             },
             "indexByName": {
-              "serial": 0,
-              "Value #Status": 1,
-              "Value #Battery": 2,
-              "Value #RSSI": 3,
-              "Value #Reconnects24h": 4,
-              "Value #Reconnects7d": 5
+              "name": 0,
+              "serial": 1,
+              "Value #Status": 2,
+              "Value #Battery": 3,
+              "Value #RSSI": 4,
+              "Value #Reconnects24h": 5,
+              "Value #Reconnects7d": 6
             },
             "renameByName": {
-              "serial": "Controller",
+              "name": "Name",
+              "serial": "Serial",
               "Value #Status": "Status",
               "Value #Battery": "Battery",
               "Value #RSSI": "RSSI (dBm)",
               "Value #Reconnects24h": "Reconnects (24h)",
-              "Value #Reconnects7d": "Reconnects (7d)"
+              "Value #Reconnects7d": "Reconnects (7d)",
+              "Value #Info": ""
             }
           }
         }
@@ -936,8 +955,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_battery_level",
-          "legendFormat": "{{serial}}",
+          "expr": "controller_battery_level * on(serial) group_left(name) controller_info",
+          "legendFormat": "{{name}}",
           "refId": "A"
         }
       ],
@@ -1007,8 +1026,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_rssi_dbm != 0",
-          "legendFormat": "{{serial}}",
+          "expr": "(controller_rssi_dbm != 0) * on(serial) group_left(name) controller_info",
+          "legendFormat": "{{name}}",
           "refId": "A"
         }
       ],
@@ -1075,8 +1094,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "increase(controller_reconnect_total[24h])",
-          "legendFormat": "{{serial}}",
+          "expr": "increase(controller_reconnect_total[24h]) * on(serial) group_left(name) controller_info",
+          "legendFormat": "{{name}}",
           "refId": "A"
         }
       ],
@@ -1143,8 +1162,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "increase(controller_reconnect_total[7d])",
-          "legendFormat": "{{serial}}",
+          "expr": "increase(controller_reconnect_total[7d]) * on(serial) group_left(name) controller_info",
+          "legendFormat": "{{name}}",
           "refId": "A"
         }
       ],
@@ -1250,8 +1269,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_battery_level",
-          "legendFormat": "{{serial}}",
+          "expr": "controller_battery_level * on(serial) group_left(name) controller_info",
+          "legendFormat": "{{name}}",
           "refId": "A"
         }
       ],
@@ -1345,8 +1364,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_rssi_dbm != 0",
-          "legendFormat": "{{serial}}",
+          "expr": "(controller_rssi_dbm != 0) * on(serial) group_left(name) controller_info",
+          "legendFormat": "{{name}}",
           "refId": "A"
         }
       ],
@@ -1433,8 +1452,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_reconnect_total",
-          "legendFormat": "{{serial}}",
+          "expr": "controller_reconnect_total * on(serial) group_left(name) controller_info",
+          "legendFormat": "{{name}}",
           "refId": "A"
         }
       ],

@@ -520,8 +520,9 @@ class DiscoveryLoop:
             metrics.active_controllers.inc()
             metrics.controller_connected.labels(serial=serial).set(1)
             metrics.controller_battery_level.labels(serial=serial).set(battery)
-            # Controller info metric with human-readable name (Phase 75)
-            controller_name = f"PS Move {serial[-4:]}" if len(serial) >= 4 else serial
+            # Controller info metric with human-readable name (Issue #74)
+            # Use actual name from name_manager, fallback to serial suffix
+            controller_name = name if name else (f"PS Move {serial[-4:]}" if len(serial) >= 4 else serial)
             metrics.controller_info.labels(serial=serial, name=controller_name).set(1)
             # Check if this is a reconnect
             if serial in self.paired_serials:

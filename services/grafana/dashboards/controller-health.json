@@ -170,8 +170,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_battery_level",
-          "legendFormat": "{{serial}}",
+          "expr": "controller_battery_level * on(serial) group_left(name) controller_info",
+          "legendFormat": "{{name}}",
           "refId": "A"
         }
       ],
@@ -268,8 +268,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_rssi_dbm != 0",
-          "legendFormat": "{{serial}}",
+          "expr": "(controller_rssi_dbm != 0) * on(serial) group_left(name) controller_info",
+          "legendFormat": "{{name}}",
           "refId": "A"
         }
       ],
@@ -453,8 +453,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(controller_disconnect_total[5m])",
-          "legendFormat": "{{serial}} disconnects",
+          "expr": "rate(controller_disconnect_total[5m]) * on(serial) group_left(name) controller_info",
+          "legendFormat": "{{name}} disconnects",
           "refId": "A"
         },
         {
@@ -462,8 +462,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(controller_reconnect_total[5m])",
-          "legendFormat": "{{serial}} reconnects",
+          "expr": "rate(controller_reconnect_total[5m]) * on(serial) group_left(name) controller_info",
+          "legendFormat": "{{name}} reconnects",
           "refId": "B"
         }
       ],
@@ -554,8 +554,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.50, rate(controller_input_lag_seconds_bucket[5m]))",
-          "legendFormat": "{{serial}} p50",
+          "expr": "histogram_quantile(0.50, sum by(serial, le) (rate(controller_input_lag_seconds_bucket[5m]))) * on(serial) group_left(name) controller_info",
+          "legendFormat": "{{name}} p50",
           "refId": "A"
         },
         {
@@ -563,8 +563,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, rate(controller_input_lag_seconds_bucket[5m]))",
-          "legendFormat": "{{serial}} p95",
+          "expr": "histogram_quantile(0.95, sum by(serial, le) (rate(controller_input_lag_seconds_bucket[5m]))) * on(serial) group_left(name) controller_info",
+          "legendFormat": "{{name}} p95",
           "refId": "B"
         },
         {
@@ -572,8 +572,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.99, rate(controller_input_lag_seconds_bucket[5m]))",
-          "legendFormat": "{{serial}} p99",
+          "expr": "histogram_quantile(0.99, sum by(serial, le) (rate(controller_input_lag_seconds_bucket[5m]))) * on(serial) group_left(name) controller_info",
+          "legendFormat": "{{name}} p99",
           "refId": "C"
         }
       ],

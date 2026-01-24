@@ -16,27 +16,28 @@ import contextlib
 import logging
 import os
 
-import grpc.aio
-from grpc_health.v1 import health, health_pb2, health_pb2_grpc
-from prometheus_client import start_http_server
+# Configure logging early, before any logging calls
+# This must happen before any logging.warning/info/etc to ensure LOG_LEVEL is respected
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=getattr(logging, log_level, logging.INFO),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 
-from lib.system_metrics import start_system_metrics_collector
-from proto import menu_pb2, menu_pb2_grpc
-from services.menu import metrics
-from services.menu.servicer import MenuServicer
+import grpc.aio  # noqa: E402
+from grpc_health.v1 import health, health_pb2, health_pb2_grpc  # noqa: E402
+from prometheus_client import start_http_server  # noqa: E402
+
+from lib.system_metrics import start_system_metrics_collector  # noqa: E402
+from proto import menu_pb2, menu_pb2_grpc  # noqa: E402
+from services.menu import metrics  # noqa: E402
+from services.menu.servicer import MenuServicer  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
 
 async def serve(port=50054, metrics_port=8000):
     """Start the Menu gRPC server."""
-    # Configure logging
-    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
-    logging.basicConfig(
-        level=getattr(logging, log_level, logging.INFO),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
-
     # Start Prometheus metrics HTTP server
     start_http_server(metrics_port)
     logger.info(f"Prometheus metrics available at http://0.0.0.0:{metrics_port}/metrics")

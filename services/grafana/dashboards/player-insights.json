@@ -56,223 +56,6 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Human-readable controller name",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 5,
-        "x": 0,
-        "y": 1
-      },
-      "id": 16,
-      "options": {
-        "colorMode": "none",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "/^name$/",
-          "values": false
-        },
-        "textMode": "name"
-      },
-      "pluginVersion": "10.2.3",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "controller_info and on(serial) controller_info{name=\"$controller\"}",
-          "format": "table",
-          "instant": true,
-          "legendFormat": "{{name}}",
-          "refId": "A"
-        }
-      ],
-      "title": "",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "description": "Controller LED color indicator",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "color": "dark-gray",
-                  "index": 0,
-                  "text": ""
-                },
-                "255": {
-                  "color": "blue",
-                  "index": 1,
-                  "text": ""
-                },
-                "65280": {
-                  "color": "green",
-                  "index": 2,
-                  "text": ""
-                },
-                "65535": {
-                  "color": "super-light-blue",
-                  "index": 3,
-                  "text": ""
-                },
-                "16711680": {
-                  "color": "red",
-                  "index": 4,
-                  "text": ""
-                },
-                "16711935": {
-                  "color": "purple",
-                  "index": 5,
-                  "text": ""
-                },
-                "16776960": {
-                  "color": "yellow",
-                  "index": 6,
-                  "text": ""
-                },
-                "16777215": {
-                  "color": "white",
-                  "index": 7,
-                  "text": ""
-                },
-                "16753920": {
-                  "color": "orange",
-                  "index": 8,
-                  "text": ""
-                }
-              },
-              "type": "value"
-            },
-            {
-              "options": {
-                "from": 1,
-                "to": 65279,
-                "result": {
-                  "color": "blue",
-                  "index": 10,
-                  "text": ""
-                }
-              },
-              "type": "range"
-            },
-            {
-              "options": {
-                "from": 65281,
-                "to": 8388607,
-                "result": {
-                  "color": "green",
-                  "index": 11,
-                  "text": ""
-                }
-              },
-              "type": "range"
-            },
-            {
-              "options": {
-                "from": 8388608,
-                "to": 16711679,
-                "result": {
-                  "color": "orange",
-                  "index": 12,
-                  "text": ""
-                }
-              },
-              "type": "range"
-            },
-            {
-              "options": {
-                "from": 16711681,
-                "to": 16777214,
-                "result": {
-                  "color": "red",
-                  "index": 13,
-                  "text": ""
-                }
-              },
-              "type": "range"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "dark-gray",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 1,
-        "x": 5,
-        "y": 1
-      },
-      "id": 14,
-      "options": {
-        "colorMode": "background_solid",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "none"
-      },
-      "pluginVersion": "10.2.3",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "controller_color_hex and on(serial) controller_info{name=\"$controller\"}",
-          "legendFormat": "Color",
-          "refId": "A"
-        }
-      ],
-      "title": "",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
       "description": "Real-time acceleration gauge with warning (yellow) and death (red) zones",
       "fieldConfig": {
         "defaults": {
@@ -310,7 +93,7 @@
       "gridPos": {
         "h": 4,
         "w": 4,
-        "x": 6,
+        "x": 0,
         "y": 1
       },
       "id": 10,
@@ -334,7 +117,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "game_player_accel_magnitude and on(serial) controller_info{name=\"$controller\"}",
+          "expr": "game_player_accel_magnitude{serial=\"$controller\"}",
           "legendFormat": "Accel",
           "refId": "A",
           "instant": false,
@@ -492,8 +275,8 @@
       },
       "gridPos": {
         "h": 3,
-        "w": 8,
-        "x": 10,
+        "w": 10,
+        "x": 4,
         "y": 1
       },
       "id": 1,
@@ -519,7 +302,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "game_player_accel_magnitude and on(serial) controller_info{name=\"$controller\"}",
+          "expr": "game_player_accel_magnitude{serial=\"$controller\"}",
           "legendFormat": "Acceleration",
           "refId": "A",
           "instant": false,
@@ -587,7 +370,7 @@
       "gridPos": {
         "h": 2,
         "w": 2,
-        "x": 18,
+        "x": 14,
         "y": 1
       },
       "id": 4,
@@ -610,7 +393,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "game_player_peak_accel and on(serial) controller_info{name=\"$controller\"}",
+          "expr": "game_player_peak_accel{serial=\"$controller\"}",
           "legendFormat": "Peak",
           "refId": "A"
         }
@@ -656,8 +439,8 @@
       "gridPos": {
         "h": 2,
         "w": 2,
-        "x": 20,
-        "y": 3
+        "x": 16,
+        "y": 1
       },
       "id": 15,
       "options": {
@@ -680,119 +463,13 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "bluetooth_device_rssi_dbm and on(serial) controller_info{name=\"$controller\"}",
+          "expr": "bluetooth_device_rssi_dbm{serial=\"$controller\"}",
           "legendFormat": "RSSI",
           "refId": "A"
         }
       ],
       "title": "Signal",
       "type": "gauge"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "description": "Battery level (0-5)",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "color": "red",
-                  "index": 0,
-                  "text": "EMPTY"
-                },
-                "1": {
-                  "color": "red",
-                  "index": 1,
-                  "text": "▮░░░░"
-                },
-                "2": {
-                  "color": "orange",
-                  "index": 2,
-                  "text": "▮▮░░░"
-                },
-                "3": {
-                  "color": "yellow",
-                  "index": 3,
-                  "text": "▮▮▮░░"
-                },
-                "4": {
-                  "color": "green",
-                  "index": 4,
-                  "text": "▮▮▮▮░"
-                },
-                "5": {
-                  "color": "green",
-                  "index": 5,
-                  "text": "▮▮▮▮▮"
-                }
-              },
-              "type": "value"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 2
-              },
-              {
-                "color": "yellow",
-                "value": 3
-              },
-              {
-                "color": "green",
-                "value": 4
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 2,
-        "x": 20,
-        "y": 1
-      },
-      "id": 11,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value"
-      },
-      "pluginVersion": "10.2.3",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "controller_battery_level and on(serial) controller_info{name=\"$controller\"}",
-          "legendFormat": "Battery",
-          "refId": "A"
-        }
-      ],
-      "title": "Battery",
-      "type": "stat"
     },
     {
       "datasource": {
@@ -859,7 +536,7 @@
       "gridPos": {
         "h": 2,
         "w": 2,
-        "x": 22,
+        "x": 18,
         "y": 1
       },
       "id": 3,
@@ -882,7 +559,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "game_player_playstyle and on(serial) controller_info{name=\"$controller\"}",
+          "expr": "game_player_playstyle{serial=\"$controller\"}",
           "legendFormat": "Playstyle",
           "refId": "A"
         }
@@ -959,8 +636,8 @@
       },
       "gridPos": {
         "h": 1,
-        "w": 8,
-        "x": 10,
+        "w": 10,
+        "x": 4,
         "y": 4
       },
       "id": 6,
@@ -989,7 +666,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "game_player_movement_zone and on(serial) controller_info{name=\"$controller\"}",
+          "expr": "game_player_movement_zone{serial=\"$controller\"}",
           "legendFormat": "Zone",
           "refId": "A"
         }
@@ -1009,7 +686,7 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "definition": "label_values(controller_info, name)",
+        "definition": "label_values({__name__=~\"game_player_alive|game_player_accel_magnitude|menu_player_ready\"}, serial)",
         "hide": 0,
         "includeAll": true,
         "label": "Controller",
@@ -1017,7 +694,7 @@
         "name": "controller",
         "options": [],
         "query": {
-          "query": "label_values(controller_info, name)",
+          "query": "label_values({__name__=~\"game_player_alive|game_player_accel_magnitude|menu_player_ready\"}, serial)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,

@@ -7,10 +7,15 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 processors:
-  # Batch processor for better performance
+  # Batch processor for better performance (traces/logs)
   batch:
     timeout: 10s
     send_batch_size: 1024
+
+  # Fast batch processor for sub-second metrics (Issue #105)
+  batch/fast:
+    timeout: 100ms
+    send_batch_size: 1000
 
   # Memory limiter to prevent OOM
   memory_limiter:
@@ -57,11 +62,11 @@ service:
       processors: [memory_limiter, batch, resource]
       exporters: [otlp/jaeger, debug]
 
-    # Metrics pipeline
+    # Metrics pipeline - uses fast batch processor for sub-second updates
     metrics:
       receivers: [otlp]
-      processors: [memory_limiter, batch, resource]
-      exporters: [prometheus, debug]
+      processors: [memory_limiter, batch/fast, resource]
+      exporters: [prometheus]
 
     # Logs pipeline
     logs:

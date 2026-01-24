@@ -42,10 +42,10 @@ logging.getLogger("asyncio").addFilter(GrpcPollerFilter())
 # Import protobuf (after logging config)
 import grpc.aio  # noqa: E402
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc  # noqa: E402
-from prometheus_client import start_http_server  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from lib.otel_metrics import init_metrics  # noqa: E402
 from lib.system_metrics import start_system_metrics_collector  # noqa: E402
 from proto import game_coordinator_pb2_grpc  # noqa: E402
 from services.game_coordinator import metrics  # noqa: E402
@@ -70,14 +70,15 @@ logger.info("GAME COORDINATOR BUILD: 2026-01-17 last-player-win-fix")
 logger.info("=" * 60)
 
 
-async def serve(port=50053, metrics_port=8000):
+async def serve(port=50053):
     """Start the GameCoordinator async gRPC server."""
     # Note: logging.basicConfig() is now called at module level (top of file)
     # to ensure INFO level is enabled before any logging calls
 
-    # Start Prometheus metrics HTTP server
-    start_http_server(metrics_port)
-    logger.info(f"Prometheus metrics available at http://0.0.0.0:{metrics_port}/metrics")
+    # Initialize OTEL push metrics (Issue #103)
+    # 100ms export interval for real-time gameplay visualization
+    init_metrics(service_name="game-coordinator", export_interval_ms=100)
+    logger.info("OTEL push metrics initialized (100ms export interval)")
 
     # Start system metrics collection
     start_system_metrics_collector(

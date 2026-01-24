@@ -9,51 +9,44 @@ rule_files:
   - 'alerts.yml'
 
 scrape_configs:
-  # Controller Manager - fast scraping for real-time acceleration data
-  - job_name: 'controller-manager'
-    scrape_interval: 1s
+  # OTEL Collector - aggregates metrics from real-time services (Issue #106)
+  # Services push metrics via OTLP; collector exposes them on :8889
+  - job_name: 'otel-collector'
+    scrape_interval: 500ms
     static_configs:
-      - targets: ['controller-manager:8000']
+      - targets: ['otel-collector:8889']
         labels:
-          service: 'controller-manager'
+          collector: 'otel'
 
-  # Game Coordinator - fast scraping for game state metrics
-  - job_name: 'game-coordinator'
-    scrape_interval: 1s
-    static_configs:
-      - targets: ['game-coordinator:8000']
-        labels:
-          service: 'game-coordinator'
-
-  # Menu Service
+  # Menu Service (still uses prometheus_client pull)
   - job_name: 'menu'
     static_configs:
       - targets: ['menu:8000']
         labels:
           service: 'menu'
 
-  # Settings Service
+  # Settings Service (still uses prometheus_client pull)
   - job_name: 'settings'
     static_configs:
       - targets: ['settings:8000']
         labels:
           service: 'settings'
 
-  # Supervisor Service
+  # Supervisor Service (still uses prometheus_client pull)
   - job_name: 'supervisor'
     static_configs:
       - targets: ['supervisor:8000']
         labels:
           service: 'supervisor'
 
-  # WebUI Service
+  # WebUI Service (still uses prometheus_client pull)
   - job_name: 'webui'
     static_configs:
       - targets: ['webui:8000']
         labels:
           service: 'webui'
 
-  # Audio Service
+  # Audio Service (still uses prometheus_client pull)
   - job_name: 'audio'
     static_configs:
       - targets: ['audio:8000']

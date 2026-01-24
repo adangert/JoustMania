@@ -1,12 +1,13 @@
 """
-Prometheus metrics for Game Coordinator (Phase 38).
+OTEL Push Metrics for Game Coordinator (Issue #103).
 
 Tracks game state, player performance, audio playback, and game quality metrics.
+Uses OTLP push at 100ms intervals for real-time dashboard updates.
 """
 
 from contextlib import suppress
 
-from prometheus_client import Counter, Gauge, Histogram
+from lib.otel_metrics import Counter, Gauge, Histogram
 
 # Game state metrics
 active_game = Gauge("game_active", "Whether a game is currently running (0=no, 1=yes)")
@@ -220,21 +221,21 @@ def clear_player_analytics(serial: str, game_id: str = "") -> None:
     This removes the gauge labels so they no longer appear in dashboards,
     rather than showing stale data.
     """
-    with suppress(KeyError):
+    with suppress(KeyError, ValueError):
         player_accel_magnitude.remove(serial)
 
-    with suppress(KeyError):
+    with suppress(KeyError, ValueError):
         player_movement_zone.remove(serial)
 
-    with suppress(KeyError):
+    with suppress(KeyError, ValueError):
         player_playstyle.remove(serial)
 
-    with suppress(KeyError):
+    with suppress(KeyError, ValueError):
         player_alive.remove(serial)
 
     # peak_accel has both serial and game_id labels
     if game_id:
-        with suppress(KeyError):
+        with suppress(KeyError, ValueError):
             player_peak_accel.remove(serial, game_id)
 
 
@@ -246,10 +247,15 @@ def clear_all_player_analytics() -> None:
     when no game is running.
     """
     player_accel_magnitude._metrics.clear()
+    player_accel_magnitude._values.clear()
     player_movement_zone._metrics.clear()
+    player_movement_zone._values.clear()
     player_playstyle._metrics.clear()
+    player_playstyle._values.clear()
     player_peak_accel._metrics.clear()
+    player_peak_accel._values.clear()
     player_alive._metrics.clear()
+    player_alive._values.clear()
     # Reset game state gauges to 0 to indicate no game running
     music_tempo.set(0)
     game_sensitivity.set(0)

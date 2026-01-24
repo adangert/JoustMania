@@ -12,8 +12,8 @@ import os
 import grpc
 import grpc.aio
 from grpc_health.v1 import health, health_pb2, health_pb2_grpc
-from prometheus_client import start_http_server
 
+from lib.otel_metrics import init_metrics
 from lib.system_metrics import start_system_metrics_collector
 from proto import controller_manager_pb2_grpc
 from services.controller_manager import metrics
@@ -22,7 +22,7 @@ from services.controller_manager.servicer import ControllerManagerServicer
 logger = logging.getLogger(__name__)
 
 
-async def serve(port=50052, metrics_port=8000):
+async def serve(port=50052):
     """Start the ControllerManager async gRPC server."""
     # Configure logging with environment variable support
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -31,9 +31,10 @@ async def serve(port=50052, metrics_port=8000):
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    # Start Prometheus metrics HTTP server (Phase 38)
-    start_http_server(metrics_port)
-    logger.info(f"Prometheus metrics available at http://0.0.0.0:{metrics_port}/metrics")
+    # Initialize OTEL push metrics (Issue #104)
+    # 1000ms export interval - controller metrics don't need sub-second updates
+    init_metrics(service_name="controller-manager", export_interval_ms=1000)
+    logger.info("OTEL push metrics initialized (1000ms export interval)")
 
     # Start system metrics collection (Phase 61: extracted to lib/system_metrics.py)
     start_system_metrics_collector(

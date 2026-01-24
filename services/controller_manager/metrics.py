@@ -1,10 +1,11 @@
 """
-Prometheus metrics for Controller Manager (Phase 38).
+OTEL Push Metrics for Controller Manager (Issue #104).
 
 Tracks controller health, input latency, stream performance, and cache efficiency.
+Uses OTLP push at 100ms intervals for real-time dashboard updates.
 """
 
-from prometheus_client import Counter, Gauge, Histogram
+from lib.otel_metrics import Counter, Gauge, Histogram
 
 # Controller health metrics
 controller_battery_level = Gauge("controller_battery_level", "Controller battery level (0-5)", ["serial"])

@@ -91,13 +91,35 @@ class ControllerEventLoop:
         self._stream: grpc.aio.StreamStreamCall | None = None
         self._stream_lock = asyncio.Lock()
         self._stream_queue: asyncio.Queue | None = None
+        self._connected_event: asyncio.Event | None = None
 
     async def start(self) -> None:
         """Start the event loop."""
         if not self._running:
             self._running = True
+            self._connected_event = asyncio.Event()
             self._task = asyncio.create_task(self._run())
             logger.info("Controller event loop started")
+
+    async def wait_for_connection(self, timeout_seconds: float = 5.0) -> bool:
+        """
+        Wait for the stream connection to be established.
+
+        Args:
+            timeout_seconds: Maximum time to wait in seconds
+
+        Returns:
+            True if connected, False if timeout
+        """
+        if self._connected_event is None:
+            return False
+        try:
+            async with asyncio.timeout(timeout_seconds):
+                await self._connected_event.wait()
+            return True
+        except TimeoutError:
+            logger.warning(f"Timeout waiting for controller stream connection ({timeout_seconds}s)")
+            return False
 
     async def stop(self) -> None:
         """Stop the event loop."""
@@ -158,6 +180,10 @@ class ControllerEventLoop:
                 logger.info("Connected to Controller Manager")
                 retry_delay = 1.0
 
+                # Signal that connection is ready
+                if self._connected_event:
+                    self._connected_event.set()
+
                 # Process incoming events
                 async for event in stream:
                     if not self._running:
@@ -178,11 +204,13 @@ class ControllerEventLoop:
                 await asyncio.sleep(retry_delay)
                 retry_delay = min(retry_delay * 2, max_retry_delay)
             finally:
-                # Clear stream reference on disconnect
+                # Clear stream reference and connection state on disconnect
                 async with self._stream_lock:
                     self._stream = None
                     self._stream_queue = None
                     self._led.set_stream(None)
+                if self._connected_event:
+                    self._connected_event.clear()
 
     async def _dispatch_event(self, event) -> None:
         """

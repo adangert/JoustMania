@@ -23,7 +23,7 @@ class ConnectedHandler:
 
     Button mappings:
     - Trigger: Transition to ready state
-    - Move: Cycle game modes
+    - Select: Cycle game modes
     """
 
     def __init__(self):
@@ -61,10 +61,10 @@ class ConnectedHandler:
                 return
             await self._handle_trigger(serial)
 
-        elif button == "move":
-            if not self._should_process_button(serial, "move", current_time):
+        elif button == "select":
+            if not self._should_process_button(serial, "select", current_time):
                 return
-            await self._handle_move(serial)
+            await self._handle_select(serial)
 
     async def on_enter(self, serial: str) -> None:
         """
@@ -129,9 +129,9 @@ class ConnectedHandler:
         # Transition to ready state
         await self._state_manager.transition_to(serial, ControllerState.READY)
 
-    async def _handle_move(self, serial: str) -> None:
+    async def _handle_select(self, serial: str) -> None:
         """
-        Handle move press - cycle game modes.
+        Handle select button press - cycle game modes.
 
         Args:
             serial: Controller serial number
@@ -158,4 +158,4 @@ class ConnectedHandler:
         # Play voice announcement
         await self._state_manager.audio.play_game_mode_voice(next_mode)
 
-        logger.info(f"Controller {serial} cycled game mode to: {next_mode}")
+        logger.info(f"Controller {serial} select button -> game mode: {next_mode}")

@@ -670,15 +670,16 @@ class AdminModeHandler:
                 )
                 await controller_stub.PlayControllerEffect(effect_request)
 
-                # Play sound for sensitivity level (3 sounds for 5 levels)
-                sensitivity_sounds = [
-                    Sound.MENU_SFX_SENSITIVITY_SLOW,  # ULTRA_SLOW
-                    Sound.MENU_SFX_SENSITIVITY_SLOW,  # SLOW
-                    Sound.MENU_SFX_SENSITIVITY_MID,  # MEDIUM
-                    Sound.MENU_SFX_SENSITIVITY_FAST,  # FAST
-                    Sound.MENU_SFX_SENSITIVITY_FAST,  # ULTRA_FAST
+                # Play voice for sensitivity level (matches original JoustMania)
+                # Note: "ultra_high" = ultra-high sensitivity (detects slow movement)
+                sensitivity_voices = [
+                    Sound.MENU_VOX_SENSITIVITY_ULTRA_HIGH,  # ULTRA_SLOW (0)
+                    Sound.MENU_VOX_SENSITIVITY_HIGH,  # SLOW (1)
+                    Sound.MENU_VOX_SENSITIVITY_MEDIUM,  # MEDIUM (2)
+                    Sound.MENU_VOX_SENSITIVITY_LOW,  # FAST (3)
+                    Sound.MENU_VOX_SENSITIVITY_ULTRA_LOW,  # ULTRA_FAST (4)
                 ]
-                await self._play_sound(sensitivity_sounds[int(new_value)])
+                await self._play_voice(sensitivity_voices[int(new_value)])
 
                 # Restore white after feedback
                 async def restore_white():

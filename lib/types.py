@@ -326,6 +326,14 @@ class Sound(str, Enum):
     MENU_VOX_ADDED_RANDOM = "added_random"
     MENU_VOX_REMOVED_RANDOM = "removed_random"
 
+    # Menu voice announcements - sensitivity levels (in Menu/vox/)
+    # Note: "ultra_high" means ultra-high sensitivity (slow movement allowed)
+    MENU_VOX_SENSITIVITY_ULTRA_HIGH = "ultra_high"
+    MENU_VOX_SENSITIVITY_HIGH = "high"
+    MENU_VOX_SENSITIVITY_MEDIUM = "medium"
+    MENU_VOX_SENSITIVITY_LOW = "low"
+    MENU_VOX_SENSITIVITY_ULTRA_LOW = "ultra_low"
+
 
 class GameEvent(str, Enum):
     """

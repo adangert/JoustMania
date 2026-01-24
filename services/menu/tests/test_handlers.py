@@ -60,12 +60,12 @@ class TestConnectedHandler:
 
     @pytest.mark.asyncio
     @patch("services.menu.handlers.connected.time")
-    async def test_handle_button_move_cycles_game(self, mock_time, handler, mock_state_manager):
-        """Move press should cycle game modes."""
+    async def test_handle_button_select_cycles_game(self, mock_time, handler, mock_state_manager):
+        """Select button press should cycle game modes."""
         mock_time.time.return_value = 100.0
         handler.set_state_manager(mock_state_manager)
 
-        await handler.handle_button("serial1", "move")
+        await handler.handle_button("serial1", "select")
 
         mock_state_manager.settings.get_next_game_mode.assert_called_once()
         mock_state_manager.settings.save_current_game.assert_called_once()

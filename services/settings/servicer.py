@@ -297,13 +297,24 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
 
     # gRPC Service Methods
 
+    def _value_to_string(self, value: Any) -> str:
+        """
+        Convert a setting value to string for gRPC response.
+
+        Ensures booleans are lowercase ('true'/'false') for consistent
+        comparison by consumers.
+        """
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        return str(value)
+
     def GetSettings(self, request, context):  # noqa: N802, ARG002
         """Get all settings."""
         logger.debug("GetSettings called")
 
         try:
-            # Convert settings to string map
-            settings_map = {k: str(v) for k, v in self.settings.items()}
+            # Convert settings to string map (booleans as lowercase)
+            settings_map = {k: self._value_to_string(v) for k, v in self.settings.items()}
 
             return settings_pb2.GetSettingsResponse(settings=settings_map, success=True, error="")
 
@@ -325,7 +336,7 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
 
             value = self.settings[key]
 
-            return settings_pb2.GetSettingResponse(key=key, value=str(value), success=True, error="")
+            return settings_pb2.GetSettingResponse(key=key, value=self._value_to_string(value), success=True, error="")
 
         except Exception as e:
             logger.error(f"GetSetting error: {e}", exc_info=True)

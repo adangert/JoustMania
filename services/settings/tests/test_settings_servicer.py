@@ -305,6 +305,35 @@ class TestSettingsServicerRPCs:
         assert "not found" in response.error.lower()
         assert response.value == ""
 
+    def test_get_setting_bool_lowercase(self, servicer, mock_context):
+        """Test GetSetting RPC returns booleans as lowercase strings."""
+        # Test true value
+        servicer.settings["instructions"] = True
+        request = settings_pb2.GetSettingRequest(key="instructions")
+        response = servicer.GetSetting(request, mock_context)
+
+        assert response.success is True
+        assert response.value == "true"  # Must be lowercase, not "True"
+
+        # Test false value
+        servicer.settings["instructions"] = False
+        response = servicer.GetSetting(request, mock_context)
+
+        assert response.success is True
+        assert response.value == "false"  # Must be lowercase, not "False"
+
+    def test_get_settings_bool_lowercase(self, servicer, mock_context):
+        """Test GetSettings RPC returns booleans as lowercase strings."""
+        servicer.settings["instructions"] = True
+        servicer.settings["force_all_start"] = False
+
+        request = settings_pb2.GetSettingsRequest()
+        response = servicer.GetSettings(request, mock_context)
+
+        assert response.success is True
+        assert response.settings["instructions"] == "true"  # Lowercase
+        assert response.settings["force_all_start"] == "false"  # Lowercase
+
 
 @pytest.mark.asyncio
 class TestSettingsServicerRPCsAsync:

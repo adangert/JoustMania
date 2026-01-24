@@ -29,6 +29,7 @@ fi
 echo "  Removing files..."
 rm -f /etc/systemd/system/psmove-pairing.service
 rm -f /usr/local/bin/psmove-pairing-daemon.sh
+rm -rf /opt/joustmania/scripts/pairing-daemon
 
 # Reload systemd
 echo "  Reloading systemd..."

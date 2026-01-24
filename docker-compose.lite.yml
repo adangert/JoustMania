@@ -74,6 +74,7 @@ services:
     environment:
       - CONTROLLER_BACKEND=${CONTROLLER_BACKEND:-bluetooth}
       - MOCK_CONTROLLER_COUNT=${MOCK_CONTROLLER_COUNT:-4}
+      - BLUETOOTH_HCI=${BLUETOOTH_HCI:-hci0}
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
       - OTEL_SDK_DISABLED=true
     volumes:

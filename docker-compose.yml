@@ -18,6 +18,7 @@ version: '3.8'
 # - IMAGE_TAG: Image tag to use [default: latest]
 # - CONTROLLER_BACKEND: Controller backend type (bluetooth, mock, windows) [default: bluetooth]
 # - MOCK_CONTROLLER_COUNT: Number of mock controllers when CONTROLLER_BACKEND=mock [default: 4]
+# - BLUETOOTH_HCI: Bluetooth adapter to use (hci0, hci1, etc.) [default: hci0]
 # - AUDIO_MOCK_MODE: Disable audio output for testing [default: false]
 # - LOG_LEVEL: Logging level for all services (DEBUG, INFO, WARNING, ERROR) [default: INFO]
 #
@@ -144,6 +145,7 @@ services:
     environment:
       - CONTROLLER_BACKEND=${CONTROLLER_BACKEND:-bluetooth}
       - MOCK_CONTROLLER_COUNT=${MOCK_CONTROLLER_COUNT:-4}
+      - BLUETOOTH_HCI=${BLUETOOTH_HCI:-hci0}
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
       - OTEL_SERVICE_NAME=controller-manager-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317

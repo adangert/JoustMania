@@ -96,7 +96,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "count(up{job=~\"controller-manager|game-coordinator|menu|settings|supervisor|audio\"} == 1)",
+          "expr": "count(up{job=~\"controller-manager|game-coordinator|menu|settings|audio\"} == 1)",
           "legendFormat": "Services Up",
           "refId": "A"
         }
@@ -181,7 +181,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "up{job=~\"controller-manager|game-coordinator|menu|settings|supervisor|audio\"}",
+          "expr": "up{job=~\"controller-manager|game-coordinator|menu|settings|audio\"}",
           "format": "table",
           "instant": true,
           "refId": "A"

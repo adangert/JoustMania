@@ -44,20 +44,6 @@ jobs:
           - settings
           - menu
           - audio
-          - supervisor
-        include:
-          - service: controller_manager
-            has_tests: true
-          - service: game_coordinator
-            has_tests: true
-          - service: settings
-            has_tests: true
-          - service: menu
-            has_tests: true
-          - service: audio
-            has_tests: true
-          - service: supervisor
-            has_tests: false
     steps:
       - uses: actions/checkout@v4
 
@@ -100,7 +86,7 @@ jobs:
           ty check .
 
       - name: Unit tests
-        if: steps.changes.outputs.service == 'true' && matrix.has_tests
+        if: steps.changes.outputs.service == 'true'
         run: |
           cd services/${{ matrix.service }}
           uv sync --extra test
@@ -265,7 +251,6 @@ jobs:
           - controller_manager
           - game_coordinator
           - settings
-          - supervisor
           - menu
           - audio
     steps:

@@ -35,11 +35,6 @@ class GameCoordinatorServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.StartGame = channel.unary_unary(
-                '/joustmania.game_coordinator.GameCoordinatorService/StartGame',
-                request_serializer=game__coordinator__pb2.StartGameRequest.SerializeToString,
-                response_deserializer=game__coordinator__pb2.StartGameResponse.FromString,
-                _registered_method=True)
         self.ForceEndGame = channel.unary_unary(
                 '/joustmania.game_coordinator.GameCoordinatorService/ForceEndGame',
                 request_serializer=game__coordinator__pb2.ForceEndGameRequest.SerializeToString,
@@ -61,13 +56,6 @@ class GameCoordinatorServiceServicer(object):
     """GameCoordinator Service - Manages game lifecycle and coordination
     """
 
-    def StartGame(self, request, context):
-        """Start a game
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
     def ForceEndGame(self, request, context):
         """Force end current game
         """
@@ -77,6 +65,8 @@ class GameCoordinatorServiceServicer(object):
 
     def StreamGameEvents(self, request, context):
         """Stream game events (deaths, scoring, etc.)
+        If start_config is provided, starts a new game before streaming events.
+        If start_config is empty, subscribes to current/upcoming game events.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -92,11 +82,6 @@ class GameCoordinatorServiceServicer(object):
 
 def add_GameCoordinatorServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'StartGame': grpc.unary_unary_rpc_method_handler(
-                    servicer.StartGame,
-                    request_deserializer=game__coordinator__pb2.StartGameRequest.FromString,
-                    response_serializer=game__coordinator__pb2.StartGameResponse.SerializeToString,
-            ),
             'ForceEndGame': grpc.unary_unary_rpc_method_handler(
                     servicer.ForceEndGame,
                     request_deserializer=game__coordinator__pb2.ForceEndGameRequest.FromString,
@@ -123,33 +108,6 @@ def add_GameCoordinatorServiceServicer_to_server(servicer, server):
 class GameCoordinatorService(object):
     """GameCoordinator Service - Manages game lifecycle and coordination
     """
-
-    @staticmethod
-    def StartGame(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/joustmania.game_coordinator.GameCoordinatorService/StartGame',
-            game__coordinator__pb2.StartGameRequest.SerializeToString,
-            game__coordinator__pb2.StartGameResponse.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
 
     @staticmethod
     def ForceEndGame(request,

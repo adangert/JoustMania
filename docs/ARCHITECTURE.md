@@ -14,33 +14,31 @@ JoustMania is a party game system for PS Move controllers, built as a collection
 ## Service Diagram
 
 ```
-                              ┌──────────────┐
-                              │   Web UI     │ :80
-                              │   (Flask)    │
-                              └──────┬───────┘
-                                     │ HTTP + gRPC
-       ┌─────────────────────────────┼─────────────────────────────┐
-       │                             │                             │
-       ▼                             ▼                             ▼
-┌──────────────┐          ┌──────────────────┐          ┌──────────────┐
-│   Settings   │◄─────────│    Supervisor    │─────────►│    Menu      │
-│   :50051     │          │    :50055        │          │   :50054     │
-└──────────────┘          └────────┬─────────┘          └──────┬───────┘
-       ▲                           │                           │
-       │                           │ orchestrates              │
-       │                           ▼                           │
-       │                  ┌──────────────────┐                 │
-       └──────────────────│ Game Coordinator │◄────────────────┘
-                          │     :50053       │
-                          └────────┬─────────┘
-                                   │
-              ┌────────────────────┼────────────────────┐
-              │                    │                    │
-              ▼                    ▼                    ▼
-     ┌──────────────┐    ┌──────────────────┐   ┌──────────────┐
-     │    Audio     │    │ Controller Mgr   │   │  Bluetooth   │
-     │   :50056     │    │     :50052       │   │  Hardware    │
-     └──────────────┘    └────────┬─────────┘   └──────────────┘
+                           ┌──────────────┐
+                           │   Web UI     │ :80
+                           │  (Dashboard) │
+                           └──────┬───────┘
+                                  │ HTTP + gRPC
+    ┌─────────────────────────────┼─────────────────────────────┐
+    │                             │                             │
+    ▼                             ▼                             ▼
+┌──────────────┐          ┌──────────────┐          ┌──────────────────┐
+│   Settings   │◄─────────│    Menu      │─────────►│ Game Coordinator │
+│   :50051     │          │   :50054     │          │     :50053       │
+└──────────────┘          └──────┬───────┘          └────────┬─────────┘
+       ▲                         │                           │
+       │                         │ StreamGameEvents          │
+       │                         │ (start_config)            │
+       │                         ▼                           │
+       │                 ┌──────────────┐                    │
+       └─────────────────│    Audio     │◄───────────────────┤
+                         │   :50056     │                    │
+                         └──────────────┘                    │
+                                                             │
+                         ┌──────────────────┐                │
+                         │ Controller Mgr   │◄───────────────┘
+                         │     :50052       │
+                         └────────┬─────────┘
                                   │
                            USB/Bluetooth
                                   │
@@ -129,9 +127,9 @@ JoustMania is a party game system for PS Move controllers, built as a collection
 **Key RPCs**:
 | RPC | Type | Description |
 |-----|------|-------------|
-| `StartGame` | Unary | Start a game with specified mode |
+| `StreamGameEvents` | Server Stream | Start game (if start_config provided) and stream lifecycle events |
 | `ForceEndGame` | Unary | Force end current game |
-| `StreamGameEvents` | Server Stream | Game lifecycle events |
+| `GetGameState` | Unary | Query current game state (for testing/observability) |
 
 **Dependencies**: Settings, ControllerManager, Audio
 
@@ -164,22 +162,6 @@ JoustMania is a party game system for PS Move controllers, built as a collection
 - Configure teams, sensitivity, force_all_start
 
 **Dependencies**: Settings, ControllerManager, GameCoordinator
-
----
-
-### Supervisor Service (Port 50055)
-
-**Purpose**: Service orchestration and health monitoring
-
-**Type**: Pure gRPC client (orchestrator)
-
-**Responsibilities**:
-- Subscribe to Menu events
-- Orchestrate game starts via GameCoordinator
-- Propagate distributed tracing context
-- Expose gRPC Health service for probes
-
-**Dependencies**: All services
 
 ---
 
@@ -251,7 +233,6 @@ settings:50051
 controller-manager:50052
 game-coordinator:50053
 menu:50054
-supervisor:50055
 audio:50056
 ```
 
@@ -286,13 +267,14 @@ audio:50056
 
 ```
 1. Menu detects all controllers ready (≥2 players)
-2. Menu publishes "game_requested" event
-3. Supervisor receives via StreamMenuEvents
-4. Supervisor calls GameCoordinator.StartGame
-5. GameCoordinator initializes game instance
-6. Game streams events back via StreamGameEvents
-7. Game runs until win condition
-8. Menu receives "game_ended", resets to lobby
+2. Menu calls GameCoordinator.StreamGameEvents(start_config)
+   - start_config contains game_name, players, settings
+3. GameCoordinator validates and initializes game instance
+4. GameCoordinator streams back game lifecycle events:
+   - game_start → countdown → game_started → player_death... → game_end
+5. Menu monitors events via separate subscription
+6. Game runs until win condition
+7. Menu receives "game_ended", resets to lobby
 ```
 
 ### Settings Update

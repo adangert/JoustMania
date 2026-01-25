@@ -6,13 +6,12 @@ option go_package = "github.com/joustmania/connect-proxy/gen/game_coordinator";
 
 // GameCoordinator Service - Manages game lifecycle and coordination
 service GameCoordinatorService {
-  // Start a game
-  rpc StartGame(StartGameRequest) returns (StartGameResponse);
-
   // Force end current game
   rpc ForceEndGame(ForceEndGameRequest) returns (ForceEndGameResponse);
 
   // Stream game events (deaths, scoring, etc.)
+  // If start_config is provided, starts a new game before streaming events.
+  // If start_config is empty, subscribes to current/upcoming game events.
   rpc StreamGameEvents(StreamEventsRequest) returns (stream GameEvent);
 
   // Get current game state (for testing/observability)
@@ -35,17 +34,11 @@ message Player {
   int32 score = 4;
 }
 
-// Request/Response messages
-message StartGameRequest {
+// Configuration for starting a game via stream
+message StartGameConfig {
   string game_name = 1;  // e.g., "JoustFFA", "Werewolf"
   repeated Player players = 2;
   map<string, string> settings = 3;  // Game-specific settings
-}
-
-message StartGameResponse {
-  bool success = 1;
-  string error = 2;
-  string game_id = 3;  // Unique game identifier
 }
 
 message ForceEndGameRequest {
@@ -57,7 +50,11 @@ message ForceEndGameResponse {
   string error = 2;
 }
 
-message StreamEventsRequest {}
+message StreamEventsRequest {
+  // If provided, starts a new game before streaming events.
+  // If empty, subscribes to current/upcoming game events.
+  optional StartGameConfig start_config = 1;
+}
 
 message GameEvent {
   string event_type = 1;  // "player_death", "game_start", "game_end", "score_update"

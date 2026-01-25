@@ -476,7 +476,7 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
         except Exception as e:
             logger.debug(f"Could not load audio settings: {e}, using defaults")
 
-    def PlaySound(self, request, context):  # noqa: N802, ARG002
+    async def PlaySound(self, request, context):  # noqa: N802, ARG002
         """Play a sound effect."""
         # Resolve sound name/path to full path with voice selection
         resolved_path = self._resolve_sound_path(request.file_path)
@@ -498,7 +498,7 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
 
             return audio_pb2.PlaySoundResponse(success=success, error="" if success else "Failed to play sound")
 
-    def PlayMusic(self, request, context):  # noqa: N802, ARG002
+    async def PlayMusic(self, request, context):  # noqa: N802, ARG002
         """Play background music."""
         # Extract music directory for span (e.g., "Joust" from "Joust/music/*.wav")
         music_dir = request.file_pattern.split("/")[0] if "/" in request.file_pattern else "music"
@@ -522,7 +522,7 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
                 return audio_pb2.PlayMusicResponse(track_id=track_id, success=True, error="")
             return audio_pb2.PlayMusicResponse(track_id="", success=False, error="Failed to play music")
 
-    def StopMusic(self, request, context):  # noqa: N802, ARG002
+    async def StopMusic(self, request, context):  # noqa: N802, ARG002
         """Stop music track."""
         with tracer.start_as_current_span("StopMusic"):
             success = self.audio_manager.stop_music(request.track_id)

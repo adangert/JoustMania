@@ -215,38 +215,6 @@ services:
     restart: unless-stopped
     # Healthcheck defined in Dockerfile (uses grpc_health_probe)
 
-  # Supervisor Service
-  supervisor:
-    image: ghcr.io/watchmejoustmyflags/joustmania/supervisor-service:${IMAGE_TAG:-latest}
-    build:
-      context: .
-      dockerfile: services/supervisor/Dockerfile
-      args:
-        BUILDER_IMAGE: ${BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/builder:latest}
-    container_name: joustmania-supervisor
-    # Ports exposed only within Docker network (no host binding)
-    expose:
-      - "50055"  # gRPC service
-      - "8000"   # Prometheus metrics (Phase 38)
-    environment:
-      - OTEL_SERVICE_NAME=supervisor-service
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-    volumes:
-      - /tmp/joustmania:/tmp/joustmania:ro  # Host startup status (read-only)
-    depends_on:
-      settings:
-        condition: service_healthy
-      controller-manager:
-        condition: service_healthy
-      game-coordinator:
-        condition: service_healthy
-      menu:
-        condition: service_healthy
-    networks:
-      - joustmania
-    restart: unless-stopped
-    # Healthcheck defined in Dockerfile (uses grpc_health_probe)
-
   # Audio Service
   audio:
     image: ghcr.io/watchmejoustmyflags/joustmania/audio-service:${IMAGE_TAG:-latest}

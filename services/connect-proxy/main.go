@@ -277,17 +277,6 @@ type GameCoordinatorProxy struct {
 	client gamepb.GameCoordinatorServiceClient
 }
 
-func (p *GameCoordinatorProxy) StartGame(
-	ctx context.Context,
-	req *connect.Request[gamepb.StartGameRequest],
-) (*connect.Response[gamepb.StartGameResponse], error) {
-	resp, err := p.client.StartGame(ctx, req.Msg)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	return connect.NewResponse(resp), nil
-}
-
 func (p *GameCoordinatorProxy) ForceEndGame(
 	ctx context.Context,
 	req *connect.Request[gamepb.ForceEndGameRequest],

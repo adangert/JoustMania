@@ -84,82 +84,70 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
             self.game_state = game_coordinator_pb2.GameState.ENDED
             logger.info("Game state transitioned to ENDED")
 
-    def StartGame(self, request, context):  # noqa: N802
-        """Start a new game (creates span for RPC, game span will link with FOLLOWS_FROM)."""
-        # Extract trace context from gRPC metadata for cross-service propagation
-        propagator = TraceContextTextMapPropagator()
-        # Convert gRPC metadata to dict safely (can't use dict() directly on Metadata object)
-        metadata: dict[str, str] = {}
-        if context.invocation_metadata():
-            for key, value in context.invocation_metadata():
-                metadata[key] = value
-        parent_ctx = propagator.extract(metadata)
+    def _start_game_from_config(self, config, parent_span) -> tuple[bool, str]:
+        """
+        Start a game from StartGameConfig (internal helper).
 
-        # Create StartGame span with parent context - short-lived, returns immediately
-        # The actual game span (in background thread) will link to this with FOLLOWS_FROM
-        with tracer.start_as_current_span("StartGame", context=parent_ctx) as start_span:
-            start_span.set_attribute("game.name", request.game_name)
-            start_span.set_attribute("player.count", len(request.players))
+        Args:
+            config: StartGameConfig with game_name, players, settings
+            parent_span: Parent span for trace context
 
-            try:
-                # Thread-safe state check and transition
-                with self._state_lock:
-                    # Check if game already running
-                    if self.game_state in [
-                        game_coordinator_pb2.GameState.STARTING,
-                        game_coordinator_pb2.GameState.RUNNING,
-                    ]:
-                        return game_coordinator_pb2.StartGameResponse(
-                            success=False, error="Game already in progress", game_id=""
-                        )
+        Returns:
+            Tuple of (success, error_message_or_game_id)
+        """
+        try:
+            # Thread-safe state check and transition
+            with self._state_lock:
+                # Check if game already running
+                if self.game_state in [
+                    game_coordinator_pb2.GameState.STARTING,
+                    game_coordinator_pb2.GameState.RUNNING,
+                ]:
+                    return False, "Game already in progress"
 
-                    # Validate player count
-                    if len(request.players) < 2:
-                        return game_coordinator_pb2.StartGameResponse(
-                            success=False, error="Need at least 2 players", game_id=""
-                        )
+                # Validate player count
+                if len(config.players) < 2:
+                    return False, "Need at least 2 players"
 
-                    # Store game configuration
-                    self.game_name = request.game_name
-                    self.players = list(request.players)
-                    self.settings = dict(request.settings)
-                    self.game_id = f"game_{int(time.time())}"
-                    self.game_start_time = time.time()
+                # Store game configuration
+                self.game_name = config.game_name
+                self.players = list(config.players)
+                self.settings = dict(config.settings)
+                self.game_id = f"game_{int(time.time())}"
+                self.game_start_time = time.time()
 
-                    # Capture parent context for game span in background thread
-                    # Using set_span_in_context to preserve the full trace context
-                    self.game_parent_context = trace.set_span_in_context(start_span)
+                # Capture parent context for game span in background thread
+                self.game_parent_context = trace.set_span_in_context(parent_span)
 
-                    # Update state
-                    self.game_state = game_coordinator_pb2.GameState.STARTING
+                # Update state
+                self.game_state = game_coordinator_pb2.GameState.STARTING
 
-                # Update metrics
-                metrics.active_game.set(1)
-                metrics.games_started_total.labels(mode=self.game_name).inc()
-                metrics.active_players.set(len(self.players))
+            # Update metrics
+            metrics.active_game.set(1)
+            metrics.games_started_total.labels(mode=self.game_name).inc()
+            metrics.active_players.set(len(self.players))
 
-                # Publish game_start event
-                self.event_bus.publish(
-                    GameEvent.GAME_START,
-                    {
-                        "game_name": self.game_name,
-                        "game_id": self.game_id,
-                        "player_count": str(len(self.players)),
-                    },
-                )
+            # Publish game_start event
+            self.event_bus.publish(
+                GameEvent.GAME_START,
+                {
+                    "game_name": self.game_name,
+                    "game_id": self.game_id,
+                    "player_count": str(len(self.players)),
+                },
+            )
 
-                # Start game in background thread (with async support)
-                self.game_running = True
-                self.game_thread = threading.Thread(target=self._run_game_loop_threaded, daemon=True)
-                self.game_thread.start()
+            # Start game in background thread (with async support)
+            self.game_running = True
+            self.game_thread = threading.Thread(target=self._run_game_loop_threaded, daemon=True)
+            self.game_thread.start()
 
-                logger.info(f"Started game: {self.game_name} with {len(self.players)} players")
+            logger.info(f"Started game: {self.game_name} with {len(self.players)} players")
+            return True, self.game_id
 
-                return game_coordinator_pb2.StartGameResponse(success=True, error="", game_id=self.game_id)
-
-            except Exception as e:
-                logger.error(f"StartGame error: {e}", exc_info=True)
-                return game_coordinator_pb2.StartGameResponse(success=False, error=str(e), game_id="")
+        except Exception as e:
+            logger.error(f"StartGame error: {e}", exc_info=True)
+            return False, str(e)
 
     def _run_game_loop_threaded(self):
         """Run the game loop in background thread (creates async event loop)."""
@@ -316,12 +304,49 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
             logger.error(f"ForceEndGame error: {e}", exc_info=True)
             return game_coordinator_pb2.ForceEndGameResponse(success=False, error=str(e))
 
-    async def StreamGameEvents(self, request, context):  # noqa: N802, ARG002
-        """Stream game events in real-time (async)."""
+    async def StreamGameEvents(self, request, context):  # noqa: N802
+        """
+        Stream game events in real-time.
+
+        If start_config is provided, starts a new game before streaming events.
+        Otherwise, subscribes to current/upcoming game events.
+        """
         subscriber_id = f"events_{time.time()}"
 
-        with tracer.start_as_current_span("StreamGameEvents") as span:
+        # Extract trace context from gRPC metadata for cross-service propagation
+        propagator = TraceContextTextMapPropagator()
+        metadata: dict[str, str] = {}
+        if context.invocation_metadata():
+            for key, value in context.invocation_metadata():
+                metadata[key] = value
+        parent_ctx = propagator.extract(metadata)
+
+        with tracer.start_as_current_span("StreamGameEvents", context=parent_ctx) as span:
             span.set_attribute("subscriber.id", subscriber_id)
+
+            # Check if this is a game start request
+            if request.HasField("start_config"):
+                config = request.start_config
+                span.set_attribute("game.name", config.game_name)
+                span.set_attribute("player.count", len(config.players))
+                span.set_attribute("game.start_via_stream", True)
+
+                # Start the game
+                success, result = self._start_game_from_config(config, span)
+
+                if not success:
+                    # Yield error event and close stream
+                    logger.error(f"Failed to start game via stream: {result}")
+                    span.set_attribute("error", result)
+                    yield game_coordinator_pb2.GameEvent(
+                        event_type="game_start_error",
+                        data={"error": result},
+                        timestamp=int(time.time() * 1000),
+                    )
+                    return
+
+                span.set_attribute("game.id", result)
+                logger.info(f"Game {result} started via stream")
 
             # Subscribe to event bus
             event_queue = await self.event_bus.subscribe(subscriber_id)

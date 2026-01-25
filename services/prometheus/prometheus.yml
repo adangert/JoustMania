@@ -32,13 +32,6 @@ scrape_configs:
         labels:
           service: 'settings'
 
-  # Supervisor Service (still uses prometheus_client pull)
-  - job_name: 'supervisor'
-    static_configs:
-      - targets: ['supervisor:8000']
-        labels:
-          service: 'supervisor'
-
   # WebUI Service (still uses prometheus_client pull)
   - job_name: 'webui'
     static_configs:

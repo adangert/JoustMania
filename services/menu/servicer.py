@@ -2,7 +2,6 @@
 
 import asyncio
 import contextlib
-import json
 import logging
 import os
 import time
@@ -303,13 +302,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         span.set_attribute("button", button)
 
         if button == "trigger":
-            controllers = list(self.state_manager.ready_controllers)
-            self.state = menu_pb2.MenuState.GAME_STARTING
-            await self.event_publisher.publish(
-                "game_requested",
-                {"game_name": self.current_selection, "controllers": json.dumps(controllers)},
-            )
-            logger.info(f"Game requested: {self.current_selection} with {len(controllers)} players")
+            await self._start_game(serial="process_input", source="button_input")
 
         elif button == "select":
             current_index = GAME_MODES.index(self.current_selection) if self.current_selection in GAME_MODES else 0
@@ -325,13 +318,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         span.set_attribute("command", command)
 
         if command == "start_game":
-            controllers = list(self.state_manager.ready_controllers)
-            self.state = menu_pb2.MenuState.GAME_STARTING
-            await self.event_publisher.publish(
-                "game_requested",
-                {"game_name": self.current_selection, "source": "web", "controllers": json.dumps(controllers)},
-            )
-            logger.info(f"Game requested via web: {self.current_selection} with {len(controllers)} players")
+            await self._start_game(serial="web", source="web")
 
         elif command == "select_game":
             game_name = data.get("game_name", "")
@@ -488,28 +475,86 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         await self.audio_channel.close()
         logger.info("Menu service gRPC channels closed")
 
-    async def _start_game(self, serial: str):
-        """Start the game when all players are ready."""
+    async def _start_game(self, serial: str, source: str = "controller"):
+        """
+        Start the game by calling GameCoordinator.StreamGameEvents with start_config.
+
+        This is the unified game start flow - Menu calls GameCoordinator directly
+        instead of publishing events for Supervisor to handle.
+
+        Args:
+            serial: Controller serial that triggered the start (for logging)
+            source: Source of the start request ("controller" or "web")
+        """
+        from proto import game_coordinator_pb2, game_coordinator_pb2_grpc
+
         metrics.button_presses_total.labels(button="trigger", action="press").inc()
 
         with tracer.start_as_current_span("start_game") as span:
             span.set_attribute("controller.serial", serial)
             span.set_attribute("game.name", self.current_selection)
+            span.set_attribute("game.source", source)
 
             # Get controllers from state_manager (source of truth)
             controllers = list(self.state_manager.ready_controllers)
             span.set_attribute("controller.count", len(controllers))
 
+            if len(controllers) < 2:
+                logger.warning(f"Not enough players to start game: {len(controllers)}")
+                return
+
             self.state = menu_pb2.MenuState.GAME_STARTING
-            await self.event_publisher.publish(
-                "game_requested",
-                {
-                    "game_name": self.current_selection,
-                    "source": "controller",
-                    "serial": serial,
-                    "controllers": json.dumps(controllers),
-                },
+
+            # Build player list for GameCoordinator
+            players = [
+                game_coordinator_pb2.Player(serial=s, team=i % 2, alive=True, score=0)
+                for i, s in enumerate(controllers)
+            ]
+
+            # Create start config
+            config = game_coordinator_pb2.StartGameConfig(
+                game_name=self.current_selection,
+                players=players,
+                settings={},
             )
+
+            # Inject trace context into gRPC metadata
+            propagator = TraceContextTextMapPropagator()
+            carrier: dict[str, str] = {}
+            propagator.inject(carrier)
+            metadata = list(carrier.items())
+
+            # Call GameCoordinator.StreamGameEvents with start_config
+            stub = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(self.game_coordinator_channel)
+            request = game_coordinator_pb2.StreamEventsRequest(start_config=config)
+
             logger.info(
-                f"Game requested via controller {serial}: {self.current_selection} with {len(controllers)} players"
+                f"Starting game via GameCoordinator stream ({source}): "
+                f"{self.current_selection} with {len(controllers)} players"
             )
+
+            # Start the stream in a background task - don't block on events here
+            # The game_event_loop will handle incoming events
+            try:
+                # Just initiate the stream to start the game
+                # We receive the first event (game_start or game_start_error) to confirm
+                stream = stub.StreamGameEvents(request, metadata=metadata)
+                first_event = await stream.__anext__()
+
+                if first_event.event_type == "game_start_error":
+                    error = first_event.data.get("error", "Unknown error")
+                    logger.error(f"Game start failed: {error}")
+                    span.set_attribute("error", error)
+                    self.state = menu_pb2.MenuState.RUNNING
+                    return
+
+                logger.info(f"Game started successfully: {first_event.event_type}")
+                span.set_attribute("game.started", True)
+
+                # Close this stream - the game_event_loop subscription handles the rest
+                # The game is now running in GameCoordinator
+
+            except Exception as e:
+                logger.error(f"Failed to start game via stream: {e}", exc_info=True)
+                span.record_exception(e)
+                self.state = menu_pb2.MenuState.RUNNING

@@ -60,13 +60,13 @@ groups:
 
       # Game quality alerts
       - alert: PoorFrameConsistency
-        expr: game_loop_frame_consistency_percent < 90
+        expr: game_loop_frame_consistency_percent < 95
         for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "Poor frame consistency in {{$labels.game_mode}}"
-          description: "Only {{$value}}% of frames within target (should be >95%)."
+          summary: "Poor frame consistency"
+          description: "Only {{$value}}% of frames within target timing (should be >95%)."
 
       - alert: HighGCPauses
         expr: histogram_quantile(0.95, rate(gc_pause_seconds_bucket[5m])) > 0.010

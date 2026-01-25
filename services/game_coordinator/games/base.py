@@ -17,6 +17,7 @@ import contextlib
 import logging
 import math
 import random
+import statistics
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -520,6 +521,11 @@ class BaseGameMode(ABC):
             loop_iterations = 0
             last_iteration_time = loop_start_time
 
+            # Track frame consistency (Issue #183)
+            target_frame_time_ms = 1000.0 / update_frequency_hz
+            recent_frame_times: list[float] = []  # Store recent frame times for jitter calculation
+            frames_on_target = 0  # Frames within 50% of target time
+
             # Stream gameplay data and process game logic
             logger.info("Starting gameplay data stream loop, waiting for first update...")
             async for gameplay_update in self.gameplay_stream:
@@ -597,11 +603,33 @@ class BaseGameMode(ABC):
                 metrics.game_loop_iterations_total.labels(mode=self.get_game_name()).inc()
                 metrics.game_loop_latency_ms.labels(mode=self.get_game_name()).observe(iteration_latency_ms)
 
-                # Calculate actual Hz every 10 iterations
+                # Track frame consistency (Issue #183)
+                recent_frame_times.append(iteration_latency_ms)
+                if len(recent_frame_times) > 60:  # Keep last 60 frames (1 second at 60Hz)
+                    recent_frame_times.pop(0)
+
+                # Check if frame is within target (50% tolerance)
+                if iteration_latency_ms <= target_frame_time_ms * 1.5:
+                    frames_on_target += 1
+
+                # Check for dropped frames (>2x target time)
+                if iteration_latency_ms > target_frame_time_ms * 2:
+                    metrics.game_loop_frames_dropped_total.labels(mode=self.get_game_name()).inc()
+
+                # Calculate actual Hz and frame consistency every 10 iterations
                 if loop_iterations % 10 == 0:
                     elapsed = time.time() - loop_start_time
                     actual_hz = loop_iterations / elapsed if elapsed > 0 else 0
                     metrics.actual_update_frequency_hz.set(actual_hz)
+
+                    # Calculate frame consistency percentage
+                    consistency_percent = (frames_on_target / loop_iterations) * 100
+                    metrics.game_loop_frame_consistency_percent.set(consistency_percent)
+
+                    # Calculate jitter (standard deviation of recent frame times)
+                    if len(recent_frame_times) >= 2:
+                        jitter_ms = statistics.stdev(recent_frame_times)
+                        metrics.game_loop_jitter_ms.set(jitter_ms)
 
                 last_iteration_time = iteration_end
 

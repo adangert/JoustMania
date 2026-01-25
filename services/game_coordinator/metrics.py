@@ -135,6 +135,23 @@ game_loop_latency_ms = Histogram(
     buckets=[10, 20, 30, 40, 50, 75, 100, 150, 200, 300, 500],
 )
 
+# Frame consistency metrics (Issue #183)
+game_loop_frame_consistency_percent = Gauge(
+    "game_loop_frame_consistency_percent",
+    "Percentage of frames within target timing (within 50% of target frame time)",
+)
+
+game_loop_jitter_ms = Gauge(
+    "game_loop_jitter_ms",
+    "Standard deviation of frame times in milliseconds",
+)
+
+game_loop_frames_dropped_total = Counter(
+    "game_loop_frames_dropped_total",
+    "Total number of frames that exceeded 2x the target frame time",
+    ["mode"],
+)
+
 # Adaptive controller filtering metrics (Phase 45)
 filtered_controllers = Gauge("game_filtered_controllers", "Number of controllers currently filtered out (dead players)")
 

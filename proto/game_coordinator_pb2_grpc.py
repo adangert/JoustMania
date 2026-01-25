@@ -50,6 +50,11 @@ class GameCoordinatorServiceStub(object):
                 request_serializer=game__coordinator__pb2.StreamEventsRequest.SerializeToString,
                 response_deserializer=game__coordinator__pb2.GameEvent.FromString,
                 _registered_method=True)
+        self.GetGameState = channel.unary_unary(
+                '/joustmania.game_coordinator.GameCoordinatorService/GetGameState',
+                request_serializer=game__coordinator__pb2.GetGameStateRequest.SerializeToString,
+                response_deserializer=game__coordinator__pb2.GetGameStateResponse.FromString,
+                _registered_method=True)
 
 
 class GameCoordinatorServiceServicer(object):
@@ -77,6 +82,13 @@ class GameCoordinatorServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetGameState(self, request, context):
+        """Get current game state (for testing/observability)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_GameCoordinatorServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -94,6 +106,11 @@ def add_GameCoordinatorServiceServicer_to_server(servicer, server):
                     servicer.StreamGameEvents,
                     request_deserializer=game__coordinator__pb2.StreamEventsRequest.FromString,
                     response_serializer=game__coordinator__pb2.GameEvent.SerializeToString,
+            ),
+            'GetGameState': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetGameState,
+                    request_deserializer=game__coordinator__pb2.GetGameStateRequest.FromString,
+                    response_serializer=game__coordinator__pb2.GetGameStateResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -178,6 +195,33 @@ class GameCoordinatorService(object):
             '/joustmania.game_coordinator.GameCoordinatorService/StreamGameEvents',
             game__coordinator__pb2.StreamEventsRequest.SerializeToString,
             game__coordinator__pb2.GameEvent.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetGameState(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/joustmania.game_coordinator.GameCoordinatorService/GetGameState',
+            game__coordinator__pb2.GetGameStateRequest.SerializeToString,
+            game__coordinator__pb2.GetGameStateResponse.FromString,
             options,
             channel_credentials,
             insecure,

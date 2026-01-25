@@ -14,6 +14,9 @@ service GameCoordinatorService {
 
   // Stream game events (deaths, scoring, etc.)
   rpc StreamGameEvents(StreamEventsRequest) returns (stream GameEvent);
+
+  // Get current game state (for testing/observability)
+  rpc GetGameState(GetGameStateRequest) returns (GetGameStateResponse);
 }
 
 // Game status
@@ -60,4 +63,37 @@ message GameEvent {
   string event_type = 1;  // "player_death", "game_start", "game_end", "score_update"
   map<string, string> data = 2;  // Event-specific data
   int64 timestamp = 3;  // Unix timestamp in milliseconds
+}
+
+// GetGameState - Query current game state (for testing/observability)
+message GetGameStateRequest {}
+
+message GetGameStateResponse {
+  bool success = 1;
+  string error = 2;
+  GameInfo game_info = 3;
+}
+
+message GameInfo {
+  string game_mode = 1;           // e.g., "JoustFFA", "Swapper", "Teams"
+  GameState state = 2;            // IDLE, STARTING, RUNNING, ENDING, ENDED
+  repeated PlayerInfo players = 3;
+  string game_id = 4;             // Unique game identifier
+  int64 start_time_ms = 5;        // Game start timestamp in milliseconds
+}
+
+message PlayerInfo {
+  string serial = 1;              // Controller serial number
+  int32 team = 2;                 // Team number (-1 if no teams)
+  string team_name = 3;           // Team name (e.g., "Pink", "Magenta")
+  RGB color = 4;                  // Current LED color
+  bool alive = 5;                 // Player alive status
+  float sensitivity_factor = 6;  // Per-player sensitivity multiplier
+  int32 score = 7;                // Player score (if applicable)
+}
+
+message RGB {
+  int32 r = 1;
+  int32 g = 2;
+  int32 b = 3;
 }

@@ -344,6 +344,65 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 # Cleanup via EventBus
                 await self.event_bus.unsubscribe(subscriber_id)
 
+    async def GetGameState(self, request, context):  # noqa: N802, ARG002
+        """
+        Get current game state for testing and observability.
+
+        Returns detailed player information including team assignments,
+        colors, and alive status.
+        """
+        try:
+            with self._state_lock:
+                # Build game info response
+                game_info = game_coordinator_pb2.GameInfo(
+                    game_mode=self.game_name or "",
+                    state=self.game_state,
+                    game_id=self.game_id or "",
+                    start_time_ms=int((self.game_start_time or 0) * 1000),
+                )
+
+                # Get player info from current game if running
+                if self.current_game and hasattr(self.current_game, "players"):
+                    # Get team info if available (for team-based games)
+                    teams = getattr(self.current_game, "teams", {})
+
+                    for serial, player in self.current_game.players.items():
+                        # Get team name from teams dict if available
+                        team_name = ""
+                        if player.team >= 0 and player.team in teams:
+                            team_name = teams[player.team].name
+
+                        # Get color components
+                        color = player.color if player.color else (0, 0, 0)
+                        r, g, b = color[0], color[1], color[2]
+
+                        player_info = game_coordinator_pb2.PlayerInfo(
+                            serial=serial,
+                            team=player.team,
+                            team_name=team_name,
+                            color=game_coordinator_pb2.RGB(r=r, g=g, b=b),
+                            alive=player.alive,
+                            sensitivity_factor=player.sensitivity_factor,
+                            score=0,  # Score tracking not yet implemented in base Player
+                        )
+                        game_info.players.append(player_info)
+
+            logger.debug(
+                f"GetGameState: mode={game_info.game_mode}, state={game_info.state}, players={len(game_info.players)}"
+            )
+            return game_coordinator_pb2.GetGameStateResponse(
+                success=True,
+                error="",
+                game_info=game_info,
+            )
+
+        except Exception as e:
+            logger.error(f"GetGameState error: {e}", exc_info=True)
+            return game_coordinator_pb2.GetGameStateResponse(
+                success=False,
+                error=str(e),
+            )
+
     async def shutdown(self):
         """Shutdown the game coordinator."""
         logger.info("Shutting down GameCoordinator...")

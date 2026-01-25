@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16game_coordinator.proto\x12\x1bjoustmania.game_coordinator\"D\n\x06Player\x12\x0e\n\x06serial\x18\x01 \x01(\t\x12\x0c\n\x04team\x18\x02 \x01(\x05\x12\r\n\x05\x61live\x18\x03 \x01(\x08\x12\r\n\x05score\x18\x04 \x01(\x05\"\xdb\x01\n\x10StartGameRequest\x12\x11\n\tgame_name\x18\x01 \x01(\t\x12\x34\n\x07players\x18\x02 \x03(\x0b\x32#.joustmania.game_coordinator.Player\x12M\n\x08settings\x18\x03 \x03(\x0b\x32;.joustmania.game_coordinator.StartGameRequest.SettingsEntry\x1a/\n\rSettingsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"D\n\x11StartGameResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\x12\x0f\n\x07game_id\x18\x03 \x01(\t\"%\n\x13\x46orceEndGameRequest\x12\x0e\n\x06reason\x18\x01 \x01(\t\"6\n\x14\x46orceEndGameResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\"\x15\n\x13StreamEventsRequest\"\x9f\x01\n\tGameEvent\x12\x12\n\nevent_type\x18\x01 \x01(\t\x12>\n\x04\x64\x61ta\x18\x02 \x03(\x0b\x32\x30.joustmania.game_coordinator.GameEvent.DataEntry\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\x1a+\n\tDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01*G\n\tGameState\x12\x08\n\x04IDLE\x10\x00\x12\x0c\n\x08STARTING\x10\x01\x12\x0b\n\x07RUNNING\x10\x02\x12\n\n\x06\x45NDING\x10\x03\x12\t\n\x05\x45NDED\x10\x04\x32\xe9\x02\n\x16GameCoordinatorService\x12j\n\tStartGame\x12-.joustmania.game_coordinator.StartGameRequest\x1a..joustmania.game_coordinator.StartGameResponse\x12s\n\x0c\x46orceEndGame\x12\x30.joustmania.game_coordinator.ForceEndGameRequest\x1a\x31.joustmania.game_coordinator.ForceEndGameResponse\x12n\n\x10StreamGameEvents\x12\x30.joustmania.game_coordinator.StreamEventsRequest\x1a&.joustmania.game_coordinator.GameEvent0\x01\x42:Z8github.com/joustmania/connect-proxy/gen/game_coordinatorb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16game_coordinator.proto\x12\x1bjoustmania.game_coordinator\"D\n\x06Player\x12\x0e\n\x06serial\x18\x01 \x01(\t\x12\x0c\n\x04team\x18\x02 \x01(\x05\x12\r\n\x05\x61live\x18\x03 \x01(\x08\x12\r\n\x05score\x18\x04 \x01(\x05\"\xdb\x01\n\x10StartGameRequest\x12\x11\n\tgame_name\x18\x01 \x01(\t\x12\x34\n\x07players\x18\x02 \x03(\x0b\x32#.joustmania.game_coordinator.Player\x12M\n\x08settings\x18\x03 \x03(\x0b\x32;.joustmania.game_coordinator.StartGameRequest.SettingsEntry\x1a/\n\rSettingsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"D\n\x11StartGameResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\x12\x0f\n\x07game_id\x18\x03 \x01(\t\"%\n\x13\x46orceEndGameRequest\x12\x0e\n\x06reason\x18\x01 \x01(\t\"6\n\x14\x46orceEndGameResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\"\x15\n\x13StreamEventsRequest\"\x9f\x01\n\tGameEvent\x12\x12\n\nevent_type\x18\x01 \x01(\t\x12>\n\x04\x64\x61ta\x18\x02 \x03(\x0b\x32\x30.joustmania.game_coordinator.GameEvent.DataEntry\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\x1a+\n\tDataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x15\n\x13GetGameStateRequest\"p\n\x14GetGameStateResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05\x65rror\x18\x02 \x01(\t\x12\x38\n\tgame_info\x18\x03 \x01(\x0b\x32%.joustmania.game_coordinator.GameInfo\"\xb6\x01\n\x08GameInfo\x12\x11\n\tgame_mode\x18\x01 \x01(\t\x12\x35\n\x05state\x18\x02 \x01(\x0e\x32&.joustmania.game_coordinator.GameState\x12\x38\n\x07players\x18\x03 \x03(\x0b\x32\'.joustmania.game_coordinator.PlayerInfo\x12\x0f\n\x07game_id\x18\x04 \x01(\t\x12\x15\n\rstart_time_ms\x18\x05 \x01(\x03\"\xa8\x01\n\nPlayerInfo\x12\x0e\n\x06serial\x18\x01 \x01(\t\x12\x0c\n\x04team\x18\x02 \x01(\x05\x12\x11\n\tteam_name\x18\x03 \x01(\t\x12/\n\x05\x63olor\x18\x04 \x01(\x0b\x32 .joustmania.game_coordinator.RGB\x12\r\n\x05\x61live\x18\x05 \x01(\x08\x12\x1a\n\x12sensitivity_factor\x18\x06 \x01(\x02\x12\r\n\x05score\x18\x07 \x01(\x05\"&\n\x03RGB\x12\t\n\x01r\x18\x01 \x01(\x05\x12\t\n\x01g\x18\x02 \x01(\x05\x12\t\n\x01\x62\x18\x03 \x01(\x05*G\n\tGameState\x12\x08\n\x04IDLE\x10\x00\x12\x0c\n\x08STARTING\x10\x01\x12\x0b\n\x07RUNNING\x10\x02\x12\n\n\x06\x45NDING\x10\x03\x12\t\n\x05\x45NDED\x10\x04\x32\xde\x03\n\x16GameCoordinatorService\x12j\n\tStartGame\x12-.joustmania.game_coordinator.StartGameRequest\x1a..joustmania.game_coordinator.StartGameResponse\x12s\n\x0c\x46orceEndGame\x12\x30.joustmania.game_coordinator.ForceEndGameRequest\x1a\x31.joustmania.game_coordinator.ForceEndGameResponse\x12n\n\x10StreamGameEvents\x12\x30.joustmania.game_coordinator.StreamEventsRequest\x1a&.joustmania.game_coordinator.GameEvent0\x01\x12s\n\x0cGetGameState\x12\x30.joustmania.game_coordinator.GetGameStateRequest\x1a\x31.joustmania.game_coordinator.GetGameStateResponseB:Z8github.com/joustmania/connect-proxy/gen/game_coordinatorb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -36,8 +36,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_STARTGAMEREQUEST_SETTINGSENTRY']._serialized_options = b'8\001'
   _globals['_GAMEEVENT_DATAENTRY']._loaded_options = None
   _globals['_GAMEEVENT_DATAENTRY']._serialized_options = b'8\001'
-  _globals['_GAMESTATE']._serialized_start=697
-  _globals['_GAMESTATE']._serialized_end=768
+  _globals['_GAMESTATE']._serialized_start=1230
+  _globals['_GAMESTATE']._serialized_end=1301
   _globals['_PLAYER']._serialized_start=55
   _globals['_PLAYER']._serialized_end=123
   _globals['_STARTGAMEREQUEST']._serialized_start=126
@@ -56,6 +56,16 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_GAMEEVENT']._serialized_end=695
   _globals['_GAMEEVENT_DATAENTRY']._serialized_start=652
   _globals['_GAMEEVENT_DATAENTRY']._serialized_end=695
-  _globals['_GAMECOORDINATORSERVICE']._serialized_start=771
-  _globals['_GAMECOORDINATORSERVICE']._serialized_end=1132
+  _globals['_GETGAMESTATEREQUEST']._serialized_start=697
+  _globals['_GETGAMESTATEREQUEST']._serialized_end=718
+  _globals['_GETGAMESTATERESPONSE']._serialized_start=720
+  _globals['_GETGAMESTATERESPONSE']._serialized_end=832
+  _globals['_GAMEINFO']._serialized_start=835
+  _globals['_GAMEINFO']._serialized_end=1017
+  _globals['_PLAYERINFO']._serialized_start=1020
+  _globals['_PLAYERINFO']._serialized_end=1188
+  _globals['_RGB']._serialized_start=1190
+  _globals['_RGB']._serialized_end=1228
+  _globals['_GAMECOORDINATORSERVICE']._serialized_start=1304
+  _globals['_GAMECOORDINATORSERVICE']._serialized_end=1782
 # @@protoc_insertion_point(module_scope)

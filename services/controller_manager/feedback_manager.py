@@ -355,13 +355,14 @@ class FeedbackManager(ControllerEffectsBase):
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_PLAYER_WARNING:
                     # White flash + vibrate, restore to base color
+                    # Always pass truthy value to ensure restoration to base_colors at effect end
                     await self.play_effect_with_restore(
                         target_serial,
                         effect_type="flash",
                         color=(255, 255, 255),
                         duration_ms=200,
                         speed=5,
-                        restore_color=restore_color,
+                        restore_color=restore_color or True,
                     )
                     await self.set_vibration(target_serial, 100, 200)
 
@@ -387,13 +388,15 @@ class FeedbackManager(ControllerEffectsBase):
                 elif effect == controller_manager_pb2.GAME_EFFECT_WINNER_RAINBOW:
                     # Rainbow at slow speed, restore to base color
                     # Duration configurable via WINNER_RAINBOW_DURATION_MS (default 3000ms)
+                    # Always pass truthy value to ensure restoration to base_colors at effect end
+                    # (base_colors may be updated DURING the effect, e.g., menu sends lobby color)
                     await self.play_effect_with_restore(
                         target_serial,
                         effect_type="rainbow",
                         color=(255, 255, 255),
                         duration_ms=get_winner_rainbow_duration_ms(),
                         speed=1,
-                        restore_color=restore_color,
+                        restore_color=restore_color or True,
                     )
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_COUNTDOWN:
@@ -447,6 +450,7 @@ class FeedbackManager(ControllerEffectsBase):
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_SHOW_BATTERY:
                     # Show battery level on this controller for 1 second, then restore
+                    # Always pass truthy value to ensure restoration to base_colors at effect end
                     battery = self.tracked_controllers.get(target_serial, {}).get("battery", 0)
                     color = self._get_battery_color(battery)
                     await self.play_effect_with_restore(
@@ -455,7 +459,7 @@ class FeedbackManager(ControllerEffectsBase):
                         color=color,
                         duration_ms=1000,
                         speed=1,  # Steady (no flashing)
-                        restore_color=restore_color,
+                        restore_color=restore_color or True,
                     )
                     logger.debug(f"Battery display: {target_serial} level={battery}% color={color}")
 

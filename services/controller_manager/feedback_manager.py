@@ -297,6 +297,9 @@ class FeedbackManager(ControllerEffectsBase):
                 # Clear effect active flag and effect type tracking
                 self.backend.set_effect_active(serial, False)
                 self.active_effect_types.pop(serial, None)
+                # Remove from active_effects so new base colors can be applied immediately
+                async with self.effect_lock:
+                    self.active_effects.pop(serial, None)
                 # Use current base_colors (may have changed during effect) if restore requested
                 current_restore = self.base_colors.get(serial) if restore_color else None
                 if current_restore:
@@ -552,6 +555,9 @@ class FeedbackManager(ControllerEffectsBase):
             # Clear effect active flag and tracking
             self.backend.set_effect_active(serial, False)
             self.active_effect_types.pop(serial, None)
+            # Remove from active_effects so new base colors can be applied immediately
+            async with self.effect_lock:
+                self.active_effects.pop(serial, None)
             # Restore to base color
             current_restore = self.base_colors.get(serial) if restore_color else None
             if current_restore:

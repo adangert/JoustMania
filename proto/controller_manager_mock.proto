@@ -26,6 +26,12 @@ service MockControllerService {
 
     // Set auto game end - automatically kill players after duration to ensure game ends
     rpc SetAutoGameEnd(AutoGameEndRequest) returns (AutoGameEndResponse);
+
+    // Get current LED color of a controller
+    rpc GetColor(GetColorRequest) returns (GetColorResponse);
+
+    // Stream observable events from mock controllers (LED changes, button presses, etc.)
+    rpc StreamObservability(ObservabilityRequest) returns (stream ObservabilityEvent);
 }
 
 message MovementRequest {
@@ -102,4 +108,54 @@ message AutoGameEndRequest {
 message AutoGameEndResponse {
     bool success = 1;
     string error = 2;
+}
+
+// GetColor - retrieve current LED color
+message GetColorRequest {
+    string serial = 1;
+}
+
+message GetColorResponse {
+    bool success = 1;
+    string error = 2;
+    int32 r = 3;
+    int32 g = 4;
+    int32 b = 5;
+}
+
+// StreamObservability - stream of observable events from mock controllers
+message ObservabilityRequest {
+    // Empty - streams all events
+}
+
+message ObservabilityEvent {
+    int64 timestamp_ms = 1;
+    string serial = 2;
+
+    oneof event {
+        LedChangeEvent led_change = 10;
+        RumbleChangeEvent rumble_change = 11;
+        ButtonChangeEvent button_change = 12;
+        ConnectionEvent connection = 13;
+    }
+}
+
+message LedChangeEvent {
+    int32 r = 1;
+    int32 g = 2;
+    int32 b = 3;
+    string source = 4;  // "base_color", "effect", "game_effect", etc.
+}
+
+message RumbleChangeEvent {
+    int32 intensity = 1;
+}
+
+message ButtonChangeEvent {
+    string button = 1;
+    bool pressed = 2;
+}
+
+message ConnectionEvent {
+    bool connected = 1;
 }

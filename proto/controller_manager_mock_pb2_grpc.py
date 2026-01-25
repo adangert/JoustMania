@@ -70,6 +70,16 @@ class MockControllerServiceStub(object):
                 request_serializer=controller__manager__mock__pb2.AutoGameEndRequest.SerializeToString,
                 response_deserializer=controller__manager__mock__pb2.AutoGameEndResponse.FromString,
                 _registered_method=True)
+        self.GetColor = channel.unary_unary(
+                '/controller_manager_mock.MockControllerService/GetColor',
+                request_serializer=controller__manager__mock__pb2.GetColorRequest.SerializeToString,
+                response_deserializer=controller__manager__mock__pb2.GetColorResponse.FromString,
+                _registered_method=True)
+        self.StreamObservability = channel.unary_stream(
+                '/controller_manager_mock.MockControllerService/StreamObservability',
+                request_serializer=controller__manager__mock__pb2.ObservabilityRequest.SerializeToString,
+                response_deserializer=controller__manager__mock__pb2.ObservabilityEvent.FromString,
+                _registered_method=True)
 
 
 class MockControllerServiceServicer(object):
@@ -125,6 +135,20 @@ class MockControllerServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetColor(self, request, context):
+        """Get current LED color of a controller
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StreamObservability(self, request, context):
+        """Stream observable events from mock controllers (LED changes, button presses, etc.)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_MockControllerServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -162,6 +186,16 @@ def add_MockControllerServiceServicer_to_server(servicer, server):
                     servicer.SetAutoGameEnd,
                     request_deserializer=controller__manager__mock__pb2.AutoGameEndRequest.FromString,
                     response_serializer=controller__manager__mock__pb2.AutoGameEndResponse.SerializeToString,
+            ),
+            'GetColor': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetColor,
+                    request_deserializer=controller__manager__mock__pb2.GetColorRequest.FromString,
+                    response_serializer=controller__manager__mock__pb2.GetColorResponse.SerializeToString,
+            ),
+            'StreamObservability': grpc.unary_stream_rpc_method_handler(
+                    servicer.StreamObservability,
+                    request_deserializer=controller__manager__mock__pb2.ObservabilityRequest.FromString,
+                    response_serializer=controller__manager__mock__pb2.ObservabilityEvent.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -354,6 +388,60 @@ class MockControllerService(object):
             '/controller_manager_mock.MockControllerService/SetAutoGameEnd',
             controller__manager__mock__pb2.AutoGameEndRequest.SerializeToString,
             controller__manager__mock__pb2.AutoGameEndResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetColor(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/controller_manager_mock.MockControllerService/GetColor',
+            controller__manager__mock__pb2.GetColorRequest.SerializeToString,
+            controller__manager__mock__pb2.GetColorResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StreamObservability(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/controller_manager_mock.MockControllerService/StreamObservability',
+            controller__manager__mock__pb2.ObservabilityRequest.SerializeToString,
+            controller__manager__mock__pb2.ObservabilityEvent.FromString,
             options,
             channel_credentials,
             insecure,

@@ -5,6 +5,8 @@ Simulates controllers for testing without hardware.
 Useful for CI/CD, development without controllers, and automated testing.
 """
 
+import asyncio
+import contextlib
 import logging
 import random
 import time
@@ -47,7 +49,60 @@ class MockBackend(ControllerBackend):
         self.auto_game_end_start_time: float | None = None
         self.auto_game_end_triggered = False
 
+        # Observability: list of observer queues for streaming state changes
+        self._observers: list[asyncio.Queue] = []
+
         logger.info(f"MockBackend initialized with {num_controllers} controllers")
+
+    # ========================================================================
+    # Observability Methods - for StreamObservability RPC
+    # ========================================================================
+
+    def add_observer(self) -> asyncio.Queue:
+        """Add an observer queue for state changes.
+
+        Returns:
+            Queue that will receive observability events.
+        """
+        queue: asyncio.Queue = asyncio.Queue(maxsize=1000)
+        self._observers.append(queue)
+        logger.debug(f"Added observer, total: {len(self._observers)}")
+        return queue
+
+    def remove_observer(self, queue: asyncio.Queue) -> None:
+        """Remove an observer queue.
+
+        Args:
+            queue: The queue to remove from observers list.
+        """
+        if queue in self._observers:
+            self._observers.remove(queue)
+            logger.debug(f"Removed observer, remaining: {len(self._observers)}")
+
+    async def _publish_event(self, event: dict) -> None:
+        """Publish event to all observers.
+
+        Args:
+            event: Event dict to publish. Should include 'type', 'serial', and event-specific data.
+        """
+        for queue in self._observers:
+            with contextlib.suppress(asyncio.QueueFull):
+                queue.put_nowait(event)
+
+    def get_led_color(self, serial: str) -> tuple[int, int, int] | None:
+        """Get current LED color for a controller.
+
+        Args:
+            serial: Controller serial number.
+
+        Returns:
+            Tuple of (r, g, b) or None if controller not found.
+        """
+        controller = self.controllers.get(serial)
+        if not controller:
+            return None
+        led = controller.get("led", {"r": 0, "g": 0, "b": 0})
+        return (led["r"], led["g"], led["b"])
 
     async def initialize(self) -> bool:
         """Initialize mock controllers."""
@@ -183,14 +238,34 @@ class MockBackend(ControllerBackend):
             "connection_type": "mock",
         }
 
-    async def set_led_color(self, serial: str, r: int, g: int, b: int) -> bool:
-        """Set LED color (tracked but not displayed)."""
+    async def set_led_color(self, serial: str, r: int, g: int, b: int, source: str = "unknown") -> bool:
+        """Set LED color (tracked but not displayed).
+
+        Args:
+            serial: Controller serial number.
+            r, g, b: RGB color values (0-255).
+            source: Source of the color change for observability (e.g., "base_color", "effect").
+        """
         controller = self.controllers.get(serial)
         if not controller:
             return False
 
         controller["led"] = {"r": r, "g": g, "b": b}
-        logger.debug(f"Mock: Set LED {serial} to RGB({r},{g},{b})")
+        logger.debug(f"Mock: Set LED {serial} to RGB({r},{g},{b}) from {source}")
+
+        # Publish LED change event to observers
+        await self._publish_event(
+            {
+                "type": "led_change",
+                "serial": serial,
+                "r": r,
+                "g": g,
+                "b": b,
+                "source": source,
+                "timestamp_ms": int(time.time() * 1000),
+            }
+        )
+
         return True
 
     async def set_rumble(self, serial: str, intensity: int) -> bool:
@@ -201,6 +276,17 @@ class MockBackend(ControllerBackend):
 
         controller["rumble"] = intensity
         logger.debug(f"Mock: Set rumble {serial} to {intensity}")
+
+        # Publish rumble change event to observers
+        await self._publish_event(
+            {
+                "type": "rumble_change",
+                "serial": serial,
+                "intensity": intensity,
+                "timestamp_ms": int(time.time() * 1000),
+            }
+        )
+
         return True
 
     def get_connected_controllers(self, _force_rescan: bool = False) -> list[str]:

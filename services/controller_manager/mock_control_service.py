@@ -231,3 +231,76 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
             raise
         except Exception as e:
             logger.error(f"Mock: Error in auto game end: {e}", exc_info=True)
+
+    def GetColor(self, request, context):  # noqa: N802, ARG002
+        """Get current LED color for a controller."""
+        try:
+            serial = request.serial
+            color = self.backend.get_led_color(serial)
+            if color is None:
+                return controller_manager_mock_pb2.GetColorResponse(
+                    success=False, error=f"Controller {serial} not found"
+                )
+
+            r, g, b = color
+            logger.debug(f"Mock: GetColor for {serial}: RGB({r}, {g}, {b})")
+            return controller_manager_mock_pb2.GetColorResponse(success=True, r=r, g=g, b=b)
+
+        except Exception as e:
+            logger.error(f"GetColor error: {e}")
+            return controller_manager_mock_pb2.GetColorResponse(success=False, error=str(e))
+
+    async def StreamObservability(self, request, context):  # noqa: N802, ARG002
+        """Stream observable events from mock controllers (LED changes, button presses, etc.)."""
+        queue = self.backend.add_observer()
+        logger.info("Mock: Started observability stream")
+
+        try:
+            while not context.cancelled():
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=1.0)
+                    yield self._event_to_proto(event)
+                except TimeoutError:
+                    continue
+        finally:
+            self.backend.remove_observer(queue)
+            logger.info("Mock: Ended observability stream")
+
+    def _event_to_proto(self, event: dict) -> controller_manager_mock_pb2.ObservabilityEvent:
+        """Convert internal event dict to protobuf message."""
+        proto_event = controller_manager_mock_pb2.ObservabilityEvent(
+            timestamp_ms=event.get("timestamp_ms", 0),
+            serial=event.get("serial", ""),
+        )
+
+        event_type = event.get("type")
+        if event_type == "led_change":
+            proto_event.led_change.CopyFrom(
+                controller_manager_mock_pb2.LedChangeEvent(
+                    r=event.get("r", 0),
+                    g=event.get("g", 0),
+                    b=event.get("b", 0),
+                    source=event.get("source", ""),
+                )
+            )
+        elif event_type == "rumble_change":
+            proto_event.rumble_change.CopyFrom(
+                controller_manager_mock_pb2.RumbleChangeEvent(
+                    intensity=event.get("intensity", 0),
+                )
+            )
+        elif event_type == "button_change":
+            proto_event.button_change.CopyFrom(
+                controller_manager_mock_pb2.ButtonChangeEvent(
+                    button=event.get("button", ""),
+                    pressed=event.get("pressed", False),
+                )
+            )
+        elif event_type == "connection":
+            proto_event.connection.CopyFrom(
+                controller_manager_mock_pb2.ConnectionEvent(
+                    connected=event.get("connected", False),
+                )
+            )
+
+        return proto_event

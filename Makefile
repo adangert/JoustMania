@@ -60,7 +60,6 @@ up-mock:
 	@echo "  Jaeger:     http://localhost/jaeger/"
 	@echo "  Prometheus: http://localhost/prometheus/"
 	@echo "  Grafana:    http://localhost/grafana/"
-	@echo "  Legacy UI:  http://localhost/legacy/"
 
 # ============================================================================
 # Builder Images

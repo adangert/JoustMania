@@ -112,10 +112,6 @@ echo "=== gRPC-Web API ==="
 echo -e "${YELLOW}Note:${NC} gRPC-Web API testing requires a proper gRPC client"
 
 echo ""
-echo "=== Legacy Services ==="
-test_endpoint "Legacy WebUI" "/legacy/" "200|502"
-
-echo ""
 echo "=== Static Asset Handling ==="
 # Note: This assumes there are assets in the build
 # If the dashboard isn't built yet, this will fail

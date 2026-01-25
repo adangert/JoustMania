@@ -6,7 +6,6 @@ The JoustMania dashboard serves as a unified entry point for all services, inclu
 - The main dashboard UI (TypeScript/React SPA)
 - gRPC-Web API (`/joustmania`)
 - Observability tools: Grafana (`/grafana`), Prometheus (`/prometheus`), Jaeger (`/jaeger`), Loki (`/loki`)
-- Legacy WebUI (`/legacy`)
 
 As of Phase 65, the reverse proxy implementation has been migrated from **nginx** to **Caddy** to address redirect issues and improve configuration maintainability.
 
@@ -145,7 +144,6 @@ To verify the reverse proxy is working correctly:
    - Prometheus: http://localhost:8080/prometheus/
    - Jaeger: http://localhost:8080/jaeger/
    - Loki API: http://localhost:8080/loki/
-   - Legacy WebUI: http://localhost:8080/legacy/
 
 4. **Verify redirects**:
    - Navigate to Grafana dashboards - ensure URLs stay on `localhost:8080/grafana/` and don't redirect to `localhost:3000`

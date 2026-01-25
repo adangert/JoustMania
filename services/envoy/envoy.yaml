@@ -7,7 +7,6 @@
 #   /prometheus/*   -> prometheus:9090    (STRIP prefix, --web.route-prefix=/)
 #   /jaeger/*       -> jaeger:16686       (PRESERVE prefix, base_path=/jaeger in config.yaml)
 #   /loki/*         -> loki:3100          (STRIP prefix, API expects root)
-#   /legacy/*       -> webui:80           (STRIP prefix, Flask at root)
 #   /health         -> envoy internal     (health check)
 #   /*              -> dashboard:8080     (SPA with fallback)
 
@@ -80,18 +79,6 @@ static_resources:
                           route:
                             cluster: loki
                             prefix_rewrite: "/"
-
-                        # Legacy WebUI
-                        # STRIP prefix - Flask app serves at root
-                        - match:
-                            prefix: "/legacy/"
-                          route:
-                            cluster: webui
-                            prefix_rewrite: "/"
-                        - match:
-                            path: "/legacy"
-                          redirect:
-                            path_redirect: "/legacy/"
 
                         # Health check endpoint
                         - match:
@@ -183,20 +170,6 @@ static_resources:
                     socket_address:
                       address: loki
                       port_value: 3100
-
-    # Legacy WebUI
-    - name: webui
-      type: STRICT_DNS
-      lb_policy: ROUND_ROBIN
-      load_assignment:
-        cluster_name: webui
-        endpoints:
-          - lb_endpoints:
-              - endpoint:
-                  address:
-                    socket_address:
-                      address: webui
-                      port_value: 80
 
     # Dashboard SPA (static-web-server)
     - name: dashboard

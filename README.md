@@ -181,7 +181,6 @@ This starts:
 | Interface | URL | Purpose |
 |-----------|-----|---------|
 | **Dashboard** | http://localhost:8080 | Main entry point - controller visualization |
-| **Legacy Web UI** | http://localhost:8080/legacy/ | Game control interface |
 | **Jaeger** | http://localhost:8080/jaeger/ | Distributed traces |
 | **Prometheus** | http://localhost:8080/prometheus/ | Metrics UI |
 | **Grafana** | http://localhost:8080/grafana/ | Dashboards (admin/joustmania) |

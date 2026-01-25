@@ -247,40 +247,6 @@ services:
     restart: unless-stopped
     # Healthcheck defined in Dockerfile (uses grpc_health_probe)
 
-  # Web UI Service (legacy - accessed via /legacy/ through envoy)
-  webui:
-    image: ghcr.io/watchmejoustmyflags/joustmania/webui-service:${IMAGE_TAG:-latest}
-    build:
-      context: .
-      dockerfile: services/webui/Dockerfile
-      args:
-        BUILDER_IMAGE: ${BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/builder:latest}
-    container_name: joustmania-webui
-    # All ports exposed only within Docker network (envoy proxies to /legacy/)
-    expose:
-      - "80"    # WebUI (proxied through envoy)
-      - "8000"  # Prometheus metrics
-    environment:
-      - OTEL_SERVICE_NAME=webui-service
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-      - SETTINGS_SERVICE=settings:50051
-      - CONTROLLER_MANAGER_SERVICE=controller-manager:50052
-      - MENU_SERVICE=menu:50054
-      - SUPERVISOR_SERVICE=supervisor:50055
-    depends_on:
-      settings:
-        condition: service_healthy
-      controller-manager:
-        condition: service_healthy
-      menu:
-        condition: service_healthy
-      supervisor:
-        condition: service_healthy
-    networks:
-      - joustmania
-    restart: unless-stopped
-    # Healthcheck defined in Dockerfile (uses wget)
-
   # Audio Service
   audio:
     image: ghcr.io/watchmejoustmyflags/joustmania/audio-service:${IMAGE_TAG:-latest}
@@ -498,8 +464,6 @@ services:
       - ./services/envoy/envoy.yaml:/etc/envoy/envoy.yaml:ro
     depends_on:
       connect-proxy:
-        condition: service_healthy
-      webui:
         condition: service_healthy
       dashboard:
         condition: service_healthy

@@ -45,7 +45,6 @@ jobs:
           - menu
           - audio
           - supervisor
-          - webui
         include:
           - service: controller_manager
             has_tests: true
@@ -58,8 +57,6 @@ jobs:
           - service: audio
             has_tests: true
           - service: supervisor
-            has_tests: false
-          - service: webui
             has_tests: false
     steps:
       - uses: actions/checkout@v4
@@ -271,7 +268,6 @@ jobs:
           - supervisor
           - menu
           - audio
-          - webui
     steps:
       - uses: actions/checkout@v4
 

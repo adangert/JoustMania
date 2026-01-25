@@ -969,7 +969,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_battery_level * on(serial) group_left(name) controller_info",
+          "expr": "(controller_battery_level and on(serial) controller_connected == 1) * on(serial) group_left(name) controller_info",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -1040,7 +1040,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "bluetooth_device_rssi_dbm * on(serial) group_left(name) controller_info",
+          "expr": "(bluetooth_device_rssi_dbm and on(serial) controller_connected == 1) * on(serial) group_left(name) controller_info",
           "legendFormat": "{{name}}",
           "refId": "A"
         }

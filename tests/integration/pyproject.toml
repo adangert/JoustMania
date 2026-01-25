@@ -35,3 +35,10 @@ py-modules = []
 testpaths = ["."]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+# Filter testcontainers internal deprecation warning
+# Bug in testcontainers 4.14.0: they use @wait_container_is_ready() internally
+# at import time in waiting_utils.py:219, triggering their own deprecation warning.
+# See: https://pypi.org/project/testcontainers/
+filterwarnings = [
+    "ignore::DeprecationWarning:testcontainers.*:",
+]

@@ -134,7 +134,8 @@ class SwapperGame(TeamsGameBase):
         Handle player death by switching their team.
 
         Instead of dying, players switch to the opposing team.
-        The player is given a brief grace period on their new team.
+        The player is temporarily marked as dead (to stop base class processing),
+        then respawned on the new team after the death animation.
 
         Span handling:
         - End the player's span under the old team with "team_swap_out" event
@@ -148,6 +149,10 @@ class SwapperGame(TeamsGameBase):
         old_team = player.team
         old_team_obj = self.teams[old_team]
 
+        # Mark player as temporarily dead to stop base class from processing
+        # the held high-acceleration data from SimulateDeath
+        player.alive = False
+
         # Switch teams
         new_team = 1 - old_team  # Toggle between 0 and 1
         new_team_obj = self.teams[new_team]
@@ -157,8 +162,9 @@ class SwapperGame(TeamsGameBase):
         # Track last death for winner exclusion
         self.last_death_serial = serial
 
-        # Give grace period on new team
-        player.grace_until = time.time() + 2.0
+        # Set grace period for after respawn (2.0s total from now)
+        grace_duration = 2.0
+        player.grace_until = time.time() + grace_duration
 
         # Log the swap
         swap_count = getattr(player, "swap_count", 0) + 1
@@ -224,6 +230,11 @@ class SwapperGame(TeamsGameBase):
         # After death flash, set new team color
         await asyncio.sleep(0.5)
         await self._set_player_color(serial, player.color)
+
+        # Respawn the player on their new team
+        # This re-enables base class processing for this player
+        player.alive = True
+        logger.debug(f"Player {serial} respawned on team {new_team}")
 
         # Publish swap event
         self.event_publisher(

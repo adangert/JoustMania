@@ -105,8 +105,6 @@ services:
     volumes:
       - ./joustsettings.yaml:/app/joustsettings.yaml
     depends_on:
-      otel-collector:
-        condition: service_started
       redis:
         condition: service_healthy
     networks:
@@ -153,8 +151,6 @@ services:
       - OTEL_SERVICE_NAME=controller-manager-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
-      otel-collector:
-        condition: service_started
       redis:
         condition: service_healthy
     restart: unless-stopped
@@ -177,13 +173,9 @@ services:
       - OTEL_SERVICE_NAME=game-coordinator-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
-      otel-collector:
-        condition: service_started
       redis:
         condition: service_healthy
       settings:
-        condition: service_healthy
-      controller-manager:
         condition: service_healthy
     networks:
       - joustmania
@@ -210,8 +202,6 @@ services:
       - AUDIO_HOST=audio
       - AUDIO_PORT=50056
     depends_on:
-      otel-collector:
-        condition: service_started
       redis:
         condition: service_healthy
       settings:
@@ -246,8 +236,6 @@ services:
     volumes:
       - /tmp/joustmania:/tmp/joustmania:ro  # Host startup status (read-only)
     depends_on:
-      otel-collector:
-        condition: service_started
       settings:
         condition: service_healthy
       controller-manager:
@@ -282,8 +270,6 @@ services:
       - MENU_SERVICE=menu:50054
       - SUPERVISOR_SERVICE=supervisor:50055
     depends_on:
-      otel-collector:
-        condition: service_started
       settings:
         condition: service_healthy
       controller-manager:
@@ -319,9 +305,6 @@ services:
       - MOCK_MODE=${AUDIO_MOCK_MODE:-false}
       - OTEL_SERVICE_NAME=audio-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-    depends_on:
-      otel-collector:
-        condition: service_started
     networks:
       - joustmania
     restart: unless-stopped
@@ -517,12 +500,6 @@ services:
       - ./services/envoy/envoy.yaml:/etc/envoy/envoy.yaml:ro
     depends_on:
       connect-proxy:
-        condition: service_healthy
-      jaeger:
-        condition: service_healthy
-      prometheus:
-        condition: service_healthy
-      grafana:
         condition: service_healthy
       webui:
         condition: service_healthy

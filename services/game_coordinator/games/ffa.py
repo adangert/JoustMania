@@ -221,26 +221,14 @@ class FFAGame(BaseGameMode):
         winner_serial = alive_players[0].serial if len(alive_players) == 1 else None
 
         # Show rainbow effect on winner's controller and play victory sound
-        if winner_serial:
-            if self.gameplay_stream:
-                effect_cmd = controller_manager_pb2.GameplayStreamControl(
-                    game_effect=controller_manager_pb2.GameEffectCommand(
-                        serial=winner_serial,
-                        effect=controller_manager_pb2.GAME_EFFECT_WINNER_RAINBOW,
-                    )
-                )
-                await self.gameplay_stream.write(effect_cmd)
-            else:
-                # Fallback to RPC if stream not available
-                rainbow_request = controller_manager_pb2.PlayControllerEffectRequest(
+        if winner_serial and self.gameplay_stream:
+            effect_cmd = controller_manager_pb2.GameplayStreamControl(
+                game_effect=controller_manager_pb2.GameEffectCommand(
                     serial=winner_serial,
-                    effect=controller_manager_pb2.EFFECT_RAINBOW,
-                    color=controller_manager_pb2.RGB(r=255, g=255, b=255),
-                    duration_ms=3000,
-                    speed=1,
+                    effect=controller_manager_pb2.GAME_EFFECT_WINNER_RAINBOW,
                 )
-                await self.controller_client.PlayControllerEffect(rainbow_request)
-
+            )
+            await self.gameplay_stream.write(effect_cmd)
             await self._play_sound(Sound.VOX_CONGRATULATIONS, priority=2)
 
         # Show winner for a bit (interruptible by force_end)

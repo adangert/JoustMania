@@ -475,10 +475,10 @@ class ZombieGame(BaseGameMode):
             winner_serials = self.zombie_serials
 
         # Show rainbow effect on winners
-        for serial in winner_serials:
-            player = self.players.get(serial)
-            if player and player.alive:
-                if self.gameplay_stream:
+        if self.gameplay_stream:
+            for serial in winner_serials:
+                player = self.players.get(serial)
+                if player and player.alive:
                     effect_cmd = controller_manager_pb2.GameplayStreamControl(
                         game_effect=controller_manager_pb2.GameEffectCommand(
                             serial=serial,
@@ -486,16 +486,6 @@ class ZombieGame(BaseGameMode):
                         )
                     )
                     await self.gameplay_stream.write(effect_cmd)
-                else:
-                    await self.controller_client.PlayControllerEffect(
-                        controller_manager_pb2.PlayControllerEffectRequest(
-                            serial=serial,
-                            effect=controller_manager_pb2.EFFECT_RAINBOW,
-                            color=controller_manager_pb2.RGB(r=255, g=255, b=255),
-                            duration_ms=3000,
-                            speed=1,  # Slow rainbow (1 cycle/second)
-                        )
-                    )
 
         # Play victory sound (Zombie/vox/ directory)
         if winner == "humans":

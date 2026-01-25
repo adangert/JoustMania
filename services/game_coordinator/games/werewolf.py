@@ -416,8 +416,8 @@ class WerewolfGame(BaseGameMode):
             winner_serials = []
 
         # Show rainbow effect on winners
-        for serial in winner_serials:
-            if self.gameplay_stream:
+        if self.gameplay_stream:
+            for serial in winner_serials:
                 effect_cmd = controller_manager_pb2.GameplayStreamControl(
                     game_effect=controller_manager_pb2.GameEffectCommand(
                         serial=serial,
@@ -425,16 +425,6 @@ class WerewolfGame(BaseGameMode):
                     )
                 )
                 await self.gameplay_stream.write(effect_cmd)
-            else:
-                await self.controller_client.PlayControllerEffect(
-                    controller_manager_pb2.PlayControllerEffectRequest(
-                        serial=serial,
-                        effect=controller_manager_pb2.EFFECT_RAINBOW,
-                        color=controller_manager_pb2.RGB(r=255, g=255, b=255),
-                        duration_ms=3000,
-                        speed=1,  # Slow rainbow (1 cycle/second)
-                    )
-                )
 
         # Play appropriate victory sound (Joust/vox/)
         if winner == "werewolves":

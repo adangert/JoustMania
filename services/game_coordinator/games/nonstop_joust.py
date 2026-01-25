@@ -504,7 +504,7 @@ class NonstopJoustGame(BaseGameMode):
         if winner:
             logger.info(f"Winner: {winner.serial} with score {winner.score} (K:{winner.kills} D:{winner.deaths})")
 
-            # Phase XX: Show rainbow effect on winner's controller via game effect
+            # Show rainbow effect on winner's controller via game effect
             if self.gameplay_stream:
                 effect_cmd = controller_manager_pb2.GameplayStreamControl(
                     game_effect=controller_manager_pb2.GameEffectCommand(
@@ -513,16 +513,6 @@ class NonstopJoustGame(BaseGameMode):
                     )
                 )
                 await self.gameplay_stream.write(effect_cmd)
-            else:
-                # Fallback to RPC
-                rainbow_request = controller_manager_pb2.PlayControllerEffectRequest(
-                    serial=winner.serial,
-                    effect=controller_manager_pb2.EFFECT_RAINBOW,
-                    color=controller_manager_pb2.RGB(r=255, g=255, b=255),
-                    duration_ms=3000,
-                    speed=1,  # Slow rainbow (1 cycle/second)
-                )
-                await self.controller_client.PlayControllerEffect(rainbow_request)
 
             # Play victory sound (Phase 29)
             await self._play_sound(Sound.VOX_CONGRATULATIONS, priority=2)

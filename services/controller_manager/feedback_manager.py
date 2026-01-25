@@ -11,6 +11,7 @@ Phase 57: Backend abstraction for platform independence.
 import asyncio
 import contextlib
 import logging
+import os
 import threading
 from typing import TYPE_CHECKING
 
@@ -22,6 +23,14 @@ if TYPE_CHECKING:
     from services.controller_manager.backend import ControllerBackend
 
 logger = logging.getLogger(__name__)
+
+
+def get_winner_rainbow_duration_ms() -> int:
+    """Get winner rainbow duration from env var, defaults to 3000ms."""
+    try:
+        return int(os.environ.get("WINNER_RAINBOW_DURATION_MS", "3000"))
+    except ValueError:
+        return 3000
 
 
 class FeedbackManager(ControllerEffectsBase):
@@ -376,12 +385,13 @@ class FeedbackManager(ControllerEffectsBase):
                     self.base_colors[target_serial] = (255, 255, 255)
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_WINNER_RAINBOW:
-                    # Rainbow 3s at slow speed, restore to base color
+                    # Rainbow at slow speed, restore to base color
+                    # Duration configurable via WINNER_RAINBOW_DURATION_MS (default 3000ms)
                     await self.play_effect_with_restore(
                         target_serial,
                         effect_type="rainbow",
                         color=(255, 255, 255),
-                        duration_ms=3000,
+                        duration_ms=get_winner_rainbow_duration_ms(),
                         speed=1,
                         restore_color=restore_color,
                     )

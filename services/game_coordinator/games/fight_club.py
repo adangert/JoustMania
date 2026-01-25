@@ -471,25 +471,14 @@ class FightClubGame(BaseGameMode):
         logger.info(f"Winner: {winner_serial} with score {winner_score}")
 
         # Show rainbow effect on winner
-        if winner_serial:
-            if self.gameplay_stream:
-                effect_cmd = controller_manager_pb2.GameplayStreamControl(
-                    game_effect=controller_manager_pb2.GameEffectCommand(
-                        serial=winner_serial,
-                        effect=controller_manager_pb2.GAME_EFFECT_WINNER_RAINBOW,
-                    )
+        if winner_serial and self.gameplay_stream:
+            effect_cmd = controller_manager_pb2.GameplayStreamControl(
+                game_effect=controller_manager_pb2.GameEffectCommand(
+                    serial=winner_serial,
+                    effect=controller_manager_pb2.GAME_EFFECT_WINNER_RAINBOW,
                 )
-                await self.gameplay_stream.write(effect_cmd)
-            else:
-                await self.controller_client.PlayControllerEffect(
-                    controller_manager_pb2.PlayControllerEffectRequest(
-                        serial=winner_serial,
-                        effect=controller_manager_pb2.EFFECT_RAINBOW,
-                        color=controller_manager_pb2.RGB(r=255, g=255, b=255),
-                        duration_ms=3000,
-                        speed=1,  # Slow rainbow (1 cycle/second)
-                    )
-                )
+            )
+            await self.gameplay_stream.write(effect_cmd)
 
         # Play victory sound (audio service handles voice selection)
         await self._play_sound(Sound.VOX_CONGRATULATIONS, priority=2)

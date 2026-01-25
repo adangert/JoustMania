@@ -50,6 +50,10 @@ class GamePerformanceConfig:
     # Set COUNTDOWN_DURATION_SECONDS=0 to skip countdown entirely
     countdown_duration_seconds: int = 3
 
+    # Winner rainbow effect duration (milliseconds) - configurable for faster tests
+    # Set WINNER_RAINBOW_DURATION_MS=300 for fast tests (default 3000ms = 3s)
+    winner_rainbow_duration_ms: int = 3000
+
     # Analytics configuration
     analytics: AnalyticsConfig = field(default_factory=AnalyticsConfig)
 
@@ -97,6 +101,15 @@ class RuntimeConfigManager:
                 logger.info(f"Countdown duration overridden to {self.config.countdown_duration_seconds}s")
             except ValueError:
                 logger.warning(f"Invalid COUNTDOWN_DURATION_SECONDS: {countdown_env}")
+
+        # Winner rainbow duration override (for faster tests)
+        rainbow_env = os.environ.get("WINNER_RAINBOW_DURATION_MS")
+        if rainbow_env is not None:
+            try:
+                self.config.winner_rainbow_duration_ms = int(rainbow_env)
+                logger.info(f"Winner rainbow duration overridden to {self.config.winner_rainbow_duration_ms}ms")
+            except ValueError:
+                logger.warning(f"Invalid WINNER_RAINBOW_DURATION_MS: {rainbow_env}")
 
     def get_config(self) -> GamePerformanceConfig:
         """Get current configuration."""

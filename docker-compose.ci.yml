@@ -29,6 +29,7 @@ services:
     environment: !override
       CONTROLLER_BACKEND: mock
       MOCK_CONTROLLER_COUNT: "4"
+      WINNER_RAINBOW_DURATION_MS: "300"  # Fast rainbow for tests (300ms vs 3000ms)
       OTEL_SERVICE_NAME: controller-manager-service
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
 

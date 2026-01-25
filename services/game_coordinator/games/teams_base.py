@@ -410,9 +410,9 @@ class TeamsGameBase(BaseGameMode):
             from proto import controller_manager_pb2
 
             # Play rainbow effect on all winning team members
-            for serial, player in self.players.items():
-                if player.alive and player.team == winning_team_num:
-                    if self.gameplay_stream:
+            if self.gameplay_stream:
+                for serial, player in self.players.items():
+                    if player.alive and player.team == winning_team_num:
                         effect_cmd = controller_manager_pb2.GameplayStreamControl(
                             game_effect=controller_manager_pb2.GameEffectCommand(
                                 serial=serial,
@@ -420,16 +420,6 @@ class TeamsGameBase(BaseGameMode):
                             )
                         )
                         await self.gameplay_stream.write(effect_cmd)
-                    else:
-                        # Fallback to RPC
-                        rainbow_request = controller_manager_pb2.PlayControllerEffectRequest(
-                            serial=serial,
-                            effect=controller_manager_pb2.EFFECT_RAINBOW,
-                            color=controller_manager_pb2.RGB(r=255, g=255, b=255),
-                            duration_ms=3000,
-                            speed=1,  # Slow rainbow (1 cycle/second)
-                        )
-                        await self.controller_client.PlayControllerEffect(rainbow_request)
 
             # Play team victory sound (Phase 29)
             winning_team = self.teams.get(winning_team_num)

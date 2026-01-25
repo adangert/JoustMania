@@ -330,9 +330,9 @@ class SwapperGame(TeamsGameBase):
         winning_team = list(teams)[0] if teams else 0
 
         # Show rainbow effect on winners (excluding last swapper)
-        for serial, player in self.players.items():
-            if player.team == winning_team and serial != self.last_death_serial:
-                if self.gameplay_stream:
+        if self.gameplay_stream:
+            for serial, player in self.players.items():
+                if player.team == winning_team and serial != self.last_death_serial:
                     effect_cmd = controller_manager_pb2.GameplayStreamControl(
                         game_effect=controller_manager_pb2.GameEffectCommand(
                             serial=serial,
@@ -340,15 +340,6 @@ class SwapperGame(TeamsGameBase):
                         )
                     )
                     await self.gameplay_stream.write(effect_cmd)
-                else:
-                    rainbow_request = controller_manager_pb2.PlayControllerEffectRequest(
-                        serial=serial,
-                        effect=controller_manager_pb2.EFFECT_RAINBOW,
-                        color=controller_manager_pb2.RGB(r=255, g=255, b=255),
-                        duration_ms=3000,
-                        speed=1,  # Slow rainbow (1 cycle/second)
-                    )
-                    await self.controller_client.PlayControllerEffect(rainbow_request)
 
         # Show loser effect on excluded player (dim gray color)
         if self.last_death_serial and self.gameplay_stream:

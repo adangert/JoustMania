@@ -1,5 +1,3 @@
-version: '3.8'
-
 # JoustMania Docker Compose Configuration
 #
 # Quick Start (pull from GHCR - no build needed):

@@ -53,7 +53,7 @@ async def test_game_lifecycle(docker_compose, game_mode):
     # For FFA: last player standing wins
     # For Teams/RandomTeams: killing 3 guarantees one team is eliminated
     for i, serial in enumerate(["mock_controller_0", "mock_controller_1", "mock_controller_2"]):
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.2)
         death_response = await mock_client.SimulateDeath(
             controller_manager_mock_pb2.DeathRequest(serial=serial)
         )
@@ -90,7 +90,7 @@ async def test_distributed_tracing_propagation(docker_compose):
     )
 
     # Let game run briefly to generate spans
-    await asyncio.sleep(2)
+    await asyncio.sleep(0.5)
 
     # Force end game
     await force_end_game_and_wait(game_client)
@@ -120,7 +120,7 @@ async def test_game_to_menu_led_transition(docker_compose):
 
     # Kill players 0, 1, 2 to leave player 3 as winner
     for serial in ["mock_controller_0", "mock_controller_1", "mock_controller_2"]:
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.2)
         death_response = await mock_client.SimulateDeath(
             controller_manager_mock_pb2.DeathRequest(serial=serial)
         )
@@ -130,7 +130,7 @@ async def test_game_to_menu_led_transition(docker_compose):
     await wait_for_game_end(game_client, timeout=15)
 
     # Give menu time to fully reset controller colors
-    await asyncio.sleep(3.0)
+    await asyncio.sleep(1.0)
 
     # Verify final LED colors using GetColor RPC
     # After game ends, menu should set dim lobby colors

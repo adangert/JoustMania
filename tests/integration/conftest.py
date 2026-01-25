@@ -69,7 +69,8 @@ def docker_compose():
     compose.start()
 
     # Wait for services to be ready
-    time.sleep(10)
+    # Docker Compose --wait already waits for health checks, so minimal wait needed
+    time.sleep(2)
 
     print("\n" + "=" * 80)
     print("🚀 Mock environment is running!")
@@ -80,6 +81,12 @@ def docker_compose():
     print("=" * 80)
 
     yield compose
+
+    # Skip teardown in CI mode for faster test completion
+    # Containers will be cleaned up by the CI runner
+    if os.getenv("CI") or os.getenv("SKIP_TEARDOWN"):
+        print("\n⚡ Skipping teardown (CI mode)")
+        return
 
     # Optional pause before teardown (set PAUSE_BEFORE_TEARDOWN=1 to inspect Jaeger)
     if os.getenv("PAUSE_BEFORE_TEARDOWN"):

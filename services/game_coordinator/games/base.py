@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 # Game constants (Phase 43: Now uses runtime config for dynamic adjustment)
 # Phase 72: Increased from 30Hz to 60Hz for better responsiveness
 UPDATE_FREQUENCY = 60  # Hz - default, overridden by runtime config
-COUNTDOWN_DURATION = 3  # seconds
+COUNTDOWN_DURATION = 3  # seconds (legacy constant, use runtime config instead)
 
 # Phase 70: Music tempo constants (from original JoustMania)
 SLOW_MUSIC_SPEED = 1.0  # Normal playback
@@ -394,11 +394,21 @@ class BaseGameMode(ABC):
         """Run countdown before game starts using unified countdown effect."""
         from proto import controller_manager_pb2
 
-        logger.info("Starting countdown...")
-        self.event_publisher(GameEvent.COUNTDOWN_START, {"duration": COUNTDOWN_DURATION})
+        # Get countdown duration from runtime config (allows override via COUNTDOWN_DURATION_SECONDS env var)
+        config = get_config_manager().get_config()
+        countdown_seconds = config.countdown_duration_seconds
+
+        logger.info(f"Starting countdown ({countdown_seconds}s)...")
+        self.event_publisher(GameEvent.COUNTDOWN_START, {"duration": countdown_seconds})
 
         if not self.running:
             logger.info("Countdown interrupted by force_end")
+            return
+
+        # Skip countdown entirely if duration is 0 (for fast tests)
+        if countdown_seconds == 0:
+            logger.info("Countdown skipped (duration=0)")
+            self.event_publisher(GameEvent.COUNTDOWN_END, {})
             return
 
         # Send unified countdown effect via gameplay stream (broadcast to all controllers)
@@ -413,8 +423,12 @@ class BaseGameMode(ABC):
             await self.gameplay_stream.write(effect_cmd)
 
         # Play countdown beeps in sync with the visual countdown
-        # Red (3), Yellow (2), Green (1 - GO!)
-        for _ in range(3):
+        # Default: Red (3), Yellow (2), Green (1 - GO!)
+        # Each beep takes 0.75s, so countdown_seconds=1 means 1 beep
+        beep_count = min(countdown_seconds, 3)  # Max 3 beeps even for longer countdowns
+        beep_interval_ms = (countdown_seconds * 1000) // max(beep_count, 1)
+
+        for _ in range(beep_count):
             if not self.running:
                 logger.info("Countdown interrupted by force_end")
                 return
@@ -422,8 +436,9 @@ class BaseGameMode(ABC):
             # Play countdown beep (Phase 29)
             await self._play_sound(Sound.SFX_BEEP_LOUD, priority=2)
 
-            # Wait 0.75 seconds (matches original JoustMania timing)
-            for _ in range(15):  # 15 * 50ms = 750ms
+            # Wait for beep interval (configurable based on countdown duration)
+            wait_iterations = beep_interval_ms // 50  # 50ms per iteration
+            for _ in range(wait_iterations):
                 if not self.running:
                     logger.info("Countdown interrupted by force_end")
                     return

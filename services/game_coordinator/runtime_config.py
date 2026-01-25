@@ -8,6 +8,7 @@ Phase 44 will add OpenFeature integration for dynamic flag-based configuration.
 """
 
 import logging
+import os
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,10 @@ class GamePerformanceConfig:
     update_frequency_hz: int = 60  # Game loop frequency
     enable_delta_compression: bool = True
 
+    # Countdown duration (seconds) - configurable for faster tests
+    # Set COUNTDOWN_DURATION_SECONDS=0 to skip countdown entirely
+    countdown_duration_seconds: int = 3
+
     # Analytics configuration
     analytics: AnalyticsConfig = field(default_factory=AnalyticsConfig)
 
@@ -80,6 +85,18 @@ class RuntimeConfigManager:
 
     def __init__(self):
         self.config = GamePerformanceConfig()
+        self._apply_environment_overrides()
+
+    def _apply_environment_overrides(self):
+        """Apply environment variable overrides to configuration."""
+        # Countdown duration override (for faster tests)
+        countdown_env = os.environ.get("COUNTDOWN_DURATION_SECONDS")
+        if countdown_env is not None:
+            try:
+                self.config.countdown_duration_seconds = int(countdown_env)
+                logger.info(f"Countdown duration overridden to {self.config.countdown_duration_seconds}s")
+            except ValueError:
+                logger.warning(f"Invalid COUNTDOWN_DURATION_SECONDS: {countdown_env}")
 
     def get_config(self) -> GamePerformanceConfig:
         """Get current configuration."""

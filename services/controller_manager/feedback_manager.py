@@ -63,7 +63,6 @@ class FeedbackManager(ControllerEffectsBase):
         # Effects that can be cancelled by a base_color message
         self.cancellable_effects: set[int] = {
             controller_manager_pb2.GAME_EFFECT_FORCE_START_CHARGE,
-            controller_manager_pb2.GAME_EFFECT_SHOW_BATTERY,
         }
 
         # Vibration duration tasks
@@ -437,12 +436,17 @@ class FeedbackManager(ControllerEffectsBase):
                     )
 
                 elif effect == controller_manager_pb2.GAME_EFFECT_SHOW_BATTERY:
-                    # Show battery level on this controller
-                    # Battery is stored as 0-100 percentage
+                    # Show battery level on this controller for 1 second, then restore
                     battery = self.tracked_controllers.get(target_serial, {}).get("battery", 0)
                     color = self._get_battery_color(battery)
-                    # Set color directly (stays until cancelled)
-                    await self.set_controller_color(target_serial, color)
+                    await self.play_effect_with_restore(
+                        target_serial,
+                        effect_type="flash",
+                        color=color,
+                        duration_ms=1000,
+                        speed=1,  # Steady (no flashing)
+                        restore_color=restore_color,
+                    )
                     logger.debug(f"Battery display: {target_serial} level={battery}% color={color}")
 
                 else:

@@ -703,8 +703,8 @@ class AdminModeHandler:
         Handle battery display in admin mode (triangle press).
 
         Sends GAME_EFFECT_SHOW_BATTERY to controller_manager which shows
-        battery levels on ALL connected controllers using color-coded LEDs.
-        Colors are restored when handle_battery_release is called.
+        battery levels on ALL connected controllers using color-coded LEDs
+        for 1 second, then auto-restores to previous colors.
 
         Color scheme (from original JoustMania):
         - 100%: Green
@@ -725,37 +725,13 @@ class AdminModeHandler:
             try:
                 # Send SHOW_BATTERY effect with empty serial to affect all controllers
                 if await self._send_game_effect("", controller_manager_pb2.GAME_EFFECT_SHOW_BATTERY):
-                    logger.info(f"Battery display started by admin controller {serial}")
-                    span.add_event("battery_display_started")
+                    logger.info(f"Battery display triggered by admin controller {serial}")
+                    span.add_event("battery_display_triggered")
                 else:
-                    logger.warning("Could not start battery display - stream not available")
+                    logger.warning("Could not trigger battery display - stream not available")
 
             except Exception as e:
-                logger.error(f"Error starting battery display: {e}", exc_info=True)
-
-    async def handle_battery_release(self, serial: str) -> None:
-        """
-        Handle battery display release in admin mode (triangle release).
-
-        Restores normal colors by sending base colors back to all controllers.
-
-        Args:
-            serial: Controller serial number
-        """
-        ctx = self._get_span_context()
-        with self.tracer.start_as_current_span("admin_battery_release", context=ctx) as span:
-            span.set_attribute("controller.serial", serial)
-
-            try:
-                # Restore admin controller to white
-                if await self._send_base_color(serial, (255, 255, 255)):
-                    logger.debug(f"Battery display ended, restored admin controller {serial}")
-                    span.add_event("battery_display_ended")
-                else:
-                    logger.warning("Could not restore colors - stream not available")
-
-            except Exception as e:
-                logger.error(f"Error ending battery display: {e}", exc_info=True)
+                logger.error(f"Error triggering battery display: {e}", exc_info=True)
 
     async def handle_instructions(self, serial: str) -> None:
         """

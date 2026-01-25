@@ -168,10 +168,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         if not is_press and button in ["cross", "circle", "square", "triangle"]:
             self.admin_handler.combo_shown = False
 
-        # Handle triangle release in admin mode (ends battery display)
-        if not is_press and button == "triangle" and self.admin_handler.is_admin_controller(serial):
-            await self.admin_handler.handle_battery_release(serial)
-
         await self.state_manager.handle_button_event(serial, button, is_press)
 
     # gRPC service methods (names defined by proto)

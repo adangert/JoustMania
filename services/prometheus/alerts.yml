@@ -32,22 +32,40 @@ groups:
 
       # System alerts
       - alert: HighCPUUsage
-        expr: process_cpu_percent > 90
-        for: 5m
+        expr: process_cpu_percent > 80
+        for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "High CPU usage on {{$labels.service}}"
-          description: "CPU usage is {{$value}}% for 5 minutes."
+          summary: "High CPU usage on {{$labels.job}}"
+          description: "CPU usage is {{$value}}% for 2 minutes (>80% threshold)."
 
       - alert: HighMemoryUsage
-        expr: process_memory_mb > 450
-        for: 5m
+        expr: process_memory_mb > 500
+        for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "High memory usage on {{$labels.service}}"
-          description: "Memory usage is {{$value}}MB, approaching limit."
+          summary: "High memory usage on {{$labels.job}}"
+          description: "Memory usage is {{$value}}MB (>500MB threshold)."
+
+      - alert: LowGameLoopHz
+        expr: game_actual_update_frequency_hz < 55
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Game loop running below target Hz"
+          description: "Game loop is running at {{$value}}Hz (target is 60Hz)."
+
+      - alert: HighGRPCLatency
+        expr: histogram_quantile(0.99, sum by(job, le) (rate(grpc_request_duration_seconds_bucket[5m]))) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High gRPC latency on {{$labels.job}}"
+          description: "P99 gRPC latency is {{$value}}s (>100ms threshold)."
 
       - alert: ServiceDown
         expr: up == 0

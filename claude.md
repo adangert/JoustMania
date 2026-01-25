@@ -97,7 +97,7 @@ docker-compose.yml
 
 ### Observability (Phases 36-46, 70-79)
 - **Prometheus metrics** on all services (port 8000)
-- **Grafana dashboards:** game-analytics, controller-overview, bluetooth-adapter, host-metrics, system-performance
+- **Grafana dashboards:** game-analytics, controller-overview, bluetooth-adapter, host-metrics, system-overview
 - **Loki** for log aggregation
 - **Dynamic filtering** for gameplay data streams (Phase 45-46)
 - **Span naming improvements** - descriptive spans like `PlaySound:congratulations`
@@ -184,7 +184,7 @@ docker-compose.yml
 - Scrapes /metrics endpoints on port 8000
 
 **Grafana (port 3000)**
-- Dashboards: game-analytics, controller-overview, bluetooth-adapter, host-metrics, system-performance
+- Dashboards: game-analytics, controller-overview, bluetooth-adapter, host-metrics, system-overview
 - Default credentials: admin/admin
 
 **Loki (port 3100)**

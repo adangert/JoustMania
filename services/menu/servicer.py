@@ -8,6 +8,7 @@ import os
 import time
 
 from opentelemetry import trace
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from lib.telemetry import init_telemetry
 from proto import menu_pb2, menu_pb2_grpc
@@ -409,6 +410,14 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     if not self.game_event_monitor_running:
                         return
 
+                    # Extract trace context from event for distributed tracing
+                    propagator = TraceContextTextMapPropagator()
+                    carrier = {
+                        "traceparent": event.data.get("_traceparent", ""),
+                        "tracestate": event.data.get("_tracestate", ""),
+                    }
+                    parent_ctx = propagator.extract(carrier)
+
                     is_starting = GameEvent.is_game_starting(event.event_type)
                     logger.info(
                         f"Game event received: {event.event_type} "
@@ -417,34 +426,49 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
                     if GameEvent.is_game_starting(event.event_type):
                         if self.button_monitor_running:
-                            logger.info(f"Game event '{event.event_type}' - stopping button monitor and lobby music")
-                            self.state = menu_pb2.MenuState.GAME_STARTING
-                            await self.audio.stop_lobby_music()
-                            await self.stop_button_monitor()
-                            # Clear menu_player_ready metrics so dashboard only shows game_player_alive
-                            metrics.player_ready._metrics.clear()
-                            logger.info("Button monitor and lobby music stopped, player_ready metrics cleared")
+                            with tracer.start_as_current_span("menu_handle_game_starting", context=parent_ctx) as span:
+                                span.set_attribute("event.type", event.event_type)
+                                logger.info(
+                                    f"Game event '{event.event_type}' - stopping button monitor and lobby music"
+                                )
+                                self.state = menu_pb2.MenuState.GAME_STARTING
+
+                                with tracer.start_as_current_span("stop_lobby_music"):
+                                    await self.audio.stop_lobby_music()
+
+                                with tracer.start_as_current_span("stop_button_monitor"):
+                                    await self.stop_button_monitor()
+
+                                # Clear menu_player_ready metrics so dashboard only shows game_player_alive
+                                metrics.player_ready._metrics.clear()
+                                logger.info("Button monitor and lobby music stopped, player_ready metrics cleared")
 
                     elif GameEvent.is_game_ending(event.event_type):
-                        logger.info(f"Game event '{event.event_type}' - restarting button monitor and lobby music")
-                        self.state = menu_pb2.MenuState.RUNNING
+                        with tracer.start_as_current_span("menu_handle_game_ended", context=parent_ctx) as span:
+                            span.set_attribute("event.type", event.event_type)
+                            logger.info(f"Game event '{event.event_type}' - restarting button monitor and lobby music")
+                            self.state = menu_pb2.MenuState.RUNNING
 
-                        # Start button monitor and wait for connection before setting colors
-                        await self.start_button_monitor()
-                        await self.controller_events.wait_for_connection()
+                            # Start button monitor and wait for connection before setting colors
+                            with tracer.start_as_current_span("restart_button_monitor"):
+                                await self.start_button_monitor()
+                                await self.controller_events.wait_for_connection()
 
-                        # Reset lobby state - both servicer state and state_manager
-                        self.ready_controllers.clear()
-                        self.connected_controllers.clear()
-                        self.controller_lobby_state.clear()
-                        self.last_lobby_feedback_update.clear()
-                        self.ready_controller_count = 0
-                        # Reset state_manager and re-register controllers (sets lobby colors)
-                        re_registered = await self.state_manager.reset()
-                        self.connected_controllers.update(re_registered)
+                            # Reset lobby state - both servicer state and state_manager
+                            with tracer.start_as_current_span("reset_lobby_state"):
+                                self.ready_controllers.clear()
+                                self.connected_controllers.clear()
+                                self.controller_lobby_state.clear()
+                                self.last_lobby_feedback_update.clear()
+                                self.ready_controller_count = 0
+                                # Reset state_manager and re-register controllers (sets lobby colors)
+                                re_registered = await self.state_manager.reset()
+                                self.connected_controllers.update(re_registered)
 
-                        await self.audio.start_lobby_music()
-                        await self.event_publisher.publish(GameEvent.GAME_ENDED, event.data)
+                            with tracer.start_as_current_span("restart_lobby_music"):
+                                await self.audio.start_lobby_music()
+
+                            await self.event_publisher.publish(GameEvent.GAME_ENDED, event.data)
 
                 if self.game_event_monitor_running:
                     logger.warning("Game event stream ended, reconnecting...")

@@ -29,6 +29,7 @@ import time
 from collections.abc import Callable
 
 from opentelemetry import trace
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from proto import game_coordinator_pb2
 
@@ -129,6 +130,15 @@ class EventBus:
 
         # Convert all values to strings (protobuf map<string, string> requirement)
         string_data = {k: str(v) for k, v in data.items()}
+
+        # Inject W3C Trace Context for cross-service propagation
+        propagator = TraceContextTextMapPropagator()
+        carrier: dict[str, str] = {}
+        propagator.inject(carrier)
+        if "traceparent" in carrier:
+            string_data["_traceparent"] = carrier["traceparent"]
+        if "tracestate" in carrier:
+            string_data["_tracestate"] = carrier["tracestate"]
 
         # Create protobuf event
         event = game_coordinator_pb2.GameEvent(

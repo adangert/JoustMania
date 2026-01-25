@@ -44,11 +44,26 @@ The dev container includes:
 
 ## Development Workflow
 
+### Git Worktree (Recommended for Issue Work)
+
+Use git worktrees to isolate work on different issues:
+
+```bash
+# Create worktree for an issue
+git worktree add ../JoustMania-issue-<NUMBER> -b issue-<NUMBER> origin/dev-refactor
+
+# Work in the isolated directory
+cd ../JoustMania-issue-<NUMBER>
+
+# After PR is merged, clean up
+git worktree remove ../JoustMania-issue-<NUMBER>
+```
+
 ### Making Changes
 
-1. Create a feature branch:
+1. Create a branch (or use worktree above):
    ```bash
-   git checkout -b feature/my-feature
+   git checkout -b issue-<NUMBER>
    ```
 
 2. Make your changes
@@ -71,7 +86,7 @@ The dev container includes:
 
 6. Push and create pull request:
    ```bash
-   git push origin feature/my-feature
+   git push origin issue-<NUMBER>
    ```
 
 ## Continuous Integration

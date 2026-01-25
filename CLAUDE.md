@@ -1,59 +1,27 @@
 # Claude Code Guidelines for JoustMania
 
-Project-specific instructions for Claude Code when working on this repository.
+Multiplayer motion-controlled party game system using PS Move controllers.
+
+## Quick Reference
+
+```bash
+make lint          # Lint code
+make test          # Run integration tests
+make protos        # Regenerate proto files after .proto changes
+```
 
 ## Git Worktree Workflow
 
-When working on a GitHub issue, use a separate git worktree to isolate changes:
+When working on a GitHub issue, use a separate git worktree:
 
 ```bash
-# Create worktree for an issue
-git worktree add ../JoustMania-issue-<NUMBER> -b issue-<NUMBER>
-
-# Work in the isolated directory
-cd ../JoustMania-issue-<NUMBER>
-
-# After PR is merged, clean up
-git worktree remove ../JoustMania-issue-<NUMBER>
+git worktree add ../JoustMania-issue-<NUMBER> -b issue-<NUMBER> origin/dev-refactor
 ```
 
-**Why:** This prevents mingling changes when multiple agents or tasks work in parallel. Each issue gets its own isolated working directory.
+This isolates changes when multiple agents work in parallel.
 
-**Directory structure:**
-```
-~/
-├── JoustMania/                    # Main worktree (dev-refactor)
-├── JoustMania-issue-28/           # Work on issue #28
-├── JoustMania-issue-29/           # Work on issue #29
-```
+## Key Documentation
 
-## Branch Naming
-
-- `issue-<NUMBER>` - Feature/fix branches tied to GitHub issues
-- `dev-refactor` - Main development branch
-- `master` - Stable branch
-
-## Testing
-
-Run tests before committing:
-```bash
-make test          # Run all integration tests
-make test-ffa      # Run FFA game test only
-make lint          # Run linting
-```
-
-## Proto Changes
-
-After modifying `.proto` files:
-```bash
-make protos        # Regenerate Python code
-```
-
-## Docker
-
-```bash
-make builders      # Build base images (once)
-make images        # Build all service images
-make up            # Start the stack
-make up-mock       # Start in mock mode (no hardware)
-```
+- [Contributing Guide](docs/CONTRIBUTING.md) - Development workflow, CI checks, code style
+- [Development Guide](docs/DEVELOPMENT.md) - Building, running, debugging services
+- [Architecture](docs/ARCHITECTURE.md) - System design and service interactions

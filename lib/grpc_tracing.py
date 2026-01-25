@@ -25,6 +25,7 @@ Usage (Server):
     server = grpc.aio.server(options=options, interceptors=interceptors)
 """
 
+import inspect
 import logging
 import os
 from collections.abc import Callable
@@ -329,7 +330,11 @@ class ServerUnaryUnaryInterceptor(grpc.aio.ServerInterceptor):
                 parent_ctx = _extract_context_from_metadata(context)
                 token = otel_context.attach(parent_ctx)
                 try:
-                    return await original_handler(request, context)
+                    result = original_handler(request, context)
+                    # Handle both sync and async handlers
+                    if inspect.iscoroutine(result):
+                        return await result
+                    return result
                 finally:
                     otel_context.detach(token)
 
@@ -364,7 +369,11 @@ class ServerUnaryUnaryInterceptor(grpc.aio.ServerInterceptor):
                 parent_ctx = _extract_context_from_metadata(context)
                 token = otel_context.attach(parent_ctx)
                 try:
-                    return await original_handler(request_iterator, context)
+                    result = original_handler(request_iterator, context)
+                    # Handle both sync and async handlers
+                    if inspect.iscoroutine(result):
+                        return await result
+                    return result
                 finally:
                     otel_context.detach(token)
 

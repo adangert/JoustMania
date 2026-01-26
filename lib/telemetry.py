@@ -4,15 +4,19 @@ Shared OpenTelemetry initialization for JoustMania services.
 Provides consistent telemetry setup across all services with:
 - OTLP trace exporting
 - Standard resource attributes
+- Span attribute constants
 
 Usage:
-    from lib.telemetry import init_telemetry
+    from lib.telemetry import init_telemetry, SpanAttr
 
     # Basic usage (uses OTEL_SERVICE_NAME env var)
     tracer = init_telemetry()
 
     # With explicit service name
     tracer = init_telemetry(service_name="my-service")
+
+    # Use span attribute constants
+    span.set_attribute(SpanAttr.CONTROLLER_SERIAL, serial)
 """
 
 import logging
@@ -25,6 +29,23 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 logger = logging.getLogger(__name__)
+
+
+class SpanAttr:
+    """Constants for OpenTelemetry span attribute names.
+
+    Using constants prevents typos and enables IDE autocomplete.
+    """
+
+    # Controller attributes
+    CONTROLLER_SERIAL = "controller.serial"
+
+    # Admin mode attributes
+    ADMIN_OPTION = "admin.option"
+
+    # Validation attributes
+    VALIDATION_RESULT = "validation.result"
+    VALIDATION_REASON = "validation.reason"
 
 
 def init_telemetry(

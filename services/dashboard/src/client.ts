@@ -26,7 +26,7 @@ import type {
   ProcessInputResponse,
 } from "./gen/menu_pb.js";
 
-const BASE_URL = import.meta.env.DEV ? "" : window.location.origin;
+const BASE_URL = import.meta.env.DEV ? "" : globalThis.location.origin;
 
 // Generic unary call
 async function unaryCall<Req, Res>(

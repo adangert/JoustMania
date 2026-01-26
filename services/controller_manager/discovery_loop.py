@@ -25,7 +25,7 @@ from lib.controller_constants import (
     ControllerInfoKey,
     StateKey,
 )
-from lib.telemetry import init_telemetry
+from lib.telemetry import SpanAttr, init_telemetry
 from services.controller_manager import metrics
 
 if TYPE_CHECKING:
@@ -262,14 +262,14 @@ class DiscoveryLoop:
                 if serial not in self.tracked_controllers:
                     # New controller found - create event span
                     with tracer.start_as_current_span("controller_connected") as span:
-                        span.set_attribute("controller.serial", serial)
+                        span.set_attribute(SpanAttr.CONTROLLER_SERIAL, serial)
                         span.set_attribute("controller.count_total", len(connected_serials))
 
                         logger.info(f"Discovered new controller: {serial}")
 
                         # Spawn tracking process
                         with tracer.start_as_current_span("spawn_controller_process") as spawn_span:
-                            spawn_span.set_attribute("controller.serial", serial)
+                            spawn_span.set_attribute(SpanAttr.CONTROLLER_SERIAL, serial)
                             self._spawn_controller_process(serial)
 
                         # Publish connect event to button event stream subscribers
@@ -498,7 +498,7 @@ class DiscoveryLoop:
 
             # Add attributes to current span (this is called within "spawn_controller_process" span)
             current_span = trace.get_current_span()
-            current_span.set_attribute("controller.serial", serial)
+            current_span.set_attribute(SpanAttr.CONTROLLER_SERIAL, serial)
             current_span.set_attribute("controller.battery", battery)
             current_span.set_attribute("controller.name", name)
             current_span.add_event(

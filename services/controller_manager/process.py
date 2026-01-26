@@ -460,9 +460,10 @@ class ControllerManagerProcess(Process):
         Get list of controllers ready for game.
 
         Args:
-            params: {'force_all': bool}
+            params: {'force_all': bool} - currently unused, reserved for future use
         """
-        params.get("force_all", False)
+        # Note: force_all param reserved for future use
+        _ = params.get("force_all", False)
         ready_serials = []
 
         for move_serial, menu_opts in self.menu_opts.items():

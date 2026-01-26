@@ -120,6 +120,8 @@ class ZombieGame(BaseGameMode):
         self.time_remaining: float = 0.0
         self.timer_task: asyncio.Task | None = None
         self.game_span: trace.Span | None = None
+        # Track respawn tasks to prevent garbage collection
+        self._respawn_tasks: set[asyncio.Task] = set()
 
     def get_game_name(self) -> str:
         """Return game mode identifier."""
@@ -354,8 +356,10 @@ class ZombieGame(BaseGameMode):
 
             logger.info(f"Zombie {serial} killed, respawning in {respawn_delay:.1f}s")
 
-            # Start respawn task
-            asyncio.create_task(self._respawn_zombie(serial, respawn_delay))
+            # Start respawn task (track to prevent garbage collection)
+            task = asyncio.create_task(self._respawn_zombie(serial, respawn_delay))
+            self._respawn_tasks.add(task)
+            task.add_done_callback(self._respawn_tasks.discard)
 
             if player.span:
                 player.span.add_event(

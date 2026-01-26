@@ -4,16 +4,16 @@
  * Game mode selection and start/stop controls.
  */
 interface ControlsOptions {
-  onStartGame: () => void;
-  onStopGame: () => void;
+  onStartGame: () => void | Promise<void>;
+  onStopGame: () => void | Promise<void>;
   onModeChange: (mode: string) => void;
 }
 
 export class Controls {
-  private modeSelect: HTMLSelectElement;
-  private startBtn: HTMLButtonElement;
-  private stopBtn: HTMLButtonElement;
-  private options: ControlsOptions;
+  private readonly modeSelect: HTMLSelectElement;
+  private readonly startBtn: HTMLButtonElement;
+  private readonly stopBtn: HTMLButtonElement;
+  private readonly options: ControlsOptions;
 
   constructor(options: ControlsOptions) {
     this.options = options;
@@ -31,11 +31,11 @@ export class Controls {
     });
 
     this.startBtn.addEventListener("click", () => {
-      this.options.onStartGame();
+      void this.options.onStartGame();
     });
 
     this.stopBtn.addEventListener("click", () => {
-      this.options.onStopGame();
+      void this.options.onStopGame();
     });
   }
 

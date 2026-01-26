@@ -150,9 +150,9 @@ else
         echo ""
         echo "  → Building psmoveapi (this takes ~10 minutes)..."
         BUILD_SCRIPT="$JOUSTMANIA_DIR/scripts/setup/build_psmoveapi.sh"
-        if [ -f "$BUILD_SCRIPT" ]; then
+        if [[ -f "$BUILD_SCRIPT" ]]; then
             bash "$BUILD_SCRIPT"
-            if [ $? -eq 0 ]; then
+            if [[ $? -eq 0 ]]; then
                 echo -e "  → ${GREEN}psmoveapi built successfully${NC}"
                 export PATH="$HOMEDIR/psmoveapi/build:$PATH"
                 PSMOVE_AVAILABLE=true

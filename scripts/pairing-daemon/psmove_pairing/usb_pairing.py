@@ -21,6 +21,9 @@ from .utils import run_command
 
 logger = logging.getLogger("psmove-pairing")
 
+# Span attribute constant (matches lib/telemetry.SpanAttr.CONTROLLER_SERIAL)
+_ATTR_CONTROLLER_SERIAL = "controller.serial"
+
 
 class USBPairing:
     """Handles USB-connected PS Move controller pairing."""
@@ -100,7 +103,7 @@ class USBPairing:
         logger.info(f"Pairing controller {serial}...")
 
         with self.tracer.start_as_current_span("pair_controller") as span:
-            span.set_attribute("controller.serial", serial)
+            span.set_attribute(_ATTR_CONTROLLER_SERIAL, serial)
             start_time = time.time()
 
             exit_code, output = await run_command([self.psmove, "pair"])
@@ -140,7 +143,7 @@ class USBPairing:
         logger.debug(f"Trusting device in BlueZ: {serial}")
 
         with self.tracer.start_as_current_span("trust_device") as span:
-            span.set_attribute("controller.serial", serial)
+            span.set_attribute(_ATTR_CONTROLLER_SERIAL, serial)
 
             exit_code, output = await run_command(["bluetoothctl", "trust", serial.upper()])
             span.set_attribute("trust.exit_code", exit_code)
@@ -158,7 +161,7 @@ class USBPairing:
         logger.info("Calibrating controller...")
 
         with self.tracer.start_as_current_span("calibrate_controller") as span:
-            span.set_attribute("controller.serial", serial)
+            span.set_attribute(_ATTR_CONTROLLER_SERIAL, serial)
             start_time = time.time()
 
             exit_code, output = await run_command([self.psmove, "calibrate"])
@@ -181,7 +184,7 @@ class USBPairing:
     async def process_controller(self, serial: str) -> bool:
         """Process a single USB-connected controller."""
         with self.tracer.start_as_current_span("process_controller") as span:
-            span.set_attribute("controller.serial", serial)
+            span.set_attribute(_ATTR_CONTROLLER_SERIAL, serial)
 
             # Check if already known
             if await self.is_controller_known(serial):

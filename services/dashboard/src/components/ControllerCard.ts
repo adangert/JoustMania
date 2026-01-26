@@ -6,12 +6,12 @@
 import type { GameplayData, RGB } from "../gen/controller_manager_pb.js";
 
 export class ControllerCard {
-  element: HTMLElement;
-  private serial: string;
-  private ledElement: HTMLElement;
-  private batteryElement: HTMLElement;
-  private accelDot: HTMLElement;
-  private statusBadge: HTMLElement;
+  readonly element: HTMLElement;
+  private readonly serial: string;
+  private readonly ledElement: HTMLElement;
+  private readonly batteryElement: HTMLElement;
+  private readonly accelDot: HTMLElement;
+  private readonly statusBadge: HTMLElement;
 
   constructor(serial: string) {
     this.serial = serial;

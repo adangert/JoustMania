@@ -638,7 +638,7 @@ class FightClubGame(BaseGameMode):
         accel_mag = (state.accel_x**2 + state.accel_y**2 + state.accel_z**2) ** 0.5
 
         # Apply EMA filter
-        if fc_player.smoothed_accel == 0.0:
+        if fc_player.smoothed_accel < 1e-9:  # Check for uninitialized (avoids float equality)
             fc_player.smoothed_accel = accel_mag
         else:
             fc_player.smoothed_accel = (fc_player.smoothed_accel * 4 + accel_mag) / 5

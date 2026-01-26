@@ -27,7 +27,7 @@ TRACKED_FILES=(
 # Calculate checksums before git pull
 declare -A CHECKSUMS_BEFORE
 for file in "${TRACKED_FILES[@]}"; do
-    if [ -f "$file" ]; then
+    if [[ -f "$file" ]]; then
         CHECKSUMS_BEFORE["$file"]=$(sha256sum "$file" 2>/dev/null | cut -d' ' -f1)
     fi
 done
@@ -45,9 +45,9 @@ fi
 # Check which files changed
 CHANGED_FILES=()
 for file in "${TRACKED_FILES[@]}"; do
-    if [ -f "$file" ]; then
+    if [[ -f "$file" ]]; then
         CHECKSUM_AFTER=$(sha256sum "$file" 2>/dev/null | cut -d' ' -f1)
-        if [ "${CHECKSUMS_BEFORE[$file]}" != "$CHECKSUM_AFTER" ]; then
+        if [[ "${CHECKSUMS_BEFORE[$file]}" != "$CHECKSUM_AFTER" ]]; then
             CHANGED_FILES+=("$file")
             echo "Service file changed: $file"
         fi
@@ -61,11 +61,11 @@ cat > "$STATUS_FILE" << EOF
     "timestamp": "$(date -Iseconds)",
     "git_pull_status": "$GIT_PULL_STATUS",
     "service_files_changed": ${CHANGED_FILES_JSON:-[]},
-    "update_pending": $([ ${#CHANGED_FILES[@]} -gt 0 ] && echo "true" || echo "false")
+    "update_pending": $([[ ${#CHANGED_FILES[@]} -gt 0 ]] && echo "true" || echo "false")
 }
 EOF
 
-if [ ${#CHANGED_FILES[@]} -gt 0 ]; then
+if [[ ${#CHANGED_FILES[@]} -gt 0 ]]; then
     echo "WARNING: Service files have changed. Run 'sudo ./scripts/setup/install_autostart.sh' to apply updates."
 fi
 

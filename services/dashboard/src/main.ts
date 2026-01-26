@@ -68,7 +68,7 @@ function setupTabs() {
 
   tabButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
-      const tabId = btn.getAttribute("data-tab");
+      const tabId = (btn as HTMLElement).dataset.tab;
       if (!tabId) return;
 
       // Update button states

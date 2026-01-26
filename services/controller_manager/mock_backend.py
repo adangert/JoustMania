@@ -79,7 +79,7 @@ class MockBackend(ControllerBackend):
             self._observers.remove(queue)
             logger.debug(f"Removed observer, remaining: {len(self._observers)}")
 
-    async def _publish_event(self, event: dict) -> None:
+    def _publish_event(self, event: dict) -> None:
         """Publish event to all observers.
 
         Args:
@@ -254,7 +254,7 @@ class MockBackend(ControllerBackend):
         logger.debug(f"Mock: Set LED {serial} to RGB({r},{g},{b}) from {source}")
 
         # Publish LED change event to observers
-        await self._publish_event(
+        self._publish_event(
             {
                 "type": "led_change",
                 "serial": serial,
@@ -278,7 +278,7 @@ class MockBackend(ControllerBackend):
         logger.debug(f"Mock: Set rumble {serial} to {intensity}")
 
         # Publish rumble change event to observers
-        await self._publish_event(
+        self._publish_event(
             {
                 "type": "rumble_change",
                 "serial": serial,

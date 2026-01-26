@@ -125,7 +125,7 @@ class BluetoothMonitor:
                     self._known_devices[(serial, hci)] = ts
 
             # Check for disconnected devices
-            for (serial, hci), _last_seen in list(self._known_devices.items()):
+            for (serial, hci), _last_seen in self._known_devices.items():
                 if (serial, hci) not in currently_seen:
                     # Device disconnected
                     bluetooth_device_connected.labels(serial=serial, hci_adapter=hci).set(0)

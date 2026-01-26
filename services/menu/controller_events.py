@@ -165,7 +165,8 @@ class ControllerEventLoop:
                         except TimeoutError:
                             continue
                         except asyncio.CancelledError:
-                            return
+                            # Re-raise to properly propagate cancellation
+                            raise
 
                 # Start bidirectional stream
                 stream = stub.StreamButtonEvents(request_generator())

@@ -670,7 +670,7 @@ class BaseGameMode(ABC):
         # Formula: smoothed = (smoothed * 4 + raw) / 5
         # This gives 80% weight to previous value, 20% to current - smooths sensor noise
         # Phase 73: Initialize with first reading to prevent false deaths at game start
-        if player.smoothed_accel == 0.0:
+        if player.smoothed_accel < 1e-9:  # Check for uninitialized (avoids float equality)
             player.smoothed_accel = accel_mag  # Prime filter with first real reading
         else:
             player.smoothed_accel = (player.smoothed_accel * 4 + accel_mag) / 5
@@ -1236,6 +1236,7 @@ class BaseGameMode(ABC):
                 await asyncio.sleep(0.1)  # Check every 100ms
         except asyncio.CancelledError:
             logger.info("Music loop cancelled")
+            raise  # Re-raise to properly propagate cancellation
         except Exception as e:
             logger.warning(f"Music loop error: {e}")
         finally:

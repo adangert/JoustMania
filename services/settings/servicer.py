@@ -18,7 +18,7 @@ from typing import Any
 import yaml
 from opentelemetry import trace
 
-from lib.telemetry import init_telemetry
+from lib.telemetry import SpanAttr, init_telemetry
 from lib.types import Games, Sensitivity
 from proto import settings_pb2, settings_pb2_grpc
 
@@ -198,40 +198,40 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
             span.set_attribute("setting.value_type", type(value).__name__)
 
             if key not in SETTINGS_SCHEMA:
-                span.set_attribute("validation.result", "invalid")
-                span.set_attribute("validation.reason", "unknown_key")
+                span.set_attribute(SpanAttr.VALIDATION_RESULT, "invalid")
+                span.set_attribute(SpanAttr.VALIDATION_REASON, "unknown_key")
                 return False, f"Unknown setting: {key}"
 
             schema = SETTINGS_SCHEMA[key]
 
             # Check if immutable
             if schema.get("immutable", False):
-                span.set_attribute("validation.result", "invalid")
-                span.set_attribute("validation.reason", "immutable")
+                span.set_attribute(SpanAttr.VALIDATION_RESULT, "invalid")
+                span.set_attribute(SpanAttr.VALIDATION_REASON, "immutable")
                 return False, f"Setting '{key}' is immutable"
 
             # Check type
             expected_type = schema["type"]
             if not isinstance(value, expected_type):
-                span.set_attribute("validation.result", "invalid")
-                span.set_attribute("validation.reason", "type_mismatch")
+                span.set_attribute(SpanAttr.VALIDATION_RESULT, "invalid")
+                span.set_attribute(SpanAttr.VALIDATION_REASON, "type_mismatch")
                 return False, f"Expected {expected_type.__name__}, got {type(value).__name__}"
 
             # Check range (for int)
             if expected_type is int:
                 if "min" in schema and value < schema["min"]:
-                    span.set_attribute("validation.result", "invalid")
-                    span.set_attribute("validation.reason", "below_min")
+                    span.set_attribute(SpanAttr.VALIDATION_RESULT, "invalid")
+                    span.set_attribute(SpanAttr.VALIDATION_REASON, "below_min")
                     return False, f"Value {value} below minimum {schema['min']}"
                 if "max" in schema and value > schema["max"]:
-                    span.set_attribute("validation.result", "invalid")
-                    span.set_attribute("validation.reason", "above_max")
+                    span.set_attribute(SpanAttr.VALIDATION_RESULT, "invalid")
+                    span.set_attribute(SpanAttr.VALIDATION_REASON, "above_max")
                     return False, f"Value {value} above maximum {schema['max']}"
 
             # Check allowed values (for str)
             if expected_type is str and "allowed_values" in schema and value not in schema["allowed_values"]:
-                span.set_attribute("validation.result", "invalid")
-                span.set_attribute("validation.reason", "not_allowed")
+                span.set_attribute(SpanAttr.VALIDATION_RESULT, "invalid")
+                span.set_attribute(SpanAttr.VALIDATION_REASON, "not_allowed")
                 return (
                     False,
                     f"Value '{value}' not in allowed values: {schema['allowed_values']}",
@@ -242,11 +242,11 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
                 valid_games = [g.name for g in Games if g != Games.JoustTeams and g != Games.Random]
                 for item in value:
                     if item not in valid_games:
-                        span.set_attribute("validation.result", "invalid")
-                        span.set_attribute("validation.reason", "invalid_list_item")
+                        span.set_attribute(SpanAttr.VALIDATION_RESULT, "invalid")
+                        span.set_attribute(SpanAttr.VALIDATION_REASON, "invalid_list_item")
                         return False, f"Invalid game mode: {item}"
 
-            span.set_attribute("validation.result", "valid")
+            span.set_attribute(SpanAttr.VALIDATION_RESULT, "valid")
             return True, ""
 
     async def publish_change(self, key: str, old_value: Any, new_value: Any, source: str):

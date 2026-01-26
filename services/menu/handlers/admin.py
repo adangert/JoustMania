@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Protocol
 
 from opentelemetry import trace
 
+from lib.telemetry import SpanAttr
 from lib.types import Sound
 from services.menu.handlers.base import ControllerState
 
@@ -100,6 +101,9 @@ class AdminModeHandler:
         # Button debouncing
         self.last_button_time: dict[str, float] = {}
         self.button_debounce_interval = 0.3  # seconds
+
+        # Background tasks (to prevent garbage collection)
+        self._pending_tasks: set[asyncio.Task] = set()
 
     # ControllerHandler protocol methods
 
@@ -306,12 +310,12 @@ class AdminModeHandler:
 
         # Create parent span for entire admin mode session (ended in exit)
         self.session_span = self.tracer.start_span("admin_mode_session")
-        self.session_span.set_attribute("controller.serial", serial)
+        self.session_span.set_attribute(SpanAttr.CONTROLLER_SERIAL, serial)
         self.session_span_context = trace.set_span_in_context(self.session_span)
 
         # Create child span for the entry operation
         with self.tracer.start_as_current_span("enter_admin_mode", context=self.session_span_context) as span:
-            span.set_attribute("controller.serial", serial)
+            span.set_attribute(SpanAttr.CONTROLLER_SERIAL, serial)
 
             self.active = True
             self.controller_serial = serial
@@ -340,7 +344,7 @@ class AdminModeHandler:
 
         # Create child span for exit operation (under admin_mode_session)
         with self.tracer.start_as_current_span("exit_admin_mode", context=self.session_span_context) as span:
-            span.set_attribute("controller.serial", self.controller_serial)
+            span.set_attribute(SpanAttr.CONTROLLER_SERIAL, self.controller_serial)
             span.set_attribute("duration_seconds", duration)
 
             logger.info(f"Admin mode exited by controller {self.controller_serial}")
@@ -428,7 +432,7 @@ class AdminModeHandler:
 
         ctx = self._get_span_context()
         with self.tracer.start_as_current_span("admin_game_mode_change", context=ctx) as span:
-            span.set_attribute("controller.serial", serial)
+            span.set_attribute(SpanAttr.CONTROLLER_SERIAL, serial)
             span.set_attribute("direction", "forward" if forward else "backward")
 
             try:
@@ -491,7 +495,7 @@ class AdminModeHandler:
 
         ctx = self._get_span_context()
         with self.tracer.start_as_current_span("admin_force_start", context=ctx) as span:
-            span.set_attribute("controller.serial", serial)
+            span.set_attribute(SpanAttr.CONTROLLER_SERIAL, serial)
             span.set_attribute("game.name", self._current_game_mode)
 
             try:
@@ -614,7 +618,7 @@ class AdminModeHandler:
 
         ctx = self._get_span_context()
         with self.tracer.start_as_current_span("admin_sensitivity", context=ctx) as span:
-            span.set_attribute("controller.serial", serial)
+            span.set_attribute(SpanAttr.CONTROLLER_SERIAL, serial)
 
             try:
                 settings_stub = settings_pb2_grpc.SettingsServiceStub(self._settings_channel)
@@ -699,7 +703,7 @@ class AdminModeHandler:
 
         ctx = self._get_span_context()
         with self.tracer.start_as_current_span("admin_battery_display", context=ctx) as span:
-            span.set_attribute("controller.serial", serial)
+            span.set_attribute(SpanAttr.CONTROLLER_SERIAL, serial)
 
             try:
                 # Send SHOW_BATTERY effect with empty serial to affect all controllers
@@ -729,7 +733,7 @@ class AdminModeHandler:
 
         ctx = self._get_span_context()
         with self.tracer.start_as_current_span("admin_instructions", context=ctx) as span:
-            span.set_attribute("controller.serial", serial)
+            span.set_attribute(SpanAttr.CONTROLLER_SERIAL, serial)
 
             try:
                 settings_stub = settings_pb2_grpc.SettingsServiceStub(self._settings_channel)
@@ -783,14 +787,14 @@ class AdminModeHandler:
         """
         ctx = self._get_span_context()
         with self.tracer.start_as_current_span("admin_cycle_option", context=ctx) as span:
-            span.set_attribute("controller.serial", serial)
+            span.set_attribute(SpanAttr.CONTROLLER_SERIAL, serial)
 
             # Cycle to next option
             self.current_option = (self.current_option + 1) % len(self.option_names)
             option_name = self.option_names[self.current_option]
             option_color = self.option_colors[self.current_option]
 
-            span.set_attribute("admin.option", option_name)
+            span.set_attribute(SpanAttr.ADMIN_OPTION, option_name)
 
             try:
                 # Show option color for 1 second
@@ -802,7 +806,10 @@ class AdminModeHandler:
                     if self.active and serial == self.controller_serial:
                         await self._send_base_color(serial, (255, 255, 255))
 
-                asyncio.create_task(restore_white())
+                # Track task to prevent garbage collection
+                task = asyncio.create_task(restore_white())
+                self._pending_tasks.add(task)
+                task.add_done_callback(self._pending_tasks.discard)
 
                 span.add_event(
                     "admin_option_changed",
@@ -824,10 +831,10 @@ class AdminModeHandler:
 
         ctx = self._get_span_context()
         with self.tracer.start_as_current_span("admin_increase_value", context=ctx) as span:
-            span.set_attribute("controller.serial", serial)
+            span.set_attribute(SpanAttr.CONTROLLER_SERIAL, serial)
 
             option_name = self.option_names[self.current_option]
-            span.set_attribute("admin.option", option_name)
+            span.set_attribute(SpanAttr.ADMIN_OPTION, option_name)
 
             try:
                 stub = settings_pb2_grpc.SettingsServiceStub(self._settings_channel)
@@ -884,10 +891,10 @@ class AdminModeHandler:
 
         ctx = self._get_span_context()
         with self.tracer.start_as_current_span("admin_decrease_value", context=ctx) as span:
-            span.set_attribute("controller.serial", serial)
+            span.set_attribute(SpanAttr.CONTROLLER_SERIAL, serial)
 
             option_name = self.option_names[self.current_option]
-            span.set_attribute("admin.option", option_name)
+            span.set_attribute(SpanAttr.ADMIN_OPTION, option_name)
 
             try:
                 stub = settings_pb2_grpc.SettingsServiceStub(self._settings_channel)

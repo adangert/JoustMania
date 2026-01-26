@@ -220,7 +220,7 @@ class ControllerState:
         Returns:
             True if data is fresh, False if stale
         """
-        if self.timestamp.value == 0.0:
+        if self.timestamp.value < 1e-9:  # Check for uninitialized (avoids float equality)
             return False
 
         age_ms = (time.time() - self.timestamp.value) * 1000

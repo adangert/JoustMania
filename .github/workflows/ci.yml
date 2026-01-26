@@ -85,12 +85,23 @@ jobs:
           uv sync
           ty check .
 
-      - name: Unit tests
+      - name: Unit tests with coverage
         if: steps.changes.outputs.service == 'true'
         run: |
           cd services/${{ matrix.service }}
           uv sync --extra test
-          uv run pytest tests/ -v --tb=short
+          uv run pytest tests/ -v --tb=short \
+            --cov=. \
+            --cov-report=xml:coverage.xml \
+            --cov-report=term-missing
+
+      - name: Upload coverage report
+        if: steps.changes.outputs.service == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.service }}
+          path: services/${{ matrix.service }}/coverage.xml
+          retention-days: 1
 
   lint-dockerfiles:
     name: Lint Dockerfiles
@@ -100,6 +111,81 @@ jobs:
 
       - name: Lint Dockerfiles
         run: make ci-lint-dockerfiles
+
+  # SonarCloud analysis with coverage
+  sonarcloud:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-latest
+    needs: [service-checks]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better analysis
+
+      - name: Download all coverage reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+          path: coverage-reports
+
+      - name: Combine coverage reports
+        run: |
+          # Install coverage tool
+          pip install coverage
+
+          # Find all coverage.xml files and combine them
+          mkdir -p combined-coverage
+
+          # List found coverage files
+          echo "Found coverage reports:"
+          find coverage-reports -name "coverage.xml" -type f 2>/dev/null || echo "No coverage files found"
+
+          # If coverage reports exist, combine them
+          if ls coverage-reports/*.xml 1>/dev/null 2>&1; then
+            # Create combined report with adjusted paths for SonarCloud
+            # SonarCloud expects paths relative to repo root
+            python3 << 'EOF'
+          import xml.etree.ElementTree as ET
+          import os
+          import glob
+
+          # Find all coverage files
+          coverage_files = glob.glob('coverage-reports/*.xml')
+          print(f"Processing {len(coverage_files)} coverage files")
+
+          if not coverage_files:
+              print("No coverage files to combine")
+              exit(0)
+
+          # Parse first file as base
+          base_tree = ET.parse(coverage_files[0])
+          base_root = base_tree.getroot()
+          base_packages = base_root.find('.//packages')
+
+          # Merge other files
+          for cf in coverage_files[1:]:
+              tree = ET.parse(cf)
+              root = tree.getroot()
+              packages = root.find('.//packages')
+              if packages is not None:
+                  for package in packages:
+                      base_packages.append(package)
+
+          # Write combined report
+          base_tree.write('coverage.xml', encoding='unicode', xml_declaration=True)
+          print("Combined coverage report written to coverage.xml")
+          EOF
+          else
+            echo "No coverage reports found, creating empty report"
+            echo '<?xml version="1.0" ?><coverage version="1.0"></coverage>' > coverage.xml
+          fi
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   validate-protos:
     name: Validate Proto Files
@@ -376,6 +462,7 @@ jobs:
       - lint-shared
       - service-checks
       - lint-dockerfiles
+      - sonarcloud
       - validate-protos
       - validate-packages
       - build-builder
@@ -395,10 +482,9 @@ jobs:
             echo "Job results:"
             echo "  lint-shared: ${{ needs.lint-shared.result }}"
             echo "  service-checks: ${{ needs.service-checks.result }}"
-            echo "  lint-dockerfiles: \
-          ${{ needs.lint-dockerfiles.result }}"
-            echo "  validate-protos: \
-          ${{ needs.validate-protos.result }}"
+            echo "  lint-dockerfiles: ${{ needs.lint-dockerfiles.result }}"
+            echo "  sonarcloud: ${{ needs.sonarcloud.result }}"
+            echo "  validate-protos: ${{ needs.validate-protos.result }}"
             echo "  validate-packages: \
           ${{ needs.validate-packages.result }}"
             echo "  build-builder: ${{ needs.build-builder.result }}"

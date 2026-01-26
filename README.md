@@ -1,6 +1,8 @@
 # JoustMania - Cloud-Native Edition
 
 [![CI](https://github.com/WatchMeJoustMyFlags/JoustMania/actions/workflows/ci.yml/badge.svg)](https://github.com/WatchMeJoustMyFlags/JoustMania/actions/workflows/ci.yml)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=WatchMeJoustMyFlags_JoustMania&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=WatchMeJoustMyFlags_JoustMania)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=WatchMeJoustMyFlags_JoustMania&metric=coverage)](https://sonarcloud.io/summary/new_code?id=WatchMeJoustMyFlags_JoustMania)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
 [![Dev Container](https://img.shields.io/badge/Dev_Container-Ready-blue?logo=visualstudiocode)](https://code.visualstudio.com/docs/devcontainers/containers)
 

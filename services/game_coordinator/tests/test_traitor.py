@@ -235,3 +235,146 @@ class TestTraitorGameMode:
 
         # Still both teams alive - no win
         assert not game._check_win_condition()
+
+    @pytest.mark.asyncio
+    async def test_get_game_name(self, traitor_game):
+        """Test get_game_name returns 'Traitor'."""
+        game, _, _ = traitor_game
+        assert game.get_game_name() == "Traitor"
+
+
+class TestTraitorCount:
+    """Tests for traitor count calculation."""
+
+    @pytest.fixture
+    def traitor_game(self):
+        """Create a Traitor game."""
+        mock_controller_manager = MockControllerManagerService(num_controllers=4)
+        mock_settings = MockSettingsService()
+
+        game = TraitorGame(
+            controller_manager_client=mock_controller_manager,
+            settings_client=mock_settings,
+            event_publisher=lambda *_args: None,
+            audio_client=None,
+            game_id="test_traitor_count",
+        )
+
+        return game, mock_controller_manager
+
+    def test_traitor_count_2_players(self, traitor_game):
+        """Test traitor count for 2 players."""
+        game, _ = traitor_game
+        # 2-3 players: 1 traitor
+        assert game._get_traitor_count(2) == 1
+        assert game._get_traitor_count(3) == 1
+
+    def test_traitor_count_scales_with_players(self, traitor_game):
+        """Test traitor count scales appropriately."""
+        game, _ = traitor_game
+
+        # Verify count increases with players
+        counts = [game._get_traitor_count(n) for n in range(4, 17)]
+
+        # Each count should be >= previous count
+        for i in range(1, len(counts)):
+            assert counts[i] >= counts[i - 1]
+
+
+class TestTraitorLargeGame:
+    """Tests for larger player count games."""
+
+    @pytest.mark.asyncio
+    async def test_8_players_has_2_traitors(self):
+        """Test 8 players has 2 traitors."""
+        mock_controller_manager = MockControllerManagerService(num_controllers=8)
+        mock_settings = MockSettingsService()
+
+        game = TraitorGame(
+            controller_manager_client=mock_controller_manager,
+            settings_client=mock_settings,
+            event_publisher=lambda *_args: None,
+            audio_client=None,
+            game_id="test_traitor_8",
+        )
+        game.random_teams = False
+
+        await game._initialize_players_impl(mock_controller_manager.controllers)
+
+        assert len(game.traitor_serials) == 2
+
+    @pytest.mark.asyncio
+    async def test_10_players_has_3_traitors(self):
+        """Test 10 players has 3 traitors."""
+        mock_controller_manager = MockControllerManagerService(num_controllers=10)
+        mock_settings = MockSettingsService()
+
+        game = TraitorGame(
+            controller_manager_client=mock_controller_manager,
+            settings_client=mock_settings,
+            event_publisher=lambda *_args: None,
+            audio_client=None,
+            game_id="test_traitor_10",
+        )
+        game.random_teams = False
+
+        await game._initialize_players_impl(mock_controller_manager.controllers)
+
+        assert len(game.traitor_serials) == 3
+
+
+class TestTraitorEdgeCases:
+    """Tests for edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_all_dead_triggers_win_condition(self):
+        """Test that all players dead triggers win condition."""
+        mock_controller_manager = MockControllerManagerService(num_controllers=4)
+        mock_settings = MockSettingsService()
+        event_collector = EventCollector()
+
+        game = TraitorGame(
+            controller_manager_client=mock_controller_manager,
+            settings_client=mock_settings,
+            event_publisher=event_collector.publish,
+            audio_client=None,
+            game_id="test_traitor_draw",
+        )
+        game.random_teams = False
+
+        await game._initialize_players_impl(mock_controller_manager.controllers)
+
+        # Kill all players
+        for player in game.players.values():
+            player.alive = False
+
+        # Should trigger win (draw scenario - all dead)
+        # Note: Traitor checks alive teams, if none alive, might return True
+        result = game._check_win_condition()
+        assert result is True  # Game ends when no alive teams
+
+    @pytest.mark.asyncio
+    async def test_traitors_distributed_across_visible_teams(self):
+        """Test traitors can be on different visible teams."""
+        mock_controller_manager = MockControllerManagerService(num_controllers=6)
+        mock_settings = MockSettingsService()
+
+        game = TraitorGame(
+            controller_manager_client=mock_controller_manager,
+            settings_client=mock_settings,
+            event_publisher=lambda *_args: None,
+            audio_client=None,
+            game_id="test_traitor_dist",
+        )
+        game.random_teams = False
+
+        await game._initialize_players_impl(mock_controller_manager.controllers)
+
+        # 6 players = 2 traitors
+        assert len(game.traitor_serials) == 2
+
+        # Get visible teams of traitors
+        traitor_visible_teams = {game.players[s].team for s in game.traitor_serials}
+
+        # Traitors exist and have visible teams assigned
+        assert len(traitor_visible_teams) >= 1

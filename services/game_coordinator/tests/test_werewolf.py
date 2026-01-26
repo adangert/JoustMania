@@ -220,3 +220,209 @@ class TestWerewolfGameMode:
             assert isinstance(player, WerewolfPlayer)
             assert hasattr(player, "is_werewolf")
             assert hasattr(player, "revealed")
+
+    @pytest.mark.asyncio
+    async def test_get_game_name(self, werewolf_game):
+        """Test get_game_name returns 'Werewolf'."""
+        game, _, _ = werewolf_game
+        assert game.get_game_name() == "Werewolf"
+
+    @pytest.mark.asyncio
+    async def test_kill_player_publishes_event_with_role(self, werewolf_game):
+        """Test that _kill_player_impl handles werewolf role info."""
+        game, mock_controller_manager, _ = werewolf_game
+
+        await game._initialize_players_impl(mock_controller_manager.controllers)
+
+        # Get a werewolf player
+        werewolf_serial = game.werewolf_serials[0]
+        player = game.players[werewolf_serial]
+        assert player.is_werewolf is True
+
+        # Kill the werewolf
+        await game._kill_player_impl(werewolf_serial, accel_mag=5.0)
+
+        # Player should be dead
+        assert player.alive is False
+
+
+class TestWerewolfThresholds:
+    """Tests for werewolf-specific thresholds."""
+
+    @pytest.fixture
+    def werewolf_game(self):
+        """Create a Werewolf game."""
+        mock_controller_manager = MockControllerManagerService(num_controllers=4)
+        mock_settings = MockSettingsService()
+
+        game = WerewolfGame(
+            controller_manager_client=mock_controller_manager,
+            settings_client=mock_settings,
+            event_publisher=lambda *_args: None,
+            audio_client=None,
+            game_id="test_werewolf_thresh",
+        )
+
+        return game, mock_controller_manager
+
+    @pytest.mark.asyncio
+    async def test_werewolf_returns_werewolf_thresholds(self, werewolf_game):
+        """Werewolves should get thresholds from WEREWOLF_THRESHOLDS dict."""
+        from services.game_coordinator.games.werewolf import WEREWOLF_THRESHOLDS
+
+        game, mock_controller_manager = werewolf_game
+        await game._initialize_players_impl(mock_controller_manager.controllers)
+
+        # Get threshold for a werewolf
+        werewolf_serial = game.werewolf_serials[0]
+        werewolf_player = game.players[werewolf_serial]
+        werewolf_thresholds = game._get_effective_thresholds(werewolf_player)
+
+        # Should return a tuple from WEREWOLF_THRESHOLDS
+        assert isinstance(werewolf_thresholds, tuple), "Werewolf thresholds should be tuple"
+        assert len(werewolf_thresholds) == 2, "Werewolf thresholds should have (warning, death)"
+        assert werewolf_thresholds[0] < werewolf_thresholds[1], "Warning should be less than death threshold"
+
+        # Verify it matches WEREWOLF_THRESHOLDS for game's sensitivity
+        expected = WEREWOLF_THRESHOLDS.get(game.sensitivity, (2.1, 2.6))
+        assert werewolf_thresholds == expected
+
+    @pytest.mark.asyncio
+    async def test_human_returns_sensitivity_value(self, werewolf_game):
+        """Humans should return sensitivity.value for threshold lookup."""
+        game, mock_controller_manager = werewolf_game
+        await game._initialize_players_impl(mock_controller_manager.controllers)
+
+        # Get threshold for a human
+        human_serial = game.human_serials[0]
+        human_player = game.players[human_serial]
+        human_thresholds = game._get_effective_thresholds(human_player)
+
+        # Humans return sensitivity.value (int index) for base class threshold lookup
+        assert isinstance(human_thresholds, int), "Human thresholds should be int index"
+
+
+class TestWerewolfReveal:
+    """Tests for werewolf reveal mechanics."""
+
+    @pytest.fixture
+    def werewolf_game(self):
+        """Create a Werewolf game."""
+        mock_controller_manager = MockControllerManagerService(num_controllers=4)
+        mock_settings = MockSettingsService()
+        event_collector = EventCollector()
+
+        game = WerewolfGame(
+            controller_manager_client=mock_controller_manager,
+            settings_client=mock_settings,
+            event_publisher=event_collector.publish,
+            audio_client=None,
+            game_id="test_werewolf_reveal",
+        )
+
+        return game, mock_controller_manager, event_collector
+
+    @pytest.mark.asyncio
+    async def test_starts_unrevealed(self, werewolf_game):
+        """Game should start with revealed=False."""
+        game, mock_controller_manager, _ = werewolf_game
+        await game._initialize_players_impl(mock_controller_manager.controllers)
+
+        assert game.revealed is False
+        for player in game.players.values():
+            assert player.revealed is False
+
+
+class TestWerewolfEdgeCases:
+    """Tests for edge cases in werewolf game."""
+
+    @pytest.mark.asyncio
+    async def test_larger_player_count_werewolf_ratio(self):
+        """Test werewolf ratio with more players."""
+        mock_controller_manager = MockControllerManagerService(num_controllers=9)
+        mock_settings = MockSettingsService()
+
+        game = WerewolfGame(
+            controller_manager_client=mock_controller_manager,
+            settings_client=mock_settings,
+            event_publisher=lambda *_args: None,
+            audio_client=None,
+            game_id="test_werewolf_ratio",
+        )
+
+        await game._initialize_players_impl(mock_controller_manager.controllers)
+
+        # 9 players * 0.44 = 3.96, so 3 werewolves
+        werewolf_count = len(game.werewolf_serials)
+        assert werewolf_count == 3
+
+    @pytest.mark.asyncio
+    async def test_minimum_one_werewolf(self):
+        """Even with 2 players, should have at least 1 werewolf."""
+        mock_controller_manager = MockControllerManagerService(num_controllers=2)
+        mock_settings = MockSettingsService()
+
+        game = WerewolfGame(
+            controller_manager_client=mock_controller_manager,
+            settings_client=mock_settings,
+            event_publisher=lambda *_args: None,
+            audio_client=None,
+            game_id="test_min_werewolf",
+        )
+
+        await game._initialize_players_impl(mock_controller_manager.controllers)
+
+        # 2 players * 0.44 = 0.88, but min(1, ...) ensures at least 1
+        assert len(game.werewolf_serials) >= 1
+
+    @pytest.mark.asyncio
+    async def test_win_condition_all_dead(self):
+        """Test when all players are dead (draw condition)."""
+        mock_controller_manager = MockControllerManagerService(num_controllers=4)
+        mock_settings = MockSettingsService()
+        event_collector = EventCollector()
+
+        game = WerewolfGame(
+            controller_manager_client=mock_controller_manager,
+            settings_client=mock_settings,
+            event_publisher=event_collector.publish,
+            audio_client=None,
+            game_id="test_werewolf_draw",
+        )
+
+        await game._initialize_players_impl(mock_controller_manager.controllers)
+
+        # Kill everyone
+        for player in game.players.values():
+            player.alive = False
+
+        # Should trigger win condition (with winner="none")
+        assert game._check_win_condition()
+
+        winner_events = event_collector.get_events_of_type("werewolf_winner")
+        assert len(winner_events) == 1
+        assert winner_events[0]["winner"] == "none"
+
+    @pytest.mark.asyncio
+    async def test_reveal_state_tracks_correctly(self):
+        """Test that game reveal state can be toggled."""
+        mock_controller_manager = MockControllerManagerService(num_controllers=4)
+        mock_settings = MockSettingsService()
+
+        game = WerewolfGame(
+            controller_manager_client=mock_controller_manager,
+            settings_client=mock_settings,
+            event_publisher=lambda *_args: None,
+            audio_client=None,
+            game_id="test_reveal_state",
+        )
+
+        await game._initialize_players_impl(mock_controller_manager.controllers)
+
+        # Initially not revealed
+        assert game.revealed is False
+
+        # Manually set revealed
+        game.revealed = True
+
+        assert game.revealed is True

@@ -225,3 +225,218 @@ class TestZombieGameMode:
         expected_duration = calculate_game_duration(4)
         assert game.game_duration == expected_duration
         assert game.time_remaining == expected_duration
+
+
+class TestZombieKillMechanics:
+    """Tests for zombie kill and conversion mechanics."""
+
+    @pytest.fixture
+    def zombie_game(self):
+        """Create a Zombie game with 4 players."""
+        mock_controller_manager = MockControllerManagerService(
+            num_controllers=4,
+            death_schedule={},
+            max_duration=10.0,
+        )
+        mock_settings = MockSettingsService()
+        event_collector = EventCollector()
+
+        game = ZombieGame(
+            controller_manager_client=mock_controller_manager,
+            settings_client=mock_settings,
+            event_publisher=event_collector.publish,
+            audio_client=None,
+            game_id="test_zombie_kill",
+        )
+
+        return game, mock_controller_manager, event_collector
+
+    @pytest.mark.asyncio
+    async def test_human_killed_becomes_zombie(self, zombie_game):
+        """When a human is killed, they should become a zombie."""
+        game, mock_controller_manager, event_collector = zombie_game
+        game.gameplay_stream = MockGameplayStream()
+        game.running = True
+
+        await game._initialize_players_impl(mock_controller_manager.controllers)
+
+        # Get a human serial
+        human_serial = game.human_serials[0]
+        player = game.players[human_serial]
+
+        assert player.is_zombie is False
+        assert player.team == 0
+
+        # Kill the human
+        await game._kill_player_impl(human_serial, accel_mag=3.0)
+
+        # Player should now be a zombie
+        assert player.is_zombie is True
+        assert player.team == 1
+        assert player.color == ZOMBIE_COLOR
+        assert player.alive is True  # Zombies stay alive after conversion
+
+    @pytest.mark.asyncio
+    async def test_human_conversion_publishes_event(self, zombie_game):
+        """Human conversion should publish human_converted event."""
+        game, mock_controller_manager, event_collector = zombie_game
+        game.gameplay_stream = MockGameplayStream()
+        game.running = True
+
+        await game._initialize_players_impl(mock_controller_manager.controllers)
+
+        human_serial = game.human_serials[0]
+        initial_human_count = len(game.human_serials)
+
+        await game._kill_player_impl(human_serial, accel_mag=3.0)
+
+        # Check event was published
+        conversion_events = event_collector.get_events_of_type("human_converted")
+        assert len(conversion_events) == 1
+        assert conversion_events[0]["serial"] == human_serial
+        assert conversion_events[0]["remaining_humans"] == initial_human_count - 1
+
+    @pytest.mark.asyncio
+    async def test_zombie_killed_sets_respawn(self, zombie_game):
+        """When a zombie is killed, they should be set to respawn."""
+        game, mock_controller_manager, _ = zombie_game
+        game.gameplay_stream = MockGameplayStream()
+        game.running = True
+
+        await game._initialize_players_impl(mock_controller_manager.controllers)
+
+        # Get a zombie serial
+        zombie_serial = game.zombie_serials[0]
+        player = game.players[zombie_serial]
+
+        assert player.is_zombie is True
+        assert player.alive is True
+
+        # Kill the zombie
+        await game._kill_player_impl(zombie_serial, accel_mag=3.0)
+
+        # Zombie should be dead with respawn timer set
+        assert player.alive is False
+        assert player.respawn_until > 0
+
+    @pytest.mark.asyncio
+    async def test_converted_human_removed_from_human_list(self, zombie_game):
+        """Converted human should be removed from human_serials."""
+        game, mock_controller_manager, _ = zombie_game
+        game.gameplay_stream = MockGameplayStream()
+        game.running = True
+
+        await game._initialize_players_impl(mock_controller_manager.controllers)
+
+        human_serial = game.human_serials[0]
+        assert human_serial in game.human_serials
+        assert human_serial not in game.zombie_serials
+
+        await game._kill_player_impl(human_serial, accel_mag=3.0)
+
+        assert human_serial not in game.human_serials
+        assert human_serial in game.zombie_serials
+
+
+class TestZombieThresholds:
+    """Tests for zombie-specific thresholds."""
+
+    @pytest.fixture
+    def zombie_game(self):
+        """Create a Zombie game."""
+        mock_controller_manager = MockControllerManagerService(num_controllers=4)
+        mock_settings = MockSettingsService()
+
+        game = ZombieGame(
+            controller_manager_client=mock_controller_manager,
+            settings_client=mock_settings,
+            event_publisher=lambda *_args: None,
+            audio_client=None,
+            game_id="test_zombie_thresh",
+        )
+
+        return game, mock_controller_manager
+
+    @pytest.mark.asyncio
+    async def test_zombie_returns_zombie_thresholds(self, zombie_game):
+        """Zombies should get thresholds from ZOMBIE_THRESHOLDS dict."""
+
+        game, mock_controller_manager = zombie_game
+        await game._initialize_players_impl(mock_controller_manager.controllers)
+
+        # Get threshold for a zombie
+        zombie_serial = game.zombie_serials[0]
+        zombie_player = game.players[zombie_serial]
+        zombie_thresholds = game._get_effective_thresholds(zombie_player)
+
+        # Should return a tuple from ZOMBIE_THRESHOLDS
+        assert isinstance(zombie_thresholds, tuple), "Zombie thresholds should be tuple"
+        assert len(zombie_thresholds) == 2, "Zombie thresholds should have (warning, death)"
+        assert zombie_thresholds[0] < zombie_thresholds[1], "Warning should be less than death threshold"
+
+    @pytest.mark.asyncio
+    async def test_human_returns_sensitivity_value(self, zombie_game):
+        """Humans should return sensitivity.value for threshold lookup."""
+        game, mock_controller_manager = zombie_game
+        await game._initialize_players_impl(mock_controller_manager.controllers)
+
+        # Get threshold for a human
+        human_serial = game.human_serials[0]
+        human_player = game.players[human_serial]
+        human_thresholds = game._get_effective_thresholds(human_player)
+
+        # Humans return sensitivity.value (int index) for base class threshold lookup
+        # This is intentional - base class uses this to index into SLOW_MAX/FAST_MAX arrays
+        assert isinstance(human_thresholds, int), "Human thresholds should be int index"
+
+
+class TestZombieEdgeCases:
+    """Tests for edge cases in zombie game."""
+
+    def test_calculate_duration_two_players(self):
+        """Game duration with minimum players."""
+        # 2 players: (2 * 3 / 16) * 60 = 22.5 seconds
+        duration = calculate_game_duration(2)
+        assert duration == 22.5
+
+    def test_calculate_duration_sixteen_players(self):
+        """Game duration with 16 players."""
+        # 16 players: (16 * 3 / 16) * 60 = 180 seconds (3 minutes)
+        duration = calculate_game_duration(16)
+        assert duration == 180.0
+
+    @pytest.mark.asyncio
+    async def test_minimum_one_human(self):
+        """Even with many players, should have at least 1 human."""
+        mock_controller_manager = MockControllerManagerService(num_controllers=3)
+        mock_settings = MockSettingsService()
+
+        game = ZombieGame(
+            controller_manager_client=mock_controller_manager,
+            settings_client=mock_settings,
+            event_publisher=lambda *_args: None,
+            audio_client=None,
+            game_id="test_min_human",
+        )
+
+        await game._initialize_players_impl(mock_controller_manager.controllers)
+
+        # With 3 players and INITIAL_ZOMBIES=2, should have 2 zombies and 1 human
+        assert len(game.human_serials) >= 1
+        assert len(game.zombie_serials) == min(INITIAL_ZOMBIES, 2)
+
+    @pytest.mark.asyncio
+    async def test_get_game_name(self):
+        """get_game_name should return 'Zombie'."""
+        mock_controller_manager = MockControllerManagerService(num_controllers=2)
+        mock_settings = MockSettingsService()
+
+        game = ZombieGame(
+            controller_manager_client=mock_controller_manager,
+            settings_client=mock_settings,
+            event_publisher=lambda *_args: None,
+            audio_client=None,
+            game_id="test_name",
+        )
+
+        assert game.get_game_name() == "Zombie"

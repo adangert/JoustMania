@@ -27,11 +27,11 @@ FROM ${BUILDER_IMAGE} AS python-builder
 
 # Install additional bluetooth build dependencies (not in common builder)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    pkg-config \
     libbluetooth-dev \
-    libusb-dev \
     libdbus-1-dev \
     libglib2.0-dev \
+    libusb-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -58,11 +58,11 @@ FROM python:3.11-slim
 
 # Install runtime dependencies (bluetooth for PS Move controllers)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    bluez \
     libbluetooth3 \
-    libusb-1.0-0 \
     libdbus-1-3 \
     libglib2.0-0 \
-    bluez \
+    libusb-1.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

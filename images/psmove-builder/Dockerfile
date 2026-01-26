@@ -34,21 +34,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
     git \
-    pkg-config \
-    libudev-dev \
     libbluetooth-dev \
-    libusb-dev \
-    libusb-1.0-0-dev \
     libdbus-1-dev \
-    swig \
+    libudev-dev \
+    libusb-1.0-0-dev \
+    libusb-dev \
+    pkg-config \
     python3-dev \
+    swig \
     && rm -rf /var/lib/apt/lists/*
 
 # Clone psmoveapi at specific commit
 WORKDIR /build
 RUN git clone --recursive https://github.com/thp/psmoveapi.git && \
     cd psmoveapi && \
-    git checkout ${PSMOVE_COMMIT}
+    git checkout "${PSMOVE_COMMIT}"
 
 # Build psmoveapi with Python bindings only (no tracker, no examples)
 WORKDIR /build/psmoveapi/build

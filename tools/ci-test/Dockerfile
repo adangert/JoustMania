@@ -4,8 +4,8 @@ FROM python:3.12-slim
 
 # Install system dependencies for testcontainers and Docker SDK
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
     ca-certificates \
+    curl \
     gnupg \
     lsb-release \
     && rm -rf /var/lib/apt/lists/*

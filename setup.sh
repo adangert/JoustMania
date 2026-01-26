@@ -29,7 +29,7 @@ read -p "Select option [1-3]: " -n 1 -r
 echo
 echo ""
 
-case $REPLY in
+case "$REPLY" in
     1)
         echo "=========================================="
         echo "Runtime Setup"

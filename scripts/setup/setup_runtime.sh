@@ -30,8 +30,8 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-HOMENAME=$(logname 2>/dev/null || echo $USER)
-HOMEDIR=/home/$HOMENAME
+HOMENAME=$(logname 2>/dev/null || echo "$USER")
+HOMEDIR="/home/$HOMENAME"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 JOUSTMANIA_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
@@ -58,7 +58,7 @@ if ! command -v docker &> /dev/null; then
     rm /tmp/get-docker.sh
 
     # Add user to docker group
-    sudo usermod -aG docker $USER
+    sudo usermod -aG docker "$USER"
     echo -e "  → ${GREEN}Docker installed${NC}"
     echo -e "  → ${YELLOW}NOTE: Log out and back in for docker group to take effect${NC}"
     DOCKER_GROUP_CHANGED=true

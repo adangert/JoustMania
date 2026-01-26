@@ -22,8 +22,8 @@ ARG BUILDER_IMAGE=ghcr.io/watchmejoustmyflags/joustmania/builder:latest
 FROM debian:bookworm-slim AS system-libs
 ARG TARGETARCH
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libasound2 \
     libasound2-data \
+    libasound2 \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir /extra-libs \
     && if [ "$TARGETARCH" = "arm64" ]; then \
@@ -31,7 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
        else \
          LIB_DIR=/usr/lib/x86_64-linux-gnu; \
        fi \
-    && cp $LIB_DIR/libasound.so* /extra-libs/ \
+    && cp "$LIB_DIR"/libasound.so* /extra-libs/ \
     && mkdir -p /extra-etc \
     && grep -E "^(root|audio):" /etc/group > /extra-etc/group
 

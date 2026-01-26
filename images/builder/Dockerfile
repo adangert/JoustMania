@@ -21,13 +21,12 @@ LABEL org.opencontainers.image.description="JoustMania shared builder base image
 LABEL org.opencontainers.image.title="joustmania-builder"
 
 # Build dependencies needed by various Python packages
-# - gcc, g++: Compile C/C++ extensions (grpcio, pygame, etc.)
-# - build-essential: Common build tools
+# - build-essential: Common build tools (includes gcc, g++)
 # - python3-dev: Python headers for C extensions
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
     build-essential \
+    g++ \
+    gcc \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 

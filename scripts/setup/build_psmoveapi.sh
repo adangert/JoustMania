@@ -6,7 +6,7 @@
 
 set -e  # Exit on error
 
-HOMENAME=$(logname)
+HOMENAME="$(logname)"
 HOMEDIR="/home/$HOMENAME"
 
 echo "=========================================="

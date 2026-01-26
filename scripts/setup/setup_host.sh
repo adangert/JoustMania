@@ -9,7 +9,7 @@ set -e  # Exit on error
 # Prevent apt from prompting about restarting services
 export DEBIAN_FRONTEND=noninteractive
 
-HOMENAME=$(logname)
+HOMENAME="$(logname)"
 HOMEDIR="/home/$HOMENAME"
 
 echo "=========================================="
@@ -50,7 +50,7 @@ if ! command -v docker &> /dev/null; then
     rm get-docker.sh
 
     # Add user to docker group
-    sudo usermod -aG docker $USER
+    sudo usermod -aG docker "$USER"
     echo "  → Docker installed. You may need to log out and back in for group changes to take effect."
 else
     echo "  → Docker already installed"

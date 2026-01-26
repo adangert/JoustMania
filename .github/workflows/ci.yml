@@ -104,7 +104,10 @@ jobs:
             --cov=. \
             --cov-report=xml:coverage.xml \
             --cov-report=term-missing
-          # Fix paths in coverage.xml to be relative to repo root
+          # Fix paths in coverage.xml for SonarCloud:
+          # 1. Set source to "." (repo root) - SonarCloud resolves paths relative to sonar.sources
+          # 2. Prefix filenames with services/<name>/ to match repo structure
+          sed -i 's|<source>.*</source>|<source>.</source>|g' coverage.xml
           sed -i 's|filename="|filename="services/${{ matrix.service }}/|g' coverage.xml
 
       - name: Upload coverage report

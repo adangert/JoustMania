@@ -25,10 +25,10 @@ sys.path.insert(0, str(test_dir))
 from conftest import EventCollector, MockControllerManagerService, MockSettingsService  # noqa: E402
 
 from services.game_coordinator.games.fight_club import (  # noqa: E402
+    DEFAULT_INVINCIBILITY_DURATION,
+    DEFAULT_MIN_ROUNDS,
     DEFENDER_COLOR,
     FIGHTER_COLOR,
-    INVINCIBILITY_DURATION,
-    MIN_ROUNDS,
     WAITING_COLOR,
     FightClubGame,
     FightState,
@@ -151,8 +151,8 @@ class TestFightClubGameMode:
         fighter = game.players[game.current_fighter]
 
         # Both should have invincibility for ~4 seconds
-        assert defender.invincible_until > time_before + INVINCIBILITY_DURATION - 0.5
-        assert fighter.invincible_until > time_before + INVINCIBILITY_DURATION - 0.5
+        assert defender.invincible_until > time_before + DEFAULT_INVINCIBILITY_DURATION - 0.5
+        assert fighter.invincible_until > time_before + DEFAULT_INVINCIBILITY_DURATION - 0.5
 
     @pytest.mark.asyncio
     async def test_kill_player_during_invincibility_ignored(self, fight_club_game):
@@ -238,8 +238,8 @@ class TestFightClubGameMode:
 
         await game._initialize_players_impl(mock_controller_manager.controllers)
 
-        # Even with clear leader, shouldn't end before MIN_ROUNDS
-        game.round_number = MIN_ROUNDS - 1
+        # Even with clear leader, shouldn't end before DEFAULT_MIN_ROUNDS
+        game.round_number = DEFAULT_MIN_ROUNDS - 1
         game.players["mock_controller_0"].score = 5
         game.players["mock_controller_1"].score = 0
 
@@ -252,8 +252,8 @@ class TestFightClubGameMode:
 
         await game._initialize_players_impl(mock_controller_manager.controllers)
 
-        # Past MIN_ROUNDS with clear leader
-        game.round_number = MIN_ROUNDS + 1
+        # Past DEFAULT_MIN_ROUNDS with clear leader
+        game.round_number = DEFAULT_MIN_ROUNDS + 1
         game.players["mock_controller_0"].score = 5
         game.players["mock_controller_1"].score = 3
 
@@ -266,8 +266,8 @@ class TestFightClubGameMode:
 
         await game._initialize_players_impl(mock_controller_manager.controllers)
 
-        # Past MIN_ROUNDS but tied
-        game.round_number = MIN_ROUNDS + 1
+        # Past DEFAULT_MIN_ROUNDS but tied
+        game.round_number = DEFAULT_MIN_ROUNDS + 1
         game.players["mock_controller_0"].score = 5
         game.players["mock_controller_1"].score = 5
 

@@ -344,7 +344,7 @@ class SwapperGame(TeamsGameBase):
         # Show loser effect on excluded player (dim gray color)
         if self.last_death_serial and self.gameplay_stream:
             color_cmd = controller_manager_pb2.GameplayStreamControl(
-                color_update=controller_manager_pb2.ColorUpdate(
+                base_color=controller_manager_pb2.ControllerColorConfig(
                     serial=self.last_death_serial,
                     color=controller_manager_pb2.RGB(r=50, g=50, b=50),  # Dim gray
                 )

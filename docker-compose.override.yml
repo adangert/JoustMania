@@ -27,7 +27,7 @@ services:
   # Settings - Expose ports for testing
   settings:
     ports:
-      - "50055:50055"  # Main gRPC port
+      - "50055:50051"  # Main gRPC port (host 50055 -> container 50051)
 
   # Audio - Expose ports for testing
   audio:

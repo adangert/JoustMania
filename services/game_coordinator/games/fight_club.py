@@ -24,10 +24,10 @@ from services.game_coordinator.games.base import BaseGameMode, Phase, Player
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
 
-# Game constants
+# Game constants (defaults, can be overridden via settings)
 ROUND_DURATION = 22.0  # Seconds per round
-INVINCIBILITY_DURATION = 4.0  # Seconds of invincibility at round start
-MIN_ROUNDS = 10  # Minimum rounds before game can end
+DEFAULT_INVINCIBILITY_DURATION = 4.0  # Seconds of invincibility at round start
+DEFAULT_MIN_ROUNDS = 10  # Minimum rounds before game can end
 COUNTDOWN_BEEPS = 3  # Beeps in last 3 seconds of round
 
 # Colors
@@ -97,6 +97,9 @@ class FightClubGame(BaseGameMode):
         self.game_over: bool = False
         self.face_off_mode: bool = False
         self.game_span: trace.Span | None = None
+        # Configurable timing (loaded from settings)
+        self._invincibility_duration: float = DEFAULT_INVINCIBILITY_DURATION
+        self._min_rounds: int = DEFAULT_MIN_ROUNDS
 
     def get_game_name(self) -> str:
         """Return game mode identifier."""
@@ -175,7 +178,7 @@ class FightClubGame(BaseGameMode):
         for serial in self.players:
             if self.gameplay_stream:
                 color_cmd = controller_manager_pb2.GameplayStreamControl(
-                    color_update=controller_manager_pb2.ColorUpdate(
+                    base_color=controller_manager_pb2.ControllerColorConfig(
                         serial=serial,
                         color=controller_manager_pb2.RGB(r=WAITING_COLOR[0], g=WAITING_COLOR[1], b=WAITING_COLOR[2]),
                     )
@@ -219,12 +222,12 @@ class FightClubGame(BaseGameMode):
         defender.state = FightState.DEFENDER
         defender.color = DEFENDER_COLOR
         defender.alive = True
-        defender.invincible_until = time.time() + INVINCIBILITY_DURATION
+        defender.invincible_until = time.time() + self._invincibility_duration
 
         fighter.state = FightState.FIGHTER
         fighter.color = FIGHTER_COLOR
         fighter.alive = True
-        fighter.invincible_until = time.time() + INVINCIBILITY_DURATION
+        fighter.invincible_until = time.time() + self._invincibility_duration
 
         # Set round end time
         if not self.face_off_mode:
@@ -324,7 +327,7 @@ class FightClubGame(BaseGameMode):
 
             if self.gameplay_stream:
                 color_cmd = controller_manager_pb2.GameplayStreamControl(
-                    color_update=controller_manager_pb2.ColorUpdate(
+                    base_color=controller_manager_pb2.ControllerColorConfig(
                         serial=serial,
                         color=controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]),
                     )
@@ -341,7 +344,7 @@ class FightClubGame(BaseGameMode):
 
         Game ends after minimum rounds if there's a clear winner.
         """
-        if self.round_number < MIN_ROUNDS:
+        if self.round_number < self._min_rounds:
             return False
 
         # Check if anyone has a clear lead
@@ -539,8 +542,20 @@ class FightClubGame(BaseGameMode):
                 # Initialization phase
                 with tracer.start_as_current_span("initialization_phase"):
                     await self._load_settings()
+                    # Load fight club timing from settings
+                    self._invincibility_duration = float(
+                        self.settings.get("fight_club_invincibility", str(DEFAULT_INVINCIBILITY_DURATION))
+                    )
+                    self._min_rounds = int(self.settings.get("fight_club_min_rounds", str(DEFAULT_MIN_ROUNDS)))
+                    logger.info(
+                        f"Fight Club config: invincibility={self._invincibility_duration}s, "
+                        f"min_rounds={self._min_rounds}"
+                    )
                     await self._initialize_players()
                     self._create_player_spans()
+
+                # Start gameplay stream before intro (needed for LED effects)
+                await self._start_gameplay_stream()
 
                 # Additional phases (intro)
                 for phase in self._get_additional_phases():
@@ -563,13 +578,17 @@ class FightClubGame(BaseGameMode):
                 self.state = GameState.RUNNING
                 self.start_time = time.time()
 
+                # Emit game_started event (required for integration tests)
+                from lib.types import GameEvent
+
+                self.event_publisher(
+                    GameEvent.GAME_STARTED, {"game_id": self.game_id, "player_count": len(self.players)}
+                )
+
                 # Start music
                 await self._start_game_music()
 
-                # Start gameplay stream
-                await self._start_gameplay_stream()
-
-                # Start first round
+                # Start first round (gameplay stream already started before intro)
                 await self._start_round()
 
                 # Game loop - process controller states

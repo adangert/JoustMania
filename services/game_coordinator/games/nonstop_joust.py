@@ -77,6 +77,7 @@ class NonstopJoustGame(BaseGameMode):
         event_publisher,
         audio_client=None,
         game_id: str = "",
+        initial_players: list | None = None,
     ):
         """
         Initialize Nonstop Joust game.
@@ -87,6 +88,7 @@ class NonstopJoustGame(BaseGameMode):
             event_publisher: Callback function to publish game events
             audio_client: gRPC stub for Audio service (Phase 29)
             game_id: Unique identifier for this game instance
+            initial_players: List of Player protobuf messages from StartGame RPC
         """
         super().__init__(
             controller_manager_client=controller_manager_client,
@@ -94,6 +96,7 @@ class NonstopJoustGame(BaseGameMode):
             event_publisher=event_publisher,
             audio_client=audio_client,
             game_id=game_id,
+            initial_players=initial_players,
         )
 
         # Nonstop-specific settings

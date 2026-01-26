@@ -85,8 +85,17 @@ jobs:
           uv sync
           ty check .
 
+      # Always run tests with coverage for SonarCloud (no path filter)
+      - name: Install uv for tests
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install system dependencies for tests
+        if: matrix.service == 'controller_manager' || matrix.service == 'audio'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev libglib2.0-dev libasound2-dev pkg-config
+
       - name: Unit tests with coverage
-        if: steps.changes.outputs.service == 'true'
         run: |
           cd services/${{ matrix.service }}
           uv sync --extra test
@@ -99,13 +108,11 @@ jobs:
           sed -i 's|filename="|filename="services/${{ matrix.service }}/|g' coverage.xml
 
       - name: Upload coverage report
-        if: steps.changes.outputs.service == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ matrix.service }}
           path: services/${{ matrix.service }}/coverage.xml
           retention-days: 1
-          if-no-files-found: ignore
 
   lint-dockerfiles:
     name: Lint Dockerfiles

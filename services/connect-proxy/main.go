@@ -250,17 +250,6 @@ func (p *ControllerManagerProxy) StreamGameplayData(
 	return <-errCh
 }
 
-func (p *ControllerManagerProxy) PlayControllerEffect(
-	ctx context.Context,
-	req *connect.Request[controllerpb.PlayControllerEffectRequest],
-) (*connect.Response[controllerpb.PlayControllerEffectResponse], error) {
-	resp, err := p.client.PlayControllerEffect(ctx, req.Msg)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	return connect.NewResponse(resp), nil
-}
-
 func (p *ControllerManagerProxy) RenameController(
 	ctx context.Context,
 	req *connect.Request[controllerpb.RenameControllerRequest],

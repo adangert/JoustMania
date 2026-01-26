@@ -176,11 +176,20 @@ class AdminModeHandler:
             return "JoustFFA"
         return self._state_manager.current_game_mode
 
-    async def _send_game_effect(self, serial: str, effect: int) -> bool:
+    async def _send_game_effect(
+        self,
+        serial: str,
+        effect: int,
+        color: tuple[int, int, int] | None = None,
+        duration_ms: int = 0,
+        speed: int = 0,
+    ) -> bool:
         """Send game effect via StateManager's LED controller."""
         if self._state_manager is None:
             return False
-        return await self._state_manager.led.send_game_effect(serial, effect)
+        return await self._state_manager.led.send_game_effect(
+            serial, effect, color=color, duration_ms=duration_ms, speed=speed
+        )
 
     async def _send_base_color(self, serial: str, color: tuple[int, int, int]) -> bool:
         """Send base color via StateManager's LED controller."""
@@ -415,7 +424,7 @@ class AdminModeHandler:
             serial: Controller serial number
             forward: True to go forward through modes, False to go backward
         """
-        from proto import controller_manager_pb2, controller_manager_pb2_grpc
+        from proto import controller_manager_pb2
 
         ctx = self._get_span_context()
         with self.tracer.start_as_current_span("admin_game_mode_change", context=ctx) as span:
@@ -450,31 +459,16 @@ class AdminModeHandler:
                     {"game_name": new_selection, "source": "admin_mode", "serial": serial},
                 )
 
-                # Visual feedback: brief color flash
-                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
-
-                # Flash green for forward, blue for backward
-                if forward:
-                    color = controller_manager_pb2.RGB(r=0, g=255, b=0)
-                else:
-                    color = controller_manager_pb2.RGB(r=0, g=0, b=255)
-
-                effect_request = controller_manager_pb2.PlayControllerEffectRequest(
-                    serial=serial,
-                    effect=controller_manager_pb2.ControllerEffect.EFFECT_PULSE,
-                    color=color,
+                # Visual feedback: brief color pulse (green for forward, blue for backward)
+                # GAME_EFFECT_PULSE restores to base color automatically
+                pulse_color = (0, 255, 0) if forward else (0, 0, 255)
+                await self._send_game_effect(
+                    serial,
+                    controller_manager_pb2.GAME_EFFECT_PULSE,
+                    color=pulse_color,
                     duration_ms=400,
                     speed=6,
                 )
-                await stub.PlayControllerEffect(effect_request)
-
-                # Restore white after flash
-                async def restore_white():
-                    await asyncio.sleep(0.5)
-                    if self.active and serial == self.controller_serial:
-                        await self._send_base_color(serial, (255, 255, 255))
-
-                asyncio.create_task(restore_white())
 
             except Exception as e:
                 logger.error(f"Error changing game mode: {e}", exc_info=True)
@@ -491,7 +485,6 @@ class AdminModeHandler:
         """
         from proto import (
             controller_manager_pb2,
-            controller_manager_pb2_grpc,
             settings_pb2,
             settings_pb2_grpc,
         )
@@ -523,15 +516,13 @@ class AdminModeHandler:
                 span.set_attribute("controller.count", len(controllers))
 
                 # Visual feedback: White flash before starting
-                stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
-                effect_request = controller_manager_pb2.PlayControllerEffectRequest(
-                    serial=serial,
-                    effect=controller_manager_pb2.ControllerEffect.EFFECT_FLASH,
-                    color=controller_manager_pb2.RGB(r=255, g=255, b=255),
+                await self._send_game_effect(
+                    serial,
+                    controller_manager_pb2.GAME_EFFECT_FLASH,
+                    color=(255, 255, 255),
                     duration_ms=500,
                     speed=10,
                 )
-                await stub.PlayControllerEffect(effect_request)
 
                 # Exit admin mode
                 await self.exit()
@@ -617,7 +608,6 @@ class AdminModeHandler:
         """
         from proto import (
             controller_manager_pb2,
-            controller_manager_pb2_grpc,
             settings_pb2,
             settings_pb2_grpc,
         )
@@ -658,17 +648,14 @@ class AdminModeHandler:
                 ]
                 color = sensitivity_colors[int(new_value)]
 
-                controller_stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
-
-                # Show sensitivity color
-                effect_request = controller_manager_pb2.PlayControllerEffectRequest(
-                    serial=serial,
-                    effect=controller_manager_pb2.ControllerEffect.EFFECT_PULSE,
-                    color=controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]),
+                # Show sensitivity color (GAME_EFFECT_PULSE restores to base automatically)
+                await self._send_game_effect(
+                    serial,
+                    controller_manager_pb2.GAME_EFFECT_PULSE,
+                    color=color,
                     duration_ms=800,
                     speed=5,
                 )
-                await controller_stub.PlayControllerEffect(effect_request)
 
                 # Play voice for sensitivity level (matches original JoustMania)
                 # Note: "ultra_high" = ultra-high sensitivity (detects slow movement)
@@ -680,14 +667,6 @@ class AdminModeHandler:
                     Sound.MENU_VOX_SENSITIVITY_ULTRA_LOW,  # ULTRA_FAST (4)
                 ]
                 await self._play_voice(sensitivity_voices[int(new_value)])
-
-                # Restore white after feedback
-                async def restore_white():
-                    await asyncio.sleep(1.0)
-                    if self.active and serial == self.controller_serial:
-                        await self._send_base_color(serial, (255, 255, 255))
-
-                asyncio.create_task(restore_white())
 
                 span.add_event(
                     "sensitivity_changed",
@@ -744,7 +723,6 @@ class AdminModeHandler:
         """
         from proto import (
             controller_manager_pb2,
-            controller_manager_pb2_grpc,
             settings_pb2,
             settings_pb2_grpc,
         )
@@ -771,22 +749,15 @@ class AdminModeHandler:
                 await settings_stub.UpdateSetting(update_request)
 
                 # Visual feedback: Green (enabled) or Red (disabled)
-                if new_value == "true":
-                    color = controller_manager_pb2.RGB(r=0, g=255, b=0)  # Green - enabled
-                else:
-                    color = controller_manager_pb2.RGB(r=255, g=0, b=0)  # Red - disabled
-
-                controller_stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
-
-                # Show color pulse
-                effect_request = controller_manager_pb2.PlayControllerEffectRequest(
-                    serial=serial,
-                    effect=controller_manager_pb2.ControllerEffect.EFFECT_PULSE,
-                    color=color,
+                # GAME_EFFECT_PULSE restores to base color automatically
+                pulse_color = (0, 255, 0) if new_value == "true" else (255, 0, 0)
+                await self._send_game_effect(
+                    serial,
+                    controller_manager_pb2.GAME_EFFECT_PULSE,
+                    color=pulse_color,
                     duration_ms=800,
                     speed=5,
                 )
-                await controller_stub.PlayControllerEffect(effect_request)
 
                 # Play instructions toggle voice announcement
                 voice = Sound.MENU_VOX_INSTRUCTIONS_ON if new_value == "true" else Sound.MENU_VOX_INSTRUCTIONS_OFF
@@ -971,11 +942,9 @@ class AdminModeHandler:
             option_name: Name of the option that changed
             value: New value
         """
-        from proto import controller_manager_pb2, controller_manager_pb2_grpc
+        from proto import controller_manager_pb2
 
         try:
-            stub = controller_manager_pb2_grpc.ControllerManagerServiceStub(self.controller_channel)
-
             # Determine feedback color based on option and value
             if option_name == "num_teams":
                 # Color intensity based on team count (2-6)
@@ -983,33 +952,21 @@ class AdminModeHandler:
                 # Gradient from green (2 teams) to red (6 teams)
                 r = int(255 * (num - 2) / 4)
                 g = int(255 * (6 - num) / 4)
-                color = controller_manager_pb2.RGB(r=r, g=g, b=0)
+                pulse_color = (r, g, 0)
             elif option_name == "force_all_start":
                 # Green for true, red for false
-                if value == "true":
-                    color = controller_manager_pb2.RGB(r=0, g=255, b=0)
-                else:
-                    color = controller_manager_pb2.RGB(r=255, g=0, b=0)
+                pulse_color = (0, 255, 0) if value == "true" else (255, 0, 0)
             else:
-                color = controller_manager_pb2.RGB(r=255, g=255, b=255)
+                pulse_color = (255, 255, 255)
 
-            # Show feedback color
-            effect_request = controller_manager_pb2.PlayControllerEffectRequest(
-                serial=serial,
-                effect=controller_manager_pb2.ControllerEffect.EFFECT_PULSE,
-                color=color,
+            # Show feedback color (GAME_EFFECT_PULSE restores to base automatically)
+            await self._send_game_effect(
+                serial,
+                controller_manager_pb2.GAME_EFFECT_PULSE,
+                color=pulse_color,
                 duration_ms=600,
                 speed=6,
             )
-            await stub.PlayControllerEffect(effect_request)
-
-            # Restore white after feedback
-            async def restore_white():
-                await asyncio.sleep(0.7)
-                if self.active and serial == self.controller_serial:
-                    await self._send_base_color(serial, (255, 255, 255))
-
-            asyncio.create_task(restore_white())
 
         except Exception as e:
             logger.error(f"Error showing value feedback: {e}", exc_info=True)

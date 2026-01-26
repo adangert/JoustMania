@@ -41,9 +41,7 @@ class MockTeamsGame(TeamsGameBase):
 @pytest.fixture
 def mock_controller_client():
     """Create mock controller manager client."""
-    client = AsyncMock()
-    client.PlayControllerEffect = AsyncMock()
-    return client
+    return AsyncMock()
 
 
 @pytest.fixture

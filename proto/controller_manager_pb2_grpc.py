@@ -45,11 +45,6 @@ class ControllerManagerServiceStub(object):
                 request_serializer=controller__manager__pb2.GameplayStreamControl.SerializeToString,
                 response_deserializer=controller__manager__pb2.GameplayDataUpdate.FromString,
                 _registered_method=True)
-        self.PlayControllerEffect = channel.unary_unary(
-                '/joustmania.controller_manager.ControllerManagerService/PlayControllerEffect',
-                request_serializer=controller__manager__pb2.PlayControllerEffectRequest.SerializeToString,
-                response_deserializer=controller__manager__pb2.PlayControllerEffectResponse.FromString,
-                _registered_method=True)
         self.RenameController = channel.unary_unary(
                 '/joustmania.controller_manager.ControllerManagerService/RenameController',
                 request_serializer=controller__manager__pb2.RenameControllerRequest.SerializeToString,
@@ -77,14 +72,6 @@ class ControllerManagerServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def PlayControllerEffect(self, request, context):
-        """Controller feedback RPCs (Phase 19)
-        Play predefined effect (flash, pulse, rainbow, etc.)
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
     def RenameController(self, request, context):
         """Rename a controller (set custom human-readable name)
         """
@@ -104,11 +91,6 @@ def add_ControllerManagerServiceServicer_to_server(servicer, server):
                     servicer.StreamGameplayData,
                     request_deserializer=controller__manager__pb2.GameplayStreamControl.FromString,
                     response_serializer=controller__manager__pb2.GameplayDataUpdate.SerializeToString,
-            ),
-            'PlayControllerEffect': grpc.unary_unary_rpc_method_handler(
-                    servicer.PlayControllerEffect,
-                    request_deserializer=controller__manager__pb2.PlayControllerEffectRequest.FromString,
-                    response_serializer=controller__manager__pb2.PlayControllerEffectResponse.SerializeToString,
             ),
             'RenameController': grpc.unary_unary_rpc_method_handler(
                     servicer.RenameController,
@@ -171,33 +153,6 @@ class ControllerManagerService(object):
             '/joustmania.controller_manager.ControllerManagerService/StreamGameplayData',
             controller__manager__pb2.GameplayStreamControl.SerializeToString,
             controller__manager__pb2.GameplayDataUpdate.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
-
-    @staticmethod
-    def PlayControllerEffect(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/joustmania.controller_manager.ControllerManagerService/PlayControllerEffect',
-            controller__manager__pb2.PlayControllerEffectRequest.SerializeToString,
-            controller__manager__pb2.PlayControllerEffectResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -14,10 +14,6 @@ service ControllerManagerService {
   // Supports mid-stream filter changes, color commands, and game effects
   rpc StreamGameplayData(stream GameplayStreamControl) returns (stream GameplayDataUpdate);
 
-  // Controller feedback RPCs (Phase 19)
-  // Play predefined effect (flash, pulse, rainbow, etc.)
-  rpc PlayControllerEffect(PlayControllerEffectRequest) returns (PlayControllerEffectResponse);
-
   // Rename a controller (set custom human-readable name)
   rpc RenameController(RenameControllerRequest) returns (RenameControllerResponse);
 
@@ -64,29 +60,6 @@ message Vector3 {
   float x = 1;
   float y = 2;
   float z = 3;
-}
-
-// Controller effects
-enum ControllerEffect {
-  EFFECT_NONE = 0;
-  EFFECT_FLASH = 1;      // Rapid on/off flashing
-  EFFECT_PULSE = 2;      // Smooth breathing effect
-  EFFECT_RAINBOW = 3;    // Cycle through rainbow colors
-  EFFECT_FADE_OUT = 4;   // Fade to black over duration
-  EFFECT_FADE_IN = 5;    // Fade from black to color
-}
-
-message PlayControllerEffectRequest {
-  string serial = 1;  // Controller serial (empty = all controllers)
-  ControllerEffect effect = 2;  // Effect to play
-  RGB color = 3;      // Base color for effect (if applicable)
-  int32 duration_ms = 4;  // Effect duration in milliseconds
-  int32 speed = 5;    // Effect speed (1-10, default 5)
-}
-
-message PlayControllerEffectResponse {
-  bool success = 1;
-  string error = 2;
 }
 
 // Phase 41: Button event streaming (event-driven for menu/UI)
@@ -171,12 +144,8 @@ message GameplayStreamControl {
   oneof control {
     GameplayStreamConfig config = 1;           // Initial configuration
     FilterUpdate filter_update = 2;            // Mid-stream filter change
-    ColorCommand color_command = 3;            // Controller color change (Phase 46)
-    EffectCommand effect_command = 4;          // Controller effect (Phase 46)
-    VibrationCommand vibration_command = 5;    // Controller vibration (Phase 46)
-    CombinedFeedback combined_feedback = 6;    // Combined color + vibration (Phase 46)
-    ControllerColorConfig base_color = 7;      // Set base color for a controller (Phase XX)
-    GameEffectCommand game_effect = 8;         // Trigger semantic game effect (Phase XX)
+    ControllerColorConfig base_color = 7;      // Set base color for a controller
+    GameEffectCommand game_effect = 8;         // Trigger semantic game effect
   }
 }
 
@@ -191,37 +160,6 @@ message GameplayStreamConfig {
 // Filter update (sent when alive players change)
 message FilterUpdate {
   repeated string serials = 1;              // New filter list (empty = all controllers)
-}
-
-// Phase 46: Stream-based feedback commands
-// Set controller color via stream
-message ColorCommand {
-  string serial = 1;          // Target controller (empty = all)
-  RGB color = 2;              // RGB color to set
-}
-
-// Play controller effect via stream
-message EffectCommand {
-  string serial = 1;          // Target controller (empty = all)
-  ControllerEffect effect = 2; // Effect to play
-  RGB color = 3;              // Base color for effect (optional)
-  int32 duration_ms = 4;      // Effect duration (optional, 0 = use default)
-}
-
-// Set controller vibration via stream
-message VibrationCommand {
-  string serial = 1;          // Target controller (empty = all)
-  int32 intensity = 2;        // Vibration intensity (0-255)
-  int32 duration_ms = 3;      // Vibration duration in milliseconds
-}
-
-// Combined color and vibration feedback via stream
-// Useful for events like death, hit, spawn where both are needed
-message CombinedFeedback {
-  string serial = 1;          // Target controller (empty = all)
-  RGB color = 2;              // Color to set
-  int32 vibration_intensity = 3;  // Vibration intensity (0-255, 0 = no vibration)
-  int32 vibration_duration_ms = 4; // Vibration duration in milliseconds
 }
 
 // Phase XX: LED State Ownership
@@ -247,12 +185,19 @@ enum GameEffect {
   GAME_EFFECT_LOW_BATTERY = 8;      // Red flash 2x warning
   GAME_EFFECT_FORCE_START_CHARGE = 9;  // Fade white→dim over 2s (force start countdown)
   GAME_EFFECT_SHOW_BATTERY = 10;    // Show battery level on ALL controllers (green/orange/red based on level)
+  GAME_EFFECT_RUMBLE = 11;          // Vibrate only (for secret signaling like traitor/werewolf)
+  GAME_EFFECT_PULSE = 12;           // Pulse with color, restore to base (for confirmations/announcements)
+  GAME_EFFECT_FLASH = 13;           // Brief flash with color, restore to base
 }
 
 // Trigger a game effect via stream
+// For effects that need customization, optional color/duration/speed can be provided
 message GameEffectCommand {
   string serial = 1;      // Controller serial (empty = all controllers for broadcast)
   GameEffect effect = 2;  // Effect to trigger
+  RGB color = 3;          // Optional: override effect color (for PULSE, FLASH, etc.)
+  int32 duration_ms = 4;  // Optional: override effect duration (0 = use default)
+  int32 speed = 5;        // Optional: override effect speed (0 = use default)
 }
 
 // Rename controller request/response (Issue #7)

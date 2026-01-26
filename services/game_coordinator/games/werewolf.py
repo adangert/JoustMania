@@ -208,24 +208,17 @@ class WerewolfGame(BaseGameMode):
         await self._play_sound(Sound.VOX_WEREWOLF_INTRO, priority=2)
 
         # Rumble werewolves to signal their role
-        for serial in self.werewolf_serials:
-            if self.gameplay_stream:
+        if self.gameplay_stream:
+            for serial in self.werewolf_serials:
                 rumble_cmd = controller_manager_pb2.GameplayStreamControl(
                     game_effect=controller_manager_pb2.GameEffectCommand(
                         serial=serial,
                         effect=controller_manager_pb2.GAME_EFFECT_RUMBLE,
-                    )
-                )
-                await self.gameplay_stream.write(rumble_cmd)
-            else:
-                await self.controller_client.PlayControllerEffect(
-                    controller_manager_pb2.PlayControllerEffectRequest(
-                        serial=serial,
-                        effect=controller_manager_pb2.EFFECT_RUMBLE,
                         duration_ms=2000,
                         speed=5,
                     )
                 )
+                await self.gameplay_stream.write(rumble_cmd)
 
         logger.info(f"Signaled {len(self.werewolf_serials)} werewolves with rumble")
 

@@ -125,13 +125,23 @@ class LedController:
                 logger.warning(f"Button stream queue full, could not send base color for {serial}")
                 return False
 
-    async def send_game_effect(self, serial: str, effect: int) -> bool:
+    async def send_game_effect(
+        self,
+        serial: str,
+        effect: int,
+        color: tuple[int, int, int] | None = None,
+        duration_ms: int = 0,
+        speed: int = 0,
+    ) -> bool:
         """
         Send game effect via bidirectional button stream.
 
         Args:
             serial: Controller serial number
             effect: GameEffect enum value
+            color: Optional override color (r, g, b)
+            duration_ms: Optional override duration (0 = use default)
+            speed: Optional override speed (0 = use default)
 
         Returns:
             True if sent successfully, False if stream not available
@@ -143,12 +153,17 @@ class LedController:
                 return False
 
             try:
-                msg = controller_manager_pb2.ButtonEventStreamControl(
-                    game_effect=controller_manager_pb2.GameEffectCommand(
-                        serial=serial,
-                        effect=effect,
-                    )
+                # Build GameEffectCommand with optional parameters
+                effect_cmd = controller_manager_pb2.GameEffectCommand(
+                    serial=serial,
+                    effect=effect,
+                    duration_ms=duration_ms,
+                    speed=speed,
                 )
+                if color:
+                    effect_cmd.color.CopyFrom(controller_manager_pb2.RGB(r=color[0], g=color[1], b=color[2]))
+
+                msg = controller_manager_pb2.ButtonEventStreamControl(game_effect=effect_cmd)
                 self._stream_queue.put_nowait(msg)
                 logger.debug(f"Sent game effect for {serial}: {effect}")
                 return True

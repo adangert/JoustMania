@@ -180,81 +180,6 @@ class FeedbackManager(ControllerEffectsBase):
         except Exception as e:
             logger.error(f"Error in delayed vibration stop for {serial}: {e}")
 
-    async def play_effect(
-        self,
-        serial: str,
-        effect: int,
-        color_rgb: tuple[int, int, int] = (255, 255, 255),
-        duration_ms: int = 1000,
-        speed: int = 5,
-    ) -> bool:
-        """
-        Play a visual effect on a controller.
-
-        Args:
-            serial: Controller serial number
-            effect: Effect enum value
-            color_rgb: RGB color tuple for effect
-            duration_ms: Effect duration in milliseconds
-            speed: Effect speed (1-10)
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            if serial not in self.tracked_controllers:
-                logger.warning(f"Controller {serial} not found for effect")
-                return False
-
-            # Cancel any existing effect on this controller
-            async with self.effect_lock:
-                if serial in self.active_effects:
-                    self.active_effects[serial].cancel()
-                    with contextlib.suppress(asyncio.CancelledError):
-                        await self.active_effects[serial]
-                    del self.active_effects[serial]
-
-            # Start the appropriate effect
-            if effect == controller_manager_pb2.EFFECT_NONE:
-                await self._set_led_color(serial, color_rgb)
-
-            elif effect == controller_manager_pb2.EFFECT_FLASH:
-                task = asyncio.create_task(self._effect_flash(serial, color_rgb, duration_ms, speed))
-                async with self.effect_lock:
-                    self.active_effects[serial] = task
-
-            elif effect == controller_manager_pb2.EFFECT_PULSE:
-                task = asyncio.create_task(self._effect_pulse(serial, color_rgb, duration_ms, speed))
-                async with self.effect_lock:
-                    self.active_effects[serial] = task
-
-            elif effect == controller_manager_pb2.EFFECT_RAINBOW:
-                task = asyncio.create_task(self._effect_rainbow(serial, duration_ms, speed))
-                async with self.effect_lock:
-                    self.active_effects[serial] = task
-
-            elif effect == controller_manager_pb2.EFFECT_FADE_OUT:
-                task = asyncio.create_task(self._effect_fade_out(serial, color_rgb, duration_ms))
-                async with self.effect_lock:
-                    self.active_effects[serial] = task
-
-            elif effect == controller_manager_pb2.EFFECT_FADE_IN:
-                task = asyncio.create_task(self._effect_fade_in(serial, color_rgb, duration_ms))
-                async with self.effect_lock:
-                    self.active_effects[serial] = task
-
-            else:
-                effect_name = controller_manager_pb2.ControllerEffect.Name(effect)
-                logger.warning(f"Unknown effect: {effect_name}")
-                return False
-
-            logger.debug(f"Playing effect {effect} on {serial}")
-            return True
-
-        except Exception as e:
-            logger.error(f"Error playing effect on {serial}: {e}", exc_info=True)
-            return False
-
     async def play_effect_with_restore(
         self,
         serial: str,
@@ -317,17 +242,169 @@ class FeedbackManager(ControllerEffectsBase):
         async with self.effect_lock:
             self.active_effects[serial] = task
 
-    async def handle_game_effect(self, serial: str, effect: int, _subscriber_id: str = "") -> bool:
+    # =========================================================================
+    # Individual effect handlers
+    # =========================================================================
+
+    async def _effect_none(self, serial: str, **_kwargs) -> None:
+        """No-op - clear tracking."""
+        self.active_effect_types.pop(serial, None)
+
+    async def _effect_player_warning(self, serial: str, restore_color: tuple | None, **_kwargs) -> None:
+        """White flash + vibrate, restore to base color.
+
+        Always pass truthy value to ensure restoration to base_colors at effect end.
+        """
+        await self.play_effect_with_restore(serial, "flash", (255, 255, 255), 200, 5, restore_color or True)
+        await self.set_vibration(serial, 100, 200)
+
+    async def _effect_player_death(self, serial: str, **_kwargs) -> None:
+        """Red + vibrate, then LED off to signal player is out."""
+        await self.set_vibration(serial, 255, 250)
+        await self.play_effect_with_restore(serial, "flash", (255, 0, 0), 1500, 1, (0, 0, 0))
+        self.base_colors[serial] = (0, 0, 0)
+
+    async def _effect_player_respawn(self, serial: str, **_kwargs) -> None:
+        """White during spawn protection."""
+        self.active_effect_types.pop(serial, None)
+        await self.set_controller_color(serial, (255, 255, 255))
+        self.base_colors[serial] = (255, 255, 255)
+
+    async def _effect_winner_rainbow(self, serial: str, restore_color: tuple | None, **_kwargs) -> None:
+        """Rainbow effect, restore to base color.
+
+        Always pass truthy value to ensure restoration to base_colors at effect end.
+        (base_colors may be updated DURING the effect, e.g., menu sends lobby color)
+        """
+        await self.play_effect_with_restore(
+            serial, "rainbow", (255, 255, 255), get_winner_rainbow_duration_ms(), 1, restore_color or True
+        )
+
+    async def _effect_countdown(self, serial: str, restore_color: tuple | None, **_kwargs) -> None:
+        """Full countdown sequence: Red → Yellow → Green."""
+        task = asyncio.create_task(self._countdown_sequence(serial, restore_color))
+        async with self.effect_lock:
+            self.active_effects[serial] = task
+
+    async def _effect_admin_enter(self, serial: str, **_kwargs) -> None:
+        """White flash, then persistent white."""
+        self.base_colors[serial] = (255, 255, 255)
+        await self.play_effect_with_restore(serial, "flash", (255, 255, 255), 600, 5, True)
+
+    async def _effect_admin_exit(self, serial: str, restore_color: tuple | None, **_kwargs) -> None:
+        """Restore to base color (instant)."""
+        self.active_effect_types.pop(serial, None)
+        if restore_color:
+            await self.set_controller_color(serial, restore_color)
+
+    async def _effect_low_battery(self, serial: str, restore_color: tuple | None, **_kwargs) -> None:
+        """Red flash 2x warning."""
+        for _ in range(2):
+            await self.set_controller_color(serial, (255, 0, 0))
+            await asyncio.sleep(0.15)
+            await self.set_controller_color(serial, (50, 0, 0))
+            await asyncio.sleep(0.15)
+        self.active_effect_types.pop(serial, None)
+        if restore_color:
+            await self.set_controller_color(serial, restore_color)
+
+    async def _effect_force_start_charge(self, serial: str, **_kwargs) -> None:
+        """Fade from white to dim over 2s."""
+        await self.play_effect_with_restore(serial, "fade_out", (255, 255, 255), 2000, 5, None)
+
+    async def _effect_show_battery(self, serial: str, restore_color: tuple | None, **_kwargs) -> None:
+        """Show battery level for 1 second, then restore.
+
+        Always pass truthy value to ensure restoration to base_colors at effect end.
+        """
+        battery = self.tracked_controllers.get(serial, {}).get("battery", 0)
+        battery_color = self._get_battery_color(battery)
+        await self.play_effect_with_restore(serial, "flash", battery_color, 1000, 1, restore_color or True)
+        logger.debug(f"Battery display: {serial} level={battery}% color={battery_color}")
+
+    async def _effect_rumble(self, serial: str, duration_ms: int = 0, speed: int = 0, **_kwargs) -> None:
+        """Vibrate only (for secret signaling like traitor/werewolf)."""
+        effect_duration = duration_ms if duration_ms > 0 else 2000
+        effect_speed = speed if speed > 0 else 5
+        intensity = min(255, effect_speed * 50)
+        await self.set_vibration(serial, intensity, effect_duration)
+        self.active_effect_types.pop(serial, None)
+
+    async def _game_effect_pulse(
+        self,
+        serial: str,
+        restore_color: tuple | None,
+        color: tuple | None = None,
+        duration_ms: int = 0,
+        speed: int = 0,
+        **_kwargs,
+    ) -> None:
+        """Pulse with color, restore to base."""
+        effect_color = color if color else (255, 255, 255)
+        effect_duration = duration_ms if duration_ms > 0 else 600
+        effect_speed = speed if speed > 0 else 3
+        await self.play_effect_with_restore(serial, "pulse", effect_color, effect_duration, effect_speed, restore_color)
+
+    async def _game_effect_flash(
+        self,
+        serial: str,
+        restore_color: tuple | None,
+        color: tuple | None = None,
+        duration_ms: int = 0,
+        speed: int = 0,
+        **_kwargs,
+    ) -> None:
+        """Brief flash with color, restore to base."""
+        effect_color = color if color else (255, 255, 255)
+        effect_duration = duration_ms if duration_ms > 0 else 400
+        effect_speed = speed if speed > 0 else 5
+        await self.play_effect_with_restore(serial, "flash", effect_color, effect_duration, effect_speed, restore_color)
+
+    # =========================================================================
+    # Effect dispatch
+    # =========================================================================
+
+    # Map GameEffect enum to handler method
+    _EFFECT_HANDLERS: dict = {}  # Populated in __init__ or lazily
+
+    def _get_effect_handlers(self) -> dict:
+        """Get mapping of GameEffect enum to handler methods."""
+        return {
+            controller_manager_pb2.GAME_EFFECT_NONE: self._effect_none,
+            controller_manager_pb2.GAME_EFFECT_PLAYER_WARNING: self._effect_player_warning,
+            controller_manager_pb2.GAME_EFFECT_PLAYER_DEATH: self._effect_player_death,
+            controller_manager_pb2.GAME_EFFECT_PLAYER_RESPAWN: self._effect_player_respawn,
+            controller_manager_pb2.GAME_EFFECT_WINNER_RAINBOW: self._effect_winner_rainbow,
+            controller_manager_pb2.GAME_EFFECT_COUNTDOWN: self._effect_countdown,
+            controller_manager_pb2.GAME_EFFECT_ADMIN_ENTER: self._effect_admin_enter,
+            controller_manager_pb2.GAME_EFFECT_ADMIN_EXIT: self._effect_admin_exit,
+            controller_manager_pb2.GAME_EFFECT_LOW_BATTERY: self._effect_low_battery,
+            controller_manager_pb2.GAME_EFFECT_FORCE_START_CHARGE: self._effect_force_start_charge,
+            controller_manager_pb2.GAME_EFFECT_SHOW_BATTERY: self._effect_show_battery,
+            controller_manager_pb2.GAME_EFFECT_RUMBLE: self._effect_rumble,
+            controller_manager_pb2.GAME_EFFECT_PULSE: self._game_effect_pulse,
+            controller_manager_pb2.GAME_EFFECT_FLASH: self._game_effect_flash,
+        }
+
+    async def handle_game_effect(
+        self,
+        serial: str,
+        effect: int,
+        _subscriber_id: str = "",
+        color: tuple[int, int, int] | None = None,
+        duration_ms: int = 0,
+        speed: int = 0,
+    ) -> bool:
         """
         Handle semantic game effect with auto-restore to base color.
-
-        This method interprets game-level effects (warning, death, winner, etc.)
-        and translates them to LED animations with appropriate restore behavior.
 
         Args:
             serial: Controller serial (empty = all controllers for broadcast)
             effect: GameEffect enum value
             subscriber_id: For logging
+            color: Optional override color (r, g, b) for effects that support it
+            duration_ms: Optional override duration (0 = use default)
+            speed: Optional override speed (0 = use default)
 
         Returns:
             True if successful, False otherwise
@@ -343,130 +420,25 @@ class FeedbackManager(ControllerEffectsBase):
                 logger.warning("No controllers found for game effect")
                 return False
 
+            handlers = self._get_effect_handlers()
+            handler = handlers.get(effect)
+
+            if not handler:
+                effect_name = controller_manager_pb2.GameEffect.Name(effect)
+                logger.warning(f"Unknown game effect: {effect_name}")
+                return False
+
             for target_serial in serials:
                 restore_color = self.base_colors.get(target_serial)
-
-                # Track effect type for cancellability check
                 self.active_effect_types[target_serial] = effect
 
-                if effect == controller_manager_pb2.GAME_EFFECT_NONE:
-                    # No-op - clear tracking
-                    self.active_effect_types.pop(target_serial, None)
-
-                elif effect == controller_manager_pb2.GAME_EFFECT_PLAYER_WARNING:
-                    # White flash + vibrate, restore to base color
-                    # Always pass truthy value to ensure restoration to base_colors at effect end
-                    await self.play_effect_with_restore(
-                        target_serial,
-                        effect_type="flash",
-                        color=(255, 255, 255),
-                        duration_ms=200,
-                        speed=5,
-                        restore_color=restore_color or True,
-                    )
-                    await self.set_vibration(target_serial, 100, 200)
-
-                elif effect == controller_manager_pb2.GAME_EFFECT_PLAYER_DEATH:
-                    # Red + vibrate, then LED off to signal player is out
-                    await self.set_vibration(target_serial, 255, 250)
-                    await self.play_effect_with_restore(
-                        target_serial,
-                        effect_type="flash",
-                        color=(255, 0, 0),
-                        duration_ms=1500,
-                        speed=1,
-                        restore_color=(0, 0, 0),
-                    )
-                    self.base_colors[target_serial] = (0, 0, 0)
-
-                elif effect == controller_manager_pb2.GAME_EFFECT_PLAYER_RESPAWN:
-                    # White during spawn protection
-                    self.active_effect_types.pop(target_serial, None)
-                    await self.set_controller_color(target_serial, (255, 255, 255))
-                    self.base_colors[target_serial] = (255, 255, 255)
-
-                elif effect == controller_manager_pb2.GAME_EFFECT_WINNER_RAINBOW:
-                    # Rainbow at slow speed, restore to base color
-                    # Duration configurable via WINNER_RAINBOW_DURATION_MS (default 3000ms)
-                    # Always pass truthy value to ensure restoration to base_colors at effect end
-                    # (base_colors may be updated DURING the effect, e.g., menu sends lobby color)
-                    await self.play_effect_with_restore(
-                        target_serial,
-                        effect_type="rainbow",
-                        color=(255, 255, 255),
-                        duration_ms=get_winner_rainbow_duration_ms(),
-                        speed=1,
-                        restore_color=restore_color or True,
-                    )
-
-                elif effect == controller_manager_pb2.GAME_EFFECT_COUNTDOWN:
-                    # Full countdown sequence: Red(750ms) → Yellow(750ms) → Green(750ms)
-                    # Controller manager handles all timing internally
-                    task = asyncio.create_task(self._countdown_sequence(target_serial, restore_color))
-                    async with self.effect_lock:
-                        self.active_effects[target_serial] = task
-
-                elif effect == controller_manager_pb2.GAME_EFFECT_ADMIN_ENTER:
-                    # White flash 3x, then persistent white
-                    await self.play_effect(
-                        target_serial,
-                        controller_manager_pb2.EFFECT_FLASH,
-                        (255, 255, 255),
-                        600,
-                        5,
-                    )
-                    await asyncio.sleep(0.7)
-                    self.active_effect_types.pop(target_serial, None)
-                    await self.set_controller_color(target_serial, (255, 255, 255))
-                    self.base_colors[target_serial] = (255, 255, 255)
-
-                elif effect == controller_manager_pb2.GAME_EFFECT_ADMIN_EXIT:
-                    # Restore to base color (instant)
-                    self.active_effect_types.pop(target_serial, None)
-                    if restore_color:
-                        await self.set_controller_color(target_serial, restore_color)
-
-                elif effect == controller_manager_pb2.GAME_EFFECT_LOW_BATTERY:
-                    # Red flash 2x warning
-                    for _ in range(2):
-                        await self.set_controller_color(target_serial, (255, 0, 0))
-                        await asyncio.sleep(0.15)
-                        await self.set_controller_color(target_serial, (50, 0, 0))
-                        await asyncio.sleep(0.15)
-                    self.active_effect_types.pop(target_serial, None)
-                    if restore_color:
-                        await self.set_controller_color(target_serial, restore_color)
-
-                elif effect == controller_manager_pb2.GAME_EFFECT_FORCE_START_CHARGE:
-                    # Fade from white to dim over 2s
-                    await self.play_effect_with_restore(
-                        target_serial,
-                        effect_type="fade_out",
-                        color=(255, 255, 255),
-                        duration_ms=2000,
-                        speed=5,
-                        restore_color=None,
-                    )
-
-                elif effect == controller_manager_pb2.GAME_EFFECT_SHOW_BATTERY:
-                    # Show battery level on this controller for 1 second, then restore
-                    # Always pass truthy value to ensure restoration to base_colors at effect end
-                    battery = self.tracked_controllers.get(target_serial, {}).get("battery", 0)
-                    color = self._get_battery_color(battery)
-                    await self.play_effect_with_restore(
-                        target_serial,
-                        effect_type="flash",
-                        color=color,
-                        duration_ms=1000,
-                        speed=1,  # Steady (no flashing)
-                        restore_color=restore_color or True,
-                    )
-                    logger.debug(f"Battery display: {target_serial} level={battery}% color={color}")
-
-                else:
-                    effect_name = controller_manager_pb2.GameEffect.Name(effect)
-                    logger.warning(f"Unknown game effect: {effect_name}")
-                    return False
+                await handler(
+                    serial=target_serial,
+                    restore_color=restore_color,
+                    color=color,
+                    duration_ms=duration_ms,
+                    speed=speed,
+                )
 
             return True
 

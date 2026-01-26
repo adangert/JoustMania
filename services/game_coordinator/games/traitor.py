@@ -208,25 +208,17 @@ class TraitorGame(TeamsGameBase):
         await self._set_team_colors(pulse_effect=True, duration_ms=5000)
 
         # Rumble traitors to signal their role
-        for serial in self.traitor_serials:
-            if self.gameplay_stream:
+        if self.gameplay_stream:
+            for serial in self.traitor_serials:
                 rumble_cmd = controller_manager_pb2.GameplayStreamControl(
                     game_effect=controller_manager_pb2.GameEffectCommand(
                         serial=serial,
                         effect=controller_manager_pb2.GAME_EFFECT_RUMBLE,
-                    )
-                )
-                await self.gameplay_stream.write(rumble_cmd)
-            else:
-                # Fallback to direct RPC
-                await self.controller_client.PlayControllerEffect(
-                    controller_manager_pb2.PlayControllerEffectRequest(
-                        serial=serial,
-                        effect=controller_manager_pb2.EFFECT_RUMBLE,
                         duration_ms=2000,
                         speed=5,
                     )
                 )
+                await self.gameplay_stream.write(rumble_cmd)
 
         logger.info(f"Signaled {len(self.traitor_serials)} traitors with rumble")
 

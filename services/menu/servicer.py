@@ -6,6 +6,7 @@ import logging
 import os
 import time
 
+from opentelemetry import context as otel_context
 from opentelemetry import trace
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
@@ -490,7 +491,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
         metrics.button_presses_total.labels(button="trigger", action="press").inc()
 
-        with tracer.start_as_current_span("start_game") as span:
+        # Determine trace context for the game:
+        # - Web source: inherit current context (connects to dashboard trace)
+        # - Controller/button sources: fresh context (prevents chaining to previous game)
+        span_ctx = None if source == "web" else otel_context.Context()
+        with tracer.start_as_current_span("start_game", context=span_ctx) as span:
             span.set_attribute("controller.serial", serial)
             span.set_attribute("game.name", self.current_selection)
             span.set_attribute("game.source", source)

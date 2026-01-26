@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
+from lib.colors import Colors
 from lib.types import Sound
 from proto import controller_manager_pb2
 from services.game_coordinator.games.base import BaseGameMode, Phase, Player, Sensitivity
@@ -33,8 +34,8 @@ ZOMBIE_RESPAWN_MIN = 2.0  # Minimum respawn delay for zombies
 ZOMBIE_RESPAWN_MAX = 10.0  # Maximum respawn delay for zombies
 
 # Colors
-HUMAN_COLOR = (255, 255, 255)  # White for humans
-ZOMBIE_COLOR = (80, 80, 120)  # Blue-gray for zombies
+HUMAN_COLOR = Colors.White.value  # White for humans
+ZOMBIE_COLOR = Colors.ZombieGray.value  # Blue-gray for zombies
 
 # Zombie thresholds - zombies are harder to kill
 ZOMBIE_THRESHOLDS = {

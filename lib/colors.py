@@ -71,34 +71,26 @@ def change_color(color_array: list[int], r: int, g: int, b: int) -> None:
 
 
 class Colors(Enum):
-    # first 8 are team colors (avoid red-adjacent - red is reserved for death)
-    Pink = (255, 105, 180)  # Hot pink - clearly pink, not salmon/red
+    # Team colors (first 8 - avoid red, reserved for death)
+    Pink = (255, 105, 180)
     Magenta = (255, 0, 192)
-    Orange = (255, 128, 0)  # More yellow-orange, less red
+    Orange = (255, 128, 0)
     Yellow = (255, 255, 0)
     Green = (0, 255, 0)
     Turquoise = (0, 255, 255)
     Blue = (0, 0, 255)
     Purple = (96, 0, 255)
-    # these are used for various things
+    # Basic colors
     White = (255, 255, 255)
-    White80 = (200, 200, 200)
-    White60 = (150, 150, 150)
-    White40 = (100, 100, 100)
-    White20 = (50, 50, 50)
-    White10 = (10, 10, 10)
-    Red = (255, 0, 0)
-    Red60 = (150, 0, 0)
-    Red80 = (200, 0, 0)
-    Green80 = (0, 200, 0)
-    Green20 = (0, 50, 0)
-    Blue40 = (0, 0, 100)
-    LimeGreen = (100, 255, 0)
-    Zombie = (50, 150, 50)
     Black = (0, 0, 0)
-    # stay fresh
-    SplatoonGreen = (30, 220, 0)
-    SplatoonPink = (255, 50, 120)
+    Red = (255, 0, 0)
+    # Dimmed variants (for effects/states)
+    White40 = (100, 100, 100)  # Gray - zombie lobby, dim states
+    White20 = (50, 50, 50)  # Dark gray - waiting states
+    Red20 = (50, 0, 0)  # Dim red - low battery flash
+    # Game-specific (truly distinct colors not covered above)
+    LightBlue = (0, 100, 255)  # Werewolf reveal, JoustTeams lobby
+    ZombieGray = (80, 80, 120)  # Blue-gray for zombies
 
 
 team_color_list = list(Colors)[0:8]

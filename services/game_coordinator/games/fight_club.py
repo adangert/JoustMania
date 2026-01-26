@@ -17,6 +17,7 @@ from enum import Enum
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
+from lib.colors import Colors
 from lib.types import Sound
 from proto import controller_manager_pb2
 from services.game_coordinator.games.base import BaseGameMode, Phase, Player
@@ -31,9 +32,9 @@ DEFAULT_MIN_ROUNDS = 10  # Minimum rounds before game can end
 COUNTDOWN_BEEPS = 3  # Beeps in last 3 seconds of round
 
 # Colors
-DEFENDER_COLOR = (255, 0, 0)  # Red for defender
-FIGHTER_COLOR = (0, 255, 0)  # Green for challenger
-WAITING_COLOR = (50, 50, 50)  # Dim gray for waiting
+DEFENDER_COLOR = Colors.Red.value  # Red for defender
+FIGHTER_COLOR = Colors.Green.value  # Green for challenger
+WAITING_COLOR = Colors.White20.value  # Dim gray for waiting
 
 
 class FightState(Enum):

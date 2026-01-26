@@ -218,16 +218,18 @@ class SwapperGame(TeamsGameBase):
                 logger.debug(f"Created new player {serial} span under team {new_team}")
 
         # Update controller LED to new team color
-        # Death flash effect
+        # Use flash effect (not death effect) since player is swapping, not dying
+        # Death effect would set base_colors to black which causes race conditions
         effect_cmd = controller_manager_pb2.GameplayStreamControl(
             game_effect=controller_manager_pb2.GameEffectCommand(
                 serial=serial,
-                effect=controller_manager_pb2.GAME_EFFECT_PLAYER_DEATH,
+                effect=controller_manager_pb2.GAME_EFFECT_FLASH,
+                duration_ms=400,
             )
         )
         await self.gameplay_stream.write(effect_cmd)
 
-        # After death flash, set new team color
+        # After flash, set new team color
         await asyncio.sleep(0.5)
         await self._set_player_color(serial, player.color)
 

@@ -15,6 +15,7 @@ import os
 import threading
 from typing import TYPE_CHECKING
 
+from lib.colors import Colors
 from proto import controller_manager_pb2
 from services.controller_manager import metrics
 from services.controller_manager.effects_base import ControllerEffectsBase
@@ -262,20 +263,32 @@ class FeedbackManager(ControllerEffectsBase):
 
         Always pass truthy value to ensure restoration to base_colors at effect end.
         """
-        await self.play_effect_with_restore(serial, "flash", (255, 255, 255), 200, 5, restore_color or True)
+        await self.play_effect_with_restore(serial, "flash", Colors.White.value, 200, 5, restore_color or True)
         await self.set_vibration(serial, 100, 200)
 
     async def _effect_player_death(self, serial: str, **_kwargs) -> None:
-        """Red + vibrate, then LED off to signal player is out."""
-        await self.set_vibration(serial, 255, 250)
-        await self.play_effect_with_restore(serial, "flash", (255, 0, 0), 1500, 1, (0, 0, 0))
-        self.base_colors[serial] = (0, 0, 0)
+        """Red + vibrate, then fade to off to signal player is out.
+
+        Improved transition: short sharp rumble + solid red briefly + fade to black.
+        This feels more immediate and satisfying than slow blinking.
+        """
+        # Cancel any active effect (e.g., warning flash) immediately for clean transition
+        await self.cancel_effect(serial)
+
+        # Short, sharp rumble (150ms feels snappier than 250ms)
+        await self.set_vibration(serial, 255, 150)
+        # Solid red briefly (300ms) then fade to black (700ms) - total 1000ms
+        # This replaces the awkward slow blink (1Hz over 1500ms)
+        await self._set_led_color(serial, Colors.Red.value)
+        await asyncio.sleep(0.3)
+        await self.play_effect_with_restore(serial, "fade_out", Colors.Red.value, 700, 1, Colors.Black.value)
+        self.base_colors[serial] = Colors.Black.value
 
     async def _effect_player_respawn(self, serial: str, **_kwargs) -> None:
         """White during spawn protection."""
         self.active_effect_types.pop(serial, None)
-        await self.set_controller_color(serial, (255, 255, 255))
-        self.base_colors[serial] = (255, 255, 255)
+        await self.set_controller_color(serial, Colors.White.value)
+        self.base_colors[serial] = Colors.White.value
 
     async def _effect_winner_rainbow(self, serial: str, restore_color: tuple | None, **_kwargs) -> None:
         """Rainbow effect, restore to base color.
@@ -284,7 +297,7 @@ class FeedbackManager(ControllerEffectsBase):
         (base_colors may be updated DURING the effect, e.g., menu sends lobby color)
         """
         await self.play_effect_with_restore(
-            serial, "rainbow", (255, 255, 255), get_winner_rainbow_duration_ms(), 1, restore_color or True
+            serial, "rainbow", Colors.White.value, get_winner_rainbow_duration_ms(), 1, restore_color or True
         )
 
     async def _effect_countdown(self, serial: str, restore_color: tuple | None, **_kwargs) -> None:
@@ -295,8 +308,8 @@ class FeedbackManager(ControllerEffectsBase):
 
     async def _effect_admin_enter(self, serial: str, **_kwargs) -> None:
         """White flash, then persistent white."""
-        self.base_colors[serial] = (255, 255, 255)
-        await self.play_effect_with_restore(serial, "flash", (255, 255, 255), 600, 5, (255, 255, 255))
+        self.base_colors[serial] = Colors.White.value
+        await self.play_effect_with_restore(serial, "flash", Colors.White.value, 600, 5, Colors.White.value)
 
     async def _effect_admin_exit(self, serial: str, restore_color: tuple | None, **_kwargs) -> None:
         """Restore to base color (instant)."""
@@ -307,9 +320,9 @@ class FeedbackManager(ControllerEffectsBase):
     async def _effect_low_battery(self, serial: str, restore_color: tuple | None, **_kwargs) -> None:
         """Red flash 2x warning."""
         for _ in range(2):
-            await self.set_controller_color(serial, (255, 0, 0))
+            await self.set_controller_color(serial, Colors.Red.value)
             await asyncio.sleep(0.15)
-            await self.set_controller_color(serial, (50, 0, 0))
+            await self.set_controller_color(serial, Colors.Red20.value)
             await asyncio.sleep(0.15)
         self.active_effect_types.pop(serial, None)
         if restore_color:
@@ -317,7 +330,7 @@ class FeedbackManager(ControllerEffectsBase):
 
     async def _effect_force_start_charge(self, serial: str, **_kwargs) -> None:
         """Fade from white to dim over 2s."""
-        await self.play_effect_with_restore(serial, "fade_out", (255, 255, 255), 2000, 5, None)
+        await self.play_effect_with_restore(serial, "fade_out", Colors.White.value, 2000, 5, None)
 
     async def _effect_show_battery(self, serial: str, restore_color: tuple | None, **_kwargs) -> None:
         """Show battery level for 1 second, then restore.
@@ -347,7 +360,7 @@ class FeedbackManager(ControllerEffectsBase):
         **_kwargs,
     ) -> None:
         """Pulse with color, restore to base."""
-        effect_color = color if color else (255, 255, 255)
+        effect_color = color if color else Colors.White.value
         effect_duration = duration_ms if duration_ms > 0 else 600
         effect_speed = speed if speed > 0 else 3
         await self.play_effect_with_restore(serial, "pulse", effect_color, effect_duration, effect_speed, restore_color)
@@ -362,7 +375,7 @@ class FeedbackManager(ControllerEffectsBase):
         **_kwargs,
     ) -> None:
         """Brief flash with color, restore to base."""
-        effect_color = color if color else (255, 255, 255)
+        effect_color = color if color else Colors.White.value
         effect_duration = duration_ms if duration_ms > 0 else 400
         effect_speed = speed if speed > 0 else 5
         await self.play_effect_with_restore(serial, "flash", effect_color, effect_duration, effect_speed, restore_color)
@@ -455,14 +468,18 @@ class FeedbackManager(ControllerEffectsBase):
 
     async def cancel_effect(self, serial: str) -> None:
         """Cancel any active effect on a controller."""
+        task = None
         async with self.effect_lock:
             if serial in self.active_effects:
-                self.active_effects[serial].cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await self.active_effects[serial]
+                task = self.active_effects[serial]
+                task.cancel()
                 del self.active_effects[serial]
                 self.active_effect_types.pop(serial, None)
                 self.backend.set_effect_active(serial, False)
+        # Await cancelled task outside lock to avoid deadlock with task's finally block
+        if task:
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
 
     async def cancel_if_cancellable(self, serial: str) -> bool:
         """
@@ -474,18 +491,22 @@ class FeedbackManager(ControllerEffectsBase):
         Returns:
             True if effect was cancelled, False otherwise
         """
+        task = None
         async with self.effect_lock:
             if serial in self.active_effects:
                 effect_type = self.active_effect_types.get(serial)
                 if effect_type in self.cancellable_effects:
-                    self.active_effects[serial].cancel()
-                    with contextlib.suppress(asyncio.CancelledError):
-                        await self.active_effects[serial]
+                    task = self.active_effects[serial]
+                    task.cancel()
                     del self.active_effects[serial]
                     self.active_effect_types.pop(serial, None)
                     self.backend.set_effect_active(serial, False)
                     logger.debug(f"Cancelled cancellable effect for {serial}")
-                    return True
+        # Await cancelled task outside lock to avoid deadlock with task's finally block
+        if task:
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+            return True
         return False
 
     def clear_controller(self, serial: str) -> None:
@@ -511,14 +532,14 @@ class FeedbackManager(ControllerEffectsBase):
             RGB tuple for battery indicator color
         """
         if battery_percent >= 100:
-            return (0, 255, 0)  # Green - full
+            return Colors.Green.value  # Green - full
         if battery_percent >= 80:
-            return (6, 194, 172)  # Turquoise - 80%
+            return Colors.Turquoise.value  # Turquoise - 80%
         if battery_percent >= 60:
-            return (0, 0, 255)  # Blue - 60%
+            return Colors.Blue.value  # Blue - 60%
         if battery_percent >= 40:
-            return (255, 255, 20)  # Yellow - 40%
-        return (255, 0, 0)  # Red - low battery
+            return Colors.Yellow.value  # Yellow - 40%
+        return Colors.Red.value  # Red - low battery
 
     async def _countdown_sequence(self, serial: str, restore_color: tuple[int, int, int] | None) -> None:
         """
@@ -535,15 +556,15 @@ class FeedbackManager(ControllerEffectsBase):
             self.backend.set_effect_active(serial, True)
 
             # Red - "3"
-            await self.set_controller_color(serial, (255, 0, 0))
+            await self.set_controller_color(serial, Colors.Red.value)
             await asyncio.sleep(0.75)
 
             # Yellow - "2"
-            await self.set_controller_color(serial, (255, 255, 0))
+            await self.set_controller_color(serial, Colors.Yellow.value)
             await asyncio.sleep(0.75)
 
             # Green - "1" / GO!
-            await self.set_controller_color(serial, (0, 255, 0))
+            await self.set_controller_color(serial, Colors.Green.value)
             await asyncio.sleep(0.75)
 
         except asyncio.CancelledError:

@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from lib.colors import Colors
 from services.game_coordinator.games.base import Player  # noqa: E402
 from services.game_coordinator.games.teams_base import TEAM_COLORS, TeamsGameBase  # noqa: E402
 
@@ -110,9 +111,9 @@ class TestTeamsGameBaseInit:
         """Teams should be initialized with correct colors."""
         assert len(teams_game.teams) == 2
         assert teams_game.teams[0].name == "Pink"
-        assert teams_game.teams[0].color == (255, 108, 108)
+        assert teams_game.teams[0].color == Colors.Pink.value
         assert teams_game.teams[1].name == "Magenta"
-        assert teams_game.teams[1].color == (255, 0, 192)
+        assert teams_game.teams[1].color == Colors.Magenta.value
 
     def test_team_colors_subset(self, teams_game):
         """team_colors should be first N colors from TEAM_COLORS."""
@@ -237,10 +238,10 @@ class TestTeamColorAssignment:
 
         # p1 and p3 should be team 0 (Pink), p2 should be team 1 (Magenta)
         assert teams_game.players["p1"].team == 0
-        assert teams_game.players["p1"].color == (255, 108, 108)
+        assert teams_game.players["p1"].color == Colors.Pink.value
 
         assert teams_game.players["p2"].team == 1
-        assert teams_game.players["p2"].color == (255, 0, 192)
+        assert teams_game.players["p2"].color == Colors.Magenta.value
 
         assert teams_game.players["p3"].team == 0
-        assert teams_game.players["p3"].color == (255, 108, 108)
+        assert teams_game.players["p3"].color == Colors.Pink.value

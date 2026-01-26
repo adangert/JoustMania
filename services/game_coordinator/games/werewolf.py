@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
+from lib.colors import Colors
 from lib.types import Sound
 from proto import controller_manager_pb2
 from services.game_coordinator.games.base import BaseGameMode, Phase, Player, Sensitivity
@@ -25,8 +26,8 @@ tracer = trace.get_tracer(__name__)
 
 # Game constants (defaults, can be overridden via settings)
 DEFAULT_REVEAL_TIME = 35.0  # Seconds until werewolves are revealed
-HUMAN_COLOR = (255, 255, 0)  # Yellow for humans (and all players before reveal)
-WEREWOLF_COLOR = (0, 100, 255)  # Blue for werewolves after reveal
+HUMAN_COLOR = Colors.Yellow.value  # Yellow for humans (and all players before reveal)
+WEREWOLF_COLOR = Colors.LightBlue.value  # Blue for werewolves after reveal
 
 # Werewolf thresholds - slightly harder to kill than humans
 # Format: (warn_threshold, death_threshold)

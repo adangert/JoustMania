@@ -18,9 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install uv and development tools
 RUN pip install --no-cache-dir \
-    ipdb \
-    ipython \
-    ruff==0.8.4 \
+    ruff==0.14.13 \
     ty==0.0.11 \
     uv==0.5.11
 

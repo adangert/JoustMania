@@ -241,3 +241,96 @@ class TestEffectRestoreLogic:
         # Should have restored to NEW color (read from base_colors at effect end)
         final_color = mock_backend.get_current_color(serial)
         assert final_color == new_color
+
+
+class TestEffectCancellation:
+    """Test that effects properly cancel previous effects."""
+
+    @pytest.mark.asyncio
+    async def test_death_effect_cancels_warning_effect(self, feedback_manager, mock_backend):
+        """
+        Critical test: Death effect should immediately cancel any active warning effect.
+
+        This simulates the real-world scenario where a player triggers warning
+        (white flash) and then immediately exceeds the death threshold.
+        The death effect should:
+        1. Cancel the warning flash immediately
+        2. Show red (not white) right away
+        3. Then fade to black
+        """
+        serial = "test_ctrl"
+        team_color = (255, 255, 0)  # Yellow team color
+
+        # Set up initial state
+        feedback_manager.base_colors[serial] = team_color
+        await feedback_manager.set_controller_color(serial, team_color)
+
+        # Start warning effect (white flash, 200ms duration)
+        await feedback_manager.handle_game_effect(
+            serial,
+            controller_manager_pb2.GAME_EFFECT_PLAYER_WARNING,
+            "test_stream",
+        )
+
+        # Verify warning effect is running (white flash active)
+        assert serial in feedback_manager.active_effects, "Warning effect should be running"
+        warning_task = feedback_manager.active_effects[serial]
+
+        # Small delay to let warning effect start
+        await asyncio.sleep(0.01)
+
+        # Now trigger death effect (simulates player exceeding death threshold)
+        await feedback_manager.handle_game_effect(
+            serial,
+            controller_manager_pb2.GAME_EFFECT_PLAYER_DEATH,
+            "test_stream",
+        )
+
+        # Verify warning effect was cancelled
+        assert warning_task.cancelled() or warning_task.done(), (
+            "Warning effect task should be cancelled or done after death effect starts"
+        )
+
+        # The color should now be red (death effect), not white (warning)
+        current_color = mock_backend.get_current_color(serial)
+        assert current_color == (255, 0, 0), (
+            f"Expected red (255, 0, 0) from death effect, got {current_color}. "
+            f"Death effect should immediately show red, not linger on warning white."
+        )
+
+        # Wait for death effect to complete
+        death_task = feedback_manager.active_effects.get(serial)
+        if death_task:
+            await death_task
+
+        # After death, should be black and base_color should be black
+        assert mock_backend.get_current_color(serial) == (0, 0, 0)
+        assert feedback_manager.base_colors[serial] == (0, 0, 0)
+
+    @pytest.mark.asyncio
+    async def test_effect_cancellation_clears_active_effects(self, feedback_manager, mock_backend):
+        """
+        When cancel_effect is called, it should properly clean up all tracking state.
+        """
+        serial = "test_ctrl"
+
+        # Start a long-running effect
+        await feedback_manager.play_effect_with_restore(
+            serial,
+            effect_type="flash",
+            color=(255, 255, 255),
+            duration_ms=5000,  # Long duration
+            speed=5,
+            restore_color=(0, 0, 0),
+        )
+
+        # Verify effect is running
+        assert serial in feedback_manager.active_effects
+
+        # Cancel the effect
+        await feedback_manager.cancel_effect(serial)
+
+        # Verify cleanup
+        assert serial not in feedback_manager.active_effects, (
+            "cancel_effect should remove controller from active_effects"
+        )

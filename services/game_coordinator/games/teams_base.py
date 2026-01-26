@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
+from lib.colors import Colors
 from lib.types import GameEvent, Sound
 from services.game_coordinator.games.base import BaseGameMode
 
@@ -24,16 +25,16 @@ tracer = trace.get_tracer(__name__)
 logger = logging.getLogger(__name__)
 
 
-# Team colors (from utils/colors.py - first 8 colors)
+# Team colors (from lib/colors.py - first 8 colors)
 TEAM_COLORS = [
-    {"name": "Pink", "rgb": (255, 108, 108)},
-    {"name": "Magenta", "rgb": (255, 0, 192)},
-    {"name": "Orange", "rgb": (255, 64, 0)},
-    {"name": "Yellow", "rgb": (255, 255, 0)},
-    {"name": "Green", "rgb": (0, 255, 0)},
-    {"name": "Turquoise", "rgb": (0, 255, 255)},
-    {"name": "Blue", "rgb": (0, 0, 255)},
-    {"name": "Purple", "rgb": (96, 0, 255)},
+    {"name": "Pink", "rgb": Colors.Pink.value},
+    {"name": "Magenta", "rgb": Colors.Magenta.value},
+    {"name": "Orange", "rgb": Colors.Orange.value},
+    {"name": "Yellow", "rgb": Colors.Yellow.value},
+    {"name": "Green", "rgb": Colors.Green.value},
+    {"name": "Turquoise", "rgb": Colors.Turquoise.value},
+    {"name": "Blue", "rgb": Colors.Blue.value},
+    {"name": "Purple", "rgb": Colors.Purple.value},
 ]
 
 # Map team names to victory sounds
@@ -250,12 +251,12 @@ class TeamsGameBase(BaseGameMode):
             },
             {
                 "name": "white_flash",
-                "color": (255, 255, 255),
+                "color": Colors.White.value,
                 "duration": 1.0,
             },
             {
                 "name": "green_go",
-                "color": (0, 255, 0),
+                "color": Colors.Green.value,
                 "duration": 1.0,
             },
         ]

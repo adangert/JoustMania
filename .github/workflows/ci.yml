@@ -90,10 +90,13 @@ jobs:
         run: |
           cd services/${{ matrix.service }}
           uv sync --extra test
+          # Run with coverage, using repo-relative paths for SonarCloud
           uv run pytest tests/ -v --tb=short \
             --cov=. \
             --cov-report=xml:coverage.xml \
             --cov-report=term-missing
+          # Fix paths in coverage.xml to be relative to repo root
+          sed -i 's|filename="|filename="services/${{ matrix.service }}/|g' coverage.xml
 
       - name: Upload coverage report
         if: steps.changes.outputs.service == 'true'
@@ -102,6 +105,7 @@ jobs:
           name: coverage-${{ matrix.service }}
           path: services/${{ matrix.service }}/coverage.xml
           retention-days: 1
+          if-no-files-found: ignore
 
   lint-dockerfiles:
     name: Lint Dockerfiles
@@ -122,63 +126,29 @@ jobs:
         with:
           fetch-depth: 0  # Full history for better analysis
 
-      - name: Download all coverage reports
+      - name: Download coverage reports
         uses: actions/download-artifact@v4
         with:
           pattern: coverage-*
-          merge-multiple: true
           path: coverage-reports
+        continue-on-error: true  # Don't fail if no coverage artifacts
 
-      - name: Combine coverage reports
+      - name: List and combine coverage reports
         run: |
-          # Install coverage tool
-          pip install coverage
+          echo "=== Looking for coverage reports ==="
+          find coverage-reports -name "*.xml" -type f 2>/dev/null || echo "No coverage directory"
+          ls -la coverage-reports/ 2>/dev/null || echo "No coverage-reports dir"
 
-          # Find all coverage.xml files and combine them
-          mkdir -p combined-coverage
+          # Find all coverage.xml files (they're in subdirectories per artifact)
+          COVERAGE_FILES=$(find coverage-reports -name "coverage.xml" -type f 2>/dev/null | tr '\n' ',' | sed 's/,$//')
 
-          # List found coverage files
-          echo "Found coverage reports:"
-          find coverage-reports -name "coverage.xml" -type f 2>/dev/null || echo "No coverage files found"
-
-          # If coverage reports exist, combine them
-          if ls coverage-reports/*.xml 1>/dev/null 2>&1; then
-            # Create combined report with adjusted paths for SonarCloud
-            # SonarCloud expects paths relative to repo root
-            python3 << 'EOF'
-          import xml.etree.ElementTree as ET
-          import os
-          import glob
-
-          # Find all coverage files
-          coverage_files = glob.glob('coverage-reports/*.xml')
-          print(f"Processing {len(coverage_files)} coverage files")
-
-          if not coverage_files:
-              print("No coverage files to combine")
-              exit(0)
-
-          # Parse first file as base
-          base_tree = ET.parse(coverage_files[0])
-          base_root = base_tree.getroot()
-          base_packages = base_root.find('.//packages')
-
-          # Merge other files
-          for cf in coverage_files[1:]:
-              tree = ET.parse(cf)
-              root = tree.getroot()
-              packages = root.find('.//packages')
-              if packages is not None:
-                  for package in packages:
-                      base_packages.append(package)
-
-          # Write combined report
-          base_tree.write('coverage.xml', encoding='unicode', xml_declaration=True)
-          print("Combined coverage report written to coverage.xml")
-          EOF
+          if [ -n "$COVERAGE_FILES" ]; then
+            echo "Found coverage files: $COVERAGE_FILES"
+            # SonarCloud can accept multiple coverage files via comma-separated list
+            echo "SONAR_COVERAGE_PATHS=$COVERAGE_FILES" >> $GITHUB_ENV
           else
-            echo "No coverage reports found, creating empty report"
-            echo '<?xml version="1.0" ?><coverage version="1.0"></coverage>' > coverage.xml
+            echo "No coverage files found"
+            echo "SONAR_COVERAGE_PATHS=" >> $GITHUB_ENV
           fi
 
       - name: SonarCloud Scan
@@ -186,6 +156,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.python.coverage.reportPaths=${{ env.SONAR_COVERAGE_PATHS }}
 
   validate-protos:
     name: Validate Proto Files

@@ -75,16 +75,12 @@ members = [
 line-length = 120
 target-version = "py311"
 
-# Exclude legacy code and generated files from linting
+# Exclude generated files from linting
 exclude = [
-    "legacy",
-    "Archive",
     "proto/*_pb2.py",
     "proto/*_pb2_grpc.py",
-    "scripts/testing",  # Testing scripts
-    "tools",  # Utility scripts
-    "tests/integration",  # Integration tests
-    "services/game_coordinator/games/legacy_archived",  # Legacy archived games
+    "tools",  # Utility scripts (minor violations acceptable)
+    "tests/integration",  # Integration tests (import order issues due to sys.path manipulation)
 ]
 
 # Enable specific rule sets
@@ -114,20 +110,8 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]  # Unused imports OK in __init__
 
-# gRPC service methods MUST use PascalCase per protobuf convention
-# context parameter required by gRPC but often unused
-"services/*/server.py" = ["N802", "ARG002"]
-
-# Integration tests need to modify sys.path before imports and mock gRPC methods (PascalCase)
-"services/game_coordinator/test_*_integration.py" = ["E402", "N802", "ARG001", "ARG002"]
-"services/game_coordinator/tests/*.py" = ["ARG002"]  # Test fixtures
-
-# Legacy audio module uses PascalCase functions
-"services/audio/piaudio.py" = ["N802", "N806", "SIM115", "E722", "ARG002"]
-"services/audio/playwav.py" = ["N802"]
-
-# Legacy process module
-"services/controller_manager/process.py" = ["I001"]  # Complex conditional imports
+# Test fixtures often have unused arguments
+"services/*/tests/*.py" = ["ARG002"]
 
 [tool.ruff.lint.isort]
 # Define first-party packages for proper import sorting

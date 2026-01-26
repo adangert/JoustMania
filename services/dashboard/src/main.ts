@@ -152,18 +152,20 @@ function handleGameEvent(event: { eventType: string; data: { [key: string]: stri
       addEvent("Game started!");
       break;
 
-    case "game_end":
+    case "game_end": {
       state.gameState = "Ended";
       controls.setGameRunning(false);
       const winner = data["winner"] || "Unknown";
       addEvent(`Game ended! Winner: ${winner}`);
       break;
+    }
 
-    case "player_death":
+    case "player_death": {
       state.alivePlayers = Math.max(0, state.alivePlayers - 1);
       const player = data["serial"]?.slice(-4) || "???";
       addEvent(`Player ${player} eliminated`);
       break;
+    }
 
     case "countdown":
       state.gameState = "Starting";
@@ -298,11 +300,11 @@ async function loadSettings() {
 function formatSettingKey(key: string): string {
   // Convert snake_case or camelCase to Title Case
   return key
-    .replace(/_/g, " ")
+    .replaceAll("_", " ")
     .replace(/([A-Z])/g, " $1")
     .replace(/^./, (str) => str.toUpperCase())
     .trim();
 }
 
 // Start the app
-init().catch(console.error);
+await init();

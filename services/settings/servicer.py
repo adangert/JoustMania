@@ -182,6 +182,29 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 logger.error(f"Error saving settings: {e}", exc_info=True)
 
+    def _validate_int_range(self, value: int, schema: dict) -> tuple[bool, str, str]:
+        """Validate integer is within schema min/max range."""
+        if "min" in schema and value < schema["min"]:
+            return False, f"Value {value} below minimum {schema['min']}", "below_min"
+        if "max" in schema and value > schema["max"]:
+            return False, f"Value {value} above maximum {schema['max']}", "above_max"
+        return True, "", ""
+
+    def _validate_str_allowed(self, value: str, schema: dict) -> tuple[bool, str, str]:
+        """Validate string is in allowed values list."""
+        if "allowed_values" in schema and value not in schema["allowed_values"]:
+            return False, f"Value '{value}' not in allowed values: {schema['allowed_values']}", "not_allowed"
+        return True, "", ""
+
+    def _validate_list_items(self, value: list, key: str) -> tuple[bool, str, str]:
+        """Validate list items for specific keys like random_modes."""
+        if key == "random_modes":
+            valid_games = [g.name for g in Games if g != Games.JoustTeams and g != Games.Random]
+            for item in value:
+                if item not in valid_games:
+                    return False, f"Invalid game mode: {item}", "invalid_list_item"
+        return True, "", ""
+
     def validate_setting_value(self, key: str, value: Any) -> tuple[bool, str]:
         """
         Validate a setting value against schema.
@@ -197,6 +220,7 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
             span.set_attribute("setting.key", key)
             span.set_attribute("setting.value_type", type(value).__name__)
 
+            # Check key exists
             if key not in SETTINGS_SCHEMA:
                 span.set_attribute(SpanAttr.VALIDATION_RESULT, "invalid")
                 span.set_attribute(SpanAttr.VALIDATION_REASON, "unknown_key")
@@ -217,34 +241,19 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
                 span.set_attribute(SpanAttr.VALIDATION_REASON, "type_mismatch")
                 return False, f"Expected {expected_type.__name__}, got {type(value).__name__}"
 
-            # Check range (for int)
+            # Type-specific validation
+            valid, error, reason = True, "", ""
             if expected_type is int:
-                if "min" in schema and value < schema["min"]:
-                    span.set_attribute(SpanAttr.VALIDATION_RESULT, "invalid")
-                    span.set_attribute(SpanAttr.VALIDATION_REASON, "below_min")
-                    return False, f"Value {value} below minimum {schema['min']}"
-                if "max" in schema and value > schema["max"]:
-                    span.set_attribute(SpanAttr.VALIDATION_RESULT, "invalid")
-                    span.set_attribute(SpanAttr.VALIDATION_REASON, "above_max")
-                    return False, f"Value {value} above maximum {schema['max']}"
+                valid, error, reason = self._validate_int_range(value, schema)
+            elif expected_type is str:
+                valid, error, reason = self._validate_str_allowed(value, schema)
+            elif expected_type is list:
+                valid, error, reason = self._validate_list_items(value, key)
 
-            # Check allowed values (for str)
-            if expected_type is str and "allowed_values" in schema and value not in schema["allowed_values"]:
+            if not valid:
                 span.set_attribute(SpanAttr.VALIDATION_RESULT, "invalid")
-                span.set_attribute(SpanAttr.VALIDATION_REASON, "not_allowed")
-                return (
-                    False,
-                    f"Value '{value}' not in allowed values: {schema['allowed_values']}",
-                )
-
-            # Check list items (for list)
-            if expected_type is list and key == "random_modes":
-                valid_games = [g.name for g in Games if g != Games.JoustTeams and g != Games.Random]
-                for item in value:
-                    if item not in valid_games:
-                        span.set_attribute(SpanAttr.VALIDATION_RESULT, "invalid")
-                        span.set_attribute(SpanAttr.VALIDATION_REASON, "invalid_list_item")
-                        return False, f"Invalid game mode: {item}"
+                span.set_attribute(SpanAttr.VALIDATION_REASON, reason)
+                return False, error
 
             span.set_attribute(SpanAttr.VALIDATION_RESULT, "valid")
             return True, ""

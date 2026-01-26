@@ -4,10 +4,10 @@
  * Displays game state, player counts, and recent events.
  */
 export class GameStatus {
-  private stateElement: HTMLElement;
-  private playerCountElement: HTMLElement;
-  private aliveCountElement: HTMLElement;
-  private eventLogElement: HTMLElement;
+  private readonly stateElement: HTMLElement;
+  private readonly playerCountElement: HTMLElement;
+  private readonly aliveCountElement: HTMLElement;
+  private readonly eventLogElement: HTMLElement;
 
   constructor() {
     this.stateElement = document.getElementById("game-state")!;

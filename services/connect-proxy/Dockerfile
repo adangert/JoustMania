@@ -56,7 +56,7 @@ COPY services/connect-proxy/*.go ./
 RUN go mod tidy && go mod download
 
 # Build the binary (cross-compile for target architecture)
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -ldflags="-s -w" -o /connect-proxy .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH="${TARGETARCH}" go build -ldflags="-s -w" -o /connect-proxy .
 
 # Stage 3: Runtime image (alpine for wget healthcheck support)
 FROM alpine:3.19

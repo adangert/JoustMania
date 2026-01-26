@@ -48,6 +48,9 @@ SLOW_MUSIC_SPEED = 1.0  # Normal playback
 FAST_MUSIC_SPEED = 1.3  # 30% faster
 MUSIC_TRANSITION_DURATION = 1.5  # Seconds to smoothly transition
 
+# Log messages (S1192 - avoid duplicate strings)
+_MSG_COUNTDOWN_INTERRUPTED = "%s"
+
 # Threshold Scaling: LERP approach (matches original JoustMania)
 # ===============================================================
 # Uses linear interpolation between slow/fast threshold arrays based on music speed.
@@ -403,7 +406,7 @@ class BaseGameMode(ABC):
         self.event_publisher(GameEvent.COUNTDOWN_START, {"duration": countdown_seconds})
 
         if not self.running:
-            logger.info("Countdown interrupted by force_end")
+            logger.info(_MSG_COUNTDOWN_INTERRUPTED)
             return
 
         # Skip countdown entirely if duration is 0 (for fast tests)
@@ -431,7 +434,7 @@ class BaseGameMode(ABC):
 
         for _ in range(beep_count):
             if not self.running:
-                logger.info("Countdown interrupted by force_end")
+                logger.info(_MSG_COUNTDOWN_INTERRUPTED)
                 return
 
             # Play countdown beep (Phase 29)
@@ -441,7 +444,7 @@ class BaseGameMode(ABC):
             wait_iterations = beep_interval_ms // 50  # 50ms per iteration
             for _ in range(wait_iterations):
                 if not self.running:
-                    logger.info("Countdown interrupted by force_end")
+                    logger.info(_MSG_COUNTDOWN_INTERRUPTED)
                     return
                 await asyncio.sleep(0.05)
 

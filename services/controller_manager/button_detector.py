@@ -10,15 +10,11 @@ Phase 41: Button event streaming.
 import asyncio
 import logging
 import time
-from typing import TYPE_CHECKING
 
 from lib.controller_constants import ButtonKey, ButtonTrackingKey, ControllerInfoKey
 from proto import controller_manager_pb2
 from services.controller_manager import metrics
 from services.controller_manager.event_publisher import EventPublisher
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 

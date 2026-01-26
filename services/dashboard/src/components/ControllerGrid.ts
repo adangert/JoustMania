@@ -7,8 +7,8 @@ import { ControllerCard } from "./ControllerCard.js";
 import type { GameplayData } from "../gen/controller_manager_pb.js";
 
 export class ControllerGrid {
-  private container: HTMLElement;
-  private cards: Map<string, ControllerCard> = new Map();
+  private readonly container: HTMLElement;
+  private readonly cards: Map<string, ControllerCard> = new Map();
   private isLoading = true;
 
   constructor(containerId: string) {

@@ -31,11 +31,11 @@ export class Controls {
     });
 
     this.startBtn.addEventListener("click", () => {
-      void this.options.onStartGame();
+      Promise.resolve(this.options.onStartGame()).catch(console.error);
     });
 
     this.stopBtn.addEventListener("click", () => {
-      void this.options.onStopGame();
+      Promise.resolve(this.options.onStopGame()).catch(console.error);
     });
   }
 

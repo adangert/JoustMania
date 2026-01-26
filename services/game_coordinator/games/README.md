@@ -279,7 +279,7 @@ All games are fully instrumented with OpenTelemetry distributed tracing.
 
 **Start Jaeger UI:**
 ```bash
-docker-compose up jaeger
+docker compose up jaeger
 
 # Open browser
 open http://localhost:16686
@@ -495,17 +495,17 @@ If spans don't appear in Jaeger:
 
 1. **Check OTLP Collector logs:**
    ```bash
-   docker-compose logs otel-collector | grep error
+   docker compose logs otel-collector | grep error
    ```
 
 2. **Check Jaeger import:**
    ```bash
-   docker-compose logs jaeger | grep error
+   docker compose logs jaeger | grep error
    ```
 
 3. **Verify span creation in game-coordinator logs:**
    ```bash
-   docker-compose logs game-coordinator | grep span
+   docker compose logs game-coordinator | grep span
    ```
 
 4. **Query Jaeger API:**

@@ -9,7 +9,7 @@ SYSTEMD_DIR="/etc/systemd/system"
 echo "Uninstalling JoustMania autostart service..."
 
 # Check if running as root
-if [ "$EUID" -ne 0 ]; then
+if [[ "$EUID" -ne 0 ]]; then
     echo "ERROR: This script must be run as root (use sudo)"
     exit 1
 fi
@@ -27,7 +27,7 @@ if systemctl is-enabled --quiet "$SERVICE_NAME"; then
 fi
 
 # Remove service file
-if [ -f "$SYSTEMD_DIR/$SERVICE_NAME" ]; then
+if [[ -f "$SYSTEMD_DIR/$SERVICE_NAME" ]]; then
     echo "Removing service file from $SYSTEMD_DIR/$SERVICE_NAME"
     rm "$SYSTEMD_DIR/$SERVICE_NAME"
 fi

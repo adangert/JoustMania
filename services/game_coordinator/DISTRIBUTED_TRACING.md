@@ -178,7 +178,7 @@ async def run(self, game_context=None):
 ### 1. Start All Services
 
 ```bash
-docker-compose up
+docker compose up
 ```
 
 ### 2. Run a Game
@@ -304,12 +304,12 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
 
 **Check Collector Logs:**
 ```bash
-docker-compose logs otel-collector
+docker compose logs otel-collector
 ```
 
 **Check Service Logs:**
 ```bash
-docker-compose logs game-coordinator
+docker compose logs game-coordinator
 # Look for: "OpenTelemetry initialized: game-coordinator-service -> ..."
 ```
 

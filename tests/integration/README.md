@@ -152,7 +152,7 @@ Set `USE_PREBUILT_IMAGES=true` to pull images from GHCR instead.
 ```python
 @pytest.fixture(scope="session")
 def docker_compose():
-    """Fixture to start docker-compose mock environment.
+    """Fixture to start docker compose mock environment.
 
     Uses docker-compose.yml with overrides for testing.
     
@@ -246,7 +246,7 @@ ERROR: Connection refused
 **Solution:** Increase wait time in test fixture or check service logs:
 
 ```bash
-docker-compose -f docker-compose.yml logs
+docker compose -f docker-compose.yml logs
 ```
 
 ### Import Errors
@@ -363,7 +363,7 @@ Integration tests using testcontainers:
 - **Teardown time:** ~5 seconds
 - **Total:** ~2-3 minutes for full suite
 
-Parallelization is not recommended as tests share the same docker-compose environment.
+Parallelization is not recommended as tests share the same docker compose environment.
 
 ## Contributing
 

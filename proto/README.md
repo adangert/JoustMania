@@ -367,15 +367,15 @@ cd proto/
 Then rebuild affected Docker images:
 
 ```bash
-docker-compose build <service-name>
+docker compose build <service-name>
 ```
 
 ### gRPC Connection Errors
 
 If services can't connect:
 - Verify ports are correct (see port numbers above)
-- Check that services are running: `docker-compose ps`
-- Use `docker-compose logs <service>` to check for errors
+- Check that services are running: `docker compose ps`
+- Use `docker compose logs <service>` to check for errors
 - Ensure services use correct hostnames (e.g., `settings:50051` not `localhost:50051`)
 
 ## Related Documentation

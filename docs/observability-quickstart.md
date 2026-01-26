@@ -92,7 +92,7 @@ curl http://localhost:9090/metrics | grep game_
 ```bash
 # Terminal 1: Start JoustMania services
 cd /path/to/JoustMania  # Replace with your JoustMania directory
-docker-compose up
+docker compose up
 
 # Terminal 2: Start live dashboard
 python3 tools/live_dashboard.py --hz 30

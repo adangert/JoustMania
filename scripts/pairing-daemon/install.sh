@@ -48,10 +48,6 @@ cp "$SCRIPT_DIR/psmove_pairing_daemon.py" "$INSTALL_DIR/"
 chmod +x "$INSTALL_DIR/psmove_pairing_daemon.py"
 cp -r "$SCRIPT_DIR/psmove_pairing" "$INSTALL_DIR/"
 
-# Keep bash daemon for backward compatibility (can be removed later)
-cp "$SCRIPT_DIR/psmove-pairing-daemon.sh" /usr/local/bin/
-chmod +x /usr/local/bin/psmove-pairing-daemon.sh
-
 # Install systemd service
 echo "  Installing systemd service..."
 cp "$SCRIPT_DIR/psmove-pairing.service" /etc/systemd/system/

@@ -361,7 +361,7 @@ This optimization is critical for large player counts - without it, 42 controlle
 For resource-constrained or mobile deployments, use the lite Docker Compose configuration:
 
 ```bash
-docker-compose -f docker-compose.lite.yml up
+docker compose -f docker-compose.lite.yml up
 ```
 
 This excludes Jaeger, Prometheus, Grafana, and OTEL Collector, saving ~768MB RAM.

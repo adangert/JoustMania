@@ -17,7 +17,7 @@
 2. Review recent commits: `git log --oneline -10`
 3. Check current working directory: `git status`
 4. Check GitHub issues: `gh issue list`
-5. Verify Docker services: `make up` or `docker-compose ps`
+5. Verify Docker services: `make up` or `docker compose ps`
 
 ---
 
@@ -31,7 +31,7 @@ JoustMania is a local multiplayer party game system that runs on Raspberry Pi an
 
 **✅ COMPLETE:** Production-ready microservices architecture with full observability:
 - **gRPC communication** between all services (async, streaming)
-- **Docker containerization** with docker-compose and Makefile
+- **Docker containerization** with docker compose and Makefile
 - **Full observability stack:**
   - OpenTelemetry → Jaeger (distributed tracing)
   - Prometheus (metrics collection)
@@ -218,25 +218,25 @@ make help
 **Docker Compose directly:**
 ```bash
 # Start all services
-docker-compose up -d
+docker compose up -d
 
 # Check service health
-docker-compose ps
+docker compose ps
 
 # View logs
-docker-compose logs -f [service-name]
+docker compose logs -f [service-name]
 
 # Stop all services
-docker-compose down
+docker compose down
 
 # Rebuild after code changes
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 **Mock Environment (No Hardware):**
 ```bash
 # Set mock backend
-CONTROLLER_BACKEND=mock docker-compose up -d
+CONTROLLER_BACKEND=mock docker compose up -d
 
 # Or edit docker-compose.override.yml
 # environment:
@@ -646,7 +646,7 @@ uv add --dev pytest
 uv sync
 
 # Rebuild Docker images
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 ### Viewing Traces
@@ -677,14 +677,14 @@ find . -name "*.proto"
 docker stats
 
 # View service logs
-docker-compose logs -f settings
-docker-compose logs -f controller-manager
+docker compose logs -f settings
+docker compose logs -f controller-manager
 
 # Restart a specific service
-docker-compose restart settings
+docker compose restart settings
 
 # Execute command in container
-docker-compose exec settings bash
+docker compose exec settings bash
 ```
 
 ---

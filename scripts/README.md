@@ -113,29 +113,6 @@ sudo scripts/setup/uninstall_autostart.sh
 
 ---
 
-## Docker Scripts
-
-Located in `scripts/docker/` - Also available via Makefile.
-
-| Script | Make Target | Description |
-|--------|-------------|-------------|
-| `build.sh` | `make docker-build` | Build all Docker images |
-| `start.sh` | `make docker-start` | Start Docker stack |
-| `stop.sh` | `make docker-stop` | Stop Docker stack |
-| `logs.sh` | - | Follow service logs |
-
-### logs.sh
-
-Follow logs for all or specific services:
-
-```bash
-scripts/docker/logs.sh              # All services
-scripts/docker/logs.sh audio        # Specific service
-scripts/docker/logs.sh game-coordinator
-```
-
----
-
 ## Planning Scripts
 
 Located in `scripts/planning/` - Phase workflow utilities.

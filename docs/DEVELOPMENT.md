@@ -87,28 +87,20 @@ cd JoustMania
 ### 2. Build Docker Images
 
 ```bash
-# Using helper script
-scripts/docker/build.sh
-
-# Or directly with docker-compose
-docker-compose build --parallel
+docker compose build --parallel
 ```
 
 ### 3. Start the Stack
 
 ```bash
-# Using helper script
-scripts/docker/start.sh
-
-# Or directly with docker-compose
-docker-compose up -d
+docker compose up -d
 ```
 
 ### 4. Verify Services
 
 ```bash
 # Check service status
-docker-compose ps
+docker compose ps
 
 # Should show all services running (or Up)
 ```
@@ -123,20 +115,16 @@ docker-compose ps
 
 ```bash
 # All services
-scripts/docker/logs.sh
+docker compose logs -f
 
 # Specific service
-scripts/docker/logs.sh controller-manager
+docker compose logs -f controller-manager
 ```
 
 ### 7. Stop the Stack
 
 ```bash
-# Using helper script
-scripts/docker/stop.sh
-
-# Or directly with docker-compose
-docker-compose down
+docker compose down
 ```
 
 ---
@@ -164,16 +152,16 @@ Currently, services require rebuild after code changes. Future: Add volume mount
 
 ```bash
 # Rebuild specific service
-docker-compose build settings
+docker compose build settings
 
 # Restart specific service
-docker-compose restart settings
+docker compose restart settings
 
 # Rebuild and restart
-docker-compose up -d --build settings
+docker compose up -d --build settings
 
 # View logs in real-time
-docker-compose logs -f settings
+docker compose logs -f settings
 ```
 
 ---
@@ -183,13 +171,13 @@ docker-compose logs -f settings
 ### Build All Services
 
 ```bash
-docker-compose build --parallel
+docker compose build --parallel
 ```
 
 ### Build Single Service
 
 ```bash
-docker-compose build <service-name>
+docker compose build <service-name>
 ```
 
 **Service names:**
@@ -205,10 +193,10 @@ docker-compose build <service-name>
 
 ```bash
 # No cache (clean build)
-docker-compose build --no-cache settings
+docker compose build --no-cache settings
 
 # Pull latest base images
-docker-compose build --pull settings
+docker compose build --pull settings
 ```
 
 ### Understanding Multi-Stage Builds
@@ -241,37 +229,37 @@ CMD ["python", "server.py"]
 ### Run All Services
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ### Run Specific Services
 
 ```bash
 # Only infrastructure
-docker-compose up -d redis jaeger otel-collector
+docker compose up -d redis jaeger otel-collector
 
 # Only application services
-docker-compose up -d settings controller-manager game-coordinator menu
+docker compose up -d settings controller-manager game-coordinator menu
 ```
 
 ### Run in Foreground (with logs)
 
 ```bash
-docker-compose up
+docker compose up
 ```
 
 ### Scale Services (Future)
 
 ```bash
 # Run multiple game coordinators
-docker-compose up -d --scale game-coordinator=3
+docker compose up -d --scale game-coordinator=3
 ```
 
 ### Override Configuration
 
 ```bash
 # Use custom compose file
-docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ```
 
 ---
@@ -379,29 +367,29 @@ python interactive_colortest.py
 
 ```bash
 # All services
-docker-compose logs -f
+docker compose logs -f
 
 # Specific service
-docker-compose logs -f settings
+docker compose logs -f settings
 
 # Last N lines
-docker-compose logs --tail=100 settings
+docker compose logs --tail=100 settings
 
 # With timestamps
-docker-compose logs -f -t settings
+docker compose logs -f -t settings
 ```
 
 ### Access Container
 
 ```bash
 # Get shell in running container
-docker-compose exec settings bash
+docker compose exec settings bash
 
 # Or if bash not available
-docker-compose exec settings sh
+docker compose exec settings sh
 
 # Run command in container
-docker-compose exec settings python -c "import sys; print(sys.version)"
+docker compose exec settings python -c "import sys; print(sys.version)"
 ```
 
 ### Inspect Container
@@ -421,7 +409,7 @@ docker inspect joustmania-settings | jq '.[0].Mounts'
 
 ```bash
 # Enable gRPC debug logging
-docker-compose exec settings python -c "
+docker compose exec settings python -c "
 import grpc
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -451,7 +439,7 @@ grpcurl -plaintext -v localhost:50051 list
 curl http://localhost:13133/
 
 # View collector logs
-docker-compose logs -f otel-collector
+docker compose logs -f otel-collector
 
 # Test OTLP endpoint
 grpcurl -plaintext localhost:4317 list
@@ -461,21 +449,21 @@ grpcurl -plaintext localhost:4317 list
 
 ```bash
 # Test service connectivity
-docker-compose exec settings nc -zv controller-manager 50052
+docker compose exec settings nc -zv controller-manager 50052
 
 # View network
 docker network ls
 docker network inspect joustmania_default
 
 # DNS resolution
-docker-compose exec settings nslookup settings
+docker compose exec settings nslookup settings
 ```
 
 ### Performance Profiling
 
 ```bash
 # Python profiling
-docker-compose exec settings python -m cProfile -s cumtime server.py
+docker compose exec settings python -m cProfile -s cumtime server.py
 
 # Memory profiling
 pip install memory_profiler
@@ -706,10 +694,10 @@ newservice:
 
 ```bash
 # Build
-docker-compose build newservice
+docker compose build newservice
 
 # Start
-docker-compose up -d newservice
+docker compose up -d newservice
 
 # Test with grpcurl
 grpcurl -plaintext localhost:50057 list
@@ -817,28 +805,28 @@ See Phase 13 implementation plan for detailed game refactoring guide.
 
 ```bash
 # Check logs
-docker-compose logs <service>
+docker compose logs <service>
 
 # Check if ports are in use
 sudo netstat -tulpn | grep 5005
 
 # Rebuild from scratch
-docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
+docker compose down
+docker compose build --no-cache
+docker compose up -d
 ```
 
 #### gRPC connection refused
 
 ```bash
 # Verify service is running
-docker-compose ps
+docker compose ps
 
 # Test with grpcurl
 grpcurl -plaintext localhost:50051 list
 
 # Check service logs for errors
-docker-compose logs settings
+docker compose logs settings
 ```
 
 #### Permission denied (hardware access)
@@ -855,10 +843,10 @@ devices:
 
 ```bash
 # Check OTel Collector
-docker-compose logs otel-collector
+docker compose logs otel-collector
 
 # Verify OTLP endpoint
-docker-compose exec settings env | grep OTEL
+docker compose exec settings env | grep OTEL
 
 # Test trace export
 grpcurl -plaintext localhost:4317 list

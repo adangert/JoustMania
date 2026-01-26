@@ -11,7 +11,7 @@ SERVICE_NAME="joustmania.service"
 echo "Installing JoustMania autostart service..."
 
 # Check if running as root
-if [ "$EUID" -ne 0 ]; then
+if [[ "$EUID" -ne 0 ]]; then
     echo "ERROR: This script must be run as root (use sudo)"
     exit 1
 fi

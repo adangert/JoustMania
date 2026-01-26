@@ -54,10 +54,8 @@ members = [
     "services/controller_manager",
     "services/game_coordinator",
     "services/settings",
-    "services/supervisor",
     "services/menu",
     "services/audio",
-    "services/webui",
     "tests/integration",
 ]
 

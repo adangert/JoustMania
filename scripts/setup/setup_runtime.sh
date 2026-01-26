@@ -67,8 +67,8 @@ else
 fi
 
 # Check docker-compose
-if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-    echo "  → Installing docker-compose plugin..."
+if ! command -v docker compose &> /dev/null && ! docker compose version &> /dev/null; then
+    echo "  → Installing docker compose plugin..."
     sudo apt-get update -y
     sudo apt-get install -y docker-compose-plugin
 fi

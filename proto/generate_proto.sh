@@ -25,7 +25,7 @@ echo "✓ Generated Python code for all protobuf schemas"
 echo "Fixing imports in generated files..."
 
 for file in proto/*_pb2_grpc.py; do
-    if [ -f "$file" ]; then
+    if [[ -f "$file" ]]; then
         # Replace relative imports with absolute imports
         sed -i 's/^import \([a-z_]*\)_pb2 as/from proto import \1_pb2 as/' "$file"
         echo "  ✓ Fixed imports in $(basename "$file")"

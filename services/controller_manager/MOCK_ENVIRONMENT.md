@@ -43,13 +43,13 @@ Mock mode is enabled automatically when `docker-compose.override.yml` is present
 
 ```bash
 # Start all services with mock hardware (uses override file automatically)
-docker-compose up
+docker compose up
 
 # Or in detached mode
-docker-compose up -d
+docker compose up -d
 
 # For production mode without mock (skip override file)
-docker-compose -f docker-compose.yml up
+docker compose -f docker-compose.yml up
 ```
 
 ### 2. Run a Game Simulation
@@ -93,7 +93,7 @@ controller-manager:
 Or via command line:
 
 ```bash
-MOCK_CONTROLLER_COUNT=8 docker-compose up
+MOCK_CONTROLLER_COUNT=8 docker compose up
 ```
 
 ### Mock Controller Properties
@@ -380,19 +380,19 @@ Mock controllers include special attributes:
 
 **Check container logs:**
 ```bash
-docker-compose logs controller-manager
+docker compose logs controller-manager
 ```
 
 **Check health:**
 ```bash
-docker-compose ps
+docker compose ps
 ```
 
 ### Controller Count Mismatch
 
 **Verify environment variable:**
 ```bash
-docker-compose config | grep MOCK_CONTROLLER_COUNT
+docker compose config | grep MOCK_CONTROLLER_COUNT
 ```
 
 **Check via control API:**
@@ -405,12 +405,12 @@ grpcurl -plaintext localhost:50062 \
 
 **Check OTLP collector:**
 ```bash
-docker-compose logs otel-collector
+docker compose logs otel-collector
 ```
 
 **Verify controller manager telemetry:**
 ```bash
-docker-compose logs controller-manager | grep "OpenTelemetry"
+docker compose logs controller-manager | grep "OpenTelemetry"
 ```
 
 Should see:
@@ -423,7 +423,7 @@ OpenTelemetry initialized for mock controller manager
 **Verify services are ready:**
 ```bash
 # Wait for all services to be healthy
-docker-compose ps
+docker compose ps
 
 # Test game coordinator connection
 grpcurl -plaintext localhost:50053 \
@@ -432,7 +432,7 @@ grpcurl -plaintext localhost:50053 \
 
 **Check game coordinator logs:**
 ```bash
-docker-compose logs game-coordinator
+docker compose logs game-coordinator
 ```
 
 ## Performance
@@ -453,10 +453,10 @@ Mock environment can simulate large player counts:
 
 ```bash
 # 16 players
-MOCK_CONTROLLER_COUNT=16 docker-compose up
+MOCK_CONTROLLER_COUNT=16 docker compose up
 
 # 100 players (stress test)
-MOCK_CONTROLLER_COUNT=100 docker-compose up
+MOCK_CONTROLLER_COUNT=100 docker compose up
 ```
 
 ## CI/CD Integration

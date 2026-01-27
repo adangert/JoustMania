@@ -41,6 +41,9 @@ class ReadyHandler:
         # Debounce tracking
         self._last_button_press: dict[str, dict[str, float]] = {}
 
+        # Prevent duplicate game start attempts (Issue #230)
+        self._game_start_in_progress = False
+
     @property
     def state(self) -> ControllerState:
         """The state this handler manages."""
@@ -95,7 +98,8 @@ class ReadyHandler:
         )
 
         # Check if all ready - auto start with feedback delay
-        if self._state_manager.all_ready():
+        if self._state_manager.all_ready() and not self._game_start_in_progress:
+            self._game_start_in_progress = True
             logger.info("All controllers ready - showing feedback before game start")
             # Brief delay so last player sees their LED go bright
             await asyncio.sleep(0.3)
@@ -107,6 +111,15 @@ class ReadyHandler:
         Called when a controller exits the ready state.
         """
         logger.debug(f"Controller {serial} exiting ready state")
+
+    def reset_game_start_flag(self) -> None:
+        """
+        Reset the game start flag when returning to lobby.
+
+        Called by StateManager.reset() to allow new game starts after
+        a game ends or fails.
+        """
+        self._game_start_in_progress = False
 
     def _should_process_button(self, serial: str, button: str, current_time: float) -> bool:
         """
@@ -140,10 +153,13 @@ class ReadyHandler:
         if self._state_manager is None:
             return
 
-        # Check if all ready
-        if self._state_manager.all_ready():
+        # Check if all ready and no start already in progress
+        if self._state_manager.all_ready() and not self._game_start_in_progress:
+            self._game_start_in_progress = True
             logger.info(f"All ready, starting game via trigger from {serial}")
             await self._start_game_callback(serial)
+        elif self._game_start_in_progress:
+            logger.debug(f"Trigger press from {serial} ignored - game start already in progress")
         else:
             logger.debug(
                 f"Trigger press from {serial} but not all ready "

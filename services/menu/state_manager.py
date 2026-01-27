@@ -271,6 +271,11 @@ class StateManager:
         # Clear all player ready metrics
         metrics.player_ready._metrics.clear()
 
+        # Reset ready handler's game start flag (Issue #230)
+        ready_handler = self._handlers.get(ControllerState.READY)
+        if ready_handler and hasattr(ready_handler, "reset_game_start_flag"):
+            ready_handler.reset_game_start_flag()
+
         # Re-register each controller as CONNECTED (triggers on_enter → sets colors)
         for serial in serials:
             await self.on_controller_connected(serial)

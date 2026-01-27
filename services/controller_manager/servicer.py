@@ -259,6 +259,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             color=effect_color,
                             duration_ms=cmd.duration_ms,
                             speed=cmd.speed,
+                            trace_parent=cmd.trace_parent,
+                            trace_state=cmd.trace_state,
                         )
 
                         effect_name = controller_manager_pb2.GameEffect.Name(cmd.effect)
@@ -445,6 +447,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             color=effect_color,
                             duration_ms=cmd.duration_ms,
                             speed=cmd.speed,
+                            trace_parent=cmd.trace_parent,
+                            trace_state=cmd.trace_state,
                         )
 
                         effect_name = controller_manager_pb2.GameEffect.Name(cmd.effect)

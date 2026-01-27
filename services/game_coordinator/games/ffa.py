@@ -13,6 +13,7 @@ import time
 
 from opentelemetry.trace import Status, StatusCode
 
+from lib.telemetry import inject_trace_context
 from lib.types import GameEvent, Sound
 from services.game_coordinator.games.analytics import PlayerAnalytics
 from services.game_coordinator.games.base import BaseGameMode, Phase
@@ -222,10 +223,13 @@ class FFAGame(BaseGameMode):
 
         # Show rainbow effect on winner's controller and play victory sound
         if winner_serial and self.gameplay_stream:
+            trace_parent, trace_state = inject_trace_context()
             effect_cmd = controller_manager_pb2.GameplayStreamControl(
                 game_effect=controller_manager_pb2.GameEffectCommand(
                     serial=winner_serial,
                     effect=controller_manager_pb2.GAME_EFFECT_WINNER_RAINBOW,
+                    trace_parent=trace_parent,
+                    trace_state=trace_state,
                 )
             )
             await self.gameplay_stream.write(effect_cmd)

@@ -22,8 +22,10 @@ Usage:
 import logging
 import os
 
+from opentelemetry import context as otel_context
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.propagate import get_global_textmap
 from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -85,3 +87,47 @@ def init_telemetry(
 
     logger.info(f"OpenTelemetry initialized: {resolved_service_name} -> {otlp_endpoint}")
     return trace.get_tracer(resolved_service_name)
+
+
+def inject_trace_context() -> tuple[str, str]:
+    """
+    Get current trace context as W3C traceparent/tracestate strings.
+
+    Extracts the current span's trace context and serializes it for
+    propagation across service boundaries (e.g., via gRPC messages).
+
+    Returns:
+        Tuple of (trace_parent, trace_state) strings.
+        Returns empty strings if no active span context.
+    """
+    carrier: dict[str, str] = {}
+    propagator = get_global_textmap()
+    propagator.inject(carrier)
+
+    return carrier.get("traceparent", ""), carrier.get("tracestate", "")
+
+
+def extract_trace_context(trace_parent: str, trace_state: str) -> otel_context.Context | None:
+    """
+    Restore trace context from W3C traceparent/tracestate strings.
+
+    Deserializes trace context received from another service to allow
+    creating child spans that are linked to the original trace.
+
+    Args:
+        trace_parent: W3C traceparent header value
+        trace_state: W3C tracestate header value
+
+    Returns:
+        Context object that can be passed to tracer.start_span(context=...).
+        Returns None if trace_parent is empty or invalid.
+    """
+    if not trace_parent:
+        return None
+
+    carrier = {"traceparent": trace_parent}
+    if trace_state:
+        carrier["tracestate"] = trace_state
+
+    propagator = get_global_textmap()
+    return propagator.extract(carrier)

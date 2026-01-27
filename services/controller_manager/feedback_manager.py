@@ -15,7 +15,10 @@ import os
 import threading
 from typing import TYPE_CHECKING
 
+from opentelemetry.context import Context
+
 from lib.colors import Colors
+from lib.telemetry import extract_trace_context, init_telemetry
 from proto import controller_manager_pb2
 from services.controller_manager import metrics
 from services.controller_manager.effects_base import ControllerEffectsBase
@@ -24,6 +27,9 @@ if TYPE_CHECKING:
     from services.controller_manager.backend import ControllerBackend
 
 logger = logging.getLogger(__name__)
+
+# Initialize tracer for distributed tracing
+tracer = init_telemetry()
 
 
 def get_winner_rainbow_duration_ms() -> int:
@@ -208,12 +214,16 @@ class FeedbackManager(ControllerEffectsBase):
             restore_color: Color to restore to after effect (None = no restore)
         """
         # Cancel any existing effect
+        existing_task = None
         async with self.effect_lock:
             if serial in self.active_effects:
-                self.active_effects[serial].cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await self.active_effects[serial]
+                existing_task = self.active_effects[serial]
+                existing_task.cancel()
                 del self.active_effects[serial]
+        # Await cancelled task outside lock to avoid deadlock with task's finally block
+        if existing_task:
+            with contextlib.suppress(asyncio.CancelledError):
+                await existing_task
 
         # Mark effect as active (polling skips LED refresh)
         self.backend.set_effect_active(serial, True)
@@ -258,31 +268,48 @@ class FeedbackManager(ControllerEffectsBase):
         # Note: async kept for interface consistency with other effect handlers
         self.active_effect_types.pop(serial, None)
 
-    async def _effect_player_warning(self, serial: str, restore_color: tuple | None, **_kwargs) -> None:
+    async def _effect_player_warning(
+        self, serial: str, restore_color: tuple | None, trace_context: Context | None = None, **_kwargs
+    ) -> None:
         """White flash + vibrate, restore to base color.
 
         Always pass truthy value to ensure restoration to base_colors at effect end.
         """
-        await self.play_effect_with_restore(serial, "flash", Colors.White.value, 200, 5, restore_color or True)
-        await self.set_vibration(serial, 100, 200)
+        with tracer.start_as_current_span("effect_player_warning", context=trace_context) as span:
+            span.set_attribute("controller.serial", serial)
 
-    async def _effect_player_death(self, serial: str, **_kwargs) -> None:
+            span.add_event("flash_start", {"color": "white", "duration_ms": 200})
+            await self.play_effect_with_restore(serial, "flash", Colors.White.value, 200, 5, restore_color or True)
+
+            span.add_event("vibration", {"intensity": 100, "duration_ms": 200})
+            await self.set_vibration(serial, 100, 200)
+
+    async def _effect_player_death(self, serial: str, trace_context: Context | None = None, **_kwargs) -> None:
         """Red + vibrate, then fade to off to signal player is out.
 
         Improved transition: short sharp rumble + solid red briefly + fade to black.
         This feels more immediate and satisfying than slow blinking.
         """
-        # Cancel any active effect (e.g., warning flash) immediately for clean transition
-        await self.cancel_effect(serial)
+        with tracer.start_as_current_span("effect_player_death", context=trace_context) as span:
+            span.set_attribute("controller.serial", serial)
 
-        # Short, sharp rumble (150ms feels snappier than 250ms)
-        await self.set_vibration(serial, 255, 150)
-        # Solid red briefly (300ms) then fade to black (700ms) - total 1000ms
-        # This replaces the awkward slow blink (1Hz over 1500ms)
-        await self._set_led_color(serial, Colors.Red.value)
-        await asyncio.sleep(0.3)
-        await self.play_effect_with_restore(serial, "fade_out", Colors.Red.value, 700, 1, Colors.Black.value)
-        self.base_colors[serial] = Colors.Black.value
+            # Cancel any active effect (e.g., warning flash) immediately for clean transition
+            span.add_event("cancel_existing_effect")
+            await self.cancel_effect(serial)
+
+            # Short, sharp rumble (150ms feels snappier than 250ms)
+            span.add_event("vibration", {"intensity": 255, "duration_ms": 150})
+            await self.set_vibration(serial, 255, 150)
+
+            # Solid red briefly (300ms) then fade to black (700ms) - total 1000ms
+            # This replaces the awkward slow blink (1Hz over 1500ms)
+            span.add_event("led_red")
+            await self._set_led_color(serial, Colors.Red.value)
+            await asyncio.sleep(0.3)
+
+            span.add_event("fade_to_black", {"duration_ms": 700})
+            await self.play_effect_with_restore(serial, "fade_out", Colors.Red.value, 700, 1, Colors.Black.value)
+            self.base_colors[serial] = Colors.Black.value
 
     async def _effect_player_respawn(self, serial: str, **_kwargs) -> None:
         """White during spawn protection."""
@@ -290,19 +317,30 @@ class FeedbackManager(ControllerEffectsBase):
         await self.set_controller_color(serial, Colors.White.value)
         self.base_colors[serial] = Colors.White.value
 
-    async def _effect_winner_rainbow(self, serial: str, restore_color: tuple | None, **_kwargs) -> None:
+    async def _effect_winner_rainbow(
+        self, serial: str, restore_color: tuple | None, trace_context: Context | None = None, **_kwargs
+    ) -> None:
         """Rainbow effect, restore to base color.
 
         Always pass truthy value to ensure restoration to base_colors at effect end.
         (base_colors may be updated DURING the effect, e.g., menu sends lobby color)
         """
-        await self.play_effect_with_restore(
-            serial, "rainbow", Colors.White.value, get_winner_rainbow_duration_ms(), 1, restore_color or True
-        )
+        duration_ms = get_winner_rainbow_duration_ms()
+        with tracer.start_as_current_span("effect_winner_rainbow", context=trace_context) as span:
+            span.set_attribute("controller.serial", serial)
+            span.set_attribute("effect.duration_ms", duration_ms)
 
-    async def _effect_countdown(self, serial: str, restore_color: tuple | None, **_kwargs) -> None:
+            span.add_event("rainbow_start", {"duration_ms": duration_ms})
+            await self.play_effect_with_restore(
+                serial, "rainbow", Colors.White.value, duration_ms, 1, restore_color or True
+            )
+            span.add_event("rainbow_end")
+
+    async def _effect_countdown(
+        self, serial: str, restore_color: tuple | None, trace_context: Context | None = None, **_kwargs
+    ) -> None:
         """Full countdown sequence: Red → Yellow → Green."""
-        task = asyncio.create_task(self._countdown_sequence(serial, restore_color))
+        task = asyncio.create_task(self._countdown_sequence(serial, restore_color, trace_context))
         async with self.effect_lock:
             self.active_effects[serial] = task
 
@@ -414,6 +452,8 @@ class FeedbackManager(ControllerEffectsBase):
         color: tuple[int, int, int] | None = None,
         duration_ms: int = 0,
         speed: int = 0,
+        trace_parent: str = "",
+        trace_state: str = "",
     ) -> bool:
         """
         Handle semantic game effect with auto-restore to base color.
@@ -425,11 +465,18 @@ class FeedbackManager(ControllerEffectsBase):
             color: Optional override color (r, g, b) for effects that support it
             duration_ms: Optional override duration (0 = use default)
             speed: Optional override speed (0 = use default)
+            trace_parent: W3C traceparent for distributed tracing
+            trace_state: W3C tracestate for distributed tracing
 
         Returns:
             True if successful, False otherwise
         """
         try:
+            # Extract trace context if provided
+            parent_context = None
+            if trace_parent:
+                parent_context = extract_trace_context(trace_parent, trace_state)
+
             # Determine target controllers
             if serial:
                 serials = [serial] if serial in self.tracked_controllers else []
@@ -458,6 +505,7 @@ class FeedbackManager(ControllerEffectsBase):
                     color=color,
                     duration_ms=duration_ms,
                     speed=speed,
+                    trace_context=parent_context,
                 )
 
             return True
@@ -541,7 +589,9 @@ class FeedbackManager(ControllerEffectsBase):
             return Colors.Yellow.value  # Yellow - 40%
         return Colors.Red.value  # Red - low battery
 
-    async def _countdown_sequence(self, serial: str, restore_color: tuple[int, int, int] | None) -> None:
+    async def _countdown_sequence(
+        self, serial: str, restore_color: tuple[int, int, int] | None, trace_context: Context | None = None
+    ) -> None:
         """
         Run the full countdown sequence on a single controller.
 
@@ -550,33 +600,43 @@ class FeedbackManager(ControllerEffectsBase):
         Args:
             serial: Controller serial
             restore_color: Color to restore to after sequence (base color)
+            trace_context: Optional trace context for distributed tracing
         """
-        try:
-            # Mark effect as active (polling skips LED refresh)
-            self.backend.set_effect_active(serial, True)
+        with tracer.start_as_current_span("effect_countdown", context=trace_context) as span:
+            span.set_attribute("controller.serial", serial)
 
-            # Red - "3"
-            await self.set_controller_color(serial, Colors.Red.value)
-            await asyncio.sleep(0.75)
+            try:
+                # Mark effect as active (polling skips LED refresh)
+                self.backend.set_effect_active(serial, True)
 
-            # Yellow - "2"
-            await self.set_controller_color(serial, Colors.Yellow.value)
-            await asyncio.sleep(0.75)
+                # Red - "3"
+                span.add_event("countdown_red", {"phase": 3, "duration_ms": 750})
+                await self.set_controller_color(serial, Colors.Red.value)
+                await asyncio.sleep(0.75)
 
-            # Green - "1" / GO!
-            await self.set_controller_color(serial, Colors.Green.value)
-            await asyncio.sleep(0.75)
+                # Yellow - "2"
+                span.add_event("countdown_yellow", {"phase": 2, "duration_ms": 750})
+                await self.set_controller_color(serial, Colors.Yellow.value)
+                await asyncio.sleep(0.75)
 
-        except asyncio.CancelledError:
-            raise
-        finally:
-            # Clear effect active flag and tracking
-            self.backend.set_effect_active(serial, False)
-            self.active_effect_types.pop(serial, None)
-            # Remove from active_effects so new base colors can be applied immediately
-            async with self.effect_lock:
-                self.active_effects.pop(serial, None)
-            # Restore to base color
-            current_restore = self.base_colors.get(serial) if restore_color else None
-            if current_restore:
-                await self._set_led_color(serial, current_restore)
+                # Green - "1" / GO!
+                span.add_event("countdown_green", {"phase": 1, "duration_ms": 750})
+                await self.set_controller_color(serial, Colors.Green.value)
+                await asyncio.sleep(0.75)
+
+                span.add_event("countdown_complete")
+
+            except asyncio.CancelledError:
+                span.add_event("countdown_cancelled")
+                raise
+            finally:
+                # Clear effect active flag and tracking
+                self.backend.set_effect_active(serial, False)
+                self.active_effect_types.pop(serial, None)
+                # Remove from active_effects so new base colors can be applied immediately
+                async with self.effect_lock:
+                    self.active_effects.pop(serial, None)
+                # Restore to base color
+                current_restore = self.base_colors.get(serial) if restore_color else None
+                if current_restore:
+                    await self._set_led_color(serial, current_restore)

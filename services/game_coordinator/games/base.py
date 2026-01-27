@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 from opentelemetry import context as otel_context
 from opentelemetry import trace
 
+from lib.telemetry import inject_trace_context
 from lib.types import GameEvent, Sensitivity, Sound
 from services.game_coordinator import metrics
 from services.game_coordinator.runtime_config import get_config_manager
@@ -418,10 +419,13 @@ class BaseGameMode(ABC):
         # Send unified countdown effect via gameplay stream (broadcast to all controllers)
         # Controller manager handles the full Red(750ms)→Yellow(750ms)→Green(750ms) sequence
         if self.gameplay_stream:
+            trace_parent, trace_state = inject_trace_context()
             effect_cmd = controller_manager_pb2.GameplayStreamControl(
                 game_effect=controller_manager_pb2.GameEffectCommand(
                     serial="",  # Empty = all controllers
                     effect=controller_manager_pb2.GAME_EFFECT_COUNTDOWN,
+                    trace_parent=trace_parent,
+                    trace_state=trace_state,
                 )
             )
             await self.gameplay_stream.write(effect_cmd)
@@ -795,10 +799,13 @@ class BaseGameMode(ABC):
 
         # Send warning effect via stream (white flash + vibrate, auto-restore)
         if self.gameplay_stream:
+            trace_parent, trace_state = inject_trace_context()
             effect_cmd = controller_manager_pb2.GameplayStreamControl(
                 game_effect=controller_manager_pb2.GameEffectCommand(
                     serial=serial,
                     effect=controller_manager_pb2.GAME_EFFECT_PLAYER_WARNING,
+                    trace_parent=trace_parent,
+                    trace_state=trace_state,
                 )
             )
             await self.gameplay_stream.write(effect_cmd)
@@ -850,10 +857,13 @@ class BaseGameMode(ABC):
         from proto import controller_manager_pb2
 
         if self.gameplay_stream:
+            trace_parent, trace_state = inject_trace_context()
             effect_cmd = controller_manager_pb2.GameplayStreamControl(
                 game_effect=controller_manager_pb2.GameEffectCommand(
                     serial=serial,
                     effect=controller_manager_pb2.GAME_EFFECT_PLAYER_DEATH,
+                    trace_parent=trace_parent,
+                    trace_state=trace_state,
                 )
             )
             await self.gameplay_stream.write(effect_cmd)

@@ -1,7 +1,6 @@
 """Menu gRPC Servicer for JoustMania."""
 
 import asyncio
-import contextlib
 import logging
 import os
 import time
@@ -42,10 +41,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         self.state = menu_pb2.MenuState.STOPPED
         self.current_selection = "JoustFFA"
         self.ready_controller_count = 0
-
-        # Game event monitoring - stops controller event loop during games
-        self.game_event_task = None
-        self.game_event_monitor_running = False
 
         # Lobby state tracking
         self.ready_controllers: set[str] = set()
@@ -360,112 +355,14 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         return self.controller_events.is_running
 
     async def start_game_event_monitor(self):
-        """Start the game event monitoring task."""
-        if not self.game_event_monitor_running:
-            self.game_event_monitor_running = True
-            self.game_event_task = asyncio.create_task(self._game_event_loop())
-            logger.info("Game event monitor started")
+        """Start the game event monitoring task (no-op, kept for compatibility)."""
+        # Game events are now handled by _start_game() stream directly
+        # No separate persistent subscription needed
+        logger.info("Game event monitor: events handled by game stream")
 
     async def stop_game_event_monitor(self):
-        """Stop the game event monitoring task."""
-        self.game_event_monitor_running = False
-        if self.game_event_task:
-            self.game_event_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self.game_event_task
+        """Stop the game event monitoring task (no-op, kept for compatibility)."""
         logger.info("Game event monitor stopped")
-
-    async def _game_event_loop(self):
-        """Monitor game events from game coordinator."""
-        from lib.types import GameEvent
-        from proto import game_coordinator_pb2, game_coordinator_pb2_grpc
-
-        retry_delay = 1.0
-        max_retry_delay = 30.0
-
-        while self.game_event_monitor_running:
-            try:
-                stub = game_coordinator_pb2_grpc.GameCoordinatorServiceStub(self.game_coordinator_channel)
-
-                logger.info("Game event monitor connected to Game Coordinator")
-                retry_delay = 1.0
-
-                async for event in stub.StreamGameEvents(game_coordinator_pb2.StreamEventsRequest()):
-                    if not self.game_event_monitor_running:
-                        return
-
-                    # Extract trace context from event for distributed tracing
-                    propagator = TraceContextTextMapPropagator()
-                    carrier = {
-                        "traceparent": event.data.get("_traceparent", ""),
-                        "tracestate": event.data.get("_tracestate", ""),
-                    }
-                    parent_ctx = propagator.extract(carrier)
-
-                    is_starting = GameEvent.is_game_starting(event.event_type)
-                    logger.info(
-                        f"Game event received: {event.event_type} "
-                        f"(is_starting={is_starting}, monitor_running={self.button_monitor_running})"
-                    )
-
-                    if GameEvent.is_game_starting(event.event_type):
-                        if self.button_monitor_running:
-                            with tracer.start_as_current_span("menu_handle_game_starting", context=parent_ctx) as span:
-                                span.set_attribute("event.type", event.event_type)
-                                logger.info(
-                                    f"Game event '{event.event_type}' - stopping button monitor and lobby music"
-                                )
-                                self.state = menu_pb2.MenuState.GAME_STARTING
-
-                                with tracer.start_as_current_span("stop_lobby_music"):
-                                    await self.audio.stop_lobby_music()
-
-                                with tracer.start_as_current_span("stop_button_monitor"):
-                                    await self.stop_button_monitor()
-
-                                # Clear menu_player_ready metrics so dashboard only shows game_player_alive
-                                metrics.player_ready._metrics.clear()
-                                logger.info("Button monitor and lobby music stopped, player_ready metrics cleared")
-
-                    elif GameEvent.is_game_ending(event.event_type):
-                        with tracer.start_as_current_span("menu_handle_game_ended", context=parent_ctx) as span:
-                            span.set_attribute("event.type", event.event_type)
-                            logger.info(f"Game event '{event.event_type}' - restarting button monitor and lobby music")
-                            self.state = menu_pb2.MenuState.RUNNING
-
-                            # Start button monitor and wait for connection before setting colors
-                            with tracer.start_as_current_span("restart_button_monitor"):
-                                await self.start_button_monitor()
-                                await self.controller_events.wait_for_connection()
-
-                            # Reset lobby state - both servicer state and state_manager
-                            with tracer.start_as_current_span("reset_lobby_state"):
-                                self.ready_controllers.clear()
-                                self.connected_controllers.clear()
-                                self.controller_lobby_state.clear()
-                                self.last_lobby_feedback_update.clear()
-                                self.ready_controller_count = 0
-                                # Reset state_manager and re-register controllers (sets lobby colors)
-                                re_registered = await self.state_manager.reset()
-                                self.connected_controllers.update(re_registered)
-
-                            with tracer.start_as_current_span("restart_lobby_music"):
-                                await self.audio.start_lobby_music()
-
-                            await self.event_publisher.publish(GameEvent.GAME_ENDED, event.data)
-
-                if self.game_event_monitor_running:
-                    logger.warning("Game event stream ended, reconnecting...")
-
-            except asyncio.CancelledError:
-                logger.info("Game event monitor task cancelled")
-                raise
-            except Exception as e:
-                if not self.game_event_monitor_running:
-                    return
-                logger.error(f"Game event monitor error: {e}, reconnecting in {retry_delay:.1f}s")
-                await asyncio.sleep(retry_delay)
-                retry_delay = min(retry_delay * 2, max_retry_delay)
 
     async def shutdown(self):
         """Cleanup resources on shutdown."""
@@ -478,16 +375,48 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
     async def _start_game(self, serial: str, source: str = "controller"):
         """
-        Start the game by calling GameCoordinator.StreamGameEvents with start_config.
+        Schedule game start as a background task.
 
-        This is the unified game start flow - Menu calls GameCoordinator directly
-        instead of publishing events for Supervisor to handle.
+        This is called from button event handlers, so we can't block or stop
+        the button monitor synchronously. Instead, schedule the game lifecycle
+        to run after a brief delay.
 
         Args:
             serial: Controller serial that triggered the start (for logging)
             source: Source of the start request ("controller" or "web")
         """
+        # Schedule game lifecycle as background task to avoid blocking button monitor
+        task = asyncio.create_task(self._run_game_lifecycle(serial, source))
+
+        # Log any exceptions from the background task
+        def _log_exception(t):
+            if t.cancelled():
+                return
+            exc = t.exception()
+            if exc:
+                logger.error(f"Game lifecycle task failed: {exc}", exc_info=exc)
+
+        task.add_done_callback(_log_exception)
+
+    async def _run_game_lifecycle(self, serial: str, source: str = "controller"):
+        """
+        Run the full game lifecycle via StreamGameEvents.
+
+        This function:
+        1. Stops button monitor and lobby music
+        2. Creates game event stream with start_config
+        3. Handles all game events until game ends
+        4. Restarts button monitor and lobby music when done
+
+        Args:
+            serial: Controller serial that triggered the start (for logging)
+            source: Source of the start request ("controller" or "web")
+        """
+        from lib.types import GameEvent
         from proto import game_coordinator_pb2, game_coordinator_pb2_grpc
+
+        # Brief delay to let button monitor finish current event dispatch
+        await asyncio.sleep(0.1)
 
         metrics.button_presses_total.labels(button="trigger", action="press").inc()
 
@@ -507,6 +436,17 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             if len(controllers) < 2:
                 logger.warning(f"Not enough players to start game: {len(controllers)}")
                 return
+
+            # Stop button monitor and lobby music before starting game
+            with tracer.start_as_current_span("stop_lobby_music"):
+                await self.audio.stop_lobby_music()
+
+            with tracer.start_as_current_span("stop_button_monitor"):
+                await self.stop_button_monitor()
+
+            # Clear menu_player_ready metrics so dashboard only shows game_player_alive
+            metrics.player_ready._metrics.clear()
+            logger.info("Button monitor and lobby music stopped for game start")
 
             self.state = menu_pb2.MenuState.GAME_STARTING
 
@@ -538,28 +478,74 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 f"{self.current_selection} with {len(controllers)} players"
             )
 
-            # Start the stream in a background task - don't block on events here
-            # The game_event_loop will handle incoming events
+            stream = None
             try:
-                # Just initiate the stream to start the game
-                # We receive the first event (game_start or game_start_error) to confirm
+                # Create stream and iterate through events
                 stream = stub.StreamGameEvents(request, metadata=metadata)
-                first_event = await stream.__anext__()
+                first_event_received = False
 
-                if first_event.event_type == "game_start_error":
-                    error = first_event.data.get("error", "Unknown error")
-                    logger.error(f"Game start failed: {error}")
-                    span.set_attribute("error", error)
-                    self.state = menu_pb2.MenuState.RUNNING
-                    return
+                async for event in stream:
+                    if not first_event_received:
+                        # First event - check if game started successfully
+                        first_event_received = True
 
-                logger.info(f"Game started successfully: {first_event.event_type}")
-                span.set_attribute("game.started", True)
+                        if event.event_type == "game_start_error":
+                            error = event.data.get("error", "Unknown error")
+                            logger.error(f"Game start failed: {error}")
+                            span.set_attribute("error", error)
+                            self.state = menu_pb2.MenuState.RUNNING
+                            # Restart lobby on error
+                            await self._restart_lobby()
+                            return
 
-                # Close this stream - the game_event_loop subscription handles the rest
-                # The game is now running in GameCoordinator
+                        logger.info(f"Game started successfully: {event.event_type}")
+                        span.set_attribute("game.started", True)
 
+                    logger.info(f"Game event received: {event.event_type}")
+
+                    if GameEvent.is_game_ending(event.event_type):
+                        logger.info(f"Game ended: {event.event_type}")
+                        # Publish game ended event for other subscribers
+                        await self.event_publisher.publish(GameEvent.GAME_ENDED, event.data)
+                        break
+
+                # Game ended normally - restart lobby
+                await self._restart_lobby()
+
+            except asyncio.CancelledError:
+                logger.info("Game stream cancelled")
+                raise
             except Exception as e:
-                logger.error(f"Failed to start game via stream: {e}", exc_info=True)
+                logger.error(f"Game stream error: {e}", exc_info=True)
                 span.record_exception(e)
-                self.state = menu_pb2.MenuState.RUNNING
+                # Restart lobby on error
+                await self._restart_lobby()
+            finally:
+                # Ensure stream is closed
+                if stream is not None:
+                    stream.cancel()
+
+    async def _restart_lobby(self):
+        """Restart lobby state after game ends."""
+        self.state = menu_pb2.MenuState.RUNNING
+
+        # Start button monitor with fresh trace context (not chained to game trace)
+        with tracer.start_as_current_span("restart_button_monitor", context=otel_context.Context()):
+            await self.start_button_monitor()
+            await self.controller_events.wait_for_connection()
+
+        # Reset lobby state
+        with tracer.start_as_current_span("reset_lobby_state"):
+            self.ready_controllers.clear()
+            self.connected_controllers.clear()
+            self.controller_lobby_state.clear()
+            self.last_lobby_feedback_update.clear()
+            self.ready_controller_count = 0
+            # Reset state_manager and re-register controllers (sets lobby colors)
+            re_registered = await self.state_manager.reset()
+            self.connected_controllers.update(re_registered)
+
+        with tracer.start_as_current_span("restart_lobby_music"):
+            await self.audio.start_lobby_music()
+
+        logger.info("Lobby restarted after game")

@@ -646,9 +646,8 @@ class BaseGameMode(ABC):
         except Exception as e:
             logger.error(f"Game loop error: {e}", exc_info=True)
             raise
-        finally:
-            # Cleanup stream reference (Phase 46)
-            self.gameplay_stream = None
+        # Note: Don't set gameplay_stream = None here - it's needed by _end_game_impl
+        # for sending winner effects. Stream cleanup happens after teardown phase.
 
     async def _process_controller_state(self, controller_state):
         """
@@ -962,6 +961,9 @@ class BaseGameMode(ABC):
             # Phase 6: Teardown
             with tracer.start_as_current_span("teardown_phase"):
                 await self._end_game_impl()
+
+                # Cleanup stream reference after winner effects are sent
+                self.gameplay_stream = None
 
                 # Clear all analytics metrics so dashboards show no data when game is over
                 metrics.clear_all_player_analytics()

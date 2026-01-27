@@ -89,12 +89,17 @@ def init_telemetry(
     return trace.get_tracer(resolved_service_name)
 
 
-def inject_trace_context() -> tuple[str, str]:
+def inject_trace_context(span: trace.Span | None = None) -> tuple[str, str]:
     """
-    Get current trace context as W3C traceparent/tracestate strings.
+    Get trace context as W3C traceparent/tracestate strings.
 
-    Extracts the current span's trace context and serializes it for
-    propagation across service boundaries (e.g., via gRPC messages).
+    Extracts trace context and serializes it for propagation across
+    service boundaries (e.g., via gRPC messages).
+
+    Args:
+        span: Optional span to get context from. If None, uses current active span.
+              Use this to create child spans under a specific parent (e.g., player
+              lifecycle span) rather than the current active span.
 
     Returns:
         Tuple of (trace_parent, trace_state) strings.
@@ -102,7 +107,14 @@ def inject_trace_context() -> tuple[str, str]:
     """
     carrier: dict[str, str] = {}
     propagator = get_global_textmap()
-    propagator.inject(carrier)
+
+    if span is not None:
+        # Create a context with the specified span and inject from it
+        ctx = trace.set_span_in_context(span)
+        propagator.inject(carrier, context=ctx)
+    else:
+        # Use current active context
+        propagator.inject(carrier)
 
     return carrier.get("traceparent", ""), carrier.get("tracestate", "")
 

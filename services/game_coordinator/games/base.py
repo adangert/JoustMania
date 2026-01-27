@@ -797,8 +797,9 @@ class BaseGameMode(ABC):
         logger.info(f"Player {serial} triggered warning (accel: {accel_mag:.2f}, threshold: {threshold:.2f})")
 
         # Send warning effect via stream (white flash + vibrate, auto-restore)
+        # Use player's span as parent so effect appears under player_lifecycle in traces
         if self.gameplay_stream:
-            trace_parent, trace_state = inject_trace_context()
+            trace_parent, trace_state = inject_trace_context(player.span)
             effect_cmd = controller_manager_pb2.GameplayStreamControl(
                 game_effect=controller_manager_pb2.GameEffectCommand(
                     serial=serial,
@@ -852,11 +853,12 @@ class BaseGameMode(ABC):
         # Call subclass-specific death handling
         await self._kill_player_impl(serial, accel_mag)
 
-        # Phase XX: Send death effect via stream (red + vibrate, no restore)
+        # Send death effect via stream (red + vibrate, no restore)
+        # Use player's span as parent so effect appears under player_lifecycle in traces
         from proto import controller_manager_pb2
 
         if self.gameplay_stream:
-            trace_parent, trace_state = inject_trace_context()
+            trace_parent, trace_state = inject_trace_context(player.span)
             effect_cmd = controller_manager_pb2.GameplayStreamControl(
                 game_effect=controller_manager_pb2.GameEffectCommand(
                     serial=serial,
@@ -903,11 +905,9 @@ class BaseGameMode(ABC):
         Main entry point to run the game (Template Method).
 
         Orchestrates all game phases with consistent span hierarchy:
-        1. initialization_phase
-        2. Additional phases (e.g., team_formation)
-        3. countdown_phase
-        4. gameplay_phase
-        5. teardown_phase
+        1. initialization_phase (contains color_assignment, countdown_phase)
+        2. gameplay_phase
+        3. teardown_phase
 
         Phase spans are automatically children of the current game span.
         """
@@ -917,7 +917,7 @@ class BaseGameMode(ABC):
             self.running = True  # Set early to allow force_end during countdown
             self.event_publisher(GameEvent.GAME_STARTING, {"game_id": self.game_id})
 
-            # Phase 1: Initialization
+            # Phase 1: Initialization (includes all pre-gameplay setup)
             with tracer.start_as_current_span("initialization_phase") as init_span:
                 init_span.set_attribute("game.id", self.game_id)
                 init_span.set_attribute("game.mode", self.get_game_name())
@@ -934,28 +934,28 @@ class BaseGameMode(ABC):
 
                 init_span.set_attribute("player_count", len(self.players))
 
-            # Phase 2+: Additional phases (e.g., team_formation for Random Teams)
-            for phase in self._get_additional_phases():
-                with tracer.start_as_current_span(phase.name):
-                    await phase.execute()
+                # Additional phases (e.g., color_assignment, team_formation)
+                # These are children of initialization_phase
+                for phase in self._get_additional_phases():
+                    with tracer.start_as_current_span(phase.name):
+                        await phase.execute()
 
-            # Start gameplay stream before countdown (needed for countdown effects)
-            # EMA will be primed with first readings in game loop
-            await self._start_gameplay_stream()
+                # Start gameplay stream before countdown (needed for countdown effects)
+                await self._start_gameplay_stream()
 
-            # Phase 3: Countdown (uses game effects via stream)
-            with tracer.start_as_current_span("countdown_phase"):
-                await self._countdown()
+                # Countdown phase (child of initialization_phase)
+                with tracer.start_as_current_span("countdown_phase"):
+                    await self._countdown()
 
-            # Phase 4: Game starts
+                # Start game music (after countdown, still part of initialization)
+                await self._start_game_music()
+
+            # Game starts
             self.state = GameState.RUNNING
             # Note: self.start_time is set in _game_loop when first data is received
             self.event_publisher(GameEvent.GAME_STARTED, {"game_id": self.game_id, "player_count": len(self.players)})
 
-            # Phase 70: Start game music
-            await self._start_game_music()
-
-            # Phase 5: Gameplay (with music loop running alongside)
+            # Phase 2: Gameplay (with music loop running alongside)
             with tracer.start_as_current_span("gameplay_phase") as gameplay_span:
                 # Store span reference and context for background tasks
                 self.gameplay_span = gameplay_span
@@ -977,11 +977,11 @@ class BaseGameMode(ABC):
                     # This ensures player spans are children of gameplay_phase, not teardown
                     self._close_all_player_spans()
 
-            # Phase 70: Stop game music
-            await self._stop_game_music()
-
-            # Phase 6: Teardown
+            # Phase 3: Teardown
             with tracer.start_as_current_span("teardown_phase"):
+                # Stop game music first (inside teardown_phase so StopMusic span is a child)
+                await self._stop_game_music()
+
                 await self._end_game_impl()
 
                 # Cleanup stream reference after winner effects are sent

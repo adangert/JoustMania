@@ -35,6 +35,6 @@ ENV SERVER_COMPRESSION=true
 
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
+# Health check (optimized: 5s interval, 3s start-period for faster startup)
+HEALTHCHECK --interval=5s --timeout=5s --start-period=3s --retries=3 \
     CMD wget -q -O /dev/null http://localhost:8080/ || exit 1

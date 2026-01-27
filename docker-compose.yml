@@ -237,6 +237,11 @@ services:
       - MOCK_MODE=${AUDIO_MOCK_MODE:-false}
       - OTEL_SERVICE_NAME=audio-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on:
+      redis:
+        condition: service_healthy
+      settings:
+        condition: service_healthy
     networks:
       - joustmania
     restart: unless-stopped
@@ -402,10 +407,10 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/health"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
-      start_period: 5s
+      retries: 3
+      start_period: 3s
 
   # Dashboard (Real-time controller visualization SPA)
   dashboard:

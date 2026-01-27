@@ -60,8 +60,8 @@ async def serve(metrics_port=8000):
     # Set the event loop for async operations (tempo transitions)
     audio_servicer.audio_manager.set_event_loop(asyncio.get_running_loop())
 
-    # Load audio enabled setting from settings service
-    await audio_servicer._load_audio_setting()
+    # Note: Audio settings are loaded lazily on first PlaySound/PlayMusic call
+    # This avoids blocking startup waiting for settings service
 
     # Add health checking service
     health_servicer = health.aio.HealthServicer()

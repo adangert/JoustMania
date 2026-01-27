@@ -355,8 +355,9 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
     def __init__(self):
         """Initialize audio servicer."""
         self.audio_manager = AudioManager()
-        self.audio_enabled = True  # Controlled by play_audio setting
+        self.audio_enabled = True  # Controlled by play_audio setting (default: enabled)
         self.menu_voice = "ivy"  # Controlled by menu_voice setting
+        self._settings_loaded = False  # Lazy load settings on first audio request
         self.sound_registry: dict[str, tuple[str, str]] = {}  # sound_name -> (type, base_dir)
         self._build_sound_registry()
         logger.info("AudioServiceServicer initialized")
@@ -449,6 +450,9 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
 
     async def _load_audio_setting(self):
         """Load audio settings from settings service."""
+        if self._settings_loaded:
+            return  # Already loaded
+
         try:
             from lib.grpc_utils import create_channel
             from proto import settings_pb2, settings_pb2_grpc
@@ -473,11 +477,17 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
                 except Exception as voice_err:
                     logger.debug(f"Could not load menu_voice setting: {voice_err}, using default: ivy")
 
+            self._settings_loaded = True
         except Exception as e:
             logger.debug(f"Could not load audio settings: {e}, using defaults")
+            # Mark as loaded even on failure to avoid repeated attempts
+            self._settings_loaded = True
 
     async def PlaySound(self, request, context):  # noqa: N802, ARG002
         """Play a sound effect."""
+        # Lazy load settings on first audio request (avoids blocking startup)
+        await self._load_audio_setting()
+
         # Resolve sound name/path to full path with voice selection
         resolved_path = self._resolve_sound_path(request.file_path)
 
@@ -500,6 +510,9 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
 
     async def PlayMusic(self, request, context):  # noqa: N802, ARG002
         """Play background music."""
+        # Lazy load settings on first audio request (avoids blocking startup)
+        await self._load_audio_setting()
+
         # Extract music directory for span (e.g., "Joust" from "Joust/music/*.wav")
         music_dir = request.file_pattern.split("/")[0] if "/" in request.file_pattern else "music"
 

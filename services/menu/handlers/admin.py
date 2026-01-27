@@ -105,6 +105,10 @@ class AdminModeHandler:
         # Background tasks (to prevent garbage collection)
         self._pending_tasks: set[asyncio.Task] = set()
 
+        # Timeout task for auto-exit after 60 seconds
+        self._timeout_task: asyncio.Task | None = None
+        self._timeout_seconds = 60
+
     # ControllerHandler protocol methods
 
     @property
@@ -329,6 +333,26 @@ class AdminModeHandler:
             else:
                 logger.warning(f"Failed to signal admin mode entry for {serial} - stream not available")
 
+            # Start timeout task to auto-exit after 60 seconds
+            self._start_timeout_task(serial)
+
+    def _start_timeout_task(self, serial: str) -> None:
+        """Start background task to auto-exit admin mode after timeout."""
+        # Cancel existing timeout task if any
+        if self._timeout_task and not self._timeout_task.done():
+            self._timeout_task.cancel()
+
+        async def timeout_exit():
+            try:
+                await asyncio.sleep(self._timeout_seconds)
+                if self.active and self.controller_serial == serial:
+                    logger.info(f"Admin mode auto-exit after {self._timeout_seconds}s timeout")
+                    await self._exit_to_connected(serial)
+            except asyncio.CancelledError:
+                pass  # Normal cancellation when exiting early
+
+        self._timeout_task = asyncio.create_task(timeout_exit())
+
     async def exit(self) -> None:
         """
         Exit admin mode and restore lobby color.
@@ -337,6 +361,11 @@ class AdminModeHandler:
         """
         if not self.active:
             return
+
+        # Cancel timeout task
+        if self._timeout_task and not self._timeout_task.done():
+            self._timeout_task.cancel()
+            self._timeout_task = None
 
         from proto import controller_manager_pb2
 
@@ -987,6 +1016,12 @@ class AdminModeHandler:
         """
         if self.active and serial == self.controller_serial:
             logger.info(f"Admin controller {serial} disconnected, resetting admin mode")
+
+            # Cancel timeout task
+            if self._timeout_task and not self._timeout_task.done():
+                self._timeout_task.cancel()
+                self._timeout_task = None
+
             self.active = False
             self.controller_serial = None
             self.entry_time = 0

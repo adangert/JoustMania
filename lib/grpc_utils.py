@@ -6,6 +6,9 @@ code duplication across services.
 
 Phase 80: Added tracing interceptors for distributed trace propagation
 across async gRPC calls.
+
+Phase XX: Made compression conditional - disabled for local connections
+to reduce CPU overhead when bandwidth is not a concern.
 """
 
 from typing import Any
@@ -13,7 +16,36 @@ from typing import Any
 import grpc
 
 
-def get_optimized_channel_options() -> list[tuple[str, any]]:
+def is_local_address(address: str) -> bool:
+    """
+    Check if an address refers to a local/same-machine connection.
+
+    Args:
+        address: Target address in format "host:port"
+
+    Returns:
+        True if the address is localhost, 127.x.x.x, or unix socket
+    """
+    if not address:
+        return False
+
+    # Extract host part (handle "host:port" format)
+    host = address.split(":")[0].lower()
+
+    # Unix sockets are always local
+    if address.startswith("unix:"):
+        return True
+
+    # Common localhost patterns
+    local_hosts = {"localhost", "127.0.0.1", "::1", "[::1]"}
+    if host in local_hosts:
+        return True
+
+    # 127.x.x.x range
+    return host.startswith("127.")
+
+
+def get_optimized_channel_options(enable_compression: bool = True) -> list[tuple[str, any]]:
     """
     Get standard gRPC channel options for JoustMania services (client-side).
 
@@ -21,12 +53,16 @@ def get_optimized_channel_options() -> list[tuple[str, any]]:
     - Connection keepalive (30s ping, 5s timeout)
     - Fast reconnection (1s initial backoff, 5s max)
     - Large message support (10MB max)
-    - Compression (Gzip)
+    - Compression (Gzip) - optional, disabled for local connections
+
+    Args:
+        enable_compression: Whether to enable Gzip compression (default True).
+                          Set to False for local connections to reduce CPU overhead.
 
     Returns:
         List of (option_name, value) tuples for gRPC channel configuration
     """
-    return [
+    options = [
         # Keepalive settings (Phase 26 - Network Improvements)
         ("grpc.keepalive_time_ms", 30000),  # Send keepalive ping every 30s
         ("grpc.keepalive_timeout_ms", 5000),  # Wait 5s for keepalive ack
@@ -38,10 +74,18 @@ def get_optimized_channel_options() -> list[tuple[str, any]]:
         # Message size limits
         ("grpc.max_receive_message_length", 10 * 1024 * 1024),  # 10MB receive
         ("grpc.max_send_message_length", 10 * 1024 * 1024),  # 10MB send
-        # Compression (Phase 26 - Performance)
-        ("grpc.default_compression_algorithm", grpc.Compression.Gzip),
-        ("grpc.grpc.default_compression_level", grpc.Compression.Gzip),
     ]
+
+    # Only add compression for non-local connections
+    if enable_compression:
+        options.extend(
+            [
+                ("grpc.default_compression_algorithm", grpc.Compression.Gzip),
+                ("grpc.grpc.default_compression_level", grpc.Compression.Gzip),
+            ]
+        )
+
+    return options
 
 
 def get_server_options() -> list[tuple[str, any]]:
@@ -73,6 +117,7 @@ def create_channel(
     address: str,
     options: list[tuple[str, Any]] | None = None,
     enable_tracing: bool = True,
+    enable_compression: bool | None = None,
     **kwargs,
 ) -> grpc.aio.Channel:
     """
@@ -84,6 +129,9 @@ def create_channel(
         enable_tracing: Whether to add OpenTelemetry tracing interceptors (default: True).
                        When enabled, all RPC calls through this channel will create
                        spans and propagate trace context to downstream services.
+        enable_compression: Whether to enable Gzip compression (default: auto-detect).
+                           When None, compression is automatically disabled for local
+                           addresses (localhost, 127.x.x.x) to reduce CPU overhead.
         **kwargs: Additional arguments passed to grpc.aio.insecure_channel
 
     Returns:
@@ -92,10 +140,13 @@ def create_channel(
     Example:
         >>> channel = create_channel("localhost:50051")
         >>> stub = MyServiceStub(channel)
-        >>> # All calls through stub will now be traced
+        >>> # All calls through stub will now be traced (compression auto-disabled for localhost)
     """
     if options is None:
-        options = get_optimized_channel_options()
+        # Auto-detect compression setting based on address if not explicitly specified
+        if enable_compression is None:
+            enable_compression = not is_local_address(address)
+        options = get_optimized_channel_options(enable_compression=enable_compression)
 
     if enable_tracing:
         from lib.grpc_tracing import get_tracing_interceptors

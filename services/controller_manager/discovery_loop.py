@@ -117,6 +117,11 @@ class DiscoveryLoop:
         self._idle_poll_interval = 0.100  # ~10Hz
         self._accel_movement_threshold = 0.05
 
+        # Gameplay mode: when > 0, disable adaptive polling (all controllers at 60Hz)
+        # This counter is incremented by StreamGameplayData and decremented on disconnect
+        self._gameplay_stream_count = 0
+        self._gameplay_stream_lock = threading.Lock()
+
         # Debug logging throttle
         self._last_controller_count_log = 0.0
 
@@ -127,6 +132,23 @@ class DiscoveryLoop:
         """Start the discovery thread."""
         self._thread.start()
         logger.info("Discovery loop started")
+
+    def enter_gameplay_mode(self) -> None:
+        """Enter gameplay mode - disables adaptive polling for consistent 60Hz."""
+        with self._gameplay_stream_lock:
+            self._gameplay_stream_count += 1
+            logger.info(f"Gameplay mode entered (active streams: {self._gameplay_stream_count})")
+
+    def exit_gameplay_mode(self) -> None:
+        """Exit gameplay mode - re-enables adaptive polling if no streams remain."""
+        with self._gameplay_stream_lock:
+            self._gameplay_stream_count = max(0, self._gameplay_stream_count - 1)
+            logger.info(f"Gameplay mode exited (active streams: {self._gameplay_stream_count})")
+
+    def is_gameplay_mode(self) -> bool:
+        """Check if gameplay mode is active (any gameplay streams running)."""
+        with self._gameplay_stream_lock:
+            return self._gameplay_stream_count > 0
 
     def stop(self) -> None:
         """Stop the discovery loop."""
@@ -319,7 +341,11 @@ class DiscoveryLoop:
 
             current_time = time.time()
 
+            # Check if gameplay mode is active (disables adaptive polling)
+            gameplay_mode = self.is_gameplay_mode()
+
             # Adaptive polling: Determine which controllers need polling this cycle
+            # When in gameplay mode, all controllers poll at active rate (60Hz)
             serials_to_poll = []
             active_count = 0
             idle_count = 0
@@ -330,12 +356,13 @@ class DiscoveryLoop:
                 last_poll = self._last_poll_time.get(serial, 0)
                 is_idle = (current_time - last_activity) > self._idle_threshold_seconds
 
-                if is_idle:
-                    idle_count += 1
-                    poll_interval = self._idle_poll_interval
-                else:
+                # In gameplay mode, treat all controllers as active
+                if gameplay_mode or not is_idle:
                     active_count += 1
                     poll_interval = self._active_poll_interval
+                else:
+                    idle_count += 1
+                    poll_interval = self._idle_poll_interval
 
                 # Check if enough time has passed since last poll
                 if (current_time - last_poll) >= poll_interval:

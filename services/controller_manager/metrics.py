@@ -175,3 +175,9 @@ led_controllers_updated_per_batch = Histogram(
     "Number of controllers with LEDs updated per batch cycle",
     buckets=[0, 1, 2, 4, 8, 12, 16, 20, 24],
 )
+
+# Stream timing metrics (jitter optimization)
+stream_frame_overruns_total = Counter(
+    "controller_stream_frame_overruns_total",
+    "Total number of stream frames that took longer than target interval",
+)

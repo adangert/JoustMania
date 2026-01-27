@@ -173,7 +173,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         span.set_attribute("subscriber.id", subscriber_id)
 
         # Create queue for this subscriber (Phase 34: asyncio.Queue)
-        event_queue = asyncio.Queue(maxsize=100)
+        # Increased from 100 to 500 to prevent event drops with many controllers
+        event_queue = asyncio.Queue(maxsize=500)
 
         async with self.button_event_lock:  # Phase 34: async lock
             self.button_event_subscribers[subscriber_id] = event_queue
@@ -346,6 +347,9 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         # Update stream metrics
         metrics.active_streams.inc()
 
+        # Enter gameplay mode to disable adaptive polling (ensures consistent 60Hz)
+        self.discovery_loop.enter_gameplay_mode()
+
         # Stream state (updated by client messages)
         current_hz = 30  # Default Hz
         current_filter = None  # None = all controllers
@@ -479,7 +483,10 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         logger.info(f"New gameplay subscriber: {subscriber_id}")
 
         try:
-            # Stream gameplay data
+            # Stream gameplay data with consistent frame timing
+            # Uses monotonic clock to account for processing time, reducing jitter
+            next_frame_time = time.monotonic()
+
             while not context.cancelled():
                 try:
                     # Calculate interval from current Hz
@@ -521,7 +528,18 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                         # Track number of controllers streamed per frame (Phase 45)
                         metrics.streamed_controllers.observe(len(gameplay_data))
 
-                    await asyncio.sleep(interval)
+                    # Fixed frame timing: sleep until next scheduled frame time
+                    # This accounts for processing time to maintain consistent frame rate
+                    next_frame_time += interval
+                    sleep_time = next_frame_time - time.monotonic()
+
+                    # If we're behind schedule, reset timing (prevents spiral of catch-up)
+                    if sleep_time < 0:
+                        next_frame_time = time.monotonic() + interval
+                        sleep_time = interval
+                        metrics.stream_frame_overruns_total.inc()
+
+                    await asyncio.sleep(sleep_time)
 
                 except Exception as e:
                     logger.error(f"[{subscriber_id}] Gameplay stream error: {e}", exc_info=True)
@@ -535,6 +553,9 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             update_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await update_task
+
+            # Exit gameplay mode to re-enable adaptive polling
+            self.discovery_loop.exit_gameplay_mode()
 
             # Update stream metrics
             metrics.active_streams.dec()

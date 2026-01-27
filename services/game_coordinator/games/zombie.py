@@ -498,11 +498,8 @@ class ZombieGame(BaseGameMode):
         else:
             await self._play_sound(Sound.VOX_ZOMBIE_VICTORY, priority=2)
 
-        # Wait for celebration
-        for _ in range(20):  # 2 seconds
-            if not self.running:
-                break
-            await asyncio.sleep(0.1)
+        # Wait for rainbow effect to complete
+        await self._wait_for_rainbow_effect()
 
         # End all player spans
         for serial, player in self.players.items():

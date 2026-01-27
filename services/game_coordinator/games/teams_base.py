@@ -429,12 +429,8 @@ class TeamsGameBase(BaseGameMode):
                 sound = TEAM_WIN_SOUNDS.get(winning_team.name, Sound.VOX_CONGRATULATIONS)
                 await self._play_sound(sound, priority=2)
 
-        # Show winner for a bit (interruptible by force_end)
-        for _ in range(20):  # 2 seconds in 0.1s increments
-            if not self.running:
-                logger.info("End game interrupted by force_end")
-                break
-            await asyncio.sleep(0.1)
+        # Wait for rainbow effect to complete
+        await self._wait_for_rainbow_effect()
 
         # End spans for surviving players AFTER the celebration
         # This ensures winners' spans are longer than losers'

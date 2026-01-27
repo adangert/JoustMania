@@ -7,7 +7,6 @@ async/await patterns, proper state machine, and event publishing.
 Phase 36b: Refactored to extend BaseGameMode, eliminating ~550 lines of duplicate code.
 """
 
-import asyncio
 import logging
 import time
 
@@ -220,9 +219,11 @@ class FFAGame(BaseGameMode):
         # Find winner (if any)
         alive_players = [p for p in self.players.values() if p.alive]
         winner_serial = alive_players[0].serial if len(alive_players) == 1 else None
+        logger.info(f"End game: winner_serial={winner_serial}, gameplay_stream={self.gameplay_stream is not None}")
 
         # Show rainbow effect on winner's controller and play victory sound
         if winner_serial and self.gameplay_stream:
+            logger.info(f"Sending WINNER_RAINBOW effect for {winner_serial}")
             trace_parent, trace_state = inject_trace_context()
             effect_cmd = controller_manager_pb2.GameplayStreamControl(
                 game_effect=controller_manager_pb2.GameEffectCommand(
@@ -233,14 +234,16 @@ class FFAGame(BaseGameMode):
                 )
             )
             await self.gameplay_stream.write(effect_cmd)
+            logger.info(f"WINNER_RAINBOW effect sent for {winner_serial}")
             await self._play_sound(Sound.VOX_CONGRATULATIONS, priority=2)
+        else:
+            logger.warning(
+                f"Skipping rainbow effect: winner_serial={winner_serial}, "
+                f"stream_valid={self.gameplay_stream is not None}"
+            )
 
-        # Show winner for a bit (interruptible by force_end)
-        for _ in range(20):  # 2 seconds in 0.1s increments
-            if not self.running:
-                logger.info("End game interrupted by force_end")
-                break
-            await asyncio.sleep(0.1)
+        # Wait for rainbow effect to complete
+        await self._wait_for_rainbow_effect()
 
         # Note: Player spans are already closed by _close_all_player_spans()
         # at the end of gameplay_phase (before teardown_phase starts)

@@ -867,6 +867,28 @@ class BaseGameMode(ABC):
             )
             await self.gameplay_stream.write(effect_cmd)
 
+    async def _wait_for_rainbow_effect(self) -> bool:
+        """
+        Wait for the winner rainbow effect to complete.
+
+        Uses runtime config for duration. Interruptible by force_end.
+
+        Returns:
+            True if wait completed normally, False if interrupted
+        """
+        config = get_config_manager().get_config()
+        rainbow_duration_s = config.winner_rainbow_duration_ms / 1000.0
+        iterations = int(rainbow_duration_s * 10)  # 0.1s increments
+
+        logger.debug(f"Waiting {rainbow_duration_s}s for rainbow effect")
+        for i in range(iterations):
+            if not self.running:
+                logger.info(f"Rainbow wait interrupted at {i * 0.1:.1f}s/{rainbow_duration_s}s")
+                return False
+            await asyncio.sleep(0.1)
+
+        return True
+
     def force_end(self):
         """Force the game to end (called externally)."""
         logger.info("Force ending game...")

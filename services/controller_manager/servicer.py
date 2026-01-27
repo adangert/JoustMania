@@ -240,6 +240,12 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             # Only set LED immediately if no effect is running
                             if serial not in self.feedback_manager.active_effects:
                                 await self.feedback_manager.set_controller_color(serial, color)
+                                logger.info(f"[ButtonStream] Applied base color for {serial}: {color}")
+                            else:
+                                effect_type = self.feedback_manager.active_effect_types.get(serial, "unknown")
+                                logger.warning(
+                                    f"[ButtonStream] Base color for {serial} blocked by active effect: {effect_type}"
+                                )
 
                             logger.debug(f"[{subscriber_id}] Base color set: serial={serial}, rgb={color}")
 
@@ -428,6 +434,12 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             # Only set LED immediately if no effect is running
                             if serial not in self.feedback_manager.active_effects:
                                 await self.feedback_manager.set_controller_color(serial, color)
+                                logger.info(f"[GameplayStream] Applied base color for {serial}: {color}")
+                            else:
+                                effect_type = self.feedback_manager.active_effect_types.get(serial, "unknown")
+                                logger.warning(
+                                    f"[GameplayStream] Base color for {serial} blocked by active effect: {effect_type}"
+                                )
 
                             logger.debug(f"[{subscriber_id}] Base color set: serial={serial}, rgb={color}")
 

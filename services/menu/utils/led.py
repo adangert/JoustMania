@@ -63,6 +63,10 @@ class LedController:
             queue: asyncio.Queue for outbound stream messages, or None to disable
             lock: Lock for thread-safe queue access (uses internal lock if not provided)
         """
+        if queue is None:
+            logger.info("LED stream disconnected")
+        else:
+            logger.info("LED stream connected")
         self._stream_queue = queue
         if lock is not None:
             self._stream_lock = lock
@@ -111,6 +115,7 @@ class LedController:
 
         async with self._stream_lock:
             if self._stream_queue is None:
+                logger.warning(f"Cannot send base color for {serial}: stream not connected")
                 return False
 
             try:
@@ -152,6 +157,7 @@ class LedController:
 
         async with self._stream_lock:
             if self._stream_queue is None:
+                logger.warning(f"Cannot send game effect for {serial}: stream not connected")
                 return False
 
             try:

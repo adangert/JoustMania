@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 import contextlib
 
 from lib.controller_constants import ControllerInfoKey
-from lib.telemetry import init_telemetry
+from lib.telemetry import get_tracer
 from proto import controller_manager_pb2, controller_manager_pb2_grpc
 from services.controller_manager import metrics
 
@@ -38,9 +38,8 @@ from services.controller_manager.state_cache import StateCache
 
 logger = logging.getLogger(__name__)
 
-
-# Initialize OpenTelemetry
-tracer = init_telemetry()
+# Lazy telemetry initialization - defers OTLP setup until first span
+tracer = get_tracer(__name__)
 
 
 class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerServiceServicer, ControllerEffectsBase):

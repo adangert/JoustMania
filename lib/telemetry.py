@@ -5,22 +5,24 @@ Provides consistent telemetry setup across all services with:
 - OTLP trace exporting
 - Standard resource attributes
 - Span attribute constants
+- Lazy initialization for faster service startup
 
 Usage:
-    from lib.telemetry import init_telemetry, SpanAttr
+    from lib.telemetry import get_tracer, SpanAttr
 
-    # Basic usage (uses OTEL_SERVICE_NAME env var)
-    tracer = init_telemetry()
-
-    # With explicit service name
-    tracer = init_telemetry(service_name="my-service")
+    # Lazy initialization - defers setup until first span is created
+    tracer = get_tracer(__name__)
 
     # Use span attribute constants
     span.set_attribute(SpanAttr.CONTROLLER_SERIAL, serial)
+
+    # Legacy usage (still works, but prefer get_tracer for lazy init)
+    tracer = init_telemetry(service_name="my-service")
 """
 
 import logging
 import os
+import threading
 
 from opentelemetry import context as otel_context
 from opentelemetry import trace
@@ -31,6 +33,10 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 logger = logging.getLogger(__name__)
+
+# Lazy initialization state
+_initialized = False
+_init_lock = threading.Lock()
 
 
 class SpanAttr:
@@ -50,12 +56,73 @@ class SpanAttr:
     VALIDATION_REASON = "validation.reason"
 
 
+def _do_init(service_name: str, version: str) -> None:
+    """Perform actual OpenTelemetry initialization (internal)."""
+    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
+
+    resource = Resource(
+        attributes={
+            SERVICE_NAME: service_name,
+            SERVICE_VERSION: version,
+            "service.namespace": "joustmania",
+        }
+    )
+
+    provider = TracerProvider(resource=resource)
+    otlp_exporter = OTLPSpanExporter(endpoint=otlp_endpoint, insecure=True)
+    provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
+    trace.set_tracer_provider(provider)
+
+    logger.info(f"OpenTelemetry initialized: {service_name} -> {otlp_endpoint}")
+
+
+def _ensure_initialized() -> None:
+    """Ensure OpenTelemetry is initialized (lazy, thread-safe, idempotent)."""
+    global _initialized
+    if _initialized:
+        return
+
+    with _init_lock:
+        # Double-check after acquiring lock
+        if _initialized:
+            return
+
+        service_name = os.getenv("OTEL_SERVICE_NAME", "unknown-service")
+        _do_init(service_name, "1.0.0")
+        _initialized = True
+
+
+def get_tracer(name: str | None = None) -> trace.Tracer:
+    """
+    Get a tracer with lazy initialization.
+
+    This is the preferred way to get a tracer. Initialization is deferred
+    until the first call, avoiding startup delays from OTLP connection setup.
+
+    Args:
+        name: Tracer name (typically __name__). Defaults to service name.
+
+    Returns:
+        Configured tracer instance for creating spans.
+
+    Example:
+        tracer = get_tracer(__name__)
+        with tracer.start_as_current_span("my-operation"):
+            ...
+    """
+    _ensure_initialized()
+    return trace.get_tracer(name or os.getenv("OTEL_SERVICE_NAME", "unknown-service"))
+
+
 def init_telemetry(
     service_name: str | None = None,
     version: str = "1.0.0",
 ) -> trace.Tracer:
     """
-    Initialize OpenTelemetry with OTLP exporter.
+    Initialize OpenTelemetry with OTLP exporter (legacy API).
+
+    Note: Prefer get_tracer() for lazy initialization. This function is
+    kept for backward compatibility but now performs lazy initialization.
 
     Args:
         service_name: Service name for traces. Defaults to OTEL_SERVICE_NAME env var,
@@ -69,23 +136,15 @@ def init_telemetry(
         OTEL_EXPORTER_OTLP_ENDPOINT: OTLP collector endpoint (default: http://localhost:4317)
         OTEL_SERVICE_NAME: Default service name if not provided as argument
     """
-    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
+    global _initialized
+
     resolved_service_name = service_name or os.getenv("OTEL_SERVICE_NAME", "unknown-service")
 
-    resource = Resource(
-        attributes={
-            SERVICE_NAME: resolved_service_name,
-            SERVICE_VERSION: version,
-            "service.namespace": "joustmania",
-        }
-    )
+    with _init_lock:
+        if not _initialized:
+            _do_init(resolved_service_name, version)
+            _initialized = True
 
-    provider = TracerProvider(resource=resource)
-    otlp_exporter = OTLPSpanExporter(endpoint=otlp_endpoint, insecure=True)
-    provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
-    trace.set_tracer_provider(provider)
-
-    logger.info(f"OpenTelemetry initialized: {resolved_service_name} -> {otlp_endpoint}")
     return trace.get_tracer(resolved_service_name)
 
 

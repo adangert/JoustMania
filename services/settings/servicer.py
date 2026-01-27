@@ -18,14 +18,14 @@ from typing import Any
 import yaml
 from opentelemetry import trace
 
-from lib.telemetry import SpanAttr, init_telemetry
+from lib.telemetry import SpanAttr, get_tracer
 from lib.types import Games, Sensitivity
 from proto import settings_pb2, settings_pb2_grpc
 
 logger = logging.getLogger(__name__)
 
-# Initialize OpenTelemetry
-tracer = init_telemetry()
+# Lazy telemetry initialization - defers OTLP setup until first span
+tracer = get_tracer(__name__)
 
 # Settings schema with validation rules
 SETTINGS_SCHEMA = {

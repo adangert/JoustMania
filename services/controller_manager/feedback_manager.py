@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 from opentelemetry.context import Context
 
 from lib.colors import Colors
-from lib.telemetry import extract_trace_context, init_telemetry
+from lib.telemetry import extract_trace_context, get_tracer
 from proto import controller_manager_pb2
 from services.controller_manager import metrics
 from services.controller_manager.effects_base import ControllerEffectsBase
@@ -28,8 +28,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Initialize tracer for distributed tracing
-tracer = init_telemetry()
+# Lazy telemetry initialization - defers OTLP setup until first span
+tracer = get_tracer(__name__)
 
 
 def get_winner_rainbow_duration_ms() -> int:

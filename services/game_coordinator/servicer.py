@@ -16,7 +16,7 @@ import time
 from opentelemetry import trace
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
-from lib.telemetry import init_telemetry
+from lib.telemetry import get_tracer
 from lib.types import GameEvent, get_game_display_name
 from proto import game_coordinator_pb2, game_coordinator_pb2_grpc
 from services.game_coordinator import metrics
@@ -26,8 +26,8 @@ from services.game_coordinator.grpc_clients import GrpcClientManager
 
 logger = logging.getLogger(__name__)
 
-# Initialize OpenTelemetry
-tracer = init_telemetry()
+# Lazy telemetry initialization - defers OTLP setup until first span
+tracer = get_tracer(__name__)
 
 
 class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceServicer):

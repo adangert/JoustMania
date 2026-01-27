@@ -14,12 +14,14 @@ from pathlib import Path
 
 import miniaudio
 
-from lib.telemetry import init_telemetry
+from lib.telemetry import get_tracer
 from proto import audio_pb2, audio_pb2_grpc
 from services.audio.music_player import DummyMusicPlayer, MusicPlayer
 
 logger = logging.getLogger(__name__)
-tracer = init_telemetry()
+
+# Lazy telemetry initialization - defers OTLP setup until first span
+tracer = get_tracer(__name__)
 
 
 class SoundChannel:

@@ -144,7 +144,7 @@ class TestDiscoveryLoopInit:
 
     def test_init_sets_running_true(self):
         """DiscoveryLoop should start with running=True."""
-        with patch("services.controller_manager.discovery_loop.init_telemetry"):
+        with patch("services.controller_manager.discovery_loop.get_tracer"):
             from services.controller_manager.discovery_loop import DiscoveryLoop
 
             loop = DiscoveryLoop(
@@ -166,7 +166,7 @@ class TestDiscoveryLoopInit:
 
     def test_init_backend_not_initialized(self):
         """Backend should not be initialized until start()."""
-        with patch("services.controller_manager.discovery_loop.init_telemetry"):
+        with patch("services.controller_manager.discovery_loop.get_tracer"):
             from services.controller_manager.discovery_loop import DiscoveryLoop
 
             loop = DiscoveryLoop(
@@ -192,7 +192,7 @@ class TestDiscoveryLoopStop:
 
     def test_stop_sets_running_false(self):
         """stop() should set running to False."""
-        with patch("services.controller_manager.discovery_loop.init_telemetry"):
+        with patch("services.controller_manager.discovery_loop.get_tracer"):
             from services.controller_manager.discovery_loop import DiscoveryLoop
 
             loop = DiscoveryLoop(
@@ -459,7 +459,7 @@ class TestRunCoroutine:
 
     def test_run_coroutine_without_init_raises(self):
         """run_coroutine should raise if loop not initialized."""
-        with patch("services.controller_manager.discovery_loop.init_telemetry"):
+        with patch("services.controller_manager.discovery_loop.get_tracer"):
             from services.controller_manager.discovery_loop import DiscoveryLoop
 
             loop = DiscoveryLoop(

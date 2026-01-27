@@ -32,6 +32,7 @@ sys.modules["opentelemetry.sdk.resources"] = MagicMock()
 # Mock lib.telemetry to return our mock tracer
 mock_telemetry = MagicMock()
 mock_telemetry.init_telemetry = MagicMock(return_value=mock_tracer)
+mock_telemetry.get_tracer = MagicMock(return_value=mock_tracer)
 sys.modules["lib.telemetry"] = mock_telemetry
 
 from lib.controller_constants import AxisKey, ButtonKey, StateKey  # noqa: E402

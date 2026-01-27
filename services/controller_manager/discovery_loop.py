@@ -25,7 +25,7 @@ from lib.controller_constants import (
     ControllerInfoKey,
     StateKey,
 )
-from lib.telemetry import SpanAttr, init_telemetry
+from lib.telemetry import SpanAttr, get_tracer
 from services.controller_manager import metrics
 
 if TYPE_CHECKING:
@@ -40,8 +40,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Initialize OpenTelemetry
-tracer = init_telemetry()
+# Lazy telemetry initialization - defers OTLP setup until first span
+tracer = get_tracer(__name__)
 
 
 class DiscoveryLoop:

@@ -9,7 +9,7 @@ from opentelemetry import context as otel_context
 from opentelemetry import trace
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
-from lib.telemetry import init_telemetry
+from lib.telemetry import get_tracer
 from proto import menu_pb2, menu_pb2_grpc
 from services.menu import metrics
 from services.menu.controller_events import ControllerEventLoop
@@ -22,8 +22,8 @@ from services.menu.utils.settings import GAME_MODES
 
 logger = logging.getLogger(__name__)
 
-# Initialize OpenTelemetry
-tracer = init_telemetry()
+# Lazy telemetry initialization - defers OTLP setup until first span
+tracer = get_tracer(__name__)
 
 
 class MenuServicer(menu_pb2_grpc.MenuServiceServicer):

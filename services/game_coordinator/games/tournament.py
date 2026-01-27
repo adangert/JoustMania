@@ -509,6 +509,7 @@ class TournamentGame(BaseGameMode):
                 )
                 loser.span.set_status(Status(StatusCode.OK))
                 loser.span.end()
+                loser.span = None  # Mark as closed to prevent double-ending
 
             self.event_publisher(
                 "match_end",

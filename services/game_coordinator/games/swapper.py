@@ -189,6 +189,7 @@ class SwapperGame(TeamsGameBase):
             )
             player.span.set_status(Status(StatusCode.OK))
             player.span.end()
+            player.span = None  # Mark as closed before creating new span
             logger.debug(f"Ended player {serial} span under team {old_team}")
 
         # Create new span under new team

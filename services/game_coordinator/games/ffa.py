@@ -137,6 +137,7 @@ class FFAGame(BaseGameMode):
             )
             player.span.set_status(Status(StatusCode.OK))
             player.span.end()
+            player.span = None  # Mark as closed to prevent double-ending
             logger.debug(f"Ended lifecycle span for player {serial}")
 
     async def _assign_ffa_colors(self):

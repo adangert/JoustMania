@@ -348,6 +348,7 @@ class TraitorGame(TeamsGameBase):
             )
             player.span.set_status(Status(StatusCode.OK))
             player.span.end()
+            player.span = None  # Mark as closed to prevent double-ending
 
         # If secret team eliminated, end team span
         # Note: Team spans are based on visible teams, so this might not align perfectly
@@ -365,6 +366,7 @@ class TraitorGame(TeamsGameBase):
             )
             visible_team.span.set_status(Status(StatusCode.OK))
             visible_team.span.end()
+            visible_team.span = None  # Mark as closed to prevent double-ending
             logger.info(f"Visible team {visible_team.name} eliminated")
 
     async def _end_game_impl(self):

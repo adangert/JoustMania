@@ -384,6 +384,7 @@ class TeamsGameBase(BaseGameMode):
             )
             player.span.set_status(Status(StatusCode.OK))
             player.span.end()
+            player.span = None  # Mark as closed to prevent double-ending
             logger.debug(f"Ended lifecycle span for player {serial}")
 
         # If team eliminated, end team span
@@ -394,6 +395,7 @@ class TeamsGameBase(BaseGameMode):
             )
             team.span.set_status(Status(StatusCode.OK))
             team.span.end()
+            team.span = None  # Mark as closed to prevent double-ending
             logger.info(f"Team {team.name} eliminated! Ended team lifecycle span")
 
     async def _end_game_impl(self):

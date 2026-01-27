@@ -386,6 +386,7 @@ class WerewolfGame(BaseGameMode):
             )
             player.span.set_status(Status(StatusCode.OK))
             player.span.end()
+            player.span = None  # Mark as closed to prevent double-ending
 
     async def _end_game_impl(self):
         """Handle game ending."""

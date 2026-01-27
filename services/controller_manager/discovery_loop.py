@@ -355,7 +355,7 @@ class DiscoveryLoop:
 
             # Debug: Log tracked controller count periodically (every 5 seconds)
             if current_time - self._last_controller_count_log >= 5.0:
-                logger.info(
+                logger.debug(
                     f"Polling {len(serials_to_poll)}/{len(all_serials)} controllers "
                     f"(active={active_count}, idle={idle_count}): {serials_to_poll}"
                 )

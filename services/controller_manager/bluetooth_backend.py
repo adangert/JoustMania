@@ -462,10 +462,12 @@ class BluetoothBackend(ControllerBackend):
             # Rescan if count changed OR force_rescan requested (Phase 79)
             # Force rescan is used by periodic discovery to catch externally paired controllers
             if count != self._last_controller_count or force_rescan:
-                logger.info(
-                    f"Controller count changed: {self._last_controller_count} -> {count}, "
-                    f"tracked: {len(self.controllers)}"
-                )
+                # Only log count change when count actually changed (not on force_rescan with same count)
+                if count != self._last_controller_count:
+                    logger.info(
+                        f"Controller count changed: {self._last_controller_count} -> {count}, "
+                        f"tracked: {len(self.controllers)}"
+                    )
                 self._last_controller_count = count
 
                 # Scan for new controllers - enumerate all and check which are new
@@ -535,7 +537,7 @@ class BluetoothBackend(ControllerBackend):
                     self._last_led_update.pop(stale_serial, None)
                     self._effect_active.discard(stale_serial)
 
-                logger.info(
+                logger.debug(
                     f"Scan complete: found {len(seen_serials)} serials: {seen_serials}, "
                     f"now tracking {len(self.controllers)}: {list(self.controllers.keys())}"
                 )

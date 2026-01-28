@@ -35,20 +35,6 @@ player_kills_total = Counter("game_player_kills_total", "Total player kills", ["
 
 player_respawns_total = Counter("game_player_respawns_total", "Total player respawns (Nonstop Joust only)", ["serial"])
 
-# Game performance metrics
-frame_time_seconds = Histogram(
-    "game_frame_time_seconds",
-    "Game loop frame time",
-    buckets=[0.010, 0.016, 0.020, 0.030, 0.050, 0.100, 0.200, 0.500],
-)
-
-frame_rate_hz = Gauge("game_frame_rate_hz", "Current game loop frame rate")
-
-game_loop_lag_seconds = Histogram(
-    "game_loop_lag_seconds",
-    "Time between expected and actual frame",
-    buckets=[0.001, 0.005, 0.010, 0.020, 0.050, 0.100, 0.200],
-)
 
 # Audio playback metrics (Phase 29)
 audio_sounds_played_total = Counter(
@@ -111,11 +97,7 @@ effective_death_threshold = Gauge(
     "Current effective death threshold after LERP (g-force)",
 )
 
-# Runtime configuration metrics (Phase 43)
-configured_update_frequency_hz = Gauge(
-    "game_configured_update_frequency_hz", "Configured update frequency from runtime config"
-)
-
+# Runtime metrics (Phase 43)
 actual_update_frequency_hz = Gauge(
     "game_actual_update_frequency_hz", "Actual measured update frequency during gameplay"
 )
@@ -123,16 +105,7 @@ actual_update_frequency_hz = Gauge(
 config_changes_total = Counter(
     "game_config_changes_total",
     "Total number of configuration changes",
-    ["parameter"],  # 'update_frequency_hz', 'sensitivity_mode', etc.
-)
-
-game_loop_iterations_total = Counter("game_loop_iterations_total", "Total number of game loop iterations", ["mode"])
-
-game_loop_latency_ms = Histogram(
-    "game_loop_latency_ms",
-    "Game loop iteration latency in milliseconds",
-    ["mode"],
-    buckets=[10, 20, 30, 40, 50, 75, 100, 150, 200, 300, 500],
+    ["parameter"],  # 'sensitivity_mode', etc.
 )
 
 # Frame consistency metrics (Issue #183)

@@ -17,6 +17,13 @@ scrape_configs:
       - targets: ['otel-collector:8889']
         labels:
           collector: 'otel'
+    # Map service_name label to job label so dashboard queries work
+    # OTEL metrics have service_name="controller-manager" etc.
+    metric_relabel_configs:
+      - source_labels: [service_name]
+        target_label: job
+        regex: (.+)
+        replacement: $1
 
   # Menu Service (still uses prometheus_client pull)
   - job_name: 'menu'

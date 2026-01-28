@@ -506,14 +506,11 @@ class BaseGameMode(ABC):
             # Pass None to use current active span context (we're inside gameplay_phase)
             self._create_player_spans(None)
 
-            # Get runtime config (Phase 43: Dynamic Hz adjustment)
+            # Get runtime config for frame timing calculations
             config = get_config_manager().get_config()
             update_frequency_hz = config.update_frequency_hz
 
-            # Emit configured Hz metric (Phase 43)
-            metrics.configured_update_frequency_hz.set(update_frequency_hz)
-
-            logger.info(f"Starting game loop at {update_frequency_hz}Hz (stream already started)")
+            logger.info("Starting game loop (stream rate controlled by controller-manager)")
 
             # Stream was already created in _start_gameplay_stream() before countdown
             # EMA filter was primed during countdown by _warmup_ema()
@@ -586,20 +583,10 @@ class BaseGameMode(ABC):
                 # Note: Win condition is now checked after EACH controller (above)
                 # to prevent simultaneous deaths - the last player standing can never die
 
-                # Check if config changed (Phase 43: Live Hz adjustment)
-                current_hz = get_config_manager().get_config().update_frequency_hz
-                if current_hz != update_frequency_hz:
-                    logger.info(
-                        f"Update frequency changed: {update_frequency_hz}Hz → {current_hz}Hz (will apply on next game)"
-                    )
-
-                # Emit metrics (Phase 43)
+                # Track loop timing for metrics
                 loop_iterations += 1
                 iteration_end = time.time()
                 iteration_latency_ms = (iteration_end - last_iteration_time) * 1000
-
-                metrics.game_loop_iterations_total.labels(mode=self.get_game_name()).inc()
-                metrics.game_loop_latency_ms.labels(mode=self.get_game_name()).observe(iteration_latency_ms)
 
                 # Track frame consistency (Issue #183)
                 recent_frame_times.append(iteration_latency_ms)
@@ -632,9 +619,8 @@ class BaseGameMode(ABC):
                 last_iteration_time = iteration_end
 
                 # Note: No sleep needed here - the stream itself is rate-limited by
-                # controller-manager at update_frequency_hz. Adding a sleep here would
-                # double the latency (stream waits 16.7ms + we wait 16.7ms more).
-                # The async for loop naturally blocks waiting for the next message.
+                # controller-manager at 60Hz. The async for loop naturally blocks
+                # waiting for the next message.
 
         except Exception as e:
             logger.error(f"Game loop error: {e}", exc_info=True)

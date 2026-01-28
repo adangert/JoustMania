@@ -428,30 +428,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.50, rate(game_frame_time_seconds_bucket[1m]))",
-          "legendFormat": "p50",
+          "expr": "game_loop_jitter_ms",
+          "legendFormat": "jitter (stddev)",
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "histogram_quantile(0.95, rate(game_frame_time_seconds_bucket[1m]))",
-          "legendFormat": "p95",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "histogram_quantile(0.99, rate(game_frame_time_seconds_bucket[1m]))",
-          "legendFormat": "p99",
-          "refId": "C"
         }
       ],
-      "title": "Game Loop Frame Time (60 FPS = 16.67ms target)",
+      "title": "Game Loop Jitter (lower is better)",
       "type": "timeseries"
     },
     {
@@ -543,12 +525,12 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "game_frame_rate_hz",
-          "legendFormat": "frame rate",
+          "expr": "game_actual_update_frequency_hz",
+          "legendFormat": "actual Hz",
           "refId": "A"
         }
       ],
-      "title": "Game Loop Frame Rate",
+      "title": "Game Loop Update Rate",
       "type": "timeseries"
     },
     {

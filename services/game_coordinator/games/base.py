@@ -640,8 +640,10 @@ class BaseGameMode(ABC):
 
                 last_iteration_time = iteration_end
 
-                # Small sleep to maintain tick rate
-                await asyncio.sleep(1.0 / update_frequency_hz)
+                # Note: No sleep needed here - the stream itself is rate-limited by
+                # controller-manager at update_frequency_hz. Adding a sleep here would
+                # double the latency (stream waits 16.7ms + we wait 16.7ms more).
+                # The async for loop naturally blocks waiting for the next message.
 
         except Exception as e:
             logger.error(f"Game loop error: {e}", exc_info=True)

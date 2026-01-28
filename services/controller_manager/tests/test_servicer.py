@@ -88,7 +88,7 @@ class TestRenameController:
             mock_loop = MagicMock()
             mock_loop.start = MagicMock()
             mock_loop.stop = MagicMock()
-            mock_loop.join = MagicMock()
+            mock_loop.wait_stopped = AsyncMock()
             mock_discovery_loop.return_value = mock_loop
 
             from services.controller_manager.servicer import ControllerManagerServicer
@@ -193,7 +193,7 @@ class TestVibrationScheduling:
             mock_loop = MagicMock()
             mock_loop.start = MagicMock()
             mock_loop.stop = MagicMock()
-            mock_loop.join = MagicMock()
+            mock_loop.wait_stopped = AsyncMock()
             mock_discovery_loop.return_value = mock_loop
 
             from services.controller_manager.servicer import ControllerManagerServicer
@@ -271,7 +271,7 @@ class TestServicerInitialization:
             mock_loop = MagicMock()
             mock_loop.start = MagicMock()
             mock_loop.stop = MagicMock()
-            mock_loop.join = MagicMock()
+            mock_loop.wait_stopped = AsyncMock()
             mock_discovery_loop.return_value = mock_loop
 
             from services.controller_manager.servicer import ControllerManagerServicer
@@ -292,9 +292,11 @@ class TestServicerInitialization:
         assert servicer.stream_subscribers == {}
         assert servicer.button_event_subscribers == {}
 
-    def test_init_starts_discovery_loop(self, servicer):
-        """Servicer should start discovery loop on init."""
-        servicer.discovery_loop.start.assert_called_once()
+    def test_init_defers_discovery_loop_start(self, servicer):
+        """Servicer should defer discovery loop start until first stream."""
+        # Discovery loop is NOT started in __init__, only when first stream connects
+        servicer.discovery_loop.start.assert_not_called()
+        assert servicer._discovery_started is False
 
 
 class TestServicerShutdown:
@@ -313,7 +315,7 @@ class TestServicerShutdown:
             mock_loop = MagicMock()
             mock_loop.start = MagicMock()
             mock_loop.stop = MagicMock()
-            mock_loop.join = MagicMock()
+            mock_loop.wait_stopped = AsyncMock()
             mock_discovery_loop.return_value = mock_loop
 
             from services.controller_manager.servicer import ControllerManagerServicer
@@ -321,31 +323,34 @@ class TestServicerShutdown:
             servicer = ControllerManagerServicer()
             yield servicer
 
-    def test_shutdown_stops_discovery_loop(self, servicer):
+    @pytest.mark.asyncio
+    async def test_shutdown_stops_discovery_loop(self, servicer):
         """Shutdown should stop discovery loop."""
-        servicer.shutdown()
+        await servicer.shutdown()
 
         servicer.discovery_loop.stop.assert_called_once()
-        servicer.discovery_loop.join.assert_called_once()
+        servicer.discovery_loop.wait_stopped.assert_called_once()
 
-    def test_shutdown_terminates_controller_processes(self, servicer):
+    @pytest.mark.asyncio
+    async def test_shutdown_terminates_controller_processes(self, servicer):
         """Shutdown should terminate controller processes."""
         # Add mock process
         mock_proc = MagicMock()
         mock_proc.is_alive.return_value = True
         servicer.controller_processes["test_serial"] = mock_proc
 
-        servicer.shutdown()
+        await servicer.shutdown()
 
         mock_proc.terminate.assert_called_once()
         mock_proc.join.assert_called_once()
 
-    def test_shutdown_skips_dead_processes(self, servicer):
+    @pytest.mark.asyncio
+    async def test_shutdown_skips_dead_processes(self, servicer):
         """Shutdown should skip already-dead processes."""
         mock_proc = MagicMock()
         mock_proc.is_alive.return_value = False
         servicer.controller_processes["test_serial"] = mock_proc
 
-        servicer.shutdown()
+        await servicer.shutdown()
 
         mock_proc.terminate.assert_not_called()

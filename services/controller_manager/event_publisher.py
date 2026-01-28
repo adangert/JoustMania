@@ -1,8 +1,11 @@
 """
-Thread-safe event publishing for ControllerManager.
+Event publishing for ControllerManager.
 
-Handles cross-thread event publishing from the discovery thread to
-async gRPC stream subscribers using asyncio's call_soon_threadsafe().
+Handles event publishing from the discovery loop to async gRPC stream subscribers.
+
+Note: Since the discovery loop now runs as an async task on the same event loop
+as gRPC handlers (not in a separate thread), we use direct queue.put_nowait()
+instead of call_soon_threadsafe().
 """
 
 import asyncio
@@ -14,22 +17,20 @@ logger = logging.getLogger(__name__)
 
 class EventPublisher:
     """
-    Thread-safe event publisher for cross-thread communication.
+    Event publisher for async event distribution.
 
-    The discovery thread runs in a separate thread from the gRPC async handlers.
-    This class encapsulates the call_soon_threadsafe() pattern needed to safely
-    publish events from the discovery thread to async subscriber queues.
+    Publishes events from the discovery loop to subscriber queues.
+    Since all code runs on the same event loop, no thread-safety measures needed.
     """
 
     def __init__(self):
         """Initialize the event publisher."""
-        # Main event loop reference (for cross-thread queue operations)
-        # Set lazily when first gRPC handler runs
+        # Main event loop reference (kept for API compatibility, but not strictly needed)
         self._main_loop: asyncio.AbstractEventLoop | None = None
 
     def set_main_loop(self, loop: asyncio.AbstractEventLoop) -> None:
         """
-        Set the main event loop for cross-thread publishing.
+        Set the main event loop reference.
 
         Args:
             loop: The main asyncio event loop (from gRPC server)
@@ -41,39 +42,31 @@ class EventPublisher:
         """Get the main event loop."""
         return self._main_loop
 
-    def publish_to_queue_threadsafe(self, queue: asyncio.Queue, event: Any, event_type: str) -> None:
+    def publish_to_queue(self, queue: asyncio.Queue, event: Any, event_type: str) -> None:
         """
-        Publish an event to an asyncio.Queue from any thread.
+        Publish an event to an asyncio.Queue.
 
-        This method safely publishes events to async queues from the discovery
-        thread by using call_soon_threadsafe() when the main event loop is known.
+        Since the discovery loop runs on the same event loop as gRPC handlers,
+        we can safely use queue.put_nowait() directly.
 
         Args:
             queue: The asyncio.Queue to publish to
             event: The event object to publish
             event_type: Description for logging (e.g., "button", "connection")
         """
+        try:
+            queue.put_nowait(event)
+        except asyncio.QueueFull:
+            logger.warning(f"{event_type.capitalize()} event queue full for subscriber")
 
-        def _put_event():
-            try:
-                queue.put_nowait(event)
-            except asyncio.QueueFull:
-                logger.warning(f"{event_type.capitalize()} event queue full for subscriber")
-
-        if self._main_loop is not None:
-            # Safe cross-thread publishing via event loop
-            self._main_loop.call_soon_threadsafe(_put_event)
-        else:
-            # Fallback: direct put (may work if called from main loop context)
-            # This shouldn't happen in practice since _main_loop is set when
-            # the first subscriber connects
-            _put_event()
+    # Keep old name as alias for compatibility
+    publish_to_queue_threadsafe = publish_to_queue
 
     def publish_to_subscribers(self, subscribers: dict[str, asyncio.Queue], event: Any, event_type: str) -> None:
         """
         Publish an event to all subscriber queues.
 
-        Takes a snapshot of subscriber queues to avoid race conditions during iteration.
+        Takes a snapshot of subscriber queues to avoid modification during iteration.
 
         Args:
             subscribers: Dict mapping subscriber_id to their Queue
@@ -82,4 +75,4 @@ class EventPublisher:
         """
         subscriber_queues = list(subscribers.values())
         for queue in subscriber_queues:
-            self.publish_to_queue_threadsafe(queue, event, event_type)
+            self.publish_to_queue(queue, event, event_type)

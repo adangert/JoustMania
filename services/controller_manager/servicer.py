@@ -11,7 +11,6 @@ import os
 
 # Import protobuf
 import sys
-import threading
 import time
 from typing import Any
 
@@ -68,9 +67,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         self.paired_serials: list[str] = []
         self.controller_processes: dict[str, Any] = {}  # serial -> process (for cleanup)
 
-        # Thread safety: RLock for shared state accessed by discovery thread and gRPC handlers
-        # Protects: tracked_controllers, controller_states, button_states
-        self.state_lock = threading.RLock()
+        # Note: state_lock removed - no longer needed with async discovery loop
+        # All operations run on the same event loop, so no cross-thread coordination required
 
         # Streaming subscribers (Phase 34: async queue and lock)
         self.stream_subscribers: dict[str, asyncio.Queue] = {}
@@ -107,7 +105,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         self.feedback_manager = FeedbackManager(
             backend=self.backend,
             tracked_controllers=self.tracked_controllers,
-            state_lock=self.state_lock,
         )
 
         # Vibration tasks - tracks active asyncio vibration tasks per controller (Phase 57)
@@ -120,11 +117,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         self.name_manager = NameManager()
 
         # Discovery loop (extracted to discovery_loop.py)
+        # Note: start() must be called from async context (done in first stream handler)
         self.discovery_loop = DiscoveryLoop(
             backend=self.backend,
             tracked_controllers=self.tracked_controllers,
             controller_states=self.controller_states,
-            state_lock=self.state_lock,
             button_detector=self.button_detector,
             state_cache_manager=self.state_cache_manager,
             feedback_manager=self.feedback_manager,
@@ -135,9 +132,18 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             event_publisher=self.event_publisher,
             name_manager=self.name_manager,
         )
-        self.discovery_loop.start()
+        self._discovery_started = False
 
         logger.info("ControllerManager initialized")
+
+    def _ensure_discovery_started(self) -> None:
+        """Start discovery loop if not already started.
+
+        Must be called from async context (event loop must be running).
+        """
+        if not self._discovery_started:
+            self.discovery_loop.start()
+            self._discovery_started = True
 
     async def _set_led_color(self, serial: str, color: tuple[int, int, int]):
         """Set LED color on a controller (async).
@@ -159,10 +165,12 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         This is an event-driven stream - events are only sent when buttons
         change state (press or release), not on every frame.
         """
+        # Ensure discovery loop is running (async task, needs event loop)
+        self._ensure_discovery_started()
+
         subscriber_id = f"button_stream_{time.time()}"
 
-        # Capture main event loop for cross-thread queue operations
-        # The discovery thread needs this to safely publish events to async queues
+        # Set main event loop reference for event publisher (used by button detector)
         if self.event_publisher.main_loop is None:
             self.event_publisher.set_main_loop(asyncio.get_running_loop())
 
@@ -336,6 +344,9 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         Yields:
             GameplayDataUpdate messages with filtered controller data
         """
+        # Ensure discovery loop is running (async task, needs event loop)
+        self._ensure_discovery_started()
+
         subscriber_id = f"gameplay_stream_{time.time()}"
 
         # Note: We manually manage the span instead of using context manager
@@ -345,9 +356,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
         # Update stream metrics
         metrics.active_streams.inc()
-
-        # Enter gameplay mode to disable adaptive polling (ensures consistent 60Hz)
-        self.discovery_loop.enter_gameplay_mode()
 
         # Stream state (updated by client messages)
         current_hz = 30  # Default Hz
@@ -553,9 +561,6 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
             with contextlib.suppress(asyncio.CancelledError):
                 await update_task
 
-            # Exit gameplay mode to re-enable adaptive polling
-            self.discovery_loop.exit_gameplay_mode()
-
             # Update stream metrics
             metrics.active_streams.dec()
 
@@ -571,14 +576,13 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
         async def stop_after_delay():
             await asyncio.sleep(duration_ms / 1000.0)
-            with self.state_lock:
-                # Clean up task tracking
-                if serial in self.vibration_tasks:
-                    del self.vibration_tasks[serial]
-                # Skip if controller was removed
-                if serial not in self.tracked_controllers:
-                    logger.debug(f"Vibration task expired for removed controller {serial}")
-                    return
+            # Clean up task tracking
+            if serial in self.vibration_tasks:
+                del self.vibration_tasks[serial]
+            # Skip if controller was removed
+            if serial not in self.tracked_controllers:
+                logger.debug(f"Vibration task expired for removed controller {serial}")
+                return
             await self.backend.set_rumble(serial, 0)
             logger.debug(f"Vibration stopped on {serial} (duration expired)")
 
@@ -607,9 +611,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 self.name_manager.set_name(request.serial, request.name)
 
                 # Update tracked_controllers if the controller is currently connected
-                with self.state_lock:
-                    if request.serial in self.tracked_controllers:
-                        self.tracked_controllers[request.serial][ControllerInfoKey.NAME] = request.name
+                if request.serial in self.tracked_controllers:
+                    self.tracked_controllers[request.serial][ControllerInfoKey.NAME] = request.name
 
                 logger.info(f"Renamed controller {request.serial} to '{request.name}'")
                 return controller_manager_pb2.RenameControllerResponse(success=True, error="")
@@ -619,7 +622,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 logger.error(f"RenameController error: {e}", exc_info=True)
                 return controller_manager_pb2.RenameControllerResponse(success=False, error=str(e))
 
-    def shutdown(self):
+    async def shutdown(self):
         """Shutdown the controller manager."""
         logger.info("Shutting down ControllerManager...")
 
@@ -632,4 +635,4 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                 proc.terminate()
                 proc.join(timeout=2.0)
 
-        self.discovery_loop.join(timeout=5.0)
+        await self.discovery_loop.wait_stopped(timeout_seconds=5.0)

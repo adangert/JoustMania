@@ -6,7 +6,6 @@ and verifies that the effect restores to the NEW base_color, not the old one.
 """
 
 import asyncio
-import threading
 from unittest.mock import patch
 
 import pytest
@@ -51,13 +50,11 @@ def mock_backend():
 @pytest.fixture
 def feedback_manager(mock_backend):
     """Create FeedbackManager with mock backend."""
-    state_lock = threading.RLock()
     return FeedbackManager(
         backend=mock_backend,
         tracked_controllers={
             "test_ctrl": {"name": "Test Controller"},
         },
-        state_lock=state_lock,
     )
 
 

@@ -1,21 +1,24 @@
 """
 Discovery loop for ControllerManager.
 
-Background thread that handles:
+Async task that handles:
 - Controller discovery and tracking
 - Battery monitoring
-- State polling with adaptive frequency
+- State polling at fixed intervals
 - LED updates
+
+Uses asyncio.to_thread() for blocking USB I/O operations to avoid
+blocking the main event loop.
 
 Note: RSSI monitoring is handled by the host pairing-daemon which has
 direct access to hcitool for reliable signal strength readings.
 """
 
 import asyncio
+import contextlib
 import logging
-import threading
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from opentelemetry import trace
 
@@ -29,7 +32,7 @@ from lib.telemetry import SpanAttr, get_tracer
 from services.controller_manager import metrics
 
 if TYPE_CHECKING:
-    from services.controller_manager.backend_base import BackendBase
+    from services.controller_manager.backend import ControllerBackend
     from services.controller_manager.button_detector import ButtonDetector
     from services.controller_manager.discovery import PeriodicRescanTimer
     from services.controller_manager.event_publisher import EventPublisher
@@ -46,18 +49,20 @@ tracer = get_tracer(__name__)
 
 class DiscoveryLoop:
     """
-    Background discovery thread for controller management.
+    Async discovery task for controller management.
 
     Handles controller discovery, state polling, battery monitoring,
-    and LED updates in a dedicated thread.
+    and LED updates as an async task on the main event loop.
+
+    Uses fixed interval scheduling for consistent timing and
+    asyncio.to_thread() for blocking USB I/O operations.
     """
 
     def __init__(
         self,
-        backend: "BackendBase",
+        backend: "ControllerBackend",
         tracked_controllers: dict[str, dict],
         controller_states: dict[str, dict],
-        state_lock: threading.RLock,
         button_detector: "ButtonDetector",
         state_cache_manager: "StateCache",
         feedback_manager: "FeedbackManager",
@@ -75,7 +80,6 @@ class DiscoveryLoop:
             backend: Controller backend implementation
             tracked_controllers: Dict of serial -> controller info
             controller_states: Dict of serial -> state dict
-            state_lock: RLock for thread-safe access
             button_detector: Button transition detector
             state_cache_manager: State caching manager
             feedback_manager: LED/vibration feedback manager
@@ -89,7 +93,6 @@ class DiscoveryLoop:
         self.backend = backend
         self.tracked_controllers = tracked_controllers
         self.controller_states = controller_states
-        self.state_lock = state_lock
         self.button_detector = button_detector
         self.state_cache_manager = state_cache_manager
         self.feedback_manager = feedback_manager
@@ -100,116 +103,121 @@ class DiscoveryLoop:
         self.event_publisher = event_publisher
         self.name_manager = name_manager
 
-        # Discovery thread state
+        # Discovery task state
         self.running = True
         self.backend_initialized = False
-        self._loop_handle: asyncio.AbstractEventLoop | None = None
+        self._task: asyncio.Task | None = None
+        self._initialized_event: asyncio.Event | None = None
 
         # LED update timing (Phase 72: separated from polling)
         self._last_led_update = 0.0
 
-        # Adaptive polling state
+        # Fixed interval polling configuration - always 100Hz
+        # There's always either a menu or game stream active, so no need for idle mode
+        self._poll_interval = 0.010  # 100Hz
+
+        # Activity tracking for metrics
         self._last_activity_time: dict[str, float] = {}
         self._previous_accel: dict[str, tuple[float, float, float]] = {}
-        self._last_poll_time: dict[str, float] = {}
         self._idle_threshold_seconds = 5.0
-        self._active_poll_interval = 0.016  # ~60Hz
-        self._idle_poll_interval = 0.100  # ~10Hz
         self._accel_movement_threshold = 0.05
-
-        # Gameplay mode: when > 0, disable adaptive polling (all controllers at 60Hz)
-        # This counter is incremented by StreamGameplayData and decremented on disconnect
-        self._gameplay_stream_count = 0
-        self._gameplay_stream_lock = threading.Lock()
 
         # Debug logging throttle
         self._last_controller_count_log = 0.0
 
-        # Discovery thread
-        self._thread = threading.Thread(target=self._discovery_loop, daemon=True)
-
     def start(self) -> None:
-        """Start the discovery thread."""
-        self._thread.start()
-        logger.info("Discovery loop started")
+        """Start the discovery task.
 
-    def enter_gameplay_mode(self) -> None:
-        """Enter gameplay mode - disables adaptive polling for consistent 60Hz."""
-        with self._gameplay_stream_lock:
-            self._gameplay_stream_count += 1
-            logger.info(f"Gameplay mode entered (active streams: {self._gameplay_stream_count})")
+        Must be called from an async context (after event loop is running).
+        """
+        self._initialized_event = asyncio.Event()
+        self._task = asyncio.create_task(self._discovery_loop())
+        logger.info("Discovery loop started as async task")
 
-    def exit_gameplay_mode(self) -> None:
-        """Exit gameplay mode - re-enables adaptive polling if no streams remain."""
-        with self._gameplay_stream_lock:
-            self._gameplay_stream_count = max(0, self._gameplay_stream_count - 1)
-            logger.info(f"Gameplay mode exited (active streams: {self._gameplay_stream_count})")
+    async def wait_initialized(self, timeout_seconds: float = 10.0) -> bool:
+        """Wait for the backend to be initialized.
 
-    def is_gameplay_mode(self) -> bool:
-        """Check if gameplay mode is active (any gameplay streams running)."""
-        with self._gameplay_stream_lock:
-            return self._gameplay_stream_count > 0
+        Args:
+            timeout_seconds: Maximum time to wait for initialization.
+
+        Returns:
+            True if initialized successfully, False if timed out or failed.
+        """
+        if self._initialized_event is None:
+            return False
+        try:
+            await asyncio.wait_for(self._initialized_event.wait(), timeout=timeout_seconds)
+            return self.backend_initialized
+        except TimeoutError:
+            logger.error(f"Backend initialization timed out after {timeout_seconds}s")
+            return False
 
     def stop(self) -> None:
         """Stop the discovery loop."""
         self.running = False
+        if self._task and not self._task.done():
+            self._task.cancel()
 
-    def join(self, timeout: float | None = None) -> None:
-        """Wait for the discovery thread to complete."""
-        self._thread.join(timeout=timeout)
+    async def wait_stopped(self, timeout_seconds: float | None = None) -> None:
+        """Wait for the discovery task to complete."""
+        if self._task:
+            with contextlib.suppress(TimeoutError, asyncio.CancelledError):
+                await asyncio.wait_for(asyncio.shield(self._task), timeout=timeout_seconds)
 
-    def run_coroutine(self, coro) -> Any:
+    async def _discovery_loop(self) -> None:
         """
-        Run an async coroutine in the discovery thread's event loop.
+        Async task for controller discovery and battery monitoring.
 
-        This avoids creating a new event loop for each backend call.
-        Must only be called from the discovery thread.
-        """
-        if self._loop_handle is None:
-            raise RuntimeError("Discovery loop not initialized")
-        return self._loop_handle.run_until_complete(coro)
+        Uses fixed interval scheduling for consistent timing:
+        - Gameplay mode (streams active): 100Hz polling for fast button detection
+        - Idle mode (no streams): 10Hz polling to save resources
 
-    def _discovery_loop(self) -> None:
-        """
-        Background thread for controller discovery and battery monitoring.
+        Blocking USB I/O operations are run via asyncio.to_thread() to avoid
+        blocking the main event loop.
 
         Phase 56: Event-driven spans - Only creates spans for actual events (controller connected),
         not for routine polling. Metrics track polling operations.
         Phase 57: Uses backend abstraction for platform independence.
         """
-        # Performance: Use uvloop for discovery thread's event loop too
-        try:
-            import uvloop
-
-            self._loop_handle = uvloop.new_event_loop()
-            logger.debug("Discovery loop using uvloop")
-        except ImportError:
-            self._loop_handle = asyncio.new_event_loop()
-
-        asyncio.set_event_loop(self._loop_handle)
-
         try:
             # Initialize backend
-            self.backend_initialized = self._loop_handle.run_until_complete(self.backend.initialize())
+            self.backend_initialized = await self.backend.initialize()
             if not self.backend_initialized:
                 logger.error("Backend initialization failed - discovery loop will not run")
+                if self._initialized_event:
+                    self._initialized_event.set()  # Signal even on failure so waiters don't hang
                 return
             logger.info("Backend initialized successfully")
+            if self._initialized_event:
+                self._initialized_event.set()
         except Exception as e:
             logger.error(f"Failed to initialize backend: {e}", exc_info=True)
+            if self._initialized_event:
+                self._initialized_event.set()  # Signal even on failure so waiters don't hang
             return
+
+        # Fixed interval scheduling
+        next_poll_time = time.monotonic()
 
         while self.running:
             try:
                 current_time = time.time()
 
-                # Check for new controllers every second (metrics, no span)
+                # Fixed 100Hz polling - there's always either a menu or game stream active
+                poll_interval = self._poll_interval
+
+                # Update polling metrics
+                metrics.polling_mode.set(1)  # Always in "gameplay mode" now
+                metrics.polling_target_hz.set(100)
+
+                # Check for new controllers (metrics, no span)
+                # Run in thread pool since get_connected_controllers() has blocking USB calls
                 with metrics.discovery_check_duration_seconds.time():
-                    self._check_for_new_controllers()
+                    await self._check_for_new_controllers()
                     metrics.discovery_checks_total.inc()
 
-                # Phase 57: Update controller states from backend
-                self._update_controller_states()
+                # Update controller states from backend
+                await self._update_controller_states()
 
                 # Check battery levels every 30 seconds (Phase 39 - Task 4, Phase 70)
                 # Note: Battery display/warnings moved to menu service (Phase 70)
@@ -221,19 +229,31 @@ class DiscoveryLoop:
 
                 # Phase 72: Update LEDs at 20Hz (every 50ms) - separated from polling
                 if current_time - self._last_led_update >= 0.05:
-                    updated_count = self.backend.update_all_leds()
+                    # Run in thread pool since update_all_leds() has blocking USB calls
+                    updated_count = await asyncio.to_thread(self.backend.update_all_leds)
                     self._last_led_update = current_time
                     # Track LED batch update efficiency
                     metrics.led_batch_updates_total.inc()
                     metrics.led_controllers_updated_per_batch.observe(updated_count)
 
-                # No sleep - poll as fast as possible for button responsiveness
+                # Fixed interval sleep - precise timing using monotonic clock
+                next_poll_time += poll_interval
+                sleep_time = next_poll_time - time.monotonic()
 
+                if sleep_time > 0:
+                    await asyncio.sleep(sleep_time)
+                else:
+                    # Behind schedule - reset to avoid spiral
+                    next_poll_time = time.monotonic()
+
+            except asyncio.CancelledError:
+                logger.info("Discovery loop cancelled")
+                break
             except Exception as e:
                 logger.error(f"Discovery loop error: {e}", exc_info=True)
-                time.sleep(5.0)
+                await asyncio.sleep(5.0)
 
-    def _check_for_new_controllers(self) -> None:
+    async def _check_for_new_controllers(self) -> None:
         """
         Check for newly connected controllers (hardware).
 
@@ -250,31 +270,29 @@ class DiscoveryLoop:
             force_rescan = self.rescan_timer.should_force_rescan()
 
             # Get list of connected controllers from backend
-            connected_serials = self.backend.get_connected_controllers(force_rescan)
+            # Run in thread pool since this has blocking USB calls
+            connected_serials = await asyncio.to_thread(self.backend.get_connected_controllers, force_rescan)
             connected_set = set(connected_serials)
 
             # Check for disconnected controllers (in tracked but not in connected)
-            with self.state_lock:
-                tracked_serials = set(self.tracked_controllers.keys())
+            tracked_serials = set(self.tracked_controllers.keys())
 
             disconnected_serials = tracked_serials - connected_set
             for serial in disconnected_serials:
                 logger.info(f"Controller {serial} disconnected - cleaning up server tracking")
                 # Capture name before removing from tracked_controllers
                 name = ""
-                with self.state_lock:
-                    if serial in self.tracked_controllers:
-                        name = self.tracked_controllers[serial].get(ControllerInfoKey.NAME, "")
-                        del self.tracked_controllers[serial]
-                    if serial in self.controller_states:
-                        del self.controller_states[serial]
-                    self.state_cache_manager.clear_controller(serial)
-                    self.button_detector.clear_controller(serial)
-                    # Note: Keep base_colors[serial] so we can restore on reconnect!
-                    # Adaptive polling cleanup
-                    self._last_activity_time.pop(serial, None)
-                    self._previous_accel.pop(serial, None)
-                    self._last_poll_time.pop(serial, None)
+                if serial in self.tracked_controllers:
+                    name = self.tracked_controllers[serial].get(ControllerInfoKey.NAME, "")
+                    del self.tracked_controllers[serial]
+                if serial in self.controller_states:
+                    del self.controller_states[serial]
+                self.state_cache_manager.clear_controller(serial)
+                self.button_detector.clear_controller(serial)
+                # Note: Keep base_colors[serial] so we can restore on reconnect!
+                # Activity tracking cleanup
+                self._last_activity_time.pop(serial, None)
+                self._previous_accel.pop(serial, None)
                 # Publish disconnect event to button event stream subscribers
                 self.button_detector.publish_connection_event(serial, is_connect=False, name=name)
                 metrics.controller_disconnect_total.labels(serial=serial).inc()
@@ -292,7 +310,7 @@ class DiscoveryLoop:
                         # Spawn tracking process
                         with tracer.start_as_current_span("spawn_controller_process") as spawn_span:
                             spawn_span.set_attribute(SpanAttr.CONTROLLER_SERIAL, serial)
-                            self._spawn_controller_process(serial)
+                            await self._spawn_controller_process(serial)
 
                         # Publish connect event to button event stream subscribers
                         info = self.tracked_controllers.get(serial, {})
@@ -306,34 +324,23 @@ class DiscoveryLoop:
                         if serial in self.base_colors:
                             color = self.base_colors[serial]
                             logger.info(f"Restoring base color for reconnected controller {serial}: {color}")
-                            asyncio.run_coroutine_threadsafe(
-                                self.feedback_manager.set_controller_color(serial, color),
-                                self._loop_handle,
-                            )
+                            await self.feedback_manager.set_controller_color(serial, color)
 
         except Exception as e:
             logger.error(f"Error discovering controllers: {e}", exc_info=True)
 
-    def _update_controller_states(self) -> None:
+    async def _update_controller_states(self) -> None:
         """
         Update states for all tracked controllers from backend.
 
-        Phase 62: Uses parallel polling with asyncio.gather() to read all
-        controllers concurrently. This reduces latency from O(n × latency)
-        to O(latency), enabling support for large player counts.
-
-        Adaptive polling: Controllers are polled at different rates based on activity:
-        - Active (recent button/motion activity): 60Hz
-        - Idle (no activity for 5+ seconds): 10Hz
-
-        Called frequently (~60 Hz) to keep states fresh for streaming.
-        Uses shared discovery loop event loop for efficiency.
+        Polls all controllers in parallel using asyncio.gather().
+        Called at fixed intervals (100Hz gameplay, 10Hz idle) for consistent timing.
         """
         if not self.backend_initialized:
             return
 
         try:
-            # Get list of serials (dict.keys() is atomic in Python due to GIL)
+            # Get list of serials
             all_serials = list(self.tracked_controllers.keys())
 
             if not all_serials:
@@ -341,71 +348,42 @@ class DiscoveryLoop:
 
             current_time = time.time()
 
-            # Check if gameplay mode is active (disables adaptive polling)
-            gameplay_mode = self.is_gameplay_mode()
-
-            # Adaptive polling: Determine which controllers need polling this cycle
-            # When in gameplay mode, all controllers poll at active rate (60Hz)
-            serials_to_poll = []
+            # Count active vs idle controllers for metrics (based on recent activity)
             active_count = 0
             idle_count = 0
-            skipped_count = 0
-
             for serial in all_serials:
                 last_activity = self._last_activity_time.get(serial, current_time)
-                last_poll = self._last_poll_time.get(serial, 0)
                 is_idle = (current_time - last_activity) > self._idle_threshold_seconds
-
-                # In gameplay mode, treat all controllers as active
-                if gameplay_mode or not is_idle:
-                    active_count += 1
-                    poll_interval = self._active_poll_interval
-                else:
+                if is_idle:
                     idle_count += 1
-                    poll_interval = self._idle_poll_interval
-
-                # Check if enough time has passed since last poll
-                if (current_time - last_poll) >= poll_interval:
-                    serials_to_poll.append(serial)
-                    self._last_poll_time[serial] = current_time
                 else:
-                    skipped_count += 1
+                    active_count += 1
 
-            # Update adaptive polling metrics
+            # Update activity metrics
             metrics.adaptive_polling_active_controllers.set(active_count)
             metrics.adaptive_polling_idle_controllers.set(idle_count)
-            if skipped_count > 0:
-                metrics.adaptive_polling_skipped_total.inc(skipped_count)
-
-            if not serials_to_poll:
-                return
 
             # Debug: Log tracked controller count periodically (every 5 seconds)
             if current_time - self._last_controller_count_log >= 5.0:
-                logger.debug(
-                    f"Polling {len(serials_to_poll)}/{len(all_serials)} controllers "
-                    f"(active={active_count}, idle={idle_count}): {serials_to_poll}"
+                logger.info(
+                    f"Polling {len(all_serials)} controllers at 100Hz, active={active_count}, idle={idle_count}"
                 )
                 self._last_controller_count_log = current_time
 
-            # Phase 62: Parallel polling - read all controllers concurrently
+            # Parallel polling - read all controllers concurrently
             start_time = time.time()
 
-            async def get_all_states():
-                """Gather all controller states in parallel."""
-                coros = [self.backend.get_controller_state(serial) for serial in serials_to_poll]
-                return await asyncio.gather(*coros, return_exceptions=True)
-
-            # Single blocking call for ALL controllers (instead of one per controller)
-            results = self.run_coroutine(get_all_states())
+            # Gather all states in parallel
+            coros = [self.backend.get_controller_state(serial) for serial in all_serials]
+            results = await asyncio.gather(*coros, return_exceptions=True)
 
             # Record metrics
             poll_duration = time.time() - start_time
             metrics.poll_batch_duration_seconds.observe(poll_duration)
-            metrics.poll_batch_size.observe(len(serials_to_poll))
+            metrics.poll_batch_size.observe(len(all_serials))
 
-            # Process all results (no lock needed - dict operations atomic due to GIL)
-            for serial, state in zip(serials_to_poll, results, strict=False):
+            # Process all results
+            for serial, state in zip(all_serials, results, strict=False):
                 # Skip if controller was removed during polling
                 if serial not in self.tracked_controllers:
                     continue
@@ -429,7 +407,7 @@ class DiscoveryLoop:
                 # This ensures button events are detected at polling frequency, not stream frequency
                 self.button_detector.detect_transitions_from_state(serial, state, self.tracked_controllers)
 
-                # Adaptive polling: Detect activity to update polling rate
+                # Track activity for metrics
                 self._update_activity_tracking(serial, state, current_time)
 
         except Exception as e:
@@ -488,16 +466,15 @@ class DiscoveryLoop:
         if activity_detected:
             self._last_activity_time[serial] = current_time
 
-    def _spawn_controller_process(self, serial: str) -> None:
+    async def _spawn_controller_process(self, serial: str) -> None:
         """
-        Spawn a tracking process for a controller.
+        Start tracking a newly connected controller.
 
         Phase 57: Simplified to use backend for state tracking.
-        Uses shared discovery loop event loop for efficiency.
         """
         try:
-            # Get initial state from backend using shared event loop
-            state = self.run_coroutine(self.backend.get_controller_state(serial))
+            # Get initial state from backend
+            state = await self.backend.get_controller_state(serial)
 
             if not state:
                 logger.error(f"Failed to get initial state for controller {serial}")
@@ -510,18 +487,17 @@ class DiscoveryLoop:
             if self.name_manager:
                 name = self.name_manager.get_name(serial)
 
-            # Track controller under lock
-            with self.state_lock:
-                self.tracked_controllers[serial] = {
-                    ControllerInfoKey.SERIAL: serial,
-                    ControllerInfoKey.BATTERY: battery,
-                    ControllerInfoKey.TEAM: 0,
-                    ControllerInfoKey.CONNECTED_AT: time.time(),
-                    ControllerInfoKey.NAME: name,
-                }
+            # Track controller
+            self.tracked_controllers[serial] = {
+                ControllerInfoKey.SERIAL: serial,
+                ControllerInfoKey.BATTERY: battery,
+                ControllerInfoKey.TEAM: 0,
+                ControllerInfoKey.CONNECTED_AT: time.time(),
+                ControllerInfoKey.NAME: name,
+            }
 
-                # Store initial state
-                self.controller_states[serial] = state
+            # Store initial state
+            self.controller_states[serial] = state
 
             # Add attributes to current span (this is called within "spawn_controller_process" span)
             current_span = trace.get_current_span()
@@ -533,7 +509,7 @@ class DiscoveryLoop:
                 {"serial": serial, "battery": battery, "name": name},
             )
 
-            logger.info(f"Spawned tracking for controller {serial} ({name})")
+            logger.info(f"Started tracking controller {serial} ({name})")
 
             # Update metrics (Phase 38)
             metrics.active_controllers.inc()
@@ -552,8 +528,5 @@ class DiscoveryLoop:
             if serial in self.paired_serials:
                 metrics.controller_reconnect_total.labels(serial=serial).inc()
 
-            # Note: Actual process spawning would happen here in production
-            # For now, we track the controller info
-
         except Exception as e:
-            logger.error(f"Error spawning controller process {serial}: {e}", exc_info=True)
+            logger.error(f"Error starting controller tracking {serial}: {e}", exc_info=True)

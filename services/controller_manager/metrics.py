@@ -151,17 +151,23 @@ poll_batch_size = Histogram(
 # Adaptive polling metrics (Quick Win optimization)
 adaptive_polling_active_controllers = Gauge(
     "controller_adaptive_polling_active",
-    "Number of controllers being polled at active rate (60Hz)",
+    "Number of controllers with recent activity",
 )
 
 adaptive_polling_idle_controllers = Gauge(
     "controller_adaptive_polling_idle",
-    "Number of controllers being polled at idle rate (10Hz)",
+    "Number of controllers without recent activity",
 )
 
-adaptive_polling_skipped_total = Counter(
-    "controller_adaptive_polling_skipped_total",
-    "Total number of poll cycles skipped due to adaptive rate limiting",
+# Fixed interval polling metrics
+polling_mode = Gauge(
+    "controller_polling_mode",
+    "Current polling mode (0=idle 10Hz, 1=gameplay 100Hz)",
+)
+
+polling_target_hz = Gauge(
+    "controller_polling_target_hz",
+    "Target polling rate in Hz based on current mode",
 )
 
 # LED batch update metrics (Phase 72 optimization)

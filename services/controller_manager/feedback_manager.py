@@ -12,7 +12,6 @@ import asyncio
 import contextlib
 import logging
 import os
-import threading
 from typing import TYPE_CHECKING
 
 from opentelemetry.context import Context
@@ -51,7 +50,6 @@ class FeedbackManager(ControllerEffectsBase):
         self,
         backend: "ControllerBackend",
         tracked_controllers: dict[str, dict],
-        state_lock: threading.RLock,
     ):
         """
         Initialize feedback manager.
@@ -59,13 +57,11 @@ class FeedbackManager(ControllerEffectsBase):
         Args:
             backend: Controller backend for hardware control
             tracked_controllers: Shared dict of tracked controller info
-            state_lock: RLock for thread-safe controller access
         """
         super().__init__()  # Initialize ControllerEffectsBase
 
         self.backend = backend
         self.tracked_controllers = tracked_controllers
-        self.state_lock = state_lock
 
         # Effect lock for async effect management
         self.effect_lock = asyncio.Lock()
@@ -157,9 +153,7 @@ class FeedbackManager(ControllerEffectsBase):
             True if successful, False otherwise
         """
         try:
-            with self.state_lock:
-                controller_exists = serial in self.tracked_controllers
-            if not controller_exists:
+            if serial not in self.tracked_controllers:
                 logger.warning(f"Controller {serial} not found for vibration")
                 return False
 

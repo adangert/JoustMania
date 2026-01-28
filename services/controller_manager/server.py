@@ -57,6 +57,18 @@ async def serve(port=50052):
     controller_servicer = ControllerManagerServicer()
     controller_manager_pb2_grpc.add_ControllerManagerServiceServicer_to_server(controller_servicer, server)
 
+    # Start discovery loop immediately (don't defer to first stream connection)
+    # This ensures controllers are discovered before any clients connect
+    controller_servicer.discovery_loop.start()
+    controller_servicer._discovery_started = True
+
+    # Wait for backend initialization before accepting connections
+    init_success = await controller_servicer.discovery_loop.wait_initialized(timeout_seconds=10.0)
+    if init_success:
+        logger.info("Discovery loop started and backend initialized")
+    else:
+        logger.warning("Discovery loop started but backend initialization may have failed")
+
     # Add health checking service
     health_servicer = health.aio.HealthServicer()
     health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
@@ -93,7 +105,7 @@ async def serve(port=50052):
         await server.wait_for_termination()
     except KeyboardInterrupt:
         logger.info("Shutting down ControllerManager server...")
-        controller_servicer.shutdown()
+        await controller_servicer.shutdown()
         await server.stop(grace=5)
 
         # Stop mock server if running

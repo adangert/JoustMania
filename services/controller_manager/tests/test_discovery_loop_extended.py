@@ -11,7 +11,6 @@ Issue #209: Improve test coverage for critical game flow
 """
 
 import sys
-import threading
 import time
 from pathlib import Path
 from unittest.mock import patch
@@ -151,7 +150,6 @@ class TestDiscoveryLoopInit:
                 backend=MockBackend(),
                 tracked_controllers={},
                 controller_states={},
-                state_lock=threading.RLock(),
                 button_detector=MockButtonDetector(),
                 state_cache_manager=MockStateCache(),
                 feedback_manager=MockFeedbackManager(),
@@ -173,7 +171,6 @@ class TestDiscoveryLoopInit:
                 backend=MockBackend(),
                 tracked_controllers={},
                 controller_states={},
-                state_lock=threading.RLock(),
                 button_detector=MockButtonDetector(),
                 state_cache_manager=MockStateCache(),
                 feedback_manager=MockFeedbackManager(),
@@ -199,7 +196,6 @@ class TestDiscoveryLoopStop:
                 backend=MockBackend(),
                 tracked_controllers={},
                 controller_states={},
-                state_lock=threading.RLock(),
                 button_detector=MockButtonDetector(),
                 state_cache_manager=MockStateCache(),
                 feedback_manager=MockFeedbackManager(),
@@ -452,33 +448,3 @@ class TestBaseColorRestoration:
         has_base_color = serial in base_colors
 
         assert has_base_color is False
-
-
-class TestRunCoroutine:
-    """Tests for run_coroutine method."""
-
-    def test_run_coroutine_without_init_raises(self):
-        """run_coroutine should raise if loop not initialized."""
-        with patch("services.controller_manager.discovery_loop.get_tracer"):
-            from services.controller_manager.discovery_loop import DiscoveryLoop
-
-            loop = DiscoveryLoop(
-                backend=MockBackend(),
-                tracked_controllers={},
-                controller_states={},
-                state_lock=threading.RLock(),
-                button_detector=MockButtonDetector(),
-                state_cache_manager=MockStateCache(),
-                feedback_manager=MockFeedbackManager(),
-                monitoring=MockMonitoring(),
-                rescan_timer=MockRescanTimer(),
-                paired_serials=[],
-                base_colors={},
-                event_publisher=MockEventPublisher(),
-            )
-
-            async def dummy_coro():
-                return "result"
-
-            with pytest.raises(RuntimeError, match="not initialized"):
-                loop.run_coroutine(dummy_coro())

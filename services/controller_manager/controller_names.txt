@@ -1,0 +1,3 @@
+# Controller names (serial=name)
+test_serial=New Name
+unknown_serial=Player 1

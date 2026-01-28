@@ -67,7 +67,8 @@ EXPOSE 50051
 EXPOSE 8000
 
 # Health check using grpc-health-probe (proper gRPC health checking)
-HEALTHCHECK --interval=5s --timeout=5s --start-period=3s --retries=3 \
+# Optimized timing: services start in <1s, so use fast checks
+HEALTHCHECK --interval=2s --timeout=2s --start-period=1s --retries=3 \
     CMD ["/bin/grpc_health_probe", "-addr=:50051"]
 
 # Run the server (distroless has python as entrypoint)

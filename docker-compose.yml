@@ -37,10 +37,10 @@ services:
       - joustmania
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
-      interval: 5s
-      timeout: 5s
+      interval: 2s
+      timeout: 2s
       retries: 3
-      start_period: 2s
+      start_period: 1s
 
   # Jaeger for distributed tracing UI
   jaeger:
@@ -174,8 +174,6 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      settings:
-        condition: service_healthy
     networks:
       - joustmania
     restart: unless-stopped
@@ -202,14 +200,6 @@ services:
       - AUDIO_PORT=50056
     depends_on:
       redis:
-        condition: service_healthy
-      settings:
-        condition: service_healthy
-      controller-manager:
-        condition: service_healthy
-      game-coordinator:
-        condition: service_healthy
-      audio:
         condition: service_healthy
     networks:
       - joustmania
@@ -240,8 +230,6 @@ services:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
       redis:
-        condition: service_healthy
-      settings:
         condition: service_healthy
     networks:
       - joustmania
@@ -380,6 +368,7 @@ services:
       start_period: 10s
 
   # Connect-Web Proxy (gRPC to Connect protocol translation)
+  # No dependencies - proxy handles connection failures gracefully
   connect-proxy:
     image: ghcr.io/watchmejoustmyflags/joustmania/connect-proxy:${IMAGE_TAG:-latest}
     build:
@@ -394,24 +383,15 @@ services:
       - GAME_COORDINATOR_SERVICE=game-coordinator:50053
       - MENU_SERVICE=menu:50054
       - SETTINGS_SERVICE=settings:50051
-    depends_on:
-      controller-manager:
-        condition: service_healthy
-      game-coordinator:
-        condition: service_healthy
-      menu:
-        condition: service_healthy
-      settings:
-        condition: service_healthy
     networks:
       - joustmania
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/health"]
-      interval: 5s
-      timeout: 5s
+      interval: 2s
+      timeout: 2s
       retries: 3
-      start_period: 3s
+      start_period: 1s
 
   # Dashboard (Real-time controller visualization SPA)
   dashboard:
@@ -429,6 +409,7 @@ services:
     # Healthcheck defined in Dockerfile
 
   # Envoy - Main entry point (reverse proxy)
+  # No dependencies - envoy uses STRICT_DNS and handles unavailable backends with 503
   envoy:
     image: envoyproxy/envoy:v1.31-latest
     container_name: joustmania-envoy
@@ -436,20 +417,11 @@ services:
       - "80:80"  # Main entry point (all services proxied through envoy)
     volumes:
       - ./services/envoy/envoy.yaml:/etc/envoy/envoy.yaml:ro
-    depends_on:
-      connect-proxy:
-        condition: service_healthy
-      dashboard:
-        condition: service_healthy
     networks:
       - joustmania
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:80/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
+    # No healthcheck - distroless image has no shell utilities
+    # Envoy starts quickly and handles backend unavailability gracefully
 
 networks:
   joustmania:

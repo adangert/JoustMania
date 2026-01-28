@@ -111,7 +111,7 @@ EXPOSE 8000
 # Run with: docker run --privileged or docker-compose privileged: true
 
 # Health check using grpc-health-probe
-HEALTHCHECK --interval=5s --timeout=5s --start-period=3s --retries=3 \
+HEALTHCHECK --interval=2s --timeout=2s --start-period=1s --retries=3 \
     CMD ["/bin/grpc_health_probe", "-addr=:50052"]
 
 # Run the server

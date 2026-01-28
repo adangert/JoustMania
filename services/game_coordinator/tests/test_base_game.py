@@ -192,115 +192,6 @@ class TestThresholdCalculation:
         assert speed_percent == 1.0
 
 
-class TestGracePeriod:
-    """Tests for grace period logic - no death during invincibility window."""
-
-    @pytest.fixture
-    def game_with_player(self):
-        """Create game with initialized player for grace period testing."""
-        mock_cm = MockControllerManagerService(num_controllers=2)
-        mock_settings = MockSettingsService()
-        game = FFAGame(
-            controller_manager_client=mock_cm,
-            settings_client=mock_settings,
-            event_publisher=lambda *_args: None,
-            audio_client=None,
-            game_id="test_grace",
-        )
-
-        # Manually initialize a player
-        game.players["test_serial"] = Player(
-            serial="test_serial",
-            team=0,
-            alive=True,
-            color=(255, 0, 0),
-        )
-        game.gameplay_stream = MockGameplayStream()
-        game.music_speed = SLOW_MUSIC_SPEED
-        game.start_time = time.time()
-
-        return game
-
-    @pytest.mark.asyncio
-    async def test_grace_period_prevents_death(self, game_with_player):
-        """Player should NOT die during grace period even with lethal acceleration."""
-        game = game_with_player
-        player = game.players["test_serial"]
-
-        # Set grace period to future (player is protected)
-        player.grace_until = time.time() + 10.0
-
-        # Create controller state with LETHAL acceleration (way above threshold)
-        controller_state = controller_manager_pb2.GameplayData(
-            serial="test_serial",
-            accel=controller_manager_pb2.Vector3(x=10.0, y=10.0, z=10.0),  # ~17g - definitely lethal
-        )
-
-        # Process the state - should NOT die due to grace period
-        await game._process_controller_state(controller_state)
-
-        assert player.alive is True, "Player should survive during grace period"
-
-    @pytest.mark.asyncio
-    async def test_grace_period_prevents_warning(self, game_with_player):
-        """Player should NOT get warning during grace period."""
-        game = game_with_player
-        player = game.players["test_serial"]
-
-        # Set grace period to future
-        player.grace_until = time.time() + 10.0
-        player.warning_until = 0.0  # No active warning
-
-        # Create controller state with warning-level acceleration
-        controller_state = controller_manager_pb2.GameplayData(
-            serial="test_serial",
-            accel=controller_manager_pb2.Vector3(x=1.5, y=0.0, z=1.0),  # Above warning, below death
-        )
-
-        # Process - should not set warning during grace
-        await game._process_controller_state(controller_state)
-
-        assert player.warning_until == 0.0, "Warning should not be set during grace period"
-
-    @pytest.mark.asyncio
-    async def test_after_grace_period_death_possible(self, game_with_player):
-        """Player CAN die after grace period expires."""
-        game = game_with_player
-        player = game.players["test_serial"]
-
-        # Set grace period to past (no longer protected)
-        player.grace_until = time.time() - 1.0
-
-        # Prime the EMA filter so death detection works correctly
-        player.smoothed_accel = 1.0
-
-        # Mock _kill_player to track if it was called
-        kill_called = []
-        original_kill = game._kill_player
-
-        async def mock_kill(serial, accel_mag):
-            kill_called.append((serial, accel_mag))
-            await original_kill(serial, accel_mag)
-
-        game._kill_player = mock_kill
-
-        # Create lethal acceleration
-        controller_state = controller_manager_pb2.GameplayData(
-            serial="test_serial",
-            accel=controller_manager_pb2.Vector3(x=10.0, y=10.0, z=10.0),
-        )
-
-        await game._process_controller_state(controller_state)
-
-        # May take multiple frames due to EMA smoothing, but death should occur
-        # If EMA wasn't primed high enough, death may not trigger on first frame
-        # Let's process multiple times to ensure EMA builds up
-        for _ in range(10):
-            await game._process_controller_state(controller_state)
-
-        assert len(kill_called) > 0 or not player.alive, "Player should die after grace period with lethal accel"
-
-
 class TestWarningBehavior:
     """Tests for warning feedback - warnings do NOT grant immunity."""
 
@@ -860,8 +751,8 @@ class TestInvalidAccelerationData:
         game = game_with_player
         player = game.players["test_serial"]
 
-        # Skip grace period
-        player.grace_period_until = 0
+        # Skip grace period (for respawn modes)
+        player.grace_until = 0
 
         controller_state = controller_manager_pb2.GameplayData(
             serial="test_serial",

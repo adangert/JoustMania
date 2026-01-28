@@ -97,12 +97,11 @@ FAST_MAX = [1.6, 1.8, 2.8, 3.2, 3.5]  # Death thresholds when music is fast
 # This is purely visual feedback, NOT protection (player can still die during warning)
 WARNING_DURATION = 0.5
 
-# Grace periods - no death or warning during these times (matches original JoustMania)
-GAME_START_GRACE_PERIOD = 2.0  # seconds of invincibility at game start
+# Grace period for respawn modes (no death or warning during this time)
 DEATH_GRACE_PERIOD = 0.5  # seconds of invincibility after death (for respawn modes)
 
 # Log at import time to verify correct version is deployed
-logger.info(f"base.py loaded: WARNING_DURATION={WARNING_DURATION}s, GAME_START_GRACE={GAME_START_GRACE_PERIOD}s")
+logger.info(f"base.py loaded: WARNING_DURATION={WARNING_DURATION}s")
 
 
 @dataclass
@@ -119,7 +118,7 @@ class Player:
     smoothed_accel: float = 0.0
     span: trace.Span | None = None  # OpenTelemetry span for this player's lifecycle
     # Grace period: no death or warning checks until this timestamp
-    # Set at game start (2s) and after death (0.5s) - matches original JoustMania
+    # Used for respawn modes (e.g., after team swap or zombie respawn)
     grace_until: float = 0.0
     # Warning state: when > 0, player is in warning feedback (flash + rumble)
     # This is purely visual - player CAN still die during warning (matches original)
@@ -538,15 +537,7 @@ class BaseGameMode(ABC):
             async for gameplay_update in self.gameplay_stream:
                 if loop_iterations == 0:
                     logger.info("✅ Received first gameplay update from stream!")
-                    # Set start_time here, not before game_loop, so grace period is accurate
                     self.start_time = time.time()
-
-                    # Set grace period for all players (2 seconds at game start)
-                    # Matches original JoustMania: no_rumble = time.time() + 2
-                    grace_end = self.start_time + GAME_START_GRACE_PERIOD
-                    for player in self.players.values():
-                        player.grace_until = grace_end
-                    logger.info(f"Set {GAME_START_GRACE_PERIOD}s grace period for {len(self.players)} players")
 
                 if not self.running:
                     logger.info("Game running=False, breaking loop")

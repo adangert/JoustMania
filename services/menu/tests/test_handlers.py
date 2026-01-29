@@ -1,12 +1,100 @@
 """Unit tests for controller state handlers."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+import time
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from services.menu.handlers.base import ControllerState
+from services.menu.handlers.base import ButtonDebouncer, ControllerState
 from services.menu.handlers.connected import ConnectedHandler
 from services.menu.handlers.ready import ReadyHandler
+
+
+class TestButtonDebouncer:
+    """Tests for ButtonDebouncer utility class."""
+
+    def test_first_press_always_processed(self):
+        """First button press should always be processed."""
+        debouncer = ButtonDebouncer(default_interval=0.1)
+        assert debouncer.should_process("serial1", "trigger") is True
+
+    def test_rapid_press_debounced(self):
+        """Rapid presses within interval should be debounced."""
+        debouncer = ButtonDebouncer(default_interval=0.1)
+
+        # First press passes
+        assert debouncer.should_process("serial1", "trigger") is True
+        # Immediate second press blocked
+        assert debouncer.should_process("serial1", "trigger") is False
+
+    def test_press_after_interval_processed(self):
+        """Press after interval should be processed."""
+        debouncer = ButtonDebouncer(default_interval=0.01)  # 10ms for fast test
+
+        assert debouncer.should_process("serial1", "trigger") is True
+
+        # Wait for interval to pass
+        time.sleep(0.015)
+
+        assert debouncer.should_process("serial1", "trigger") is True
+
+    def test_different_buttons_independent(self):
+        """Different buttons should have independent debounce state."""
+        debouncer = ButtonDebouncer(default_interval=0.1)
+
+        assert debouncer.should_process("serial1", "trigger") is True
+        assert debouncer.should_process("serial1", "move") is True  # Different button
+        assert debouncer.should_process("serial1", "trigger") is False  # Same button blocked
+
+    def test_different_controllers_independent(self):
+        """Different controllers should have independent debounce state."""
+        debouncer = ButtonDebouncer(default_interval=0.1)
+
+        assert debouncer.should_process("serial1", "trigger") is True
+        assert debouncer.should_process("serial2", "trigger") is True  # Different controller
+        assert debouncer.should_process("serial1", "trigger") is False  # Same controller blocked
+
+    def test_custom_interval_override(self):
+        """Custom interval override should be respected."""
+        debouncer = ButtonDebouncer(default_interval=0.01)
+
+        assert debouncer.should_process("serial1", "trigger") is True
+        time.sleep(0.015)  # Wait past default interval
+
+        # Use longer override interval - should still be blocked
+        assert debouncer.should_process("serial1", "trigger", interval=0.5) is False
+
+    def test_clear_single_controller(self):
+        """clear() with serial should clear only that controller."""
+        debouncer = ButtonDebouncer(default_interval=0.1)
+
+        debouncer.should_process("serial1", "trigger")
+        debouncer.should_process("serial2", "trigger")
+
+        debouncer.clear("serial1")
+
+        # serial1 cleared - can press again
+        assert debouncer.should_process("serial1", "trigger") is True
+        # serial2 not cleared - still blocked
+        assert debouncer.should_process("serial2", "trigger") is False
+
+    def test_clear_all(self):
+        """clear() without args should clear all state."""
+        debouncer = ButtonDebouncer(default_interval=0.1)
+
+        debouncer.should_process("serial1", "trigger")
+        debouncer.should_process("serial2", "trigger")
+
+        debouncer.clear()
+
+        # Both can press again
+        assert debouncer.should_process("serial1", "trigger") is True
+        assert debouncer.should_process("serial2", "trigger") is True
+
+    def test_default_interval(self):
+        """Default interval should be 100ms."""
+        debouncer = ButtonDebouncer()
+        assert debouncer.default_interval == 0.1
 
 
 class TestConnectedHandler:
@@ -48,22 +136,20 @@ class TestConnectedHandler:
         mock_state_manager.led.set_connected_color.assert_called_once_with("serial1", "JoustFFA")
 
     @pytest.mark.asyncio
-    @patch("services.menu.handlers.connected.time")
-    async def test_handle_button_trigger(self, mock_time, handler, mock_state_manager):
+    async def test_handle_button_trigger(self, handler, mock_state_manager):
         """Trigger press should transition to READY."""
-        mock_time.time.return_value = 100.0
         handler.set_state_manager(mock_state_manager)
+        handler._debouncer.should_process = MagicMock(return_value=True)
 
         await handler.handle_button("serial1", "trigger")
 
         mock_state_manager.transition_to.assert_called_once_with("serial1", ControllerState.READY)
 
     @pytest.mark.asyncio
-    @patch("services.menu.handlers.connected.time")
-    async def test_handle_button_select_cycles_game(self, mock_time, handler, mock_state_manager):
+    async def test_handle_button_select_cycles_game(self, handler, mock_state_manager):
         """Select button press should cycle game modes."""
-        mock_time.time.return_value = 100.0
         handler.set_state_manager(mock_state_manager)
+        handler._debouncer.should_process = MagicMock(return_value=True)
 
         await handler.handle_button("serial1", "select")
 
@@ -71,15 +157,13 @@ class TestConnectedHandler:
         mock_state_manager.settings.save_current_game.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("services.menu.handlers.connected.time")
-    async def test_handle_button_debounce(self, mock_time, handler, mock_state_manager):
+    async def test_handle_button_debounce(self, handler, mock_state_manager):
         """Rapid button presses should be debounced."""
         handler.set_state_manager(mock_state_manager)
+        # First call returns True, second returns False (debounced)
+        handler._debouncer.should_process = MagicMock(side_effect=[True, False])
 
-        mock_time.time.return_value = 100.0
         await handler.handle_button("serial1", "trigger")
-
-        mock_time.time.return_value = 100.05  # 50ms later
         await handler.handle_button("serial1", "trigger")
 
         assert mock_state_manager.transition_to.call_count == 1
@@ -135,11 +219,10 @@ class TestReadyHandler:
         start_game_callback.assert_called_once_with("serial1")
 
     @pytest.mark.asyncio
-    @patch("services.menu.handlers.ready.time")
-    async def test_handle_button_move_unreadies(self, mock_time, handler, mock_state_manager):
+    async def test_handle_button_move_unreadies(self, handler, mock_state_manager):
         """Move press should transition back to CONNECTED."""
-        mock_time.time.return_value = 100.0
         handler.set_state_manager(mock_state_manager)
+        handler._debouncer.should_process = MagicMock(return_value=True)
 
         await handler.handle_button("serial1", "move")
 

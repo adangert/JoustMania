@@ -25,7 +25,7 @@ from opentelemetry import trace
 
 from lib.telemetry import SpanAttr
 from lib.types import Sound
-from services.menu.handlers.base import ControllerState
+from services.menu.handlers.base import ButtonDebouncer, ControllerState
 
 if TYPE_CHECKING:
     from services.menu.state_manager import StateManager
@@ -98,9 +98,8 @@ class AdminModeHandler:
             (255, 165, 0),  # Orange for force_all_start
         ]
 
-        # Button debouncing
-        self.last_button_time: dict[str, float] = {}
-        self.button_debounce_interval = 0.3  # seconds
+        # Button debouncing (300ms for admin mode)
+        self._debouncer = ButtonDebouncer(default_interval=0.3)
 
         # Background tasks (to prevent garbage collection)
         self._pending_tasks: set[asyncio.Task] = set()
@@ -273,27 +272,6 @@ class AdminModeHandler:
             and controller.triangle_pressed
         )
 
-    def _should_process_button(self, serial: str, button: str, current_time: float) -> bool:
-        """
-        Check if a button press should be processed (debouncing).
-
-        Args:
-            serial: Controller serial
-            button: Button name
-            current_time: Current timestamp
-
-        Returns:
-            True if button should be processed
-        """
-        key = f"{serial}:{button}"
-        last_time = self.last_button_time.get(key, 0)
-
-        if current_time - last_time < self.button_debounce_interval:
-            return False
-
-        self.last_button_time[key] = current_time
-        return True
-
     def _get_span_context(self):
         """Get the admin mode span context for child spans."""
         return self.session_span_context if self.session_span_context else None
@@ -406,15 +384,13 @@ class AdminModeHandler:
             serial: Controller serial number
             button: Button name (trigger, move, cross, circle, square, triangle, ps)
         """
-        current_time = time.time()
-
         # Check for admin mode timeout (60 seconds)
-        if current_time - self.entry_time > 60:
+        if time.time() - self.entry_time > 60:
             logger.info("Admin mode timed out after 60 seconds")
             await self._exit_to_connected(serial)
             return
 
-        if not self._should_process_button(serial, button, current_time):
+        if not self._debouncer.should_process(serial, button):
             return
 
         if button == "move":

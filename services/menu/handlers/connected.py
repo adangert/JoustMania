@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import logging
-import time
 from typing import TYPE_CHECKING
 
-from services.menu.handlers.base import ControllerState
+from services.menu.handlers.base import ButtonDebouncer, ControllerState
 
 if TYPE_CHECKING:
     from services.menu.state_manager import StateManager
@@ -29,9 +28,7 @@ class ConnectedHandler:
     def __init__(self):
         """Initialize connected handler."""
         self._state_manager: StateManager | None = None
-
-        # Debounce tracking
-        self._last_button_press: dict[str, dict[str, float]] = {}
+        self._debouncer = ButtonDebouncer(default_interval=0.1)
 
     @property
     def state(self) -> ControllerState:
@@ -54,15 +51,13 @@ class ConnectedHandler:
             logger.error("StateManager not set")
             return
 
-        current_time = time.time()
-
         if button == "trigger":
-            if not self._should_process_button(serial, "trigger", current_time):
+            if not self._debouncer.should_process(serial, "trigger"):
                 return
             await self._handle_trigger(serial)
 
         elif button == "select":
-            if not self._should_process_button(serial, "select", current_time):
+            if not self._debouncer.should_process(serial, "select"):
                 return
             await self._handle_select(serial)
 
@@ -86,28 +81,6 @@ class ConnectedHandler:
         Called when a controller exits the connected state.
         """
         logger.debug(f"Controller {serial} exiting connected state")
-
-    def _should_process_button(self, serial: str, button: str, current_time: float) -> bool:
-        """
-        Check if button press should be processed (debouncing).
-
-        Args:
-            serial: Controller serial number
-            button: Button name
-            current_time: Current timestamp
-
-        Returns:
-            True if button press should be processed
-        """
-        if serial not in self._last_button_press:
-            self._last_button_press[serial] = {}
-
-        last_press = self._last_button_press[serial].get(button, 0)
-        if current_time - last_press < 0.1:  # 100ms debounce
-            return False
-
-        self._last_button_press[serial][button] = current_time
-        return True
 
     async def _handle_trigger(self, serial: str) -> None:
         """

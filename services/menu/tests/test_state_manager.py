@@ -151,14 +151,12 @@ class TestStateManagerHelpers:
 
     def test_all_ready_true(self, state_manager):
         """all_ready should return True when all connected are ready (min 2)."""
-        state_manager.connected_controllers = {"s1", "s2"}
-        state_manager.ready_controllers = {"s1", "s2"}
+        state_manager.controller_states = {"s1": ControllerState.READY, "s2": ControllerState.READY}
         assert state_manager.all_ready() is True
 
     def test_all_ready_false_not_enough(self, state_manager):
         """all_ready should return False when less than 2 ready."""
-        state_manager.connected_controllers = {"s1"}
-        state_manager.ready_controllers = {"s1"}
+        state_manager.controller_states = {"s1": ControllerState.READY}
         assert state_manager.all_ready() is False
 
     def test_set_game_mode(self, state_manager):
@@ -170,8 +168,7 @@ class TestStateManagerHelpers:
     @patch("services.menu.state_manager.metrics")
     async def test_reset(self, mock_metrics, state_manager):
         """reset should clear ready state and re-register controllers."""
-        state_manager.connected_controllers = {"s1", "s2"}
-        state_manager.ready_controllers = {"s1"}
+        # Set up state via controller_states (single source of truth)
         state_manager.controller_states = {"s1": ControllerState.READY, "s2": ControllerState.CONNECTED}
         state_manager.button_states = {"s1": {"trigger": True}}
 

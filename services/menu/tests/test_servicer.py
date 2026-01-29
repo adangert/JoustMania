@@ -30,6 +30,7 @@ sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(test_dir))
 
 from proto import menu_pb2  # noqa: E402
+from services.menu.handlers.base import ControllerState  # noqa: E402
 
 
 class MockGrpcContext:
@@ -50,22 +51,18 @@ class FakeMenuServicer:
 
     This avoids the complex initialization of the real MenuServicer
     while allowing us to test the method logic.
+
+    Uses the new data model where controller state is managed via
+    state_manager.controller_states as the single source of truth.
     """
 
     def __init__(self):
         self.state = menu_pb2.MenuState.STOPPED
         self.current_selection = "JoustFFA"
-        self.ready_controller_count = 0
 
         # Game event monitoring
         self.game_event_task = None
         self.game_event_monitor_running = False
-
-        # Lobby state tracking
-        self.ready_controllers: set[str] = set()
-        self.connected_controllers: set[str] = set()
-        self.controller_lobby_state: dict[str, str] = {}
-        self.last_lobby_feedback_update: dict[str, float] = {}
 
         # Mocked dependencies
         self.led = MagicMock()
@@ -91,9 +88,16 @@ class FakeMenuServicer:
         self.state_manager.handle_button_event = AsyncMock()
         self.state_manager.set_game_mode = MagicMock()
         self.state_manager.reset = AsyncMock(return_value=["serial_1", "serial_2"])
-        self.state_manager.ready_controllers = {"serial_1", "serial_2"}
+        # controller_states is the single source of truth (starts empty)
+        self.state_manager.controller_states = {}
         self.state_manager.button_states = {}
         self.state_manager.transition_to = AsyncMock()
+
+        # Computed properties on state_manager (match real implementation)
+        type(self.state_manager).ready_controllers = property(
+            lambda sm: {s for s, st in sm.controller_states.items() if st == ControllerState.READY}
+        )
+        type(self.state_manager).connected_controllers = property(lambda sm: set(sm.controller_states.keys()))
 
         self.controller_events = MagicMock()
         self.controller_events.start = AsyncMock()
@@ -117,6 +121,26 @@ class FakeMenuServicer:
         self.game_coordinator_channel.close = AsyncMock()
         self.audio_channel = MagicMock()
         self.audio_channel.close = AsyncMock()
+
+    # Computed properties that delegate to state_manager (match real implementation)
+    @property
+    def ready_controllers(self) -> set[str]:
+        """Controllers in READY state (delegates to state_manager)."""
+        return self.state_manager.ready_controllers
+
+    @property
+    def connected_controllers(self) -> set[str]:
+        """All connected controllers (delegates to state_manager)."""
+        return self.state_manager.connected_controllers
+
+    @property
+    def ready_controller_count(self) -> int:
+        """Number of ready controllers (computed from state_manager)."""
+        return len(self.state_manager.ready_controllers)
+
+    async def on_disconnect(self, serial: str) -> None:
+        """Handle controller disconnect (matches real implementation)."""
+        await self.state_manager.on_controller_disconnected(serial)
 
 
 # Import the actual method implementations to bind to our fake
@@ -198,11 +222,16 @@ class TestMenuServicerControllerCallbacks:
 
     @pytest.mark.asyncio
     async def test_on_connect_adds_to_connected(self, servicer):
-        """on_connect should add serial to connected set."""
+        """on_connect should delegate to state_manager which tracks the connection."""
 
-        # Simulate the real on_connect implementation
+        # Make state_manager.on_controller_connected update controller_states
+        async def mock_on_connected(serial):
+            servicer.state_manager.controller_states[serial] = ControllerState.CONNECTED
+
+        servicer.state_manager.on_controller_connected = AsyncMock(side_effect=mock_on_connected)
+
+        # Simulate the real on_connect implementation (just delegates to state_manager)
         async def on_connect(serial):
-            servicer.connected_controllers.add(serial)
             await servicer.state_manager.on_controller_connected(serial)
 
         await on_connect("serial_1")
@@ -213,28 +242,23 @@ class TestMenuServicerControllerCallbacks:
     @pytest.mark.asyncio
     async def test_on_disconnect_removes_from_all_sets(self, servicer):
         """on_disconnect should clean up all tracking state."""
-        # Set up initial state
-        servicer.connected_controllers = {"serial_1", "serial_2"}
-        servicer.ready_controllers = {"serial_1"}
-        servicer.controller_lobby_state = {"serial_1": "ready", "serial_2": "connected"}
-        servicer.last_lobby_feedback_update = {"serial_1": 100.0, "serial_2": 200.0}
-        servicer.ready_controller_count = 1
+        # Set up initial state via state_manager.controller_states (single source of truth)
+        servicer.state_manager.controller_states = {
+            "serial_1": ControllerState.READY,
+            "serial_2": ControllerState.CONNECTED,
+        }
 
-        # Simulate the real on_disconnect implementation
-        async def on_disconnect(serial):
-            await servicer.state_manager.on_controller_disconnected(serial)
-            servicer.connected_controllers.discard(serial)
-            servicer.ready_controllers.discard(serial)
-            servicer.controller_lobby_state.pop(serial, None)
-            servicer.last_lobby_feedback_update.pop(serial, None)
-            servicer.ready_controller_count = len(servicer.ready_controllers)
+        # Make state_manager.on_controller_disconnected update controller_states
+        async def mock_on_disconnected(serial):
+            servicer.state_manager.controller_states.pop(serial, None)
 
-        await on_disconnect("serial_1")
+        servicer.state_manager.on_controller_disconnected = AsyncMock(side_effect=mock_on_disconnected)
+
+        # Call on_disconnect (now delegates to state_manager)
+        await servicer.on_disconnect("serial_1")
 
         assert "serial_1" not in servicer.connected_controllers
         assert "serial_1" not in servicer.ready_controllers
-        assert "serial_1" not in servicer.controller_lobby_state
-        assert "serial_1" not in servicer.last_lobby_feedback_update
         assert servicer.ready_controller_count == 0
 
     def test_update_battery_calls_state_manager(self, servicer):
@@ -294,13 +318,19 @@ class TestMenuServicerStartMenu:
     @pytest.mark.asyncio
     async def test_start_menu_success(self, servicer):
         """StartMenu should transition to RUNNING and return success."""
+        # Add some ready controllers to verify they get cleared
+        servicer.state_manager.controller_states = {"s1": ControllerState.READY}
+
         # Simulate the real StartMenu logic
         if servicer.state == menu_pb2.MenuState.RUNNING:
             success = False
             error = "Menu already running"
         else:
             servicer.state = menu_pb2.MenuState.RUNNING
-            servicer.ready_controller_count = 0
+            # Clear ready state (new implementation clears controller_states READY entries)
+            for serial in list(servicer.state_manager.controller_states.keys()):
+                if servicer.state_manager.controller_states[serial] == ControllerState.READY:
+                    servicer.state_manager.controller_states[serial] = ControllerState.CONNECTED
             await servicer.settings_helper.load_voice_actor()
             await servicer.settings_helper.load_current_game()
             await servicer.audio.start_lobby_music()
@@ -311,6 +341,7 @@ class TestMenuServicerStartMenu:
         assert success is True
         assert error == ""
         assert servicer.state == menu_pb2.MenuState.RUNNING
+        assert servicer.ready_controller_count == 0  # All ready controllers cleared
         servicer.audio.start_lobby_music.assert_called_once()
         servicer.event_publisher.publish.assert_called_with("menu_started", {})
 
@@ -341,20 +372,18 @@ class TestMenuServicerStopMenu:
     async def test_stop_menu_success(self, servicer):
         """StopMenu should transition to STOPPED and clear state."""
         servicer.state = menu_pb2.MenuState.RUNNING
-        servicer.ready_controllers = {"serial_1"}
-        servicer.connected_controllers = {"serial_1", "serial_2"}
+        # Set up state via controller_states (single source of truth)
+        servicer.state_manager.controller_states = {
+            "serial_1": ControllerState.READY,
+            "serial_2": ControllerState.CONNECTED,
+        }
 
-        # Simulate the real StopMenu logic
+        # Simulate the real StopMenu logic (new implementation)
         if servicer.state != menu_pb2.MenuState.STOPPED:
             servicer.state = menu_pb2.MenuState.STOPPED
-            servicer.ready_controllers.clear()
-            servicer.connected_controllers.clear()
-            servicer.controller_lobby_state.clear()
-            servicer.last_lobby_feedback_update.clear()
-            servicer.ready_controller_count = 0
+            servicer.state_manager.controller_states.clear()
             await servicer.event_publisher.publish("menu_stopped", {})
 
-        assert servicer.state == menu_pb2.MenuState.STOPPED
         assert servicer.state == menu_pb2.MenuState.STOPPED
         assert servicer.ready_controllers == set()
         assert servicer.connected_controllers == set()
@@ -428,8 +457,6 @@ class TestMenuServicerHandleWebCommand:
             servicer.state_manager.set_game_mode(game_name)
             await servicer.event_publisher.publish("selection_changed", {"game_name": game_name, "source": "web"})
             await servicer.settings_helper.save_current_game(servicer.current_selection)
-            servicer.controller_lobby_state.clear()
-            servicer.last_lobby_feedback_update.clear()
 
         assert servicer.current_selection == "Tournament"
         servicer.state_manager.set_game_mode.assert_called_with("Tournament")
@@ -493,7 +520,8 @@ class TestMenuServicerStartGame:
     @pytest.mark.asyncio
     async def test_start_game_requires_two_players(self, servicer):
         """_start_game should require at least 2 players."""
-        servicer.state_manager.ready_controllers = {"serial_1"}  # Only 1
+        # Only 1 ready controller
+        servicer.state_manager.controller_states = {"serial_1": ControllerState.READY}
 
         # Simulate the check
         controllers = list(servicer.state_manager.ready_controllers)
@@ -509,7 +537,12 @@ class TestMenuServicerStartGame:
     @pytest.mark.asyncio
     async def test_start_game_sets_game_starting_state(self, servicer):
         """_start_game should set GAME_STARTING state with enough players."""
-        servicer.state_manager.ready_controllers = {"serial_1", "serial_2", "serial_3"}
+        # 3 ready controllers
+        servicer.state_manager.controller_states = {
+            "serial_1": ControllerState.READY,
+            "serial_2": ControllerState.READY,
+            "serial_3": ControllerState.READY,
+        }
 
         # Simulate the logic
         controllers = list(servicer.state_manager.ready_controllers)
@@ -599,10 +632,10 @@ class TestMenuServicerLobbyState:
         return FakeMenuServicer()
 
     def test_multiple_controller_connect(self, servicer):
-        """Should correctly track multiple connected controllers."""
-        servicer.connected_controllers.add("serial_1")
-        servicer.connected_controllers.add("serial_2")
-        servicer.connected_controllers.add("serial_3")
+        """Should correctly track multiple connected controllers via controller_states."""
+        servicer.state_manager.controller_states["serial_1"] = ControllerState.CONNECTED
+        servicer.state_manager.controller_states["serial_2"] = ControllerState.CONNECTED
+        servicer.state_manager.controller_states["serial_3"] = ControllerState.CONNECTED
 
         assert len(servicer.connected_controllers) == 3
         assert "serial_1" in servicer.connected_controllers
@@ -610,31 +643,17 @@ class TestMenuServicerLobbyState:
         assert "serial_3" in servicer.connected_controllers
 
     def test_controller_disconnect_updates_count(self, servicer):
-        """Disconnecting should update ready count."""
-        servicer.ready_controllers = {"serial_1", "serial_2"}
-        servicer.ready_controller_count = 2
+        """Disconnecting should update ready count (computed from controller_states)."""
+        servicer.state_manager.controller_states = {
+            "serial_1": ControllerState.READY,
+            "serial_2": ControllerState.READY,
+        }
+        assert servicer.ready_controller_count == 2
 
-        servicer.ready_controllers.discard("serial_1")
-        servicer.ready_controller_count = len(servicer.ready_controllers)
+        # Remove one controller
+        del servicer.state_manager.controller_states["serial_1"]
 
         assert servicer.ready_controller_count == 1
-
-    def test_lobby_state_tracking(self, servicer):
-        """Should track controller lobby states."""
-        servicer.controller_lobby_state["serial_1"] = "connected"
-        servicer.controller_lobby_state["serial_2"] = "ready"
-
-        assert servicer.controller_lobby_state["serial_1"] == "connected"
-        assert servicer.controller_lobby_state["serial_2"] == "ready"
-
-    def test_lobby_feedback_timing(self, servicer):
-        """Should track last lobby feedback update times."""
-        import time
-
-        now = time.time()
-        servicer.last_lobby_feedback_update["serial_1"] = now
-
-        assert servicer.last_lobby_feedback_update["serial_1"] == now
 
 
 class TestMenuServicerGameModeSelection:

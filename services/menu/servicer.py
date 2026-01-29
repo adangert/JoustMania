@@ -15,6 +15,7 @@ from services.menu import metrics
 from services.menu.controller_events import ControllerEventLoop
 from services.menu.event_publisher import EventPublisher
 from services.menu.handlers import AdminModeHandler, ConnectedHandler, ReadyHandler
+from services.menu.handlers.base import ControllerState
 from services.menu.state_manager import StateManager
 from services.menu.utils import AudioHelper, LedController, SettingsHelper
 from services.menu.utils.audio import GAME_MODE_VOICE
@@ -40,13 +41,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         """Initialize menu service."""
         self.state = menu_pb2.MenuState.STOPPED
         self.current_selection = "JoustFFA"
-        self.ready_controller_count = 0
-
-        # Lobby state tracking
-        self.ready_controllers: set[str] = set()
-        self.connected_controllers: set[str] = set()
-        self.controller_lobby_state: dict[str, str] = {}
-        self.last_lobby_feedback_update: dict[str, float] = {}
 
         # Persistent gRPC channels
         from lib.grpc_utils import create_channel
@@ -127,17 +121,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
     async def on_connect(self, serial: str) -> None:
         """Handle controller connect event (ControllerEventCallbacks)."""
-        self.connected_controllers.add(serial)
         await self.state_manager.on_controller_connected(serial)
 
     async def on_disconnect(self, serial: str) -> None:
         """Handle controller disconnect event (ControllerEventCallbacks)."""
         await self.state_manager.on_controller_disconnected(serial)
-        self.connected_controllers.discard(serial)
-        self.ready_controllers.discard(serial)
-        self.controller_lobby_state.pop(serial, None)
-        self.last_lobby_feedback_update.pop(serial, None)
-        self.ready_controller_count = len(self.ready_controllers)
 
     def update_battery(self, serial: str, battery: int) -> None:
         """Update battery level for a controller (ControllerEventCallbacks)."""
@@ -165,6 +153,37 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
         await self.state_manager.handle_button_event(serial, button, is_press)
 
+    # Controller state properties (delegate to state_manager as single source of truth)
+
+    @property
+    def ready_controllers(self) -> set[str]:
+        """Controllers in READY state (delegates to state_manager)."""
+        return self.state_manager.ready_controllers
+
+    @property
+    def connected_controllers(self) -> set[str]:
+        """All connected controllers (delegates to state_manager)."""
+        return self.state_manager.connected_controllers
+
+    @property
+    def ready_controller_count(self) -> int:
+        """Number of ready controllers (computed from state_manager)."""
+        return len(self.state_manager.ready_controllers)
+
+    def _clear_ready_state(self) -> None:
+        """Clear ready controllers and associated metrics.
+
+        Transitions all READY controllers back to CONNECTED state and
+        clears associated metrics. Used when game starts or menu stops.
+        """
+        # Transition ready controllers back to connected
+        for serial in list(self.state_manager.ready_controllers):
+            self.state_manager.controller_states[serial] = ControllerState.CONNECTED
+
+        # Clear metrics
+        metrics.player_ready.clear()
+        logger.debug("Ready state cleared")
+
     # gRPC service methods (names defined by proto)
 
     async def StartMenu(self, request, context):  # noqa: N802, ARG002
@@ -177,7 +196,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                     return menu_pb2.StartMenuResponse(success=False, error="Menu already running")
 
                 self.state = menu_pb2.MenuState.RUNNING
-                self.ready_controller_count = 0
+                self._clear_ready_state()
 
                 # Load settings
                 self.voice_actor = await self.settings_helper.load_voice_actor()
@@ -213,12 +232,9 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
                 self.state = menu_pb2.MenuState.STOPPED
 
-                # Clear lobby state
-                self.ready_controllers.clear()
-                self.connected_controllers.clear()
-                self.controller_lobby_state.clear()
-                self.last_lobby_feedback_update.clear()
-                self.ready_controller_count = 0
+                # Clear all lobby state
+                self._clear_ready_state()
+                self.state_manager.controller_states.clear()
 
                 await self.event_publisher.publish("menu_stopped", {})
 
@@ -326,8 +342,6 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 voice_file = GAME_MODE_VOICE.get(game_name)
                 if voice_file:
                     await self.audio.play_voice(voice_file)
-                self.controller_lobby_state.clear()
-                self.last_lobby_feedback_update.clear()
                 logger.info(f"Game selected via web: {game_name}")
             else:
                 logger.warning(f"Unknown game mode requested via web: {game_name}")
@@ -445,7 +459,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 await self.stop_button_monitor()
 
             # Clear menu_player_ready metrics so dashboard only shows game_player_alive
-            metrics.player_ready._metrics.clear()
+            metrics.player_ready.clear()
             logger.info("Button monitor and lobby music stopped for game start")
 
             self.state = menu_pb2.MenuState.GAME_STARTING
@@ -501,6 +515,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                         logger.info(f"Game started successfully: {event.event_type}")
                         span.set_attribute("game.started", True)
 
+                        # Clear ready state now that game has started (Issue #256)
+                        # This ensures dead players don't show in player insights dashboard
+                        self._clear_ready_state()
+                        logger.info("Ready state cleared on game start confirmation")
+
                     logger.info(f"Game event received: {event.event_type}")
 
                     if GameEvent.is_game_ending(event.event_type):
@@ -536,14 +555,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
         # Reset lobby state
         with tracer.start_as_current_span("reset_lobby_state"):
-            self.ready_controllers.clear()
-            self.connected_controllers.clear()
-            self.controller_lobby_state.clear()
-            self.last_lobby_feedback_update.clear()
-            self.ready_controller_count = 0
             # Reset state_manager and re-register controllers (sets lobby colors)
-            re_registered = await self.state_manager.reset()
-            self.connected_controllers.update(re_registered)
+            await self.state_manager.reset()
 
         with tracer.start_as_current_span("restart_lobby_music"):
             await self.audio.start_lobby_music()

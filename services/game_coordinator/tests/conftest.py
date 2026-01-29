@@ -20,6 +20,13 @@ project_root = service_dir.parent.parent
 # Add paths for imports
 sys.path.insert(0, str(project_root))
 
+# Disable OpenTelemetry for tests - must be done before importing service modules
+from lib.otel_metrics import disable_metrics_for_tests  # noqa: E402
+from lib.telemetry import disable_telemetry_for_tests  # noqa: E402
+
+disable_telemetry_for_tests()
+disable_metrics_for_tests()
+
 # Import protobufs from proto package (must be after path setup)
 from proto import controller_manager_pb2, settings_pb2  # noqa: E402
 

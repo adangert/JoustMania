@@ -2,14 +2,14 @@
 Pytest fixtures for controller_manager tests.
 """
 
-import os
-
 import pytest
 
-# Disable OpenTelemetry export during tests to prevent hanging on trace/metric export
-os.environ["OTEL_SDK_DISABLED"] = "true"
-os.environ["OTEL_TRACES_EXPORTER"] = "none"
-os.environ["OTEL_METRICS_EXPORTER"] = "none"
+# Disable OpenTelemetry for tests - must be done before importing service modules
+from lib.otel_metrics import disable_metrics_for_tests
+from lib.telemetry import disable_telemetry_for_tests
+
+disable_telemetry_for_tests()
+disable_metrics_for_tests()
 
 
 class FakeMove:

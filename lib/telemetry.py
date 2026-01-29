@@ -37,6 +37,34 @@ logger = logging.getLogger(__name__)
 # Lazy initialization state
 _initialized = False
 _init_lock = threading.Lock()
+_test_mode = False
+
+
+def disable_telemetry_for_tests() -> None:
+    """
+    Disable OpenTelemetry tracing for unit tests.
+
+    Call this once in conftest.py to prevent OTLP connection attempts
+    during tests. This is cleaner than patching sys.modules.
+
+    Example:
+        # conftest.py
+        from lib.telemetry import disable_telemetry_for_tests
+        disable_telemetry_for_tests()
+    """
+    global _initialized, _test_mode
+    _test_mode = True
+    _initialized = True  # Prevent real initialization
+
+    # Set environment variables as backup for any code that checks them
+    os.environ["OTEL_SDK_DISABLED"] = "true"
+    os.environ["OTEL_TRACES_EXPORTER"] = "none"
+    os.environ["OTEL_METRICS_EXPORTER"] = "none"
+
+
+def is_test_mode() -> bool:
+    """Check if telemetry is in test mode (disabled for tests)."""
+    return _test_mode
 
 
 class SpanAttr:

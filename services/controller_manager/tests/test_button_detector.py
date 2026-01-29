@@ -5,16 +5,12 @@ Tests button state transition detection and event publishing.
 """
 
 import asyncio
-import sys
 from unittest.mock import MagicMock, patch
 
-# Mock prometheus_client before importing modules that use metrics
-sys.modules["prometheus_client"] = MagicMock()
-
-from lib.controller_constants import ButtonKey, ButtonTrackingKey  # noqa: E402
-from proto import controller_manager_pb2  # noqa: E402
-from services.controller_manager.button_detector import ButtonDetector  # noqa: E402
-from services.controller_manager.event_publisher import EventPublisher  # noqa: E402
+from lib.controller_constants import ButtonKey, ButtonTrackingKey
+from proto import controller_manager_pb2
+from services.controller_manager.button_detector import ButtonDetector
+from services.controller_manager.event_publisher import EventPublisher
 
 
 class TestButtonDetectorInitialization:

@@ -4,35 +4,10 @@ Unit tests for DiscoveryLoop.
 Tests activity tracking and adaptive polling logic.
 """
 
-import sys
 import time
 from unittest.mock import MagicMock
 
-# Mock external dependencies before importing modules that use them
-# These must be mocked before any imports that use them
-mock_tracer = MagicMock()
-mock_tracer.start_as_current_span = MagicMock(return_value=MagicMock(__enter__=MagicMock(), __exit__=MagicMock()))
-
-sys.modules["prometheus_client"] = MagicMock()
-sys.modules["opentelemetry"] = MagicMock()
-sys.modules["opentelemetry.trace"] = MagicMock()
-sys.modules["opentelemetry.exporter"] = MagicMock()
-sys.modules["opentelemetry.exporter.otlp"] = MagicMock()
-sys.modules["opentelemetry.exporter.otlp.proto"] = MagicMock()
-sys.modules["opentelemetry.exporter.otlp.proto.grpc"] = MagicMock()
-sys.modules["opentelemetry.exporter.otlp.proto.grpc.trace_exporter"] = MagicMock()
-sys.modules["opentelemetry.sdk"] = MagicMock()
-sys.modules["opentelemetry.sdk.trace"] = MagicMock()
-sys.modules["opentelemetry.sdk.trace.export"] = MagicMock()
-sys.modules["opentelemetry.sdk.resources"] = MagicMock()
-
-# Mock lib.telemetry to return our mock tracer
-mock_telemetry = MagicMock()
-mock_telemetry.init_telemetry = MagicMock(return_value=mock_tracer)
-mock_telemetry.get_tracer = MagicMock(return_value=mock_tracer)
-sys.modules["lib.telemetry"] = mock_telemetry
-
-from lib.controller_constants import AxisKey, ButtonKey, StateKey  # noqa: E402
+from lib.controller_constants import AxisKey, ButtonKey, StateKey
 
 
 class TestActivityTracking:

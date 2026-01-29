@@ -42,6 +42,34 @@ _meter: metrics.Meter | None = None
 _initialized = False
 _pending_metrics: list[LabeledMetric] = []
 _init_lock = Lock()
+_test_mode = False
+
+
+def disable_metrics_for_tests() -> None:
+    """
+    Disable OpenTelemetry metrics for unit tests.
+
+    Call this once in conftest.py to prevent OTLP connection attempts
+    and enable silent no-op behavior for all metrics during tests.
+
+    When test mode is enabled, all metric operations (set, inc, observe)
+    silently do nothing instead of trying to export to a collector.
+
+    Example:
+        # conftest.py
+        from lib.otel_metrics import disable_metrics_for_tests
+        disable_metrics_for_tests()
+    """
+    global _test_mode
+    _test_mode = True
+    # Note: We don't set _initialized=True here because the silent skip
+    # logic in _ensure_initialized() already handles uninitialized state.
+    # Setting _test_mode just provides a clearer signal for tests.
+
+
+def is_test_mode() -> bool:
+    """Check if metrics are in test mode (disabled for tests)."""
+    return _test_mode
 
 
 def init_metrics(

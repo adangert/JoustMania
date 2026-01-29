@@ -95,3 +95,4 @@ get-docker.sh
 
 # Linter cache
 .ruff_cache/
+*.local.md

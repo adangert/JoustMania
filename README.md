@@ -13,10 +13,22 @@ A cloud-native refactor of the [original JoustMania](https://github.com/adangert
 
 ## Quick Start
 
+### With PS Move Controllers (Raspberry Pi / Linux)
+
 ```bash
 git clone https://github.com/WatchMeJoustMyFlags/JoustMania.git
 cd JoustMania
-docker compose up -d
+./setup.sh    # Install dependencies, Bluetooth config, pairing daemon
+```
+
+The setup script will guide you through installation and optionally enable autostart on boot.
+
+### Demo Mode (No Hardware)
+
+```bash
+git clone https://github.com/WatchMeJoustMyFlags/JoustMania.git
+cd JoustMania
+CONTROLLER_BACKEND=mock docker compose up -d
 ```
 
 **Open the dashboard:** http://localhost:8080
@@ -81,19 +93,9 @@ See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for the full development guide.
 
 ## Mock Environment
 
-Test without hardware:
+For development without PS Move controllers, use mock mode (see Quick Start above).
 
-```bash
-CONTROLLER_BACKEND=mock docker compose up -d
-```
-
-See [Mock Environment Guide](services/controller_manager/MOCK_ENVIRONMENT.md) for details.
-
-## Hardware Setup
-
-For physical PS Move controllers, see [Hardware Setup Guide](docs/hardware-setup-guide.md).
-
-**Requirements:** PS Move controllers, USB Bluetooth adapter, Raspberry Pi or Linux
+See [Mock Environment Guide](services/controller_manager/MOCK_ENVIRONMENT.md) for simulating controllers and running integration tests.
 
 ## Documentation
 

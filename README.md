@@ -1,630 +1,141 @@
-# JoustMania - Cloud-Native Edition
+# JoustMania
 
 [![CI](https://github.com/WatchMeJoustMyFlags/JoustMania/actions/workflows/ci.yml/badge.svg)](https://github.com/WatchMeJoustMyFlags/JoustMania/actions/workflows/ci.yml)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=WatchMeJoustMyFlags_JoustMania&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=WatchMeJoustMyFlags_JoustMania)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=WatchMeJoustMyFlags_JoustMania&metric=coverage)](https://sonarcloud.io/summary/new_code?id=WatchMeJoustMyFlags_JoustMania)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
-[![Dev Container](https://img.shields.io/badge/Dev_Container-Ready-blue?logo=visualstudiocode)](https://code.visualstudio.com/docs/devcontainers/containers)
 
-**Microservices-based Motion Gaming Platform for PlayStation Move Controllers**
+**Microservices-based motion gaming platform for PlayStation Move controllers.**
 
----
+A cloud-native refactor of the [original JoustMania](https://github.com/adangert/JoustMania) party game system, rebuilt with modern observability practices. Ideal for learning distributed systems, gRPC, and OpenTelemetry.
 
-## Overview
+![JoustMania at Magfest](logo/magfest.jpg)
 
-JoustMania is a collection of PlayStation Move-enabled party games based on the "jostling" mechanic. This is a **cloud-native refactor** of the [original JoustMania project](https://github.com/adangert/JoustMania), rebuilt as a microservices architecture with modern observability practices.
-
-### What's New in This Fork
-
-This version focuses on:
-- ✅ **Microservices Architecture** - 7 independent services communicating via gRPC
-- ✅ **Cloud-Native Deployment** - Docker Compose (development) and Kubernetes-ready
-- ✅ **Distributed Tracing** - OpenTelemetry instrumentation with Jaeger visualization
-- ✅ **Modern Development** - Protocol Buffers, streaming RPCs, containerization
-- ✅ **Production-Ready Patterns** - Health checks, graceful shutdown, structured logging
-
-**Use Case:** This fork serves as an **observability demonstration** and **reference architecture** for cloud-native Python microservices. It's ideal for learning distributed systems, gRPC, and OpenTelemetry.
-
----
-
-## Developer Quick Start
-
-### Option 1: Dev Container (One-Click Setup)
-
-1. Install [VS Code](https://code.visualstudio.com/) and the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-2. Clone and open: `code .`
-3. Click "Reopen in Container" when prompted
-4. Start developing! All tools pre-configured.
-
-### Option 2: Local Development
+## Quick Start
 
 ```bash
-# Clone repository
 git clone https://github.com/WatchMeJoustMyFlags/JoustMania.git
 cd JoustMania
-
-# Run linting
-make lint
-
-# Format code
-make format
-
-# Run tests
-make test
+docker compose up -d
 ```
 
-**See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for full development guide.**
+**Open the dashboard:** http://localhost:8080
 
----
+| Interface | URL | Purpose |
+|-----------|-----|---------|
+| Dashboard | http://localhost:8080 | Main UI, controller visualization |
+| Jaeger | http://localhost:8080/jaeger/ | Distributed tracing |
+| Prometheus | http://localhost:8080/prometheus/ | Metrics |
+| Grafana | http://localhost:8080/grafana/ | Dashboards (admin/joustmania) |
 
-## Features
-
-### Game Modes
+## Game Modes
 
 - **Joust FFA** - Free-for-all elimination
 - **Joust Teams** - Team-based combat
-- **Joust Random Teams** - Randomized teams
-- **Traitor** - Hidden traitor mechanic
-- **Swapper** - Dynamic team switching
-- **Fight Club** - 1v1 bracket tournament
+- **Joust Random Teams** - Randomized team assignment
 - **Tournament** - Elimination brackets
 - **Werewolf** - Social deduction
 - **Zombies** - Infection survival
-- **Commander** - Leader-based teams
 - **Non-Stop Joust** - Respawn-enabled combat
-- **Ninja/Speed Bomb** - Bomb-passing mechanics
-
-### Technical Features
-
-- Real-time controller state streaming (1000Hz hardware polling → 60Hz gRPC stream)
-- **Comprehensive LED feedback** - Game-mode colors, team assignments, battery warnings ([see docs](docs/controller-feedback.md))
-- Priority-based audio mixing
-- Distributed tracing across all services
-- Web UI for game control and monitoring
-- Service health monitoring
-- Configurable game settings with validation
-
----
+- **Fight Club** - 1v1 bracket tournament
+- And more...
 
 ## Architecture
 
 ```
-┌─────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   Web UI    │────▶│  Application     │────▶│  Infrastructure │
-│   :80       │     │  Services        │     │  Services       │
-└─────────────┘     └──────────────────┘     └─────────────────┘
-                            │                         │
-                    ┌───────┴────────┐       ┌────────┴────────┐
-                    │                │       │                 │
-              ┌─────▼─────┐    ┌────▼────┐  │  ┌──────────┐  │
-              │   Menu    │    │  Game   │  │  │ Settings │  │
-              │  :50054   │    │  Coord  │  │  │  :50051  │  │
-              └───────────┘    │ :50053  │  │  └──────────┘  │
-                               └─────────┘  │                 │
-                                            │  ┌──────────┐  │
-                                            │  │Controller│  │
-                                            │  │ Manager  │  │
-                                            │  │  :50052  │  │
-                                            │  └──────────┘  │
-                                            └─────────────────┘
-                                                     │
-                                         ┌───────────▼────────────┐
-                                         │  Observability Stack   │
-                                         │  ┌──────────────────┐  │
-                                         │  │ Jaeger UI :16686 │  │
-                                         │  │ OTel Collector   │  │
-                                         │  │ Prometheus :8888 │  │
-                                         │  └──────────────────┘  │
-                                         └────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                        Dashboard (:8080)                        │
+│         Unified entry point with reverse proxy routing          │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+┌───────────────┐    ┌───────────────┐    ┌───────────────┐
+│     Menu      │    │     Game      │    │   Settings    │
+│    :50054     │    │  Coordinator  │    │    :50051     │
+└───────────────┘    │    :50053     │    └───────────────┘
+                     └───────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+┌───────────────┐    ┌───────────────┐    ┌───────────────┐
+│  Controller   │    │     Audio     │    │ Observability │
+│   Manager     │    │    :50056     │    │ Jaeger/Prom   │
+│    :50052     │    └───────────────┘    │ Grafana/Loki  │
+└───────────────┘                         └───────────────┘
 ```
 
-**For detailed architecture:** See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-
----
-
-## Quick Start
-
-### Prerequisites
-
-- Docker (20.10+)
-- Docker Compose (v2.0+)
-- Optional: PS Move controllers for hardware testing
-
-### Option 1: Pull and Run (Fastest - No Build Required)
-
-```bash
-git clone <repository-url>
-cd JoustMania
-
-# Pull images from GHCR and start
-docker compose pull
-docker compose up -d
-```
-
-To use a specific version:
-```bash
-IMAGE_TAG=dev-refactor docker compose pull
-IMAGE_TAG=dev-refactor docker compose up -d
-```
-
-### Option 2: Build and Start
-
-```bash
-git clone <repository-url>
-cd JoustMania
-
-# Build and start
-docker compose up -d --build
-```
-
-### GHCR Authentication (For Private Images)
-
-If the repository uses private images, authenticate with GitHub Container Registry:
-
-```bash
-# Generate a GitHub Personal Access Token with read:packages scope
-# Then authenticate:
-echo $GITHUB_TOKEN | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
-```
-
-### What Gets Started
-
-This starts:
-- 9 microservices (Settings, ControllerManager, GameCoordinator, Menu, Supervisor, WebUI, Audio, Dashboard, Connect-Proxy)
-- Jaeger (distributed tracing)
-- OpenTelemetry Collector
-- Redis
-- Prometheus metrics
-- Grafana dashboards
-- Loki log aggregation
-
-### Access Interfaces
-
-| Interface | URL | Purpose |
-|-----------|-----|---------|
-| **Dashboard** | http://localhost:8080 | Main entry point - controller visualization |
-| **Jaeger** | http://localhost:8080/jaeger/ | Distributed traces |
-| **Prometheus** | http://localhost:8080/prometheus/ | Metrics UI |
-| **Grafana** | http://localhost:8080/grafana/ | Dashboards (admin/joustmania) |
-
-### View Logs
-
-```bash
-# All services
-docker compose logs -f
-
-# Specific service
-docker compose logs -f settings
-```
-
-### Test gRPC APIs
-
-```bash
-# Install grpcurl
-brew install grpcurl  # macOS
-sudo apt-get install grpcurl  # Linux
-
-# List services (via exposed ports in docker-compose.override.yml)
-grpcurl -plaintext localhost:50051 list
-
-# Call RPC
-grpcurl -plaintext -d '{}' localhost:50051 joustmania.SettingsService/GetSettings
-```
-
-### View Traces
-
-1. Open http://localhost:8080/jaeger/
-2. Select service: `settings-service`
-3. Click "Find Traces"
-4. Explore distributed traces across services
-
-### Stop Services
-
-```bash
-docker compose down
-```
-
----
-
-## Controller Guide
-
-JoustMania uses **PlayStation Move controllers** for gameplay. Controllers feature physical button controls for menu navigation, gameplay, and admin functions.
-
-### LED Feedback
-
-Controllers provide comprehensive visual feedback through LED colors:
-- **Menu/Lobby**: Game-mode-specific colors (dim when connected, bright when ready)
-- **Game Phase**: Unique colors per player (FFA/Nonstop) or team colors (Teams modes)
-- **Admin Mode**: White LED indicator
-- **Low Battery**: Automatic red pulse warnings (<20% battery)
-
-**For complete LED reference:** See [Controller LED Feedback Documentation](docs/controller-feedback.md)
-
-### Button Layout
-
-PS Move controllers have the following buttons:
-- **MOVE Button** - Large middle button with PlayStation logo
-- **TRIGGER** - Rear trigger button
-- **X (Cross)** - Front face button (bottom)
-- **O (Circle)** - Front face button (right)
-- **Square** - Front face button (left)
-- **Triangle** - Front face button (top)
-- **PlayStation Button** - PS logo button (special functions)
-
-### Menu Navigation
-
-Navigate the game menu using physical controller buttons:
-
-| Button | Action |
-|--------|--------|
-| **MOVE** | Cycle through available games |
-| **TRIGGER** | Start selected game |
-
-Available games cycle in order:
-1. Joust FFA
-2. Joust Teams
-3. Tournament
-4. Werewolf
-5. Nonstop Joust
-
-### Admin Mode
-
-Access advanced settings by pressing **all 4 front buttons simultaneously** (X + O + Square + Triangle).
-
-**Visual Feedback:** Controller flashes white 3 times when entering admin mode.
-
-#### Admin Commands
-
-Admin mode supports two control schemes:
-
-**Option Navigation (recommended):**
-| Button | Function | Feedback |
-|--------|----------|----------|
-| **MOVE** | Cycle through settings (Num Teams → Force Start) | Shows option color (1s) |
-| **TRIGGER** | Increase current setting value | Flashes/color based on value |
-| **X (Cross)** | Decrease current setting value | Flashes/color based on value |
-
-**Quick Access Functions:**
-| Button | Function | Feedback |
-|--------|----------|----------|
-| **Circle (O)** | Cycle sensitivity (Slow → Medium → Fast) | Color-coded pulse (Blue/Green/Red) |
-| **Triangle** | Show battery levels on all controllers | Color-coded LEDs (2s) |
-| **Square** | Toggle instruction audio | Green (enabled) / Red (disabled) |
-| **PlayStation** | Exit admin mode | - |
-
-**Note:** Sensitivity and instruction settings persist to the Settings service and apply to all subsequent games.
-
-#### Admin Settings
-
-**Number of Teams** (Light Blue):
-- Adjusts number of teams for team-based games (Teams, Random Teams)
-- Range: 2-6 teams
-- Feedback: Flashes N times (N = number of teams)
-
-**Force Start Mode** (Purple):
-- Controls which players start when force-starting
-- `All`: All connected controllers start
-- `Trigger Only`: Only players who pressed trigger start
-- Feedback: Green (All) / Red (Trigger Only)
-
-**Sensitivity Levels** (Circle button):
-- **Slow** (0) - Blue pulse - Lower thresholds, easier gameplay
-- **Medium** (1) - Green pulse - Default balanced gameplay
-- **Fast** (2) - Red pulse - Higher thresholds, faster paced
-
-**Instructions Toggle** (Square button):
-- **Enabled** - Green pulse - Audio instructions play during games
-- **Disabled** - Red pulse - Silent gameplay, no audio prompts
-
-#### Battery Display Colors
-
-When Triangle is pressed in admin mode, controllers display battery status:
-- **Green** - Battery > 66%
-- **Yellow** - Battery 33-66%
-- **Red** - Battery < 33%
-
-### In-Game Controls
-
-During gameplay:
-- **Movement Detection** - Controller accelerometer/gyroscope detect jousting motions
-- **TRIGGER** - Context-dependent (varies by game mode)
-- **MOVE** - Context-dependent (varies by game mode)
-
-Game-specific controls are announced at game start.
-
-### Pairing Controllers
-
-Controllers can be paired via:
-1. **Web UI** - http://localhost:80 (recommended)
-2. **Physical pairing mode** - Hold PlayStation button until LED blinks
-
----
-
-## Hardware Setup (Optional)
-
-For full hardware testing with PS Move controllers:
-
-### Requirements
-
-- PS Move controllers (1-18 supported)
-- USB Bluetooth adapter (Class 1 recommended)
-- Raspberry Pi or Linux machine
-
-### Setup
-
-```bash
-# Run setup script (on Raspberry Pi)
-./setup.sh
-
-# Or manually:
-scripts/setup/setup_host.sh       # Install dependencies
-scripts/setup/build_psmoveapi.sh  # Build PS Move API
-```
-
-### Hardware Notes
-
-- **ControllerManager** service requires privileged container for USB/Bluetooth access
-- **Audio** service requires privileged container for `/dev/snd` access
-- Mock mode available when hardware unavailable (automatic fallback)
-
----
-
-## Mock Hardware Environment (No Hardware Required!)
-
-Test and develop JoustMania **without PS Move controllers or Bluetooth hardware** using the mock environment.
-
-### Quick Start with Mock
-
-```bash
-# Start all services with mock hardware
-make up-mock
-
-# Or manually:
-CONTROLLER_BACKEND=mock AUDIO_MOCK_MODE=true docker compose up -d
-
-# Simulate a game with 4 mock controllers
-python scripts/testing/simulate_game.py --mode FFA --controllers 4 --duration 30
-
-# View traces in Jaeger
-open http://localhost:16686
-```
-
-### Features
-
-- ✅ **Zero Hardware Dependencies** - No Bluetooth adapter or PS Move controllers needed
-- ✅ **Controllable via gRPC** - Programmatically simulate movements and deaths
-- ✅ **Full Distributed Tracing** - Same observability as real hardware
-- ✅ **Integration Testing** - Testcontainers support for CI/CD
-- ✅ **Configurable Controllers** - Set mock controller count via environment variable
-
-### Mock Controller Control API
-
-Control mock controllers via gRPC on port 50062:
-
-```bash
-# List mock controllers
-grpcurl -plaintext localhost:50062 \
-  controller_manager_mock.MockControllerService/ListMockControllers
-
-# Simulate death
-grpcurl -plaintext -d '{"serial":"mock_controller_0"}' \
-  localhost:50062 controller_manager_mock.MockControllerService/SimulateDeath
-
-# Simulate movement (warning)
-grpcurl -plaintext -d '{"serial":"mock_controller_0","accel_x":2.0,"accel_y":1.5,"accel_z":1.2}' \
-  localhost:50062 controller_manager_mock.MockControllerService/SimulateMovement
-
-# Reset controller
-grpcurl -plaintext -d '{"serial":"mock_controller_0"}' \
-  localhost:50062 controller_manager_mock.MockControllerService/ResetController
-```
-
-### Integration Tests
-
-Run full end-to-end tests using testcontainers:
-
-```bash
-# Install all workspace members including integration tests
-uv sync --all-packages
-
-# Run integration tests (auto-teardown) - using uv script
-./scripts/testing/test-mock.py
-
-# Run with pause to inspect Jaeger before teardown
-./scripts/testing/test-mock-with-pause.py
-
-# Or run manually with pytest
-uv run --package joustmania-integration-tests pytest tests/integration/ -v
-PAUSE_BEFORE_TEARDOWN=1 uv run --package joustmania-integration-tests pytest tests/integration/ -v -s
-```
-
-Integration tests are maintained as a separate workspace member with their own dependencies.
-See [tests/integration/README.md](tests/integration/README.md) for details.
-
-### Documentation
-
-For complete mock environment documentation, see:
-- **[MOCK_ENVIRONMENT.md](services/controller_manager/MOCK_ENVIRONMENT.md)** - Full mock environment guide
-- **[Phase 14 Plan](planning/archive/PHASE_14_MOCK_HARDWARE.md)** - Implementation details
-
----
+7 microservices communicating via gRPC with full distributed tracing.
 
 ## Development
 
-### Building Services
-
 ```bash
-# Rebuild specific service
-docker compose build settings
-
-# Rebuild all
-docker compose build
+make lint          # Lint code
+make format        # Format code
+make test          # Run integration tests
 ```
 
-### Running Tests
+**Dev Container:** Open in VS Code and click "Reopen in Container" for a pre-configured environment.
+
+See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for the full development guide.
+
+## Mock Environment
+
+Test without hardware:
 
 ```bash
-# Integration tests
-make test
-
-# Unit tests (fast)
-make test-unit
-
-# Specific test
-make test TEST=test_ffa
+CONTROLLER_BACKEND=mock docker compose up -d
 ```
 
-### Adding New Features
+See [Mock Environment Guide](services/controller_manager/MOCK_ENVIRONMENT.md) for details.
 
-See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for:
-- Development workflow
-- Adding new services
-- Testing strategies
-- Debugging techniques
-- Code organization
+## Hardware Setup
 
----
+For physical PS Move controllers, see [Hardware Setup Guide](docs/hardware-setup-guide.md).
+
+**Requirements:** PS Move controllers, USB Bluetooth adapter, Raspberry Pi or Linux
 
 ## Documentation
 
 | Document | Description |
 |----------|-------------|
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Complete architecture overview, design decisions, technology stack |
-| [DEVELOPMENT.md](docs/DEVELOPMENT.md) | Developer guide, testing, debugging, best practices |
-| [scripts/README.md](scripts/README.md) | Helper scripts documentation |
-| Service READMEs | See `services/*/README.md` for each microservice |
+| [Architecture](docs/ARCHITECTURE.md) | System design and service interactions |
+| [Development](docs/DEVELOPMENT.md) | Building, running, debugging |
+| [Contributing](docs/CONTRIBUTING.md) | Code style, PR workflow |
+| [Controller Guide](docs/controller-guide.md) | Button layout, admin mode |
+| [LED Feedback](docs/controller-feedback.md) | Controller LED color reference |
+| [Observability](docs/observability-quickstart.md) | Tracing, metrics, dashboards |
 
----
+## Services
 
-## Microservices
-
-| Service | Port | Purpose | Privileges |
-|---------|------|---------|------------|
-| **Settings** | 50051 | Centralized settings management | None |
-| **ControllerManager** | 50052 | PS Move I/O and pairing | Privileged (USB, Bluetooth) |
-| **GameCoordinator** | 50053 | Game lifecycle management | None |
-| **Menu** | 50054 | Menu UI and navigation | None |
-| **Supervisor** | 50055 | Service health monitoring | None |
-| **WebUI** | 80 | HTTP web interface | None |
-| **Audio** | 50056 | Audio playback and mixing | Privileged (audio device) |
-
----
+| Service | Port | Purpose |
+|---------|------|---------|
+| Settings | 50051 | Centralized configuration |
+| Controller Manager | 50052 | PS Move I/O and pairing |
+| Game Coordinator | 50053 | Game lifecycle management |
+| Menu | 50054 | Menu navigation |
+| Audio | 50056 | Audio playback and mixing |
+| Dashboard | 8080 | Web UI and reverse proxy |
+| Connect Proxy | - | gRPC-web bridge |
 
 ## Technology Stack
 
 - **Language:** Python 3.11
-- **RPC:** gRPC with Protocol Buffers
-- **Observability:** OpenTelemetry, Jaeger, Prometheus
-- **Containerization:** Docker, Docker Compose
-- **Web:** Flask
-- **Audio:** pygame.mixer
-- **Hardware:** PS Move API, BlueZ
+- **Communication:** gRPC with Protocol Buffers
+- **Observability:** OpenTelemetry, Jaeger, Prometheus, Grafana
+- **Infrastructure:** Docker, Docker Compose
 
----
+## Credits
 
-## Project History
-
-This project is a fork of the [original JoustMania](https://github.com/adangert/JoustMania) by Adam Engert, which pioneered PlayStation Move party gaming.
-
-### Original JoustMania (2015-present)
-
-- Created for conventions and parties
-- Monolithic Python application
-- Direct hardware access on Raspberry Pi
-- 18+ player support
-- [Steam release](https://store.steampowered.com/app/1093850/JoustMania/)
-
-### Cloud-Native Refactor (2026)
-
-- **Purpose:** Demonstrate modern cloud-native patterns and observability
-- **Focus:** Microservices architecture, distributed tracing, container orchestration
-- **Use Case:** Learning platform for gRPC, OpenTelemetry, and distributed systems
-- **Status:** Active development - Phase 61 complete (comprehensive platform with full observability)
-
-**Credit:** All game mechanics and original design by Adam Engert. This fork focuses on infrastructure and observability.
-
----
-
-## Roadmap
-
-### Completed (Phases 1-61)
-
-**Infrastructure & Architecture:**
-- ✅ 7 microservices with gRPC communication
-- ✅ OpenTelemetry distributed tracing
-- ✅ Docker Compose deployment with mock hardware support
-- ✅ Prometheus metrics and Jaeger tracing
-- ✅ GitHub Actions CI/CD pipeline (Phase 55)
-
-**Controller Management:**
-- ✅ Cross-platform backend abstraction (Phase 57)
-- ✅ Battery and RSSI signal monitoring (Phases 39, 48)
-- ✅ LED effects system (flash, pulse, rainbow, fade)
-- ✅ Mock controller environment for testing
-
-**Game Features:**
-- ✅ 12+ game modes with full tracing
-- ✅ Menu/lobby LED feedback system (Phase 39)
-- ✅ Audio feedback for headless operation (Phase 60)
-- ✅ Game coordinator refactoring (Phase 61)
-
-### Future
-
-- Kubernetes deployment (Helm charts)
-- Multi-game support (concurrent games)
-- Replay system
-- Web-based controller visualization
-
----
-
-## Contributing
-
-Contributions welcome! See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for:
-- Setting up development environment
-- Code organization
-- Testing guidelines
-- Submitting pull requests
-
----
+- **[Adam Engert](https://github.com/adangert)** - Original JoustMania creator
+- **[Original JoustMania](https://github.com/adangert/JoustMania)** - The game this fork is based on
+- **[Steam Release](https://store.steampowered.com/app/1093850/JoustMania/)** - Original game on Steam
 
 ## License
 
 See [LICENSE](LICENSE) file for details.
 
-**Original JoustMania:** Copyright Adam Engert
-**Cloud-Native Refactor:** Educational and demonstration purposes
-
----
-
 ## Links
 
-- **Original JoustMania:** https://github.com/adangert/JoustMania
-- **Steam Release:** https://store.steampowered.com/app/1093850/JoustMania/
-- **Issues:** https://github.com/<your-repo>/issues
-- **Discussions:** https://github.com/<your-repo>/discussions
-
----
-
-## Acknowledgments
-
-- **Adam Engert** - Original JoustMania creator and game design
-- **PS Move API Community** - Open-source controller library
-- **OpenTelemetry Project** - Observability standards and tooling
-
----
-
-## Screenshots
-
-### Web UI
-![Web Interface](logo/joustmania2.png)
-
-### Jaeger Distributed Tracing
-_Visualize request flows across microservices_
-
-### Game in Action
-![Magfest 2017](logo/magfest.jpg)
-_Original JoustMania at Magfest 2017_
-
----
-
-**Made with ❤️ for learning cloud-native architecture**
+- [Issues](https://github.com/WatchMeJoustMyFlags/JoustMania/issues)
+- [Discussions](https://github.com/WatchMeJoustMyFlags/JoustMania/discussions)

@@ -11,6 +11,8 @@ env:
   REGISTRY: ghcr.io
   # Repository name in lowercase for GHCR
   IMAGE_PREFIX: ghcr.io/watchmejoustmyflags/joustmania
+  # Main branch - used for :latest Docker tag
+  MAIN_BRANCH: dev-refactor
 
 jobs:
   # Lint shared code (lib/, root files) and check formatting
@@ -249,6 +251,7 @@ jobs:
           tags: |
             ${{ env.IMAGE_PREFIX }}/builder:${{ github.sha }}
             ${{ github.event_name != 'pull_request' && format('{0}/builder:{1}', env.IMAGE_PREFIX, github.ref_name) || '' }}
+            ${{ github.ref_name == env.MAIN_BRANCH && format('{0}/builder:latest', env.IMAGE_PREFIX) || '' }}
           cache-from: type=gha,scope=builder
           cache-to: type=gha,mode=max,scope=builder
 
@@ -295,6 +298,7 @@ jobs:
           tags: |
             ${{ env.IMAGE_PREFIX }}/psmove-builder:${{ github.sha }}
             ${{ github.event_name != 'pull_request' && format('{0}/psmove-builder:{1}', env.IMAGE_PREFIX, github.ref_name) || '' }}
+            ${{ github.ref_name == env.MAIN_BRANCH && format('{0}/psmove-builder:latest', env.IMAGE_PREFIX) || '' }}
           cache-from: type=gha,scope=psmove-builder
           cache-to: type=gha,mode=max,scope=psmove-builder
 
@@ -356,6 +360,7 @@ jobs:
           tags: |
             ${{ env.IMAGE_PREFIX }}/${{ steps.image_name.outputs.name }}:${{ github.sha }}
             ${{ github.event_name != 'pull_request' && format('{0}/{1}:{2}', env.IMAGE_PREFIX, steps.image_name.outputs.name, github.ref_name) || '' }}
+            ${{ github.ref_name == env.MAIN_BRANCH && format('{0}/{1}:latest', env.IMAGE_PREFIX, steps.image_name.outputs.name) || '' }}
           build-args: |
             BUILDER_IMAGE=${{ env.IMAGE_PREFIX }}/builder:${{ github.sha }}
             PSMOVE_BUILDER_IMAGE=${{ env.IMAGE_PREFIX }}/psmove-builder:${{ github.sha }}
@@ -406,6 +411,7 @@ jobs:
           tags: |
             ${{ env.IMAGE_PREFIX }}/${{ matrix.image_name }}:${{ github.sha }}
             ${{ github.event_name != 'pull_request' && format('{0}/{1}:{2}', env.IMAGE_PREFIX, matrix.image_name, github.ref_name) || '' }}
+            ${{ github.ref_name == env.MAIN_BRANCH && format('{0}/{1}:latest', env.IMAGE_PREFIX, matrix.image_name) || '' }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 

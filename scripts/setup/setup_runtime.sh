@@ -148,16 +148,16 @@ else
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo ""
-        echo "  → Building psmoveapi (this takes ~10 minutes)..."
-        BUILD_SCRIPT="$JOUSTMANIA_DIR/scripts/setup/build_psmoveapi.sh"
+        echo "  → Installing psmoveapi..."
+        BUILD_SCRIPT="$JOUSTMANIA_DIR/scripts/setup/install_psmoveapi.sh"
         if [[ -f "$BUILD_SCRIPT" ]]; then
             bash "$BUILD_SCRIPT"
             if [[ $? -eq 0 ]]; then
-                echo -e "  → ${GREEN}psmoveapi built successfully${NC}"
+                echo -e "  → ${GREEN}psmoveapi installed successfully${NC}"
                 export PATH="$HOMEDIR/psmoveapi/build:$PATH"
                 PSMOVE_AVAILABLE=true
             else
-                echo -e "  → ${RED}psmoveapi build failed${NC}"
+                echo -e "  → ${RED}psmoveapi installation failed${NC}"
             fi
         else
             echo -e "  → ${RED}Build script not found: $BUILD_SCRIPT${NC}"
@@ -165,7 +165,7 @@ else
     else
         echo ""
         echo "    Skipping psmoveapi build."
-        echo "    You can build it later with: ./scripts/setup/build_psmoveapi.sh"
+        echo "    You can install it later with: ./scripts/setup/install_psmoveapi.sh"
         echo ""
     fi
 fi
@@ -216,8 +216,8 @@ echo ""
 
 if [ "$PSMOVE_AVAILABLE" = false ]; then
     echo -e "${YELLOW}Note: Pairing daemon not installed (psmove CLI missing)${NC}"
-    echo "  To enable automatic controller pairing, build psmoveapi:"
-    echo "  ./scripts/setup/build_psmoveapi.sh"
+    echo "  To enable automatic controller pairing, install psmoveapi:"
+    echo "  ./scripts/setup/install_psmoveapi.sh"
     echo ""
 fi
 

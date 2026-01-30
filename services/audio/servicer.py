@@ -38,7 +38,7 @@ class SoundChannel:
         self.priority = 0
         self._lock = threading.Lock()
 
-    def play(self, file_path: str, _volume: float = 1.0, priority: int = 2) -> bool:
+    def play(self, file_path: str, volume: float = 1.0, priority: int = 2) -> bool:
         """
         Play a sound on this channel.
 
@@ -62,23 +62,55 @@ class SoundChannel:
                 self.priority = priority
                 self.is_playing = True
 
+                # Clamp volume to valid range
+                volume = max(0.0, min(1.0, volume))
+
                 def play_thread():
+                    import array
                     import time
 
                     try:
-                        # Use stream_file - it handles decoding and format matching
-                        stream = miniaudio.stream_file(file_path)
+                        if volume < 1.0:
+                            # Decode file to apply volume scaling
+                            decoded = miniaudio.decode_file(file_path)
+                            samples = array.array("h", decoded.samples)  # 16-bit signed
 
-                        # Create device without specifying format - let miniaudio handle it
-                        device = miniaudio.PlaybackDevice()
-                        with device:
-                            device.start(stream)
-                            # Wait for playback to complete based on duration
-                            duration = file_info.duration
-                            elapsed = 0.0
-                            while self.is_playing and elapsed < duration + 0.5:
-                                time.sleep(0.05)
-                                elapsed += 0.05
+                            # Apply volume scaling
+                            for i in range(len(samples)):
+                                samples[i] = int(samples[i] * volume)
+
+                            # Create generator for scaled samples
+                            def scaled_stream():
+                                chunk_size = 4096
+                                data = samples.tobytes()
+                                for i in range(0, len(data), chunk_size):
+                                    if not self.is_playing:
+                                        break
+                                    yield data[i : i + chunk_size]
+
+                            device = miniaudio.PlaybackDevice(
+                                output_format=decoded.sample_format,
+                                nchannels=decoded.nchannels,
+                                sample_rate=decoded.sample_rate,
+                            )
+                            with device:
+                                device.start(scaled_stream())
+                                duration = file_info.duration
+                                elapsed = 0.0
+                                while self.is_playing and elapsed < duration + 0.5:
+                                    time.sleep(0.05)
+                                    elapsed += 0.05
+                        else:
+                            # Full volume - use streaming for efficiency
+                            stream = miniaudio.stream_file(file_path)
+                            device = miniaudio.PlaybackDevice()
+                            with device:
+                                device.start(stream)
+                                duration = file_info.duration
+                                elapsed = 0.0
+                                while self.is_playing and elapsed < duration + 0.5:
+                                    time.sleep(0.05)
+                                    elapsed += 0.05
                     except Exception as e:
                         logger.warning(f"Playback error on channel {self.channel_id}: {e}")
                     finally:

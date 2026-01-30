@@ -38,21 +38,23 @@ Access advanced settings by pressing **all 4 front buttons simultaneously** (X +
 
 ### Admin Commands
 
-**Option Navigation (recommended):**
+**Option Navigation:**
 
 | Button | Function | Feedback |
 |--------|----------|----------|
-| **MOVE** | Cycle through settings | Shows option color (1s) |
-| **TRIGGER** | Increase current setting value | Flashes based on value |
-| **X (Cross)** | Decrease current setting value | Flashes based on value |
+| **MOVE** | Cycle through options (num_teams / force_all_start) | Shows option color (1s) |
+| **Select** | Increase current option value | Flashes based on value + voice |
+| **Start** | Decrease current option value | Flashes based on value + voice |
 
 **Quick Access Functions:**
 
 | Button | Function | Feedback |
 |--------|----------|----------|
+| **X (Cross)** | Cycle game mode | Game color flash + voice |
 | **Circle (O)** | Cycle sensitivity (Slow/Medium/Fast) | Blue/Green/Red pulse |
 | **Triangle** | Show battery levels on all controllers | Color-coded LEDs (2s) |
 | **Square** | Toggle instruction audio | Green (on) / Red (off) |
+| **TRIGGER** | Hold 3 seconds = Force start game | LED dims during hold |
 | **PlayStation** | Exit admin mode | Returns to lobby |
 
 ### Admin Settings

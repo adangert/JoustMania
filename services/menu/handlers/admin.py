@@ -4,13 +4,16 @@ Admin mode handler for Menu service.
 Manages the admin mode state, commands, and visual feedback when a controller
 holds all 4 face buttons (Cross + Circle + Square + Triangle) simultaneously.
 
-Admin mode allows changing settings like:
-- Sensitivity level (Circle button)
-- Battery display (Triangle button)
-- Instructions toggle (Square button)
-- Game mode selection (L1/R1 or Cross for backward)
-- Force start game (Trigger hold for 2 seconds)
-- Cycle options / adjust values (Move button / Trigger / Cross)
+Button mappings in admin mode:
+- Cross: Cycle game mode (flash color + voice)
+- Circle: Cycle sensitivity (unchanged)
+- Square: Toggle instructions (unchanged)
+- Triangle: Show battery (unchanged)
+- Move: Cycle between options (num_teams / force_all_start)
+- Trigger: Hold 3s = Force start game (LED dims during hold)
+- Select: Increase current option value
+- Start: Decrease current option value
+- PS: Exit admin mode (unchanged)
 """
 
 from __future__ import annotations
@@ -23,6 +26,7 @@ from typing import TYPE_CHECKING, Protocol
 
 from opentelemetry import trace
 
+from lib.controller_constants import ButtonTrackingKey
 from lib.telemetry import SpanAttr
 from lib.types import Sound
 from services.menu.handlers.base import ButtonDebouncer, ControllerState
@@ -107,6 +111,11 @@ class AdminModeHandler:
         # Timeout task for auto-exit after 60 seconds
         self._timeout_task: asyncio.Task | None = None
         self._timeout_seconds = 60
+
+        # Trigger hold tracking for force start
+        self._trigger_press_time: float | None = None
+        self._trigger_hold_task: asyncio.Task | None = None
+        self._force_start_threshold = 3.0  # seconds
 
     # ControllerHandler protocol methods
 
@@ -393,20 +402,25 @@ class AdminModeHandler:
         if not self._debouncer.should_process(serial, button):
             return
 
-        if button == "move":
-            await self.handle_cycle_option(serial)
-        elif button == "trigger":
-            await self.handle_increase_value(serial)
-        elif button == "cross":
-            await self.handle_decrease_value(serial)
-        elif button == "circle":
-            await self.handle_sensitivity(serial)
-        elif button == "triangle":
-            await self.handle_battery(serial)
-        elif button == "square":
-            await self.handle_instructions(serial)
-        elif button == "ps":
-            await self._exit_to_connected(serial)
+        match button:
+            case ButtonTrackingKey.MOVE:
+                await self.handle_cycle_option(serial)
+            case ButtonTrackingKey.TRIGGER:
+                await self._start_trigger_hold_tracking(serial)
+            case ButtonTrackingKey.SELECT:
+                await self.handle_increase_value(serial)
+            case ButtonTrackingKey.START:
+                await self.handle_decrease_value(serial)
+            case ButtonTrackingKey.CROSS:
+                await self.handle_game_mode(serial)
+            case ButtonTrackingKey.CIRCLE:
+                await self.handle_sensitivity(serial)
+            case ButtonTrackingKey.TRIANGLE:
+                await self.handle_battery(serial)
+            case ButtonTrackingKey.SQUARE:
+                await self.handle_instructions(serial)
+            case ButtonTrackingKey.PS:
+                await self._exit_to_connected(serial)
 
     async def _exit_to_connected(self, serial: str) -> None:
         """
@@ -422,6 +436,129 @@ class AdminModeHandler:
         else:
             # Fallback if StateManager not set
             await self.exit()
+
+    async def _start_trigger_hold_tracking(self, serial: str) -> None:
+        """
+        Start tracking trigger hold for force start.
+
+        Begins 3-second timer with LED dim effect. If trigger is held
+        for full duration, triggers force start.
+
+        Args:
+            serial: Controller serial number
+        """
+        # Cancel any existing hold task
+        if self._trigger_hold_task and not self._trigger_hold_task.done():
+            self._trigger_hold_task.cancel()
+
+        self._trigger_press_time = time.time()
+
+        # Start the dimming effect
+        await self.start_force_start_effect(serial)
+
+        # Create task to fire force start after threshold
+        async def trigger_hold_timer():
+            try:
+                await asyncio.sleep(self._force_start_threshold)
+                # If we get here, trigger was held long enough
+                if self.active and serial == self.controller_serial:
+                    logger.info(f"Trigger hold completed, triggering force start for {serial}")
+                    await self.handle_force_start(serial)
+            except asyncio.CancelledError:
+                pass  # Normal cancellation when trigger released early
+
+        self._trigger_hold_task = asyncio.create_task(trigger_hold_timer())
+        self._pending_tasks.add(self._trigger_hold_task)
+        self._trigger_hold_task.add_done_callback(self._pending_tasks.discard)
+
+    async def handle_trigger_release(self, serial: str) -> None:
+        """
+        Handle trigger release in admin mode.
+
+        Cancels force start if trigger released before 3 seconds.
+
+        Args:
+            serial: Controller serial number
+        """
+        if not self.is_admin_controller(serial):
+            return
+
+        # Cancel hold task if running
+        if self._trigger_hold_task and not self._trigger_hold_task.done():
+            self._trigger_hold_task.cancel()
+            self._trigger_hold_task = None
+            logger.debug(f"Trigger released early, cancelled force start for {serial}")
+
+            # Cancel the dimming effect and restore white
+            await self.cancel_force_start_effect(serial)
+
+        self._trigger_press_time = None
+
+    async def handle_game_mode(self, serial: str) -> None:
+        """
+        Handle game mode cycling (Cross button).
+
+        Cycles through game modes forward, shows game color flash and plays voice.
+
+        Args:
+            serial: Controller serial number
+        """
+        from proto import controller_manager_pb2
+        from services.menu.utils.led import GAME_MODE_COLORS
+
+        ctx = self._get_span_context()
+        with self.tracer.start_as_current_span("admin_game_mode", context=ctx) as span:
+            span.set_attribute(SpanAttr.CONTROLLER_SERIAL, serial)
+
+            try:
+                game_options = self.callbacks.get_game_options()
+                current_selection = self._current_game_mode
+
+                if not game_options:
+                    logger.warning("No game options available for mode change")
+                    return
+
+                # Find current index
+                try:
+                    current_idx = game_options.index(current_selection)
+                except ValueError:
+                    current_idx = 0
+
+                # Cycle forward
+                new_idx = (current_idx + 1) % len(game_options)
+                new_selection = game_options[new_idx]
+
+                span.set_attribute("old_selection", current_selection)
+                span.set_attribute("new_selection", new_selection)
+
+                # Publish selection change
+                await self._publish_event(
+                    "game_selection_changed",
+                    {"game_name": new_selection, "source": "admin_mode", "serial": serial},
+                )
+
+                # Visual feedback: flash game mode color
+                game_color = GAME_MODE_COLORS.get(new_selection, (255, 165, 0))  # Default orange
+                await self._send_game_effect(
+                    serial,
+                    controller_manager_pb2.GAME_EFFECT_PULSE,
+                    color=game_color,
+                    duration_ms=600,
+                    speed=6,
+                )
+
+                # Play game mode voice announcement
+                if self._state_manager is not None:
+                    await self._state_manager.audio.play_game_mode_voice(new_selection)
+
+                span.add_event(
+                    "game_mode_changed",
+                    {"old_selection": current_selection, "new_selection": new_selection},
+                )
+                logger.info(f"Game mode changed by admin {serial}: {current_selection} -> {new_selection}")
+
+            except Exception as e:
+                logger.error(f"Error changing game mode: {e}", exc_info=True)
 
     async def handle_game_mode_change(self, serial: str, forward: bool = True) -> None:
         """
@@ -876,6 +1013,9 @@ class AdminModeHandler:
                 # Visual feedback
                 await self._show_value_feedback(serial, option_name, new_value)
 
+                # Voice feedback
+                await self._play_value_voice(option_name, new_value)
+
                 span.add_event(
                     "admin_value_increased",
                     {"option": option_name, "old_value": current_value, "new_value": new_value},
@@ -936,6 +1076,9 @@ class AdminModeHandler:
                 # Visual feedback
                 await self._show_value_feedback(serial, option_name, new_value)
 
+                # Voice feedback
+                await self._play_value_voice(option_name, new_value)
+
                 span.add_event(
                     "admin_value_decreased",
                     {"option": option_name, "old_value": current_value, "new_value": new_value},
@@ -959,12 +1102,11 @@ class AdminModeHandler:
         try:
             # Determine feedback color based on option and value
             if option_name == "num_teams":
-                # Color intensity based on team count (2-6)
+                # White with brightness gradient (dim=2 teams, bright=6 teams)
                 num = int(value)
-                # Gradient from green (2 teams) to red (6 teams)
-                r = int(255 * (num - 2) / 4)
-                g = int(255 * (6 - num) / 4)
-                pulse_color = (r, g, 0)
+                # Calculate brightness: 80 for 2 teams, 255 for 6 teams
+                brightness = int(80 + (255 - 80) * (num - 2) / 4)
+                pulse_color = (brightness, brightness, brightness)
             elif option_name == "force_all_start":
                 # Green for true, red for false
                 pulse_color = (0, 255, 0) if value == "true" else (255, 0, 0)
@@ -982,6 +1124,34 @@ class AdminModeHandler:
 
         except Exception as e:
             logger.error(f"Error showing value feedback: {e}", exc_info=True)
+
+    async def _play_value_voice(self, option_name: str, value: str) -> None:
+        """
+        Play voice feedback for admin option value change.
+
+        Args:
+            option_name: Name of the option that changed
+            value: New value
+        """
+        try:
+            if option_name == "num_teams":
+                # Play number voice (adminop_2 through adminop_6)
+                num_teams_voices = {
+                    "2": Sound.MENU_VOX_ADMINOP_2,
+                    "3": Sound.MENU_VOX_ADMINOP_3,
+                    "4": Sound.MENU_VOX_ADMINOP_4,
+                    "5": Sound.MENU_VOX_ADMINOP_5,
+                    "6": Sound.MENU_VOX_ADMINOP_6,
+                }
+                voice = num_teams_voices.get(value)
+                if voice:
+                    await self._play_voice(voice)
+            elif option_name == "force_all_start":
+                # Play true/false voice
+                voice = Sound.MENU_VOX_ADMINOP_TRUE if value == "true" else Sound.MENU_VOX_ADMINOP_FALSE
+                await self._play_voice(voice)
+        except Exception as e:
+            logger.error(f"Error playing value voice: {e}", exc_info=True)
 
     def reset_on_disconnect(self, serial: str) -> None:
         """

@@ -3,6 +3,7 @@
 import logging
 from collections.abc import Callable, Coroutine
 
+from lib.controller_constants import ButtonTrackingKey
 from services.menu import metrics
 from services.menu.handlers.base import ControllerHandler, ControllerState
 from services.menu.utils import AudioHelper, LedController, SettingsHelper
@@ -131,8 +132,14 @@ class StateManager:
             }
         self.button_states[serial][button] = is_press
 
-        # Handle release events - no action needed for handlers
+        # Handle release events - forward trigger releases in admin mode
         if not is_press:
+            if button == ButtonTrackingKey.TRIGGER:
+                state = self.get_controller_state(serial)
+                if state == ControllerState.ADMIN:
+                    handler = self._handlers.get(state)
+                    if handler and hasattr(handler, "handle_trigger_release"):
+                        await handler.handle_trigger_release(serial)
             return
 
         # Dispatch to appropriate handler

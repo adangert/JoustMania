@@ -110,6 +110,27 @@ When cycling through admin options with the Move button:
 
 After showing the option color, the LED returns to white.
 
+Use **Select** to increase and **Start** to decrease the current option value.
+
+### Game Mode Cycling (Cross Button)
+
+Pressing Cross cycles through game modes with visual and audio feedback:
+
+| Feedback | Description |
+|----------|-------------|
+| Color flash | Game mode color pulse (600ms) |
+| Voice | Game mode name announced |
+
+### Force Start (Trigger Hold)
+
+Hold Trigger for 3 seconds to force start the game:
+
+| State | LED Behavior | Duration |
+|-------|--------------|----------|
+| Holding | LED dims progressively | 0-3 seconds |
+| Released early | Returns to white | Immediate |
+| Completed | Game starts | After 3 seconds |
+
 ### Setting Changes
 
 #### Sensitivity (Circle Button)
@@ -141,28 +162,26 @@ Shows the new instruction state:
 | Enabled | Green | (0, 255, 0) | 800ms pulse |
 | Disabled | Red | (255, 0, 0) | 800ms pulse |
 
-#### Team Count (Trigger/Cross on num_teams)
+#### Team Count (Select/Start on num_teams)
 
-Shows the new team count with white flashes:
+Shows the new team count with white brightness gradient + voice:
 
-| Teams | Feedback |
-|-------|----------|
-| 2 | 2 white flashes (400ms) |
-| 3 | 3 white flashes (600ms) |
-| 4 | 4 white flashes (800ms) |
-| 5 | 5 white flashes (1000ms) |
-| 6 | 6 white flashes (1200ms) |
+| Teams | Brightness | RGB | Voice |
+|-------|------------|-----|-------|
+| 2 | Dim | (80, 80, 80) | "Two" |
+| 3 | | (124, 124, 124) | "Three" |
+| 4 | | (167, 167, 167) | "Four" |
+| 5 | | (211, 211, 211) | "Five" |
+| 6 | Bright | (255, 255, 255) | "Six" |
 
-Flash color: White (255, 255, 255), ~5Hz
+#### Force All Start (Select/Start on force_all_start)
 
-#### Force All Start (Trigger/Cross on force_all_start)
+Shows the new toggle state with voice:
 
-Shows the new toggle state:
-
-| State | Color | RGB | Duration |
-|-------|-------|-----|----------|
-| true (require all) | Green | (0, 255, 0) | 800ms |
-| false (2+ starts) | Red | (255, 0, 0) | 800ms |
+| State | Color | RGB | Duration | Voice |
+|-------|-------|-----|----------|-------|
+| true (require all) | Green | (0, 255, 0) | 800ms | "True" |
+| false (2+ starts) | Red | (255, 0, 0) | 800ms | "False" |
 
 ## Color Quick Reference
 

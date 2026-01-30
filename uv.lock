@@ -9,6 +9,7 @@ members = [
     "joustmania-controller-manager",
     "joustmania-game-coordinator",
     "joustmania-integration-tests",
+    "joustmania-lib",
     "joustmania-menu",
     "joustmania-proto",
     "joustmania-settings",
@@ -448,6 +449,7 @@ source = { editable = "services/audio" }
 dependencies = [
     { name = "grpcio" },
     { name = "grpcio-health-checking" },
+    { name = "joustmania-lib" },
     { name = "joustmania-proto" },
     { name = "miniaudio" },
     { name = "numba" },
@@ -473,6 +475,7 @@ test = [
 requires-dist = [
     { name = "grpcio", specifier = ">=1.70.0" },
     { name = "grpcio-health-checking", specifier = ">=1.70.0" },
+    { name = "joustmania-lib", editable = "lib" },
     { name = "joustmania-proto", editable = "proto" },
     { name = "miniaudio", specifier = ">=1.61" },
     { name = "numba", specifier = ">=0.59.0" },
@@ -499,6 +502,7 @@ dependencies = [
     { name = "dbus-python", marker = "sys_platform == 'linux'" },
     { name = "grpcio" },
     { name = "grpcio-health-checking" },
+    { name = "joustmania-lib" },
     { name = "joustmania-proto" },
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-exporter-otlp" },
@@ -522,6 +526,7 @@ requires-dist = [
     { name = "dbus-python", marker = "sys_platform == 'linux'", specifier = ">=1.2.0" },
     { name = "grpcio", specifier = ">=1.70.0" },
     { name = "grpcio-health-checking", specifier = ">=1.70.0" },
+    { name = "joustmania-lib", editable = "lib" },
     { name = "joustmania-proto", editable = "proto" },
     { name = "opentelemetry-distro", specifier = ">=0.49b0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.28.0" },
@@ -544,6 +549,7 @@ source = { editable = "services/game_coordinator" }
 dependencies = [
     { name = "grpcio" },
     { name = "grpcio-health-checking" },
+    { name = "joustmania-lib" },
     { name = "joustmania-proto" },
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-exporter-otlp" },
@@ -564,6 +570,7 @@ test = [
 requires-dist = [
     { name = "grpcio", specifier = ">=1.70.0" },
     { name = "grpcio-health-checking", specifier = ">=1.70.0" },
+    { name = "joustmania-lib", editable = "lib" },
     { name = "joustmania-proto", editable = "proto" },
     { name = "opentelemetry-distro", specifier = ">=0.49b0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.28.0" },
@@ -601,12 +608,47 @@ requires-dist = [
 ]
 
 [[package]]
+name = "joustmania-lib"
+version = "1.0.0"
+source = { editable = "lib" }
+dependencies = [
+    { name = "grpcio" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp" },
+    { name = "opentelemetry-instrumentation-grpc" },
+    { name = "opentelemetry-sdk" },
+    { name = "prometheus-client" },
+    { name = "psutil" },
+]
+
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "grpcio", specifier = ">=1.70.0" },
+    { name = "opentelemetry-api", specifier = ">=1.28.0" },
+    { name = "opentelemetry-exporter-otlp", specifier = ">=1.28.0" },
+    { name = "opentelemetry-instrumentation-grpc", specifier = ">=0.49b0" },
+    { name = "opentelemetry-sdk", specifier = ">=1.28.0" },
+    { name = "prometheus-client", specifier = ">=0.19.0" },
+    { name = "psutil", specifier = ">=5.9.0" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8.0.0" },
+    { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=0.23.0" },
+]
+provides-extras = ["test"]
+
+[[package]]
 name = "joustmania-menu"
 version = "1.0.0"
 source = { editable = "services/menu" }
 dependencies = [
     { name = "grpcio" },
     { name = "grpcio-health-checking" },
+    { name = "joustmania-lib" },
     { name = "joustmania-proto" },
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-exporter-otlp" },
@@ -627,6 +669,7 @@ test = [
 requires-dist = [
     { name = "grpcio", specifier = ">=1.70.0" },
     { name = "grpcio-health-checking", specifier = ">=1.70.0" },
+    { name = "joustmania-lib", editable = "lib" },
     { name = "joustmania-proto", editable = "proto" },
     { name = "opentelemetry-distro", specifier = ">=0.49b0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.28.0" },
@@ -664,6 +707,7 @@ source = { editable = "services/settings" }
 dependencies = [
     { name = "grpcio" },
     { name = "grpcio-health-checking" },
+    { name = "joustmania-lib" },
     { name = "joustmania-proto" },
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-exporter-otlp" },
@@ -684,6 +728,7 @@ test = [
 requires-dist = [
     { name = "grpcio", specifier = ">=1.70.0" },
     { name = "grpcio-health-checking", specifier = ">=1.70.0" },
+    { name = "joustmania-lib", editable = "lib" },
     { name = "joustmania-proto", editable = "proto" },
     { name = "opentelemetry-distro", specifier = ">=0.49b0" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.28.0" },

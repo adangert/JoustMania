@@ -55,22 +55,23 @@ COPY proto/pyproject.toml /app/proto/
 COPY proto/*.py /app/proto/
 RUN python -m compileall -q proto/
 
+# Copy lib package (shared utilities)
+COPY lib/pyproject.toml /app/lib/
+COPY lib/*.py /app/lib/
+RUN python -m compileall -q lib/
+
 # Copy service dependencies
 COPY services/audio/pyproject.toml /app/services/audio/
 
-# Install proto package from local workspace
-WORKDIR /app/proto
-RUN pip install --no-cache-dir -e .
-
-# Install service-specific dependencies (miniaudio + resampy instead of pygame + scipy)
+# Install workspace packages and service dependencies (miniaudio + resampy instead of pygame + scipy)
 # Disable GCC auto-vectorization to prevent libmvec.so dependency on ARM64 cross-compile
 # (libmvec is x86-only in glibc, but QEMU cross-compilation incorrectly links to it)
-WORKDIR /app/services/audio
+WORKDIR /app
 ARG TARGETARCH
 RUN if [ "$TARGETARCH" = "arm64" ]; then \
       export CFLAGS="-fno-tree-loop-vectorize -fno-tree-slp-vectorize"; \
     fi && \
-    uv pip install --system --no-binary miniaudio -e .
+    uv pip install --system -e proto/ -e lib/ --no-binary miniaudio -e services/audio/
 
 # =============================================================================
 # Stage 3: Runtime image - distroless for minimal size

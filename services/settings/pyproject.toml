@@ -4,8 +4,9 @@ version = "1.0.0"
 description = "Settings microservice for JoustMania"
 requires-python = ">=3.9,<3.13"
 dependencies = [
-    # Protocol buffer contracts
+    # Workspace packages
     "joustmania-proto",
+    "joustmania-lib",
 
     # Core dependencies
     "pyyaml>=6.0",
@@ -33,6 +34,7 @@ test = [
 
 [tool.uv.sources]
 joustmania-proto = { workspace = true }
+joustmania-lib = { workspace = true }
 
 [build-system]
 requires = ["setuptools>=45", "wheel"]

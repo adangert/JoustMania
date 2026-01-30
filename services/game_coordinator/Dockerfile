@@ -23,12 +23,17 @@ COPY proto/pyproject.toml /app/proto/
 COPY proto/*.py /app/proto/
 RUN python -m compileall -q proto/
 
+# Copy lib package (shared utilities)
+COPY lib/pyproject.toml /app/lib/
+COPY lib/*.py /app/lib/
+RUN python -m compileall -q lib/
+
 # Copy service dependencies
 COPY services/game_coordinator/pyproject.toml /app/services/game_coordinator/
 
-# Install service-specific dependencies only (common deps already in builder)
-WORKDIR /app/services/game_coordinator
-RUN uv pip install --system -e .
+# Install workspace packages and service dependencies
+WORKDIR /app
+RUN uv pip install --system -e proto/ -e lib/ -e services/game_coordinator/
 
 # Runtime stage - distroless image for minimal size and attack surface
 FROM gcr.io/distroless/python3-debian12

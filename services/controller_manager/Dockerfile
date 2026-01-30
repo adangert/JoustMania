@@ -44,12 +44,17 @@ COPY proto/pyproject.toml /app/proto/
 COPY proto/*.py /app/proto/
 RUN python -m compileall -q proto/
 
+# Copy lib package (shared utilities)
+COPY lib/pyproject.toml /app/lib/
+COPY lib/*.py /app/lib/
+RUN python -m compileall -q lib/
+
 # Copy service dependencies
 COPY services/controller_manager/pyproject.toml /app/services/controller_manager/
 
-# Install service-specific dependencies
-WORKDIR /app/services/controller_manager
-RUN uv pip install --system -e .
+# Install workspace packages and service dependencies
+WORKDIR /app
+RUN uv pip install --system -e proto/ -e lib/ -e services/controller_manager/
 
 # =============================================================================
 # Stage 3: Runtime image

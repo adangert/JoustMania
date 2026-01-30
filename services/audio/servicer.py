@@ -79,18 +79,24 @@ class SoundChannel:
                             for i in range(len(samples)):
                                 samples[i] = int(samples[i] * volume)
 
-                            # Create generator for scaled samples
-                            # miniaudio calls send(framecount) on the generator, so we need
-                            # to prime it first. The initial yield returns empty bytes,
-                            # then subsequent yields return actual audio data.
+                            # Convert back to bytes for playback
+                            scaled_data = samples.tobytes()
+
+                            # Calculate bytes per frame for proper alignment
+                            # Frame = one sample per channel
+                            bytes_per_sample = decoded.sample_width
+                            bytes_per_frame = bytes_per_sample * decoded.nchannels
+
+                            # Create generator that responds to framecount requests
+                            # miniaudio calls send(framecount) to request specific frames
                             def scaled_stream():
-                                chunk_size = 4096
-                                data = samples.tobytes()
                                 idx = 0
-                                _ = yield b""  # Priming yield - consumed by next()
-                                while idx < len(data) and self.is_playing:
-                                    end = min(idx + chunk_size, len(data))
-                                    _ = yield data[idx:end]  # Yield chunk, receive framecount
+                                required_frames = yield b""  # Priming yield
+                                while idx < len(scaled_data) and self.is_playing:
+                                    # Calculate bytes needed for requested frames
+                                    bytes_needed = required_frames * bytes_per_frame
+                                    end = min(idx + bytes_needed, len(scaled_data))
+                                    required_frames = yield scaled_data[idx:end]
                                     idx = end
 
                             device = miniaudio.PlaybackDevice(

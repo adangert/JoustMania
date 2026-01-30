@@ -26,7 +26,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/ - Note: JoustMania's lib/ is tracked source code, not a build artifact
+# lib/
 lib64/
 parts/
 sdist/

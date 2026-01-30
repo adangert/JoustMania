@@ -51,9 +51,7 @@ async def collect_system_metrics(
     while True:
         try:
             # Run blocking psutil calls in thread pool
-            cpu_percent = await loop.run_in_executor(
-                None, lambda: process.cpu_percent(interval=None)
-            )
+            cpu_percent = await loop.run_in_executor(None, lambda: process.cpu_percent(interval=None))
             mem_info = await loop.run_in_executor(None, process.memory_info)
             thread_count = await loop.run_in_executor(None, process.num_threads)
 
@@ -85,9 +83,7 @@ def start_system_metrics_collector(
     Returns:
         The asyncio Task (can be cancelled if needed)
     """
-    return asyncio.create_task(
-        collect_system_metrics(cpu_gauge, memory_gauge, threads_gauge, interval)
-    )
+    return asyncio.create_task(collect_system_metrics(cpu_gauge, memory_gauge, threads_gauge, interval))
 
 
 def collect_system_metrics_sync(

@@ -32,6 +32,34 @@ jobs:
       - name: Format check (entire codebase)
         run: ruff format --check .
 
+  # Unit tests for shared lib/ code
+  lib-tests:
+    name: Lib Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Run lib unit tests with coverage
+        run: |
+          cd lib
+          uv sync --extra test
+          uv run pytest tests/ -v --tb=short \
+            --cov=. \
+            --cov-report=xml:coverage.xml \
+            --cov-report=term-missing
+          # Fix paths in coverage.xml for SonarCloud
+          sed -i 's|<source>.*</source>|<source>.</source>|g' coverage.xml
+          sed -i 's|filename="|filename="lib/|g' coverage.xml
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lib
+          path: lib/coverage.xml
+          retention-days: 1
+
   # Per-service matrix checks with path filtering
   # Runs lint/typecheck for all services, unit tests only for services with tests
   service-checks:
@@ -449,6 +477,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - lint-shared
+      - lib-tests
       - service-checks
       - lint-dockerfiles
       - sonarcloud
@@ -470,6 +499,7 @@ jobs:
             echo "❌ One or more CI jobs failed or were cancelled"
             echo "Job results:"
             echo "  lint-shared: ${{ needs.lint-shared.result }}"
+            echo "  lib-tests: ${{ needs.lib-tests.result }}"
             echo "  service-checks: ${{ needs.service-checks.result }}"
             echo "  lint-dockerfiles: ${{ needs.lint-dockerfiles.result }}"
             echo "  sonarcloud: ${{ needs.sonarcloud.result }}"

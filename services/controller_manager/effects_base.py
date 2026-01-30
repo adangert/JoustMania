@@ -12,8 +12,9 @@ import asyncio
 import colorsys
 import logging
 import math
-import time
 from abc import ABC, abstractmethod
+
+from lib.clock import Clock, RealClock
 
 logger = logging.getLogger(__name__)
 
@@ -22,12 +23,21 @@ class ControllerEffectsBase(ABC):
     """Base class providing controller effect animations.
 
     Subclasses must implement _set_led_color() to control actual hardware or mock state.
+
+    Args:
+        clock: Optional Clock instance for time operations. Defaults to RealClock.
+               Inject a FakeClock in tests to control time without patching.
     """
 
-    def __init__(self):
-        """Initialize effect tracking."""
+    def __init__(self, clock: Clock | None = None):
+        """Initialize effect tracking.
+
+        Args:
+            clock: Clock instance for time/sleep operations. Defaults to RealClock.
+        """
         # Track active effect tasks per controller: {serial: asyncio.Task}
         self.active_effects: dict[str, asyncio.Task] = {}
+        self._clock = clock or RealClock()
 
     @abstractmethod
     async def _set_led_color(self, serial: str, color: tuple[int, int, int]):
@@ -51,14 +61,14 @@ class ControllerEffectsBase(ABC):
             speed: Flash frequency (1-10 Hz)
         """
         interval = 1.0 / max(1, speed)  # seconds per flash cycle
-        end_time = time.time() + (duration_ms / 1000.0)
+        end_time = self._clock.time() + (duration_ms / 1000.0)
 
         try:
-            while time.time() < end_time:
+            while self._clock.time() < end_time:
                 await self._set_led_color(serial, color)
-                await asyncio.sleep(interval / 2)
+                await self._clock.sleep(interval / 2)
                 await self._set_led_color(serial, (0, 0, 0))  # Off
-                await asyncio.sleep(interval / 2)
+                await self._clock.sleep(interval / 2)
         except asyncio.CancelledError:
             logger.debug(f"FLASH effect cancelled for {serial}")
             raise
@@ -79,18 +89,18 @@ class ControllerEffectsBase(ABC):
         """
         interval = 0.05  # 20 Hz update rate for smooth animation
         cycle_duration = 1.0 / max(1, speed)  # seconds per pulse cycle
-        end_time = time.time() + (duration_ms / 1000.0)
+        start = self._clock.time()
+        end_time = start + (duration_ms / 1000.0)
 
         try:
-            start = time.time()
-            while time.time() < end_time:
-                elapsed = time.time() - start
+            while self._clock.time() < end_time:
+                elapsed = self._clock.time() - start
                 # Sine wave: 0 → 1 → 0 (smooth breathing)
                 brightness = (math.sin(2 * math.pi * elapsed / cycle_duration) + 1) / 2
 
                 scaled_color = tuple(int(c * brightness) for c in color)
                 await self._set_led_color(serial, scaled_color)
-                await asyncio.sleep(interval)
+                await self._clock.sleep(interval)
         except asyncio.CancelledError:
             logger.debug(f"PULSE effect cancelled for {serial}")
             raise
@@ -110,19 +120,19 @@ class ControllerEffectsBase(ABC):
         """
         interval = 0.05  # 20 Hz update rate
         cycle_duration = 1.0 / max(1, speed)  # seconds per full rainbow cycle
-        end_time = time.time() + (duration_ms / 1000.0)
+        start = self._clock.time()
+        end_time = start + (duration_ms / 1000.0)
 
         try:
-            start = time.time()
-            while time.time() < end_time:
-                elapsed = time.time() - start
+            while self._clock.time() < end_time:
+                elapsed = self._clock.time() - start
                 # HSV color space: rotate hue 0 → 1
                 hue = (elapsed / cycle_duration) % 1.0
 
                 rgb = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
                 color = tuple(int(c * 255) for c in rgb)
                 await self._set_led_color(serial, color)
-                await asyncio.sleep(interval)
+                await self._clock.sleep(interval)
         except asyncio.CancelledError:
             logger.debug(f"RAINBOW effect cancelled for {serial}")
             raise
@@ -144,7 +154,7 @@ class ControllerEffectsBase(ABC):
                 brightness = 1.0 - (step / steps)
                 scaled_color = tuple(int(c * brightness) for c in color)
                 await self._set_led_color(serial, scaled_color)
-                await asyncio.sleep(interval)
+                await self._clock.sleep(interval)
         except asyncio.CancelledError:
             logger.debug(f"FADE_OUT effect cancelled for {serial}")
             raise
@@ -169,7 +179,7 @@ class ControllerEffectsBase(ABC):
                 brightness = step / steps
                 scaled_color = tuple(int(c * brightness) for c in color)
                 await self._set_led_color(serial, scaled_color)
-                await asyncio.sleep(interval)
+                await self._clock.sleep(interval)
         except asyncio.CancelledError:
             logger.debug(f"FADE_IN effect cancelled for {serial}")
             raise

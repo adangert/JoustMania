@@ -3,7 +3,7 @@
 # Excludes observability stack (Jaeger, Prometheus, Grafana, OTEL Collector)
 # for minimal resource usage on constrained devices.
 #
-# Usage: docker-compose -f docker-compose.lite.yml up
+# Usage: docker compose -f docker-compose.lite.yml up -d
 #
 # Memory savings: ~768MB compared to full stack
 # Recommended for: Raspberry Pi 5, production deployments without monitoring
@@ -48,16 +48,9 @@ services:
     networks:
       - joustmania
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50051'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+    # Healthcheck defined in Dockerfile
 
   # Controller Manager Service
-  # Requires access to Bluetooth via D-Bus for controller communication
-  # Note: Controller pairing is handled by host psmove-pairing daemon
   controller-manager:
     image: ghcr.io/watchmejoustmyflags/joustmania/controller-manager-service:${IMAGE_TAG:-latest}
     build:
@@ -68,36 +61,30 @@ services:
         PSMOVE_BUILDER_IMAGE: ${PSMOVE_BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/psmove-builder:latest}
     container_name: joustmania-controller-manager
     privileged: true
+    # Required for controller hot-plug
+    pid: "host"
     networks:
       - joustmania
     expose:
       - "50052"
     environment:
+      - CONTROLLER_NAMES_FILE=/app/data/controller_names.txt
       - CONTROLLER_BACKEND=${CONTROLLER_BACKEND:-bluetooth}
       - MOCK_CONTROLLER_COUNT=${MOCK_CONTROLLER_COUNT:-4}
       - BLUETOOTH_HCI=${BLUETOOTH_HCI:-hci0}
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
       - OTEL_SDK_DISABLED=true
     volumes:
-      # D-Bus socket for BlueZ communication
       - /var/run/dbus:/var/run/dbus:ro
-      # Bluetooth device info (read-only, pairing handled by host daemon)
       - /var/lib/bluetooth:/var/lib/bluetooth:ro
-      # PS Move calibration data (created by host pairing daemon)
       - ${HOME}/.psmoveapi:/root/.psmoveapi:ro
-    devices:
-      # PS Move controllers use hidraw for Bluetooth communication
-      - /dev:/dev
+      - /dev:/dev:rslave
+      - controller-names:/app/data
     depends_on:
       redis:
         condition: service_healthy
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50052'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+    # Healthcheck defined in Dockerfile
 
   # Game Coordinator Service
   game-coordinator:
@@ -115,19 +102,10 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      settings:
-        condition: service_healthy
-      controller-manager:
-        condition: service_healthy
     networks:
       - joustmania
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50053'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+    # Healthcheck defined in Dockerfile
 
   # Menu Service
   menu:
@@ -147,91 +125,10 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      settings:
-        condition: service_healthy
-      controller-manager:
-        condition: service_healthy
-      game-coordinator:
-        condition: service_healthy
-      audio:
-        condition: service_healthy
     networks:
       - joustmania
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50054'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-  # Supervisor Service
-  supervisor:
-    image: ghcr.io/watchmejoustmyflags/joustmania/supervisor-service:${IMAGE_TAG:-latest}
-    build:
-      context: .
-      dockerfile: services/supervisor/Dockerfile
-      args:
-        BUILDER_IMAGE: ${BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/builder:latest}
-    container_name: joustmania-supervisor
-    expose:
-      - "50055"
-    environment:
-      - OTEL_SDK_DISABLED=true
-    depends_on:
-      settings:
-        condition: service_healthy
-      controller-manager:
-        condition: service_healthy
-      game-coordinator:
-        condition: service_healthy
-      menu:
-        condition: service_healthy
-    networks:
-      - joustmania
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50055'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-  # Web UI Service
-  webui:
-    image: ghcr.io/watchmejoustmyflags/joustmania/webui-service:${IMAGE_TAG:-latest}
-    build:
-      context: .
-      dockerfile: services/webui/Dockerfile
-      args:
-        BUILDER_IMAGE: ${BUILDER_IMAGE:-ghcr.io/watchmejoustmyflags/joustmania/builder:latest}
-    container_name: joustmania-webui
-    ports:
-      - "80:80"
-    environment:
-      - OTEL_SDK_DISABLED=true
-      - SETTINGS_SERVICE=settings:50051
-      - CONTROLLER_MANAGER_SERVICE=controller-manager:50052
-      - MENU_SERVICE=menu:50054
-      - SUPERVISOR_SERVICE=supervisor:50055
-    depends_on:
-      settings:
-        condition: service_healthy
-      controller-manager:
-        condition: service_healthy
-      menu:
-        condition: service_healthy
-      supervisor:
-        condition: service_healthy
-    networks:
-      - joustmania
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:80/health', timeout=2); exit(0)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+    # Healthcheck defined in Dockerfile
 
   # Audio Service
   audio:
@@ -245,7 +142,6 @@ services:
     privileged: true
     volumes:
       - ./services/audio/assets:/app/services/audio/assets:ro
-      # ALSA configuration from host
       - /usr/share/alsa:/usr/share/alsa:ro
     devices:
       - /dev/snd:/dev/snd
@@ -260,14 +156,63 @@ services:
     restart: unless-stopped
     group_add:
       - audio
+    # Healthcheck defined in Dockerfile
+
+  # Connect-Web Proxy
+  connect-proxy:
+    image: ghcr.io/watchmejoustmyflags/joustmania/connect-proxy:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: services/connect-proxy/Dockerfile
+    container_name: joustmania-connect-proxy
+    expose:
+      - "8080"
+    environment:
+      - CONTROLLER_MANAGER_SERVICE=controller-manager:50052
+      - GAME_COORDINATOR_SERVICE=game-coordinator:50053
+      - MENU_SERVICE=menu:50054
+      - SETTINGS_SERVICE=settings:50051
+    networks:
+      - joustmania
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; channel = grpc.insecure_channel('localhost:50056'); stub = health_pb2_grpc.HealthStub(channel); response = stub.Check(health_pb2.HealthCheckRequest(), timeout=2); exit(0 if response.status == health_pb2.HealthCheckResponse.SERVING else 1)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 3
+      start_period: 1s
+
+  # Dashboard (SPA)
+  dashboard:
+    image: ghcr.io/watchmejoustmyflags/joustmania/dashboard:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: services/dashboard/Dockerfile
+    container_name: joustmania-dashboard
+    expose:
+      - "8080"
+    networks:
+      - joustmania
+    restart: unless-stopped
+    # Healthcheck defined in Dockerfile
+
+  # Envoy (Gateway)
+  envoy:
+    image: envoyproxy/envoy:v1.31-latest
+    container_name: joustmania-envoy
+    ports:
+      - "80:80"
+    volumes:
+      - ./services/envoy/envoy.yaml:/etc/envoy/envoy.yaml:ro
+    networks:
+      - joustmania
+    restart: unless-stopped
 
 networks:
   joustmania:
     driver: bridge
     name: joustmania-network
+
+volumes:
+  redis-data:
+  controller-names:

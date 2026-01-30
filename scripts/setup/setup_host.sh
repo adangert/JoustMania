@@ -40,7 +40,7 @@ sudo apt-get install -y  \
     libudev-dev swig libbluetooth-dev \
     alsa-utils alsa-tools libasound2-dev libsdl2-mixer-2.0-0 \
     python-dbus-dev python3-dbus libdbus-glib-1-dev usbutils libopenblas-dev \
-    python3-pyaudio python3-psutil || exit 1
+    python3-pyaudio python3-psutil jq || exit 1
 
 # Install Docker
 echo "[4/8] Installing Docker..."

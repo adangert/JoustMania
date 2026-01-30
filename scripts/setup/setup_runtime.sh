@@ -80,6 +80,7 @@ sudo apt-get install -y \
     bluez \
     bluez-tools \
     alsa-utils \
+    jq \
     || exit 1
 echo -e "  → ${GREEN}Dependencies installed${NC}"
 

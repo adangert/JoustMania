@@ -80,21 +80,28 @@ class SoundChannel:
                                 samples[i] = int(samples[i] * volume)
 
                             # Create generator for scaled samples
+                            # miniaudio calls send(framecount) on the generator, so we need
+                            # to prime it first. The initial yield returns empty bytes,
+                            # then subsequent yields return actual audio data.
                             def scaled_stream():
                                 chunk_size = 4096
                                 data = samples.tobytes()
-                                for i in range(0, len(data), chunk_size):
-                                    if not self.is_playing:
-                                        break
-                                    yield data[i : i + chunk_size]
+                                idx = 0
+                                _ = yield b""  # Priming yield - consumed by next()
+                                while idx < len(data) and self.is_playing:
+                                    end = min(idx + chunk_size, len(data))
+                                    _ = yield data[idx:end]  # Yield chunk, receive framecount
+                                    idx = end
 
                             device = miniaudio.PlaybackDevice(
                                 output_format=decoded.sample_format,
                                 nchannels=decoded.nchannels,
                                 sample_rate=decoded.sample_rate,
                             )
+                            stream = scaled_stream()
+                            next(stream)  # Prime the generator for send()
                             with device:
-                                device.start(scaled_stream())
+                                device.start(stream)
                                 duration = file_info.duration
                                 elapsed = 0.0
                                 while self.is_playing and elapsed < duration + 0.5:

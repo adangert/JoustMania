@@ -174,7 +174,7 @@ class AudioManager:
             self.music_player = MusicPlayer("background")
 
         self.current_music_file: str | None = None
-        self.master_volume: float = 0.7
+        self.master_volume: float = 1.0
         self.music_lock = threading.Lock()
         self.event_loop: asyncio.AbstractEventLoop | None = None  # Set from async context
 

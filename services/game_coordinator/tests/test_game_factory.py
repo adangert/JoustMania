@@ -22,8 +22,8 @@ project_root = service_dir.parent.parent
 sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(test_dir))
 
-from lib.types import Games  # noqa: E402
-from services.game_coordinator.game_factory import GameFactory  # noqa: E402
+from lib.types import Games
+from services.game_coordinator.game_factory import GameFactory
 
 
 class MockControllerManagerClient:

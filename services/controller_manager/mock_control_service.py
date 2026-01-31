@@ -34,7 +34,7 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
         self.auto_end_task: asyncio.Task | None = None  # Background task for auto-ending games
         logger.info("MockControllerService initialized")
 
-    def SimulateMovement(self, request, context):  # noqa: N802, ARG002
+    def SimulateMovement(self, request, _context):
         """Simulate controller movement by setting acceleration values."""
         try:
             serial = request.serial
@@ -59,7 +59,7 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
             logger.error(f"SimulateMovement error: {e}")
             return controller_manager_mock_pb2.MovementResponse(success=False, error=str(e))
 
-    def SimulateDeath(self, request, context):  # noqa: N802, ARG002
+    def SimulateDeath(self, request, _context):
         """Simulate death by setting high acceleration and holding it for 2 seconds."""
         try:
             serial = request.serial
@@ -81,7 +81,7 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
             logger.error(f"SimulateDeath error: {e}")
             return controller_manager_mock_pb2.DeathResponse(success=False, accel_magnitude=0.0)
 
-    def SimulateButton(self, request, context):  # noqa: N802, ARG002
+    def SimulateButton(self, request, _context):
         """Simulate button press."""
         try:
             serial = request.serial
@@ -112,7 +112,7 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
             logger.error(f"SimulateButton error: {e}")
             return controller_manager_mock_pb2.ButtonResponse(success=False, error=str(e))
 
-    def SetColor(self, request, context):  # noqa: N802, ARG002
+    def SetColor(self, request, _context):
         """Set controller LED color."""
         try:
             serial = request.serial
@@ -128,7 +128,7 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
             logger.error(f"SetColor error: {e}")
             return controller_manager_mock_pb2.ColorResponse(success=False, error=str(e))
 
-    def ResetController(self, request, context):  # noqa: N802, ARG002
+    def ResetController(self, request, _context):
         """Reset controller to idle state."""
         try:
             serial = request.serial
@@ -159,7 +159,7 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
             logger.error(f"ResetController error: {e}")
             return controller_manager_mock_pb2.ResetResponse(success=False, error=str(e))
 
-    def ListMockControllers(self, request, context):  # noqa: N802, ARG002
+    def ListMockControllers(self, _request, _context):
         """List all mock controller serials."""
         try:
             serials = list(self.backend.controllers.keys())
@@ -169,7 +169,7 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
             logger.error(f"ListMockControllers error: {e}")
             return controller_manager_mock_pb2.ListResponse(serials=[], count=0)
 
-    async def SetAutoGameEnd(self, request, context):  # noqa: N802, ARG002
+    async def SetAutoGameEnd(self, request, _context):
         """
         Enable/disable auto game end feature.
 
@@ -232,7 +232,7 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
         except Exception as e:
             logger.error(f"Mock: Error in auto game end: {e}", exc_info=True)
 
-    def GetColor(self, request, context):  # noqa: N802, ARG002
+    def GetColor(self, request, _context):
         """Get current LED color for a controller."""
         try:
             serial = request.serial
@@ -250,7 +250,7 @@ class MockControllerService(controller_manager_mock_pb2_grpc.MockControllerServi
             logger.error(f"GetColor error: {e}")
             return controller_manager_mock_pb2.GetColorResponse(success=False, error=str(e))
 
-    async def StreamObservability(self, request, context):  # noqa: N802, ARG002
+    async def StreamObservability(self, _request, context):
         """Stream observable events from mock controllers (LED changes, button presses, etc.)."""
         queue = self.backend.add_observer()
         logger.info("Mock: Started observability stream")

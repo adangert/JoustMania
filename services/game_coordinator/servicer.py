@@ -260,7 +260,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 await self.clients.close()
                 logger.info("Closed gRPC channels")
 
-    async def ForceEndGame(self, request, context):  # noqa: N802, ARG002
+    async def ForceEndGame(self, request, _context):
         """Force end the current game."""
         try:
             # Thread-safe state check and update
@@ -304,7 +304,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
             logger.error(f"ForceEndGame error: {e}", exc_info=True)
             return game_coordinator_pb2.ForceEndGameResponse(success=False, error=str(e))
 
-    async def StreamGameEvents(self, request, context):  # noqa: N802
+    async def StreamGameEvents(self, request, context):
         """
         Stream game events in real-time.
 
@@ -369,7 +369,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 # Cleanup via EventBus
                 await self.event_bus.unsubscribe(subscriber_id)
 
-    async def GetGameState(self, request, context):  # noqa: N802, ARG002
+    async def GetGameState(self, _request, _context):
         """
         Get current game state for testing and observability.
 

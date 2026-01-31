@@ -27,7 +27,7 @@ project_root = service_dir.parent.parent
 sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(test_dir))
 
-from proto import controller_manager_pb2  # noqa: E402
+from proto import controller_manager_pb2
 
 
 class MockGrpcContext:

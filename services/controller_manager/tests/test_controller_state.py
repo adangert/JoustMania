@@ -108,7 +108,7 @@ class TestControllerStateInit:
         """Controller should start as not connected."""
         state = ControllerState()
 
-        assert state.connected.value == False  # noqa: E712 - Value wrapper returns int
+        assert state.connected.value == 0  # Value wrapper stores int (0=disconnected)
 
     def test_init_led_off(self):
         """LED should initialize to off (0, 0, 0)."""
@@ -135,7 +135,7 @@ class TestControllerStateUpdate:
 
         state.update(mock_move)
 
-        assert state.connected.value == True  # noqa: E712 - Value wrapper returns int
+        assert state.connected.value == 1  # Value wrapper stores int (1=connected)
 
     def test_update_sets_timestamp(self):
         """update() should set timestamp."""

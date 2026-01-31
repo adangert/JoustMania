@@ -317,7 +317,7 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
             return "true" if value else "false"
         return str(value)
 
-    def GetSettings(self, request, context):  # noqa: N802, ARG002
+    def GetSettings(self, _request, _context):
         """Get all settings."""
         logger.debug("GetSettings called")
 
@@ -331,7 +331,7 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
             logger.error(f"GetSettings error: {e}", exc_info=True)
             return settings_pb2.GetSettingsResponse(settings={}, success=False, error=str(e))
 
-    def GetSetting(self, request, context):  # noqa: N802, ARG002
+    def GetSetting(self, request, _context):
         """Get a specific setting."""
         logger.debug(f"GetSetting called: key={request.key}")
 
@@ -351,7 +351,7 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
             logger.error(f"GetSetting error: {e}", exc_info=True)
             return settings_pb2.GetSettingResponse(key=request.key, value="", success=False, error=str(e))
 
-    async def UpdateSetting(self, request, context):  # noqa: N802, ARG002
+    async def UpdateSetting(self, request, _context):
         """Update a setting."""
         logger.info(f"UpdateSetting called: key={request.key}, value={request.value}, source={request.source}")
 
@@ -412,7 +412,7 @@ class SettingsServicer(settings_pb2_grpc.SettingsServiceServicer):
             logger.error(f"UpdateSetting error: {e}", exc_info=True)
             return settings_pb2.UpdateSettingResponse(success=False, error=str(e), old_value="", new_value="")
 
-    async def SubscribeToChanges(self, request, context):  # noqa: N802, ARG002
+    async def SubscribeToChanges(self, _request, context):
         """Subscribe to setting change events (server-side streaming)."""
         import uuid
 

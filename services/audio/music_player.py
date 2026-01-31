@@ -118,7 +118,7 @@ def _linux_audio_loop(fname: dict, ratio: Value, volume: Value, stop_proc: Value
             # Play the loaded song
             if stop_proc.value == 0 and song_loaded:
                 try:
-                    wf = wave.open(io.BytesIO(wav_data), "rb")  # noqa: SIM115
+                    wf = wave.open(io.BytesIO(wav_data), "rb")
                     if len(wf.readframes(1)) == 0:
                         logger.error("Empty WAV data")
                         song_loaded = False

@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from lib.colors import Colors
-from services.game_coordinator.games.base import Player  # noqa: E402
-from services.game_coordinator.games.teams_base import TEAM_COLORS, TeamsGameBase  # noqa: E402
+from services.game_coordinator.games.base import Player
+from services.game_coordinator.games.teams_base import TEAM_COLORS, TeamsGameBase
 
 
 class MockTeamsGame(TeamsGameBase):

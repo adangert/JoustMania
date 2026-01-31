@@ -21,8 +21,8 @@ project_root = service_dir.parent.parent
 sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(test_dir))
 
-from lib.controller_constants import AxisKey, ButtonKey, ControllerInfoKey, StateKey  # noqa: E402
-from services.controller_manager.state_cache import StateCache  # noqa: E402
+from lib.controller_constants import AxisKey, ButtonKey, ControllerInfoKey, StateKey
+from services.controller_manager.state_cache import StateCache
 
 
 class MockMonitoring:

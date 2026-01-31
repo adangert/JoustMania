@@ -22,9 +22,9 @@ project_root = service_dir.parent.parent
 sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(test_dir))
 
-from conftest import EventCollector, MockControllerManagerService, MockSettingsService  # noqa: E402
+from conftest import EventCollector, MockControllerManagerService, MockSettingsService
 
-from services.game_coordinator.games.fight_club import (  # noqa: E402
+from services.game_coordinator.games.fight_club import (
     DEFAULT_INVINCIBILITY_DURATION,
     DEFAULT_MIN_ROUNDS,
     DEFENDER_COLOR,

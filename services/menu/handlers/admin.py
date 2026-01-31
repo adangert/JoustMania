@@ -151,7 +151,7 @@ class AdminModeHandler:
         """
         await self.enter(serial)
 
-    async def on_exit(self, serial: str) -> None:  # noqa: ARG002
+    async def on_exit(self, _serial: str) -> None:
         """
         Called when a controller exits admin mode (ControllerHandler protocol).
 

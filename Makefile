@@ -28,9 +28,9 @@ help:
 	@echo "  make check           - Run all checks (lint + format)"
 	@echo ""
 	@echo "Testing:"
-	@echo "  make test            - Run integration tests"
-	@echo "  make test-unit       - Run unit tests (fast)"
-	@echo "  make test TEST=name  - Run specific test"
+	@echo "  make test            - Run all tests (unit + integration)"
+	@echo "  make test-integration - Run integration tests only (CI)"
+	@echo "  make test TEST=name  - Run specific test by name"
 	@echo ""
 	@echo "Protos:"
 	@echo "  make protos          - Generate Python protobuf files"
@@ -160,14 +160,16 @@ clean-test-venv:
 		sudo rm -rf $(TEST_VENV); \
 	fi
 
+# Run all tests (unit + integration) - requires system deps for audio (libasound2-dev)
 .PHONY: test
 test: clean-test-venv
+	uv run --all-packages pytest $(if $(TEST),-k "$(TEST)")
+
+# Integration tests only (used by CI - unit tests run separately in service-checks)
+.PHONY: test-integration
+test-integration: clean-test-venv
 	$(TEST_ENV) uv run --package joustmania-integration-tests \
 		pytest tests/integration/ -v $(if $(TEST),-k "$(TEST)")
-
-.PHONY: test-unit
-test-unit:
-	uv run pytest services/*/tests/ -v $(if $(TEST),-k "$(TEST)")
 
 # Run with prebuilt images from GHCR instead of building
 .PHONY: test-pulled

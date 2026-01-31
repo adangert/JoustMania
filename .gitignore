@@ -97,3 +97,4 @@ get-docker.sh
 # Linter cache
 .ruff_cache/
 *.local.md
+controller_names.txt

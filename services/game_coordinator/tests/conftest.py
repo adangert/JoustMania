@@ -21,14 +21,14 @@ project_root = service_dir.parent.parent
 sys.path.insert(0, str(project_root))
 
 # Disable OpenTelemetry for tests - must be done before importing service modules
-from lib.otel_metrics import disable_metrics_for_tests  # noqa: E402
-from lib.telemetry import disable_telemetry_for_tests  # noqa: E402
+from lib.otel_metrics import disable_metrics_for_tests
+from lib.telemetry import disable_telemetry_for_tests
 
 disable_telemetry_for_tests()
 disable_metrics_for_tests()
 
 # Import protobufs from proto package (must be after path setup)
-from proto import controller_manager_pb2, settings_pb2  # noqa: E402
+from proto import controller_manager_pb2, settings_pb2
 
 
 class MockBidirectionalStream:
@@ -158,11 +158,11 @@ class MockControllerManagerService:
             )
             self.controllers.append(controller)
 
-    def StreamGameplayData(self):  # noqa: N802 - matches gRPC naming
+    def StreamGameplayData(self):
         """Return a mock bidirectional stream for gameplay data."""
         return MockBidirectionalStream(self, self.death_schedule, self.infinite, self.max_duration)
 
-    async def SetControllerColor(self, request):  # noqa: N802 - matches gRPC naming
+    async def SetControllerColor(self, request):
         """Mock SetControllerColor RPC."""
         return controller_manager_pb2.SetControllerColorResponse(success=True)
 
@@ -179,7 +179,7 @@ class MockSettingsService:
             "random_teams": "false",
         }
 
-    def GetSettings(self, request):  # noqa: N802 - matches gRPC naming
+    def GetSettings(self, request):
         """Mock GetSettings RPC."""
         return settings_pb2.GetSettingsResponse(settings=self.settings, success=True, error="")
 

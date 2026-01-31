@@ -46,7 +46,7 @@ def mock_channels():
 
 
 @pytest.fixture
-def menu_servicer(mock_channels):  # noqa: ARG001
+def menu_servicer(mock_channels):  # noqa: ARG001 - fixture dependency
     """Create MenuServicer instance for testing."""
     from services.menu.servicer import MenuServicer
 

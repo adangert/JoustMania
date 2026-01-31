@@ -40,16 +40,16 @@ class GrpcPollerFilter(logging.Filter):
 logging.getLogger("asyncio").addFilter(GrpcPollerFilter())
 
 # Import protobuf (after logging config)
-import grpc.aio  # noqa: E402
-from grpc_health.v1 import health, health_pb2, health_pb2_grpc  # noqa: E402
+import grpc.aio
+from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from lib.otel_metrics import init_metrics  # noqa: E402
-from lib.system_metrics import start_system_metrics_collector  # noqa: E402
-from proto import game_coordinator_pb2_grpc  # noqa: E402
-from services.game_coordinator import metrics  # noqa: E402
-from services.game_coordinator.servicer import GameCoordinatorServicer  # noqa: E402
+from lib.otel_metrics import init_metrics
+from lib.system_metrics import start_system_metrics_collector
+from proto import game_coordinator_pb2_grpc
+from services.game_coordinator import metrics
+from services.game_coordinator.servicer import GameCoordinatorServicer
 
 # Legacy game imports (optional for testing)
 try:

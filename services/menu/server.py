@@ -24,14 +24,14 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
-import grpc.aio  # noqa: E402
-from grpc_health.v1 import health, health_pb2, health_pb2_grpc  # noqa: E402
-from prometheus_client import start_http_server  # noqa: E402
+import grpc.aio
+from grpc_health.v1 import health, health_pb2, health_pb2_grpc
+from prometheus_client import start_http_server
 
-from lib.system_metrics import start_system_metrics_collector  # noqa: E402
-from proto import menu_pb2, menu_pb2_grpc  # noqa: E402
-from services.menu import metrics  # noqa: E402
-from services.menu.servicer import MenuServicer  # noqa: E402
+from lib.system_metrics import start_system_metrics_collector
+from proto import menu_pb2, menu_pb2_grpc
+from services.menu import metrics
+from services.menu.servicer import MenuServicer
 
 logger = logging.getLogger(__name__)
 

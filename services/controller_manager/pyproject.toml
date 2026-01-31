@@ -68,8 +68,12 @@ ignore = ["ANN"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]  # Unused imports OK in __init__
-"server.py" = ["N802", "ARG002"]  # gRPC methods use PascalCase, context often unused
-"tests/*.py" = ["ARG002"]  # Test fixtures
+"servicer.py" = ["N802"]  # gRPC methods use PascalCase (protocol requirement)
+"mock_control_service.py" = ["N802"]  # Mock gRPC service uses PascalCase
+"backend.py" = ["B027"]  # Intentional no-op methods for optional subclass override
+"server.py" = ["E402"]  # sys.path manipulation before imports
+"tests/*.py" = ["ARG002", "E402"]  # Test fixtures, sys.path manipulation
+"tests/conftest.py" = ["N802", "E402", "ARG002"]  # Mock gRPC classes use PascalCase
 
 [tool.ruff.lint.isort]
 known-first-party = ["lib", "proto", "services"]

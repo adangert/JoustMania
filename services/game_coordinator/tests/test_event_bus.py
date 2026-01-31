@@ -24,7 +24,7 @@ project_root = service_dir.parent.parent
 sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(test_dir))
 
-from services.game_coordinator.event_bus import EventBus  # noqa: E402
+from services.game_coordinator.event_bus import EventBus
 
 
 class TestEventBusInit:
@@ -38,9 +38,12 @@ class TestEventBusInit:
 
     def test_init_with_callback(self):
         """EventBus should store state sync callback."""
-        callback = lambda _event_type: None  # noqa: E731
-        bus = EventBus(state_sync_callback=callback)
-        assert bus._state_sync_callback is callback
+
+        def noop_callback(_event_type):
+            pass
+
+        bus = EventBus(state_sync_callback=noop_callback)
+        assert bus._state_sync_callback is noop_callback
 
 
 class TestSubscription:

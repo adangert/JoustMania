@@ -15,23 +15,6 @@ env:
   MAIN_BRANCH: dev-refactor
 
 jobs:
-  # Lint shared code (lib/, root files) and check formatting
-  lint-shared:
-    name: Lint Shared Code & Format
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: astral-sh/setup-uv@v5
-
-      - name: Lint lib/
-        run: |
-          uv tool install ruff
-          ruff check lib/ --output-format=github
-
-      - name: Format check (entire codebase)
-        run: ruff format --check .
-
   # Build and test shared packages (proto, lib)
   lib-tests:
     name: Lib Unit Tests
@@ -47,11 +30,21 @@ jobs:
           uv sync
           uv build
 
+      - name: Lint proto
+        run: |
+          cd proto
+          uv tool run ruff check .
+
       - name: Build lib package
         run: |
           cd lib
           uv sync --extra test
           uv build
+
+      - name: Lint lib
+        run: |
+          cd lib
+          uv tool run ruff check .
 
       - name: Run lib unit tests with coverage
         run: |
@@ -478,7 +471,7 @@ jobs:
         env:
           BUILDER_IMAGE: ${{ env.IMAGE_PREFIX }}/builder:${{ github.sha }}
           PSMOVE_BUILDER_IMAGE: ${{ env.IMAGE_PREFIX }}/psmove-builder:${{ github.sha }}
-        run: make test
+        run: make test-integration
 
   # Final status check job for branch protection
   # This job depends on all other jobs and provides a single status check
@@ -487,7 +480,6 @@ jobs:
     name: CI Complete
     runs-on: ubuntu-latest
     needs:
-      - lint-shared
       - lib-tests
       - service-checks
       - lint-dockerfiles
@@ -509,7 +501,6 @@ jobs:
           if [[ "$FAILED" == "true" || "$CANCELLED" == "true" ]]; then
             echo "❌ One or more CI jobs failed or were cancelled"
             echo "Job results:"
-            echo "  lint-shared: ${{ needs.lint-shared.result }}"
             echo "  lib-tests: ${{ needs.lib-tests.result }}"
             echo "  service-checks: ${{ needs.service-checks.result }}"
             echo "  lint-dockerfiles: ${{ needs.lint-dockerfiles.result }}"

@@ -157,7 +157,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
         """
         await self.feedback_manager._set_led_color(serial, color)
 
-    async def StreamButtonEvents(self, request_iterator, context):  # noqa: N802, ARG002
+    async def StreamButtonEvents(self, request_iterator, context):
         """
         Stream button press/release events as they occur (Phase 41).
         Phase XX: Made bidirectional for LED state ownership - menu can send base colors and effects.
@@ -329,7 +329,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
             logger.info(f"Button event subscriber disconnected: {subscriber_id}")
 
-    async def StreamGameplayData(self, request_iterator, context):  # noqa: N802, ARG002
+    async def StreamGameplayData(self, request_iterator, context):
         """
         Stream gameplay data with dynamic filtering via bidirectional communication (Phase 45).
 
@@ -593,7 +593,7 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
     # NOTE: Button detection methods moved to button_detector.py
     # NOTE: Event publishing methods moved to event_publisher.py
 
-    async def RenameController(self, request, context):  # noqa: N802, ARG002
+    async def RenameController(self, request, _context):
         """Rename a controller with a custom human-readable name (Issue #7)."""
         with tracer.start_as_current_span("RenameController") as span:
             span.set_attribute("serial", request.serial)

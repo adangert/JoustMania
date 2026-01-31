@@ -25,8 +25,8 @@ project_root = service_dir.parent.parent
 sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(test_dir))
 
-from proto import game_coordinator_pb2  # noqa: E402
-from services.game_coordinator.servicer import GameCoordinatorServicer  # noqa: E402
+from proto import game_coordinator_pb2
+from services.game_coordinator.servicer import GameCoordinatorServicer
 
 
 class MockGrpcContext:

@@ -530,7 +530,7 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
             # Mark as loaded even on failure to avoid repeated attempts
             self._settings_loaded = True
 
-    async def PlaySound(self, request, context):  # noqa: N802, ARG002
+    async def PlaySound(self, request, _context):
         """Play a sound effect."""
         # Lazy load settings on first audio request (avoids blocking startup)
         await self._load_audio_setting()
@@ -555,7 +555,7 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
 
             return audio_pb2.PlaySoundResponse(success=success, error="" if success else "Failed to play sound")
 
-    async def PlayMusic(self, request, context):  # noqa: N802, ARG002
+    async def PlayMusic(self, request, _context):
         """Play background music."""
         # Lazy load settings on first audio request (avoids blocking startup)
         await self._load_audio_setting()
@@ -582,13 +582,13 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
                 return audio_pb2.PlayMusicResponse(track_id=track_id, success=True, error="")
             return audio_pb2.PlayMusicResponse(track_id="", success=False, error="Failed to play music")
 
-    async def StopMusic(self, request, context):  # noqa: N802, ARG002
+    async def StopMusic(self, request, _context):
         """Stop music track."""
         with tracer.start_as_current_span("StopMusic"):
             success = self.audio_manager.stop_music(request.track_id)
             return audio_pb2.StopMusicResponse(success=success, error="" if success else "Failed to stop music")
 
-    def ChangeTempo(self, request, context):  # noqa: N802, ARG002
+    def ChangeTempo(self, request, _context):
         """Change music tempo."""
         with tracer.start_as_current_span(f"ChangeTempo:{request.new_tempo:.1f}x") as span:
             span.set_attribute("audio.new_tempo", request.new_tempo)
@@ -599,7 +599,7 @@ class AudioServiceServicer(audio_pb2_grpc.AudioServiceServicer):
             )
             return audio_pb2.ChangeTempoResponse(success=success, error="" if success else "Failed to change tempo")
 
-    def SetVolume(self, request, context):  # noqa: N802, ARG002
+    def SetVolume(self, request, _context):
         """Set master volume."""
         with tracer.start_as_current_span(f"SetVolume:{request.volume:.0%}"):
             success = self.audio_manager.set_volume(request.volume)

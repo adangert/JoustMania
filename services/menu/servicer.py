@@ -186,7 +186,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
     # gRPC service methods (names defined by proto)
 
-    async def StartMenu(self, request, context):  # noqa: N802, ARG002
+    async def StartMenu(self, _request, _context):
         """Start the menu."""
         start_time = time.time()
         with tracer.start_as_current_span("StartMenu") as span:
@@ -221,7 +221,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             finally:
                 metrics.grpc_request_duration_seconds.labels(method="StartMenu").observe(time.time() - start_time)
 
-    async def StopMenu(self, request, context):  # noqa: N802, ARG002
+    async def StopMenu(self, _request, _context):
         """Stop the menu."""
         start_time = time.time()
         with tracer.start_as_current_span("StopMenu") as span:
@@ -253,7 +253,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             finally:
                 metrics.grpc_request_duration_seconds.labels(method="StopMenu").observe(time.time() - start_time)
 
-    async def ProcessInput(self, request, context):  # noqa: N802, ARG002
+    async def ProcessInput(self, request, _context):
         """Process menu input."""
         start_time = time.time()
         with tracer.start_as_current_span("ProcessInput") as span:
@@ -282,7 +282,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             finally:
                 metrics.grpc_request_duration_seconds.labels(method="ProcessInput").observe(time.time() - start_time)
 
-    async def StreamMenuEvents(self, request, context):  # noqa: N802, ARG002
+    async def StreamMenuEvents(self, _request, context):
         """Stream menu events in real-time."""
         subscriber_id = f"menu_events_{time.time()}"
         metrics.stream_connections_active.inc()

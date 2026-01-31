@@ -1,0 +1,39 @@
+{
+  "flags": {
+    "update_frequency_hz": {
+      "state": "ENABLED",
+      "variants": {
+        "low": 15,
+        "medium": 30,
+        "high": 60
+      },
+      "defaultVariant": "high"
+    },
+    "sensitivity_mode": {
+      "state": "ENABLED",
+      "variants": {
+        "low": "low",
+        "medium": "medium",
+        "high": "high"
+      },
+      "defaultVariant": "medium"
+    },
+    "streaming_mode": {
+      "state": "ENABLED",
+      "variants": {
+        "standard": "standard",
+        "filtered": "filtered",
+        "aggressive": "aggressive"
+      },
+      "defaultVariant": "filtered"
+    },
+    "enable_adaptive_rewards": {
+      "state": "ENABLED",
+      "variants": {
+        "on": true,
+        "off": false
+      },
+      "defaultVariant": "off"
+    }
+  }
+}

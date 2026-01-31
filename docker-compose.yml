@@ -42,6 +42,20 @@ services:
       retries: 3
       start_period: 1s
 
+  # flagd for feature flag evaluation
+  flagd:
+    image: ghcr.io/open-feature/flagd:v0.10.0
+    container_name: joustmania-flagd
+    command: [ "start", "--uri", "file:/etc/flagd/flags.json" ]
+    volumes:
+      - ./services/flagd/flags.json:/etc/flagd/flags.json:ro
+    expose:
+      - "8013"  # flagd evaluation port (gRPC)
+      - "8015"  # flagd sync port (for in-process evaluation)
+    networks:
+      - joustmania
+    restart: unless-stopped
+
   # Jaeger for distributed tracing UI
   jaeger:
     image: jaegertracing/jaeger:2.14.1
@@ -169,11 +183,13 @@ services:
       - "50053"  # gRPC service
       - "8000"   # Prometheus metrics (Phase 38)
     environment:
-      - OTEL_SERVICE_NAME=game-coordinator-service
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME_GAME_COORDINATOR:-game-coordinator-service}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}
     depends_on:
       redis:
         condition: service_healthy
+      flagd:
+        condition: service_started
     networks:
       - joustmania
     restart: unless-stopped

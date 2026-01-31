@@ -9,4 +9,5 @@ __all__ = [
     "grpc_utils",
     "colors",
     "types",
+    "feature_flags",
 ]

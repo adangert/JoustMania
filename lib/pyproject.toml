@@ -18,6 +18,10 @@ dependencies = [
 
     # System metrics
     "psutil>=5.9.0",
+
+    # Feature Flags
+    "openfeature-sdk>=0.6.0",
+    "openfeature-provider-flagd>=0.1.0",
 ]
 
 [project.optional-dependencies]

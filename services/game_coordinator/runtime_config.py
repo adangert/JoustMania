@@ -84,12 +84,25 @@ class RuntimeConfigManager:
     Manages runtime configuration.
 
     Phase 43: Simple configuration holder with defaults.
-    Phase 44: Will integrate with OpenFeature for dynamic flag evaluation.
+    Phase 44: Integrated with OpenFeature for dynamic flag evaluation.
     """
 
     def __init__(self):
         self.config = GamePerformanceConfig()
         self._apply_environment_overrides()
+
+        # Initialize feature flag client
+        try:
+            from lib.feature_flags import get_feature_flag_client
+
+            self.flag_client = get_feature_flag_client()
+            logger.info("Feature flag client initialized")
+        except ImportError:
+            self.flag_client = None
+            logger.warning("Could not import FeatureFlagClient, using defaults")
+        except Exception as e:
+            self.flag_client = None
+            logger.error(f"Failed to initialize feature flags: {e}")
 
     def _apply_environment_overrides(self):
         """Apply environment variable overrides to configuration."""
@@ -111,16 +124,43 @@ class RuntimeConfigManager:
             except ValueError:
                 logger.warning(f"Invalid WINNER_RAINBOW_DURATION_MS: {rainbow_env}")
 
+    def _refresh_from_flags(self):
+        """Update configuration from feature flags."""
+        if not self.flag_client:
+            return
+
+        try:
+            # Update frequency (15/30/60 Hz)
+            hz = self.flag_client.get_integer_value("update_frequency_hz", self.config.update_frequency_hz)
+            if hz != self.config.update_frequency_hz:
+                logger.debug(f"Config update: update_frequency_hz = {hz}")
+                self.config.update_frequency_hz = hz
+
+            # Sensitivity mode (LOW, MEDIUM, HIGH)
+            sensitivity = self.flag_client.get_string_value("sensitivity_mode", self.config.sensitivity_mode)
+            if sensitivity != self.config.sensitivity_mode:
+                logger.debug(f"Config update: sensitivity_mode = {sensitivity}")
+                self.config.sensitivity_mode = sensitivity
+
+        except Exception as e:
+            # Don't crash on flag evaluation failure, just log and keep defaults
+            logger.warning(f"Failed to evaluate flags: {e}")
+
     def get_config(self) -> GamePerformanceConfig:
-        """Get current configuration."""
+        """Get current configuration (with fresh flag values)."""
+        # Refresh flags on every access (OpenFeature client handles caching/evaluation)
+        self._refresh_from_flags()
         return self.config
 
     async def get_update_interval(self) -> float:
         """Get current update interval in seconds."""
+        # Ensure we're using fresh config
+        self._refresh_from_flags()
         return 1.0 / self.config.update_frequency_hz
 
     def export_config(self) -> dict:
         """Export current configuration as dict (for reports/logs)."""
+        self._refresh_from_flags()
         return self.config.__dict__.copy()
 
 

@@ -165,26 +165,32 @@ class TestSettingsHelper:
 
     def test_get_next_game_mode_forward(self, settings):
         """get_next_game_mode should cycle forward."""
+        from lib.types import Games
+
         current_idx = GAME_MODES.index("JoustFFA")
-        expected = GAME_MODES[(current_idx + 1) % len(GAME_MODES)]
+        expected_name = GAME_MODES[(current_idx + 1) % len(GAME_MODES)]
 
-        result = settings.get_next_game_mode("JoustFFA", forward=True)
+        result = settings.get_next_game_mode(Games.JoustFFA, forward=True)
 
-        assert result == expected
+        assert result.name == expected_name
 
     def test_get_next_game_mode_backward(self, settings):
         """get_next_game_mode should cycle backward."""
+        from lib.types import Games
+
         current_idx = GAME_MODES.index("JoustFFA")
-        expected = GAME_MODES[(current_idx - 1) % len(GAME_MODES)]
+        expected_name = GAME_MODES[(current_idx - 1) % len(GAME_MODES)]
 
-        result = settings.get_next_game_mode("JoustFFA", forward=False)
+        result = settings.get_next_game_mode(Games.JoustFFA, forward=False)
 
-        assert result == expected
+        assert result.name == expected_name
 
     def test_is_valid_game_mode(self, settings):
         """is_valid_game_mode should validate game modes."""
-        assert settings.is_valid_game_mode("JoustFFA") is True
-        assert settings.is_valid_game_mode("Invalid") is False
+        from lib.types import Games
+
+        assert settings.is_valid_game_mode(Games.JoustFFA) is True
+        assert settings.is_valid_game_mode(Games.Werewolf) is True
 
 
 class TestGameModesConstant:

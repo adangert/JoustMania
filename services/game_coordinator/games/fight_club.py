@@ -78,8 +78,24 @@ class FightClubGame(BaseGameMode):
         audio_client=None,
         game_id: str = "",
         initial_players: list | None = None,
+        sensitivity: int = 2,
+        invincibility_seconds: float = DEFAULT_INVINCIBILITY_DURATION,
+        min_rounds: int = DEFAULT_MIN_ROUNDS,
     ):
-        """Initialize Fight Club game."""
+        """
+        Initialize Fight Club game.
+
+        Args:
+            controller_manager_client: gRPC stub for ControllerManager service
+            settings_client: gRPC stub for Settings service
+            event_publisher: Callback function to publish game events
+            audio_client: gRPC stub for Audio service
+            game_id: Unique identifier for this game instance
+            initial_players: Optional list of Player protobuf messages
+            sensitivity: Sensitivity level 0-4 (passed from StartGameConfig)
+            invincibility_seconds: Seconds of invincibility at round start
+            min_rounds: Minimum rounds before game can end
+        """
         super().__init__(
             controller_manager_client=controller_manager_client,
             settings_client=settings_client,
@@ -87,6 +103,7 @@ class FightClubGame(BaseGameMode):
             audio_client=audio_client,
             game_id=game_id,
             initial_players=initial_players,
+            sensitivity=sensitivity,
         )
 
         self.queue: list[str] = []  # Queue of player serials
@@ -98,9 +115,9 @@ class FightClubGame(BaseGameMode):
         self.game_over: bool = False
         self.face_off_mode: bool = False
         self.game_span: trace.Span | None = None
-        # Configurable timing (loaded from settings)
-        self._invincibility_duration: float = DEFAULT_INVINCIBILITY_DURATION
-        self._min_rounds: int = DEFAULT_MIN_ROUNDS
+        # Configurable timing - now passed via config
+        self._invincibility_duration: float = invincibility_seconds
+        self._min_rounds: int = min_rounds
 
     def get_game_name(self) -> str:
         """Return game mode identifier."""
@@ -542,12 +559,7 @@ class FightClubGame(BaseGameMode):
 
                 # Initialization phase
                 with tracer.start_as_current_span("initialization_phase"):
-                    await self._load_settings()
-                    # Load fight club timing from settings
-                    self._invincibility_duration = float(
-                        self.settings.get("fight_club_invincibility", str(DEFAULT_INVINCIBILITY_DURATION))
-                    )
-                    self._min_rounds = int(self.settings.get("fight_club_min_rounds", str(DEFAULT_MIN_ROUNDS)))
+                    # invincibility and min_rounds are now set in __init__ from StartGameConfig
                     logger.info(
                         f"Fight Club config: invincibility={self._invincibility_duration}s, "
                         f"min_rounds={self._min_rounds}"

@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Protocol
 
 from opentelemetry import trace
 
+from lib.colors import Colors
 from lib.controller_constants import ButtonTrackingKey
 from lib.telemetry import SpanAttr
 from lib.types import Sound
@@ -95,11 +96,27 @@ class AdminModeHandler:
         self.session_span_context = None
 
         # Admin option navigation
-        self.current_option = 0  # 0=num_teams, 1=force_all_start
-        self.option_names = ["num_teams", "force_all_start"]
+        # Options cycle through all game settings configurable via admin mode
+        self.current_option = 0
+        self.option_names = [
+            "sensitivity",  # 0-4 (Ultra Slow to Ultra Fast)
+            "num_teams",  # 2-6 teams (for Teams, RandomTeams, Traitor)
+            "random_assignment",  # True/False for Teams mode
+            "nonstop_time_limit",  # 0=unlimited, 60-300 seconds
+            "invincibility",  # 2.0-8.0 seconds (Tournament, FightClub)
+            "fight_club_min_rounds",  # 5-20 rounds
+            "werewolf_reveal_time",  # 20.0-60.0 seconds
+            "force_all_start",  # True/False
+        ]
         self.option_colors = [
-            (0, 255, 255),  # Cyan for num_teams
-            (255, 165, 0),  # Orange for force_all_start
+            Colors.Blue,  # sensitivity
+            Colors.Turquoise,  # num_teams
+            Colors.Magenta,  # random_assignment
+            Colors.Yellow,  # nonstop_time_limit
+            Colors.Green,  # invincibility
+            Colors.Orange,  # fight_club_min_rounds
+            Colors.Purple,  # werewolf_reveal_time
+            Colors.Orange,  # force_all_start
         ]
 
         # Button debouncing (300ms for admin mode)
@@ -187,10 +204,10 @@ class AdminModeHandler:
 
     @property
     def _current_game_mode(self) -> str:
-        """Get current game mode from StateManager."""
+        """Get current game mode name from StateManager."""
         if self._state_manager is None:
             return "JoustFFA"
-        return self._state_manager.current_game_mode
+        return self._state_manager.current_game_mode.name
 
     async def _send_game_effect(
         self,
@@ -629,11 +646,10 @@ class AdminModeHandler:
         Args:
             serial: Controller serial number
         """
-        from proto import (
-            controller_manager_pb2,
-            settings_pb2,
-            settings_pb2_grpc,
-        )
+        from proto import controller_manager_pb2
+
+        if self._state_manager is None:
+            return
 
         ctx = self._get_span_context()
         with self.tracer.start_as_current_span("admin_force_start", context=ctx) as span:
@@ -641,12 +657,8 @@ class AdminModeHandler:
             span.set_attribute("game.name", self._current_game_mode)
 
             try:
-                # Check force_all_start setting
-                settings_stub = settings_pb2_grpc.SettingsServiceStub(self._settings_channel)
-                force_all_response = await settings_stub.GetSetting(
-                    settings_pb2.GetSettingRequest(key="force_all_start")
-                )
-                force_all = force_all_response.value == "true"
+                # Check force_all_start from local game settings
+                force_all = bool(self._state_manager.game_settings.get("force_all_start", False))
                 span.set_attribute("force_all_start", force_all)
 
                 # Determine which controllers to include
@@ -749,26 +761,23 @@ class AdminModeHandler:
         Cycles through all 5 levels:
         Ultra Slow (0) -> Slow (1) -> Medium (2) -> Fast (3) -> Ultra Fast (4) -> Ultra Slow
 
+        Uses state_manager.game_settings for local storage.
+
         Args:
             serial: Controller serial number
         """
-        from proto import (
-            controller_manager_pb2,
-            settings_pb2,
-            settings_pb2_grpc,
-        )
+        from proto import controller_manager_pb2
+
+        if self._state_manager is None:
+            return
 
         ctx = self._get_span_context()
         with self.tracer.start_as_current_span("admin_sensitivity", context=ctx) as span:
             span.set_attribute(SpanAttr.CONTROLLER_SERIAL, serial)
 
             try:
-                settings_stub = settings_pb2_grpc.SettingsServiceStub(self._settings_channel)
-
-                # Get current sensitivity
-                get_request = settings_pb2.GetSettingRequest(key="sensitivity")
-                get_response = await settings_stub.GetSetting(get_request)
-                current = int(get_response.value) if get_response.value else 2
+                settings = self._state_manager.game_settings
+                current = int(settings.get("sensitivity", 2))
 
                 # Validate current value is in range (0-4)
                 if current < 0 or current > 4:
@@ -776,23 +785,20 @@ class AdminModeHandler:
                     current = 2
 
                 # Cycle through all 5 levels: 0 -> 1 -> 2 -> 3 -> 4 -> 0
-                new_value = str((current + 1) % 5)
+                new_value = (current + 1) % 5
 
-                # Update setting
-                update_request = settings_pb2.UpdateSettingRequest(
-                    key="sensitivity", value=new_value, source="admin_mode"
-                )
-                await settings_stub.UpdateSetting(update_request)
+                # Update local setting
+                settings["sensitivity"] = new_value
 
                 # Visual feedback: Color by sensitivity level (5 distinct colors)
                 sensitivity_colors = [
-                    (0, 0, 255),  # Blue - Ultra Slow (0)
-                    (0, 255, 255),  # Cyan - Slow (1)
-                    (0, 255, 0),  # Green - Medium (2)
-                    (255, 165, 0),  # Orange - Fast (3)
-                    (255, 0, 0),  # Red - Ultra Fast (4)
+                    Colors.Blue,  # Ultra Slow (0)
+                    Colors.Turquoise,  # Slow (1)
+                    Colors.Green,  # Medium (2)
+                    Colors.Orange,  # Fast (3)
+                    Colors.Red,  # Ultra Fast (4)
                 ]
-                color = sensitivity_colors[int(new_value)]
+                color = sensitivity_colors[new_value].value
 
                 # Show sensitivity color (GAME_EFFECT_PULSE restores to base automatically)
                 await self._send_game_effect(
@@ -812,11 +818,11 @@ class AdminModeHandler:
                     Sound.MENU_VOX_SENSITIVITY_LOW,  # FAST (3)
                     Sound.MENU_VOX_SENSITIVITY_ULTRA_LOW,  # ULTRA_FAST (4)
                 ]
-                await self._play_voice(sensitivity_voices[int(new_value)])
+                await self._play_voice(sensitivity_voices[new_value])
 
                 span.add_event(
                     "sensitivity_changed",
-                    {"old_value": current, "new_value": int(new_value)},
+                    {"old_value": current, "new_value": new_value},
                 )
                 logger.info(f"Sensitivity changed by admin controller {serial}: {current} -> {new_value}")
 
@@ -940,13 +946,13 @@ class AdminModeHandler:
 
             try:
                 # Show option color for 1 second
-                await self._send_base_color(serial, option_color)
+                await self._send_base_color(serial, option_color.value)
 
                 # Restore white after option color finishes
                 async def restore_white():
                     await asyncio.sleep(1.1)
                     if self.active and serial == self.controller_serial:
-                        await self._send_base_color(serial, (255, 255, 255))
+                        await self._send_base_color(serial, Colors.White.value)
 
                 # Track task to prevent garbage collection
                 task = asyncio.create_task(restore_white())
@@ -966,10 +972,13 @@ class AdminModeHandler:
         """
         Increase the value of the current admin option.
 
+        Uses state_manager.game_settings for local storage.
+
         Args:
             serial: Controller serial number
         """
-        from proto import settings_pb2, settings_pb2_grpc
+        if self._state_manager is None:
+            return
 
         ctx = self._get_span_context()
         with self.tracer.start_as_current_span("admin_increase_value", context=ctx) as span:
@@ -979,36 +988,54 @@ class AdminModeHandler:
             span.set_attribute(SpanAttr.ADMIN_OPTION, option_name)
 
             try:
-                stub = settings_pb2_grpc.SettingsServiceStub(self._settings_channel)
+                settings = self._state_manager.game_settings
+                current_value = settings.get(option_name)
 
-                # Get current value
-                get_request = settings_pb2.GetSettingRequest(key=option_name)
-                get_response = await stub.GetSetting(get_request)
-                current_value = get_response.value
+                # Calculate new value using pattern matching
+                match option_name:
+                    case "sensitivity":
+                        # Cycle: 0 -> 1 -> 2 -> 3 -> 4 -> 0
+                        current = int(current_value) if current_value is not None else 2
+                        new_value = (current + 1) % 5
 
-                # Calculate new value based on option type
-                if option_name == "num_teams":
-                    # Cycle: 2 -> 3 -> 4 -> 5 -> 6 -> 2
-                    current = int(current_value) if current_value else 2
-                    # Validate range
-                    if current < 2 or current > 6:
-                        logger.warning(f"Invalid num_teams value {current}, resetting to 2")
-                        current = 2
-                    new_value = str((current % 6) + 1) if current < 6 else "2"
-                elif option_name == "force_all_start":
-                    # Toggle: true <-> false
-                    if current_value not in ["true", "false"]:
-                        logger.warning(f"Invalid force_all_start value {current_value}, resetting to false")
-                        current_value = "false"
-                    new_value = "true" if current_value == "false" else "false"
-                else:
-                    new_value = current_value
+                    case "num_teams":
+                        # Cycle: 2 -> 3 -> 4 -> 5 -> 6 -> 2
+                        current = int(current_value) if current_value is not None else 2
+                        new_value = current + 1 if current < 6 else 2
 
-                # Update setting
-                update_request = settings_pb2.UpdateSettingRequest(
-                    key=option_name, value=new_value, source="admin_mode"
-                )
-                await stub.UpdateSetting(update_request)
+                    case "random_assignment" | "force_all_start":
+                        # Toggle boolean
+                        new_value = not bool(current_value)
+
+                    case "nonstop_time_limit":
+                        # Cycle: 0 -> 60 -> 120 -> 180 -> 240 -> 300 -> 0
+                        current = int(current_value) if current_value is not None else 0
+                        steps = [0, 60, 120, 180, 240, 300]
+                        idx = (steps.index(current) + 1) % len(steps) if current in steps else 0
+                        new_value = steps[idx]
+
+                    case "invincibility":
+                        # Increment: 2.0 -> 3.0 -> 4.0 -> ... -> 8.0 -> 2.0
+                        current = float(current_value) if current_value is not None else 4.0
+                        new_value = current + 1.0 if current < 8.0 else 2.0
+
+                    case "fight_club_min_rounds":
+                        # Increment: 5 -> 10 -> 15 -> 20 -> 5
+                        current = int(current_value) if current_value is not None else 10
+                        steps = [5, 10, 15, 20]
+                        idx = (steps.index(current) + 1) % len(steps) if current in steps else 1
+                        new_value = steps[idx]
+
+                    case "werewolf_reveal_time":
+                        # Increment: 20 -> 25 -> 30 -> 35 -> 40 -> 45 -> 50 -> 55 -> 60 -> 20
+                        current = float(current_value) if current_value is not None else 35.0
+                        new_value = current + 5.0 if current < 60.0 else 20.0
+
+                    case _:
+                        new_value = current_value
+
+                # Update local setting
+                settings[option_name] = new_value
 
                 # Visual feedback
                 await self._show_value_feedback(serial, option_name, new_value)
@@ -1018,7 +1045,7 @@ class AdminModeHandler:
 
                 span.add_event(
                     "admin_value_increased",
-                    {"option": option_name, "old_value": current_value, "new_value": new_value},
+                    {"option": option_name, "old_value": str(current_value), "new_value": str(new_value)},
                 )
                 logger.info(f"Admin increased {option_name}: {current_value} -> {new_value}")
 
@@ -1029,10 +1056,13 @@ class AdminModeHandler:
         """
         Decrease the value of the current admin option.
 
+        Uses state_manager.game_settings for local storage.
+
         Args:
             serial: Controller serial number
         """
-        from proto import settings_pb2, settings_pb2_grpc
+        if self._state_manager is None:
+            return
 
         ctx = self._get_span_context()
         with self.tracer.start_as_current_span("admin_decrease_value", context=ctx) as span:
@@ -1042,36 +1072,54 @@ class AdminModeHandler:
             span.set_attribute(SpanAttr.ADMIN_OPTION, option_name)
 
             try:
-                stub = settings_pb2_grpc.SettingsServiceStub(self._settings_channel)
+                settings = self._state_manager.game_settings
+                current_value = settings.get(option_name)
 
-                # Get current value
-                get_request = settings_pb2.GetSettingRequest(key=option_name)
-                get_response = await stub.GetSetting(get_request)
-                current_value = get_response.value
+                # Calculate new value using pattern matching
+                match option_name:
+                    case "sensitivity":
+                        # Cycle backward: 0 -> 4 -> 3 -> 2 -> 1 -> 0
+                        current = int(current_value) if current_value is not None else 2
+                        new_value = (current - 1) % 5
 
-                # Calculate new value based on option type
-                if option_name == "num_teams":
-                    # Cycle backward: 2 -> 6 -> 5 -> 4 -> 3 -> 2
-                    current = int(current_value) if current_value else 2
-                    # Validate range
-                    if current < 2 or current > 6:
-                        logger.warning(f"Invalid num_teams value {current}, resetting to 2")
-                        current = 2
-                    new_value = str(current - 1) if current > 2 else "6"
-                elif option_name == "force_all_start":
-                    # Toggle: true <-> false (same as increase)
-                    if current_value not in ["true", "false"]:
-                        logger.warning(f"Invalid force_all_start value {current_value}, resetting to false")
-                        current_value = "false"
-                    new_value = "true" if current_value == "false" else "false"
-                else:
-                    new_value = current_value
+                    case "num_teams":
+                        # Cycle backward: 2 -> 6 -> 5 -> 4 -> 3 -> 2
+                        current = int(current_value) if current_value is not None else 2
+                        new_value = current - 1 if current > 2 else 6
 
-                # Update setting
-                update_request = settings_pb2.UpdateSettingRequest(
-                    key=option_name, value=new_value, source="admin_mode"
-                )
-                await stub.UpdateSetting(update_request)
+                    case "random_assignment" | "force_all_start":
+                        # Toggle boolean (same as increase)
+                        new_value = not bool(current_value)
+
+                    case "nonstop_time_limit":
+                        # Cycle backward: 0 -> 300 -> 240 -> 180 -> 120 -> 60 -> 0
+                        current = int(current_value) if current_value is not None else 0
+                        steps = [0, 60, 120, 180, 240, 300]
+                        idx = (steps.index(current) - 1) % len(steps) if current in steps else 0
+                        new_value = steps[idx]
+
+                    case "invincibility":
+                        # Decrement: 2.0 -> 8.0 -> 7.0 -> ... -> 3.0 -> 2.0
+                        current = float(current_value) if current_value is not None else 4.0
+                        new_value = current - 1.0 if current > 2.0 else 8.0
+
+                    case "fight_club_min_rounds":
+                        # Decrement: 5 -> 20 -> 15 -> 10 -> 5
+                        current = int(current_value) if current_value is not None else 10
+                        steps = [5, 10, 15, 20]
+                        idx = (steps.index(current) - 1) % len(steps) if current in steps else 1
+                        new_value = steps[idx]
+
+                    case "werewolf_reveal_time":
+                        # Decrement: 20 -> 60 -> 55 -> 50 -> ... -> 25 -> 20
+                        current = float(current_value) if current_value is not None else 35.0
+                        new_value = current - 5.0 if current > 20.0 else 60.0
+
+                    case _:
+                        new_value = current_value
+
+                # Update local setting
+                settings[option_name] = new_value
 
                 # Visual feedback
                 await self._show_value_feedback(serial, option_name, new_value)
@@ -1081,37 +1129,71 @@ class AdminModeHandler:
 
                 span.add_event(
                     "admin_value_decreased",
-                    {"option": option_name, "old_value": current_value, "new_value": new_value},
+                    {"option": option_name, "old_value": str(current_value), "new_value": str(new_value)},
                 )
                 logger.info(f"Admin decreased {option_name}: {current_value} -> {new_value}")
 
             except Exception as e:
                 logger.error(f"Error decreasing admin value: {e}", exc_info=True)
 
-    async def _show_value_feedback(self, serial: str, option_name: str, value: str) -> None:
+    async def _show_value_feedback(self, serial: str, option_name: str, value: int | float | bool) -> None:
         """
         Show visual feedback for admin value change.
 
         Args:
             serial: Controller serial number
             option_name: Name of the option that changed
-            value: New value
+            value: New value (typed)
         """
         from proto import controller_manager_pb2
 
         try:
-            # Determine feedback color based on option and value
-            if option_name == "num_teams":
-                # White with brightness gradient (dim=2 teams, bright=6 teams)
-                num = int(value)
-                # Calculate brightness: 80 for 2 teams, 255 for 6 teams
-                brightness = int(80 + (255 - 80) * (num - 2) / 4)
-                pulse_color = (brightness, brightness, brightness)
-            elif option_name == "force_all_start":
-                # Green for true, red for false
-                pulse_color = (0, 255, 0) if value == "true" else (255, 0, 0)
-            else:
-                pulse_color = (255, 255, 255)
+            # Determine feedback color using pattern matching
+            match option_name:
+                case "sensitivity":
+                    # 5-color gradient for sensitivity levels (0-4)
+                    sensitivity_colors = [
+                        Colors.Blue,  # Ultra Slow (0)
+                        Colors.Turquoise,  # Slow (1)
+                        Colors.Green,  # Medium (2)
+                        Colors.Orange,  # Fast (3)
+                        Colors.Red,  # Ultra Fast (4)
+                    ]
+                    pulse_color = sensitivity_colors[int(value)].value
+
+                case "num_teams":
+                    # Gradient from green (2 teams) to red (6 teams)
+                    num = int(value)
+                    r = int(255 * (num - 2) / 4)
+                    g = int(255 * (6 - num) / 4)
+                    pulse_color = (r, g, 0)
+
+                case "random_assignment" | "force_all_start":
+                    # Green for True, red for False
+                    pulse_color = Colors.Green.value if value else Colors.Red.value
+
+                case "nonstop_time_limit":
+                    # Purple intensity based on time (0=dim, 300=bright)
+                    intensity = int(255 * int(value) / 300) if int(value) > 0 else 50
+                    pulse_color = (intensity, 0, intensity)
+
+                case "invincibility":
+                    # Green intensity based on duration (2s=dim, 8s=bright)
+                    intensity = int(255 * (float(value) - 2.0) / 6.0)
+                    pulse_color = (0, intensity + 50, 0)
+
+                case "fight_club_min_rounds":
+                    # Orange intensity based on rounds (5=dim, 20=bright)
+                    intensity = int(255 * (int(value) - 5) / 15)
+                    pulse_color = (255, intensity + 50, 0)
+
+                case "werewolf_reveal_time":
+                    # Purple intensity based on time (20s=dim, 60s=bright)
+                    intensity = int(255 * (float(value) - 20.0) / 40.0)
+                    pulse_color = (intensity + 50, 0, 255)
+
+                case _:
+                    pulse_color = Colors.White.value
 
             # Show feedback color (GAME_EFFECT_PULSE restores to base automatically)
             await self._send_game_effect(

@@ -47,7 +47,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
         self.game_state = game_coordinator_pb2.GameState.IDLE
         self.game_name = ""
         self.players: list[game_coordinator_pb2.Player] = []
-        self.settings: dict[str, str] = {}
+        self.game_config = None  # Full StartGameConfig proto
         self.game_start_time = None
         self.game_id = None
 
@@ -112,7 +112,7 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                 # Store game configuration
                 self.game_name = config.game_name
                 self.players = list(config.players)
-                self.settings = dict(config.settings)
+                self.game_config = config  # Store full config for typed game options
                 self.game_id = f"game_{int(time.time())}"
                 self.game_start_time = time.time()
 
@@ -217,7 +217,8 @@ class GameCoordinatorServicer(game_coordinator_pb2_grpc.GameCoordinatorServiceSe
                         audio_client=self.clients.audio,
                         game_id=self.game_id,
                         initial_players=self.players,
-                        game_settings=self.settings,
+                        sensitivity=self.game_config.sensitivity if self.game_config else 2,
+                        game_config=self.game_config,
                     )
                 except ValueError as e:
                     # Unknown game mode

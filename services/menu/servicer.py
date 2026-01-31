@@ -10,6 +10,7 @@ from opentelemetry import trace
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 from lib.telemetry import get_tracer
+from lib.types import Games
 from proto import menu_pb2, menu_pb2_grpc
 from services.menu import metrics
 from services.menu.controller_events import ControllerEventLoop
@@ -40,7 +41,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
     def __init__(self):
         """Initialize menu service."""
         self.state = menu_pb2.MenuState.STOPPED
-        self.current_selection = "JoustFFA"
+        self.current_selection: Games = Games.JoustFFA
 
         # Persistent gRPC channels
         from lib.grpc_utils import create_channel
@@ -317,12 +318,11 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             await self._start_game(serial="process_input", source="button_input")
 
         elif button == "select":
-            current_index = GAME_MODES.index(self.current_selection) if self.current_selection in GAME_MODES else 0
-            self.current_selection = GAME_MODES[(current_index + 1) % len(GAME_MODES)]
+            self.current_selection = self.settings_helper.get_next_game_mode(self.current_selection)
             self.state_manager.set_game_mode(self.current_selection)
-            await self.event_publisher.publish("selection_changed", {"game_name": self.current_selection})
+            await self.event_publisher.publish("selection_changed", {"game_name": self.current_selection.name})
             await self.settings_helper.save_current_game(self.current_selection)
-            logger.info(f"Selection changed to: {self.current_selection}")
+            logger.info(f"Selection changed to: {self.current_selection.name}")
 
     async def _handle_web_command(self, data: dict, span) -> None:
         """Handle web_command input type."""
@@ -334,15 +334,16 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
         elif command == "select_game":
             game_name = data.get("game_name", "")
-            if game_name in GAME_MODES:
-                self.current_selection = game_name
-                self.state_manager.set_game_mode(game_name)
-                await self.event_publisher.publish("selection_changed", {"game_name": game_name, "source": "web"})
-                await self.settings_helper.save_current_game(self.current_selection)
-                voice_file = GAME_MODE_VOICE.get(game_name)
+            game_mode = Games.from_name(game_name)
+            if game_mode is not None and game_name in GAME_MODES:
+                self.current_selection = game_mode
+                self.state_manager.set_game_mode(game_mode)
+                await self.event_publisher.publish("selection_changed", {"game_name": game_mode.name, "source": "web"})
+                await self.settings_helper.save_current_game(game_mode)
+                voice_file = GAME_MODE_VOICE.get(game_mode.name)
                 if voice_file:
                     await self.audio.play_voice(voice_file)
-                logger.info(f"Game selected via web: {game_name}")
+                logger.info(f"Game selected via web: {game_mode.name}")
             else:
                 logger.warning(f"Unknown game mode requested via web: {game_name}")
 
@@ -440,7 +441,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
         span_ctx = None if source == "web" else otel_context.Context()
         with tracer.start_as_current_span("start_game", context=span_ctx) as span:
             span.set_attribute("controller.serial", serial)
-            span.set_attribute("game.name", self.current_selection)
+            span.set_attribute("game.name", self.current_selection.name)
             span.set_attribute("game.source", source)
 
             # Get controllers from state_manager (source of truth)
@@ -470,12 +471,8 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
                 for i, s in enumerate(controllers)
             ]
 
-            # Create start config
-            config = game_coordinator_pb2.StartGameConfig(
-                game_name=self.current_selection,
-                players=players,
-                settings={},
-            )
+            # Build typed start config (current_selection is already a Games enum)
+            config = self._build_game_config(self.current_selection, players)
 
             # Inject trace context into gRPC metadata
             propagator = TraceContextTextMapPropagator()
@@ -489,7 +486,7 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
 
             logger.info(
                 f"Starting game via GameCoordinator stream ({source}): "
-                f"{self.current_selection} with {len(controllers)} players"
+                f"{self.current_selection.name} with {len(controllers)} players"
             )
 
             stream = None
@@ -562,3 +559,91 @@ class MenuServicer(menu_pb2_grpc.MenuServiceServicer):
             await self.audio.start_lobby_music()
 
         logger.info("Lobby restarted after game")
+
+    def _build_game_config(self, game_mode, players: list):
+        """
+        Build typed StartGameConfig for a game mode.
+
+        Args:
+            game_mode: Games enum value from lib.types
+            players: List of Player protobuf messages
+
+        Returns:
+            StartGameConfig with appropriate mode-specific config
+        """
+        from proto import game_coordinator_pb2
+
+        # Get game settings from state_manager (set via admin mode)
+        settings = getattr(self.state_manager, "game_settings", {})
+        sensitivity = settings.get("sensitivity", 2)
+
+        # Build base config with the game mode's name
+        config = game_coordinator_pb2.StartGameConfig(
+            game_name=game_mode.name,
+            players=players,
+            sensitivity=sensitivity,
+        )
+
+        # Build mode-specific config using pattern matching
+        match game_mode:
+            case Games.JoustFFA:
+                config.ffa_config.CopyFrom(game_coordinator_pb2.FFAConfig())
+
+            case Games.JoustTeams:
+                config.teams_config.CopyFrom(
+                    game_coordinator_pb2.TeamsConfig(
+                        num_teams=settings.get("num_teams", 2),
+                        random_assignment=settings.get("random_assignment", True),
+                    )
+                )
+
+            case Games.JoustRandomTeams:
+                config.random_teams_config.CopyFrom(
+                    game_coordinator_pb2.RandomTeamsConfig(
+                        num_teams=settings.get("num_teams", 2),
+                    )
+                )
+
+            case Games.NonStop:
+                config.nonstop_config.CopyFrom(
+                    game_coordinator_pb2.NonstopConfig(
+                        time_limit_seconds=settings.get("nonstop_time_limit", 0),
+                    )
+                )
+
+            case Games.Tournament:
+                config.tournament_config.CopyFrom(
+                    game_coordinator_pb2.TournamentConfig(
+                        invincibility_seconds=settings.get("invincibility", 4.0),
+                    )
+                )
+
+            case Games.FightClub:
+                config.fight_club_config.CopyFrom(
+                    game_coordinator_pb2.FightClubConfig(
+                        invincibility_seconds=settings.get("invincibility", 4.0),
+                        min_rounds=settings.get("fight_club_min_rounds", 10),
+                    )
+                )
+
+            case Games.Werewolf:
+                config.werewolf_config.CopyFrom(
+                    game_coordinator_pb2.WerewolfConfig(
+                        reveal_time_seconds=settings.get("werewolf_reveal_time", 35.0),
+                    )
+                )
+
+            case Games.Zombies:
+                config.zombie_config.CopyFrom(game_coordinator_pb2.ZombieConfig())
+
+            case Games.Swapper:
+                config.swapper_config.CopyFrom(game_coordinator_pb2.SwapperConfig())
+
+            case Games.Traitor:
+                config.traitor_config.CopyFrom(
+                    game_coordinator_pb2.TraitorConfig(
+                        num_teams=settings.get("traitor_num_teams", 0),
+                    )
+                )
+
+        return config

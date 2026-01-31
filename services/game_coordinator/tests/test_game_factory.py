@@ -171,6 +171,14 @@ class TestGameFactoryTeamGames:
 
     def test_create_teams_game_custom_teams(self):
         """create_game should create Teams game with custom team count."""
+        # Build typed config with teams_config
+        from proto import game_coordinator_pb2
+
+        config = game_coordinator_pb2.StartGameConfig(
+            game_name="JoustTeams",
+            sensitivity=2,
+            teams_config=game_coordinator_pb2.TeamsConfig(num_teams=4),
+        )
         game = GameFactory.create_game(
             game_name="JoustTeams",
             controller_manager_client=MockControllerManagerClient(),
@@ -179,13 +187,22 @@ class TestGameFactoryTeamGames:
             audio_client=MockAudioClient(),
             game_id="test_teams_002",
             initial_players=[],
-            game_settings={"num_teams": "4"},
+            sensitivity=2,
+            game_config=config,
         )
 
         assert game.num_teams == 4
 
     def test_create_random_teams_game(self):
         """create_game should create Random Teams game."""
+        # Build typed config with random_teams_config
+        from proto import game_coordinator_pb2
+
+        config = game_coordinator_pb2.StartGameConfig(
+            game_name="JoustRandomTeams",
+            sensitivity=2,
+            random_teams_config=game_coordinator_pb2.RandomTeamsConfig(num_teams=3),
+        )
         game = GameFactory.create_game(
             game_name="JoustRandomTeams",
             controller_manager_client=MockControllerManagerClient(),
@@ -194,7 +211,8 @@ class TestGameFactoryTeamGames:
             audio_client=MockAudioClient(),
             game_id="test_random_teams",
             initial_players=[],
-            game_settings={"num_teams": "3"},
+            sensitivity=2,
+            game_config=config,
         )
 
         assert game.num_teams == 3

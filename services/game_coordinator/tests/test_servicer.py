@@ -96,7 +96,7 @@ class TestStartGameValidation:
         config = game_coordinator_pb2.StartGameConfig(
             game_name="FFA",
             players=[game_coordinator_pb2.Player(serial="p1")],  # Only 1 player
-            settings={},
+            sensitivity=2,
         )
         mock_span = MockSpan()
 
@@ -110,7 +110,7 @@ class TestStartGameValidation:
         config = game_coordinator_pb2.StartGameConfig(
             game_name="FFA",
             players=[],  # No players
-            settings={},
+            sensitivity=2,
         )
         mock_span = MockSpan()
 
@@ -127,7 +127,7 @@ class TestStartGameValidation:
                 game_coordinator_pb2.Player(serial="p1"),
                 game_coordinator_pb2.Player(serial="p2"),
             ],
-            settings={},
+            sensitivity=2,
         )
         mock_span = MockSpan()
 
@@ -143,7 +143,7 @@ class TestStartGameValidation:
         config = game_coordinator_pb2.StartGameConfig(
             game_name="FFA",
             players=[game_coordinator_pb2.Player(serial=f"p{i}") for i in range(8)],
-            settings={},
+            sensitivity=2,
         )
         mock_span = MockSpan()
 
@@ -162,7 +162,7 @@ class TestStartGameValidation:
                 game_coordinator_pb2.Player(serial="p1"),
                 game_coordinator_pb2.Player(serial="p2"),
             ],
-            settings={},
+            sensitivity=2,
         )
         mock_span = MockSpan()
 
@@ -180,7 +180,7 @@ class TestStartGameValidation:
                 game_coordinator_pb2.Player(serial="p3"),
                 game_coordinator_pb2.Player(serial="p4"),
             ],
-            settings={},
+            sensitivity=2,
         )
 
         success2, error = servicer._start_game_from_config(config2, mock_span)
@@ -198,7 +198,7 @@ class TestStartGameValidation:
                 game_coordinator_pb2.Player(serial="p1"),
                 game_coordinator_pb2.Player(serial="p2"),
             ],
-            settings={},
+            sensitivity=2,
         )
         mock_span = MockSpan()
 
@@ -215,7 +215,7 @@ class TestStartGameValidation:
                 game_coordinator_pb2.Player(serial="p1"),
                 game_coordinator_pb2.Player(serial="p2"),
             ],
-            settings={},
+            sensitivity=2,
         )
         mock_span = MockSpan()
 
@@ -231,22 +231,24 @@ class TestStartGameValidation:
     def test_stores_game_config(self, servicer):
         """Should store game configuration on start."""
         config = game_coordinator_pb2.StartGameConfig(
-            game_name="Teams",
+            game_name="JoustTeams",
             players=[
                 game_coordinator_pb2.Player(serial="p1"),
                 game_coordinator_pb2.Player(serial="p2"),
             ],
-            settings={"sensitivity": "FAST", "random_teams": "true"},
+            sensitivity=3,  # FAST
+            teams_config=game_coordinator_pb2.TeamsConfig(num_teams=2, random_assignment=True),
         )
         mock_span = MockSpan()
 
         with patch.object(servicer, "_run_game_loop_threaded"):
             servicer._start_game_from_config(config, mock_span)
 
-        assert servicer.game_name == "Teams"
+        assert servicer.game_name == "JoustTeams"
         assert len(servicer.players) == 2
-        assert servicer.settings["sensitivity"] == "FAST"
-        assert servicer.settings["random_teams"] == "true"
+        # game_config is now stored instead of settings dict
+        assert servicer.game_config.sensitivity == 3
+        assert servicer.game_config.teams_config.num_teams == 2
 
 
 class TestForceEndGame:
@@ -507,7 +509,7 @@ class TestGameNameHandling:
                     game_coordinator_pb2.Player(serial="p1"),
                     game_coordinator_pb2.Player(serial="p2"),
                 ],
-                settings={},
+                sensitivity=2,
             )
             mock_span = MockSpan()
 
@@ -529,7 +531,7 @@ class TestGameNameHandling:
                 game_coordinator_pb2.Player(serial="p1"),
                 game_coordinator_pb2.Player(serial="p2"),
             ],
-            settings={},
+            sensitivity=2,
         )
         mock_span = MockSpan()
 
@@ -557,7 +559,7 @@ class TestStateTransitionRobustness:
                 game_coordinator_pb2.Player(serial="p1"),
                 game_coordinator_pb2.Player(serial="p2"),
             ],
-            settings={},
+            sensitivity=2,
         )
         mock_span = MockSpan()
 
@@ -618,7 +620,7 @@ class TestDuplicatePlayerHandling:
                 game_coordinator_pb2.Player(serial="same_serial"),
                 game_coordinator_pb2.Player(serial="different_serial"),
             ],
-            settings={},
+            sensitivity=2,
         )
         mock_span = MockSpan()
 

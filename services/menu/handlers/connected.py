@@ -72,7 +72,7 @@ class ConnectedHandler:
 
         await self._state_manager.led.set_connected_color(
             serial,
-            self._state_manager.current_game_mode,
+            self._state_manager.current_game_mode.name,
         )
         logger.debug(f"Controller {serial} entered connected state")
 
@@ -125,10 +125,10 @@ class ConnectedHandler:
         # Publish event
         await self._state_manager.publish_event(
             "selection_changed",
-            {"game_name": next_mode, "source": "controller", "serial": serial},
+            {"game_name": next_mode.name, "source": "controller", "serial": serial},
         )
 
         # Play voice announcement
-        await self._state_manager.audio.play_game_mode_voice(next_mode)
+        await self._state_manager.audio.play_game_mode_voice(next_mode.name)
 
-        logger.info(f"Controller {serial} select button -> game mode: {next_mode}")
+        logger.info(f"Controller {serial} select button -> game mode: {next_mode.name}")

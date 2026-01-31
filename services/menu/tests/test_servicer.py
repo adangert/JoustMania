@@ -29,6 +29,7 @@ project_root = service_dir.parent.parent
 sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(test_dir))
 
+from lib.types import Games
 from proto import menu_pb2
 from services.menu.handlers.base import ControllerState
 
@@ -58,7 +59,7 @@ class FakeMenuServicer:
 
     def __init__(self):
         self.state = menu_pb2.MenuState.STOPPED
-        self.current_selection = "JoustFFA"
+        self.current_selection = Games.JoustFFA
 
         # Game event monitoring
         self.game_event_task = None
@@ -164,7 +165,7 @@ class TestMenuServicerState:
 
     def test_initial_selection_is_joust_ffa(self, servicer):
         """Initial selection should be JoustFFA."""
-        assert servicer.current_selection == "JoustFFA"
+        assert servicer.current_selection == Games.JoustFFA
 
     def test_initial_ready_controllers_empty(self, servicer):
         """Ready controllers set should start empty."""
@@ -415,23 +416,16 @@ class TestMenuServicerHandleButtonInput:
     @pytest.mark.asyncio
     async def test_button_select_cycles_game_mode(self, servicer):
         """Select button should cycle to next game mode."""
-        from services.menu.utils.settings import GAME_MODES
+        servicer.current_selection = Games.JoustFFA
 
-        servicer.current_selection = "JoustFFA"
+        # Simulate the real logic using settings helper
+        next_mode = servicer.settings_helper.get_next_game_mode(servicer.current_selection)
+        servicer.current_selection = next_mode
+        servicer.state_manager.set_game_mode(servicer.current_selection)
+        await servicer.event_publisher.publish("selection_changed", {"game_name": servicer.current_selection.name})
+        await servicer.settings_helper.save_current_game(servicer.current_selection)
 
-        # Simulate the real logic
-        button = "select"
-        if button == "select":
-            if servicer.current_selection in GAME_MODES:
-                current_index = GAME_MODES.index(servicer.current_selection)
-            else:
-                current_index = 0
-            servicer.current_selection = GAME_MODES[(current_index + 1) % len(GAME_MODES)]
-            servicer.state_manager.set_game_mode(servicer.current_selection)
-            await servicer.event_publisher.publish("selection_changed", {"game_name": servicer.current_selection})
-            await servicer.settings_helper.save_current_game(servicer.current_selection)
-
-        assert servicer.current_selection != "JoustFFA"
+        assert servicer.current_selection != Games.JoustFFA
         servicer.state_manager.set_game_mode.assert_called()
         servicer.event_publisher.publish.assert_called()
 
@@ -448,32 +442,32 @@ class TestMenuServicerHandleWebCommand:
         """select_game command should update selection for valid game."""
         from services.menu.utils.settings import GAME_MODES
 
-        servicer.current_selection = "JoustFFA"
+        servicer.current_selection = Games.JoustFFA
         game_name = "Tournament"
 
         # Simulate the real logic
-        if game_name in GAME_MODES:
-            servicer.current_selection = game_name
-            servicer.state_manager.set_game_mode(game_name)
-            await servicer.event_publisher.publish("selection_changed", {"game_name": game_name, "source": "web"})
-            await servicer.settings_helper.save_current_game(servicer.current_selection)
+        game_mode = Games.from_name(game_name)
+        if game_mode is not None and game_name in GAME_MODES:
+            servicer.current_selection = game_mode
+            servicer.state_manager.set_game_mode(game_mode)
+            await servicer.event_publisher.publish("selection_changed", {"game_name": game_mode.name, "source": "web"})
+            await servicer.settings_helper.save_current_game(game_mode)
 
-        assert servicer.current_selection == "Tournament"
-        servicer.state_manager.set_game_mode.assert_called_with("Tournament")
+        assert servicer.current_selection == Games.Tournament
+        servicer.state_manager.set_game_mode.assert_called_with(Games.Tournament)
 
     @pytest.mark.asyncio
     async def test_web_command_select_game_invalid(self, servicer):
         """select_game command should ignore invalid game names."""
-        from services.menu.utils.settings import GAME_MODES
-
-        servicer.current_selection = "JoustFFA"
+        servicer.current_selection = Games.JoustFFA
         game_name = "InvalidGameMode"
 
         # Simulate the real logic
-        if game_name in GAME_MODES:
-            servicer.current_selection = game_name
+        game_mode = Games.from_name(game_name)
+        if game_mode is not None:
+            servicer.current_selection = game_mode
 
-        assert servicer.current_selection == "JoustFFA"  # Unchanged
+        assert servicer.current_selection == Games.JoustFFA  # Unchanged
 
 
 class TestMenuServicerHandleResetMenu:
@@ -665,13 +659,13 @@ class TestMenuServicerGameModeSelection:
 
     def test_set_game_mode_updates_state_manager(self, servicer):
         """Setting game mode should update state_manager."""
-        servicer.state_manager.set_game_mode("Tournament")
-        servicer.state_manager.set_game_mode.assert_called_with("Tournament")
+        servicer.state_manager.set_game_mode(Games.Tournament)
+        servicer.state_manager.set_game_mode.assert_called_with(Games.Tournament)
 
     def test_current_selection_persistence(self, servicer):
         """Current selection should persist across state changes."""
-        servicer.current_selection = "Werewolf"
+        servicer.current_selection = Games.Werewolf
         servicer.state = menu_pb2.MenuState.RUNNING
         servicer.state = menu_pb2.MenuState.STOPPED
 
-        assert servicer.current_selection == "Werewolf"
+        assert servicer.current_selection == Games.Werewolf

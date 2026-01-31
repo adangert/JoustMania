@@ -95,12 +95,12 @@ class SettingsHelper:
         logger.debug(f"Voice actor setting not found or invalid, using default: {DEFAULT_VOICE_ACTOR}")
         return DEFAULT_VOICE_ACTOR
 
-    async def load_current_game(self) -> str:
+    async def load_current_game(self) -> Games:
         """
         Load current game mode from settings.
 
         Returns:
-            Game mode name (enum name string)
+            Games enum value
         """
         value = await self.get_setting("current_game")
         if value:
@@ -108,50 +108,55 @@ class SettingsHelper:
             game = Games.from_name(value)
             if game and game.name in GAME_MODES:
                 logger.info(f"Loaded current game mode: {game.name}")
-                return game.name
+                return game
         logger.debug(f"Current game setting not found, using default: {DEFAULT_GAME_MODE.name}")
-        return DEFAULT_GAME_MODE.name
+        return DEFAULT_GAME_MODE
 
-    async def save_current_game(self, game_mode: str) -> bool:
+    async def save_current_game(self, game_mode: Games) -> bool:
         """
         Save current game mode to settings.
 
         Args:
-            game_mode: Game mode name
+            game_mode: Games enum value
 
         Returns:
             True if successful
         """
-        success = await self.set_setting("current_game", game_mode)
+        success = await self.set_setting("current_game", game_mode.name)
         if success:
-            logger.debug(f"Saved current game mode: {game_mode}")
+            logger.debug(f"Saved current game mode: {game_mode.name}")
         return success
 
-    def get_next_game_mode(self, current: str, forward: bool = True) -> str:
+    def get_next_game_mode(self, current: Games, forward: bool = True) -> Games:
         """
         Get the next game mode in the cycle.
 
         Args:
-            current: Current game mode name
+            current: Games enum value
             forward: True to cycle forward, False to cycle backward
 
         Returns:
-            Next game mode name
+            Next Games enum value
         """
-        current_index = GAME_MODES.index(current) if current in GAME_MODES else 0
+        current_name = current.name
+        current_index = GAME_MODES.index(current_name) if current_name in GAME_MODES else 0
 
         if forward:
-            return GAME_MODES[(current_index + 1) % len(GAME_MODES)]
-        return GAME_MODES[(current_index - 1) % len(GAME_MODES)]
+            next_name = GAME_MODES[(current_index + 1) % len(GAME_MODES)]
+        else:
+            next_name = GAME_MODES[(current_index - 1) % len(GAME_MODES)]
 
-    def is_valid_game_mode(self, game_mode: str) -> bool:
+        # Convert back to Games enum
+        return Games.from_name(next_name) or DEFAULT_GAME_MODE
+
+    def is_valid_game_mode(self, game_mode: Games) -> bool:
         """
         Check if a game mode is valid.
 
         Args:
-            game_mode: Game mode name
+            game_mode: Games enum value
 
         Returns:
             True if valid
         """
-        return game_mode in GAME_MODES
+        return game_mode.name in GAME_MODES

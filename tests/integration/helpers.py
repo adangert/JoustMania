@@ -23,8 +23,6 @@ from proto import (
     game_coordinator_pb2_grpc,
     menu_pb2,
     menu_pb2_grpc,
-    settings_pb2,
-    settings_pb2_grpc,
 )
 
 
@@ -55,34 +53,6 @@ async def get_game_client(docker_compose):
     port = docker_compose.get_service_port("game-coordinator", 50053)
     channel = grpc.aio.insecure_channel(f"{host}:{port}")
     return game_coordinator_pb2_grpc.GameCoordinatorServiceStub(channel), channel
-
-
-async def get_settings_client(docker_compose):
-    """Get Settings service gRPC client."""
-    host = docker_compose.get_service_host("settings", 50051)
-    port = docker_compose.get_service_port("settings", 50051)
-    channel = grpc.aio.insecure_channel(f"{host}:{port}")
-    return settings_pb2_grpc.SettingsServiceStub(channel), channel
-
-
-async def update_setting(docker_compose, key: str, value: str):
-    """Update a setting via the Settings service.
-
-    Args:
-        docker_compose: Docker compose fixture
-        key: Setting key (e.g., "werewolf_reveal_time")
-        value: Setting value as string (e.g., "5.0")
-    """
-    client, channel = await get_settings_client(docker_compose)
-    try:
-        response = await client.UpdateSetting(
-            settings_pb2.UpdateSettingRequest(key=key, value=value)
-        )
-        if not response.success:
-            print(f"Warning: Failed to update setting {key}: {response.error}")
-        return response.success
-    finally:
-        await channel.close()
 
 
 # =============================================================================

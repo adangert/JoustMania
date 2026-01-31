@@ -84,7 +84,7 @@ class ReadyHandler:
         # Set bright LED color
         await self._state_manager.led.set_ready_color(
             serial,
-            self._state_manager.current_game_mode,
+            self._state_manager.current_game_mode.name,
         )
 
         logger.info(

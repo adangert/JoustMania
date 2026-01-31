@@ -95,6 +95,8 @@ class TournamentGame(BaseGameMode):
         audio_client=None,
         game_id: str = "",
         initial_players: list | None = None,
+        sensitivity: int = 2,
+        invincibility_seconds: float = DEFAULT_INVINCIBILITY_DURATION,
     ):
         """
         Initialize Tournament game.
@@ -106,6 +108,8 @@ class TournamentGame(BaseGameMode):
             audio_client: gRPC stub for Audio service
             game_id: Unique identifier for this game instance
             initial_players: Optional list of Player protobuf messages
+            sensitivity: Sensitivity level 0-4 (passed from StartGameConfig)
+            invincibility_seconds: Seconds of invincibility at match start
         """
         super().__init__(
             controller_manager_client=controller_manager_client,
@@ -114,6 +118,7 @@ class TournamentGame(BaseGameMode):
             audio_client=audio_client,
             game_id=game_id,
             initial_players=initial_players,
+            sensitivity=sensitivity,
         )
 
         self.bracket: list[Match] = []
@@ -122,21 +127,12 @@ class TournamentGame(BaseGameMode):
         self.total_rounds = 0
         self.match_task: asyncio.Task | None = None
         self.match_span: trace.Span | None = None
-        # Configurable timing (loaded from settings)
-        self._invincibility_duration: float = DEFAULT_INVINCIBILITY_DURATION
+        # Configurable timing - now passed via config
+        self._invincibility_duration: float = invincibility_seconds
 
     def get_game_name(self) -> str:
         """Return game mode identifier."""
         return "Tournament"
-
-    async def _load_settings(self):
-        """Load settings including tournament-specific timing."""
-        await super()._load_settings()
-        # Load tournament-specific timing from settings
-        self._invincibility_duration = float(
-            self.settings.get("tournament_invincibility", str(DEFAULT_INVINCIBILITY_DURATION))
-        )
-        logger.info(f"Tournament invincibility: {self._invincibility_duration}s")
 
     def _generate_bracket(self, player_count: int) -> list[Match]:
         """
@@ -734,7 +730,6 @@ class TournamentGame(BaseGameMode):
 
                 # Initialization phase
                 with tracer.start_as_current_span("initialization_phase"):
-                    await self._load_settings()
                     await self._initialize_players()
                     self._create_player_spans(None)  # Uses current context
 

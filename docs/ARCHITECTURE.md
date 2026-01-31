@@ -52,13 +52,17 @@ JoustMania is a party game system for PS Move controllers, built as a collection
 
 ### Settings Service (Port 50051)
 
-**Purpose**: Centralized configuration management
+**Purpose**: Centralized configuration management for persistent settings
 
 **Responsibilities**:
 - Load/save settings from YAML file
 - Schema-based validation
 - Publish setting changes via streaming
-- Single source of truth for configuration
+- Voice actor preference, audio settings
+
+**Note**: Game-specific settings (sensitivity, num_teams, etc.) are stored locally
+in Menu service's `state_manager.game_settings` and passed via typed proto config
+when starting games. See [Game Configuration](#game-configuration) below.
 
 **Key RPCs**:
 | RPC | Type | Description |
@@ -131,7 +135,13 @@ JoustMania is a party game system for PS Move controllers, built as a collection
 | `ForceEndGame` | Unary | Force end current game |
 | `GetGameState` | Unary | Query current game state (for testing/observability) |
 
-**Dependencies**: Settings, ControllerManager, Audio
+**Game Configuration**: Games receive typed configuration via `StartGameConfig` proto:
+- `game_name`: Game mode identifier
+- `players`: List of players with serial, team, alive status
+- `sensitivity`: Movement sensitivity level (0-4)
+- `game_config`: Mode-specific settings via `oneof` (see [Game Configuration](#game-configuration))
+
+**Dependencies**: ControllerManager, Audio
 
 ---
 
@@ -147,6 +157,7 @@ JoustMania is a party game system for PS Move controllers, built as a collection
 - Admin mode controls
 - LED feedback based on state
 - Auto-start when all players ready
+- Local game settings storage (`state_manager.game_settings`)
 
 **Key RPCs**:
 | RPC | Type | Description |
@@ -159,7 +170,10 @@ JoustMania is a party game system for PS Move controllers, built as a collection
 **Admin Mode**: Press all 4 face buttons simultaneously
 - White LED indicator
 - 60 second timeout
-- Configure teams, sensitivity, force_all_start
+- Move button: Cycle through options
+- Trigger/Cross: Increase/decrease value
+- Configurable options: sensitivity, num_teams, random_assignment, nonstop_time_limit,
+  invincibility, fight_club_min_rounds, werewolf_reveal_time, force_all_start
 
 **Dependencies**: Settings, ControllerManager, GameCoordinator
 
@@ -267,14 +281,16 @@ audio:50056
 
 ```
 1. Menu detects all controllers ready (≥2 players)
-2. Menu calls GameCoordinator.StreamGameEvents(start_config)
-   - start_config contains game_name, players, settings
-3. GameCoordinator validates and initializes game instance
-4. GameCoordinator streams back game lifecycle events:
+2. Menu builds typed StartGameConfig from state_manager.game_settings:
+   - game_name, players list, sensitivity
+   - Mode-specific config (e.g., TeamsConfig, WerewolfConfig)
+3. Menu calls GameCoordinator.StreamGameEvents(start_config)
+4. GameCoordinator validates and initializes game instance with typed config
+5. GameCoordinator streams back game lifecycle events:
    - game_start → countdown → game_started → player_death... → game_end
-5. Menu monitors events via separate subscription
-6. Game runs until win condition
-7. Menu receives "game_ended", resets to lobby
+6. Menu monitors events via separate subscription
+7. Game runs until win condition
+8. Menu receives "game_ended", resets to lobby
 ```
 
 ### Settings Update
@@ -287,6 +303,51 @@ audio:50056
 5. Subscribed services receive notification
 6. Services update cached settings
 ```
+
+---
+
+## Game Configuration
+
+Game-specific settings are stored locally in Menu service's `state_manager.game_settings`
+and passed to Game Coordinator via typed proto messages when starting games.
+
+### Local Game Settings (Menu)
+
+| Setting | Type | Range | Description |
+|---------|------|-------|-------------|
+| `sensitivity` | int | 0-4 | Movement threshold (0=Ultra Slow, 4=Ultra Fast) |
+| `num_teams` | int | 2-6 | Number of teams (Teams, RandomTeams, Traitor) |
+| `random_assignment` | bool | - | Random team assignment in Teams mode |
+| `nonstop_time_limit` | int | 0, 60-300 | Time limit in seconds (0=unlimited) |
+| `invincibility` | float | 2.0-8.0 | Spawn protection seconds (Tournament, FightClub) |
+| `fight_club_min_rounds` | int | 5-20 | Minimum rounds before game can end |
+| `werewolf_reveal_time` | float | 20.0-60.0 | Seconds before werewolves are revealed |
+| `force_all_start` | bool | - | Force start with all connected controllers |
+
+### Typed Config Messages (Proto)
+
+Games receive mode-specific configuration via `oneof game_config` in `StartGameConfig`:
+
+| Game Mode | Config Message | Fields |
+|-----------|---------------|--------|
+| JoustFFA | `FFAConfig` | (none - uses base settings) |
+| JoustTeams | `TeamsConfig` | `num_teams`, `random_assignment` |
+| JoustRandomTeams | `TeamsConfig` | `num_teams`, `random_assignment` |
+| Nonstop | `NonstopConfig` | `time_limit_seconds` |
+| Tournament | `TournamentConfig` | `invincibility_seconds` |
+| FightClub | `FightClubConfig` | `invincibility_seconds`, `min_rounds` |
+| Werewolf | `WerewolfConfig` | `reveal_time_seconds` |
+| Zombies | `ZombieConfig` | (none - uses base settings) |
+| Swapper | `SwapperConfig` | (none - uses base settings) |
+| Traitor | `TraitorConfig` | `num_teams` |
+
+### Admin Mode Configuration
+
+Settings are configured via admin mode (hold all 4 face buttons):
+1. **Move button**: Cycle through options (LED shows option color)
+2. **Trigger**: Increase value
+3. **Cross**: Decrease value
+4. Settings persist in memory until service restart
 
 ---
 

@@ -32,34 +32,18 @@ from tests.integration.helpers import (
     kill_players_for_team_win,
     kill_players_until_one_remains,
     start_game_via_menu,
-    update_setting,
     verify_controllers_have_color,
     verify_lobby_colors,
     verify_lobby_colors_restored,
 )
 
 # =============================================================================
-# Test timing configuration (via Settings service)
+# Test timing configuration
 # =============================================================================
-# These values are passed to the Settings service before game start.
-# Games read them at initialization, allowing faster test execution.
+# Game settings are now stored in Menu service's state_manager and passed via
+# typed proto config when starting games. Integration tests use default values.
 
-# Werewolf: Set reveal time to 0 for immediate reveal (skip 35s wait)
-# Setting key: werewolf_reveal_time (default: 35.0)
-WEREWOLF_REVEAL_TIME = "0.0"
-
-# FightClub invincibility: reduce from 4s to 0.5s for faster rounds
-# Setting key: fight_club_invincibility (default: 4.0)
-FIGHT_CLUB_INVINCIBILITY = "0.5"
-
-# FightClub minimum rounds: reduce from 10 to 3 for faster tests
-# Setting key: fight_club_min_rounds (default: 10)
-FIGHT_CLUB_MIN_ROUNDS = "3"
 FIGHT_CLUB_ROUNDS = 4  # Run 1 more than minimum to ensure clear winner
-
-# Tournament invincibility: reduce from 4s to 0.5s for faster matches
-# Setting key: tournament_invincibility (default: 4.0)
-TOURNAMENT_INVINCIBILITY = "0.5"
 
 
 # =============================================================================
@@ -74,20 +58,17 @@ EndStrategy = Callable[[Any, list[str], Any, GameEventCollector], Any]
 async def configure_test_settings(docker_compose, game_mode: str):
     """Configure game-specific settings for faster test execution.
 
-    Sets timing-related settings to reduce test duration while maintaining
-    valid game behavior. Called before starting a game.
+    Note: Settings are now stored in Menu service's state_manager and passed
+    via typed proto config. Integration tests use default settings.
+    This function is kept for API compatibility but is now a no-op.
 
     Args:
-        docker_compose: Docker compose fixture
-        game_mode: The game mode being tested
+        docker_compose: Docker compose fixture (unused)
+        game_mode: The game mode being tested (unused)
     """
-    if game_mode == "Werewolf":
-        await update_setting(docker_compose, "werewolf_reveal_time", WEREWOLF_REVEAL_TIME)
-    elif game_mode == "FightClub":
-        await update_setting(docker_compose, "fight_club_invincibility", FIGHT_CLUB_INVINCIBILITY)
-        await update_setting(docker_compose, "fight_club_min_rounds", FIGHT_CLUB_MIN_ROUNDS)
-    elif game_mode == "Tournament":
-        await update_setting(docker_compose, "tournament_invincibility", TOURNAMENT_INVINCIBILITY)
+    # Settings are now passed via StartGameConfig proto from Menu service
+    # Default settings are used for integration tests
+    pass
 
 
 async def end_ffa_game(mock_client, serials: list[str], _game_client, _event_collector) -> None:

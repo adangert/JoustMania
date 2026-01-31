@@ -177,6 +177,7 @@ class BaseGameMode(ABC):
         audio_client: Any | None = None,  # audio_pb2_grpc.AudioServiceStub
         game_id: str = "",
         initial_players: list | None = None,  # List of Player protobuf messages
+        sensitivity: int = 2,  # 0-4, passed from StartGameConfig (default MEDIUM)
     ) -> None:
         """
         Initialize base game mode (Phase 33 - added type hints).
@@ -188,6 +189,7 @@ class BaseGameMode(ABC):
             audio_client: gRPC stub for Audio service (Phase 29)
             initial_players: Optional list of Player protobuf messages from StartGame RPC
             game_id: Unique identifier for this game instance
+            sensitivity: Sensitivity level 0-4 (passed from StartGameConfig)
         """
         self.controller_client = controller_manager_client
         self.settings_client = settings_client
@@ -208,10 +210,13 @@ class BaseGameMode(ABC):
         self.running = False
         self.gameplay_stream = None  # Phase 46: Bidirectional stream for feedback commands
 
-        # Settings (will be fetched from Settings service)
-        self.sensitivity = Sensitivity.MEDIUM
-        self.random_teams = True  # Randomize team assignments (vs sequential)
-        self.settings = {}  # Store raw settings dict
+        # Settings - sensitivity is now passed via StartGameConfig
+        # Validate and convert to Sensitivity enum
+        if 0 <= sensitivity <= 4:
+            self.sensitivity = Sensitivity(sensitivity)
+        else:
+            logger.warning(f"Sensitivity {sensitivity} out of range, using MEDIUM")
+            self.sensitivity = Sensitivity.MEDIUM
 
         # Phase 70: Music tempo control state
         self.music_track_id = None
@@ -325,39 +330,6 @@ class BaseGameMode(ABC):
     # ========================================================================
     # Concrete Methods - Shared implementation used by all subclasses
     # ========================================================================
-
-    async def _load_settings(self):
-        """Fetch game settings from Settings service."""
-        try:
-            from proto import settings_pb2
-
-            response = await self.settings_client.GetSettings(settings_pb2.GetSettingsRequest())
-
-            if response.success:
-                self.settings = dict(response.settings)
-                logger.info(f"Loaded settings: {len(self.settings)} keys")
-
-                # Parse sensitivity (integer 0-4)
-                sens_value = int(self.settings.get("sensitivity", "2"))
-                if 0 <= sens_value <= 4:
-                    self.sensitivity = Sensitivity(sens_value)
-                else:
-                    logger.warning(f"Sensitivity {sens_value} out of range, using MEDIUM")
-                    self.sensitivity = Sensitivity.MEDIUM
-                logger.info(f"Sensitivity: {self.sensitivity.name} ({self.sensitivity.value})")
-
-                # Emit sensitivity metric for dashboard (Phase 80)
-                metrics.game_sensitivity.set(self.sensitivity.value)
-
-                # Parse random_teams setting (for team-based games)
-                self.random_teams = self.settings.get("random_teams", "true").lower() == "true"
-
-            else:
-                logger.warning(f"Failed to load settings: {response.error}")
-
-        except Exception as e:
-            logger.error(f"Error loading settings: {e}", exc_info=True)
-            # Use defaults
 
     async def _initialize_players(self):
         """Initialize players from StartGame RPC payload."""
@@ -901,8 +873,9 @@ class BaseGameMode(ABC):
                 init_span.set_attribute("game.id", self.game_id)
                 init_span.set_attribute("game.mode", self.get_game_name())
 
-                # Load settings
-                await self._load_settings()
+                # Emit sensitivity metric for dashboard
+                metrics.game_sensitivity.set(self.sensitivity.value)
+                logger.info(f"Sensitivity: {self.sensitivity.name} ({self.sensitivity.value})")
 
                 # Initialize players
                 await self._initialize_players()

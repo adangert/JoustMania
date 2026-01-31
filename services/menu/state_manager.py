@@ -4,6 +4,7 @@ import logging
 from collections.abc import Callable, Coroutine
 
 from lib.controller_constants import ButtonTrackingKey
+from lib.types import Games
 from services.menu import metrics
 from services.menu.handlers.base import ControllerHandler, ControllerState
 from services.menu.utils import AudioHelper, LedController, SettingsHelper
@@ -55,7 +56,19 @@ class StateManager:
         self._handlers: dict[ControllerState, ControllerHandler] = {}
 
         # Current game mode (for LED colors)
-        self.current_game_mode: str = "JoustFFA"
+        self.current_game_mode: Games = Games.JoustFFA
+
+        # Game settings (configured via admin mode)
+        self.game_settings: dict[str, int | float | bool] = {
+            "sensitivity": 2,  # 0-4, default MEDIUM
+            "num_teams": 2,  # For team-based modes (Teams, RandomTeams, Traitor)
+            "random_assignment": True,  # For Teams mode
+            "nonstop_time_limit": 0,  # 0 = unlimited
+            "invincibility": 4.0,  # Seconds of invincibility (Tournament, FightClub)
+            "fight_club_min_rounds": 10,
+            "werewolf_reveal_time": 35.0,
+            "force_all_start": False,  # Force start with all connected controllers
+        }
 
     @property
     def connected_controllers(self) -> set[str]:
@@ -250,12 +263,12 @@ class StateManager:
         """Check if all connected controllers are ready (minimum 2)."""
         return len(self.ready_controllers) >= 2 and len(self.ready_controllers) == len(self.connected_controllers)
 
-    def set_game_mode(self, game_mode: str) -> None:
+    def set_game_mode(self, game_mode: Games) -> None:
         """
         Set the current game mode.
 
         Args:
-            game_mode: Game mode name
+            game_mode: Games enum value
         """
         self.current_game_mode = game_mode
 

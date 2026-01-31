@@ -78,6 +78,8 @@ class NonstopJoustGame(BaseGameMode):
         audio_client=None,
         game_id: str = "",
         initial_players: list | None = None,
+        sensitivity: int = 2,
+        time_limit_seconds: int = 0,
     ):
         """
         Initialize Nonstop Joust game.
@@ -89,6 +91,8 @@ class NonstopJoustGame(BaseGameMode):
             audio_client: gRPC stub for Audio service (Phase 29)
             game_id: Unique identifier for this game instance
             initial_players: List of Player protobuf messages from StartGame RPC
+            sensitivity: Sensitivity level 0-4 (passed from StartGameConfig)
+            time_limit_seconds: Game duration in seconds (0 = unlimited)
         """
         super().__init__(
             controller_manager_client=controller_manager_client,
@@ -97,24 +101,16 @@ class NonstopJoustGame(BaseGameMode):
             audio_client=audio_client,
             game_id=game_id,
             initial_players=initial_players,
+            sensitivity=sensitivity,
         )
 
-        # Nonstop-specific settings
-        self.time_limit = 0  # 0 = unlimited, otherwise seconds
+        # Nonstop-specific settings - now passed via config
+        self.time_limit = time_limit_seconds  # 0 = unlimited, otherwise seconds
         self.players: dict[str, NonstopPlayer] = {}  # Override type hint
 
     def get_game_name(self) -> str:
         """Return game mode identifier."""
         return "Nonstop Joust"
-
-    async def _load_settings(self):
-        """Load settings with Nonstop-specific time_limit."""
-        # Call parent to load base settings (sensitivity, play_audio)
-        await super()._load_settings()
-
-        # Parse Nonstop-specific time limit (0 = unlimited)
-        self.time_limit = int(self.settings.get("nonstop_time_limit", "0"))
-        logger.info(f"Loaded Nonstop settings: time_limit={self.time_limit}s")
 
     async def _initialize_players_impl(self, controllers: list):
         """

@@ -114,12 +114,14 @@ class TestConnectedHandler:
         manager.audio = MagicMock()
         manager.audio.play_sound = AsyncMock()
         manager.audio.play_game_mode_voice = AsyncMock()
+        from lib.types import Games
+
         manager.settings = MagicMock()
-        manager.settings.get_next_game_mode = MagicMock(return_value="JoustTeams")
+        manager.settings.get_next_game_mode = MagicMock(return_value=Games.JoustTeams)
         manager.settings.save_current_game = AsyncMock()
         manager.publish_event = AsyncMock()
         manager.transition_to = AsyncMock()
-        manager.current_game_mode = "JoustFFA"
+        manager.current_game_mode = Games.JoustFFA
         return manager
 
     def test_state_property(self, handler):
@@ -185,11 +187,13 @@ class TestReadyHandler:
     @pytest.fixture
     def mock_state_manager(self):
         """Create mock StateManager."""
+        from lib.types import Games
+
         manager = MagicMock()
         manager.led = MagicMock()
         manager.led.set_ready_color = AsyncMock()
         manager.transition_to = AsyncMock()
-        manager.current_game_mode = "JoustFFA"
+        manager.current_game_mode = Games.JoustFFA
         manager.all_ready = MagicMock(return_value=False)
         manager.get_ready_count = MagicMock(return_value=1)
         manager.get_connected_count = MagicMock(return_value=2)

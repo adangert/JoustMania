@@ -18,8 +18,10 @@ Last player standing wins. All players compete individually.
 Endless respawn with scoring. Compete for highest score.
 - Respawn after 3 seconds
 - 2 seconds spawn protection
-- Time-limited (configurable via `nonstop_time_limit`)
+- Time-limited (configurable via `time_limit_seconds`, 0=unlimited)
 - Tracks kills, deaths, streaks
+
+**Config:** `NonstopConfig { time_limit_seconds }`
 
 ## Team Modes
 
@@ -30,12 +32,16 @@ Teams compete, last team standing wins.
 - Round-robin team assignment
 - Team colors assigned at start
 
+**Config:** `TeamsConfig { num_teams, random_assignment }`
+
 ### Random Teams
 **File:** `random_teams.py` | **Class:** `RandomTeamsGame`
 
 Like Teams but with random assignment.
 - 5 second team formation phase
 - Colors pulsed during formation
+
+**Config:** `TeamsConfig { num_teams, random_assignment }`
 
 ### Swapper
 **File:** `swapper.py` | **Class:** `SwapperGame`
@@ -51,11 +57,13 @@ Switch teams when you die instead of elimination.
 ### Werewolf
 **File:** `werewolf.py` | **Class:** `WerewolfGame`
 
-~44% are secret werewolves, revealed after 35 seconds.
+~44% are secret werewolves, revealed after configurable time.
 - All start yellow (human color)
 - Werewolves get rumble signal during countdown
 - Werewolves turn blue at reveal
 - Werewolves have higher death thresholds
+
+**Config:** `WerewolfConfig { reveal_time_seconds }` (default: 35s)
 
 ### Traitor
 **File:** `traitor.py` | **Class:** `TraitorGame`
@@ -64,6 +72,8 @@ Team game with secret traitors.
 - Traitor count scales with players (1-3+)
 - Traitors appear as their team but win with enemy
 - Traitors get rumble signal
+
+**Config:** `TraitorConfig { num_teams }`
 
 ### Zombie
 **File:** `zombie.py` | **Class:** `ZombieGame`
@@ -81,19 +91,23 @@ Humans vs Zombies. Killed humans become zombies.
 **File:** `fight_club.py` | **Class:** `FightClubGame`
 
 1v1 arena with queue system.
-- 22 second rounds, 4 second invincibility
+- 22 second rounds, configurable invincibility
 - Defender (red) vs Challenger (green)
 - Winner stays, loser goes to back of queue
-- Min 10 rounds before game can end
+- Configurable min rounds before game can end
+
+**Config:** `FightClubConfig { invincibility_seconds, min_rounds }`
 
 ### Tournament
 **File:** `tournament.py` | **Class:** `TournamentGame`
 
 Single elimination bracket.
-- 22 second matches, 4 second invincibility
+- 22 second matches, configurable invincibility
 - Bracket with byes for non-power-of-2
 - Red vs Blue, winner turns green
 - Single champion wins
+
+**Config:** `TournamentConfig { invincibility_seconds }`
 
 ## Modifying Game Modes
 
@@ -102,7 +116,10 @@ Single elimination bracket.
 1. Create `services/game_coordinator/games/my_mode.py`
 2. Extend `BaseGameMode` or `TeamsGameBase`
 3. Register in `services/game_coordinator/games/__init__.py`
-4. Add to menu in `services/menu/handlers/admin.py`
+4. Add to `lib/types.py` `Games` enum
+5. (Optional) Add config message to `proto/game_coordinator.proto`
+6. Update `GameFactory._extract_mode_config()` if custom config needed
+7. Update `MenuServicer._build_game_config()` to build the config
 
 ### Key Methods to Override
 

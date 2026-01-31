@@ -94,6 +94,7 @@ class ZombieGame(BaseGameMode):
         audio_client=None,
         game_id: str = "",
         initial_players: list | None = None,
+        sensitivity: int = 2,
     ):
         """
         Initialize Zombie game.
@@ -105,6 +106,7 @@ class ZombieGame(BaseGameMode):
             audio_client: gRPC stub for Audio service
             game_id: Unique identifier for this game instance
             initial_players: Optional list of Player protobuf messages
+            sensitivity: Sensitivity level 0-4 (passed from StartGameConfig)
         """
         super().__init__(
             controller_manager_client=controller_manager_client,
@@ -113,6 +115,7 @@ class ZombieGame(BaseGameMode):
             audio_client=audio_client,
             game_id=game_id,
             initial_players=initial_players,
+            sensitivity=sensitivity,
         )
 
         self.zombie_serials: list[str] = []
@@ -548,7 +551,6 @@ class ZombieGame(BaseGameMode):
 
                 # Initialization phase
                 with tracer.start_as_current_span("initialization_phase"):
-                    await self._load_settings()
                     await self._initialize_players()
                     self._create_player_spans()
 

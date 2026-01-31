@@ -61,6 +61,8 @@ class TraitorGame(TeamsGameBase):
         audio_client=None,
         game_id: str = "",
         initial_players: list | None = None,
+        sensitivity: int = 2,
+        num_teams: int = 0,
     ):
         """
         Initialize Traitor game.
@@ -72,10 +74,13 @@ class TraitorGame(TeamsGameBase):
             audio_client: gRPC stub for Audio service
             game_id: Unique identifier for this game instance
             initial_players: Optional list of Player protobuf messages
+            sensitivity: Sensitivity level 0-4 (passed from StartGameConfig)
+            num_teams: Number of teams (0 = auto-calculate based on player count)
         """
-        # Determine number of teams based on player count
+        # Determine number of teams based on player count if not specified
         num_players = len(initial_players) if initial_players else 4
-        num_teams = 2 if num_players < 9 else min(3, max(2, num_players // 3))
+        if num_teams <= 0:
+            num_teams = 2 if num_players < 9 else min(3, max(2, num_players // 3))
 
         super().__init__(
             controller_manager_client=controller_manager_client,
@@ -85,6 +90,8 @@ class TraitorGame(TeamsGameBase):
             game_id=game_id,
             num_teams=num_teams,
             initial_players=initial_players,
+            sensitivity=sensitivity,
+            random_assignment=True,  # Traitor uses random team assignment
         )
 
         self.traitor_serials: list[str] = []

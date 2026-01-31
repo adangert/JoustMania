@@ -53,6 +53,7 @@ class RandomTeamsGame(TeamsGameBase):
         game_id: str = "",
         num_teams: int = 2,
         initial_players: list | None = None,
+        sensitivity: int = 2,
     ):
         """
         Initialize Random Teams game.
@@ -68,8 +69,10 @@ class RandomTeamsGame(TeamsGameBase):
             game_id: Unique identifier for this game instance
             num_teams: Number of teams (default 2)
             initial_players: Optional list of Player protobuf messages from StartGame RPC
+            sensitivity: Sensitivity level 0-4 (passed from StartGameConfig)
         """
         # Call parent init first
+        # Random Teams always uses random assignment (that's the point of the mode)
         super().__init__(
             controller_manager_client=controller_manager_client,
             settings_client=settings_client,
@@ -78,6 +81,8 @@ class RandomTeamsGame(TeamsGameBase):
             game_id=game_id,
             num_teams=num_teams,
             initial_players=initial_players,
+            sensitivity=sensitivity,
+            random_assignment=True,  # Always random for this mode
         )
 
     def get_game_name(self) -> str:

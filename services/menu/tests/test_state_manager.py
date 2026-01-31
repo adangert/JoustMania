@@ -49,7 +49,9 @@ class TestStateManagerInit:
         assert state_manager.controller_states == {}
         assert state_manager.connected_controllers == set()
         assert state_manager.ready_controllers == set()
-        assert state_manager.current_game_mode == "JoustFFA"
+        from lib.types import Games
+
+        assert state_manager.current_game_mode == Games.JoustFFA
 
 
 class TestStateManagerHandlerRegistration:
@@ -161,8 +163,10 @@ class TestStateManagerHelpers:
 
     def test_set_game_mode(self, state_manager):
         """set_game_mode should update current game mode."""
-        state_manager.set_game_mode("Werewolf")
-        assert state_manager.current_game_mode == "Werewolf"
+        from lib.types import Games
+
+        state_manager.set_game_mode(Games.Werewolf)
+        assert state_manager.current_game_mode == Games.Werewolf
 
     @pytest.mark.asyncio
     @patch("services.menu.state_manager.metrics")

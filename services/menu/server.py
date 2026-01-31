@@ -29,6 +29,7 @@ from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 from prometheus_client import start_http_server
 
 from lib.system_metrics import start_system_metrics_collector
+from lib.types import Games
 from proto import menu_pb2, menu_pb2_grpc
 from services.menu import metrics
 from services.menu.servicer import MenuServicer
@@ -89,7 +90,7 @@ async def serve(port=50054, metrics_port=8000):
     auto_start = os.getenv("MENU_AUTO_START", "true").lower() == "true"
     if auto_start:
         menu_servicer.state = menu_pb2.MenuState.RUNNING
-        menu_servicer.current_selection = "JoustFFA"
+        menu_servicer.current_selection = Games.JoustFFA
         logger.info("Menu auto-started (MENU_AUTO_START=true)")
 
     try:

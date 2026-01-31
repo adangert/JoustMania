@@ -84,6 +84,8 @@ class TeamsGameBase(BaseGameMode):
         game_id: str = "",
         num_teams: int = 2,
         initial_players: list | None = None,
+        sensitivity: int = 2,
+        random_assignment: bool = True,
     ):
         """
         Initialize team-based game mode.
@@ -96,6 +98,8 @@ class TeamsGameBase(BaseGameMode):
             game_id: Unique identifier for this game instance
             num_teams: Number of teams (default 2)
             initial_players: Optional list of Player protobuf messages from StartGame RPC
+            sensitivity: Sensitivity level 0-4 (passed from StartGameConfig)
+            random_assignment: Whether to randomize player order before round-robin assignment
         """
         super().__init__(
             controller_manager_client=controller_manager_client,
@@ -104,7 +108,10 @@ class TeamsGameBase(BaseGameMode):
             audio_client=audio_client,
             game_id=game_id,
             initial_players=initial_players,
+            sensitivity=sensitivity,
         )
+        # Override random_teams from base class with passed parameter
+        self.random_teams = random_assignment
 
         self.num_teams = num_teams
         self.teams: dict[int, Team] = {}

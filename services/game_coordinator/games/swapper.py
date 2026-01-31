@@ -43,6 +43,7 @@ class SwapperGame(TeamsGameBase):
         audio_client=None,
         game_id: str = "",
         initial_players: list | None = None,
+        sensitivity: int = 2,
     ):
         """
         Initialize Swapper game.
@@ -54,6 +55,7 @@ class SwapperGame(TeamsGameBase):
             audio_client: gRPC stub for Audio service
             game_id: Unique identifier for this game instance
             initial_players: Optional list of Player protobuf messages
+            sensitivity: Sensitivity level 0-4 (passed from StartGameConfig)
         """
         # Swapper always uses 2 teams
         super().__init__(
@@ -64,6 +66,8 @@ class SwapperGame(TeamsGameBase):
             game_id=game_id,
             num_teams=2,  # Force 2 teams for swapper
             initial_players=initial_players,
+            sensitivity=sensitivity,
+            random_assignment=True,
         )
 
         # Track the last player to die (excluded from winners)

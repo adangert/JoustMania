@@ -98,3 +98,4 @@ get-docker.sh
 .ruff_cache/
 *.local.md
 controller_names.txt
+.venv/

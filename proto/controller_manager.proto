@@ -179,7 +179,7 @@ enum GameEffect {
   GAME_EFFECT_PLAYER_DEATH = 2;     // Red + vibrate, stays red (dead)
   GAME_EFFECT_PLAYER_RESPAWN = 3;   // White during spawn protection
   GAME_EFFECT_WINNER_RAINBOW = 4;   // Rainbow 3s, restore to base color
-  GAME_EFFECT_COUNTDOWN = 5;        // Full countdown: Red(750ms)→Yellow(750ms)→Green(750ms), restore to base
+  GAME_EFFECT_COUNTDOWN = 5;        // Full countdown: Red→Yellow→Green (duration_ms per phase, default 750ms), restore to base
   GAME_EFFECT_ADMIN_ENTER = 6;      // White flash 3x, then persistent white
   GAME_EFFECT_ADMIN_EXIT = 7;       // Restore to base color
   GAME_EFFECT_LOW_BATTERY = 8;      // Red flash 2x warning

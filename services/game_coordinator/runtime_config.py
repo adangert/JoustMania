@@ -54,6 +54,11 @@ class GamePerformanceConfig:
     # Set WINNER_RAINBOW_DURATION_MS=300 for fast tests (default 3000ms = 3s)
     winner_rainbow_duration_ms: int = 3000
 
+    # Countdown phase duration (milliseconds) - each LED phase (red/yellow/green)
+    # This value is shared between game_coordinator (beep timing) and controller_manager (LED timing)
+    # Set COUNTDOWN_PHASE_DURATION_MS to override (default 750ms per phase)
+    countdown_phase_duration_ms: int = 750
+
     # Analytics configuration
     analytics: AnalyticsConfig = field(default_factory=AnalyticsConfig)
 
@@ -123,6 +128,15 @@ class RuntimeConfigManager:
                 logger.info(f"Winner rainbow duration overridden to {self.config.winner_rainbow_duration_ms}ms")
             except ValueError:
                 logger.warning(f"Invalid WINNER_RAINBOW_DURATION_MS: {rainbow_env}")
+
+        # Countdown phase duration override (for faster tests or tuning)
+        phase_env = os.environ.get("COUNTDOWN_PHASE_DURATION_MS")
+        if phase_env is not None:
+            try:
+                self.config.countdown_phase_duration_ms = int(phase_env)
+                logger.info(f"Countdown phase duration overridden to {self.config.countdown_phase_duration_ms}ms")
+            except ValueError:
+                logger.warning(f"Invalid COUNTDOWN_PHASE_DURATION_MS: {phase_env}")
 
     def _refresh_from_flags(self):
         """Update configuration from feature flags."""

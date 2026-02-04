@@ -331,10 +331,17 @@ class FeedbackManager(ControllerEffectsBase):
             span.add_event("rainbow_end")
 
     async def _effect_countdown(
-        self, serial: str, restore_color: tuple | None, trace_context: Context | None = None, **_kwargs
+        self,
+        serial: str,
+        restore_color: tuple | None,
+        trace_context: Context | None = None,
+        duration_ms: int = 0,
+        **_kwargs,
     ) -> None:
         """Full countdown sequence: Red → Yellow → Green."""
-        task = asyncio.create_task(self._countdown_sequence(serial, restore_color, trace_context))
+        # Use provided duration or default to 750ms per phase
+        phase_duration_ms = duration_ms if duration_ms > 0 else 750
+        task = asyncio.create_task(self._countdown_sequence(serial, restore_color, trace_context, phase_duration_ms))
         async with self.effect_lock:
             self.active_effects[serial] = task
 
@@ -584,18 +591,25 @@ class FeedbackManager(ControllerEffectsBase):
         return Colors.Red.value  # Red - low battery
 
     async def _countdown_sequence(
-        self, serial: str, restore_color: tuple[int, int, int] | None, trace_context: Context | None = None
+        self,
+        serial: str,
+        restore_color: tuple[int, int, int] | None,
+        trace_context: Context | None = None,
+        phase_duration_ms: int = 750,
     ) -> None:
         """
         Run the full countdown sequence on a single controller.
 
-        Red (750ms) → Yellow (750ms) → Green (750ms) → restore to base color
+        Red → Yellow → Green → restore to base color
 
         Args:
             serial: Controller serial
             restore_color: Color to restore to after sequence (base color)
             trace_context: Optional trace context for distributed tracing
+            phase_duration_ms: Duration of each phase in milliseconds (default 750ms)
         """
+        phase_duration_sec = phase_duration_ms / 1000.0
+
         with tracer.start_as_current_span("effect_countdown", context=trace_context) as span:
             span.set_attribute("controller.serial", serial)
 
@@ -604,19 +618,19 @@ class FeedbackManager(ControllerEffectsBase):
                 self.backend.set_effect_active(serial, True)
 
                 # Red - "3"
-                span.add_event("countdown_red", {"phase": 3, "duration_ms": 750})
+                span.add_event("countdown_red", {"phase": 3, "duration_ms": phase_duration_ms})
                 await self.set_controller_color(serial, Colors.Red.value)
-                await asyncio.sleep(0.75)
+                await asyncio.sleep(phase_duration_sec)
 
                 # Yellow - "2"
-                span.add_event("countdown_yellow", {"phase": 2, "duration_ms": 750})
+                span.add_event("countdown_yellow", {"phase": 2, "duration_ms": phase_duration_ms})
                 await self.set_controller_color(serial, Colors.Yellow.value)
-                await asyncio.sleep(0.75)
+                await asyncio.sleep(phase_duration_sec)
 
                 # Green - "1" / GO!
-                span.add_event("countdown_green", {"phase": 1, "duration_ms": 750})
+                span.add_event("countdown_green", {"phase": 1, "duration_ms": phase_duration_ms})
                 await self.set_controller_color(serial, Colors.Green.value)
-                await asyncio.sleep(0.75)
+                await asyncio.sleep(phase_duration_sec)
 
                 span.add_event("countdown_complete")
 

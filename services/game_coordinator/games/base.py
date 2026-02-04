@@ -387,14 +387,18 @@ class BaseGameMode(ABC):
             self.event_publisher(GameEvent.COUNTDOWN_END, {})
             return
 
+        # Get phase duration from config (shared with controller_manager for sync)
+        phase_duration_ms = config.countdown_phase_duration_ms
+
         # Send unified countdown effect via gameplay stream (broadcast to all controllers)
-        # Controller manager handles the full Red(750ms)→Yellow(750ms)→Green(750ms) sequence
+        # Controller manager handles the full Red→Yellow→Green sequence using the provided duration
         if self.gameplay_stream:
             trace_parent, trace_state = inject_trace_context()
             effect_cmd = controller_manager_pb2.GameplayStreamControl(
                 game_effect=controller_manager_pb2.GameEffectCommand(
                     serial="",  # Empty = all controllers
                     effect=controller_manager_pb2.GAME_EFFECT_COUNTDOWN,
+                    duration_ms=phase_duration_ms,  # Pass phase duration for LED sync
                     trace_parent=trace_parent,
                     trace_state=trace_state,
                 )
@@ -403,9 +407,9 @@ class BaseGameMode(ABC):
 
         # Play countdown beeps in sync with the visual countdown
         # Default: Red (3), Yellow (2), Green (1 - GO!)
-        # Each beep takes 0.75s, so countdown_seconds=1 means 1 beep
+        # Use same phase duration as LEDs to keep audio/visual synchronized
         beep_count = min(countdown_seconds, 3)  # Max 3 beeps even for longer countdowns
-        beep_interval_ms = (countdown_seconds * 1000) // max(beep_count, 1)
+        beep_interval_ms = phase_duration_ms  # Match LED phase duration
 
         for _ in range(beep_count):
             if not self.running:

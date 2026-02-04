@@ -44,7 +44,6 @@ class GamePerformanceConfig:
     # Core performance
     # Phase 72: Increased from 30Hz to 60Hz for better responsiveness
     update_frequency_hz: int = 60  # Game loop frequency
-    enable_delta_compression: bool = True
 
     # Countdown duration (seconds) - configurable for faster tests
     # Set COUNTDOWN_DURATION_SECONDS=0 to skip countdown entirely
@@ -62,26 +61,8 @@ class GamePerformanceConfig:
     # Analytics configuration
     analytics: AnalyticsConfig = field(default_factory=AnalyticsConfig)
 
-    # Monitoring
-    enable_metrics: bool = True
-    enable_tracing: bool = True
-    metrics_interval_sec: int = 5
-
-    # Performance thresholds
-    max_latency_ms: float = 100.0
-    target_cpu_percent: float = 50.0
-
-    # USB/Streaming
-    stream_buffer_size: int = 100
-    usb_check_interval_sec: float = 30.0
-
     # Sensitivity
     sensitivity_mode: str = "MEDIUM"  # SLOW, MEDIUM, FAST
-
-    # Experimental features
-    adaptive_hz: bool = False
-    adaptive_min_hz: int = 15
-    adaptive_max_hz: int = 60
 
 
 class RuntimeConfigManager:

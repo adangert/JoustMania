@@ -51,18 +51,6 @@ from proto import game_coordinator_pb2_grpc
 from services.game_coordinator import metrics
 from services.game_coordinator.servicer import GameCoordinatorServicer
 
-# Legacy game imports (optional for testing)
-try:
-    # Import legacy modules to test availability
-    import piaudio  # noqa: F401
-
-    import games  # noqa: F401
-
-    GAMES_AVAILABLE = True
-except ImportError:
-    GAMES_AVAILABLE = False
-    logging.warning("Legacy game modules not available - will use modern gRPC games")
-
 logger = logging.getLogger(__name__)
 
 logger.info("=" * 60)

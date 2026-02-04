@@ -5,10 +5,10 @@ Centralized string constants for controller state dict keys, button names,
 and other shared values to prevent typos and key mismatches across files.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class ButtonKey(str, Enum):
+class ButtonKey(StrEnum):
     """
     Button state dictionary keys.
 
@@ -28,7 +28,7 @@ class ButtonKey(str, Enum):
     START = "start_button"  # Start button
 
 
-class StateKey(str, Enum):
+class StateKey(StrEnum):
     """
     Controller state dictionary keys.
 
@@ -48,7 +48,7 @@ class StateKey(str, Enum):
     GYRO = "gyro"  # Gyroscope data
 
 
-class AxisKey(str, Enum):
+class AxisKey(StrEnum):
     """Keys for motion sensor axis data."""
 
     X = "x"
@@ -56,7 +56,7 @@ class AxisKey(str, Enum):
     Z = "z"
 
 
-class ControllerInfoKey(str, Enum):
+class ControllerInfoKey(StrEnum):
     """
     Keys used in tracked_controllers info dict.
 
@@ -74,7 +74,7 @@ class ControllerInfoKey(str, Enum):
     PAIRED = "paired"
 
 
-class LobbyState(str, Enum):
+class LobbyState(StrEnum):
     """Controller lobby states for menu feedback."""
 
     FLASH = "flash"  # Initial green flash
@@ -85,7 +85,7 @@ class LobbyState(str, Enum):
 
 # Button transition tracking keys (used in _detect_button_transitions)
 # These are shorter names used for internal button state tracking
-class ButtonTrackingKey(str, Enum):
+class ButtonTrackingKey(StrEnum):
     """Keys used for button transition tracking (shorter names)."""
 
     TRIGGER = "trigger"

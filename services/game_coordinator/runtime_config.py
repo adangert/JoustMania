@@ -1,15 +1,20 @@
 """
 Runtime Configuration System for JoustMania (Phase 43)
 
-Simple configuration holder for game performance parameters.
+Event-driven configuration holder for game performance parameters.
 Provides default values that can be read by game loop.
 
-Phase 44 will add OpenFeature integration for dynamic flag-based configuration.
+Phase 44: OpenFeature integration with event-driven flag updates.
+Uses PROVIDER_CONFIGURATION_CHANGED events to reactively update config.
 """
 
 import logging
 import os
+import threading
 from dataclasses import dataclass, field
+
+from openfeature.evaluation_context import EvaluationContext
+from openfeature.provider import ProviderEvent
 
 logger = logging.getLogger(__name__)
 
@@ -67,22 +72,41 @@ class GamePerformanceConfig:
 
 class RuntimeConfigManager:
     """
-    Manages runtime configuration.
+    Manages runtime configuration with event-driven flag updates.
 
     Phase 43: Simple configuration holder with defaults.
-    Phase 44: Integrated with OpenFeature for dynamic flag evaluation.
+    Phase 44: Event-driven OpenFeature integration.
+
+    Uses PROVIDER_CONFIGURATION_CHANGED events to reactively update configuration,
+    eliminating the need for polling and reducing load on flagd.
     """
 
     def __init__(self):
         self.config = GamePerformanceConfig()
+        self._config_lock = threading.RLock()  # Protect config updates
         self._apply_environment_overrides()
 
         # Initialize feature flag client
+        self.flag_client = None
+        self._setup_feature_flags()
+
+    def _setup_feature_flags(self):
+        """Initialize feature flag client and event listeners."""
         try:
+            from openfeature import api
+
             from lib.feature_flags import get_feature_flag_client
 
             self.flag_client = get_feature_flag_client()
             logger.info("Feature flag client initialized")
+
+            # Register event handler for configuration changes
+            api.add_handler(ProviderEvent.PROVIDER_CONFIGURATION_CHANGED, self._on_flags_changed)
+            logger.info("Registered PROVIDER_CONFIGURATION_CHANGED event handler")
+
+            # Do initial refresh to load current flag values
+            self._refresh_from_flags()
+
         except ImportError:
             self.flag_client = None
             logger.warning("Could not import FeatureFlagClient, using defaults")
@@ -119,44 +143,97 @@ class RuntimeConfigManager:
             except ValueError:
                 logger.warning(f"Invalid COUNTDOWN_PHASE_DURATION_MS: {phase_env}")
 
+    def _on_flags_changed(self, event_details):
+        """
+        Event handler called when feature flags change.
+
+        This is triggered by flagd's gRPC sync stream when flag configurations
+        are updated, providing instant updates without polling.
+        """
+        # Import metrics (lazy to avoid circular dependency)
+        try:
+            from services.game_coordinator import metrics
+
+            metrics.flag_configuration_changes_total.inc()
+        except ImportError:
+            pass
+
+        changed_flags = getattr(event_details, "flags_changed", [])
+        if changed_flags:
+            logger.info(f"🚩 Feature flags changed: {changed_flags}")
+        else:
+            logger.info("🚩 Feature flags changed (unspecified flags)")
+
+        # Refresh configuration from updated flags
+        self._refresh_from_flags()
+
     def _refresh_from_flags(self):
-        """Update configuration from feature flags."""
+        """
+        Update configuration from feature flags.
+
+        Called during initialization and when PROVIDER_CONFIGURATION_CHANGED
+        event fires. Thread-safe and includes metrics tracking.
+        """
         if not self.flag_client:
             return
 
         try:
-            # Update frequency (15/30/60 Hz)
-            hz = self.flag_client.get_integer_value("update_frequency_hz", self.config.update_frequency_hz)
-            if hz != self.config.update_frequency_hz:
-                logger.debug(f"Config update: update_frequency_hz = {hz}")
-                self.config.update_frequency_hz = hz
+            # Import metrics (lazy to avoid circular dependency)
+            from services.game_coordinator import metrics
 
-            # Sensitivity mode (LOW, MEDIUM, HIGH)
-            sensitivity = self.flag_client.get_string_value("sensitivity_mode", self.config.sensitivity_mode)
-            if sensitivity != self.config.sensitivity_mode:
-                logger.debug(f"Config update: sensitivity_mode = {sensitivity}")
-                self.config.sensitivity_mode = sensitivity
+            with self._config_lock:
+                # Update frequency (15/30/60 Hz)
+                old_hz = self.config.update_frequency_hz
+                new_hz = self.flag_client.get_integer_value(
+                    "update_frequency_hz", self.config.update_frequency_hz, EvaluationContext()
+                )
+                if new_hz != old_hz:
+                    logger.info(f"🎯 Config updated: update_frequency_hz {old_hz} → {new_hz} Hz")
+                    self.config.update_frequency_hz = new_hz
+                    metrics.config_changes_total.labels(parameter="update_frequency_hz").inc()
+
+                # Track flag evaluation
+                metrics.flag_evaluations_total.labels(flag_key="update_frequency_hz").inc()
+
+                # Sensitivity mode (low/medium/high)
+                old_sensitivity = self.config.sensitivity_mode
+                new_sensitivity = self.flag_client.get_string_value(
+                    "sensitivity_mode", self.config.sensitivity_mode, EvaluationContext()
+                )
+                if new_sensitivity != old_sensitivity:
+                    logger.info(f"🎯 Config updated: sensitivity_mode {old_sensitivity} → {new_sensitivity}")
+                    self.config.sensitivity_mode = new_sensitivity
+                    metrics.config_changes_total.labels(parameter="sensitivity_mode").inc()
+
+                # Track flag evaluation
+                metrics.flag_evaluations_total.labels(flag_key="sensitivity_mode").inc()
+
+                # Update current config gauges
+                metrics.current_update_frequency_hz.set(self.config.update_frequency_hz)
 
         except Exception as e:
             # Don't crash on flag evaluation failure, just log and keep defaults
             logger.warning(f"Failed to evaluate flags: {e}")
 
     def get_config(self) -> GamePerformanceConfig:
-        """Get current configuration (with fresh flag values)."""
-        # Refresh flags on every access (OpenFeature client handles caching/evaluation)
-        self._refresh_from_flags()
-        return self.config
+        """
+        Get current configuration.
+
+        Configuration is kept up-to-date automatically via event-driven updates,
+        so no polling is needed. Thread-safe access via lock.
+        """
+        with self._config_lock:
+            return self.config
 
     async def get_update_interval(self) -> float:
-        """Get current update interval in seconds."""
-        # Ensure we're using fresh config
-        self._refresh_from_flags()
-        return 1.0 / self.config.update_frequency_hz
+        """Get current update interval in seconds (1/Hz)."""
+        with self._config_lock:
+            return 1.0 / self.config.update_frequency_hz
 
     def export_config(self) -> dict:
         """Export current configuration as dict (for reports/logs)."""
-        self._refresh_from_flags()
-        return self.config.__dict__.copy()
+        with self._config_lock:
+            return self.config.__dict__.copy()
 
 
 # Global singleton instance

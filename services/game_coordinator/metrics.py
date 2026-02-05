@@ -105,7 +105,24 @@ actual_update_frequency_hz = Gauge(
 config_changes_total = Counter(
     "game_config_changes_total",
     "Total number of configuration changes",
-    ["parameter"],  # 'sensitivity_mode', etc.
+    ["parameter"],  # 'sensitivity_mode', 'update_frequency_hz', etc.
+)
+
+# Feature flag metrics (Phase 44)
+flag_evaluations_total = Counter(
+    "game_flag_evaluations_total",
+    "Total number of feature flag evaluations",
+    ["flag_key"],  # 'update_frequency_hz', 'sensitivity_mode', etc.
+)
+
+flag_configuration_changes_total = Counter(
+    "game_flag_configuration_changes_total",
+    "Total number of PROVIDER_CONFIGURATION_CHANGED events received",
+)
+
+current_update_frequency_hz = Gauge(
+    "game_current_update_frequency_hz",
+    "Current configured update frequency from feature flags (Hz)",
 )
 
 # Frame consistency metrics (Issue #183)

@@ -20,7 +20,7 @@ from lib.colors import Colors
 from lib.telemetry import extract_trace_context, get_tracer
 from proto import controller_manager_pb2
 from services.controller_manager import metrics
-from services.controller_manager.effects_base import ControllerEffectsBase
+from services.controller_manager.effects_base import ActiveEffect, ControllerEffectsBase
 
 if TYPE_CHECKING:
     from services.controller_manager.backend import ControllerBackend
@@ -68,9 +68,6 @@ class FeedbackManager(ControllerEffectsBase):
 
         # Base colors per controller (for auto-restore after effects)
         self.base_colors: dict[str, tuple[int, int, int]] = {}
-
-        # Track which GameEffect type is active per controller (for cancellability check)
-        self.active_effect_types: dict[str, int] = {}
 
         # Effects that can be cancelled by a base_color message
         self.cancellable_effects: set[int] = {
@@ -207,11 +204,14 @@ class FeedbackManager(ControllerEffectsBase):
             speed: Effect speed (1-10)
             restore_color: Color to restore to after effect (None = no restore)
         """
-        # Cancel any existing effect
+        # Cancel any existing effect, preserving the effect_type if already set
+        # (handle_game_effect sets effect_type before calling handler)
         existing_task = None
+        current_effect_type = 0
         async with self.effect_lock:
             if serial in self.active_effects:
-                existing_task = self.active_effects[serial]
+                current_effect_type = self.active_effects[serial].effect_type
+                existing_task = self.active_effects[serial].task
                 existing_task.cancel()
                 del self.active_effects[serial]
         # Await cancelled task outside lock to avoid deadlock with task's finally block
@@ -238,11 +238,10 @@ class FeedbackManager(ControllerEffectsBase):
             except asyncio.CancelledError:
                 raise
             finally:
-                # Clear effect active flag and effect type tracking
+                # Clear effect active flag
                 self.backend.set_effect_active(serial, False)
                 # Remove from active_effects so new base colors can be applied immediately
                 async with self.effect_lock:
-                    self.active_effect_types.pop(serial, None)
                     self.active_effects.pop(serial, None)
                 # Use current base_colors (may have changed during effect) if restore requested
                 current_restore = self.base_colors.get(serial) if restore_color else None
@@ -251,7 +250,7 @@ class FeedbackManager(ControllerEffectsBase):
 
         task = asyncio.create_task(effect_with_restore())
         async with self.effect_lock:
-            self.active_effects[serial] = task
+            self.active_effects[serial] = ActiveEffect(task=task, effect_type=current_effect_type)
 
     # =========================================================================
     # Individual effect handlers
@@ -261,7 +260,7 @@ class FeedbackManager(ControllerEffectsBase):
         """No-op - clear tracking."""
         # Note: async kept for interface consistency with other effect handlers
         async with self.effect_lock:
-            self.active_effect_types.pop(serial, None)
+            self.active_effects.pop(serial, None)
 
     async def _effect_player_warning(
         self, serial: str, restore_color: tuple | None, trace_context: Context | None = None, **_kwargs
@@ -309,7 +308,7 @@ class FeedbackManager(ControllerEffectsBase):
     async def _effect_player_respawn(self, serial: str, **_kwargs) -> None:
         """White during spawn protection."""
         async with self.effect_lock:
-            self.active_effect_types.pop(serial, None)
+            self.active_effects.pop(serial, None)
         await self.set_controller_color(serial, Colors.White.value)
         self.base_colors[serial] = Colors.White.value
 
@@ -345,7 +344,9 @@ class FeedbackManager(ControllerEffectsBase):
         phase_duration_ms = duration_ms if duration_ms > 0 else 750
         task = asyncio.create_task(self._countdown_sequence(serial, restore_color, trace_context, phase_duration_ms))
         async with self.effect_lock:
-            self.active_effects[serial] = task
+            self.active_effects[serial] = ActiveEffect(
+                task=task, effect_type=controller_manager_pb2.GAME_EFFECT_COUNTDOWN
+            )
 
     async def _effect_admin_enter(self, serial: str, **_kwargs) -> None:
         """White flash, then persistent white."""
@@ -355,7 +356,7 @@ class FeedbackManager(ControllerEffectsBase):
     async def _effect_admin_exit(self, serial: str, restore_color: tuple | None, **_kwargs) -> None:
         """Restore to base color (instant)."""
         async with self.effect_lock:
-            self.active_effect_types.pop(serial, None)
+            self.active_effects.pop(serial, None)
         if restore_color:
             await self.set_controller_color(serial, restore_color)
 
@@ -367,7 +368,7 @@ class FeedbackManager(ControllerEffectsBase):
             await self.set_controller_color(serial, Colors.Red20.value)
             await asyncio.sleep(0.15)
         async with self.effect_lock:
-            self.active_effect_types.pop(serial, None)
+            self.active_effects.pop(serial, None)
         if restore_color:
             await self.set_controller_color(serial, restore_color)
 
@@ -392,7 +393,7 @@ class FeedbackManager(ControllerEffectsBase):
         intensity = min(255, effect_speed * 50)
         await self.set_vibration(serial, intensity, effect_duration)
         async with self.effect_lock:
-            self.active_effect_types.pop(serial, None)
+            self.active_effects.pop(serial, None)
 
     async def _game_effect_pulse(
         self,
@@ -503,8 +504,16 @@ class FeedbackManager(ControllerEffectsBase):
 
             for target_serial in serials:
                 restore_color = self.base_colors.get(target_serial)
+                # Store effect_type; if there's already an ActiveEffect, update its type.
+                # The handler will replace the full ActiveEffect when it creates its task.
                 async with self.effect_lock:
-                    self.active_effect_types[target_serial] = effect
+                    if target_serial in self.active_effects:
+                        self.active_effects[target_serial].effect_type = effect
+                    else:
+                        # Placeholder with no-op task; handler will replace with real task
+                        done_task = asyncio.get_event_loop().create_future()
+                        done_task.set_result(None)
+                        self.active_effects[target_serial] = ActiveEffect(task=done_task, effect_type=effect)
 
                 await handler(
                     serial=target_serial,
@@ -526,10 +535,9 @@ class FeedbackManager(ControllerEffectsBase):
         task = None
         async with self.effect_lock:
             if serial in self.active_effects:
-                task = self.active_effects[serial]
+                task = self.active_effects[serial].task
                 task.cancel()
                 del self.active_effects[serial]
-                self.active_effect_types.pop(serial, None)
                 self.backend.set_effect_active(serial, False)
         # Await cancelled task outside lock to avoid deadlock with task's finally block
         if task:
@@ -549,12 +557,11 @@ class FeedbackManager(ControllerEffectsBase):
         task = None
         async with self.effect_lock:
             if serial in self.active_effects:
-                effect_type = self.active_effect_types.get(serial)
-                if effect_type in self.cancellable_effects:
-                    task = self.active_effects[serial]
+                active = self.active_effects[serial]
+                if active.effect_type in self.cancellable_effects:
+                    task = active.task
                     task.cancel()
                     del self.active_effects[serial]
-                    self.active_effect_types.pop(serial, None)
                     self.backend.set_effect_active(serial, False)
                     logger.debug(f"Cancelled cancellable effect for {serial}")
         # Await cancelled task outside lock to avoid deadlock with task's finally block
@@ -567,7 +574,7 @@ class FeedbackManager(ControllerEffectsBase):
     def clear_controller(self, serial: str) -> None:
         """Clear feedback state for a disconnected controller."""
         # Note: Keep base_colors[serial] so we can restore on reconnect
-        self.active_effect_types.pop(serial, None)
+        self.active_effects.pop(serial, None)
 
     def _get_battery_color(self, battery_percent: int) -> tuple[int, int, int]:
         """
@@ -648,7 +655,6 @@ class FeedbackManager(ControllerEffectsBase):
                 self.backend.set_effect_active(serial, False)
                 # Remove from active_effects so new base colors can be applied immediately
                 async with self.effect_lock:
-                    self.active_effect_types.pop(serial, None)
                     self.active_effects.pop(serial, None)
                 # Restore to base color
                 current_restore = self.base_colors.get(serial) if restore_color else None

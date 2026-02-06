@@ -232,13 +232,12 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             # Only cancel effect if it's marked as cancellable
                             async with self.feedback_manager.effect_lock:
                                 if serial in self.feedback_manager.active_effects:
-                                    effect_type = self.feedback_manager.active_effect_types.get(serial)
-                                    if effect_type in self.feedback_manager.cancellable_effects:
-                                        self.feedback_manager.active_effects[serial].cancel()
+                                    active = self.feedback_manager.active_effects[serial]
+                                    if active.effect_type in self.feedback_manager.cancellable_effects:
+                                        active.task.cancel()
                                         with contextlib.suppress(asyncio.CancelledError):
-                                            await self.feedback_manager.active_effects[serial]
+                                            await active.task
                                         del self.feedback_manager.active_effects[serial]
-                                        self.feedback_manager.active_effect_types.pop(serial, None)
                                         # Clear effect active flag
                                         self.backend.set_effect_active(serial, False)
                                         logger.debug(f"Cancelled cancellable effect for {serial}")
@@ -252,8 +251,11 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                                     await self.feedback_manager.set_controller_color(serial, color)
                                     logger.info(f"[ButtonStream] Applied base color for {serial}: {color}")
                                 else:
-                                    etype = self.feedback_manager.active_effect_types.get(serial, "unknown")
-                                    logger.warning(f"[ButtonStream] Base color for {serial} blocked by effect: {etype}")
+                                    active = self.feedback_manager.active_effects[serial]
+                                    logger.warning(
+                                        f"[ButtonStream] Base color for {serial} blocked by effect: "
+                                        f"{active.effect_type}"
+                                    )
 
                             logger.debug(f"[{subscriber_id}] Base color set: serial={serial}, rgb={color}")
 
@@ -428,13 +430,12 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                             # Only cancel effect if it's marked as cancellable
                             async with self.feedback_manager.effect_lock:
                                 if serial in self.feedback_manager.active_effects:
-                                    effect_type = self.feedback_manager.active_effect_types.get(serial)
-                                    if effect_type in self.feedback_manager.cancellable_effects:
-                                        self.feedback_manager.active_effects[serial].cancel()
+                                    active = self.feedback_manager.active_effects[serial]
+                                    if active.effect_type in self.feedback_manager.cancellable_effects:
+                                        active.task.cancel()
                                         with contextlib.suppress(asyncio.CancelledError):
-                                            await self.feedback_manager.active_effects[serial]
+                                            await active.task
                                         del self.feedback_manager.active_effects[serial]
-                                        self.feedback_manager.active_effect_types.pop(serial, None)
                                         # Clear effect active flag
                                         self.backend.set_effect_active(serial, False)
                                         logger.debug(f"Cancelled cancellable effect for {serial}")
@@ -448,9 +449,10 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
                                     await self.feedback_manager.set_controller_color(serial, color)
                                     logger.info(f"[GameplayStream] Applied base color for {serial}: {color}")
                                 else:
-                                    etype = self.feedback_manager.active_effect_types.get(serial, "unknown")
+                                    active = self.feedback_manager.active_effects[serial]
                                     logger.warning(
-                                        f"[GameplayStream] Base color for {serial} blocked by effect: {etype}"
+                                        f"[GameplayStream] Base color for {serial} blocked by effect: "
+                                        f"{active.effect_type}"
                                     )
 
                             logger.debug(f"[{subscriber_id}] Base color set: serial={serial}, rgb={color}")

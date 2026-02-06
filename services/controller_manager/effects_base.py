@@ -13,10 +13,19 @@ import colorsys
 import logging
 import math
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 
 from lib.clock import Clock, RealClock
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ActiveEffect:
+    """Tracks an active effect task and its type for a single controller."""
+
+    task: asyncio.Task
+    effect_type: int  # GameEffect enum value
 
 
 class ControllerEffectsBase(ABC):
@@ -35,8 +44,8 @@ class ControllerEffectsBase(ABC):
         Args:
             clock: Clock instance for time/sleep operations. Defaults to RealClock.
         """
-        # Track active effect tasks per controller: {serial: asyncio.Task}
-        self.active_effects: dict[str, asyncio.Task] = {}
+        # Track active effects per controller: {serial: ActiveEffect}
+        self.active_effects: dict[str, ActiveEffect] = {}
         self._clock = clock or RealClock()
 
     @abstractmethod
@@ -196,6 +205,6 @@ class ControllerEffectsBase(ABC):
             serial: Controller serial number
         """
         if serial in self.active_effects:
-            self.active_effects[serial].cancel()
+            self.active_effects[serial].task.cancel()
             del self.active_effects[serial]
             logger.debug(f"Cancelled effect for {serial}")

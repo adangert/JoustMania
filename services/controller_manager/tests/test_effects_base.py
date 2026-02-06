@@ -13,7 +13,7 @@ import contextlib
 import pytest
 
 from lib.clock import FakeClock
-from services.controller_manager.effects_base import ControllerEffectsBase
+from services.controller_manager.effects_base import ActiveEffect, ControllerEffectsBase
 
 
 class MockEffectsController(ControllerEffectsBase):
@@ -240,7 +240,7 @@ class TestEffectManagement:
         """Active effects should be tracked in dict."""
         # Create task
         task = asyncio.create_task(effects._effect_flash("test_serial", (255, 0, 0), duration_ms=100, speed=5))
-        effects.active_effects["test_serial"] = task
+        effects.active_effects["test_serial"] = ActiveEffect(task=task, effect_type=0)
 
         await task
 
@@ -256,7 +256,7 @@ class TestEffectManagement:
 
         # Start long-running effect (10 seconds)
         task = asyncio.create_task(effects._effect_pulse("test", (255, 0, 0), duration_ms=10000, speed=1))
-        effects.active_effects["test"] = task
+        effects.active_effects["test"] = ActiveEffect(task=task, effect_type=0)
 
         # Let it start and block on first sleep
         await asyncio.sleep(0.01)

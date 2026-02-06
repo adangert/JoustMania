@@ -94,8 +94,8 @@ class TestBaseColorDuringEffect:
             )
 
             # Get the actual background task that's running the effect
-            effect_task = feedback_manager.active_effects.get(serial)
-            assert effect_task is not None, "Effect task should be running"
+            active = feedback_manager.active_effects.get(serial)
+            assert active is not None, "Effect task should be running"
 
             # Give effect time to start
             await asyncio.sleep(0.02)
@@ -104,7 +104,7 @@ class TestBaseColorDuringEffect:
             feedback_manager.base_colors[serial] = lobby_color
 
             # 4. Wait for the actual effect task to complete
-            await effect_task
+            await active.task
 
         # 5. Verify controller shows NEW base_color (lobby), not old (team)
         final_color = mock_backend.get_current_color(serial)
@@ -134,8 +134,8 @@ class TestBaseColorDuringEffect:
             )
 
             # Get the actual background task
-            effect_task = feedback_manager.active_effects.get(serial)
-            assert effect_task is not None, "Effect task should be running"
+            active = feedback_manager.active_effects.get(serial)
+            assert active is not None, "Effect task should be running"
 
             await asyncio.sleep(0.02)
 
@@ -143,7 +143,7 @@ class TestBaseColorDuringEffect:
             feedback_manager.base_colors[serial] = lobby_color
 
             # 4. Wait for the actual effect task to complete
-            await effect_task
+            await active.task
 
         # 5. Should restore to the base_color that was set during effect
         final_color = mock_backend.get_current_color(serial)
@@ -183,9 +183,9 @@ class TestBaseColorDuringEffect:
             )
 
             # Get the actual background task
-            effect_task = feedback_manager.active_effects.get(serial)
-            if effect_task:
-                await effect_task
+            active = feedback_manager.active_effects.get(serial)
+            if active:
+                await active.task
 
         # After death, base_color should be black
         assert feedback_manager.base_colors[serial] == (0, 0, 0)
@@ -225,15 +225,15 @@ class TestEffectRestoreLogic:
         )
 
         # Get the actual background task
-        effect_task = feedback_manager.active_effects.get(serial)
-        assert effect_task is not None, "Effect task should be running"
+        active = feedback_manager.active_effects.get(serial)
+        assert active is not None, "Effect task should be running"
 
         # Update base_colors during effect
         await asyncio.sleep(0.02)
         feedback_manager.base_colors[serial] = new_color
 
         # Wait for effect to complete
-        await effect_task
+        await active.task
 
         # Should have restored to NEW color (read from base_colors at effect end)
         final_color = mock_backend.get_current_color(serial)
@@ -271,7 +271,7 @@ class TestEffectCancellation:
 
         # Verify warning effect is running (white flash active)
         assert serial in feedback_manager.active_effects, "Warning effect should be running"
-        warning_task = feedback_manager.active_effects[serial]
+        warning_task = feedback_manager.active_effects[serial].task
 
         # Small delay to let warning effect start
         await asyncio.sleep(0.01)
@@ -296,9 +296,9 @@ class TestEffectCancellation:
         )
 
         # Wait for death effect to complete
-        death_task = feedback_manager.active_effects.get(serial)
-        if death_task:
-            await death_task
+        active = feedback_manager.active_effects.get(serial)
+        if active:
+            await active.task
 
         # After death, should be black and base_color should be black
         assert mock_backend.get_current_color(serial) == (0, 0, 0)

@@ -195,7 +195,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
         # Send initial connection events for all currently tracked controllers
         # This allows new subscribers to immediately know about existing controllers
-        for serial, info in self.tracked_controllers.items():
+        # Snapshot to avoid RuntimeError if dict changes at await points
+        for serial, info in dict(self.tracked_controllers).items():
             battery = info.get(ControllerInfoKey.BATTERY, 0)
             name = info.get(ControllerInfoKey.NAME, "")
             connect_event = controller_manager_pb2.ButtonEvent(
@@ -501,7 +502,8 @@ class ControllerManagerServicer(controller_manager_pb2_grpc.ControllerManagerSer
 
                     # Build data for each controller (respecting filter)
                     gameplay_data = []
-                    for serial, info in self.tracked_controllers.items():
+                    # Snapshot to avoid RuntimeError if dict changes at await points
+                    for serial, info in dict(self.tracked_controllers).items():
                         # Apply filter if present
                         if current_filter is not None and serial not in current_filter:
                             continue  # Skip filtered controller

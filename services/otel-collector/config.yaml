@@ -59,6 +59,7 @@ exporters:
   # OTLP HTTP exporter to Grafana Live Publisher for real-time WebSocket streaming
   otlphttp/grafana-live:
     endpoint: "http://grafana-live-publisher:4318"
+    encoding: json
     tls:
       insecure: true
 

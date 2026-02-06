@@ -420,6 +420,8 @@ class DiscoveryLoop:
         Activity is detected when:
         - Any button is pressed
         - Accelerometer values change significantly (movement detected)
+
+        Issue #62: Also records acceleration metrics for 100Hz visualization.
         """
         activity_detected = False
 
@@ -441,16 +443,25 @@ class DiscoveryLoop:
                 break
 
         # Check for accelerometer movement if no button pressed
-        if not activity_detected and StateKey.ACCEL in state:
+        if StateKey.ACCEL in state:
             accel = state[StateKey.ACCEL]
-            current_accel = (
-                accel.get(AxisKey.X, 0),
-                accel.get(AxisKey.Y, 0),
-                accel.get(AxisKey.Z, 0),
-            )
+            ax = accel.get(AxisKey.X, 0)
+            ay = accel.get(AxisKey.Y, 0)
+            az = accel.get(AxisKey.Z, 0)
+            current_accel = (ax, ay, az)
+
+            # Issue #62: Record acceleration metrics for 100Hz visualization
+            # Calculate magnitude for easier threshold-based alerts
+            import math
+
+            magnitude = math.sqrt(ax * ax + ay * ay + az * az)
+            metrics.controller_accel_magnitude.labels(serial=serial).set(magnitude)
+            metrics.controller_accel_x.labels(serial=serial).set(ax)
+            metrics.controller_accel_y.labels(serial=serial).set(ay)
+            metrics.controller_accel_z.labels(serial=serial).set(az)
 
             prev_accel = self._previous_accel.get(serial)
-            if prev_accel:
+            if prev_accel and not activity_detected:
                 # Calculate magnitude of acceleration change
                 dx = abs(current_accel[0] - prev_accel[0])
                 dy = abs(current_accel[1] - prev_accel[1])

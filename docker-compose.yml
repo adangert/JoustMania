@@ -94,6 +94,10 @@ services:
         condition: service_healthy
       loki:
         condition: service_healthy
+      victoria-metrics:
+        condition: service_started
+      grafana-live-publisher:
+        condition: service_healthy
     networks:
       - joustmania
     # No healthcheck: distroless image has no shell/wget/curl
@@ -163,6 +167,9 @@ services:
       - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
       - OTEL_SERVICE_NAME=controller-manager-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      # Issue #62: 100Hz acceleration metrics for real-time visualization
+      # Default 100ms; set to 10ms for 100Hz demo
+      - METRICS_EXPORT_INTERVAL_MS=${METRICS_EXPORT_INTERVAL_MS:-100}
     depends_on:
       redis:
         condition: service_healthy
@@ -252,7 +259,27 @@ services:
     restart: unless-stopped
     # Healthcheck defined in Dockerfile (uses grpc_health_probe)
 
-  # Prometheus for metrics collection (Phase 38)
+  # VictoriaMetrics for high-frequency metrics storage (replaces Prometheus for storage)
+  # Receives metrics via Prometheus remote write protocol from OTEL Collector
+  victoria-metrics:
+    image: victoriametrics/victoria-metrics:v1.96.0
+    container_name: joustmania-victoria-metrics
+    command:
+      - "-storageDataPath=/victoria-metrics-data"
+      - "-retentionPeriod=7d"
+      - "-httpListenAddr=:8428"
+    # Port exposed only within Docker network (envoy proxies to it)
+    expose:
+      - "8428"
+    volumes:
+      - victoria-metrics-data:/victoria-metrics-data
+    networks:
+      - joustmania
+    restart: unless-stopped
+    # Note: VictoriaMetrics image is scratch-based, no shell/wget for healthcheck
+    # Service starts quickly and exposes /health endpoint for manual verification
+
+  # Prometheus for metrics collection (Phase 38) - kept for alerting rules
   prometheus:
     image: prom/prometheus:v2.48.1
     container_name: joustmania-prometheus
@@ -345,6 +372,8 @@ services:
       - ./services/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
     depends_on:
+      victoria-metrics:
+        condition: service_started
       prometheus:
         condition: service_healthy
       loki:
@@ -382,6 +411,28 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
+  # Grafana Live Publisher - OTLP to Grafana Live WebSocket bridge
+  # Receives OTLP metrics from OTEL Collector and pushes to Grafana Live for real-time streaming
+  grafana-live-publisher:
+    image: ghcr.io/watchmejoustmyflags/joustmania/grafana-live-publisher:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: services/grafana-live-publisher/Dockerfile
+    container_name: joustmania-grafana-live-publisher
+    # Port exposed only within Docker network
+    expose:
+      - "4318"  # OTLP HTTP receiver
+    environment:
+      - GRAFANA_URL=http://grafana:3000
+      - GRAFANA_PUSH_PATH=joustmania/accel
+    depends_on:
+      grafana:
+        condition: service_healthy
+    networks:
+      - joustmania
+    restart: unless-stopped
+    # Healthcheck defined in Dockerfile
 
   # Connect-Web Proxy (gRPC to Connect protocol translation)
   # No dependencies - proxy handles connection failures gracefully
@@ -447,6 +498,7 @@ networks:
 volumes:
   redis-data:
   prometheus-data:
+  victoria-metrics-data:
   grafana-data:
   loki-data:
   controller-names:

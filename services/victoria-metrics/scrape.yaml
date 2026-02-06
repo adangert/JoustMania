@@ -1,0 +1,8 @@
+# VictoriaMetrics Scrape Configuration
+# This config is only used if scraping is enabled (it's not - we use remote write from OTEL Collector)
+# VictoriaMetrics primary receives metrics via Prometheus remote write protocol from OTEL Collector
+
+# Keep this file for reference - scrape config would go here if needed
+# See: https://docs.victoriametrics.com/Single-server-VictoriaMetrics.html#how-to-scrape-prometheus-exporters-such-as-node-exporter
+
+scrape_configs: []

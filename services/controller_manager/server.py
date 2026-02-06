@@ -31,10 +31,12 @@ async def serve(port=50052):
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    # Initialize OTEL push metrics (Issue #104)
-    # 1000ms export interval - controller metrics don't need sub-second updates
-    init_metrics(service_name="controller-manager", export_interval_ms=1000)
-    logger.info("OTEL push metrics initialized (1000ms export interval)")
+    # Initialize OTEL push metrics (Issue #104, #62)
+    # Default 100ms for real-time acceleration visualization
+    # Use METRICS_EXPORT_INTERVAL_MS env var to configure (10ms for 100Hz)
+    export_interval_ms = int(os.getenv("METRICS_EXPORT_INTERVAL_MS", "100"))
+    init_metrics(service_name="controller-manager", export_interval_ms=export_interval_ms)
+    logger.info(f"OTEL push metrics initialized ({export_interval_ms}ms export interval)")
 
     # Start system metrics collection (Phase 61: extracted to lib/system_metrics.py)
     start_system_metrics_collector(

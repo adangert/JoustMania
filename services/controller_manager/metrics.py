@@ -182,6 +182,32 @@ led_controllers_updated_per_batch = Histogram(
     buckets=[0, 1, 2, 4, 8, 12, 16, 20, 24],
 )
 
+# High-frequency acceleration metrics (Issue #62: 100Hz for KubeCon demo)
+# These are updated on every poll cycle for real-time visualization
+controller_accel_magnitude = Gauge(
+    "controller_accel_magnitude",
+    "Controller acceleration magnitude in g (100Hz)",
+    ["serial"],
+)
+
+controller_accel_x = Gauge(
+    "controller_accel_x",
+    "Controller X-axis acceleration in g (100Hz)",
+    ["serial"],
+)
+
+controller_accel_y = Gauge(
+    "controller_accel_y",
+    "Controller Y-axis acceleration in g (100Hz)",
+    ["serial"],
+)
+
+controller_accel_z = Gauge(
+    "controller_accel_z",
+    "Controller Z-axis acceleration in g (100Hz)",
+    ["serial"],
+)
+
 # Stream timing metrics (jitter optimization)
 stream_frame_overruns_total = Counter(
     "controller_stream_frame_overruns_total",

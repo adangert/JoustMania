@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "Per-player detailed view with acceleration gauge, thresholds, and real-time status - optimized for presentations",
+  "description": "Per-player detailed view with 100Hz acceleration visualization, dynamic thresholds, and real-time status (Issue #62)",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -475,11 +475,11 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "game_player_accel_magnitude{serial=\"$controller\"}",
+          "expr": "controller_accel_magnitude{serial=\"$controller\"}",
           "legendFormat": "Accel",
           "refId": "A",
           "instant": false,
-          "interval": "1s"
+          "interval": "10ms"
         }
       ],
       "title": "Acceleration",
@@ -660,11 +660,11 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "game_player_accel_magnitude{serial=\"$controller\"}",
+          "expr": "controller_accel_magnitude{serial=\"$controller\"}",
           "legendFormat": "Acceleration",
           "refId": "A",
           "instant": false,
-          "interval": "1s"
+          "interval": "10ms"
         },
         {
           "datasource": {
@@ -689,7 +689,7 @@
           "interval": "1s"
         }
       ],
-      "title": "",
+      "title": "High-Res Acceleration (100Hz)",
       "type": "timeseries"
     },
     {
@@ -974,7 +974,7 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "definition": "label_values({__name__=~\"game_player_alive|game_player_accel_magnitude|menu_player_ready\"}, serial)",
+        "definition": "label_values({__name__=~\"game_player_alive|game_player_accel_magnitude|controller_accel_magnitude|menu_player_ready\"}, serial)",
         "hide": 0,
         "includeAll": true,
         "label": "Controller",
@@ -982,7 +982,7 @@
         "name": "controller",
         "options": [],
         "query": {
-          "query": "label_values({__name__=~\"game_player_alive|game_player_accel_magnitude|menu_player_ready\"}, serial)",
+          "query": "label_values({__name__=~\"game_player_alive|game_player_accel_magnitude|controller_accel_magnitude|menu_player_ready\"}, serial)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,

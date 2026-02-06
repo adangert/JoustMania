@@ -40,13 +40,25 @@ exporters:
     tls:
       insecure: true
 
-  # Prometheus exporter for metrics (exposed on :8889 to avoid conflict with Jaeger's :8888)
+  # Prometheus remote write to VictoriaMetrics for high-frequency metrics storage
+  prometheusremotewrite:
+    endpoint: "http://victoria-metrics:8428/api/v1/write"
+    tls:
+      insecure: true
+
+  # Prometheus exporter for metrics (exposed on :8889 for backward compatibility)
   prometheus:
     endpoint: "0.0.0.0:8889"
 
   # Loki exporter for logs
   loki:
     endpoint: http://loki:3100/loki/api/v1/push
+    tls:
+      insecure: true
+
+  # OTLP HTTP exporter to Grafana Live Publisher for real-time WebSocket streaming
+  otlphttp/grafana-live:
+    endpoint: "http://grafana-live-publisher:4318"
     tls:
       insecure: true
 
@@ -63,10 +75,11 @@ service:
       exporters: [otlp/jaeger, debug]
 
     # Metrics pipeline - uses fast batch processor for sub-second updates
+    # Fan-out to VictoriaMetrics (storage), Prometheus (backward compat), and Grafana Live (streaming)
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch/fast, resource]
-      exporters: [prometheus]
+      exporters: [prometheusremotewrite, prometheus, otlphttp/grafana-live]
 
     # Logs pipeline
     logs:

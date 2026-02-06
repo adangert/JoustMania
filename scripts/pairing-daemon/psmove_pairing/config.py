@@ -34,9 +34,8 @@ def _find_psmove_bindings() -> str | None:
 
     # Check environment variable first
     env_path = os.getenv("PSMOVEAPI_BUILD_PATH")
-    if env_path and os.path.isdir(env_path):
-        if os.path.exists(os.path.join(env_path, "psmove.py")):
-            return env_path
+    if env_path and os.path.isdir(env_path) and os.path.exists(os.path.join(env_path, "psmove.py")):
+        return env_path
 
     # Common installation locations
     home = os.path.expanduser("~")

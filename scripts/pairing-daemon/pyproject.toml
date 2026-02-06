@@ -1,0 +1,71 @@
+[project]
+name = "psmove-pairing"
+version = "1.0.0"
+description = "PS Move controller pairing daemon for JoustMania"
+requires-python = ">=3.9,<3.13"
+dependencies = [
+    # Prometheus metrics (pull model)
+    "prometheus-client>=0.17.0",
+
+    # OpenTelemetry tracing
+    "opentelemetry-api>=1.20.0",
+    "opentelemetry-sdk>=1.20.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.20.0",
+
+    # DBus for BlueZ adapter management
+    "dbus-python>=1.2.0; sys_platform == 'linux'",
+
+    # NOTE: psmove/psmoveapi must be built from source (not on PyPI)
+    # See: https://github.com/thp/psmoveapi for build instructions
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+]
+
+[project.scripts]
+psmove-pairing = "psmove_pairing_daemon:main"
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["psmove_pairing_daemon"]
+packages = ["psmove_pairing"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+
+# ruff - Linting configuration
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "ASYNC", "B", "C4", "RET", "SIM", "ARG"]
+ignore = ["ANN"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Unused imports OK in __init__
+"psmove_pairing_daemon.py" = ["N802"]  # HTTP handler do_GET is from parent class
+"tests/*.py" = ["ARG001", "ARG002", "E402", "SIM105", "SIM117", "F841"]  # Test fixtures, test patterns
+
+[tool.ruff.lint.isort]
+known-first-party = ["psmove_pairing"]
+
+[tool.coverage.run]
+source = ["psmove_pairing"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]

@@ -20,14 +20,23 @@ Environment:
   DEBUG         - set to 1 for verbose logging
   METRICS_PORT  - port for Prometheus metrics (default: 8002)
   OTEL_EXPORTER_OTLP_ENDPOINT - OTLP collector endpoint (default: http://localhost:4317)
+
+Endpoints:
+  GET /metrics  - Prometheus metrics
+  GET /healthz  - Health check (200 if healthy, 503 if unhealthy)
 """
 
 import asyncio
+import json
 import logging
 
-from prometheus_client import start_http_server
+from prometheus_client import REGISTRY, MetricsHandler
+
 from psmove_pairing import PairingDaemon, find_psmove_binary, init_telemetry
 from psmove_pairing.config import DEBUG, METRICS_PORT
+
+# Global daemon reference for health checks
+_daemon: PairingDaemon | None = None
 
 # Logging setup
 logging.basicConfig(
@@ -38,11 +47,63 @@ logging.basicConfig(
 logger = logging.getLogger("psmove-pairing")
 
 
+class HealthHandler(MetricsHandler):
+    """HTTP handler that adds /healthz endpoint to prometheus metrics."""
+
+    def do_GET(self):
+        """Handle GET requests."""
+        if self.path == "/healthz" or self.path == "/healthz/":
+            self._handle_healthz()
+        elif self.path == "/health" or self.path == "/health/":
+            # Alias for /healthz
+            self._handle_healthz()
+        else:
+            # Delegate to prometheus metrics handler
+            super().do_GET()
+
+    def _handle_healthz(self):
+        """Handle health check request."""
+        global _daemon
+
+        if _daemon is None:
+            self.send_response(503)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"healthy": False, "error": "daemon not started"}).encode())
+            return
+
+        status = _daemon.get_health_status()
+        if status["healthy"]:
+            self.send_response(200)
+        else:
+            self.send_response(503)
+
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(status).encode())
+
+
+def start_http_server_with_health(port: int) -> None:
+    """Start HTTP server with both metrics and health endpoints."""
+    from http.server import HTTPServer
+    from threading import Thread
+
+    def handler(*args, **kwargs):
+        return HealthHandler(*args, registry=REGISTRY, **kwargs)
+
+    server = HTTPServer(("", port), handler)
+    thread = Thread(target=server.serve_forever)
+    thread.daemon = True
+    thread.start()
+
+
 def main() -> None:
     """Entry point."""
-    # Start Prometheus metrics server
-    logger.info(f"Starting metrics server on port {METRICS_PORT}")
-    start_http_server(METRICS_PORT)
+    global _daemon
+
+    # Start HTTP server with metrics and health endpoints
+    logger.info(f"Starting HTTP server on port {METRICS_PORT} (metrics + healthz)")
+    start_http_server_with_health(METRICS_PORT)
 
     # Initialize OpenTelemetry
     tracer = init_telemetry()
@@ -51,8 +112,8 @@ def main() -> None:
     psmove_path = find_psmove_binary()
 
     # Create and run daemon
-    daemon = PairingDaemon(tracer, psmove_path)
-    asyncio.run(daemon.run())
+    _daemon = PairingDaemon(tracer, psmove_path)
+    asyncio.run(_daemon.run())
 
 
 if __name__ == "__main__":

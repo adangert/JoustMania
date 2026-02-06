@@ -164,7 +164,7 @@ jobs:
   sonarcloud:
     name: SonarCloud Analysis
     runs-on: ubuntu-latest
-    needs: [service-checks, lib-tests]
+    needs: [service-checks, lib-tests, pairing-daemon-checks]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -203,6 +203,66 @@ jobs:
         with:
           args: >
             -Dsonar.python.coverage.reportPaths=${{ env.SONAR_COVERAGE_PATHS }}
+
+  # Pairing daemon tests (host service, not in Docker)
+  pairing-daemon-checks:
+    name: Pairing Daemon Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            pairing:
+              - 'scripts/pairing-daemon/**'
+
+      - name: Install uv
+        if: steps.changes.outputs.pairing == 'true'
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install system dependencies
+        if: steps.changes.outputs.pairing == 'true'
+        run: |
+          sudo apt-get update
+          # dbus-python needs libdbus-1-dev
+          sudo apt-get install -y libdbus-1-dev libglib2.0-dev pkg-config
+
+      - name: Lint
+        if: steps.changes.outputs.pairing == 'true'
+        run: |
+          uv tool install ruff
+          cd scripts/pairing-daemon
+          ruff check .
+
+      # Always run tests with coverage for SonarCloud (no path filter)
+      - name: Install uv for tests
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install system dependencies for tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev libglib2.0-dev pkg-config
+
+      - name: Unit tests with coverage
+        run: |
+          cd scripts/pairing-daemon
+          uv sync --extra test
+          uv run pytest tests/ -v --tb=short \
+            --cov=psmove_pairing \
+            --cov-report=xml:coverage.xml \
+            --cov-report=term-missing
+          # Fix paths in coverage.xml for SonarCloud
+          sed -i 's|<source>.*</source>|<source>.</source>|g' coverage.xml
+          sed -i 's|filename="|filename="scripts/pairing-daemon/|g' coverage.xml
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-pairing-daemon
+          path: scripts/pairing-daemon/coverage.xml
+          retention-days: 1
 
   validate-protos:
     name: Validate Proto Files
@@ -485,6 +545,7 @@ jobs:
     needs:
       - lib-tests
       - service-checks
+      - pairing-daemon-checks
       - lint-dockerfiles
       - sonarcloud
       - validate-protos
@@ -506,6 +567,7 @@ jobs:
             echo "Job results:"
             echo "  lib-tests: ${{ needs.lib-tests.result }}"
             echo "  service-checks: ${{ needs.service-checks.result }}"
+            echo "  pairing-daemon-checks: ${{ needs.pairing-daemon-checks.result }}"
             echo "  lint-dockerfiles: ${{ needs.lint-dockerfiles.result }}"
             echo "  sonarcloud: ${{ needs.sonarcloud.result }}"
             echo "  validate-protos: ${{ needs.validate-protos.result }}"

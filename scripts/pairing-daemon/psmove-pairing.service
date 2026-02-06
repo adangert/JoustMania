@@ -10,6 +10,10 @@ ExecStart=/opt/joustmania/scripts/pairing-daemon/venv/bin/python /opt/joustmania
 Restart=always
 RestartSec=10
 
+# Health check - verify daemon is responsive after startup
+# Waits 5s for startup, then checks /healthz endpoint
+ExecStartPost=/bin/sh -c 'sleep 5 && curl -sf http://localhost:8002/healthz || exit 1'
+
 # Environment
 Environment=POLL_INTERVAL=10
 Environment=DEBUG=0

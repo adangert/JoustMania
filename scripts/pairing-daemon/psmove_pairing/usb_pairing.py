@@ -90,9 +90,7 @@ class USBPairing:
         pairing_usb_controllers.set(len(usb_controllers))
         return usb_controllers
 
-    def pair_controller_psmove(
-        self, move_index: int, serial: str, adapter_address: str
-    ) -> bool:
+    def pair_controller_psmove(self, move_index: int, serial: str, adapter_address: str) -> bool:
         """Pair a controller using psmove Python library's pair_custom().
 
         This directly specifies the target adapter, matching the original
@@ -132,10 +130,9 @@ class USBPairing:
                     logger.info(f"pair_custom() succeeded for {serial}")
                     span.set_status(Status(StatusCode.OK))
                     return True
-                else:
-                    logger.error(f"pair_custom() returned False for {serial}")
-                    span.set_status(Status(StatusCode.ERROR, "pair_custom failed"))
-                    return False
+                logger.error(f"pair_custom() returned False for {serial}")
+                span.set_status(Status(StatusCode.ERROR, "pair_custom failed"))
+                return False
 
             except Exception as e:
                 duration = time.time() - start_time
@@ -162,9 +159,7 @@ class USBPairing:
 
             if exit_code != 0:
                 logger.warning(f"Calibration returned non-zero: {exit_code}")
-                span.set_status(
-                    Status(StatusCode.ERROR, "Calibration returned non-zero")
-                )
+                span.set_status(Status(StatusCode.ERROR, "Calibration returned non-zero"))
             else:
                 span.set_status(Status(StatusCode.OK))
 
@@ -177,9 +172,7 @@ class USBPairing:
         BlueZ recognizes the newly paired controller.
         """
         logger.info("Restarting Bluetooth service...")
-        exit_code, output = await run_command(
-            ["sudo", "systemctl", "restart", "bluetooth"]
-        )
+        exit_code, output = await run_command(["sudo", "systemctl", "restart", "bluetooth"])
         if exit_code != 0:
             logger.warning(f"Failed to restart bluetooth: {output}")
         else:
@@ -227,9 +220,7 @@ class USBPairing:
                 span.set_attribute("adapter.hci", adapter.hci)
                 # Record metrics
                 pairing_adapter_selected_total.labels(adapter=adapter.address).inc()
-                pairing_adapter_device_count.labels(adapter=adapter.address).set(
-                    adapter.device_count
-                )
+                pairing_adapter_device_count.labels(adapter=adapter.address).set(adapter.device_count)
 
             # Pair controller to selected adapter using Python bindings
             if not self.pair_controller_psmove(move_index, serial, adapter_address):

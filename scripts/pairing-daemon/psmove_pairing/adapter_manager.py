@@ -78,10 +78,7 @@ def get_hci_dict() -> dict[str, str]:
         try:
             proxy2 = _get_adapter_proxy(hci)
             interfaces = _get_node_interfaces(proxy2)
-            if (
-                "org.freedesktop.DBus.Properties" not in interfaces
-                or "org.bluez.Adapter1" not in interfaces
-            ):
+            if "org.freedesktop.DBus.Properties" not in interfaces or "org.bluez.Adapter1" not in interfaces:
                 continue
             addr = _get_adapter_attrib(proxy2, "Address")
             hci_dict[hci] = str(addr)
@@ -171,10 +168,7 @@ class AdapterManager:
         # Return first adapter with that count (deterministic ordering)
         for addr in sorted(self._bt_devices.keys()):
             if len(self._bt_devices[addr]) == min_count:
-                logger.info(
-                    f"Selected adapter {addr} with {min_count} devices "
-                    f"(of {len(self._bt_devices)} adapters)"
-                )
+                logger.info(f"Selected adapter {addr} with {min_count} devices (of {len(self._bt_devices)} adapters)")
                 return addr
 
         return ""
@@ -226,7 +220,4 @@ class AdapterManager:
             True if the controller is NOT paired to any adapter
         """
         controller_upper = controller_addr.upper()
-        for devices in self._bt_devices.values():
-            if controller_upper in [d.upper() for d in devices]:
-                return False
-        return True
+        return all(controller_upper not in [d.upper() for d in devices] for devices in self._bt_devices.values())

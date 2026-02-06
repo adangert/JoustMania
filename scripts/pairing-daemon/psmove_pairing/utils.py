@@ -50,9 +50,7 @@ async def run_command(
         env: Additional environment variables to set (merged with current env)
     """
     try:
-        stderr = (
-            asyncio.subprocess.STDOUT if capture_stderr else asyncio.subprocess.DEVNULL
-        )
+        stderr = asyncio.subprocess.STDOUT if capture_stderr else asyncio.subprocess.DEVNULL
 
         # Merge additional env vars with current environment
         run_env = None

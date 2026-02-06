@@ -4,6 +4,7 @@ This module handles interacting with Bluez over DBus for JoustMania
 
 import logging
 import os
+import subprocess
 from xml.etree import ElementTree
 
 import dbus
@@ -56,8 +57,6 @@ def get_connected_addresses(hci):
 
     Falls back to DBus Connected property if hcitool fails.
     """
-    import subprocess
-
     # Try hcitool con first - this shows actual HCI connections
     try:
         result = subprocess.run(
@@ -198,8 +197,23 @@ def enable_adapter(hci):
 
 
 def rfkill_unblock(hci):
-    hci_id = os.popen(f'rfkill list | grep {hci} | cut -d ":" -f 1').read().split("\n")[0]
-    os.popen(f"rfkill unblock {hci_id}").read()
+    """Unblock a Bluetooth adapter via rfkill."""
+    # Parse rfkill list output to find the ID for this HCI adapter
+    # Lines look like: "0: hci0: Bluetooth"
+    result = subprocess.run(["rfkill", "list"], capture_output=True, text=True, timeout=5.0)
+    hci_id = None
+    for line in result.stdout.splitlines():
+        if hci in line:
+            candidate = line.split(":")[0].strip()
+            if candidate.isdigit():
+                hci_id = candidate
+                break
+
+    if hci_id is None:
+        logger.warning(f"Could not find rfkill ID for {hci}")
+        return
+
+    subprocess.run(["rfkill", "unblock", hci_id], check=True, timeout=5.0)
 
 
 def disable_adapter(hci):

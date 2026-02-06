@@ -574,7 +574,10 @@ class FeedbackManager(ControllerEffectsBase):
     def clear_controller(self, serial: str) -> None:
         """Clear feedback state for a disconnected controller."""
         # Note: Keep base_colors[serial] so we can restore on reconnect
-        self.active_effects.pop(serial, None)
+        # Cancel the task before removing to avoid orphaned coroutines
+        if serial in self.active_effects:
+            self.active_effects[serial].task.cancel()
+            del self.active_effects[serial]
 
     def _get_battery_color(self, battery_percent: int) -> tuple[int, int, int]:
         """

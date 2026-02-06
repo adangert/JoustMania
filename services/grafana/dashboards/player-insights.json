@@ -404,9 +404,9 @@
       },
       "id": 100,
       "panels": [],
-      "repeat": "controller",
+      "repeat": "player",
       "repeatDirection": "h",
-      "title": "Controller $controller",
+      "title": "Controller $player",
       "type": "row"
     },
     {
@@ -475,7 +475,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_accel_magnitude{serial=\"$controller\"}",
+          "expr": "controller_accel_magnitude{serial=~\"$serial\"}",
           "legendFormat": "Accel",
           "refId": "A",
           "instant": false,
@@ -660,7 +660,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "controller_accel_magnitude{serial=\"$controller\"}",
+          "expr": "controller_accel_magnitude{serial=~\"$serial\"}",
           "legendFormat": "Acceleration",
           "refId": "A",
           "instant": false,
@@ -751,7 +751,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "game_player_peak_accel{serial=\"$controller\"}",
+          "expr": "game_player_peak_accel{serial=~\"$serial\"}",
           "legendFormat": "Peak",
           "refId": "A"
         }
@@ -847,7 +847,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "game_player_playstyle{serial=\"$controller\"}",
+          "expr": "game_player_playstyle{serial=~\"$serial\"}",
           "legendFormat": "Playstyle",
           "refId": "A"
         }
@@ -954,7 +954,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "game_player_movement_zone{serial=\"$controller\"}",
+          "expr": "game_player_movement_zone{serial=~\"$serial\"}",
           "legendFormat": "Zone",
           "refId": "A"
         }
@@ -974,15 +974,38 @@
           "type": "prometheus",
           "uid": "prometheus"
         },
-        "definition": "label_values({__name__=~\"game_player_alive|game_player_accel_magnitude|controller_accel_magnitude|menu_player_ready\"}, serial)",
+        "definition": "label_values(controller_info, name)",
         "hide": 0,
         "includeAll": true,
-        "label": "Controller",
+        "label": "Player",
         "multi": true,
-        "name": "controller",
+        "name": "player",
         "options": [],
         "query": {
-          "query": "label_values({__name__=~\"game_player_alive|game_player_accel_magnitude|controller_accel_magnitude|menu_player_ready\"}, serial)",
+          "query": "label_values(controller_info, name)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(controller_info{name=~\"$player\"}, serial)",
+        "hide": 2,
+        "includeAll": true,
+        "label": "Serial",
+        "multi": true,
+        "name": "serial",
+        "options": [],
+        "query": {
+          "query": "label_values(controller_info{name=~\"$player\"}, serial)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,

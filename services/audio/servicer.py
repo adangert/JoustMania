@@ -34,9 +34,14 @@ class SoundChannel:
     def __init__(self, channel_id: int):
         """Initialize a sound channel."""
         self.channel_id = channel_id
-        self.is_playing = False
+        self._playing = threading.Event()
         self.priority = 0
         self._lock = threading.Lock()
+
+    @property
+    def is_playing(self) -> bool:
+        """Thread-safe check if channel is currently playing."""
+        return self._playing.is_set()
 
     def play(self, file_path: str, volume: float = 1.0, priority: int = 2) -> bool:
         """
@@ -60,7 +65,7 @@ class SoundChannel:
 
                 # Start playback in a separate thread
                 self.priority = priority
-                self.is_playing = True
+                self._playing.set()
 
                 # Clamp volume to valid range
                 volume = max(0.0, min(1.0, volume))
@@ -92,7 +97,7 @@ class SoundChannel:
                             def scaled_stream():
                                 idx = 0
                                 required_frames = yield b""  # Priming yield
-                                while idx < len(scaled_data) and self.is_playing:
+                                while idx < len(scaled_data) and self._playing.is_set():
                                     # Calculate bytes needed for requested frames
                                     bytes_needed = required_frames * bytes_per_frame
                                     end = min(idx + bytes_needed, len(scaled_data))
@@ -110,7 +115,7 @@ class SoundChannel:
                                 device.start(stream)
                                 duration = file_info.duration
                                 elapsed = 0.0
-                                while self.is_playing and elapsed < duration + 0.5:
+                                while self._playing.is_set() and elapsed < duration + 0.5:
                                     time.sleep(0.05)
                                     elapsed += 0.05
                         else:
@@ -121,25 +126,25 @@ class SoundChannel:
                                 device.start(stream)
                                 duration = file_info.duration
                                 elapsed = 0.0
-                                while self.is_playing and elapsed < duration + 0.5:
+                                while self._playing.is_set() and elapsed < duration + 0.5:
                                     time.sleep(0.05)
                                     elapsed += 0.05
                     except Exception as e:
                         logger.warning(f"Playback error on channel {self.channel_id}: {e}")
                     finally:
-                        self.is_playing = False
+                        self._playing.clear()
 
                 threading.Thread(target=play_thread, daemon=True).start()
                 return True
 
             except Exception as e:
                 logger.error(f"Error playing sound on channel {self.channel_id}: {e}")
-                self.is_playing = False
+                self._playing.clear()
                 return False
 
     def stop(self):
         """Stop playback on this channel."""
-        self.is_playing = False
+        self._playing.clear()
 
 
 class AudioManager:

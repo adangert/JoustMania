@@ -41,7 +41,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Number of healthy services",
+      "description": "Number of healthy application services",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -57,11 +57,11 @@
               },
               {
                 "color": "yellow",
-                "value": 5
+                "value": 3
               },
               {
                 "color": "green",
-                "value": 7
+                "value": 5
               }
             ]
           }
@@ -101,7 +101,7 @@
           "refId": "A"
         }
       ],
-      "title": "Services Up",
+      "title": "App Services Up",
       "type": "stat"
     },
     {
@@ -317,7 +317,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Status of all JoustMania services",
+      "description": "Status of all JoustMania application services",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -395,7 +395,7 @@
           "refId": "A"
         }
       ],
-      "title": "Service Availability",
+      "title": "Application Services",
       "transformations": [
         {
           "id": "organize",
@@ -403,11 +403,183 @@
             "excludeByName": {
               "Time": true,
               "__name__": true,
-              "instance": true
+              "instance": true,
+              "service": true
             },
             "renameByName": {
               "Value": "Status",
               "job": "Service"
+            }
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Number of healthy observability components",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 3
+              },
+              {
+                "color": "green",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 4
+      },
+      "id": 11,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.2.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "count(up{job=~\"prometheus|grafana|loki|victoria-metrics|otel-collector|node\"} == 1)",
+          "legendFormat": "Observability",
+          "refId": "A"
+        }
+      ],
+      "title": "Observability Up",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Status of observability stack components",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "color-background"
+            },
+            "inspect": false
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 0,
+                  "text": "DOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "UP"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 20,
+        "x": 4,
+        "y": 4
+      },
+      "id": 12,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "10.2.3",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "up{job=~\"prometheus|grafana|loki|victoria-metrics|otel-collector|node\"}",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Observability Stack",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "collector": true,
+              "instance": true
+            },
+            "renameByName": {
+              "Value": "Status",
+              "job": "Component"
             }
           }
         }
@@ -479,7 +651,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 4
+        "y": 8
       },
       "id": 6,
       "options": {
@@ -571,7 +743,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 4
+        "y": 8
       },
       "id": 7,
       "options": {
@@ -663,7 +835,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 10
+        "y": 14
       },
       "id": 8,
       "options": {
@@ -756,7 +928,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 10
+        "y": 14
       },
       "id": 9,
       "options": {
@@ -848,7 +1020,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 10
+        "y": 14
       },
       "id": 10,
       "options": {

@@ -85,9 +85,15 @@ echo "  → Syncing Python dependencies..."
 cd "$HOMEDIR/JoustMania"
 uv sync --python "$PYTHON" || exit 1
 
-# Configure audio
+# Configure audio - set all devices to max volume
 echo "[7/9] Configuring audio (ALSA)..."
-amixer sset PCM,0 100% 2>/dev/null || echo "  → Could not set PCM volume (may not be available)"
+for card in /proc/asound/card[0-9]*; do
+  card_num=$(basename "$card" | sed 's/card//')
+  amixer -c "$card_num" scontrols 2>/dev/null | sed -e "s/^Simple mixer control //" | while read ctrl; do
+    amixer -c "$card_num" set "$ctrl" 100% unmute 2>/dev/null
+  done
+done
+echo "  → Audio volume configured"
 sudo alsactl store 2>/dev/null || echo "  → Could not store ALSA state"
 
 # Configure Bluetooth

@@ -187,10 +187,16 @@ else
     echo -e "  → ${RED}Pairing daemon script not found${NC}"
 fi
 
-# Configure audio (optional, best effort)
+# Configure audio - set all devices to max volume
 echo ""
 echo "Configuring audio..."
-amixer sset PCM,0 100% 2>/dev/null && echo -e "  → ${GREEN}Audio configured${NC}" || echo "  → Audio config skipped (may not be available)"
+for card in /proc/asound/card[0-9]*; do
+  card_num=$(basename "$card" | sed 's/card//')
+  amixer -c "$card_num" scontrols 2>/dev/null | sed -e "s/^Simple mixer control //" | while read ctrl; do
+    amixer -c "$card_num" set "$ctrl" 100% unmute 2>/dev/null
+  done
+done
+echo -e "  → ${GREEN}Audio volume configured${NC}"
 
 # Summary
 echo ""

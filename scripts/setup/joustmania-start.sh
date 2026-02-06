@@ -81,6 +81,16 @@ fi
 echo "Cleaning up..."
 docker compose down --remove-orphans || true
 
+# Set all audio devices to max volume
+echo "Setting audio volume..."
+for card in /proc/asound/card[0-9]*; do
+  card_num=$(basename "$card" | sed 's/card//')
+  amixer -c "$card_num" scontrols 2>/dev/null | sed -e "s/^Simple mixer control //" | while read ctrl; do
+    amixer -c "$card_num" set "$ctrl" 100% unmute 2>/dev/null
+  done
+done
+echo "Audio volume configured"
+
 # Start services (this must succeed)
 echo "Starting JoustMania..."
 exec docker compose up -d

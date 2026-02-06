@@ -511,7 +511,7 @@ class FeedbackManager(ControllerEffectsBase):
                         self.active_effects[target_serial].effect_type = effect
                     else:
                         # Placeholder with no-op task; handler will replace with real task
-                        done_task = asyncio.get_event_loop().create_future()
+                        done_task = asyncio.get_running_loop().create_future()
                         done_task.set_result(None)
                         self.active_effects[target_serial] = ActiveEffect(task=done_task, effect_type=effect)
 

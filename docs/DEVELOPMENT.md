@@ -107,9 +107,12 @@ docker compose ps
 
 ### 5. Access UIs
 
-- **Web UI:** http://localhost:80
-- **Jaeger UI:** http://localhost:16686
-- **Prometheus Metrics:** http://localhost:8888/metrics
+All UIs are accessible through the unified dashboard at **http://localhost:8080**:
+
+- **Dashboard:** http://localhost:8080
+- **Jaeger:** http://localhost:8080/jaeger/
+- **Grafana:** http://localhost:8080/grafana/
+- **Prometheus:** http://localhost:8080/prometheus/
 
 ### 6. View Logs
 
@@ -185,9 +188,8 @@ docker compose build <service-name>
 - `controller-manager`
 - `game-coordinator`
 - `menu`
-- `supervisor`
-- `webui`
 - `audio`
+- `dashboard`
 
 ### Build Options
 
@@ -268,25 +270,33 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 
 ### Unit Tests
 
-```bash
-# Run all tests
-scripts/testing/run_tests.sh
+Each service has its own tests. Run from within the service directory:
 
-# Run specific test file
-PYTHONPATH=$(pwd) python -m pytest testing/test_controller_state.py
+```bash
+# Run tests for a service
+cd services/<service-name>
+uv run pytest
+
+# Run with verbose output
+uv run pytest -v
 
 # Run with coverage
-pytest --cov=core --cov=services testing/
+uv run pytest --cov=.
 ```
 
 ### Integration Tests
 
-```bash
-# Test Settings service
-pytest testing/test_settings_integration.py
+Integration tests use Docker Compose:
 
-# Test with real gRPC calls
-python testing/test_settings_grpc.py
+```bash
+# Run full integration test suite
+make test
+
+# Keep containers running after tests (for debugging)
+SKIP_TEARDOWN=1 make test
+
+# Clean up after SKIP_TEARDOWN
+docker compose -f docker-compose.test.yml down
 ```
 
 ### Testing with grpcurl
@@ -338,9 +348,6 @@ grpcurl -plaintext localhost:50053 list
 # Menu (50054)
 grpcurl -plaintext localhost:50054 list
 
-# Supervisor (50055)
-grpcurl -plaintext localhost:50055 list
-
 # Audio (50056)
 grpcurl -plaintext localhost:50056 list
 ```
@@ -351,12 +358,8 @@ grpcurl -plaintext localhost:50056 list
 # Test controller pairing
 python tools/manualpair.py
 
-# Test controller utilities
-scripts/testing/controller_util_test.sh
-
-# Interactive color test
-cd scripts/testing/color_tests/
-python interactive_colortest.py
+# Clear paired devices
+python tools/clear_devices.py
 ```
 
 ---
@@ -421,7 +424,7 @@ grpcurl -plaintext -v localhost:50051 list
 
 ### View Traces in Jaeger
 
-1. Open http://localhost:16686
+1. Open http://localhost:8080/jaeger/
 2. Select service from dropdown (e.g., "joustmania-settings")
 3. Click "Find Traces"
 4. Click on trace to see details
@@ -478,49 +481,39 @@ python -m memory_profiler services/settings/server.py
 
 ```
 JoustMania/
-├── core/                    # Shared infrastructure
-│   ├── common.py           # Enums, constants
-│   ├── controller_state.py # Shared memory state
-│   ├── controller_process.py
-│   ├── base_logger.py
-│   └── grpc_clients.py
-├── utils/                   # Utilities
-│   ├── colors.py
-│   ├── piaudio.py
-│   ├── pair.py
-│   ├── controller_util.py
-│   └── playwav.py
-├── services/                # 7 microservices
+├── lib/                     # Shared libraries
+│   ├── colors.py           # Color constants
+│   ├── types.py            # Game enums, types
+│   ├── telemetry.py        # OpenTelemetry setup
+│   ├── otel_metrics.py     # Metrics helpers
+│   ├── grpc_tracing.py     # gRPC interceptors
+│   └── feature_flags.py    # Feature flag client
+├── proto/                   # Protocol buffer definitions
+│   ├── settings.proto
+│   ├── controller_manager.proto
+│   ├── game_coordinator.proto
+│   ├── menu.proto
+│   └── audio.proto
+├── services/                # Microservices
 │   ├── settings/
-│   │   ├── settings.proto
-│   │   ├── server.py
-│   │   ├── process.py (legacy)
-│   │   ├── Dockerfile
-│   │   └── pyproject.toml
 │   ├── controller_manager/
 │   ├── game_coordinator/
 │   ├── menu/
-│   ├── supervisor/
-│   ├── webui/
-│   └── audio/
-├── testing/                 # Tests
-│   ├── test_*.py
-│   └── requirements.txt
+│   ├── audio/
+│   ├── dashboard/          # Web UI + reverse proxy
+│   └── grafana/            # Dashboards
+├── tests/                   # Integration tests
+│   └── integration/
 ├── scripts/                 # Helper scripts
-│   ├── hardware/
-│   ├── testing/
-│   ├── setup/
-│   └── docker/
+│   ├── ci/                 # CI/CD scripts
+│   ├── setup/              # Installation scripts
+│   └── pairing-daemon/     # PS Move pairing daemon
+├── tools/                   # Development tools
+│   ├── manualpair.py       # Manual controller pairing
+│   └── live_dashboard.py   # Performance monitoring
 ├── docs/                    # Documentation
-│   ├── ARCHITECTURE.md
-│   ├── DEVELOPMENT.md
-│   └── diagrams/
-├── legacy/                  # Archived code
-├── templates/               # Web UI templates
-├── static/                  # Web UI static files
 ├── audio/                   # Audio files
 ├── docker-compose.yml
-├── otel-collector-config.yaml
 └── README.md
 ```
 
@@ -530,54 +523,51 @@ Each service follows this pattern:
 
 ```
 services/<service-name>/
-├── <service>.proto          # gRPC service definition
-├── <service>_pb2.py        # Generated protobuf (from .proto)
-├── <service>_pb2_grpc.py   # Generated gRPC (from .proto)
-├── server.py               # gRPC server implementation
-├── process.py              # Legacy Queue-based (if exists)
+├── server.py               # Entry point, gRPC server setup
+├── servicer.py             # gRPC servicer implementation
+├── metrics.py              # Prometheus/OTEL metrics
 ├── Dockerfile              # Multi-stage build
-├── pyproject.toml          # Python dependencies
-├── __init__.py
+├── pyproject.toml          # Python dependencies (uv managed)
+├── tests/                  # Unit tests
+│   ├── conftest.py
+│   └── test_*.py
 └── README.md               # Service documentation
 ```
 
+Proto files are centralized in the `proto/` directory.
+
 ### Protobuf Code Generation
 
-```bash
-# Generate Python code from .proto file
-cd services/settings/
-python -m grpc_tools.protoc \
-    -I. \
-    --python_out=. \
-    --grpc_python_out=. \
-    settings.proto
+Proto files are in the `proto/` directory. After modifying any `.proto` file:
 
-# Or use Docker (if dependencies issues)
-docker run --rm -v $(pwd):/workspace -w /workspace/services/settings \
-    python:3.11-slim bash -c \
-    "pip install -q grpcio-tools && \
-     python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. settings.proto"
+```bash
+# Regenerate all Python bindings
+make protos
+
+# Verify changes
+git diff proto/
 ```
+
+Generated files (`*_pb2.py`, `*_pb2_grpc.py`) are committed to the repo.
 
 ### Import Conventions
 
 ```python
-# Core modules
-from core import common
-from core.common import Games, Status
-from core.controller_state import ControllerState
+# Shared libraries
+from lib import colors
+from lib.types import Games
+from lib.telemetry import setup_tracing
+from lib.otel_metrics import Counter, Gauge
 
-# Utilities
-from utils import colors
-from utils.piaudio import Audio
+# Proto definitions
+from proto import settings_pb2, settings_pb2_grpc
+from proto import controller_manager_pb2
 
 # gRPC
 import grpc
-from services.settings import settings_pb2, settings_pb2_grpc
 
 # OpenTelemetry
 from opentelemetry import trace
-from opentelemetry.instrumentation.grpc import GrpcInstrumentorServer
 ```
 
 ---
@@ -715,7 +705,7 @@ grpcurl -plaintext -d '{"param":"test"}' \
 
 ### Adding a New Game Mode
 
-See Phase 13 implementation plan for detailed game refactoring guide.
+See `services/game_coordinator/games/README.md` for the game mode implementation guide.
 
 ---
 
@@ -726,7 +716,8 @@ See Phase 13 implementation plan for detailed game refactoring guide.
 - **Python:** Follow PEP 8
 - **Docstrings:** Use Google style
 - **Type hints:** Use where appropriate
-- **Linting:** Use `ruff` or `pylint`
+- **Linting:** Use `ruff` (run `make lint`)
+- **Formatting:** Use `ruff format` (run `make format`)
 
 ### gRPC Best Practices
 
@@ -866,8 +857,8 @@ grpcurl -plaintext localhost:4317 list
 
 ## Getting Help
 
-- **Issues:** https://github.com/anthropics/joustmania/issues
-- **Discussions:** https://github.com/anthropics/joustmania/discussions
+- **Issues:** https://github.com/WatchMeJoustMyFlags/JoustMania/issues
+- **Discussions:** https://github.com/WatchMeJoustMyFlags/JoustMania/discussions
 - **Documentation:** Browse `docs/` directory
 
 ---

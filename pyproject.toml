@@ -2,7 +2,7 @@
 name = "joustmania"
 version = "2.0.0"
 description = "Multi-player gaming system using PS Move controllers"
-requires-python = ">=3.9,<3.13"
+requires-python = ">=3.11,<3.13"
 # No dependencies - this is a workspace root, each member has its own deps
 dependencies = []
 

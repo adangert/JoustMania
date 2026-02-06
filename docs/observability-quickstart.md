@@ -1,8 +1,6 @@
 # JoustMania Observability Quick Start Guide
 
-**Phase 43: Performance Monitoring Tools**
-
-This guide shows you how to use JoustMania's observability tools to monitor and optimize performance with 25 controllers.
+This guide shows you how to use JoustMania's observability tools to monitor and optimize performance with many controllers.
 
 ---
 
@@ -58,7 +56,7 @@ python3 tools/monitor_multi_hub_performance.py
 ### 3. Prometheus Metrics
 **Integration:** Already built into game coordinator
 
-**New metrics (Phase 43):**
+**Key metrics:**
 - `game_configured_update_frequency_hz` - Configured game loop Hz
 - `game_actual_update_frequency_hz` - Measured actual Hz
 - `game_loop_latency_ms` - Game loop iteration time
@@ -220,7 +218,7 @@ python3 tools/live_dashboard.py --hz 30
 
 **Question:** Is 60Hz better than 30Hz?
 
-**Current approach (Phase 43):**
+**Testing approach:**
 1. Edit `services/game_coordinator/games/base.py`: `UPDATE_FREQUENCY = 30`
 2. Restart services
 3. Run 5-minute test with live dashboard
@@ -229,15 +227,13 @@ python3 tools/live_dashboard.py --hz 30
 6. Restart and repeat test
 7. Compare results
 
-**Result (expected):**
+**Result (typical):**
 | Config | Hz   | Latency | CPU | Assessment |
 |--------|------|---------|-----|------------|
 | 30Hz   | 30.1 | 33.2ms  | 22% | ✅ Optimal |
 | 60Hz   | 59.8 | 16.7ms  | 38% | ⚠️ Higher CPU |
 
-**Decision:** 30Hz wins (50% less CPU, latency difference imperceptible)
-
-**Future (Phase 44):** OpenFeature will enable A/B testing without manual editing
+**Decision:** 30Hz is usually optimal (50% less CPU, latency difference imperceptible)
 
 ---
 
@@ -348,13 +344,11 @@ process_cpu_percent
 
 ### Demo Flow
 
-1. **Show problem:** Hardcoded `UPDATE_FREQUENCY = 30`
-2. **Show tools:** Live dashboard running in terminal
-3. **Start game:** 25 controllers in FFA
-4. **Show metrics:** Real-time Hz, CPU, latency
-5. **Validate USB:** Show hub monitor results
-6. **Analyze:** Discuss observed performance
-7. **(Future) Show OpenFeature:** Change Hz via flags (Phase 44)
+1. **Show tools:** Live dashboard running in terminal
+2. **Start game:** 25 controllers in FFA
+3. **Show metrics:** Real-time Hz, CPU, latency
+4. **Validate USB:** Show hub monitor results
+5. **Analyze:** Discuss observed performance
 
 ### Key Talking Points
 
@@ -366,31 +360,14 @@ process_cpu_percent
 
 ---
 
-## Next Steps
-
-**Phase 44:** OpenFeature Integration
-- Dynamic Hz via feature flags (flagd)
-- Automated A/B testing (30Hz vs 60Hz)
-- Remote configuration changes
-- Experimentation framework
-
-**See:** `planning/phases/planned/phase-44-openfeature-configuration-experiments.md`
-
----
-
 ## Summary
 
-**Phase 43 provides:**
-✅ Live performance monitoring
-✅ Per-hub USB validation
-✅ Prometheus metrics integration
-✅ Real-time dashboards
-✅ Health status assessment
-
-**What's missing (Phase 44):**
-⏳ Dynamic configuration via OpenFeature
-⏳ Automated A/B testing
-⏳ Remote flag management
+**Available features:**
+- Live performance monitoring
+- Per-hub USB validation
+- Prometheus metrics integration
+- Grafana dashboards
+- Health status assessment
 
 **Current capability:**
-You can now measure, monitor, and validate your 25-controller setup!
+You can measure, monitor, and validate your multi-controller setup in real-time!

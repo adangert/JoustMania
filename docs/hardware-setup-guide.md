@@ -334,7 +334,7 @@ Power Bank (USB-C PD, 26,800mAh)
 
 ## Scaling Guide
 
-### Performance with Parallel Polling (Phase 62)
+### Performance with Parallel Polling
 
 JoustMania uses parallel controller polling via `asyncio.gather()`, which reads all controllers concurrently instead of sequentially.
 
@@ -463,13 +463,13 @@ Both settings are required:
 - **`pid: "host"`**: Shares host PID namespace for device event visibility
 - **`/dev:/dev:rslave`**: Recursive slave mount propagates new devices into container
 
-These are already configured in the default `docker-compose.yml` (Phase 73).
+These are already configured in the default `docker-compose.yml`.
 
 ### High Latency
 
 | Cause | Solution |
 |-------|----------|
-| Sequential polling | Upgrade to Phase 62+ (parallel polling) |
+| Sequential polling | Already uses parallel polling |
 | Too many controllers | Add adapters (reduce per-adapter load) |
 | USB bandwidth | Use USB 3.0 hub for hub, adapters on 2.0 |
 
@@ -514,4 +514,4 @@ These are already configured in the default `docker-compose.yml` (Phase 73).
 | **Best signal** | Class 1 adapters + USB extensions + antenna positioning |
 | **Mobile friendly** | USB 2.0 bus-powered hubs + 20,000mAh+ power bank |
 | **No interference** | Bluetooth on USB 2.0 only, avoid USB 3.0 |
-| **Scale to 42** | 6 adapters + parallel polling (Phase 62) + lite deployment |
+| **Scale to 42** | 6 adapters + parallel polling + lite deployment |

@@ -15,7 +15,7 @@ JoustMania is a party game system for PS Move controllers, built as a collection
 
 ```
                            ┌──────────────┐
-                           │   Web UI     │ :80
+                           │  Dashboard   │ :8080
                            │  (Dashboard) │
                            └──────┬───────┘
                                   │ HTTP + gRPC
@@ -209,23 +209,24 @@ when starting games. See [Game Configuration](#game-configuration) below.
 
 ---
 
-### Web UI Service (Port 80)
+### Dashboard Service (Port 8080)
 
-**Purpose**: HTTP web interface
+**Purpose**: Unified web interface and reverse proxy
 
-**Framework**: Flask
+**Components**:
+- Caddy reverse proxy for unified access
+- Web dashboard for controller visualization
+- gRPC-web bridge for browser clients
 
-**Routes**:
-| Route | Description |
-|-------|-------------|
-| `/` | Main dashboard |
-| `/battery` | Controller battery status |
-| `/settings` | Settings management |
-| `/admin` | Administration panel |
-| `/start_game/<mode>` | Start specific game |
-| `/kill_game` | Force end game |
+**Routes** (via reverse proxy):
+| Route | Target | Description |
+|-------|--------|-------------|
+| `/` | Dashboard | Main web interface |
+| `/jaeger/` | Jaeger:16686 | Distributed tracing UI |
+| `/grafana/` | Grafana:3000 | Metrics dashboards |
+| `/prometheus/` | Prometheus:9090 | Metrics API |
 
-**Dependencies**: All services (gRPC client)
+**Dependencies**: All observability services
 
 ---
 
@@ -296,7 +297,7 @@ audio:50056
 ### Settings Update
 
 ```
-1. Web UI calls Settings.UpdateSetting
+1. Dashboard/client calls Settings.UpdateSetting
 2. Settings validates against schema
 3. Settings saves to YAML file
 4. Settings publishes SettingChangeEvent
@@ -367,9 +368,10 @@ Settings are configured via admin mode (hold all 4 face buttons):
 | File | Purpose |
 |------|---------|
 | `docker-compose.yml` | Full stack with observability |
-| `docker-compose.lite.yml` | Minimal stack |
-| `docker-compose.hardware.yml` | Hardware overrides |
-| `docker-compose.ci.yml` | CI/CD testing |
+| `docker-compose.lite.yml` | Minimal stack (no observability) |
+| `docker-compose.hardware.yml` | Hardware mode overrides |
+| `docker-compose.test.yml` | Integration testing |
+| `docker-compose.ci.yml` | CI builds |
 
 ### Persistence
 

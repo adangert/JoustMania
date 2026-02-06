@@ -22,8 +22,8 @@ Thank you for your interest in contributing to JoustMania! This guide will help 
 6. You're ready to develop!
 
 The dev container includes:
-- Python 3.11
-- All development tools (ruff, mypy, ipython)
+- Python 3.11+
+- All development tools (ruff, uv, ipython)
 - Docker-in-Docker for building service images
 - Pre-configured VS Code extensions
 
@@ -35,12 +35,16 @@ The dev container includes:
    cd JoustMania
    ```
 
-2. Build CI tooling images:
+2. Install uv (Python package manager):
    ```bash
-   make ci-build-tools
+   curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
-3. You're ready to use the CI tools!
+3. Run linting/formatting checks:
+   ```bash
+   make lint      # Check code
+   make format    # Auto-format code
+   ```
 
 ## Development Workflow
 
@@ -97,7 +101,7 @@ All pull requests must pass CI checks before merging:
 2. **Type Checking** - Ty type checking (currently warnings only)
 3. **Dockerfile Linting** - All Dockerfiles must pass hadolint validation
 4. **Proto Validation** - Proto files must be up-to-date (run `make protos`)
-5. **Docker Builds** - All 7 services must build successfully
+5. **Docker Builds** - All services must build successfully
 6. **Package Validation** - All workspace packages must install correctly
 
 ### Running Checks Locally
@@ -105,20 +109,21 @@ All pull requests must pass CI checks before merging:
 **Using Make (recommended):**
 
 ```bash
-# Run all CI checks (same as GitHub Actions)
-make ci-all
-
-# Quick pre-commit checks (lint + format)
-make ci-quick
-
-# Individual checks
+# Lint and format check
 make lint
 make format-check
-make typecheck
-make lint-dockerfiles
+
+# Run both (pre-commit)
+make check
 
 # Auto-fix formatting
 make format
+
+# Regenerate protos after changes
+make protos
+
+# Run integration tests
+make test
 ```
 
 **Using Docker directly:**
@@ -186,19 +191,17 @@ git commit -m "chore: Regenerate proto files"
 
 We use **ruff** for linting and formatting:
 - Line length: 100 characters
-- Target version: Python 3.11
-- Automatic import sorting (isort)
-- Comprehensive linting rules (pycodestyle, pyflakes, flake8-*)
+- Target version: Python 3.11+
+- Automatic import sorting
+- Comprehensive linting rules
 
 Run `make format` to auto-fix most issues.
 
 ### Type Hints
 
-We use **ty** (Astral type checker) for type checking:
 - Gradually adopting type hints across the codebase
-- Currently in warning-only mode
 - New code should include type hints where possible
-- Configured in `pyproject.toml` under `[tool.ty]`
+- Type hints are enforced by ruff
 
 ### Dockerfiles
 
@@ -216,22 +219,21 @@ JoustMania/
 │   └── workflows/
 │       └── ci.yml          # Main CI pipeline
 ├── docs/                   # Documentation
+├── lib/                    # Shared Python libraries
 ├── proto/                  # Protocol buffer schemas
 ├── scripts/
 │   ├── ci/                 # CI/CD scripts
-│   └── docker/             # Docker management scripts
+│   ├── setup/              # Installation scripts
+│   └── pairing-daemon/     # PS Move pairing service
 ├── services/               # Microservices
 │   ├── controller_manager/
 │   ├── game_coordinator/
 │   ├── settings/
-│   ├── supervisor/
 │   ├── menu/
 │   ├── audio/
-│   └── webui/
-├── tools/                  # CI tooling Docker images
-│   ├── ci-lint/
-│   ├── ci-hadolint/
-│   └── ci-proto/
+│   └── dashboard/          # Web UI + reverse proxy
+├── tests/                  # Integration tests
+├── tools/                  # Development utilities
 └── Makefile                # Build targets
 ```
 

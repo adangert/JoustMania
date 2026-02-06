@@ -187,20 +187,27 @@ uv run pytest services/controller_manager/tests/ --cov=services.controller_manag
 
 ```
 services/controller_manager/
-├── server.py           # Main gRPC service implementation
-├── backend.py          # Abstract backend interface
-├── backend_factory.py  # Backend selection logic
-├── bluetooth_backend.py # Linux/BlueZ implementation
-├── mock_backend.py     # Mock backend for testing
-├── effects_base.py     # Visual effect animations
-├── metrics.py          # Prometheus metrics
-├── pairing.py          # Controller pairing logic
-├── bluetooth.py        # BlueZ helpers
-├── process.py          # Controller process management
-├── Dockerfile          # Container build
-├── pyproject.toml      # Dependencies
-└── tests/
-    └── test_effects_base.py  # Effect unit tests
+├── server.py             # Entry point, gRPC server setup
+├── servicer.py           # gRPC servicer implementation
+├── backend.py            # Abstract backend interface
+├── backend_factory.py    # Backend selection logic
+├── bluetooth_backend.py  # Linux/BlueZ implementation
+├── windows_backend.py    # Windows psmoveapi implementation
+├── mock_backend.py       # Mock backend for testing
+├── bluetooth.py          # BlueZ helpers
+├── discovery.py          # Controller discovery
+├── discovery_loop.py     # Discovery loop management
+├── button_detector.py    # Button event detection
+├── controller_state.py   # Controller state tracking
+├── state_cache.py        # State caching layer
+├── effects_base.py       # Visual effect animations
+├── feedback_manager.py   # LED/rumble feedback
+├── event_publisher.py    # Event broadcasting
+├── name_manager.py       # Controller naming
+├── metrics.py            # Prometheus/OTEL metrics
+├── Dockerfile
+├── pyproject.toml
+└── tests/                # Unit tests
 ```
 
 ## See Also

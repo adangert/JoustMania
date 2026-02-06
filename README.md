@@ -3,7 +3,7 @@
 [![CI](https://github.com/WatchMeJoustMyFlags/JoustMania/actions/workflows/ci.yml/badge.svg)](https://github.com/WatchMeJoustMyFlags/JoustMania/actions/workflows/ci.yml)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=WatchMeJoustMyFlags_JoustMania&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=WatchMeJoustMyFlags_JoustMania)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=WatchMeJoustMyFlags_JoustMania&metric=coverage)](https://sonarcloud.io/summary/new_code?id=WatchMeJoustMyFlags_JoustMania)
-[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
 **Microservices-based motion gaming platform for PlayStation Move controllers.**
 
@@ -122,7 +122,7 @@ See [Mock Environment Guide](services/controller_manager/MOCK_ENVIRONMENT.md) fo
 
 ## Technology Stack
 
-- **Language:** Python 3.11
+- **Language:** Python 3.11+
 - **Communication:** gRPC with Protocol Buffers
 - **Observability:** OpenTelemetry, Jaeger, Prometheus, Grafana
 - **Infrastructure:** Docker, Docker Compose

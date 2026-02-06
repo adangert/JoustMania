@@ -127,15 +127,17 @@ bluetooth_device_connected == 1 and controller_connected == 0
 | `psmove_pairing/utils.py` | Utility functions |
 | `psmove_pairing/usb_pairing.py` | USB pairing logic |
 | `psmove_pairing/bluetooth_monitor.py` | Bluetooth monitoring |
+| `psmove_pairing/adapter_manager.py` | Bluetooth adapter load balancing |
 | `psmove_pairing/daemon.py` | Main daemon class |
 | `psmove-pairing.service` | systemd unit file |
 | `install.sh` | Installation script |
 | `uninstall.sh` | Removal script |
-| `requirements.txt` | Python dependencies |
+| `pyproject.toml` | Python dependencies |
+| `tests/` | Unit tests |
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.11+
 - psmoveapi (`psmove` CLI)
 - BlueZ (`bluetoothctl`, `hciconfig`, `hcitool`)
 - systemd

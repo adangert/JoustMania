@@ -230,10 +230,6 @@ class MenuProcess(Process):
         if self.check_game_start():
             self.request_game_start()
 
-        # TODO: Update controller display
-        # TODO: Handle game mode changes
-        # TODO: Handle admin controls
-
     def check_game_start(self) -> bool:
         """
         Check if game should start.

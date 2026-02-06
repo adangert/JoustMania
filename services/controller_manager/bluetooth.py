@@ -186,7 +186,7 @@ def enable_adapter(hci):
     if iface.Get("org.bluez.Adapter1", "Powered").real:
         return False
     try:
-        print("Enabling adapter")
+        logger.debug("Enabling adapter")
         iface.Set("org.bluez.Adapter1", "Powered", True)
         return True
     except dbus.exceptions.DBusException as e:

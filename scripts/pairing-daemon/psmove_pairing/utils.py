@@ -37,15 +37,34 @@ def find_psmove_binary() -> str:
     sys.exit(1)
 
 
-async def run_command(cmd: list[str], capture_stderr: bool = True) -> tuple[int, str]:
-    """Run a subprocess command asynchronously and return exit code and output."""
+async def run_command(
+    cmd: list[str],
+    capture_stderr: bool = True,
+    env: dict[str, str] | None = None,
+) -> tuple[int, str]:
+    """Run a subprocess command asynchronously and return exit code and output.
+
+    Args:
+        cmd: Command and arguments to run
+        capture_stderr: Whether to capture stderr in output
+        env: Additional environment variables to set (merged with current env)
+    """
     try:
-        stderr = asyncio.subprocess.STDOUT if capture_stderr else asyncio.subprocess.DEVNULL
+        stderr = (
+            asyncio.subprocess.STDOUT if capture_stderr else asyncio.subprocess.DEVNULL
+        )
+
+        # Merge additional env vars with current environment
+        run_env = None
+        if env:
+            run_env = os.environ.copy()
+            run_env.update(env)
 
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=stderr,
+            env=run_env,
         )
         stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=60)
         output = stdout.decode("utf-8", errors="replace").strip()

@@ -15,6 +15,16 @@ pairing_failed_total = Counter(
     "psmove_pairing_failed_total",
     "Failed pairings",
 )
+pairing_adapter_selected_total = Counter(
+    "psmove_pairing_adapter_selected_total",
+    "Adapter selections for load-balanced pairing",
+    ["adapter"],
+)
+pairing_adapter_device_count = Gauge(
+    "psmove_pairing_adapter_device_count_at_selection",
+    "Device count on adapter when selected for pairing",
+    ["adapter"],
+)
 pairing_polls_total = Counter(
     "psmove_pairing_polls_total",
     "Total polling cycles",

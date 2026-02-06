@@ -1,104 +1,232 @@
-"""Bluetooth adapter management for load-balanced pairing."""
+"""Bluetooth adapter management for load-balanced pairing.
+
+Uses DBus to query BlueZ for adapter and device information,
+matching the approach used in the original JoustMania.
+"""
 
 import logging
 from dataclasses import dataclass
-from pathlib import Path
+from xml.etree import ElementTree
 
-from .utils import run_command
+import dbus
 
 logger = logging.getLogger("psmove-pairing")
 
-BLUETOOTH_DIR = Path("/var/lib/bluetooth")
+BUS = dbus.SystemBus()
+ORG_BLUEZ = "org.bluez"
+ORG_BLUEZ_PATH = "/org/bluez"
 
 
 @dataclass
 class AdapterInfo:
     """Information about a Bluetooth adapter."""
 
-    address: str
+    hci: str  # e.g., "hci0"
+    address: str  # e.g., "AA:BB:CC:DD:EE:FF"
     name: str
     device_count: int
 
 
+def _get_root_proxy():
+    """Get root Bluez DBus node."""
+    return BUS.get_object(ORG_BLUEZ, ORG_BLUEZ_PATH)
+
+
+def _get_adapter_proxy(hci: str):
+    """Get Bluez DBus adapter node."""
+    import os
+
+    hci_path = os.path.join(ORG_BLUEZ_PATH, hci)
+    return BUS.get_object(ORG_BLUEZ, hci_path)
+
+
+def _introspect_tree(proxy):
+    """Return parsed introspection tree for a DBus node."""
+    iface = dbus.Interface(proxy, "org.freedesktop.DBus.Introspectable")
+    return ElementTree.fromstring(iface.Introspect())
+
+
+def _get_node_child_names(proxy) -> list[str]:
+    """Get child node names from a DBus node."""
+    tree = _introspect_tree(proxy)
+    return [child.attrib["name"] for child in tree if child.tag == "node"]
+
+
+def _get_node_interfaces(proxy) -> list[str]:
+    """List interface names exposed by a DBus node."""
+    tree = _introspect_tree(proxy)
+    return [child.attrib["name"] for child in tree if child.tag == "interface"]
+
+
+def _get_adapter_attrib(proxy, attrib: str):
+    """Get attribute from Bluez Adapter1 interface."""
+    iface = dbus.Interface(proxy, "org.freedesktop.DBus.Properties")
+    return iface.Get("org.bluez.Adapter1", attrib)
+
+
+def get_hci_dict() -> dict[str, str]:
+    """Get dictionary mapping hci name to Bluetooth address.
+
+    Returns:
+        Dict like {"hci0": "AA:BB:CC:DD:EE:FF", "hci1": "BB:CC:DD:EE:FF:00"}
+    """
+    proxy = _get_root_proxy()
+    hcis = _get_node_child_names(proxy)
+    hci_dict = {}
+
+    for hci in hcis:
+        try:
+            proxy2 = _get_adapter_proxy(hci)
+            interfaces = _get_node_interfaces(proxy2)
+            if (
+                "org.freedesktop.DBus.Properties" not in interfaces
+                or "org.bluez.Adapter1" not in interfaces
+            ):
+                continue
+            addr = _get_adapter_attrib(proxy2, "Address")
+            hci_dict[hci] = str(addr)
+        except dbus.exceptions.DBusException as e:
+            logger.debug(f"Error getting adapter {hci}: {e}")
+            continue
+
+    return hci_dict
+
+
+def get_attached_addresses(hci: str) -> list[str]:
+    """Get the addresses of devices known by an HCI adapter.
+
+    Args:
+        hci: Adapter name like "hci0"
+
+    Returns:
+        List of device MAC addresses paired to this adapter
+    """
+    try:
+        proxy = _get_adapter_proxy(hci)
+        devices = _get_node_child_names(proxy)
+
+        known_devices = []
+        for dev in devices:
+            try:
+                import os
+
+                device_path = os.path.join(ORG_BLUEZ_PATH, hci, dev)
+                dev_proxy = BUS.get_object(ORG_BLUEZ, device_path)
+                iface = dbus.Interface(dev_proxy, "org.freedesktop.DBus.Properties")
+                dev_addr = str(iface.Get("org.bluez.Device1", "Address"))
+                known_devices.append(dev_addr)
+            except dbus.exceptions.DBusException:
+                # Not a device node (e.g., could be a service node)
+                continue
+
+        return known_devices
+    except dbus.exceptions.DBusException as e:
+        logger.debug(f"Error getting devices for {hci}: {e}")
+        return []
+
+
 class AdapterManager:
-    """Manages Bluetooth adapters and provides load-balanced selection."""
+    """Manages Bluetooth adapters and provides load-balanced selection.
+
+    Uses DBus to query BlueZ directly, matching the original JoustMania approach.
+    """
 
     def __init__(self):
-        self._adapters: list[AdapterInfo] = []
+        self._hci_dict: dict[str, str] = {}  # hci -> address
+        self._bt_devices: dict[str, list[str]] = {}  # address -> [device_addrs]
 
-    async def refresh_adapters(self) -> list[AdapterInfo]:
-        """Refresh the list of available adapters and their device counts."""
-        self._adapters = []
+    def refresh_adapters(self) -> dict[str, list[str]]:
+        """Refresh the list of adapters and their paired devices.
 
-        # Get adapters from bluetoothctl
-        exit_code, output = await run_command(["bluetoothctl", "list"])
-        if exit_code != 0:
-            logger.error(f"Failed to list Bluetooth adapters: {output}")
-            return []
+        Returns:
+            Dict mapping adapter address to list of paired device addresses
+        """
+        self._hci_dict = get_hci_dict()
+        self._bt_devices = {}
 
-        for line in output.strip().split("\n"):
-            if not line.strip():
-                continue
-            # Parse: "Controller AA:BB:CC:DD:EE:FF hostname [default]"
-            parts = line.split()
-            if len(parts) >= 2 and parts[0] == "Controller":
-                address = parts[1].upper()
-                name = parts[2] if len(parts) > 2 else address
-                device_count = self._count_devices_for_adapter(address)
-                self._adapters.append(AdapterInfo(address, name, device_count))
-                logger.debug(f"Adapter {address} ({name}): {device_count} devices")
+        for hci, addr in self._hci_dict.items():
+            devices = get_attached_addresses(hci)
+            self._bt_devices[addr] = devices
+            logger.debug(f"Adapter {addr} ({hci}): {len(devices)} devices")
 
-        return self._adapters
+        return self._bt_devices
 
-    def _count_devices_for_adapter(self, adapter_address: str) -> int:
-        """Count the number of paired devices for an adapter."""
-        adapter_dir = BLUETOOTH_DIR / adapter_address
-        if not adapter_dir.exists():
-            return 0
+    def get_lowest_bt_device(self) -> str:
+        """Get the address of the adapter with the fewest paired devices.
 
-        count = 0
-        for entry in adapter_dir.iterdir():
-            # Device directories are named like "AA:BB:CC:DD:EE:FF" or "dev_AA_BB_CC_DD_EE_FF"
-            if entry.is_dir() and entry.name != "cache":
-                # Check if it looks like a MAC address (contains colons or underscores)
-                name = entry.name
-                if ":" in name or (name.startswith("dev_") and "_" in name):
-                    count += 1
+        This matches the original JoustMania's get_lowest_bt_device() method.
 
-        return count
+        Returns:
+            Bluetooth address of the least-loaded adapter, or empty string if none
+        """
+        self.refresh_adapters()
 
-    async def select_least_loaded_adapter(self) -> AdapterInfo | None:
+        if not self._bt_devices:
+            logger.warning("No Bluetooth adapters found")
+            return ""
+
+        # Find minimum device count
+        min_count = min(len(devices) for devices in self._bt_devices.values())
+
+        # Return first adapter with that count (deterministic ordering)
+        for addr in sorted(self._bt_devices.keys()):
+            if len(self._bt_devices[addr]) == min_count:
+                logger.info(
+                    f"Selected adapter {addr} with {min_count} devices "
+                    f"(of {len(self._bt_devices)} adapters)"
+                )
+                return addr
+
+        return ""
+
+    def select_least_loaded_adapter(self) -> AdapterInfo | None:
         """Select the adapter with the fewest paired devices.
 
-        Returns None if no adapters are available.
+        Returns:
+            AdapterInfo for the least-loaded adapter, or None if no adapters
         """
-        await self.refresh_adapters()
+        self.refresh_adapters()
 
-        if not self._adapters:
+        if not self._bt_devices:
             logger.warning("No Bluetooth adapters found")
             return None
 
-        # Sort by device count, then by address for deterministic ordering
-        sorted_adapters = sorted(
-            self._adapters, key=lambda a: (a.device_count, a.address)
-        )
-        selected = sorted_adapters[0]
+        # Find minimum device count
+        min_count = min(len(devices) for devices in self._bt_devices.values())
 
-        logger.info(
-            f"Selected adapter {selected.address} ({selected.name}) "
-            f"with {selected.device_count} devices"
-        )
-
-        # Log all adapter loads for visibility
-        for adapter in sorted_adapters:
-            logger.debug(f"  {adapter.address}: {adapter.device_count} devices")
-
-        return selected
-
-    def get_adapter_by_address(self, address: str) -> AdapterInfo | None:
-        """Get adapter info by address."""
-        address_upper = address.upper()
-        for adapter in self._adapters:
-            if adapter.address == address_upper:
+        # Find adapter with that count
+        for addr in sorted(self._bt_devices.keys()):
+            if len(self._bt_devices[addr]) == min_count:
+                # Find the hci name for this address
+                hci = next(
+                    (h for h, a in self._hci_dict.items() if a == addr),
+                    "unknown",
+                )
+                adapter = AdapterInfo(
+                    hci=hci,
+                    address=addr,
+                    name=f"adapter-{hci}",
+                    device_count=min_count,
+                )
+                logger.info(f"Selected adapter {addr} ({hci}) with {min_count} devices")
+                # Log all adapter loads for visibility
+                for a, devs in sorted(self._bt_devices.items()):
+                    logger.debug(f"  {a}: {len(devs)} devices")
                 return adapter
+
         return None
+
+    def check_if_not_paired(self, controller_addr: str) -> bool:
+        """Check if a controller is not yet paired to any adapter.
+
+        Args:
+            controller_addr: Controller MAC address
+
+        Returns:
+            True if the controller is NOT paired to any adapter
+        """
+        controller_upper = controller_addr.upper()
+        for devices in self._bt_devices.values():
+            if controller_upper in [d.upper() for d in devices]:
+                return False
+        return True

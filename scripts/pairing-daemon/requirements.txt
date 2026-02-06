@@ -1,5 +1,8 @@
 # PS Move Pairing Daemon dependencies
 
+# DBus for BlueZ adapter management
+dbus-python>=1.3.2
+
 # Prometheus metrics
 prometheus-client>=0.17.0
 

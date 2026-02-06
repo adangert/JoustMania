@@ -1,14 +1,28 @@
-"""USB controller pairing for PS Move controllers."""
+"""USB controller pairing for PS Move controllers.
+
+Uses the psmove Python bindings (like the original JoustMania) for reliable
+adapter selection via pair_custom().
+"""
 
 import logging
-import re
 import time
 
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
-from .adapter_manager import AdapterManager
+# Import config first to set up psmoveapi path
 from .config import DEBUG, POLL_INTERVAL, PSMOVE_USB_IDS
+
+# Now import psmove (path was set up by config)
+try:
+    import psmove
+except ImportError as e:
+    raise ImportError(
+        "psmove module not found. Ensure PSMOVEAPI_BUILD_PATH is set correctly "
+        "and psmoveapi is built with Python bindings."
+    ) from e
+
+from .adapter_manager import AdapterManager
 from .metrics import (
     calibration_duration_seconds,
     pairing_adapter_device_count,
@@ -24,17 +38,21 @@ from .utils import run_command
 
 logger = logging.getLogger("psmove-pairing")
 
-# Span attribute constant (matches lib/telemetry.SpanAttr.CONTROLLER_SERIAL)
+# Span attribute constants
 _ATTR_CONTROLLER_SERIAL = "controller.serial"
 _ATTR_ADAPTER_ADDRESS = "adapter.address"
 
 
 class USBPairing:
-    """Handles USB-connected PS Move controller pairing."""
+    """Handles USB-connected PS Move controller pairing.
+
+    Uses the psmove Python bindings with pair_custom() for reliable
+    adapter selection, matching the original JoustMania approach.
+    """
 
     def __init__(self, tracer: trace.Tracer, psmove_path: str):
         self.tracer = tracer
-        self.psmove = psmove_path
+        self.psmove_cli = psmove_path  # Keep for calibration
         self.poll_count = 0
         self.adapter_manager = AdapterManager()
 
@@ -47,177 +65,94 @@ class USBPairing:
 
         return any(usb_id in output.lower() for usb_id in PSMOVE_USB_IDS)
 
-    async def get_usb_controllers(self) -> list[str]:
-        """Get list of USB-connected controller serial numbers."""
-        if DEBUG:
-            exit_code, output = await run_command([self.psmove, "list"])
-        else:
-            exit_code, output = await run_command(
-                [self.psmove, "list"], capture_stderr=False
-            )
+    def get_usb_controllers_psmove(self) -> list[tuple[int, str]]:
+        """Get list of USB-connected controllers using psmove library.
 
-        if exit_code != 0:
-            logger.debug(f"psmove list failed with exit code {exit_code}")
-            return []
+        Returns:
+            List of tuples (index, serial) for USB-connected controllers
+        """
+        connected = psmove.count_connected()
+        logger.debug(f"psmove.count_connected() = {connected}")
+        pairing_usb_controllers.set(0)  # Will update below
 
-        logger.debug(f"psmove list output: {output}")
+        usb_controllers = []
+        for i in range(connected):
+            try:
+                move = psmove.PSMove(i)
+                if move.connection_type == psmove.Conn_USB:
+                    serial = move.get_serial()
+                    if serial:
+                        usb_controllers.append((i, serial.upper()))
+                        logger.debug(f"USB controller {i}: {serial}")
+            except Exception as e:
+                logger.debug(f"Error accessing controller {i}: {e}")
 
-        # Count USB controllers
-        usb_lines = [line for line in output.split("\n") if "usb" in line.lower()]
-        usb_count = len(usb_lines)
-        logger.debug(f"USB controllers detected: {usb_count}")
-        pairing_usb_controllers.set(usb_count)
+        pairing_usb_controllers.set(len(usb_controllers))
+        return usb_controllers
 
-        if usb_count == 0:
-            return []
-
-        # Extract MAC addresses from USB controller lines
-        # Format: "Controller 0: aa:bb:cc:dd:ee:ff (USB)"
-        mac_pattern = re.compile(r"([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}")
-        serials = []
-        for line in usb_lines:
-            match = mac_pattern.search(line)
-            if match:
-                serials.append(match.group(0).upper())
-
-        return serials
-
-    async def is_controller_known(self, serial: str) -> bool:
-        """Check if controller is already known to BlueZ."""
-        serial_upper = serial.upper()
-        serial_nocolons = serial_upper.replace(":", "")
-
-        # Check paired, trusted, and connected devices
-        for device_type in ["Paired", "Trusted", "Connected"]:
-            exit_code, output = await run_command(
-                ["bluetoothctl", "devices", device_type]
-            )
-            if exit_code == 0 and (
-                serial_upper in output.upper() or serial_nocolons in output.upper()
-            ):
-                logger.debug(
-                    f"Controller {serial_upper} found in {device_type} devices"
-                )
-                return True
-
-        return False
-
-    async def is_controller_already_paired_psmove(self, serial: str) -> bool:
-        """Check if psmove thinks the controller is already paired."""
-        exit_code, output = await run_command([self.psmove, "list"])
-        if exit_code != 0:
-            return False
-
-        # Check if this controller shows Bluetooth mode (already paired)
-        return any(
-            serial.upper() in line.upper() and "bluetooth" in line.lower()
-            for line in output.split("\n")
-        )
-
-    async def pair_controller(
-        self, serial: str, adapter_address: str | None = None
+    def pair_controller_psmove(
+        self, move_index: int, serial: str, adapter_address: str
     ) -> bool:
-        """Pair a controller using psmove pair command.
+        """Pair a controller using psmove Python library's pair_custom().
+
+        This directly specifies the target adapter, matching the original
+        JoustMania's approach which is more reliable than environment variables.
 
         Args:
+            move_index: Controller index from psmove.count_connected()
             serial: Controller MAC address
-            adapter_address: Target Bluetooth adapter address for load balancing.
-                           If provided, sets PSMOVE_PREFER_BLUETOOTH_HOST_ADDRESS.
+            adapter_address: Target Bluetooth adapter address
+
+        Returns:
+            True if pairing succeeded
         """
-        logger.info(f"Pairing controller {serial}...")
+        logger.info(f"Pairing controller {serial} to adapter {adapter_address}...")
 
         with self.tracer.start_as_current_span("pair_controller") as span:
             span.set_attribute(_ATTR_CONTROLLER_SERIAL, serial)
+            span.set_attribute(_ATTR_ADAPTER_ADDRESS, adapter_address)
             start_time = time.time()
 
-            # Set adapter preference via environment variable if specified
-            env = None
-            if adapter_address:
-                env = {"PSMOVE_PREFER_BLUETOOTH_HOST_ADDRESS": adapter_address}
-                logger.info(f"Using adapter {adapter_address} for pairing")
-                span.set_attribute(_ATTR_ADAPTER_ADDRESS, adapter_address)
+            try:
+                move = psmove.PSMove(move_index)
+                if move.connection_type != psmove.Conn_USB:
+                    logger.warning(f"Controller {serial} not connected via USB")
+                    span.set_status(Status(StatusCode.ERROR, "Not USB connected"))
+                    return False
 
-            exit_code, output = await run_command([self.psmove, "pair"], env=env)
-            duration = time.time() - start_time
-            pairing_duration_seconds.observe(duration)
+                # Use pair_custom with the target adapter address
+                result = move.pair_custom(adapter_address)
+                duration = time.time() - start_time
+                pairing_duration_seconds.observe(duration)
 
-            logger.debug(f"Pair output: {output}")
-            logger.debug(f"Pair exit code: {exit_code}")
+                span.set_attribute("pair.result", result)
+                span.set_attribute("pair.duration_seconds", duration)
 
-            span.set_attribute("pair.exit_code", exit_code)
-            span.set_attribute("pair.duration_seconds", duration)
+                if result:
+                    logger.info(f"pair_custom() succeeded for {serial}")
+                    span.set_status(Status(StatusCode.OK))
+                    return True
+                else:
+                    logger.error(f"pair_custom() returned False for {serial}")
+                    span.set_status(Status(StatusCode.ERROR, "pair_custom failed"))
+                    return False
 
-            # Check for explicit failure indicators
-            failure_words = [
-                "error",
-                "failed",
-                "cannot",
-                "unable",
-                "permission denied",
-                "not found",
-            ]
-            success_words = ["already", "set", "paired", "master"]
-
-            pair_failed = False
-            output_lower = output.lower()
-            for failure in failure_words:
-                if failure in output_lower:
-                    # Only fail if it's a real error, not just "already set" type messages
-                    is_success_message = any(s in output_lower for s in success_words)
-                    if not is_success_message:
-                        pair_failed = True
-                        break
-
-            if pair_failed:
-                span.set_status(Status(StatusCode.ERROR, "Pairing failed"))
-                span.set_attribute("pair.output", output[:500])  # Truncate for span
+            except Exception as e:
+                duration = time.time() - start_time
+                pairing_duration_seconds.observe(duration)
+                logger.error(f"Exception during pairing: {e}", exc_info=DEBUG)
+                span.set_status(Status(StatusCode.ERROR, str(e)))
                 return False
-
-            span.set_status(Status(StatusCode.OK))
-            return True
-
-    async def trust_device(
-        self, serial: str, adapter_address: str | None = None
-    ) -> bool:
-        """Trust the device in BlueZ.
-
-        Args:
-            serial: Controller MAC address
-            adapter_address: Target Bluetooth adapter address. If provided,
-                           uses bluetoothctl --adapter flag.
-        """
-        logger.debug(f"Trusting device in BlueZ: {serial}")
-
-        with self.tracer.start_as_current_span("trust_device") as span:
-            span.set_attribute(_ATTR_CONTROLLER_SERIAL, serial)
-
-            # Build command with optional adapter selection
-            cmd = ["bluetoothctl"]
-            if adapter_address:
-                cmd.extend(["--adapter", adapter_address])
-                span.set_attribute(_ATTR_ADAPTER_ADDRESS, adapter_address)
-            cmd.extend(["trust", serial.upper()])
-
-            exit_code, output = await run_command(cmd)
-            span.set_attribute("trust.exit_code", exit_code)
-
-            if exit_code != 0:
-                logger.warning(f"bluetoothctl trust failed: {output}")
-                span.set_status(Status(StatusCode.ERROR, "Trust failed"))
-                return False
-
-            span.set_status(Status(StatusCode.OK))
-            return True
 
     async def calibrate_controller(self, serial: str) -> bool:
-        """Calibrate the controller."""
+        """Calibrate the controller using CLI tool."""
         logger.info("Calibrating controller...")
 
         with self.tracer.start_as_current_span("calibrate_controller") as span:
             span.set_attribute(_ATTR_CONTROLLER_SERIAL, serial)
             start_time = time.time()
 
-            exit_code, output = await run_command([self.psmove, "calibrate"])
+            exit_code, output = await run_command([self.psmove_cli, "calibrate"])
             duration = time.time() - start_time
             calibration_duration_seconds.observe(duration)
 
@@ -225,7 +160,6 @@ class USBPairing:
             span.set_attribute("calibrate.exit_code", exit_code)
             span.set_attribute("calibrate.duration_seconds", duration)
 
-            # Calibration failure is not critical
             if exit_code != 0:
                 logger.warning(f"Calibration returned non-zero: {exit_code}")
                 span.set_status(
@@ -236,25 +170,36 @@ class USBPairing:
 
             return exit_code == 0
 
-    async def process_controller(self, serial: str) -> bool:
+    async def restart_bluetooth(self) -> None:
+        """Restart Bluetooth service to recognize new pairing.
+
+        The original JoustMania does this after each pairing to ensure
+        BlueZ recognizes the newly paired controller.
+        """
+        logger.info("Restarting Bluetooth service...")
+        exit_code, output = await run_command(
+            ["sudo", "systemctl", "restart", "bluetooth"]
+        )
+        if exit_code != 0:
+            logger.warning(f"Failed to restart bluetooth: {output}")
+        else:
+            # Give BlueZ time to reinitialize
+            import asyncio
+
+            await asyncio.sleep(2)
+
+    async def process_controller(self, move_index: int, serial: str) -> bool:
         """Process a single USB-connected controller with load-balanced adapter selection."""
         with self.tracer.start_as_current_span("process_controller") as span:
             span.set_attribute(_ATTR_CONTROLLER_SERIAL, serial)
 
-            # Check if already known
-            if await self.is_controller_known(serial):
-                logger.debug(f"Controller {serial} already known to BlueZ, skipping")
-                span.set_attribute("skipped", True)
-                span.set_attribute("skip_reason", "known_to_bluez")
-                return False
+            # Refresh adapter state and check if already paired
+            self.adapter_manager.refresh_adapters()
 
-            # Check if psmove thinks it's paired
-            if await self.is_controller_already_paired_psmove(serial):
-                logger.info(
-                    f"Controller {serial} already paired (shows Bluetooth mode), skipping"
-                )
+            if not self.adapter_manager.check_if_not_paired(serial):
+                logger.info(f"Controller {serial} already paired, skipping")
                 span.set_attribute("skipped", True)
-                span.set_attribute("skip_reason", "already_paired_psmove")
+                span.set_attribute("skip_reason", "already_paired")
                 return False
 
             logger.info(f"Found unpaired USB controller: {serial}")
@@ -262,46 +207,48 @@ class USBPairing:
             pairing_attempts_total.inc()
 
             # Select least-loaded adapter for load balancing
-            adapter = await self.adapter_manager.select_least_loaded_adapter()
-            adapter_address = adapter.address if adapter else None
+            adapter_address = self.adapter_manager.get_lowest_bt_device()
 
+            if not adapter_address:
+                logger.error("No Bluetooth adapters available for pairing")
+                pairing_failed_total.inc()
+                span.set_status(Status(StatusCode.ERROR, "No adapters available"))
+                return False
+
+            # Get adapter info for logging
+            adapter = self.adapter_manager.select_least_loaded_adapter()
             if adapter:
                 logger.info(
                     f"Load balancing: selected adapter {adapter.address} "
-                    f"({adapter.name}) with {adapter.device_count} existing devices"
+                    f"({adapter.hci}) with {adapter.device_count} existing devices"
                 )
                 span.set_attribute(_ATTR_ADAPTER_ADDRESS, adapter.address)
                 span.set_attribute("adapter.device_count", adapter.device_count)
-                # Record metrics for adapter selection
+                span.set_attribute("adapter.hci", adapter.hci)
+                # Record metrics
                 pairing_adapter_selected_total.labels(adapter=adapter.address).inc()
                 pairing_adapter_device_count.labels(adapter=adapter.address).set(
                     adapter.device_count
                 )
 
-            # Pair controller to selected adapter
-            if not await self.pair_controller(serial, adapter_address):
+            # Pair controller to selected adapter using Python bindings
+            if not self.pair_controller_psmove(move_index, serial, adapter_address):
                 logger.error(f"PAIRING FAILED: Controller {serial} could not be paired")
                 pairing_failed_total.inc()
                 span.set_status(Status(StatusCode.ERROR, "Pairing failed"))
                 return False
 
-            # Trust in BlueZ on the same adapter
-            await self.trust_device(serial, adapter_address)
+            # Restart Bluetooth to recognize new pairing (like original JoustMania)
+            await self.restart_bluetooth()
 
             # Calibrate
             await self.calibrate_controller(serial)
 
-            # Success message with adapter info
-            if adapter:
-                logger.info(
-                    f"PAIRING SUCCESS: Controller {serial} paired to adapter "
-                    f"{adapter.address} ({adapter.name}) - unplug USB and press PS button"
-                )
-            else:
-                logger.info(
-                    f"PAIRING SUCCESS: Controller {serial} paired - "
-                    f"unplug USB and press PS button to connect"
-                )
+            # Success message
+            logger.info(
+                f"PAIRING SUCCESS: Controller {serial} paired to adapter "
+                f"{adapter_address} - unplug USB and press PS button"
+            )
 
             pairing_success_total.inc()
             span.set_status(Status(StatusCode.OK))
@@ -318,7 +265,7 @@ class USBPairing:
 
             # Quick USB check first
             if not await self.check_usb_controllers():
-                logger.debug("No USB PS Move detected, skipping psmove list")
+                logger.debug("No USB PS Move detected, skipping")
                 pairing_usb_controllers.set(0)
                 span.set_attribute("usb_detected", False)
                 return
@@ -326,23 +273,25 @@ class USBPairing:
             logger.debug("USB PS Move detected, checking with psmove...")
             span.set_attribute("usb_detected", True)
 
-            # Get USB controllers
-            controllers = await self.get_usb_controllers()
+            # Get USB controllers using psmove library
+            controllers = self.get_usb_controllers_psmove()
             span.set_attribute("controllers.count", len(controllers))
 
             if not controllers:
-                logger.debug("No USB controllers found")
+                logger.debug("No USB controllers found via psmove")
                 return
 
             # Process each controller
-            for serial in controllers:
-                await self.process_controller(serial)
+            for move_index, serial in controllers:
+                await self.process_controller(move_index, serial)
 
     async def run_loop(self) -> None:
         """USB polling loop."""
         import asyncio
 
         logger.info(f"Starting USB poll loop (interval: {POLL_INTERVAL}s)")
+        logger.info(f"Using psmove Python bindings (psmove.Conn_USB={psmove.Conn_USB})")
+
         while True:
             try:
                 await self.poll()

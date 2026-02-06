@@ -75,6 +75,18 @@ cp "$TEMP_DIR/_psmove.so" "$SITE_PACKAGES/" || exit 1
 echo "  → Installed psmove.py to $SITE_PACKAGES/"
 echo "  → Installed _psmove.so to $SITE_PACKAGES/"
 
+# Also install to pairing daemon venv if it exists
+PAIRING_DAEMON_VENV="/opt/joustmania/scripts/pairing-daemon/venv"
+if [[ -d "$PAIRING_DAEMON_VENV" ]]; then
+    PAIRING_SITE_PACKAGES=$(find "$PAIRING_DAEMON_VENV/lib" -type d -name "site-packages" | head -1)
+    if [[ -n "$PAIRING_SITE_PACKAGES" ]]; then
+        sudo cp "$TEMP_DIR/psmove.py" "$PAIRING_SITE_PACKAGES/" || echo "  → Warning: Could not copy to pairing daemon venv"
+        sudo cp "$TEMP_DIR/_psmove.so" "$PAIRING_SITE_PACKAGES/" || echo "  → Warning: Could not copy to pairing daemon venv"
+        echo "  → Installed psmove.py to $PAIRING_SITE_PACKAGES/"
+        echo "  → Installed _psmove.so to $PAIRING_SITE_PACKAGES/"
+    fi
+fi
+
 # Install shared library to system
 echo "[4/4] Installing shared library..."
 sudo cp "$TEMP_DIR/libpsmoveapi.so" /usr/local/lib/ || exit 1

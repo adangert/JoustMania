@@ -13,7 +13,7 @@ RestartSec=10
 # Environment
 Environment=POLL_INTERVAL=10
 Environment=DEBUG=0
-# psmoveapi binary location - set PSMOVE_PATH if built elsewhere
+# psmoveapi CLI location (Python bindings are auto-detected)
 Environment=PSMOVE_PATH=/home/joustmania/psmoveapi/build/psmove
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
 # Metrics and tracing

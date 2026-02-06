@@ -240,9 +240,9 @@ class FeedbackManager(ControllerEffectsBase):
             finally:
                 # Clear effect active flag and effect type tracking
                 self.backend.set_effect_active(serial, False)
-                self.active_effect_types.pop(serial, None)
                 # Remove from active_effects so new base colors can be applied immediately
                 async with self.effect_lock:
+                    self.active_effect_types.pop(serial, None)
                     self.active_effects.pop(serial, None)
                 # Use current base_colors (may have changed during effect) if restore requested
                 current_restore = self.base_colors.get(serial) if restore_color else None
@@ -260,7 +260,8 @@ class FeedbackManager(ControllerEffectsBase):
     async def _effect_none(self, serial: str, **_kwargs) -> None:
         """No-op - clear tracking."""
         # Note: async kept for interface consistency with other effect handlers
-        self.active_effect_types.pop(serial, None)
+        async with self.effect_lock:
+            self.active_effect_types.pop(serial, None)
 
     async def _effect_player_warning(
         self, serial: str, restore_color: tuple | None, trace_context: Context | None = None, **_kwargs
@@ -307,7 +308,8 @@ class FeedbackManager(ControllerEffectsBase):
 
     async def _effect_player_respawn(self, serial: str, **_kwargs) -> None:
         """White during spawn protection."""
-        self.active_effect_types.pop(serial, None)
+        async with self.effect_lock:
+            self.active_effect_types.pop(serial, None)
         await self.set_controller_color(serial, Colors.White.value)
         self.base_colors[serial] = Colors.White.value
 
@@ -352,7 +354,8 @@ class FeedbackManager(ControllerEffectsBase):
 
     async def _effect_admin_exit(self, serial: str, restore_color: tuple | None, **_kwargs) -> None:
         """Restore to base color (instant)."""
-        self.active_effect_types.pop(serial, None)
+        async with self.effect_lock:
+            self.active_effect_types.pop(serial, None)
         if restore_color:
             await self.set_controller_color(serial, restore_color)
 
@@ -363,7 +366,8 @@ class FeedbackManager(ControllerEffectsBase):
             await asyncio.sleep(0.15)
             await self.set_controller_color(serial, Colors.Red20.value)
             await asyncio.sleep(0.15)
-        self.active_effect_types.pop(serial, None)
+        async with self.effect_lock:
+            self.active_effect_types.pop(serial, None)
         if restore_color:
             await self.set_controller_color(serial, restore_color)
 
@@ -387,7 +391,8 @@ class FeedbackManager(ControllerEffectsBase):
         effect_speed = speed if speed > 0 else 5
         intensity = min(255, effect_speed * 50)
         await self.set_vibration(serial, intensity, effect_duration)
-        self.active_effect_types.pop(serial, None)
+        async with self.effect_lock:
+            self.active_effect_types.pop(serial, None)
 
     async def _game_effect_pulse(
         self,
@@ -498,7 +503,8 @@ class FeedbackManager(ControllerEffectsBase):
 
             for target_serial in serials:
                 restore_color = self.base_colors.get(target_serial)
-                self.active_effect_types[target_serial] = effect
+                async with self.effect_lock:
+                    self.active_effect_types[target_serial] = effect
 
                 await handler(
                     serial=target_serial,
@@ -640,9 +646,9 @@ class FeedbackManager(ControllerEffectsBase):
             finally:
                 # Clear effect active flag and tracking
                 self.backend.set_effect_active(serial, False)
-                self.active_effect_types.pop(serial, None)
                 # Remove from active_effects so new base colors can be applied immediately
                 async with self.effect_lock:
+                    self.active_effect_types.pop(serial, None)
                     self.active_effects.pop(serial, None)
                 # Restore to base color
                 current_restore = self.base_colors.get(serial) if restore_color else None

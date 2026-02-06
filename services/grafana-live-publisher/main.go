@@ -23,10 +23,30 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
+
+// StringInt64 handles OTLP JSON's string-encoded int64 values.
+// Per the protobuf3 JSON mapping spec, int64 values are encoded as strings
+// to avoid precision loss in JavaScript.
+type StringInt64 int64
+
+func (si *StringInt64) UnmarshalJSON(data []byte) error {
+	s := string(data)
+	// Remove quotes if present (OTLP JSON encodes int64 as strings)
+	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
+		s = s[1 : len(s)-1]
+	}
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return fmt.Errorf("cannot parse %q as int64: %w", string(data), err)
+	}
+	*si = StringInt64(n)
+	return nil
+}
 
 // Config holds service configuration
 type Config struct {
@@ -71,7 +91,7 @@ type DataPoint struct {
 	Attributes   []Attribute `json:"attributes"`
 	TimeUnixNano string      `json:"timeUnixNano"`
 	AsDouble     *float64    `json:"asDouble,omitempty"`
-	AsInt        *int64      `json:"asInt,omitempty"`
+	AsInt        *StringInt64 `json:"asInt,omitempty"`
 }
 
 type Attribute struct {

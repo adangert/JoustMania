@@ -429,8 +429,8 @@ class Game():
             if self.game_end:
                 self.end_game()
 
-            #Give up 10ms to prevent CPU thrashing
-            time.sleep(0.01)            
+            # Yield CPU to prevent thrashing without adding fixed latency
+            os.sched_yield()
 
         self.stop_tracking_moves()
 
@@ -590,5 +590,5 @@ class Game():
                 move.update_leds()
                 move.set_rumble(0)
                 
-            #Give up 10ms to prevent CPU thrashing
-            time.sleep(0.01)
+            # Yield CPU to prevent thrashing without adding fixed latency
+            os.sched_yield()

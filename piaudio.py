@@ -119,7 +119,8 @@ def audio_loop(fname, ratio, stop_proc):
     song_loaded = False
     while(True):
         if(stop_proc.value == 1):
-            pass
+            time.sleep(0.5)
+            continue
         elif(fname['song'] != ''):
             if(song_loaded == False):
                 try:

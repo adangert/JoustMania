@@ -299,8 +299,8 @@ def track_move(serial, move_num, move, menu_opts, force_color, battery, dead_cou
         #Update colors
         move.update_leds()
         
-        #Give up 30ms to prevent CPU thrashing
-        time.sleep(0.03)
+        # Yield CPU to prevent thrashing without adding fixed latency
+        os.sched_yield()
         
 class Menu():
     def __init__(self):
@@ -711,8 +711,8 @@ class Menu():
             self.check_command_queue()
             self.update_status('menu')
 
-            #Give up 30ms to prevent CPU thrashing
-            time.sleep(0.03)
+            # Yield CPU to prevent thrashing without adding fixed latency
+            os.sched_yield()
     
 
     def check_admin_controls(self):

@@ -50,6 +50,9 @@ TEAM_NUM = len(colors.team_color_list)
 
 SENSITIVITY_MODES = 5
 RANDOM_TEAM_SIZES = 6
+# Menu polling still needs tiny sleeps to avoid idle CPU spin.
+MENU_TRACK_SLEEP_SECS = 0.002
+MENU_LOOP_SLEEP_SECS = 0.01
 
 # Menu specific opts
 class Opts(Enum):
@@ -299,8 +302,8 @@ def track_move(serial, move_num, move, menu_opts, force_color, battery, dead_cou
         #Update colors
         move.update_leds()
         
-        # Yield CPU to prevent thrashing without adding fixed latency
-        os.sched_yield()
+        # Cap this polling loop without adding the larger latency that made menus sluggish.
+        time.sleep(MENU_TRACK_SLEEP_SECS)
         
 class Menu():
     def __init__(self):
@@ -711,8 +714,8 @@ class Menu():
             self.check_command_queue()
             self.update_status('menu')
 
-            # Yield CPU to prevent thrashing without adding fixed latency
-            os.sched_yield()
+            # Cap the menu loop while keeping admin controls responsive.
+            time.sleep(MENU_LOOP_SLEEP_SECS)
     
 
     def check_admin_controls(self):

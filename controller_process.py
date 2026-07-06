@@ -2,8 +2,12 @@ from games import game, joust_non_stop, werewolf, zombie, commander, tournament,
 import common, piparty
 import logging
 import setproctitle
+import time
 
 logger = logging.getLogger(__name__)
+
+# Avoid spinning while game startup/instructions hold restart high.
+RESTART_SLEEP_SECS = 0.05
 
 #this should all be refactored to use the same options per game
 #this file is used for multiprocessing
@@ -19,7 +23,7 @@ def main_track_move(menu, restart, move_serial, move_num, menu_opts, game_opts, 
     while not kill_proc.value:
         move.set_rumble(0)
         if restart.value == 1:
-            pass
+            time.sleep(RESTART_SLEEP_SECS)
         elif menu.value == 1:
             logger.debug("Tracking Move (Menu): {}".format(move_serial))
             piparty.track_move(move_serial, move_num, move, menu_opts, force_color, battery, dead_count, restart, menu, kill_proc)

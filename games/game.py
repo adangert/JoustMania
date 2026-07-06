@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 SLOW_MUSIC_SPEED = 1.0
 #this was 0.5
 FAST_MUSIC_SPEED = 1.3
+# Small real sleeps cap CPU without the old 10-30ms gameplay lag.
+GAME_LOOP_SLEEP_SECS = 0.002
+MOVE_TRACK_SLEEP_SECS = 0.001
 
 # The min and max timeframe in seconds for
 # the speed change to trigger, randomly selected
@@ -429,8 +432,8 @@ class Game():
             if self.game_end:
                 self.end_game()
 
-            # Yield CPU to prevent thrashing without adding fixed latency
-            os.sched_yield()
+            # Cap this hot loop with a short real sleep; sched_yield still busy-spins.
+            time.sleep(GAME_LOOP_SLEEP_SECS)
 
         self.stop_tracking_moves()
 
@@ -569,6 +572,8 @@ class Game():
                     if not invincible_move.value:
                         if change > threshold and time.time() > no_rumble:
                             dead_move.value = Status.DIED.value
+                            # Let the DIED branch send red/rumble before the main loop consumes it.
+                            continue
 
                         elif not vibrate and change > warning and time.time() > no_rumble:
                             vibrate = True
@@ -590,5 +595,5 @@ class Game():
                 move.update_leds()
                 move.set_rumble(0)
                 
-            # Yield CPU to prevent thrashing without adding fixed latency
-            os.sched_yield()
+            # Keep controller tracking responsive while preventing a full busy-spin.
+            time.sleep(MOVE_TRACK_SLEEP_SECS)

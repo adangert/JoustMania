@@ -8,6 +8,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Commander has its own intro input loop before generic tracking.
+INTRO_POLL_SLEEP_SECS = 0.002
+
 # Commander Opts
 class Opts(Enum):
     INTRO = 0
@@ -280,6 +283,7 @@ class Joust(Game):
                 else:
                     move.set_leds(*COMMANDER_COLORS[team].value)
             move.update_leds()
+            time.sleep(INTRO_POLL_SLEEP_SECS)
 
         opts[Opts.HOLDING.value] = False
         opts[Opts.SELECTION.value] = Selection.NOTHING.value

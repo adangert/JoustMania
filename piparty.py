@@ -12,6 +12,7 @@ from games import joust_ffa, joust_teams, joust_random_teams, joust_non_stop, tr
 from sys import platform
 from dotenv import find_dotenv, load_dotenv
 import logging.config
+import setproctitle
 
 if platform == "linux" or platform == "linux2":
     import jm_dbus
@@ -49,6 +50,9 @@ TEAM_NUM = len(colors.team_color_list)
 
 SENSITIVITY_MODES = 5
 RANDOM_TEAM_SIZES = 6
+# Menu polling still needs tiny sleeps to avoid idle CPU spin.
+MENU_TRACK_SLEEP_SECS = 0.002
+MENU_LOOP_SLEEP_SECS = 0.01
 
 # Menu specific opts
 class Opts(Enum):
@@ -86,7 +90,7 @@ def track_move(serial, move_num, move, menu_opts, force_color, battery, dead_cou
     while True:
         if(restart.value == 1 or menu.value == 0 or kill_proc.value):
             return # Stop tracking move if restarting, exiting menu, or kill_procedures
-        time.sleep(0.01)
+
         # If there is a new event from the move
         if move.poll():
 
@@ -297,10 +301,14 @@ def track_move(serial, move_num, move, menu_opts, force_color, battery, dead_cou
             move.set_leds(*move_color)
         #Update colors
         move.update_leds()
-
+        
+        # Cap this polling loop without adding the larger latency that made menus sluggish.
+        time.sleep(MENU_TRACK_SLEEP_SECS)
+        
 class Menu():
     def __init__(self):
-
+        setproctitle.setproctitle(f"JoustMania-Menu()")
+        
         # Set up shared namespace between webserver and joustmania
         self.command_queue = Queue()
         self.joust_manager = Manager()
@@ -654,6 +662,8 @@ class Menu():
                 move_opt[Opts.STATUS.value] = Status.ALIVE.value #If move is not charging, set it to alive
 
     def game_loop(self):
+        import setproctitle
+        setproctitle.setproctitle(f"JoustMania-game_loop()")
         self.play_menu_music = True
         while True:
             # Only start the music the first loop
@@ -704,6 +714,9 @@ class Menu():
             self.check_command_queue()
             self.update_status('menu')
 
+            # Cap the menu loop while keeping admin controls responsive.
+            time.sleep(MENU_LOOP_SLEEP_SECS)
+    
 
     def check_admin_controls(self):
         show_bat = False

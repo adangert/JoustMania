@@ -78,15 +78,33 @@ Pairing controllers
 * Once plugged in, the controller should turn white indicating that it has been paired correctly
 * Press the PlayStation sync button (the circular one in the middle) to wirelessly connect paired controllers to the Pi
 
-If pairing is not working for some reason, or you would like to resync all controllers run the following
+If pairing is not working, or you would like to resync all Move controllers,
+remove its saved ZCM1 and ZCM2 Bluetooth registrations:
+
+ZCM1 and ZCM2 are PlayStation Move hardware versions. ZCM1 is the PS3 version
+with a white Sony logo, while ZCM2 is the PS4 version with a black Sony logo.
+
 ```
 cd JoustMania
-sudo ./reset_bluetooth_connections.sh
+sudo ./reset_psmove_connections.sh
 ```
+
+This stops JoustMania, removes only PlayStation Move controllers, and starts
+JoustMania again.
+
+To list registered Move controllers, their model, assigned adapter, saved
+pairing state, and current connection state, run:
+
+```
+sudo ./debug_psmove_connections.py
+```
+
+The same report is available from the Controller Status button in the web
+interface.
 
 If controllers seem to pair to only one Bluetooth adapter, it is likely that they share the same Mac address, refer to this issue: https://github.com/adangert/JoustMania/issues/172
 
-With some bluetooth adapters and ps4 controllers, pushing the playstation sync button after plugging it into the pi may be necessary for it to pair correctly.
+With some bluetooth adapters and ps4 controllers, pushing the playstation sync button before plugging it into the pi may be necessary for it to pair correctly, as well as selecting a dialog pop-up in the raspberry pi UI.
 
 How to select a game mode
 ---------------------------------

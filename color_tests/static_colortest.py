@@ -1,4 +1,4 @@
-import psmove
+import controller_manager
 import colorsys
 import time
 from math import sqrt
@@ -6,7 +6,7 @@ from math import sqrt
 def hsv2rgb(h, s, v):
     return tuple(int(color * 255) for color in colorsys.hsv_to_rgb(h, s, v))
 
-moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
+connections = controller_manager.get_manager().connected_controllers()
 
 rgbwheel = [
 'FF0000',
@@ -87,12 +87,13 @@ def colorhex(hex):
 
 s=0
 while True:
-    for i,move in enumerate(moves):
+    for i, connection in enumerate(connections):
         color = colorhex(joustwheel[(s+i)%12])
-        move.set_leds(*color)
-        move.update_leds()
-        move.poll()
-        ax,ay,az = tuple(move.get_accelerometer_frame(psmove.Frame_SecondHalf))
+        connection.set_color(*color)
+        state = connection.read_update()
+        if state is None:
+            continue
+        ax, ay, az = state.acceleration
         print('%+1.1f %+1.1f %+1.1f %+1.1f' % (ax,ay,az,sqrt(sum([ax**2, ay**2, az**2]))))
     #time.sleep(.1)
     #s += 1

@@ -85,3 +85,6 @@ venv
 conf/supervisor/conf.d/joust.conf
 .vscode/settings.json
 .sonarlint/connectedMode.json
+psmove-baseline-*.json
+psmove-broker-*.json
+controller-manager-*.json

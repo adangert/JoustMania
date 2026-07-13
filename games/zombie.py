@@ -284,16 +284,16 @@ class Joust(Game):
     # @Override
     # Handle button presses for humans
     @classmethod
-    def handle_opts(cls, move, team, opts, dead_move):
+    def handle_opts(cls, state, team, opts, dead_move, updated=False):
         #If the player is a Human (not team -1, i.e. zombie)
         if team != -1:
-            if move.get_buttons() == 0 and move.get_trigger() < 10:
+            if state.buttons == 0 and state.trigger < 10:
                 opts[Opts.HOLDING.value] = False
 
             # Not holding button, selected pistol, has bullets, and presses trigger
             if (not opts[Opts.HOLDING.value] and
                     0 < opts[Opts.AMMO.value] < 5 and
-                    move.get_trigger() > 100):
+                    state.trigger > 100):
                 logger.debug("Pressing trigger (Pistol)")
                 opts[Opts.HOLDING.value] = True
                 opts[Opts.SELECTION.value] = Selection.PISTOL.value
@@ -301,7 +301,7 @@ class Joust(Game):
             # Molotov
             elif (not opts[Opts.HOLDING.value] and
                  opts[Opts.AMMO.value] >= 5 and
-                 move.get_trigger() > 100):
+                 state.trigger > 100):
                 logger.debug("Pressing trigger (Molotov)")
                 opts[Opts.HOLDING.value] = True
                 opts[Opts.SELECTION.value] = Selection.MOLOTOV.value
@@ -312,7 +312,7 @@ class Joust(Game):
     # @Override
     # Show human color according to the number of bullets, not team
     @classmethod
-    def handle_team_color(cls, move, team, opts, team_color):
+    def handle_team_color(cls, state, team, opts, team_color):
         if team >= 0:
             # TODO - middle button to show bullet count (0-5)
             if opts[Opts.AMMO.value] == 5:
@@ -332,5 +332,5 @@ class Joust(Game):
     # @Override
     # Return a random number between 2 and 20 seconds
     @classmethod
-    def get_revive_time(cls, move, team, opts):
+    def get_revive_time(cls, state, team, opts):
         return random.randint(2, 10)

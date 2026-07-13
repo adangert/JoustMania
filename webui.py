@@ -8,6 +8,7 @@ import common, colors
 import json
 import yaml
 import logging
+import psmove_dbus
 
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
@@ -69,6 +70,7 @@ class WebUI():
         self.app.add_url_rule('/killgame','kill_game',self.kill_game)
         self.app.add_url_rule('/updateStatus','update',self.update)
         self.app.add_url_rule('/battery','battery_status',self.battery_status)
+        self.app.add_url_rule('/debug/controllers','controller_debug',self.controller_debug)
         self.app.add_url_rule('/settings','settings',self.settings, methods=['GET','POST'])
         self.app.add_url_rule('/rand<num_teams>','randomize',self.randomize_teams)
         self.app.add_url_rule('/power','power',self.power)
@@ -116,7 +118,40 @@ class WebUI():
 
     #@app.route('/battery')
     def battery_status(self):
-        return render_template('battery.html',ns=self.ns,levels=common.battery_levels)
+        return self.controller_debug()
+
+    def controller_debug(self):
+        controllers = psmove_dbus.get_registered_controllers()
+        battery_status = {
+            str(address).upper(): level
+            for address, level in dict(self.ns.battery_status).items()
+        }
+        out_moves = {
+            str(address).upper(): value
+            for address, value in dict(getattr(self.ns, 'out_moves', {})).items()
+        }
+
+        for controller in controllers:
+            address = controller['address'].upper()
+            battery = battery_status.get(address)
+            controller['status'] = (
+                'Connected' if controller['connected']
+                else 'Paired, not connected'
+            )
+            controller['battery'] = common.battery_levels.get(battery, 'Unknown')
+            controller['battery_code'] = battery
+            controller['active'] = (
+                None if address not in out_moves else out_moves[address] == 0
+            )
+
+        controllers.sort(
+            key=lambda controller: (
+                not controller['connected'],
+                controller['adapter'],
+                controller['address'],
+            )
+        )
+        return render_template('controller_debug.html', controllers=controllers)
 
     #@app.route('/power')
     def power(self):

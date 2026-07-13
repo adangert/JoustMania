@@ -264,11 +264,12 @@ class Joust(Game):
     Override track_move functions
     '''
     @classmethod
-    def pre_game_loop(cls, move, team, opts):
+    def pre_game_loop(cls, controller, team, opts):
         # Loop while the intro is still playing to capture move inputs
         while opts[Opts.INTRO.value] == Intro.ON.value:
-            if move.poll():
-                button = Button(move.get_buttons())
+            state = controller.read_update()
+            if state is not None:
+                button = Button(state.buttons)
                 # Only allow players to ready after commander is selected
                 if button == Button.MIDDLE and not opts[Opts.HOLDING.value] and opts[Opts.COMMANDER_SET.value]:
                     opts[Opts.SELECTION.value] = Selection.PLAYER_READY.value
@@ -277,12 +278,11 @@ class Joust(Game):
                     opts[Opts.SELECTION.value] = Selection.COMMANDER_READY.value
                     opts[Opts.HOLDING.value] = True
                 elif not opts[Opts.IS_COMMANDER.value] and opts[Opts.HOLDING.value]:
-                    move.set_leds(200, 200, 200)
+                    controller.set_color(200, 200, 200)
                 elif opts[Opts.IS_COMMANDER.value] and opts[Opts.HOLDING.value]:
-                    move.set_leds(*CURRENT_COMMANDER_COLORS[team].value)
+                    controller.set_color(*CURRENT_COMMANDER_COLORS[team].value)
                 else:
-                    move.set_leds(*COMMANDER_COLORS[team].value)
-            move.update_leds()
+                    controller.set_color(*COMMANDER_COLORS[team].value)
             time.sleep(INTRO_POLL_SLEEP_SECS)
 
         opts[Opts.HOLDING.value] = False
@@ -308,14 +308,14 @@ class Joust(Game):
     # @Override
     # Set opts for commander
     @classmethod
-    def handle_opts(cls, move, team, opts, dead_move):
+    def handle_opts(cls, state, team, opts, dead_move, updated=False):
         if opts[Opts.IS_COMMANDER.value] and opts[Opts.OVERDRIVE.value] == Overdrive.READY.value:
             # Unset values
-            if move.get_buttons() == 0 and move.get_trigger() < 10:
+            if state.buttons == 0 and state.trigger < 10:
                 opts[Opts.HOLDING.value] = False
 
             # Press trigger for overdrive
-            if opts[Opts.OVERDRIVE.value] == Overdrive.READY.value and not opts[Opts.HOLDING.value] and move.get_trigger() > 100:
+            if opts[Opts.OVERDRIVE.value] == Overdrive.READY.value and not opts[Opts.HOLDING.value] and state.trigger > 100:
                 logger.debug("Trying to trigger overdrive")
                 opts[Opts.SELECTION.value] = Selection.TRIGGER.value
                 opts[Opts.HOLDING.value] = True
@@ -328,7 +328,7 @@ class Joust(Game):
     # @Override
     # Return team color based on overdrive and commander status
     @classmethod
-    def handle_team_color(cls, move, team, opts, team_color):
+    def handle_team_color(cls, state, team, opts, team_color):
         if not opts[Opts.IS_COMMANDER.value]:
             if opts[Opts.OVERDRIVE.value] == Overdrive.ACTIVE.value:
                 return OVERDRIVE_COLORS[team].value
@@ -338,7 +338,7 @@ class Joust(Game):
             return cls.calculate_flash_time(*CURRENT_COMMANDER_COLORS[team].value, opts[Opts.POWER_PERCENT.value] / 100)
 
     @classmethod
-    def get_revive_time(cls, move, team, opts):
+    def get_revive_time(cls, state, team, opts):
         # 8s + 2 for every death, with a max of 25s
         return min(2 * opts[Opts.DEATHS.value] + 8, 25)
 

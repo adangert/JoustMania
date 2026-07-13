@@ -1,4 +1,4 @@
-import psmove
+import controller_manager
 import common, colors, webui
 from colors import Colors
 from common import Button, Games, Status, Sensitivity
@@ -8,13 +8,14 @@ from datetime import datetime
 from piaudio import Music, Audio, InitAudio
 from enum import Enum
 from multiprocessing import Process, Value, Array, Queue, Manager, freeze_support
-from games import joust_ffa, joust_teams, joust_random_teams, joust_non_stop, traitor, werewolf, ffa, zombie, commander, swapper, tournament, speed_bomb, fight_club
+from games import joust_ffa, joust_teams, joust_random_teams, joust_non_stop, traitor, werewolf, zombie, commander, swapper, tournament, speed_bomb, fight_club
 from sys import platform
 from dotenv import find_dotenv, load_dotenv
 import logging.config
 import setproctitle
 
 if platform == "linux" or platform == "linux2":
+    import dbus
     import jm_dbus
     import pair
 elif "win" in platform:
@@ -80,10 +81,9 @@ class Selections(Enum):
     FORCE_START_GAME = 11       # force start (from admin move)
 
 # Process running for each move to track that move while in the menu
-def track_move(serial, move_num, move, menu_opts, force_color, battery, dead_count, restart, menu, kill_proc):
+def track_move(serial, move_num, controller, menu_opts, force_color, battery, dead_count, restart, menu, kill_proc):
     # Set up move color
-    move.set_leds(0,0,0) # Turn move to black
-    move.update_leds()
+    controller.set_color(0, 0, 0)
     random_color = random.random()
     force_start_timer = 0
 
@@ -91,16 +91,16 @@ def track_move(serial, move_num, move, menu_opts, force_color, battery, dead_cou
         if(restart.value == 1 or menu.value == 0 or kill_proc.value):
             return # Stop tracking move if restarting, exiting menu, or kill_procedures
 
-        # If there is a new event from the move
-        if move.poll():
+        state = controller.read_update()
+        if state is not None:
 
             game_mode = Games(menu_opts[Opts.GAME_MODE.value]) # Set local game_mode to controller game_mode
-            move_button = Button(move.get_buttons()) # Map move button to comm.Button
-            battery_level = move.get_battery() # Get battery level
+            move_button = Button(state.buttons)
+            battery_level = state.battery
             move_color = Colors.White.value
 
             # Set this move charging parameter to charging status
-            if battery_level == psmove.Batt_CHARGING or battery_level == psmove.Batt_CHARGING_DONE:
+            if battery_level in (common.Battery.CHARGING, common.Battery.CHARGED):
                 menu_opts[Opts.CHARGING.value] = True
             else:
                 menu_opts[Opts.CHARGING.value] =  False
@@ -126,25 +126,23 @@ def track_move(serial, move_num, move, menu_opts, force_color, battery, dead_cou
 
                 # Show battery level
                 if battery.value == 1: # If batteries have been toggled
-                    battery_level = move.get_battery() #TODO - Getting this a second time?
-
                     # Granted a charging move should be dead, so it won't light up anyway
-                    if battery_level == psmove.Batt_CHARGING:
+                    if battery_level == common.Battery.CHARGING:
                         move_color = Colors.White20.value
 
-                    elif battery_level == psmove.Batt_CHARGING_DONE:
+                    elif battery_level == common.Battery.CHARGED:
                         move_color = Colors.White.value
 
-                    elif battery_level == psmove.Batt_MAX:
+                    elif battery_level == common.Battery.MAX:
                         move_color = Colors.Green.value
 
-                    elif battery_level == psmove.Batt_80Percent:
+                    elif battery_level == common.Battery.PERCENT_80:
                         move_color = Colors.Turquoise.value
 
-                    elif battery_level == psmove.Batt_60Percent:
+                    elif battery_level == common.Battery.PERCENT_60:
                         move_color = Colors.Blue.value
 
-                    elif battery_level == psmove.Batt_40Percent:
+                    elif battery_level == common.Battery.PERCENT_40:
                         move_color = Colors.Yellow.value
 
                     else : # under 40% - you should charge it!
@@ -240,7 +238,7 @@ def track_move(serial, move_num, move, menu_opts, force_color, battery, dead_cou
                 # If not holding buttons
                 if not menu_opts[Opts.HOLDING.value]:
                     # If trigger fully pressed
-                    if move.get_trigger() > 100:
+                    if state.trigger > 100:
                         # Mark trying to start the game and marking button is being held
                         menu_opts[Opts.SELECTION.value] = Selections.START_GAME.value
                         menu_opts[Opts.HOLDING.value] = True
@@ -295,12 +293,10 @@ def track_move(serial, move_num, move, menu_opts, force_color, battery, dead_cou
                     move_color = colors.darken_color(move_color, .95)
 
                 # If trigger is no longer being held, reset the start
-                if menu_opts[Opts.HOLDING.value] == True and move_button == Button.NONE and move.get_trigger() <= 100:
+                if menu_opts[Opts.HOLDING.value] == True and move_button == Button.NONE and state.trigger <= 100:
                     menu_opts[Opts.HOLDING.value] = False
                     # TODO - do you want to reset the force_start_timer?
-            move.set_leds(*move_color)
-        #Update colors
-        move.update_leds()
+            controller.set_color(*move_color)
         
         # Cap this polling loop without adding the larger latency that made menus sluggish.
         time.sleep(MENU_TRACK_SLEEP_SECS)
@@ -333,11 +329,11 @@ class Menu():
         else:
             self.git_hash = "0000000"
 
-        self.experimental = False # Testing new version of FFA
         self.dead_count = Value('i', 0) # Number of dead moves used in webui
 
         # All of the moves connected via BT or USB, moves connected via both will appear twice
-        self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
+        self.controller_manager = controller_manager.get_manager()
+        self.moves = self.controller_manager.connected_controllers()
 
         self.move_count = self.get_move_count() # Number of connected moves used in webui
 
@@ -346,7 +342,7 @@ class Menu():
         self.paired_moves = [] # Moves paired via USB
         self.tracked_moves = {} # Moves that are currently tracked / have process spawned
         logger.debug("Number of moves: {}".format(len(self.moves)))
-        logger.debug("Moves serial: {}".format([move.get_serial() for move in self.moves]))
+        logger.debug("Moves serial: {}".format([move.serial for move in self.moves]))
         self.random_added = [] # Added to a random team yet TODO - confirm
         self.rand_game_list = [] # List of random games
         self.show_battery = Value('i', 0) # Shared variable across all move processes to control whether to display battery status
@@ -390,19 +386,24 @@ class Menu():
     def check_for_new_moves(self):
         self.enable_bt_scanning(True)
 
-        # Start tracking of new moves in here
-        if psmove.count_connected() != len(self.moves):
-            self.moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
-            if self.move_count > len(self.moves):
+        active_serials = set(self.controller_manager.connected_serials())
+        known_serials = {controller.serial for controller in self.moves}
+        if active_serials != known_serials:
+            self.moves = self.controller_manager.connected_controllers()
+            if known_serials - active_serials:
                 logger.debug("Move disconnected")
-            else:
+            if active_serials - known_serials:
                 logger.debug("Move connected")
             self.move_count = self.get_move_count()
 
     # Turn on bluetooth scanning
     def enable_bt_scanning(self, on=True):
         if platform == "linux" or platform == "linux2":
-            bt_hcis = list(jm_dbus.get_hci_dict().keys())
+            try:
+                bt_hcis = list(jm_dbus.get_hci_dict().keys())
+            except dbus.exceptions.DBusException as error:
+                logger.warning("Bluetooth is temporarily unavailable: %s", error)
+                return
 
             for hci in bt_hcis:
                 for attempt in range(1):
@@ -410,7 +411,6 @@ class Menu():
                         if jm_dbus.enable_adapter(hci):
                             self.pair.update_adapters()
                         if on:
-                            jm_dbus.enable_pairable(hci)
                             jm_dbus.enable_pairable(hci)
                         else:
                             jm_dbus.disable_pairable(hci)
@@ -424,20 +424,26 @@ class Menu():
                     break
 
     # Pair USB move
-    def pair_usb_move(self, move):
-        move_serial = move.get_serial()
+    def pair_usb_move(self, controller):
+        move_serial = controller.serial
         if move_serial not in self.tracked_moves:
-            if move.connection_type == psmove.Conn_USB:
+            if controller.usb and not controller.bluetooth:
                 if move_serial not in self.paired_moves:
                     logger.debug("Pairing USB move: {}".format(move_serial))
-                    self.pair.pair_move(move)
-                    move.set_leds(255,255,255)
-                    move.update_leds()
-                    self.paired_moves.append(move_serial)
+                    if self.pair.pair_move(controller):
+                        controller.set_color(255, 255, 255)
+                        controller.set_rumble(0)
+                        time.sleep(1.5)
+                        controller.set_color(0, 0, 0)
+                        self.paired_moves.extend([
+                            candidate.serial
+                            for candidate in self.moves
+                            if candidate.usb and candidate.serial not in self.paired_moves
+                        ])
 
     # Pair Bluetooth move
-    def pair_move(self, move, move_num):
-        move_serial = move.get_serial()
+    def pair_move(self, controller, move_num):
+        move_serial = controller.serial
         #If move is not already being tracked
         if move_serial not in self.tracked_moves:
             logger.debug("Pairing BT move: {}".format(move_serial))
@@ -474,7 +480,7 @@ class Menu():
             proc = Process(target= controller_process.main_track_move, args=(self.menu, self.restart, move_serial, move_num, menu_opts, game_opts, color, self.show_battery, \
                                                                              self.dead_count, self.controller_game_mode, team, team_color_enum, sensitivity, dead_move, \
                                                                              invincible_move, self.music_speed, self.show_team_colors, self.red_on_kill, \
-                                                                             self.revive, kill_proc))
+                                                                             self.revive, kill_proc, self.controller_manager))
 
             proc.start()
 
@@ -489,7 +495,7 @@ class Menu():
             self.dead_moves[move_serial] = dead_move
             self.invincible_moves[move_serial] = invincible_move
             self.kill_controller_proc[move_serial] = kill_proc
-            self.out_moves[move.get_serial()] = Status.ALIVE.value #Set this move as alive
+            self.out_moves[controller.serial] = Status.ALIVE.value #Set this move as alive
 
     def remove_controller(self, move_serial):
         if (move_serial not in self.kill_controller_proc):
@@ -672,18 +678,18 @@ class Menu():
                 self.menu_music.load_audio("audio/Menu/music/*")
                 self.menu_music.start_audio_loop()
             self.i = self.i + 1 # Track loop counter
-            if psmove.count_connected() > len(self.tracked_moves):
-                for move_num, move in enumerate(self.moves):
+            if self.controller_manager.count_connected() > len(self.tracked_moves):
+                for move_num, controller in enumerate(self.moves):
                     # If move is connected via USB, pair it
-                    if move.connection_type == psmove.Conn_USB:
-                        self.pair_usb_move(move)
-                    # If move is connected via BT, pair it
-                    elif move.connection_type != psmove.Conn_USB:
-                        self.pair_move(move, move_num)
+                    if controller.usb and not controller.bluetooth:
+                        self.pair_usb_move(controller)
+                    # Track controllers that can provide Bluetooth input.
+                    elif controller.bluetooth:
+                        self.pair_move(controller, move_num)
             # If the number of tracked moves is greater than the connected ones
             # kill the tracked moves no longer connected
             elif(len(self.tracked_moves) > len(self.moves)):
-                connected_serials = [x.get_serial() for x in self.moves]
+                connected_serials = [controller.serial for controller in self.moves]
                 tracked_serials = self.tracked_moves.keys()
                 keys_to_kill = []
                 for serial in tracked_serials:
@@ -943,9 +949,8 @@ class Menu():
         }
 
         battery_status = {}
-        for move in self.moves:
-            move.poll()
-            battery_status[move.get_serial()] = move.get_battery()
+        for controller in self.moves:
+            battery_status[controller.serial] = controller.battery
 
         self.ns.battery_status = battery_status
         self.ns.out_moves = self.out_moves
@@ -1014,7 +1019,7 @@ class Menu():
 
     # Get all moves, deduplicating serials
     def get_move_count(self):
-        return len(set([move.get_serial() for move in self.moves]))
+        return len({controller.serial for controller in self.moves})
 
     # Set a move to ready
     def ready_move(self, move):
@@ -1026,9 +1031,9 @@ class Menu():
     # Moves that are available to start a game, use force_all_start = False if just wanting to see alive moves
     def get_ready_moves(self, force_all_start):
         if force_all_start:
-            return [move.get_serial() for move in self.moves if self.out_moves.get(move.get_serial(), Status.DEAD.value) == Status.ALIVE.value and move.get_serial() in self.menu_opts and (self.menu_opts[move.get_serial()])[Opts.RANDOM_START.value]  ]
+            return [move.serial for move in self.moves if self.out_moves.get(move.serial, Status.DEAD.value) == Status.ALIVE.value and move.serial in self.menu_opts and (self.menu_opts[move.serial])[Opts.RANDOM_START.value]  ]
         else:
-            return [move.get_serial() for move in self.moves if self.out_moves.get(move.get_serial(), Status.DEAD.value) == Status.ALIVE.value and move.get_serial() in self.menu_opts]
+            return [move.serial for move in self.moves if self.out_moves.get(move.serial, Status.DEAD.value) == Status.ALIVE.value and move.serial in self.menu_opts]
 
     # Get moves that are currently Alive (not charging)
     def get_game_moves(self):
@@ -1039,6 +1044,7 @@ class Menu():
         return {serial: self.menu_opts[serial][Opts.TEAM.value] for serial in self.tracked_moves.keys() if self.out_moves[serial] == Status.ALIVE.value}
 
     def start_game(self, random_mode=False):
+        random_mode = random_mode or self.game_mode == Games.Random
         self.enable_bt_scanning(False)
         time.sleep(1)
 
@@ -1053,7 +1059,7 @@ class Menu():
             logger.debug("Not enough players")
             return
 
-        for move in [move.get_serial() for move in self.moves if move.get_serial() not in game_moves]:
+        for move in [controller.serial for controller in self.moves if controller.serial not in game_moves]:
             logger.debug("We are removing controller from game: {}".format(move))
             self.remove_controller(move)
         try:
@@ -1093,18 +1099,12 @@ class Menu():
 
         # Joust FFA
         if self.game_mode == Games.JoustFFA:
-            if self.experimental:
-                logger.debug("Playing EXPERIMENTAL FFA Mode.")
-                moves = [ common.get_move(serial, num) for num, serial in enumerate(game_moves) ]
-                game = ffa.FreeForAll(moves, self.joust_music)
-                game.run_loop()
-            else:
-                joust_ffa.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns, red_on_kill=self.red_on_kill, \
-                                music=self.joust_music, teams=self.teams, game_mode=self.game_mode, \
-                                controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
-                                dead_moves=self.dead_moves, invincible_moves=self.invincible_moves, force_move_colors=self.force_color, \
-                                music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
-                                revive=self.revive)
+            joust_ffa.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns, red_on_kill=self.red_on_kill, \
+                            music=self.joust_music, teams=self.teams, game_mode=self.game_mode, \
+                            controller_teams=self.controller_teams, controller_colors=self.controller_colors, \
+                            dead_moves=self.dead_moves, invincible_moves=self.invincible_moves, force_move_colors=self.force_color, \
+                            music_speed=self.music_speed, show_team_colors=self.show_team_colors, restart=self.restart, \
+                            revive=self.revive)
         # Joust Teams
         elif self.game_mode == Games.JoustTeams:
             joust_teams.Joust(moves=game_moves, command_queue=self.command_queue, ns=self.ns, red_on_kill=self.red_on_kill, \
@@ -1218,7 +1218,7 @@ class Menu():
 
     def retrack_removed_controllers(self, game_moves):
         self.check_for_new_moves()
-        for move_serial in [move.get_serial() for move in self.moves if move.get_serial() not in game_moves]:
+        for move_serial in [controller.serial for controller in self.moves if controller.serial not in game_moves]:
             #This allows joustmania to re-find the removed controller
             if move_serial in self.tracked_moves.keys():
                 del self.tracked_moves[move_serial]

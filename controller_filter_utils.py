@@ -1,6 +1,5 @@
 import asyncio
-import psmove
-import player
+import controller_manager
 import piparty
 import math
 #import filterpy
@@ -53,9 +52,11 @@ def Normalize(v):
     m = VecLen(v)
     return tuple([ e / m for e in v ])
 
-async def Loop(plr,q):
+async def Loop(move_controller, q):
     print("Acceleration   Jerk    Gyro")
     dt = 0.05
+    previous_acceleration = None
+    previous_time = None
     # rk = ExtendedKalmanFilter(dim_x=12,dim_z=6)
     #initial starting values
     #we care about linear acceleration.
@@ -125,21 +126,31 @@ async def Loop(plr,q):
 
 
     while True:
-        #we could try just changing this to the change in jerk over time (smoothed out?)
-        for event in plr.get_events():
-            if event.type != player.EventType.SENSOR:
+        state = move_controller.read_update()
+        if state is not None:
+            now = time.monotonic()
+            if previous_acceleration is None:
+                previous_acceleration = state.acceleration
+                previous_time = now
                 continue
-            
+            elapsed = now - previous_time
+            jerk = tuple(
+                (current - previous) / elapsed
+                for current, previous in zip(state.acceleration, previous_acceleration)
+            )
+            previous_acceleration = state.acceleration
+            previous_time = now
+
             print('acc:|%s| = %+.02f    jerk:|%s| = %+7.02f      gyro:|%s| = %+2.02f\n'  % (
-                FormatVec(event.acceleration),
-                event.acceleration_magnitude,
-                FormatVec(event.jerk, 7),
-                event.jerk_magnitude,
-                FormatVec(event.gyroscope),
-                VecLen(event.gyroscope)), end='')
-            disp_tup = ( float(event.acceleration_magnitude), event.acceleration[0], event.acceleration[1], event.acceleration[2],
-                VecLen(event.gyroscope), event.gyroscope[0], event.gyroscope[1], event.gyroscope[2],
-                event.jerk_magnitude, event.jerk[0],event.jerk[1],event.jerk[2])
+                FormatVec(state.acceleration),
+                VecLen(state.acceleration),
+                FormatVec(jerk, 7),
+                VecLen(jerk),
+                FormatVec(state.gyroscope),
+                VecLen(state.gyroscope)), end='')
+            disp_tup = (float(VecLen(state.acceleration)), state.acceleration[0], state.acceleration[1], state.acceleration[2],
+                VecLen(state.gyroscope), state.gyroscope[0], state.gyroscope[1], state.gyroscope[2],
+                VecLen(jerk), jerk[0], jerk[1], jerk[2])
             q.put(disp_tup)
             # q.put(float(event.acceleration_magnitude))
             
@@ -252,10 +263,11 @@ def Main():
     p.start()
     # piparty.Menu.enable_bt_scanning()
     
-    move = psmove.PSMove(0)
-    # move.enable_orientation(True)
-    p1 = player.Player(move)
-    asyncio.get_event_loop().run_until_complete(Loop(p1,q))
+    controllers = controller_manager.get_manager().connected_controllers()
+    if not controllers:
+        raise RuntimeError("No PS Move controllers are connected")
+    move_controller = controllers[0]
+    asyncio.get_event_loop().run_until_complete(Loop(move_controller, q))
     p.join()
 
 if __name__ == '__main__':

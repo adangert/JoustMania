@@ -1,4 +1,4 @@
-import psmove
+import controller_manager
 import os
 
 from sys import platform
@@ -71,11 +71,5 @@ class Pair():
         #         return dev
         # return ''
 
-    def pair_move(self, move):
-        result = move.pair()
-        return result
-        # if move and move.get_serial():
-        #     if move.connection_type == psmove.Conn_USB:
-        #         self.pre_existing_devices()
-        #         if self.check_if_not_paired(move.get_serial().upper()):
-        #             move.pair_custom(self.get_lowest_bt_device())
+    def pair_move(self, move_controller):
+        return controller_manager.pair_controller(None)

@@ -26,18 +26,16 @@ setup() {
         libsdl-image1.2-dev libsdl-ttf2.0-dev \
         libblas-dev liblapack-dev \
         bluez bluez-tools iptables rfkill supervisor cmake ffmpeg \
-        libudev-dev swig libbluetooth-dev \
+        libudev-dev libbluetooth-dev \
         alsa-utils alsa-tools libasound2-dev libsdl2-mixer-2.0-0 \
         python-dbus-dev python3-dbus libdbus-glib-1-dev usbutils libopenblas-dev \
         python3-pyaudio python3-psutil python3-setproctitle || exit -1
 
     echo "Installing PS move A.P.I. software updates"
-    #install components for psmoveapi
+    # Install components for the controller-only PSMove API build.
     sudo apt-get install -y \
         build-essential \
-        libv4l-dev libopencv-dev \
-        libudev-dev libbluetooth-dev \
-        libusb-dev || exit -1
+        libudev-dev libbluetooth-dev libdbus-1-dev || exit -1
 
     echo "Installing software libraries"
     VENV=$HOMEDIR/JoustMania/venv
@@ -66,24 +64,19 @@ setup() {
     $PYTHON -m pip install --ignore-installed --only-binary ":all:" pygame || exit -1
 
     echo "downloading PS move API"
-    #install psmoveapi (currently adangert's for opencv 3 support)
+    # Track upstream master. JoustMania uses its supported ctypes binding.
     rm -rf psmoveapi
     git clone --recursive https://github.com/thp/psmoveapi.git || exit -1
     cd psmoveapi || exit -1
-    git checkout 8a1f8d035e9c82c5c134d848d9fbb4dd37a34b58 || exit -1
 
     echo "compiling PS move API components"
-    mkdir build
+    mkdir -p build
     cd build
     cmake .. \
-        -DPSMOVE_BUILD_CSHARP_BINDINGS:BOOL=OFF \
-        -DPSMOVE_BUILD_EXAMPLES:BOOL=OFF \
-        -DPSMOVE_BUILD_JAVA_BINDINGS:BOOL=OFF \
-        -DPSMOVE_BUILD_OPENGL_EXAMPLES:BOOL=OFF \
-        -DPSMOVE_BUILD_PROCESSING_BINDINGS:BOOL=OFF \
-        -DPSMOVE_BUILD_TESTS:BOOL=OFF \
-        -DPSMOVE_BUILD_TRACKER:BOOL=OFF \
-        -DPSMOVE_USE_PSEYE:BOOL=OFF || exit -1
+        -DPSMOVE_BUILD_EXAMPLES=OFF \
+        -DPSMOVE_BUILD_NAVCON_TEST=OFF \
+        -DPSMOVE_BUILD_TRACKER=OFF \
+        -DPSMOVE_USE_SIXPAIR=OFF || exit -1
     make -j4 || exit -1
     
     CONFIG_DIR="/etc/supervisor/conf.d"

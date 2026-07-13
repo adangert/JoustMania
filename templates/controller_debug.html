@@ -1,0 +1,67 @@
+{% extends "basic.html" %}
+
+{% block header %}
+<style>
+.connected { background-color: #80ff80; }
+.disconnected { background-color: #eee; }
+.batt5 { background-color: #80ff80; }
+.batt4 { background-color: cyan; }
+.batt3 { background-color: #0080ff; }
+.batt2 { background-color: yellow; }
+.batt1, .batt0 { background-color: red; }
+.batt238 { background-color: gray; }
+.batt239 { background-color: lightgray; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="info_box">
+    <h2>Controller Status</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Status</th>
+                <th>Battery</th>
+                <th>Active</th>
+                <th>Adapter</th>
+                <th>Adapter Address</th>
+                <th>Controller</th>
+                <th>Model</th>
+                <th>Registered</th>
+                <th>Loaded</th>
+                <th>BlueZ Paired</th>
+                <th>Connected</th>
+                <th>Trusted</th>
+                <th>Services</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for controller in controllers %}
+            <tr>
+                <td class="{% if controller.connected %}connected{% else %}disconnected{% endif %}">{{ controller.status }}</td>
+                <td{% if controller.battery_code is not none %} class="batt{{ controller.battery_code }}"{% endif %}>{{ controller.battery }}</td>
+                <td>{% if controller.active is none %}Unknown{% elif controller.active %}Yes{% else %}No{% endif %}</td>
+                <td>{{ controller.adapter }}</td>
+                <td>{{ controller.adapter_address }}</td>
+                <td>{{ controller.address }}</td>
+                <td>{{ controller.model }}</td>
+                <td>Yes</td>
+                <td>{% if controller.loaded %}Yes{% else %}No{% endif %}</td>
+                <td>{% if controller.paired %}Yes{% else %}No{% endif %}</td>
+                <td>{% if controller.connected %}Yes{% else %}No{% endif %}</td>
+                <td>{% if controller.trusted %}Yes{% else %}No{% endif %}</td>
+                <td>{% if controller.services_resolved %}Ready{% else %}Not ready{% endif %}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="13">No PS Move controllers are registered.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <p><a href="/debug/controllers"><button type="button">Refresh</button></a>
+    <a href="/"><button type="button">Go Back</button></a></p>
+</div>
+{% endblock %}

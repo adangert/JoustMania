@@ -1,11 +1,11 @@
-import psmove
+import controller_manager
 import colorsys
 import time
 from math import sqrt
 from multiprocessing import Process, Queue
 from time import sleep
 
-moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
+connections = controller_manager.get_manager().connected_controllers()
 
 colors = ['FF0000','FF8000','FFFF00','80FF00','00FF00','00FF80','00FFFF','0080FF','0000FF','8000FF','FF00FF','FF0080']
 
@@ -18,13 +18,12 @@ def colorhex(hex):
 colors = [colorhex(x) for x in colors]
 
 def color_proc(q,):
-    moves = [psmove.PSMove(x) for x in range(psmove.count_connected())]
+    connections = controller_manager.get_manager().connected_controllers()
     while True:
         while not q.empty():
             colors = q.get()
-        for move,color in zip(moves,colors):
-            move.set_leds(*color)
-            move.update_leds()
+        for connection, color in zip(connections, colors):
+            connection.set_color(*color)
         sleep(.25)
 
 q = Queue()
@@ -44,5 +43,3 @@ while True:
     q.put(colors)
     for move,color in zip(moves,colors):
         print("MOVE ID: %s, COLOR %s" % (move.get_serial(),str(color)))
-        #move.set_leds(255,255,255)
-        #move.update_leds()

@@ -183,7 +183,7 @@ class Joust(Game):
 
     # Return white for waiting players
     @classmethod
-    def handle_team_color(cls, move, team, opts, team_color):
+    def handle_team_color(cls, state, team, opts, team_color):
         if team == -1:
             return 100, 100, 100
         return team_color

@@ -1,28 +1,11 @@
-import asyncio
-from enum import Enum, Flag
-import functools
-import psmove
+from enum import Enum, Flag, IntEnum
+import psmoveapi
 import time
-import traceback
 import logging
 
 logger = logging.getLogger(__name__)
 
 SETTINGSFILE = 'joustsettings.yaml'
-
-def get_move(serial, move_num):
-    time.sleep(0.02)
-    move = psmove.PSMove(move_num)
-    time.sleep(0.05)
-    if move.get_serial() != serial:
-        for move_num in range(psmove.count_connected()):
-            move = psmove.PSMove(move_num)
-            if move.get_serial() == serial:
-                print("returning " +str(move.get_serial()))
-                return move
-        return None
-    else:
-        return move
 
 def lerp(a, b, p):
     return a * (1 - p) + b * p
@@ -100,32 +83,45 @@ def get_game_name(value):
 class Button(Flag):
     NONE     = 0
 
-    TRIANGLE = psmove.Btn_TRIANGLE
-    CIRCLE   = psmove.Btn_CIRCLE
-    CROSS    = psmove.Btn_CROSS
-    SQUARE   = psmove.Btn_SQUARE
+    TRIANGLE = psmoveapi.Button.TRIANGLE
+    CIRCLE   = psmoveapi.Button.CIRCLE
+    CROSS    = psmoveapi.Button.CROSS
+    SQUARE   = psmoveapi.Button.SQUARE
 
-    SELECT   = psmove.Btn_SELECT
-    START    = psmove.Btn_START
+    SELECT   = psmoveapi.Button.SELECT
+    START    = psmoveapi.Button.START
 
-    SYNC     = psmove.Btn_PS
-    MIDDLE   = psmove.Btn_MOVE
-    TRIGGER  = psmove.Btn_T
+    SYNC     = psmoveapi.Button.PS
+    MIDDLE   = psmoveapi.Button.MOVE
+    TRIGGER  = psmoveapi.Button.T
 
     SHAPES   = TRIANGLE | CIRCLE | CROSS | SQUARE
     UPDATE   = SELECT | START
 
 all_shapes = [Button.TRIANGLE, Button.CIRCLE, Button.CROSS, Button.SQUARE]
 
+
+class Battery(IntEnum):
+    """Battery values defined by the upstream PSMove API C interface."""
+
+    MIN = 0x00
+    PERCENT_20 = 0x01
+    PERCENT_40 = 0x02
+    PERCENT_60 = 0x03
+    PERCENT_80 = 0x04
+    MAX = 0x05
+    CHARGING = 0xEE
+    CHARGED = 0xEF
+
 battery_levels = {
-    psmove.Batt_MIN:           "Low",
-    psmove.Batt_20Percent:     "20%",
-    psmove.Batt_40Percent:     "40%",
-    psmove.Batt_60Percent:     "60%",
-    psmove.Batt_80Percent:     "80%",
-    psmove.Batt_MAX:           "100%",
-    psmove.Batt_CHARGING:      "Charging",
-    psmove.Batt_CHARGING_DONE: "Charged",
+    Battery.MIN:           "Low",
+    Battery.PERCENT_20:    "20%",
+    Battery.PERCENT_40:    "40%",
+    Battery.PERCENT_60:    "60%",
+    Battery.PERCENT_80:    "80%",
+    Battery.MAX:           "100%",
+    Battery.CHARGING:      "Charging",
+    Battery.CHARGED:       "Charged",
 }
 
 # Common colors lifted from https://xkcd.com/color/rgb/
@@ -147,43 +143,6 @@ class Color(Enum):
     def rgb_bytes(self):
         v = self.value
         return  v >> 16, (v >> 8) & 0xff, v & 0xff
-
-# Red is reserved for warnings/knockouts.
-PLAYER_COLORS = [ c for c in Color if c not in (Color.RED, Color.WHITE, Color.BLACK) ]
-
-def async_print_exceptions(f):
-    """Wraps a coroutine to print exceptions (other than cancellations)."""
-    @functools.wraps(f)
-    async def wrapper(*args, **kwargs):
-        try:
-            await f(*args, **kwargs)
-        except asyncio.CancelledError:
-            raise
-        except:
-            traceback.print_exc()
-            raise
-    return wrapper
-
-# Represents a pace the game is played at, encapsulating the tempo of the music as well
-# as controller sensitivity.
-class GamePace:
-    __slots__ = ['tempo', 'warn_threshold', 'death_threshold']
-    def __init__(self, tempo, warn_threshold, death_threshold):
-        self.tempo = tempo
-        self.warn_threshold = warn_threshold
-        self.death_threshold = death_threshold
-
-    def __str__(self):
-        return '<GamePace tempo=%s, warn=%s, death=%s>' % (self.tempo, self.warn_threshold, self.death_threshold)
-
-# TODO: These are placeholder values.
-# We can't take the values from joust.py, since those are compared to the sum of the
-# three accelerometer dimensions, whereas we compute the magnitude of the acceleration
-# vector.
-SLOW_PACE = GamePace(tempo=0.4, warn_threshold=2, death_threshold=4)
-MEDIUM_PACE = GamePace(tempo=1.0, warn_threshold=3, death_threshold=5)
-FAST_PACE = GamePace(tempo=1.5, warn_threshold=5, death_threshold=9)
-FREEZE_PACE = GamePace(tempo=0, warn_threshold=1.1, death_threshold=1.2)
 
 REQUIRED_SETTINGS = [
     'play_audio',

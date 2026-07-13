@@ -13,5 +13,6 @@ fi
 HOMENAME=`who | head -n1 | cut -d " " -f1`
 
 export HOME="/home/$HOMENAME/JoustMania"
-export PYTHONPATH="/home/$HOMENAME/psmoveapi/build/"
+export PSMOVEAPI_LIBRARY_PATH="/home/$HOMENAME/psmoveapi/build"
+export PYTHONPATH="/home/$HOMENAME/psmoveapi/bindings/python"
 /home/$HOMENAME/JoustMania/venv/bin/python3 /home/$HOMENAME/JoustMania/webui.py

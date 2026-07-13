@@ -10,5 +10,6 @@ fi
 HOMENAME=`who | head -n1 | cut -d " " -f1`
 
 export HOME="/root"
-export PYTHONPATH="/home/$HOMENAME/psmoveapi/build/"
+export PSMOVEAPI_LIBRARY_PATH="/home/$HOMENAME/psmoveapi/build"
+export PYTHONPATH="/home/$HOMENAME/psmoveapi/bindings/python"
 exec /home/$HOMENAME/JoustMania/venv/bin/python3 /home/$HOMENAME/JoustMania/piparty.py

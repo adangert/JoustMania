@@ -8,5 +8,6 @@ fi
 #sets the username, supervisord does not have a login when running joustmania
 HOMENAME=`who | head -n1 | cut -d " " -f1`
 export HOME="/home/$HOMENAME/JoustMania"
-export PYTHONPATH="/home/$HOMENAME/psmoveapi/build/"
-exec /home/$HOMENAME/JoustMania/venv/bin/python3 /home/$HOMENAME/JoustMania/controller_util.py
+export PSMOVEAPI_LIBRARY_PATH="/home/$HOMENAME/psmoveapi/build"
+export PYTHONPATH="/home/$HOMENAME/psmoveapi/bindings/python"
+exec /home/$HOMENAME/JoustMania/venv/bin/python3 /home/$HOMENAME/JoustMania/controller_filter_utils.py

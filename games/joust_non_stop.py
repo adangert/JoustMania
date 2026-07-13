@@ -80,7 +80,7 @@ class Joust(Game):
         super().end_game_sound()
 
     @classmethod
-    def handle_opts(cls, move, team, opts, dead_move):
+    def handle_opts(cls, state, team, opts, dead_move, updated=False):
         if dead_move == Status.DIED.value:
             opts[Opts.DEATHS.value] = opts[Opts.DEATHS.value] + 1
 

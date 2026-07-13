@@ -82,7 +82,7 @@ class Colors(Enum):
     Green20 = (0,50,0)
     Blue40 = (0,0,100)
     LimeGreen = (100,255,0)
-    Zombie = (50,150,50)
+    Zombie = (40,190,40)
     Black = (0,0,0)
     #stay fresh
     SplatoonGreen = (30,220,0)

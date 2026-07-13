@@ -1,26 +1,19 @@
-import sys
-import os
-import time
-add_dir = '{}/../psmoveapi/build/'.format(os.getcwd())
-sys.path.insert(0, add_dir)
-import psmove
+import controller_manager
 import pair
 
 pairObj = pair.Pair()
 
 exit = False
 while not exit:
-	connected = psmove.count_connected()
+	manager = controller_manager.get_manager()
+	connected = manager.count_connected()
 	input("Connect Moves via USB and press Enter.\nOr disconnect all USB Moves and press Enter to quit.")
 	print("Moves connected: %d" % connected)
-	moves = [psmove.PSMove(x) for x in range(connected)]
+	connections = manager.connected_controllers()
 	exit = True
-	for move in moves:
-		print("Move %s connected via %s" % (move.get_serial(), ['Bluetooth','USB'][move.connection_type]))
-		move.poll()
-		print("Temperature is %d" % move.get_temperature())
-		if move.connection_type == psmove.Conn_USB:
-			pairObj.pair_move(move)
-			move.set_leds(100,100,100)
+	for connection in connections:
+		print("Move %s connected via USB=%s Bluetooth=%s" %
+			(connection.serial, connection.usb, connection.bluetooth))
+		if connection.usb and not connection.bluetooth:
+			pairObj.pair_move(connection)
 			exit = False
-			move.update_leds()

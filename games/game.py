@@ -7,7 +7,6 @@ from piaudio import Audio
 import numpy
 import random
 import logging
-import psmove
 from math import sqrt
 
 logger = logging.getLogger(__name__)
@@ -19,6 +18,7 @@ FAST_MUSIC_SPEED = 1.3
 # Small real sleeps cap CPU without the old 10-30ms gameplay lag.
 GAME_LOOP_SLEEP_SECS = 0.002
 MOVE_TRACK_SLEEP_SECS = 0.001
+DEATH_RUMBLE_SECS = 4
 
 # The min and max timeframe in seconds for
 # the speed change to trigger, randomly selected
@@ -45,7 +45,7 @@ class Game():
     FAST_WARNING = [1.4, 1.6, 1.9, 2.7, 2.8]
     FAST_MAX = [1.6, 1.8, 2.8, 3.2, 3.5]
 
-    def __init__(self, moves, command_queue, ns, red_on_kill, music, teams, game_mode, controller_teams, controller_colors, dead_moves, invincible_moves, force_move_colors, music_speed, show_team_colors, restart, revive, opts=[]):
+    def __init__(self, moves, command_queue, ns, red_on_kill, music, teams, game_mode, controller_teams, controller_colors, dead_moves, invincible_moves, force_move_colors, music_speed, show_team_colors, restart, revive, opts=None):
         logger.debug("Initializing {}".format(game_mode.pretty_name))
 
         # TODO - Document these variables
@@ -171,8 +171,16 @@ class Game():
             self.dead_moves[move_serial].value = Status.ALIVE.value
             self.invincible_moves[move_serial].value = False
             self.force_black(move_serial)
-            for i in range(len(self.opts)):
-                self.opts[move_serial][i] = 0
+            self.clear_move_opts(move_serial)
+
+    def clear_move_opts(self, move_serial):
+        if self.opts is None or not hasattr(self.opts, 'get'):
+            return
+        opts = self.opts.get(move_serial)
+        if opts is None:
+            return
+        for index in range(len(opts)):
+            opts[index] = 0
 
     # Black, but not completely black, so that force_colors is activated
     def force_black(self, move_serial):
@@ -347,8 +355,7 @@ class Game():
         self.restart.value = 1
         # Clear opts
         for move_serial in self.moves:
-            for i in range(len(self.opts)):
-                self.opts[move_serial][i] = 0
+            self.clear_move_opts(move_serial)
 
     def kill_game(self):
         try:
@@ -445,7 +452,7 @@ class Game():
         self.controller_colors[serial][2] = self.team_colors[self.teams[serial]].value[2]
 
     @classmethod
-    def pre_game_loop(cls, move, team, opts):
+    def pre_game_loop(cls, controller, team, opts):
         pass
 
     @classmethod
@@ -473,19 +480,19 @@ class Game():
         return common.lerp(cls.get_slow_max(team, opts)[sensitivity], cls.get_fast_max(team, opts)[sensitivity], speed_percent)
 
     @classmethod
-    def handle_opts(cls, move, team, opts, dead_move=None):
+    def handle_opts(cls, state, team, opts, dead_move=None, updated=False):
         return opts
 
     @classmethod
-    def handle_team_color(cls, move, team, opts, team_color):
+    def handle_team_color(cls, state, team, opts, team_color):
         return team_color
 
     @classmethod
-    def get_revive_time(cls, move, team, opts):
+    def get_revive_time(cls, state, team, opts):
         return 2
 
     @classmethod
-    def track_move(cls, move, team, team_color_enum, dead_move, invincible_move, force_color, \
+    def track_move(cls, controller, team, team_color_enum, dead_move, invincible_move, force_color, \
                    music_speed, show_team_colors, red_on_kill, restart, menu, sensitivity, revive, opts=None):
 
         no_rumble = time.time() + 2
@@ -495,15 +502,31 @@ class Game():
         flash_lights_timer = 0
         change = 0
         reviving = 0
+        status_rumbling = False
+        death_rumble_end = 0
+        state = None
 
-        cls.pre_game_loop(move, team.value, opts)
+        cls.pre_game_loop(controller, team.value, opts)
 
         while True:
             if menu.value == 1:
+                controller.set_rumble(0)
                 return
 
+            updated_state = controller.read_update()
+            if updated_state is not None:
+                state = updated_state
+
             if dead_move.value == Status.RUMBLE.value:
-                move.set_rumble(80)
+                controller.set_rumble(80)
+                status_rumbling = True
+            elif status_rumbling:
+                controller.set_rumble(0)
+                status_rumbling = False
+
+            if death_rumble_end and time.time() >= death_rumble_end:
+                controller.set_rumble(0)
+                death_rumble_end = 0
 
             # Have the controller flash and rumble while invincible
             if invincible_move.value:
@@ -511,34 +534,49 @@ class Game():
                 no_rumble = vibration_time
                 vibrate = True
 
+            # Warning output must expire even when no new controller state arrives.
+            vibration_ended = (
+                vibrate
+                and time.time() >= vibration_time
+                and dead_move.value == Status.ALIVE.value
+            )
+            if vibration_ended:
+                controller.set_rumble(0)
+                vibrate = False
+
             if restart.value == 1:
+                controller.set_rumble(0)
                 return
 
-            opts = cls.handle_opts(move=move, team=team.value, opts=opts, dead_move=dead_move.value)
-            team_color = cls.handle_team_color(move, team.value, opts, team_color_enum)
+            if state is not None:
+                opts = cls.handle_opts(
+                    state=state,
+                    team=team.value,
+                    opts=opts,
+                    dead_move=dead_move.value,
+                    updated=updated_state is not None,
+                )
+            team_color = cls.handle_team_color(state, team.value, opts, team_color_enum)
 
             if show_team_colors.value == 1:
-                move.set_leds(*team_color)
-                move.update_leds()
+                controller.set_color(*team_color)
             elif sum(force_color) != 0:
                 time.sleep(0.01)
-                move.set_leds(*force_color)
-                move.update_leds()
+                controller.set_color(*force_color)
                 no_rumble = time.time() + 0.5
-                move.set_rumble(0)
+                controller.set_rumble(0)
             elif dead_move.value == Status.DIED.value:
                 if red_on_kill.value:
-                    move.set_leds(*Colors.Red.value)
+                    controller.set_color(*Colors.Red.value)
                 else:
-                    move.set_leds(*Colors.Black.value)
-                move.set_rumble(90)
-                move.update_leds()
+                    controller.set_color(*Colors.Black.value)
+                controller.set_rumble(90)
+                death_rumble_end = time.time() + DEATH_RUMBLE_SECS
                 time.sleep(0.25) # Wait for death to process in main loop
                 dead_move.value = Status.DEAD.value
-                vibration_time = time.time() + 0.5
             elif dead_move.value == Status.ALIVE.value:
-                if move.poll():
-                    ax, ay, az = move.get_accelerometer_frame(psmove.Frame_SecondHalf)
+                if updated_state is not None:
+                    ax, ay, az = updated_state.acceleration
                     total = sqrt(sum([ax**2, ay**2, az**2]))
                     change = (change * 4 + total)/5
                     speed_percent = (music_speed.value - SLOW_MUSIC_SPEED)/(FAST_MUSIC_SPEED - SLOW_MUSIC_SPEED)
@@ -551,18 +589,18 @@ class Game():
                             flash_lights_timer = 0
                             flash_lights = not flash_lights
                         if flash_lights:
-                            move.set_leds(*Colors.White40.value)
+                            controller.set_color(*Colors.White40.value)
                         else:
-                            move.set_leds(*team_color)
+                            controller.set_color(*team_color)
 
                         if time.time() < vibration_time-0.25:
-                            move.set_rumble(90)
+                            controller.set_rumble(90)
                         else:
-                            move.set_rumble(0)
+                            controller.set_rumble(0)
                         if time.time() > vibration_time:
                             vibrate = False
                     else:
-                        move.set_leds(*team_color)
+                        controller.set_color(*team_color)
 
                     if reviving and not vibrate:
                         logger.debug("Revived")
@@ -578,22 +616,21 @@ class Game():
                         elif not vibrate and change > warning and time.time() > no_rumble:
                             vibrate = True
                             vibration_time = time.time() + 0.5
-                move.update_leds()
+                elif vibration_ended:
+                    controller.set_color(*team_color)
             elif revive.value and dead_move.value == Status.DEAD.value:
                 logger.debug("Reviving soon")
                 reviving = 1
-                no_rumble = time.time() + cls.get_revive_time(move, team.value, opts)
-                vibration_time = time.time() + cls.get_revive_time(move, team.value, opts)
+                no_rumble = time.time() + cls.get_revive_time(state, team.value, opts)
+                vibration_time = time.time() + cls.get_revive_time(state, team.value, opts)
                 vibrate = True
                 dead_move.value = Status.ALIVE.value
             elif dead_move.value == Status.ON.value:
-                move.set_leds(*team_color)
-                move.update_leds()
-                move.set_rumble(0)
+                controller.set_color(*team_color)
+                controller.set_rumble(0)
             elif dead_move.value == Status.OFF.value:
-                move.set_leds(*Colors.Black.value)
-                move.update_leds()
-                move.set_rumble(0)
+                controller.set_color(*Colors.Black.value)
+                controller.set_rumble(0)
                 
             # Keep controller tracking responsive while preventing a full busy-spin.
             time.sleep(MOVE_TRACK_SLEEP_SECS)

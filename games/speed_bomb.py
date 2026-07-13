@@ -290,7 +290,7 @@ class Joust(Game):
     Override track_move functions
     '''
     @classmethod
-    def handle_team_color(cls, move, team, opts, team_color):
+    def handle_team_color(cls, state, team, opts, team_color):
         fake_bomb_color = (0, 255, 0)
         if opts[Opts.LIVES.value] == 2:
             no_fake_bomb_color = (120, 255, 120)
@@ -331,14 +331,14 @@ class Joust(Game):
                 return bomb_color
 
     @classmethod
-    def handle_opts(cls, move, team, opts, dead_move=None):
-        if move.poll():
-            pressed, released = move.get_button_events()
-            trigger = move.get_trigger()
+    def handle_opts(cls, state, team, opts, dead_move=None, updated=False):
+        if updated:
+            pressed, released = state.pressed, state.released
+            trigger = state.trigger
             # If pressing a trigger or next button when being faked, kill the player
             if opts[Opts.FAKED.value] == Faked.ATTEMPT.value and not opts[Opts.HAS_BOMB.value] and \
                     (trigger > 50 or (pressed & common.Button.MIDDLE.value)):
-                logger.debug("Faked out: {}".format(move.get_serial()))
+                logger.debug("Faked out: {}".format(state.serial))
                 opts[Opts.FAKED.value] = Faked.FAKED.value
             # If pressing a trigger with bomb, start faking
             elif opts[Opts.HAS_BOMB.value] and trigger > 50:
@@ -349,20 +349,20 @@ class Joust(Game):
                     pressed & common.Button.TRIANGLE.value or \
                     pressed & common.Button.CIRCLE.value or \
                     pressed & common.Button.CROSS.value) and opts[Opts.FAKED.value] == Faked.ATTEMPT.value:
-                logger.debug("Pressed Counter Button: {}".format(move.get_serial()))
+                logger.debug("Pressed Counter Button: {}".format(state.serial))
                 opts[Opts.SELECTION.value] = Selection.COUNTER.value
             # If pressing counter while NOT being faked, die
             elif not opts[Opts.FAKED.value] == Faked.ATTEMPT.value and not opts[Opts.HAS_BOMB.value] and (pressed & common.Button.SQUARE.value or \
                                                     pressed & common.Button.CIRCLE.value or \
                                                     pressed & common.Button.CROSS.value):
-                logger.debug("Incorrectly pressed Counter Button: {}".format(move.get_serial()))
+                logger.debug("Incorrectly pressed Counter Button: {}".format(state.serial))
                 opts[Opts.FAKED.value] = Faked.FAKED.value
             # If pressing next with bomb, move bomb
             elif pressed & common.Button.MIDDLE.value and opts[Opts.HAS_BOMB.value]:
-                logger.debug("Pressed triangle button: {}".format(move.get_serial()))
+                logger.debug("Pressed triangle button: {}".format(state.serial))
                 opts[Opts.SELECTION.value] = Selection.NEXT_BUTTON.value
             elif released & common.Button.MIDDLE.value and trigger < 50:
-                logger.debug("Released button: {}".format(move.get_serial()))
+                logger.debug("Released button: {}".format(state.serial))
                 opts[Opts.SELECTION.value] = Selection.NOTHING.value
                 opts[Opts.HOLDING.value] = False
 

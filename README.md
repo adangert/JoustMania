@@ -67,6 +67,27 @@ If you would not like to turn off the internal bluetooth (this is not recommende
 
 You can now disconnect the hdmi cable and run JoustMania in headless mode. JoustMania will automatically boot up on restart, menu music should start playing once the pi boots up. Note audio will only play out of HDMI when plugged into a monitor, and only out of the audio jack when unpluged from a monitor.
 
+Windows development build
+---------------------------
+
+For the complete Windows development, controller, packaging, testing, and
+build workflow, see the
+[Windows development and build guide](docs/windows/README.md).
+
+The Windows build uses Python 3.13, PyInstaller, and an adjacent current
+`psmoveapi` checkout. Build `psmoveapi` into its `build-hotplug` directory,
+then run:
+
+```
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-windows.txt
+pwsh -ExecutionPolicy Bypass -File .\build_windows.ps1
+```
+
+The standalone one-folder output is created in `dist\piparty`. It includes
+the Python runtime, web templates and static files, audio, `psmoveapi.dll`,
+`psmove.exe`, and the Windows controller-reset executable.
+
 Update Joust Mania
 ---------------------------
 Joustmania will auto update when started and connected to the internet. Sometimes there is a large update, it will say so, then you can press the start and select buttons on a controller to start this update, wait until the pi reboots. If you have the AP enabled, you may need to disable it first to gain access to the internet.
@@ -91,6 +112,16 @@ sudo ./reset_psmove_connections.sh
 
 This stops JoustMania, removes only PlayStation Move controllers, and starts
 JoustMania again.
+
+On Windows, first stop JoustMania, then open an Administrator PowerShell in
+the JoustMania directory.
+
+```
+.\reset_psmove_connections.ps1
+```
+
+The Windows reset removes only Bluetooth devices named `Motion Controller`
+and their matching PS Move virtual-cable registry entries.
 
 To list registered Move controllers, their model, assigned adapter, saved
 pairing state, and current connection state, run:

@@ -1,16 +1,53 @@
+import os
+from pathlib import Path
+import sys
+
+
+if getattr(sys, "frozen", False):
+    APP_DIR = Path(sys.executable).resolve().parent
+    RUNTIME_DIR = Path(getattr(sys, "_MEIPASS", APP_DIR)).resolve()
+    os.environ.setdefault("PSMOVEAPI_LIBRARY_PATH", str(RUNTIME_DIR))
+    os.environ.setdefault("PSMOVEAPI_BINDINGS_PATH", str(RUNTIME_DIR))
+else:
+    APP_DIR = Path(__file__).resolve().parent
+    RUNTIME_DIR = APP_DIR
+    psmove_checkout = APP_DIR.parent / "psmoveapi"
+    psmove_bindings = psmove_checkout / "bindings" / "python"
+    psmove_build = psmove_checkout / "build-hotplug"
+    if not psmove_build.is_dir():
+        psmove_build = psmove_checkout / "build"
+    if psmove_bindings.is_dir():
+        sys.path.insert(0, str(psmove_bindings))
+        os.environ.setdefault("PSMOVEAPI_BINDINGS_PATH", str(psmove_bindings))
+    if psmove_build.is_dir():
+        os.environ.setdefault("PSMOVEAPI_LIBRARY_PATH", str(psmove_build))
+        os.environ.setdefault("PSMOVEAPI_CLI_PATH", str(psmove_build))
+
+# JoustMania's audio, settings, templates, and logging paths are relative to
+# the application directory. Steam is not required to choose that directory
+# as the process working directory, so establish it before importing modules.
+os.chdir(APP_DIR)
+
+# PyInstaller worker processes must be dispatched before importing modules
+# that configure logging or initialize native libraries.
+if __name__ == "__main__" and sys.platform.startswith("win"):
+    from multiprocessing import freeze_support as _freeze_support
+
+    _freeze_support()
+
 import controller_manager
 import common, colors, webui
 from colors import Colors
 from common import Button, Games, Status, Sensitivity
 import yaml
-import time, random, os, os.path
+import time, random, os.path
 from datetime import datetime
 from piaudio import Music, Audio, InitAudio
 from enum import Enum
-from multiprocessing import Process, Value, Array, Queue, Manager, freeze_support
+from multiprocessing import Process, Value, Array, Queue, Manager
 from games import joust_ffa, joust_teams, joust_random_teams, joust_non_stop, traitor, werewolf, zombie, commander, swapper, tournament, speed_bomb, fight_club
 from sys import platform
-from dotenv import find_dotenv, load_dotenv
+from dotenv import load_dotenv
 import logging.config
 import setproctitle
 
@@ -24,23 +61,25 @@ elif "win" in platform:
 import controller_process
 import update
 
-# find .env file in parent directory
-env_file = find_dotenv()
-load_dotenv()
+# Load the environment shipped beside the source or frozen executable.
+load_dotenv(APP_DIR / ".env")
+if getattr(sys, "frozen", False):
+    os.environ.setdefault("ENV", "prod")
 
-CONFIG_DIR = "./conf"
-LOG_DIR = "./logs"
+CONFIG_DIR = APP_DIR / "conf"
+LOG_DIR = APP_DIR / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 log_configs = {"dev": "logging.dev.ini", "prod": "logging.prod.ini"}
-config = log_configs.get(os.environ["ENV"], "logging.dev.ini")
-config_path = "/".join([CONFIG_DIR, config])
+config = log_configs.get(os.environ.get("ENV", "dev"), "logging.dev.ini")
+config_path = CONFIG_DIR / config
 
-timestamp = datetime.now().strftime("%Y%m%d-%H:%M:%S")
+timestamp = datetime.now().strftime("%Y%m%d-%H-%M-%S")
 
 logging.config.fileConfig(
-    config_path,
+    str(config_path),
     disable_existing_loggers=False,
-    defaults={"logfilename": f"{LOG_DIR}/{timestamp}.log"},
+    defaults={"logfilename": (LOG_DIR / f"{timestamp}.log").as_posix()},
 )
 
 logger = logging.getLogger(__name__)
@@ -848,6 +887,7 @@ class Menu():
 
     def initialize_settings(self):
         # Default settings
+        settings_loaded = False
         temp_settings = ({
             'sensitivity': Sensitivity.MID.value,
             'play_instructions': True,
@@ -875,6 +915,7 @@ class Menu():
             with open(common.SETTINGSFILE,'r') as yaml_file:
                 file_settings = yaml.safe_load(yaml_file)
             logger.debug(file_settings)
+            settings_loaded = True
 
             temp_colors = file_settings['color_lock_choices']
             for key in temp_colors.keys():
@@ -898,8 +939,10 @@ class Menu():
             temp_settings.update(file_settings)
             temp_settings['color_lock_choices'] = temp_colors
 
-        except Exception as e:
-            logger.error("We found an exception when loading the settings!", e)
+        except FileNotFoundError:
+            logger.info("No settings file found; creating one with defaults.")
+        except Exception:
+            logger.exception("Could not load the settings file; using defaults.")
 
         #force these settings
         temp_settings.update({
@@ -908,6 +951,8 @@ class Menu():
             'enforce_minimum': True
         })
         self.ns.settings = temp_settings
+        if not settings_loaded:
+            self.update_settings_file()
 
     def update_settings_file(self):
         with open(common.SETTINGSFILE,'w') as yaml_file:
@@ -1225,10 +1270,9 @@ class Menu():
 
 if __name__ == "__main__":
     logger.info("Starting piparty")
-    if "win" in platform:
-        freeze_support()
-    print("updating asound")
-    os.popen("sudo ./update_asound.sh")
+    if platform == "linux" or platform == "linux2":
+        print("updating asound")
+        os.popen("sudo ./update_asound.sh")
     print("starting audio")
     time.sleep(1)
     InitAudio()

@@ -3,9 +3,12 @@ import wave
 import functools
 import io
 import numpy
-import psutil, os
+import os
+import psutil
 import time
 import scipy.signal as signal
+
+os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 import pygame
 import random
 import glob
@@ -14,9 +17,9 @@ import setproctitle
 from sys import platform
 if platform == "linux" or platform == "linux2":
     import alsaaudio
+    from pydub import AudioSegment
 else:
     import pyaudio
-from pydub import AudioSegment
 from multiprocessing import Process, Value, Array, Queue, Manager
 
 import common

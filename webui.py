@@ -4,11 +4,16 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 from time import sleep
 from wtforms import Form, SelectField, SelectMultipleField, BooleanField, widgets, FieldList
 from os import system
+from sys import platform
 import common, colors
 import json
 import yaml
 import logging
-import psmove_dbus
+
+if platform == "linux" or platform == "linux2":
+    import psmove_dbus
+else:
+    psmove_dbus = None
 
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
@@ -121,7 +126,6 @@ class WebUI():
         return self.controller_debug()
 
     def controller_debug(self):
-        controllers = psmove_dbus.get_registered_controllers()
         battery_status = {
             str(address).upper(): level
             for address, level in dict(self.ns.battery_status).items()
@@ -130,6 +134,27 @@ class WebUI():
             str(address).upper(): value
             for address, value in dict(getattr(self.ns, 'out_moves', {})).items()
         }
+
+        if psmove_dbus is not None:
+            controllers = psmove_dbus.get_registered_controllers()
+        else:
+            # Windows has no BlueZ/D-Bus registry. Controllers reported by the
+            # game are already paired, loaded, and connected through psmoveapi.
+            controllers = [
+                {
+                    'adapter': 'Windows Bluetooth',
+                    'adapter_address': '',
+                    'address': address,
+                    'model': 'Unknown',
+                    'registered': True,
+                    'loaded': True,
+                    'paired': True,
+                    'connected': True,
+                    'trusted': True,
+                    'services_resolved': True,
+                }
+                for address in battery_status
+            ]
 
         for controller in controllers:
             address = controller['address'].upper()

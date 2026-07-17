@@ -37,6 +37,8 @@ var/
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
+!piparty.spec
+!reset_psmove_connections.spec
 
 # Installer logs
 pip-log.txt
@@ -80,6 +82,7 @@ apfiles/ap_active
 
 # Python virtualenv
 venv
+.venv/
 
 #The joust.conf will change with a different username
 conf/supervisor/conf.d/joust.conf
@@ -88,3 +91,4 @@ conf/supervisor/conf.d/joust.conf
 psmove-baseline-*.json
 psmove-broker-*.json
 controller-manager-*.json
+steamworks/output/

@@ -2,7 +2,6 @@ import controller_manager
 import os
 
 from sys import platform
-print(platform)
 if platform == "linux" or platform == "linux2":
     import jm_dbus
 elif "win" in platform:

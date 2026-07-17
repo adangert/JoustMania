@@ -123,13 +123,37 @@ def _check_write_in_progress(manager, controller_index) -> bool:
 
 
 def _binding_paths():
-    """Returns paths into the adjacent PSMoveAPI checkout used by this module.
-    _api_process_main() loads the Python ctypes binding and native library from
-    these paths, while pair_controller() uses the build path for the upstream
-    pairing executable.
+    """Returns the ctypes binding, native library, and CLI directories.
+
+    Source runs default to the adjacent PSMoveAPI checkout and can override
+    each location with environment variables. Frozen runs load the DLL from
+    PyInstaller's runtime directory and launch the bundled CLI beside the main
+    executable.
     """
+    if getattr(sys, "frozen", False):
+        app_dir = Path(sys.executable).resolve().parent
+        runtime_dir = Path(getattr(sys, "_MEIPASS", app_dir)).resolve()
+        bindings = Path(
+            os.environ.get("PSMOVEAPI_BINDINGS_PATH", str(runtime_dir))
+        )
+        library = Path(
+            os.environ.get("PSMOVEAPI_LIBRARY_PATH", str(runtime_dir))
+        )
+        cli = Path(os.environ.get("PSMOVEAPI_CLI_PATH", str(app_dir)))
+        return bindings, library, cli
+
     checkout = Path(__file__).resolve().parent.parent / "psmoveapi"
-    return checkout / "bindings" / "python", checkout / "build"
+    bindings = Path(
+        os.environ.get(
+            "PSMOVEAPI_BINDINGS_PATH",
+            str(checkout / "bindings" / "python"),
+        )
+    )
+    library = Path(
+        os.environ.get("PSMOVEAPI_LIBRARY_PATH", str(checkout / "build"))
+    )
+    cli = Path(os.environ.get("PSMOVEAPI_CLI_PATH", str(library)))
+    return bindings, library, cli
 
 
 def _api_process_main(manager):
@@ -143,7 +167,7 @@ def _api_process_main(manager):
     """
     # The delayed import keeps the ctypes binding and libpsmoveapi.so inside
     # the API process. Other JoustMania processes only use shared state.
-    bindings, library = _binding_paths()
+    bindings, library, _ = _binding_paths()
     if str(bindings) not in sys.path:
         sys.path.insert(0, str(bindings))
     os.environ.setdefault("PSMOVEAPI_LIBRARY_PATH", str(library))
@@ -154,7 +178,7 @@ def _api_process_main(manager):
         manager.status["error"] = repr(error)
         manager.ready_event.set()
         raise RuntimeError(
-            "Could not load the current PSMove API ctypes binding. Run setup.sh first."
+            "Could not load the current PSMove API ctypes binding and native library."
         ) from error
 
     local_controller_indices = {}
@@ -337,8 +361,9 @@ def get_manager_process_pid():
 
 def pair_controller(host_address):
     """Pairs USB controllers with the selected host using the upstream CLI."""
-    _, build = _binding_paths()
-    command = [str(build / "psmove"), "pair"]
+    _, _, cli = _binding_paths()
+    executable = "psmove.exe" if sys.platform.startswith("win") else "psmove"
+    command = [str(cli / executable), "pair"]
     environment = os.environ.copy()
     if host_address:
         # Tell PSMoveAPI to pair with the least-loaded adapter selected by JoustMania.

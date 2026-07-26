@@ -13,6 +13,7 @@ import runtime_platform
 
 _HOST = "127.0.0.1"
 _SERVICE = "joustmania-psmove.service"
+_HOST_LAUNCHER = "/usr/bin/steam-runtime-launch-client"
 _started_by_pid = None
 
 logger = logging.getLogger(__name__)
@@ -73,7 +74,18 @@ def _run(arguments):
 
     spawnvp.argtypes = [ctypes.POINTER(ctypes.c_char_p), ctypes.c_int]
     spawnvp.restype = ctypes.c_int32
-    return spawnvp(argv, 1)
+    status = spawnvp(argv, 1)
+    if status:
+        logger.warning(
+            "Native command exited with status %s: %s",
+            status,
+            " ".join(arguments),
+        )
+    return status
+
+
+def _run_host(arguments):
+    return _run([_HOST_LAUNCHER, "--alongside-steam", "--", *arguments])
 
 
 def _write_host_config():
@@ -113,9 +125,10 @@ def start():
 
     helper = _unix_path(helper)
     _write_host_config()
-    _run(["/usr/bin/chmod", "u+x", helper])
-    _run(["/usr/bin/systemctl", "--user", "stop", _SERVICE])
-    _run(
+    if _run_host(["/usr/bin/chmod", "u+x", helper]):
+        raise RuntimeError("Could not make the Proton PS Move helper executable")
+    _run_host(["/usr/bin/systemctl", "--user", "stop", _SERVICE])
+    if _run_host(
         [
             "/usr/bin/systemd-run",
             "--user",
@@ -124,7 +137,8 @@ def start():
             helper,
             "daemon",
         ]
-    )
+    ):
+        raise RuntimeError("Could not start the Proton PS Move helper")
     time.sleep(0.5)
     _started_by_pid = os.getpid()
 
@@ -135,7 +149,7 @@ def stop():
         return
     if _started_by_pid != os.getpid():
         return
-    _run(["/usr/bin/systemctl", "--user", "stop", _SERVICE])
+    _run_host(["/usr/bin/systemctl", "--user", "stop", _SERVICE])
     _started_by_pid = None
 
 
@@ -166,7 +180,7 @@ def pair(host_address=None):
 
     stop()
     try:
-        _run(command)
+        _run_host(command)
         if not result.is_file():
             logger.warning(
                 "Native PS Move pairing returned no result. "

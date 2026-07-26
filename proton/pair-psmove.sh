@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# This script must retain LF endings because Proton runs it with /bin/sh.
 result_file=$1
 shift
 

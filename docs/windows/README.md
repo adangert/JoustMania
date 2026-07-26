@@ -133,16 +133,34 @@ container. Build the Windows and Linux PSMoveAPI files from the same commit,
 especially after changes to the moved client, server, protocol, or controller
 model handling.
 
-The commands below use Docker Desktop in Linux container mode and Debian 11.
-Podman can use the same image, mounts, and shell script, but this is the
-configuration that has been verified.
+The commands below use Podman and Debian 11. Podman runs the Linux container
+inside a WSL 2 machine.
+
+Install the Podman command-line tools:
+
+```powershell
+winget install --exact --id RedHat.Podman `
+  --accept-package-agreements `
+  --accept-source-agreements
+```
+
+Initialize and start the Podman machine once:
+
+```powershell
+$podman = 'C:\Program Files\RedHat\Podman\podman.exe'
+& $podman machine init --now
+& $podman version
+```
+
+For later sessions, run `& $podman machine start` if the machine is stopped.
+The default rootless configuration is sufficient for this build.
 
 The PSMoveAPI source is mounted read-only, the temporary build stays inside the
 container, and only the two finished files are copied into JoustMania's ignored
 `vendor` directory.
 
 ```powershell
-$docker = 'C:\Program Files\Docker\Docker\resources\bin\docker.exe'
+$podman = 'C:\Program Files\RedHat\Podman\podman.exe'
 $linuxBundle = Join-Path $joustRoot 'vendor\psmoveapi-linux'
 New-Item -ItemType Directory -Force -Path $linuxBundle | Out-Null
 
@@ -170,11 +188,11 @@ install -m 0755 /build/libpsmoveapi.so /out/libpsmoveapi.so
 readelf -d /out/psmove | grep -E 'RPATH|RUNPATH'
 '@
 
-& $docker --context desktop-linux run --rm `
+& $podman run --rm `
   -v "${psmoveRoot}:/src:ro" `
   -v "${linuxBundle}:/out" `
   -w /src `
-  debian:11-slim sh -lc $linuxBuild
+  docker.io/library/debian:11-slim sh -lc $linuxBuild
 ```
 
 The output directory should contain:
@@ -200,9 +218,9 @@ readelf -d /bundle/psmove | grep -E 'RPATH|RUNPATH'
 ldd /bundle/psmove
 '@
 
-& $docker --context desktop-linux run --rm `
+& $podman run --rm `
   -v "${linuxBundle}:/bundle:ro" `
-  debian:11-slim sh -lc $validateLinuxBundle
+  docker.io/library/debian:11-slim sh -lc $validateLinuxBundle
 ```
 
 Both files should be reported as 64-bit x86-64 ELF binaries. The `psmove`

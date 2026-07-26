@@ -14,6 +14,9 @@ import subprocess
 import sys
 import time
 
+import proton_psmove
+import runtime_platform
+
 
 MAX_CONTROLLERS = 64
 _VECTOR_SIZE = MAX_CONTROLLERS * 3
@@ -300,6 +303,8 @@ def start_manager():
     if _api_process is not None and _api_process.is_alive():
         return _controller_manager
 
+    proton_psmove.start()
+
     if _shared_object_manager is None:
         _shared_object_manager = multiprocessing.Manager()
     if _controller_manager is None:
@@ -340,7 +345,12 @@ def stop_manager():
     _api_process = None
 
 
-atexit.register(stop_manager)
+def _shutdown_controller_services():
+    stop_manager()
+    proton_psmove.stop()
+
+
+atexit.register(_shutdown_controller_services)
 
 
 def use_manager(manager):
@@ -361,8 +371,15 @@ def get_manager_process_pid():
 
 def pair_controller(host_address):
     """Pairs USB controllers with the selected host using the upstream CLI."""
+    if runtime_platform.is_proton():
+        stop_manager()
+        try:
+            return proton_psmove.pair(host_address)
+        finally:
+            start_manager()
+
     _, _, cli = _binding_paths()
-    executable = "psmove.exe" if sys.platform.startswith("win") else "psmove"
+    executable = "psmove.exe" if runtime_platform.is_windows() else "psmove"
     command = [str(cli / executable), "pair"]
     environment = os.environ.copy()
     if host_address:
@@ -373,7 +390,7 @@ def pair_controller(host_address):
     try:
         # Upstream returns its final C pairing boolean directly as the exit status.
         paired = subprocess.run(command, check=False, env=environment).returncode == 1
-        if paired and sys.platform.startswith("linux"):
+        if paired and runtime_platform.is_linux():
             # Upstream can start BlueZ before its new registration is visible.
             # Reload it while the API process is stopped, then allow adapters to settle.
             subprocess.run(

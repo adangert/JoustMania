@@ -13,6 +13,12 @@ psmove_build = Path(
 ).resolve()
 psmove_bindings = psmove_root / "bindings" / "python"
 reset_executable = project_dir / "build" / "windows-tools" / "reset_psmove_connections.exe"
+psmove_linux_bundle_value = os.environ.get("PSMOVEAPI_LINUX_BUNDLE_DIR")
+psmove_linux_bundle = (
+    Path(psmove_linux_bundle_value).resolve()
+    if psmove_linux_bundle_value
+    else None
+)
 
 required_inputs = [
     psmove_bindings / "psmoveapi.py",
@@ -44,6 +50,35 @@ binaries = [
     (str(psmove_build / "psmove.exe"), "."),
     (str(reset_executable), "."),
 ]
+
+if psmove_linux_bundle is not None:
+    proton_inputs = [
+        psmove_linux_bundle / "psmove",
+        psmove_linux_bundle / "libpsmoveapi.so",
+        project_dir / "proton" / "pair-psmove.sh",
+    ]
+    missing_proton_inputs = [
+        str(path) for path in proton_inputs if not path.is_file()
+    ]
+    if missing_proton_inputs:
+        raise FileNotFoundError(
+            "The Proton PS Move bundle is incomplete. Missing:\n"
+            + "\n".join(missing_proton_inputs)
+        )
+
+    # Treat ELF files as data so the Windows PyInstaller analysis does not try
+    # to inspect them as PE binaries. JoustMania restores the executable bit
+    # before launching the helper through Proton.
+    datas.extend(
+        [
+            (str(psmove_linux_bundle / "psmove"), "proton/psmoveapi"),
+            (
+                str(psmove_linux_bundle / "libpsmoveapi.so"),
+                "proton/psmoveapi",
+            ),
+            (str(project_dir / "proton" / "pair-psmove.sh"), "proton"),
+        ]
+    )
 
 a = Analysis(
     [str(project_dir / "piparty.py")],

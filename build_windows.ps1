@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [string]$PSMoveRoot = '',
-    [string]$PSMoveBuild = ''
+    [string]$PSMoveBuild = '',
+    [string]$PSMoveLinuxBundle = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -31,6 +32,34 @@ foreach ($requiredInput in $requiredInputs) {
     if (-not (Test-Path -LiteralPath $requiredInput)) {
         throw "Missing Windows build input: $requiredInput"
     }
+}
+
+if (-not $PSMoveLinuxBundle) {
+    $defaultLinuxBundle = Join-Path $PSScriptRoot 'vendor\psmoveapi-linux'
+    if (Test-Path -LiteralPath $defaultLinuxBundle -PathType Container) {
+        $PSMoveLinuxBundle = $defaultLinuxBundle
+    }
+}
+
+if ($PSMoveLinuxBundle) {
+    $requiredLinuxInputs = @(
+        (Join-Path $PSMoveLinuxBundle 'psmove'),
+        (Join-Path $PSMoveLinuxBundle 'libpsmoveapi.so')
+    )
+    foreach ($requiredLinuxInput in $requiredLinuxInputs) {
+        if (-not (Test-Path -LiteralPath $requiredLinuxInput -PathType Leaf)) {
+            throw "Missing Proton build input: $requiredLinuxInput"
+        }
+    }
+    $env:PSMOVEAPI_LINUX_BUNDLE_DIR = (
+        Resolve-Path -LiteralPath $PSMoveLinuxBundle
+    ).Path
+} else {
+    Remove-Item Env:PSMOVEAPI_LINUX_BUNDLE_DIR -ErrorAction SilentlyContinue
+    Write-Warning (
+        'No Linux PSMoveAPI bundle was supplied. ' +
+        'This build will work on Windows but not through Proton.'
+    )
 }
 
 $env:PSMOVEAPI_ROOT = (Resolve-Path -LiteralPath $PSMoveRoot).Path

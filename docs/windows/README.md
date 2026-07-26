@@ -125,6 +125,101 @@ The `windows-hotplug` branch also contains the local Windows device-monitoring
 implementation. That code is what lets JoustMania notice USB and Bluetooth
 connection changes while the game is already running.
 
+## Build Linux companion binaries on Windows
+
+Some packaged configurations also include native Linux PSMoveAPI helper files.
+A Windows compiler cannot produce these ELF binaries, so build them in a Linux
+container. Build the Windows and Linux PSMoveAPI files from the same commit,
+especially after changes to the moved client, server, protocol, or controller
+model handling.
+
+The commands below use Docker Desktop in Linux container mode and Debian 11.
+Podman can use the same image, mounts, and shell script, but this is the
+configuration that has been verified.
+
+The PSMoveAPI source is mounted read-only, the temporary build stays inside the
+container, and only the two finished files are copied into JoustMania's ignored
+`vendor` directory.
+
+```powershell
+$docker = 'C:\Program Files\Docker\Docker\resources\bin\docker.exe'
+$linuxBundle = Join-Path $joustRoot 'vendor\psmoveapi-linux'
+New-Item -ItemType Directory -Force -Path $linuxBundle | Out-Null
+
+$linuxBuild = @'
+set -eux
+apt-get update
+apt-get install -y \
+  build-essential cmake pkg-config \
+  libbluetooth-dev libdbus-1-dev libudev-dev
+cmake -S /src -B /build \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_BUILD_RPATH='$ORIGIN' \
+  -DCMAKE_BUILD_RPATH_USE_ORIGIN=ON \
+  -DCMAKE_INSTALL_RPATH='$ORIGIN' \
+  -DCMAKE_SKIP_RPATH=NO \
+  -DCMAKE_SKIP_INSTALL_RPATH=NO \
+  -DPSMOVE_BUILD_EXAMPLES=OFF \
+  -DPSMOVE_BUILD_NAVCON_TEST=OFF \
+  -DPSMOVE_BUILD_TRACKER=OFF \
+  -DPSMOVE_USE_PS3EYE_DRIVER=OFF \
+  -DPSMOVE_USE_SIXPAIR=OFF
+cmake --build /build --parallel
+install -m 0755 /build/psmove /out/psmove
+install -m 0755 /build/libpsmoveapi.so /out/libpsmoveapi.so
+readelf -d /out/psmove | grep -E 'RPATH|RUNPATH'
+'@
+
+& $docker --context desktop-linux run --rm `
+  -v "${psmoveRoot}:/src:ro" `
+  -v "${linuxBundle}:/out" `
+  -w /src `
+  debian:11-slim sh -lc $linuxBuild
+```
+
+The output directory should contain:
+
+```text
+JoustMania\vendor\psmoveapi-linux\psmove
+JoustMania\vendor\psmoveapi-linux\libpsmoveapi.so
+```
+
+The `$ORIGIN` runtime path allows `psmove` to load `libpsmoveapi.so` from the
+same directory. Validate the files and their dynamic dependencies in another
+clean Debian 11 container:
+
+```powershell
+$validateLinuxBundle = @'
+set -eu
+apt-get update >/dev/null
+apt-get install -y \
+  file binutils \
+  libbluetooth3 libdbus-1-3 libudev1 >/dev/null
+file /bundle/psmove /bundle/libpsmoveapi.so
+readelf -d /bundle/psmove | grep -E 'RPATH|RUNPATH'
+ldd /bundle/psmove
+'@
+
+& $docker --context desktop-linux run --rm `
+  -v "${linuxBundle}:/bundle:ro" `
+  debian:11-slim sh -lc $validateLinuxBundle
+```
+
+Both files should be reported as 64-bit x86-64 ELF binaries. The `psmove`
+RUNPATH should contain `$ORIGIN`, `ldd` should resolve `libpsmoveapi.so` from
+`/bundle/libpsmoveapi.so`, and no dependency should be reported as `not found`.
+
+`build_windows.ps1` automatically detects this directory when it exists. It can
+also be supplied explicitly:
+
+```powershell
+Set-Location $joustRoot
+.\build_windows.ps1 -PSMoveLinuxBundle $linuxBundle
+```
+
+These are generated binaries and should not be committed. Rebuild both the
+Windows and Linux PSMoveAPI outputs whenever the shared moved protocol changes.
+
 ## Pair and inspect controllers with PSMoveAPI
 
 Pairing changes Windows Bluetooth state, so pairing must run from an

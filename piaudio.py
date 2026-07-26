@@ -36,6 +36,31 @@ END_MAX_MUSIC_FAST_TIME = 10
 END_MIN_MUSIC_SLOW_TIME = 8
 END_MAX_MUSIC_SLOW_TIME = 12
 
+
+def resample_stereo_s16(data, ratio):
+    """Resample interleaved stereo 16-bit PCM data by a playback ratio."""
+    if ratio <= 0:
+        raise ValueError("Audio playback ratio must be greater than zero")
+
+    samples = numpy.frombuffer(data, dtype=numpy.int16)
+    if samples.size % 2:
+        raise ValueError("Stereo PCM data must contain complete sample pairs")
+
+    # Divide by two for stereo, then round down to a multiple of 32 because
+    # scipy's FFT resampler is more efficient near power-of-two sizes.
+    num_output_frames = int(samples.size / (ratio * 2)) & (~0x1f)
+    if num_output_frames <= 0:
+        return b""
+
+    left = signal.resample(samples[0::2], num_output_frames)
+    right = signal.resample(samples[1::2], num_output_frames)
+
+    output = numpy.empty((num_output_frames, 2))
+    output[:, 0] = left
+    output[:, 1] = right
+    return output.astype(numpy.int16).tobytes()
+
+
 def win_audio_loop(fname,ratio,stop_proc):
     p = pyaudio.PyAudio()
     #define stream chunk
@@ -56,25 +81,6 @@ def win_audio_loop(fname,ratio,stop_proc):
                             rate = f.getframerate(),
                             output = True)
 
-
-            # Resamples audio data at the rate given by 'ratio' above.
-            def Resample(data):
-                # for data in samples:
-                array = numpy.fromstring(data, dtype=numpy.int16)
-                # Split data into seperate channels and resample. Divide by two
-                # since there are two channels. We round to the nearest multiple of
-                # 32 as the resampling is more efficient the closer the sizes are to
-                # being powers of two.
-                num_output_frames = int(array.size / (ratio.value * 2)) & (~0x1f)
-                reshapel = signal.resample(array[0::2], num_output_frames)
-                reshaper = signal.resample(array[1::2], num_output_frames)
-
-                final = numpy.ones((num_output_frames,2))
-                final[:, 0] = reshapel
-                final[:, 1] = reshaper
-
-                out_data = final.flatten().astype(numpy.int16).tostring()
-                return out_data
             #read data
             data = f.readframes(chunk)
 
@@ -82,11 +88,8 @@ def win_audio_loop(fname,ratio,stop_proc):
             while data:
                 stream.write(data)
                 data = f.readframes(chunk)
-                try:
-                    if data:
-                        data = Resample(data)
-                except:
-                    pass
+                if data:
+                    data = resample_stereo_s16(data, ratio.value)
                 if stop_proc.value:
                     stream.stop_stream()
                     stream.close()
@@ -175,21 +178,7 @@ def audio_loop(fname, ratio, stop_proc):
                 # Resamples audio data at the rate given by 'ratio' above.
                 def Resample(samples):
                     for data in samples:
-                        array = numpy.fromstring(data, dtype=numpy.int16)
-                        # Split data into seperate channels and resample. Divide by two
-                        # since there are two channels. We round to the nearest multiple of
-                        # 32 as the resampling is more efficient the closer the sizes are to
-                        # being powers of two.
-                        num_output_frames = int(array.size / (ratio.value * 2)) & (~0x1f)
-                        reshapel = signal.resample(array[0::2], num_output_frames)
-                        reshaper = signal.resample(array[1::2], num_output_frames)
-
-                        final = numpy.ones((num_output_frames,2))
-                        final[:, 0] = reshapel
-                        final[:, 1] = reshaper
-
-                        out_data = final.flatten().astype(numpy.int16).tostring()
-                        yield out_data
+                        yield resample_stereo_s16(data, ratio.value)
                      
                 WriteSamples(device, PERIOD_BYTES, Resample(ReadSamples(wf, PERIOD)))
                 wf.close()

@@ -3,12 +3,13 @@ from time import sleep
 from flask import Flask, render_template, request, redirect, url_for, flash
 from time import sleep
 from wtforms import Form, SelectField, SelectMultipleField, BooleanField, widgets, FieldList
-from os import system
+from os import environ, system
 from sys import platform
 import common, colors
 import json
 import yaml
 import logging
+import runtime_platform
 
 if platform == "linux" or platform == "linux2":
     import psmove_dbus
@@ -17,6 +18,12 @@ else:
 
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
+
+
+def web_port():
+    default_port = 8080 if runtime_platform.is_proton() else 80
+    return int(environ.get("JOUSTMANIA_WEB_PORT", default_port))
+
 
 class MultiCheckboxField(SelectMultipleField):
     """
@@ -85,10 +92,10 @@ class WebUI():
 
 
     def web_loop(self):
-        self.app.run(host='0.0.0.0', port=80, debug=False)
+        self.app.run(host='0.0.0.0', port=web_port(), debug=False)
 
     def web_loop_with_debug(self):
-        self.app.run(host='0.0.0.0', port=80, debug=True)
+        self.app.run(host='0.0.0.0', port=web_port(), debug=True)
 
     #@app.route('/')
     def index(self):

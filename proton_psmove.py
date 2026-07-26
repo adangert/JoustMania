@@ -5,7 +5,6 @@ import logging
 import os
 from pathlib import Path
 import sys
-import tempfile
 import time
 
 import runtime_platform
@@ -35,7 +34,6 @@ def _bundle_paths():
     return (
         bundle / "psmove",
         bundle / "libpsmoveapi.so",
-        _app_dir() / "proton" / "pair-psmove.sh",
     )
 
 
@@ -60,7 +58,7 @@ def _unix_path(path):
     )
 
 
-def _run(arguments):
+def _run(arguments, success_statuses=(0,)):
     encoded = [str(argument).encode("utf-8") for argument in arguments]
     argv = (ctypes.c_char_p * (len(encoded) + 1))(*encoded, None)
 
@@ -75,7 +73,7 @@ def _run(arguments):
     spawnvp.argtypes = [ctypes.POINTER(ctypes.c_char_p), ctypes.c_int]
     spawnvp.restype = ctypes.c_int32
     status = spawnvp(argv, 1)
-    if status:
+    if status not in success_statuses:
         logger.warning(
             "Native command exited with status %s: %s",
             status,
@@ -84,8 +82,11 @@ def _run(arguments):
     return status
 
 
-def _run_host(arguments):
-    return _run([_HOST_LAUNCHER, "--alongside-steam", "--", *arguments])
+def _run_host(arguments, success_statuses=(0,)):
+    return _run(
+        [_HOST_LAUNCHER, "--alongside-steam", "--", *arguments],
+        success_statuses,
+    )
 
 
 def _write_host_config():
@@ -115,7 +116,7 @@ def start():
     if _started_by_pid == os.getpid():
         return
 
-    helper, library, _ = _bundle_paths()
+    helper, library = _bundle_paths()
     missing = [str(path) for path in (helper, library) if not path.is_file()]
     if missing:
         raise RuntimeError(
@@ -154,24 +155,15 @@ def stop():
 
 
 def pair(host_address=None):
-    helper, _, pair_script = _bundle_paths()
-    missing = [str(path) for path in (helper, pair_script) if not path.is_file()]
-    if missing:
+    helper, _ = _bundle_paths()
+    if not helper.is_file():
         raise RuntimeError(
-            "This JoustMania build is missing Proton pairing files: "
-            + ", ".join(missing)
+            "This JoustMania build is missing the Proton pairing helper: "
+            + str(helper)
         )
 
-    result = (
-        Path(tempfile.gettempdir())
-        / "joustmania-psmove-pair-{}.result".format(os.getpid())
-    )
-    result.unlink(missing_ok=True)
     command = [
         "/usr/bin/pkexec",
-        "/bin/sh",
-        _unix_path(pair_script),
-        _unix_path(result),
         _unix_path(helper),
         "pair",
     ]
@@ -179,14 +171,5 @@ def pair(host_address=None):
         command.append(host_address.lower())
 
     stop()
-    try:
-        _run_host(command)
-        if not result.is_file():
-            logger.warning(
-                "Native PS Move pairing returned no result. "
-                "Authorization may have been cancelled."
-            )
-            return False
-        return result.read_text(encoding="utf-8").strip() == "1"
-    finally:
-        result.unlink(missing_ok=True)
+    # The upstream pairing CLI returns its final pairing boolean as the exit status.
+    return _run_host(command, success_statuses=(1,)) == 1

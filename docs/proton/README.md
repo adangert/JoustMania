@@ -60,7 +60,6 @@ The Windows package contains these additional files:
 
 ```text
 proton/
-  pair-psmove.sh
   psmoveapi/
     psmove
     libpsmoveapi.so
@@ -73,7 +72,7 @@ bit on `psmove`, and starts the daemon as the named user service
 Windows DLL normally. JoustMania stops the service when it exits normally.
 
 USB pairing stops controller access temporarily and launches the bundled
-native `psmove pair` command through `pkexec`. A small result file communicates
+native `psmove pair` command through `pkexec`. Its exit status communicates
 success back to the Windows process before controller access is restarted.
 
 Native Windows and native Linux runs keep their existing code paths.

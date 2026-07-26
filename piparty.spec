@@ -55,7 +55,6 @@ if psmove_linux_bundle is not None:
     proton_inputs = [
         psmove_linux_bundle / "psmove",
         psmove_linux_bundle / "libpsmoveapi.so",
-        project_dir / "proton" / "pair-psmove.sh",
     ]
     missing_proton_inputs = [
         str(path) for path in proton_inputs if not path.is_file()
@@ -76,7 +75,6 @@ if psmove_linux_bundle is not None:
                 str(psmove_linux_bundle / "libpsmoveapi.so"),
                 "proton/psmoveapi",
             ),
-            (str(project_dir / "proton" / "pair-psmove.sh"), "proton"),
         ]
     )
 

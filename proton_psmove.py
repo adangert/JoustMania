@@ -1,9 +1,9 @@
 """Native PSMoveAPI bridge used by the Windows build under Proton."""
 
+import ctypes
 import logging
 import os
 from pathlib import Path
-import subprocess
 import sys
 import tempfile
 import time
@@ -60,11 +60,20 @@ def _unix_path(path):
 
 
 def _run(arguments):
-    return subprocess.run(
-        ["start.exe", "/wait", "/unix", *arguments],
-        check=False,
-        stdin=subprocess.DEVNULL,
-    )
+    encoded = [str(argument).encode("utf-8") for argument in arguments]
+    argv = (ctypes.c_char_p * (len(encoded) + 1))(*encoded, None)
+
+    try:
+        ntdll = ctypes.WinDLL("ntdll.dll")
+        spawnvp = getattr(ntdll, "__wine_unix_spawnvp")
+    except (AttributeError, OSError) as error:
+        raise RuntimeError(
+            "This Proton version cannot launch the native PS Move helper"
+        ) from error
+
+    spawnvp.argtypes = [ctypes.POINTER(ctypes.c_char_p), ctypes.c_int]
+    spawnvp.restype = ctypes.c_int32
+    return spawnvp(argv, 1)
 
 
 def _write_host_config():

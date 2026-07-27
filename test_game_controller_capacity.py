@@ -1,6 +1,7 @@
 import multiprocessing
 import unittest
 
+from common import Status
 from games.game import Game
 
 
@@ -25,6 +26,18 @@ class GameControllerCapacityTest(unittest.TestCase):
         game.opts = None
 
         game.clear_move_opts("controller-0")
+
+    def test_all_dead_players_end_without_an_invalid_winner(self):
+        game = Game.__new__(Game)
+        game.dead_moves = {
+            "controller-0": multiprocessing.Value("i", Status.DEAD.value),
+            "controller-1": multiprocessing.Value("i", Status.DEAD.value),
+        }
+        game.teams = {"controller-0": 0, "controller-1": 1}
+        game.get_real_team = lambda team: team
+
+        self.assertTrue(game.check_winner())
+        self.assertIsNone(game.winning_team)
 
 
 if __name__ == "__main__":

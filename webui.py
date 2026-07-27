@@ -1,14 +1,16 @@
 from multiprocessing import Queue, Manager, Process
+import socket
 from time import sleep
 from flask import Flask, render_template, request, redirect, url_for, flash
 from time import sleep
 from wtforms import Form, SelectField, SelectMultipleField, BooleanField, widgets, FieldList
-from os import system
+from os import environ, system
 from sys import platform
 import common, colors
 import json
 import yaml
 import logging
+import runtime_platform
 
 if platform == "linux" or platform == "linux2":
     import psmove_dbus
@@ -17,6 +19,29 @@ else:
 
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
+
+
+def web_port():
+    default_port = 8080 if runtime_platform.is_proton() else 80
+    return int(environ.get("JOUSTMANIA_WEB_PORT", default_port))
+
+
+def web_urls():
+    port = web_port()
+    suffix = "" if port == 80 else ":{}".format(port)
+    urls = ["http://localhost{}".format(suffix)]
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as web_socket:
+            web_socket.connect(("8.8.8.8", 80))
+            local_address = web_socket.getsockname()[0]
+        if not local_address.startswith("127."):
+            urls.append("http://{}{}".format(local_address, suffix))
+    except OSError:
+        pass
+
+    return urls
+
 
 class MultiCheckboxField(SelectMultipleField):
     """
@@ -85,10 +110,12 @@ class WebUI():
 
 
     def web_loop(self):
-        self.app.run(host='0.0.0.0', port=80, debug=False)
+        print("To view the Web UI, go to " + " or ".join(web_urls()), flush=True)
+        self.app.run(host='0.0.0.0', port=web_port(), debug=False)
 
     def web_loop_with_debug(self):
-        self.app.run(host='0.0.0.0', port=80, debug=True)
+        print("To view the Web UI, go to " + " or ".join(web_urls()), flush=True)
+        self.app.run(host='0.0.0.0', port=web_port(), debug=True)
 
     #@app.route('/')
     def index(self):

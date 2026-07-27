@@ -92,3 +92,7 @@ psmove-baseline-*.json
 psmove-broker-*.json
 controller-manager-*.json
 steamworks/output/
+
+# Locally supplied binaries for Proton. Build instructions are kept in
+# docs/proton, but the generated PSMoveAPI bundle is not committed.
+/vendor/psmoveapi-linux/

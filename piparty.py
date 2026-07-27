@@ -36,6 +36,7 @@ if __name__ == "__main__" and sys.platform.startswith("win"):
     _freeze_support()
 
 import controller_manager
+import runtime_platform
 import common, colors, webui
 from colors import Colors
 from common import Button, Games, Status, Sensitivity
@@ -1270,6 +1271,9 @@ class Menu():
 
 if __name__ == "__main__":
     logger.info("Starting piparty")
+    pairing_notice = runtime_platform.controller_pairing_notice()
+    if pairing_notice:
+        print(pairing_notice)
     if platform == "linux" or platform == "linux2":
         print("updating asound")
         os.popen("sudo ./update_asound.sh")

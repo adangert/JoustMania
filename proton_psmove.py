@@ -14,8 +14,24 @@ _HOST = "127.0.0.1"
 _SERVICE = "joustmania-psmove.service"
 _HOST_LAUNCHER = "/usr/bin/steam-runtime-launch-client"
 _started_by_pid = None
+_password_notice_pid = None
 
 logger = logging.getLogger(__name__)
+
+_PASSWORD_SETUP_MESSAGE = """JoustMania needs an operating-system password to pair PS Move controllers over USB.
+
+No password is currently set for this SteamOS user.
+
+1. Exit JoustMania.
+2. Switch to Desktop Mode.
+3. Open Konsole.
+4. Run: passwd
+5. Enter a new password twice.
+6. Restart JoustMania.
+
+Nothing appears while typing the password in Konsole. This is normal.
+
+When pairing a controller, enter this same password in the SteamOS authentication prompt. This is not your Steam account password. JoustMania does not see or store it."""
 
 
 def _app_dir():
@@ -89,6 +105,40 @@ def _run_host(arguments, success_statuses=(0,)):
     )
 
 
+def _has_os_password():
+    # passwd reports P only when the current SteamOS user has a usable password.
+    check = (
+        '/usr/bin/passwd --status | '
+        '/usr/bin/awk \'$2 == "P" { found=1 } END { exit !found }\''
+    )
+    return _run_host(
+        ["/usr/bin/sh", "-c", check],
+        success_statuses=(0, 1),
+    ) == 0
+
+
+def _show_password_setup_if_needed():
+    global _password_notice_pid
+    if _password_notice_pid == os.getpid():
+        return
+    _password_notice_pid = os.getpid()
+
+    if _has_os_password():
+        return
+
+    print(_PASSWORD_SETUP_MESSAGE)
+    try:
+        user32 = ctypes.WinDLL("user32.dll")
+        user32.MessageBoxW(
+            None,
+            _PASSWORD_SETUP_MESSAGE,
+            "JoustMania controller setup",
+            0x00000040,
+        )
+    except (AttributeError, OSError):
+        logger.warning("Could not display the SteamOS password setup dialog")
+
+
 def _write_host_config():
     app_data = os.environ.get("APPDATA")
     if not app_data:
@@ -123,6 +173,8 @@ def start():
             "This JoustMania build is missing the Proton PS Move helper: "
             + ", ".join(missing)
         )
+
+    _show_password_setup_if_needed()
 
     helper = _unix_path(helper)
     _write_host_config()

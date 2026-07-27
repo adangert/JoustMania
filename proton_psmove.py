@@ -146,6 +146,25 @@ def _write_host_config():
 
     config_dir = Path(app_data) / ".psmoveapi"
     config_dir.mkdir(parents=True, exist_ok=True)
+
+    # Pairing stores calibration on the host; copy it across the Steam runtime
+    # boundary so the Windows DLL can report acceleration in g.
+    copy_calibration = (
+        'for calibration in /etc/psmoveapi/*.calibration; do '
+        '[ -f "$calibration" ] || continue; '
+        '/usr/bin/cp -f "$calibration" "$1/" || exit 1; '
+        "done"
+    )
+    _run_host(
+        [
+            "/usr/bin/sh",
+            "-c",
+            copy_calibration,
+            "joustmania-calibration-sync",
+            _unix_path(config_dir),
+        ]
+    )
+
     hosts_file = config_dir / "moved2_hosts.txt"
     hosts = []
     if hosts_file.is_file():

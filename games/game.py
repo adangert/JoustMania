@@ -251,13 +251,13 @@ class Game():
             self.revive_sound.start_effect()
 
     def check_winner(self):
-        self.winning_team = -100
+        self.winning_team = None
         team_win = True
         for move_serial, dead in self.dead_moves.items():
             # If we are alive set our team as the winning team
             # If no other teams are set in the loop, our team is the winner!
             if dead.value in [Status.ALIVE.value, Status.ON.value, Status.RUMBLE.value]:
-                if self.winning_team == -100:
+                if self.winning_team is None:
                     self.winning_team = self.get_real_team(self.teams[move_serial])
                 elif self.get_real_team(self.teams[move_serial]) != self.winning_team:
                     team_win = False

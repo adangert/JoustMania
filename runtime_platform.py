@@ -29,6 +29,11 @@ def is_proton():
     return is_windows() and bool(os.environ.get("STEAM_COMPAT_DATA_PATH"))
 
 
+def default_web_port():
+    """Avoid Steam's CEF debugging port when running through Proton."""
+    return 8081 if is_proton() else 80
+
+
 def controller_pairing_notice():
     """Return the startup pairing notice for Windows-compatible builds."""
     if is_proton():

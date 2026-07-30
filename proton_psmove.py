@@ -53,6 +53,29 @@ def _bundle_paths():
     )
 
 
+def _steam_library_dir():
+    """Return the Steam library that Proton maps to its S: game drive."""
+    install_path = os.environ.get("STEAM_COMPAT_INSTALL_PATH")
+    library_paths = os.environ.get("STEAM_COMPAT_LIBRARY_PATHS")
+    if not install_path or not library_paths:
+        return None
+
+    install_path = install_path.replace("\\", "/").rstrip("/")
+    matches = []
+    for library_path in library_paths.split(":"):
+        library_path = library_path.replace("\\", "/").rstrip("/")
+        if (
+            library_path
+            and (
+                install_path == library_path
+                or install_path.startswith(library_path + "/")
+            )
+        ):
+            matches.append(library_path)
+
+    return max(matches, key=len, default=None)
+
+
 def _unix_path(path):
     value = str(path).replace("\\", "/")
     if value.startswith("/"):
@@ -67,10 +90,18 @@ def _unix_path(path):
     if drive == "c" and os.environ.get("STEAM_COMPAT_DATA_PATH"):
         compat_data = os.environ["STEAM_COMPAT_DATA_PATH"].replace("\\", "/")
         return compat_data.rstrip("/") + "/pfx/drive_c/" + relative
+    if drive == "s":
+        library_dir = _steam_library_dir()
+        if library_dir:
+            return library_dir + "/" + relative
+        raise RuntimeError(
+            "Cannot resolve Proton S: drive without matching "
+            "STEAM_COMPAT_INSTALL_PATH and STEAM_COMPAT_LIBRARY_PATHS"
+        )
     raise RuntimeError(
-        "The Proton helper must be on Wine drive Z: or C:, not "
+        "Cannot convert unsupported Wine drive "
         + drive.upper()
-        + ":"
+        + ": to a Linux path"
     )
 
 

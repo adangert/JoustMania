@@ -64,9 +64,9 @@ class ProtonPathTest(unittest.TestCase):
 
 
 class ProtonWebPortTest(unittest.TestCase):
-    def test_uses_8081_by_default_under_proton(self):
+    def test_uses_8090_by_default_under_proton(self):
         with mock.patch.object(runtime_platform, "is_proton", return_value=True):
-            self.assertEqual(runtime_platform.default_web_port(), 8081)
+            self.assertEqual(runtime_platform.default_web_port(), 8090)
 
     def test_native_default_remains_port_80(self):
         with mock.patch.object(runtime_platform, "is_proton", return_value=False):

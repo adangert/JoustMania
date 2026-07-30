@@ -30,8 +30,8 @@ def is_proton():
 
 
 def default_web_port():
-    """Avoid Steam's CEF debugging port when running through Proton."""
-    return 8081 if is_proton() else 80
+    """Avoid SteamOS CEF debugging ports when running through Proton."""
+    return 8090 if is_proton() else 80
 
 
 def controller_pairing_notice():

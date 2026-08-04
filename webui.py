@@ -22,7 +22,7 @@ log.setLevel(logging.ERROR)
 
 
 def web_port():
-    default_port = 8080 if runtime_platform.is_proton() else 80
+    default_port = runtime_platform.default_web_port()
     return int(environ.get("JOUSTMANIA_WEB_PORT", default_port))
 
 

@@ -49,12 +49,6 @@ class Pair():
 
         self.pre_existing_devices()
 
-    def check_if_not_paired(self, addr):
-        for devs in self.bt_devices.keys():
-            if addr in self.bt_devices[devs]:
-                return False
-        return True
-
     def get_lowest_bt_device(self):
         num = 9999999
         print(self.bt_devices)
@@ -71,9 +65,8 @@ class Pair():
         if move_controller and move_controller.serial:
             if move_controller.usb and not move_controller.bluetooth:
                 self.pre_existing_devices()
-                if self.check_if_not_paired(move_controller.serial.upper()):
-                    paired = controller_manager.pair_controller(self.get_lowest_bt_device())
-                    if not paired:
-                        return False
-                return True
+                # A saved BlueZ registration does not prove that the controller
+                # still stores this Pi as its Bluetooth host. Pairing over USB
+                # rewrites that address after use with another computer.
+                return controller_manager.pair_controller(self.get_lowest_bt_device())
         return False

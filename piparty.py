@@ -429,9 +429,15 @@ class Menu():
         active_serials = set(self.controller_manager.connected_serials())
         known_serials = {controller.serial for controller in self.moves}
         if active_serials != known_serials:
+            disconnected_serials = known_serials - active_serials
             self.moves = self.controller_manager.connected_controllers()
-            if known_serials - active_serials:
+            if disconnected_serials:
                 logger.debug("Move disconnected")
+                self.paired_moves = [
+                    serial
+                    for serial in self.paired_moves
+                    if serial not in disconnected_serials
+                ]
             if active_serials - known_serials:
                 logger.debug("Move connected")
             self.move_count = self.get_move_count()

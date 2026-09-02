@@ -1,16 +1,15 @@
 from multiprocessing import Queue, Manager, Process
 import socket
-from time import sleep
 from flask import Flask, render_template, request, redirect, url_for, flash
-from time import sleep
 from wtforms import Form, SelectField, SelectMultipleField, BooleanField, widgets, FieldList
-from os import environ, system
+from os import environ
 from sys import platform
 import common, colors
 import json
 import yaml
 import logging
 import runtime_platform
+from system_power import request_system_power
 
 if platform == "linux" or platform == "linux2":
     import psmove_dbus
@@ -211,13 +210,9 @@ class WebUI():
 
     #@app.route('/shutdown8675309')
     def shutdown(self):
-        Process(target=self.shutdown_proc).start()
+        Process(target=request_system_power, args=('poweroff',)).start()
         #use redirect to conceal the url for tripping the shutdown
         return redirect(url_for('shutdown_lastscreen'))
-
-    def shutdown_proc(self):
-        sleep(2)
-        system("sudo kill -3 $(ps aux | grep '[p]iparty' | awk '{print $2}') ; sudo supervisorctl stop joustmania ; sudo shutdown -H now ")
 
     #@app.route('/shutdown_lastscreen')
     def shutdown_lastscreen(self):
@@ -225,12 +220,8 @@ class WebUI():
 
     #@app.route('/reboot8675309')
     def reboot(self):
-        Process(target=self.reboot_proc).start()
+        Process(target=request_system_power, args=('reboot',)).start()
         return redirect(url_for('index'))
-
-    def reboot_proc(self):
-        sleep(2)
-        system(" sudo kill -3 $(ps aux | grep '[p]iparty' | awk '{print $2}') ; sudo supervisorctl stop joustmania ; sudo reboot now ")
         
 
     #@app.route('/settings')

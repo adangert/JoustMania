@@ -1,12 +1,24 @@
 """Remove saved PS Move Bluetooth registrations from the local host."""
 
 import argparse
+import shutil
 import sys
+from pathlib import Path
 
 
 def clear_linux_devices(dry_run=False):
     import jm_dbus
     import psmove_dbus
+
+    # BlueZ does not always load registrations saved under
+    # /var/lib/bluetooth (for example, when their adapter is unavailable).
+    # Keep those registrations in the reset scope even though they cannot be
+    # removed through Adapter1.RemoveDevice.
+    saved_only = [
+        controller
+        for controller in psmove_dbus.get_registered_controllers()
+        if not controller['loaded']
+    ]
 
     hcis = jm_dbus.get_hci_dict().keys()
     removed = 0
@@ -26,6 +38,30 @@ def clear_linux_devices(dry_run=False):
             if not dry_run:
                 jm_dbus.remove_device(hci, dev)
             removed += 1
+
+    bluetooth_dir = Path('/var/lib/bluetooth')
+    for controller in saved_only:
+        registration_dir = (
+            bluetooth_dir
+            / controller['adapter_address']
+            / controller['address']
+        )
+        action = "Would remove" if dry_run else "Removing"
+        print(
+            "{} saved PS Move {} from adapter {}".format(
+                action,
+                controller['address'],
+                controller['adapter_address'],
+            )
+        )
+        if not dry_run:
+            try:
+                shutil.rmtree(str(registration_dir))
+            except FileNotFoundError:
+                # The registration may have disappeared while BlueZ was
+                # restarting. Treat that as an already-completed removal.
+                pass
+        removed += 1
 
     return removed
 

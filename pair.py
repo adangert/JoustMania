@@ -43,9 +43,13 @@ class Pair():
         """
         self.hci_dict = jm_dbus.get_hci_dict()
 
-        for addr in self.hci_dict.values():
-            if addr not in self.bt_devices.keys():
-                self.bt_devices[addr] = []
+        # Remove unplugged adapters as well as adding new ones. Otherwise a
+        # hot-swap can leave pairing aimed at an address that no longer exists,
+        # causing PSMoveAPI to fall back to its first enumerated adapter.
+        self.bt_devices = {
+            addr: self.bt_devices.get(addr, [])
+            for addr in self.hci_dict.values()
+        }
 
         self.pre_existing_devices()
 
@@ -64,9 +68,20 @@ class Pair():
     def pair_move(self, move_controller):
         if move_controller and move_controller.serial:
             if move_controller.usb and not move_controller.bluetooth:
-                self.pre_existing_devices()
+                # Adapter dongles can be hot-swapped while JoustMania runs.
+                # Refresh names and addresses immediately before choosing.
+                self.update_adapters()
                 # A saved BlueZ registration does not prove that the controller
                 # still stores this Pi as its Bluetooth host. Pairing over USB
                 # rewrites that address after use with another computer.
-                return controller_manager.pair_controller(self.get_lowest_bt_device())
+                host_address = self.get_lowest_bt_device()
+                paired = controller_manager.pair_controller(host_address)
+                if paired:
+                    # BlueZ may need a few seconds to publish the registration.
+                    # Reserve it immediately so another controller paired in
+                    # that window is assigned to the next least-loaded adapter.
+                    self.bt_devices.setdefault(host_address, [])
+                    if move_controller.serial not in self.bt_devices[host_address]:
+                        self.bt_devices[host_address].append(move_controller.serial)
+                return paired
         return False

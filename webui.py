@@ -1,5 +1,7 @@
 from multiprocessing import Queue, Manager, Process
 import socket
+import subprocess
+from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, flash
 from wtforms import Form, SelectField, SelectMultipleField, BooleanField, widgets, FieldList
 from os import environ
@@ -9,11 +11,15 @@ import json
 import yaml
 import logging
 import runtime_platform
+import bluetooth_diagnostics
 from system_power import request_system_power
 
 if platform == "linux" or platform == "linux2":
+    import bluetooth_roles
+    import jm_dbus
     import psmove_dbus
 else:
+    bluetooth_roles = None
     psmove_dbus = None
 
 log = logging.getLogger('werkzeug')
@@ -70,11 +76,12 @@ class SettingsForm(Form):
     random_team_size = SelectField('size of random teams',choices=[(2,'2'),(3,'3'),(4,'4'),(5,'5'),(6,'6')],coerce=int)
 
 class WebUI():
-    def __init__(self, command_queue=Queue(), ns=None):
+    def __init__(self, command_queue=Queue(), ns=None, controller_manager_instance=None):
 
         self.app = Flask(__name__)
         self.app.secret_key="MAGFest is a donut"
         self.command_queue = command_queue
+        self.controller_manager = controller_manager_instance
         if ns == None:
 
             self.ns = Manager().Namespace()
@@ -99,7 +106,21 @@ class WebUI():
         self.app.add_url_rule('/killgame','kill_game',self.kill_game)
         self.app.add_url_rule('/updateStatus','update',self.update)
         self.app.add_url_rule('/battery','battery_status',self.battery_status)
-        self.app.add_url_rule('/debug/controllers','controller_debug',self.controller_debug)
+        self.app.add_url_rule('/debug','debug',self.controller_debug)
+        self.app.add_url_rule('/debug/controllers','controller_debug_legacy',self.controller_debug_legacy)
+        self.app.add_url_rule('/debug/data','debug_data',self.debug_data)
+        self.app.add_url_rule(
+            '/debug/reset-bluetooth',
+            'reset_bluetooth',
+            self.reset_bluetooth,
+            methods=['POST'],
+        )
+        self.app.add_url_rule(
+            '/debug/restart-joustmania',
+            'restart_joustmania',
+            self.restart_joustmania,
+            methods=['POST'],
+        )
         self.app.add_url_rule('/settings','settings',self.settings, methods=['GET','POST'])
         self.app.add_url_rule('/rand<num_teams>','randomize',self.randomize_teams)
         self.app.add_url_rule('/power','power',self.power)
@@ -151,7 +172,61 @@ class WebUI():
     def battery_status(self):
         return self.controller_debug()
 
-    def controller_debug(self):
+    def controller_debug_legacy(self):
+        return redirect(url_for('debug'))
+
+    def debug_data(self):
+        return {
+            "adapters": bluetooth_diagnostics.get_adapters(),
+            "controllers": self._controller_debug_data(),
+        }
+
+    def reset_bluetooth(self):
+        """Launch the existing reset workflow after this response is sent.
+
+        The workflow deliberately stops this WebUI along with the game, clears
+        saved PS Move registrations, and starts JoustMania again. A detached,
+        delayed process lets the browser receive the confirmation page first.
+        """
+        reset_script = Path(__file__).resolve().parent / 'reset_psmove_connections.sh'
+        if not reset_script.is_file():
+            return 'Bluetooth reset script was not found.', 500
+        # Do not inherit Supervisor's stdout pipe: stopping JoustMania closes
+        # that pipe and would kill clear_devices.py with BrokenPipeError.
+        reset_log = open('/var/log/joustmania-bluetooth-reset.log', 'a')
+        try:
+            subprocess.Popen(
+                ['/bin/bash', '-c', 'sleep 1; exec "$0"', str(reset_script)],
+                stdin=subprocess.DEVNULL,
+                stdout=reset_log,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+                close_fds=True,
+            )
+        finally:
+            reset_log.close()
+        return render_template('bluetooth_reset.html')
+
+    def restart_joustmania(self):
+        """Restart only the Supervisor-managed JoustMania application."""
+        restart_script = Path(__file__).resolve().parent / 'restart_joustmania.sh'
+        if not restart_script.is_file():
+            return 'JoustMania restart script was not found.', 500
+        restart_log = open('/var/log/joustmania-restart.log', 'a')
+        try:
+            subprocess.Popen(
+                ['/bin/bash', '-c', 'sleep 1; exec "$0"', str(restart_script)],
+                stdin=subprocess.DEVNULL,
+                stdout=restart_log,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+                close_fds=True,
+            )
+        finally:
+            restart_log.close()
+        return render_template('joustmania_restart.html')
+
+    def _controller_debug_data(self):
         battery_status = {
             str(address).upper(): level
             for address, level in dict(self.ns.battery_status).items()
@@ -160,6 +235,19 @@ class WebUI():
             str(address).upper(): value
             for address, value in dict(getattr(self.ns, 'out_moves', {})).items()
         }
+        update_counts = {
+            str(address).upper(): int(value)
+            for address, value in dict(
+                getattr(self.ns, 'controller_update_counts', {})
+            ).items()
+        }
+        if self.controller_manager is not None:
+            update_counts = {
+                str(self.controller_manager.index_to_serial[index]).upper(): int(
+                    self.controller_manager.state_sequence[index] // 2
+                )
+                for index in self.controller_manager.active_controller_indices()
+            }
 
         if psmove_dbus is not None:
             controllers = psmove_dbus.get_registered_controllers()
@@ -182,6 +270,23 @@ class WebUI():
                 for address in battery_status
             ]
 
+        # One controller can retain registrations under multiple adapter
+        # addresses after dongles are swapped. Display the physical controller
+        # once, preferring its current live/connected BlueZ object over saved
+        # registrations belonging to unavailable adapters.
+        controllers_by_address = {}
+        for controller in controllers:
+            address = controller['address'].upper()
+            existing = controllers_by_address.get(address)
+            rank = (
+                bool(controller['connected']),
+                bool(controller['loaded']),
+                controller['adapter'] != 'unknown',
+            )
+            if existing is None or rank > existing[0]:
+                controllers_by_address[address] = (rank, controller)
+        controllers = [item[1] for item in controllers_by_address.values()]
+
         for controller in controllers:
             address = controller['address'].upper()
             battery = battery_status.get(address)
@@ -194,6 +299,23 @@ class WebUI():
             controller['active'] = (
                 None if address not in out_moves else out_moves[address] == 0
             )
+            controller['update_count'] = update_counts.get(address)
+
+        if bluetooth_roles is not None:
+            try:
+                roles = bluetooth_roles.get_connection_roles(
+                    list(jm_dbus.get_hci_dict().keys())
+                )
+            except Exception:
+                roles = {}
+            for controller in controllers:
+                connection = roles.get(controller['address'].upper(), {})
+                controller['role'] = connection.get('role', 'Unavailable')
+                controller['handle'] = connection.get('handle')
+        else:
+            for controller in controllers:
+                controller['role'] = 'Unavailable'
+                controller['handle'] = None
 
         controllers.sort(
             key=lambda controller: (
@@ -202,7 +324,21 @@ class WebUI():
                 controller['address'],
             )
         )
-        return render_template('controller_debug.html', controllers=controllers)
+        return controllers
+
+    def controller_debug(self):
+        controllers = self._controller_debug_data()
+        adapters = bluetooth_diagnostics.get_adapters()
+        for adapter in adapters:
+            adapter['controllers'] = [
+                controller for controller in controllers
+                if controller['adapter'] == adapter['name']
+            ]
+        return render_template(
+            'controller_debug.html',
+            controllers=controllers,
+            adapters=adapters,
+        )
 
     #@app.route('/power')
     def power(self):
@@ -284,10 +420,10 @@ class WebUI():
             team_colors = [color.name for color in team_colors]
             return str(team_colors).replace("'",'"')#JSON is dumb and demands double quotes
 
-def start_web(command_queue, ns):
+def start_web(command_queue, ns, controller_manager_instance=None):
     import setproctitle
     setproctitle.setproctitle(f"JoustMania-WebUI")    
-    webui = WebUI(command_queue,ns)
+    webui = WebUI(command_queue, ns, controller_manager_instance)
     webui.web_loop()
 
 if __name__ == '__main__':

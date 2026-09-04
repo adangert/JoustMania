@@ -11,21 +11,52 @@
 .batt1, .batt0 { background-color: red; }
 .batt238 { background-color: gray; }
 .batt239 { background-color: lightgray; }
+.diagnostic-note { max-width: 70em; }
+.nowrap { white-space: nowrap; }
+.adapter-section { margin-top: 24px; padding-top: 16px; border-top: 3px solid #ddd; overflow-x: auto; }
+.adapter-section h3 { margin-bottom: 8px; }
+.controller-table { margin: 12px 0 20px; }
+.rate-slow { background-color: #ff8080; }
+.rate-warning { background-color: #ffe680; }
+.rate-good { background-color: #80ff80; }
 </style>
 {% endblock %}
 
 {% block body %}
 <div class="info_box">
-    <h2>Controller Status</h2>
-
-    <table>
+    <h2>Bluetooth Adapters</h2>
+    <p class="diagnostic-note">Live rates are HCI packets handled by each adapter. With controllers connected,
+    a much lower RX ACL rate identifies the slow path directly. With no controllers, identity and hardware error
+    checks still work, but an idle adapter cannot prove radio throughput; “No reported errors” is not a speed test.</p>
+    <div id="bluetooth-adapter-body">
+    {% for adapter in adapters %}
+    <section class="adapter-section" data-adapter-section="{{ adapter.name }}">
+        <h3><span class="adapter-name">{{ adapter.name }}</span> — <span class="adapter-address">{{ adapter.address }}</span></h3>
+        <table>
+        <thead><tr>
+            <th>Chipset</th><th>USB device</th><th>USB link</th>
+            <th>Bluetooth</th><th>Inquiry TX power</th><th>ACL MTU</th><th>Links</th><th>RX ACL/s/link</th><th>TX ACL/s/link</th><th>Errors</th><th>Assessment</th>
+        </tr></thead>
+        <tbody>
+            <tr data-adapter="{{ adapter.name }}" data-rx="{{ adapter.rx_acl }}" data-tx="{{ adapter.tx_acl }}">
+                <td class="adapter-manufacturer">{{ adapter.manufacturer }}</td><td class="adapter-usb-device">{{ adapter.product }} ({{ adapter.usb_id or 'Unknown' }})</td>
+                <td class="adapter-usb-speed">{{ adapter.usb_speed or 'Unknown' }} Mb/s at {{ adapter.usb_path or 'unknown path' }}</td><td class="adapter-hci-version">{{ adapter.hci_version }}</td>
+                <td class="adapter-tx-power">{% if adapter.inquiry_tx_power_dbm is not none %}{{ adapter.inquiry_tx_power_dbm }} dBm{% else %}Unavailable{% endif %}</td>
+                <td class="adapter-acl-mtu">{{ adapter.acl_mtu }}</td><td class="connections">{{ adapter.connections }}</td>
+                <td class="rx-rate">Measuring…</td><td class="tx-rate">Measuring…</td>
+                <td class="errors">{{ adapter.rx_errors + adapter.tx_errors }}</td><td class="health">{{ adapter.health }}</td>
+            </tr>
+        </tbody>
+        </table>
+        <h4>Controllers on {{ adapter.name }}</h4>
+        <table class="controller-table">
         <thead>
             <tr>
                 <th>Status</th>
+                <th>Updates/s</th>
+                <th>Role</th>
                 <th>Battery</th>
                 <th>Active</th>
-                <th>Adapter</th>
-                <th>Adapter Address</th>
                 <th>Controller</th>
                 <th>Model</th>
                 <th>Registered</th>
@@ -36,14 +67,14 @@
                 <th>Services</th>
             </tr>
         </thead>
-        <tbody>
-            {% for controller in controllers %}
-            <tr>
+        <tbody class="controller-status-body" data-for-adapter="{{ adapter.name }}">
+            {% for controller in adapter.controllers %}
+            <tr data-controller="{{ controller.address }}">
                 <td class="{% if controller.connected %}connected{% else %}disconnected{% endif %}">{{ controller.status }}</td>
+                <td class="controller-rate">Measuring…</td>
+                <td>{{ controller.role }}</td>
                 <td{% if controller.battery_code is not none %} class="batt{{ controller.battery_code }}"{% endif %}>{{ controller.battery }}</td>
                 <td>{% if controller.active is none %}Unknown{% elif controller.active %}Yes{% else %}No{% endif %}</td>
-                <td>{{ controller.adapter }}</td>
-                <td>{{ controller.adapter_address }}</td>
                 <td>{{ controller.address }}</td>
                 <td>{{ controller.model }}</td>
                 <td>Yes</td>
@@ -55,13 +86,141 @@
             </tr>
             {% else %}
             <tr>
-                <td colspan="13">No PS Move controllers are registered.</td>
+                <td colspan="13">No controllers are assigned to this adapter.</td>
             </tr>
             {% endfor %}
         </tbody>
-    </table>
+        </table>
+    </section>
+    {% else %}
+        <p>No Bluetooth adapters were found.</p>
+    {% endfor %}
+    </div>
 
-    <p><a href="/debug/controllers"><button type="button">Refresh</button></a>
-    <a href="/"><button type="button">Go Back</button></a></p>
+    <div id="unassigned-controller-section" class="adapter-section" style="display: none;">
+        <h3>Unassigned or unavailable adapter</h3>
+        <table class="controller-table"><tbody class="controller-status-body" data-for-adapter="unknown"></tbody></table>
+    </div>
+    <p><a href="/"><button type="button">Go Back</button></a></p>
+    <form action="/debug/restart-joustmania" method="POST"
+          onsubmit="return confirm('Restart JoustMania? This stops the current game but does not reboot the computer or clear Bluetooth connections.');">
+        <button type="submit">Restart JoustMania</button>
+    </form>
+    <p class="diagnostic-note">Restarts only the JoustMania application. It does not reboot the computer or remove controller pairings.</p>
+    <form action="/debug/reset-bluetooth" method="POST"
+          onsubmit="return confirm('Reset Bluetooth controllers? This stops the current game, removes saved PS Move connections, and restarts JoustMania.');">
+        <button type="submit" class="danger-button">Reset Bluetooth Controllers</button>
+    </form>
+    <p class="diagnostic-note">This stops the current game, clears saved PS Move registrations, and restarts JoustMania. Controllers may need to reconnect or be paired again.</p>
 </div>
+<script>
+(function () {
+    let lastTime = Date.now();
+    const controllerLast = {};
+    function cell(row, value, className) {
+        const item = document.createElement('td');
+        item.textContent = value;
+        if (className) item.className = className;
+        row.appendChild(item);
+    }
+    function renderControllers(controllers, seconds) {
+        const bodies = Array.from(document.querySelectorAll('.controller-status-body'));
+        bodies.forEach(function (body) { body.textContent = ''; });
+        controllers.forEach(function (controller) {
+            let body = document.querySelector('.controller-status-body[data-for-adapter="' + controller.adapter + '"]');
+            if (!body) body = document.querySelector('.controller-status-body[data-for-adapter="unknown"]');
+            const row = document.createElement('tr');
+            row.dataset.controller = controller.address;
+            cell(row, controller.status, controller.connected ? 'connected' : 'disconnected');
+            let rate = 'Unavailable';
+            if (!controller.connected) {
+                rate = '—';
+                if (controller.update_count !== null) controllerLast[controller.address] = controller.update_count;
+            } else if (controller.update_count !== null) {
+                if (controllerLast[controller.address] !== undefined) {
+                    rate = Math.max(0, (controller.update_count - controllerLast[controller.address]) / seconds).toFixed(1);
+                } else {
+                    rate = 'Measuring…';
+                }
+                controllerLast[controller.address] = controller.update_count;
+            }
+            let rateClass = 'controller-rate';
+            if (typeof rate === 'string' && /^\d/.test(rate)) {
+                const numericRate = Number(rate);
+                if (numericRate < 70) rateClass += ' rate-slow';
+                else if (numericRate <= 80) rateClass += ' rate-warning';
+                else rateClass += ' rate-good';
+            }
+            cell(row, rate, rateClass);
+            cell(row, controller.role);
+            cell(row, controller.battery, controller.battery_code === null ? '' : 'batt' + controller.battery_code);
+            cell(row, controller.active === null ? 'Unknown' : (controller.active ? 'Yes' : 'No'));
+            cell(row, controller.address);
+            cell(row, controller.model); cell(row, 'Yes'); cell(row, controller.loaded ? 'Yes' : 'No');
+            cell(row, controller.paired ? 'Yes' : 'No'); cell(row, controller.connected ? 'Yes' : 'No');
+            cell(row, controller.trusted ? 'Yes' : 'No'); cell(row, controller.services_resolved ? 'Ready' : 'Not ready');
+            body.appendChild(row);
+        });
+        bodies.forEach(function (body) {
+            if (body.children.length) return;
+            const row = document.createElement('tr');
+            const item = document.createElement('td');
+            item.colSpan = 13;
+            item.textContent = body.dataset.forAdapter === 'unknown'
+                ? 'No unassigned controllers.'
+                : 'No controllers are assigned to this adapter.';
+            row.appendChild(item); body.appendChild(row);
+        });
+        const unassignedBody = document.querySelector('.controller-status-body[data-for-adapter="unknown"]');
+        document.getElementById('unassigned-controller-section').style.display =
+            controllers.some(function (controller) {
+                return !document.querySelector('[data-adapter-section="' + controller.adapter + '"]');
+            }) ? '' : 'none';
+    }
+    window.setInterval(function () {
+        fetch('/debug/data', {cache: 'no-store'}).then(function (response) { return response.json(); }).then(function (data) {
+            const now = Date.now();
+            const seconds = Math.max((now - lastTime) / 1000, 0.001);
+            const adapterRows = Array.from(document.querySelectorAll('#bluetooth-adapter-body [data-adapter]'));
+            const displayedAdapters = adapterRows.map(function (row) { return row.dataset.adapter; }).sort();
+            const currentAdapters = data.adapters.map(function (adapter) { return adapter.name; }).sort();
+            if (displayedAdapters.join(',') !== currentAdapters.join(',')) {
+                // Adapter topology changed after this page was rendered. A
+                // reload creates/removes identity rows; ordinary live samples
+                // continue updating in place without page refreshes.
+                window.location.reload();
+                return;
+            }
+            data.adapters.forEach(function (adapter) {
+                const row = document.querySelector('[data-adapter="' + adapter.name + '"]');
+                if (!row) return;
+                const section = row.closest('[data-adapter-section]');
+                section.querySelector('.adapter-address').textContent = adapter.address;
+                row.querySelector('.adapter-manufacturer').textContent = adapter.manufacturer;
+                row.querySelector('.adapter-usb-device').textContent = adapter.product + ' (' + (adapter.usb_id || 'Unknown') + ')';
+                row.querySelector('.adapter-usb-speed').textContent = (adapter.usb_speed || 'Unknown') + ' Mb/s at ' + (adapter.usb_path || 'unknown path');
+                row.querySelector('.adapter-hci-version').textContent = adapter.hci_version;
+                row.querySelector('.adapter-tx-power').textContent = adapter.inquiry_tx_power_dbm === null ? 'Unavailable' : adapter.inquiry_tx_power_dbm + ' dBm';
+                row.querySelector('.adapter-acl-mtu').textContent = adapter.acl_mtu;
+                const oldRx = Number(row.dataset.rx), oldTx = Number(row.dataset.tx);
+                const links = Math.max(adapter.connections, 1);
+                const rxRate = Math.max(0, (adapter.rx_acl - oldRx) / seconds / links);
+                const txRate = Math.max(0, (adapter.tx_acl - oldTx) / seconds / links);
+                row.querySelector('.rx-rate').textContent = adapter.connections ? rxRate.toFixed(1) : '—';
+                row.querySelector('.tx-rate').textContent = adapter.connections ? txRate.toFixed(1) : '—';
+                row.querySelector('.connections').textContent = adapter.connections;
+                row.querySelector('.errors').textContent = adapter.rx_errors + adapter.tx_errors;
+                let health = adapter.connections ? adapter.health : 'Idle — no controller links';
+                if (adapter.connections && rxRate < 80) health = 'SLOW controller traffic';
+                else if (adapter.connections && rxRate >= 85) health = 'Healthy controller traffic';
+                else if (adapter.connections) health = 'Borderline controller traffic';
+                row.querySelector('.health').textContent = health;
+                row.dataset.rx = adapter.rx_acl; row.dataset.tx = adapter.tx_acl;
+            });
+            renderControllers(data.controllers, seconds);
+            lastTime = now;
+        }).catch(function () {});
+    }, 1000);
+}());
+</script>
 {% endblock %}

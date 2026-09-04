@@ -53,6 +53,7 @@ import logging.config
 import setproctitle
 
 if platform == "linux" or platform == "linux2":
+    import bluetooth_roles
     import dbus
     import jm_dbus
     import pair
@@ -349,9 +350,6 @@ class Menu():
         self.command_queue = Queue()
         self.joust_manager = Manager()
         self.ns = self.joust_manager.Namespace()
-        # Start web server
-        self.web_proc = Process(target=webui.start_web, args=(self.command_queue,self.ns))
-        self.web_proc.start()
         self.ns.status = dict()
         self.ns.settings = dict()
         self.ns.battery_status = dict()
@@ -374,6 +372,18 @@ class Menu():
         # All of the moves connected via BT or USB, moves connected via both will appear twice
         self.controller_manager = controller_manager.get_manager()
         self.moves = self.controller_manager.connected_controllers()
+        if platform == "linux" or platform == "linux2":
+            self.bluetooth_role_monitor = bluetooth_roles.start_peripheral_role_monitor(
+                self.controller_manager
+            )
+
+        # Give the WebUI direct access to the shared controller sequences so
+        # live update rates continue advancing while a game owns the menu loop.
+        self.web_proc = Process(
+            target=webui.start_web,
+            args=(self.command_queue, self.ns, self.controller_manager),
+        )
+        self.web_proc.start()
 
         self.move_count = self.get_move_count() # Number of connected moves used in webui
 
@@ -493,6 +503,22 @@ class Menu():
         #If move is not already being tracked
         if move_serial not in self.tracked_moves:
             logger.debug("Pairing BT move: {}".format(move_serial))
+            if platform == "linux" or platform == "linux2":
+                role_result = bluetooth_roles.ensure_peripheral(
+                    move_serial,
+                    list(jm_dbus.get_hci_dict().keys()),
+                )
+                if role_result.get("success"):
+                    logger.info(
+                        "Bluetooth role for %s is Peripheral on %s",
+                        move_serial,
+                        role_result.get("adapter", "unknown adapter"),
+                    )
+                else:
+                    logger.warning(
+                        "Could not switch Bluetooth role for %s to Peripheral",
+                        move_serial,
+                    )
             color = Array('i', [0] * 3)
             # TODO: this probably should be tracked above
             # Individual move run-time parameters, initialize them all to 0
@@ -1006,6 +1032,15 @@ class Menu():
 
         self.ns.battery_status = battery_status
         self.ns.out_moves = self.out_moves
+        # state_sequence advances twice for every complete PSMoveAPI update.
+        # Publish cumulative per-controller counts so the WebUI can calculate
+        # rates without consuming controller input or opening another API.
+        self.ns.controller_update_counts = {
+            controller.serial: int(
+                self.controller_manager.state_sequence[controller.index] // 2
+            )
+            for controller in self.moves
+        }
 
     def stop_tracking_moves(self):
         for proc in self.tracked_moves.values():

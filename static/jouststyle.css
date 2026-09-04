@@ -22,6 +22,14 @@ button:hover {
     background-color: #0056b3;
 }
 
+.danger-button {
+    background-color: #c82333;
+}
+
+.danger-button:hover {
+    background-color: #9f1c28;
+}
+
 a button {
     background-color: #28a745;
 }

@@ -43,6 +43,13 @@ Optional and recommended:
 Note on Hardware: The internal bluetooth is shorter range and has a slightly higher latency
 The class 1 adapters allow bluetooth connections up to 300+ feet and allow for the gameplay to be smooth, each adapter can connect to 6 to 7 controllers. I've tested this build with four adapters and 18 controllers successfully.
 
+On Linux, JoustMania automatically requests the Bluetooth Peripheral role for
+connected PS Move controllers. In testing, some ZCM1 controllers on Realtek
+adapters ran at only about 65 updates per second in Central role, but reached
+about 87–89 updates per second in Peripheral role. ZCM2 controllers normally
+report much higher rates. The live System Debug page shows each controller's
+role and update rate, with rates above 80 updates per second shown in green.
+
 Optional:
 
 * USB hub for charging controllers: [SABRENT 13 Port](https://www.amazon.com/gp/product/B00HL7Z46K) [SIIG 10 Port](http://a.co/7T3HDmJ)

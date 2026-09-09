@@ -53,7 +53,6 @@ import logging.config
 import setproctitle
 
 if platform == "linux" or platform == "linux2":
-    import bluetooth_roles
     import dbus
     import jm_dbus
     import pair
@@ -372,10 +371,8 @@ class Menu():
         # All of the moves connected via BT or USB, moves connected via both will appear twice
         self.controller_manager = controller_manager.get_manager()
         self.moves = self.controller_manager.connected_controllers()
-        if platform == "linux" or platform == "linux2":
-            self.bluetooth_role_monitor = bluetooth_roles.start_peripheral_role_monitor(
-                self.controller_manager
-            )
+        # Let BlueZ negotiate roles. Forcing every link to Peripheral can
+        # constrain adapter capacity; the debug page still reports live roles.
 
         # Give the WebUI direct access to the shared controller sequences so
         # live update rates continue advancing while a game owns the menu loop.
@@ -503,22 +500,6 @@ class Menu():
         #If move is not already being tracked
         if move_serial not in self.tracked_moves:
             logger.debug("Pairing BT move: {}".format(move_serial))
-            if platform == "linux" or platform == "linux2":
-                role_result = bluetooth_roles.ensure_peripheral(
-                    move_serial,
-                    list(jm_dbus.get_hci_dict().keys()),
-                )
-                if role_result.get("success"):
-                    logger.info(
-                        "Bluetooth role for %s is Peripheral on %s",
-                        move_serial,
-                        role_result.get("adapter", "unknown adapter"),
-                    )
-                else:
-                    logger.warning(
-                        "Could not switch Bluetooth role for %s to Peripheral",
-                        move_serial,
-                    )
             color = Array('i', [0] * 3)
             # TODO: this probably should be tracked above
             # Individual move run-time parameters, initialize them all to 0

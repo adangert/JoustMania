@@ -102,6 +102,18 @@
         <table class="controller-table"><tbody class="controller-status-body" data-for-adapter="unknown"></tbody></table>
     </div>
     <p><a href="/"><button type="button">Go Back</button></a></p>
+    <section aria-labelledby="hotspot-heading">
+        <h3 id="hotspot-heading">Wi-Fi Hotspot</h3>
+        <p role="status" id="hotspot-status">{{ 'Enabled' if access_point.enabled else ('Disabled' if access_point.available else 'Unavailable') }}</p>
+        <form id="hotspot-form" action="/debug/access-point" method="POST">
+            <input id="hotspot-action" type="hidden" name="action" value="{{ 'disable' if access_point.enabled else 'enable' }}">
+            <button id="hotspot-button" type="submit" {% if not access_point.available or access_point.busy %}disabled{% endif %}>{{ 'Disable' if access_point.enabled else 'Enable' }} Wi-Fi Hotspot</button>
+        </form>
+        <p class="diagnostic-note">Enabling switches the Pi's Wi-Fi to the <strong>JoustMania</strong> hotspot.
+        Connect with password <strong>joustpass</strong>, then open <a href="http://joust.mania">http://joust.mania</a>.
+        Disabling lets the Pi reconnect to its saved Wi-Fi network. This page may disconnect when switching networks.</p>
+        <p id="hotspot-error" role="alert"></p>
+    </section>
     <form action="/debug/restart-joustmania" method="POST"
           onsubmit="return confirm('Restart JoustMania? This stops the current game but does not reboot the computer or clear Bluetooth connections.');">
         <button type="submit">Restart JoustMania</button>
@@ -116,6 +128,32 @@
 <script>
 (function () {
     let lastTime = Date.now();
+    let hotspotPending = false;
+    function renderHotspot(state) {
+        document.getElementById('hotspot-status').textContent = state.busy ? 'Changing Wi-Fi hotspot…' :
+            (!state.available ? 'Unavailable' : (state.enabled ? 'Enabled' : 'Disabled'));
+        document.getElementById('hotspot-action').value = state.enabled ? 'disable' : 'enable';
+        document.getElementById('hotspot-button').textContent = (state.enabled ? 'Disable' : 'Enable') + ' Wi-Fi Hotspot';
+        document.getElementById('hotspot-button').disabled = hotspotPending || state.busy || !state.available;
+        document.getElementById('hotspot-error').textContent = state.error || '';
+    }
+    document.getElementById('hotspot-form').addEventListener('submit', function (event) {
+        event.preventDefault();
+        hotspotPending = true;
+        document.getElementById('hotspot-button').disabled = true;
+        document.getElementById('hotspot-status').textContent = 'Changing Wi-Fi hotspot…';
+        fetch('/debug/access-point', {method: 'POST', body: new URLSearchParams(new FormData(this))})
+            .then(function (response) {
+                return response.json().then(function (data) {
+                    if (!response.ok) throw new Error(data.error || 'Hotspot change failed.');
+                    hotspotPending = false;
+                    renderHotspot(data);
+                });
+            }).catch(function (error) {
+                hotspotPending = false;
+                document.getElementById('hotspot-error').textContent = error.message + ' If Wi-Fi changed, reconnect and reload this page.';
+            });
+    });
     const controllerLast = {};
     function cell(row, value, className) {
         const item = document.createElement('td');
@@ -179,6 +217,7 @@
     }
     window.setInterval(function () {
         fetch('/debug/data', {cache: 'no-store'}).then(function (response) { return response.json(); }).then(function (data) {
+            renderHotspot(data.access_point);
             const now = Date.now();
             const seconds = Math.max((now - lastTime) / 1000, 0.001);
             const adapterRows = Array.from(document.querySelectorAll('#bluetooth-adapter-body [data-adapter]'));

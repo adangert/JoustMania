@@ -63,8 +63,10 @@ Compare both the live rate and how many controllers can connect before choosing.
 
 ### Raspberry Pi memory
 
-A 1 GB Pi can run JoustMania, but other applications and decoded music leave
-little headroom. In our 1 GB Pi test, Chromium alongside JoustMania and Codex led
+A 1 GB Pi can run JoustMania, but plan conservatively: running more than about
+six controllers while also running the web UI in a browser on the Pi may cause
+performance issues. This is a practical caution, not a tested hard limit of six
+controllers. Other applications and decoded music leave little headroom. In our 1 GB Pi test, Chromium alongside JoustMania and Codex led
 to full compressed swap, slow web responses, and audio underruns. Closing
 Chromium substantially improved responsiveness. Use the web UI from a phone or
 another computer instead of running the browser on the Pi during play.

@@ -1,11 +1,14 @@
 import controller_manager
 import os
+import logging
 
 from sys import platform
 if platform == "linux" or platform == "linux2":
     import jm_dbus
+    from dbus import DBusException
 elif platform == "windows" or platform == "win32":
     import win_jm_dbus as jm_dbus
+    DBusException = OSError
     
 import update
 
@@ -15,14 +18,9 @@ class Pair():
     """
     def __init__(self):
         """Use DBus to find bluetooth controllers"""
-        self.hci_dict = jm_dbus.get_hci_dict()
-
-        devices = self.hci_dict.values()
+        self.hci_dict = {}
         self.bt_devices = {}
-        for device in devices:
-            self.bt_devices[device] = []
-
-        self.pre_existing_devices()
+        self.update_adapters()
 
     def pre_existing_devices(self):
         """
@@ -41,7 +39,11 @@ class Pair():
         """
         Rescan for bluetooth adapters that may not have existed on program launch
         """
-        self.hci_dict = jm_dbus.get_hci_dict()
+        try:
+            self.hci_dict = jm_dbus.get_hci_dict()
+        except DBusException as error:
+            logging.getLogger(__name__).warning("Bluetooth unavailable: %s", error)
+            self.hci_dict = {}
 
         # Remove unplugged adapters as well as adding new ones. Otherwise a
         # hot-swap can leave pairing aimed at an address that no longer exists,
@@ -51,7 +53,12 @@ class Pair():
             for addr in self.hci_dict.values()
         }
 
-        self.pre_existing_devices()
+        try:
+            self.pre_existing_devices()
+        except DBusException:
+            # An adapter can disappear between discovery and enumeration.
+            self.hci_dict = {}
+            self.bt_devices = {}
 
     def get_lowest_bt_device(self):
         num = 9999999
@@ -75,6 +82,8 @@ class Pair():
                 # still stores this Pi as its Bluetooth host. Pairing over USB
                 # rewrites that address after use with another computer.
                 host_address = self.get_lowest_bt_device()
+                if not host_address:
+                    return False
                 paired = controller_manager.pair_controller(host_address)
                 if paired:
                     # BlueZ may need a few seconds to publish the registration.

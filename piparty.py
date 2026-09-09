@@ -43,7 +43,7 @@ from common import Button, Games, Status, Sensitivity
 import yaml
 import time, random, os.path
 from datetime import datetime
-from piaudio import Music, Audio, InitAudio
+from piaudio import Music, Audio, InitAudio, speak
 from enum import Enum
 from multiprocessing import Process, Value, Array, Queue, Manager
 from games import joust_ffa, joust_teams, joust_random_teams, joust_non_stop, traitor, werewolf, zombie, commander, swapper, tournament, speed_bomb, fight_club
@@ -404,6 +404,8 @@ class Menu():
         self.game_mode = Games[self.ns.settings['current_game']] # Get game mode from ns (which is shared with web admin)
         self.old_game_mode = self.game_mode #Previous game mode
         self.pair = pair.Pair() # Start bluetooth pairing
+        self.bluetooth_missing = False
+        self.bluetooth_pairing_notices = set()
 
         self.menu = Value('i', 1) # Whether in the menu or not (1 - Menu, 0 - Game)
         self.controller_game_mode = Value('i',1) # Game mode shared across all processes
@@ -461,6 +463,15 @@ class Menu():
                 logger.warning("Bluetooth is temporarily unavailable: %s", error)
                 return
 
+            missing = not bt_hcis
+            if missing and not self.bluetooth_missing:
+                logger.warning("Bluetooth is not available.")
+                if self.ns.settings['play_audio']:
+                    speak("Bluetooth is not available.")
+            if not missing:
+                self.bluetooth_pairing_notices.clear()
+            self.bluetooth_missing = missing
+
             for hci in bt_hcis:
                 for attempt in range(1):
                     try:
@@ -486,6 +497,13 @@ class Menu():
             if controller.usb and not controller.bluetooth:
                 if move_serial not in self.paired_moves:
                     logger.debug("Pairing USB move: {}".format(move_serial))
+                    if platform in ("linux", "linux2") and self.bluetooth_missing:
+                        if move_serial not in self.bluetooth_pairing_notices:
+                            self.bluetooth_pairing_notices.add(move_serial)
+                            logger.warning("Cannot pair %s: no Bluetooth adapter connected", move_serial)
+                            if self.ns.settings['play_audio']:
+                                speak("Bluetooth is not available.")
+                        return
                     if self.pair.pair_move(controller):
                         controller.set_color(255, 255, 255)
                         controller.set_rumble(0)
@@ -1099,7 +1117,7 @@ class Menu():
             Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/Tournament-instructions.wav').start_effect_and_wait()
         if self.game_mode == Games.FightClub:
             if self.ns.settings['menu_voice'] == 'aaron':
-                os.popen('espeak -ven -p 70 -a 200 "Two players fight, the winner must defend their title, the player with the highest score wins')
+                speak("Two players fight, the winner must defend their title, the player with the highest score wins")
             else:
                 Audio('audio/Menu/vox/' + self.ns.settings['menu_voice'] + '/Fightclub-instructions.wav').start_effect_and_wait()
             time.sleep(5)

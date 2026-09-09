@@ -1,4 +1,8 @@
 import asyncio
+import shutil
+import tempfile
+import subprocess
+import logging
 import wave
 import functools
 import io
@@ -281,3 +285,44 @@ class DummyMusic:
 
 def InitAudio():
     pygame.mixer.init(47000, -16, 2 , 4096)
+
+
+@functools.lru_cache(maxsize=16)
+def _robot_voice_sample(message):
+    engine = shutil.which("espeak") or shutil.which("espeak-ng")
+    if not engine:
+        return None
+    # stdout WAV headers use an unknown length, which SDL can interpret as
+    # a huge allocation. A file gives espeak a seekable, correctly sized WAV.
+    with tempfile.NamedTemporaryFile(suffix=".wav") as output:
+        subprocess.run(
+            [engine, "-w", output.name, "-ven", "-p", "70", message],
+            capture_output=True, check=True, timeout=5,
+        )
+        # Some USB speakers stay asleep through digital silence. A quiet
+        # attention tone wakes the output before the first spoken syllable.
+        with wave.open(output.name, "rb") as source:
+            params = source.getparams()
+            frames = source.readframes(source.getnframes())
+        padded = io.BytesIO()
+        with wave.open(padded, "wb") as target:
+            target.setparams(params)
+            tone_frames = int(params.framerate * 0.3)
+            phase = numpy.arange(tone_frames) / params.framerate
+            envelope = numpy.minimum(phase / 0.02, (0.3 - phase) / 0.02).clip(0, 1)
+            tone = (numpy.sin(2 * numpy.pi * 660 * phase) * envelope * 2500).astype('<i2')
+            target.writeframes(tone.tobytes())
+            target.writeframes(bytes(int(params.framerate * 0.4) * params.nchannels * params.sampwidth))
+            target.writeframes(frames)
+        padded.seek(0)
+        return pygame.mixer.Sound(file=padded)
+
+
+def speak(message):
+    """Play robot speech through the same mixer/output as game effects."""
+    try:
+        sample = _robot_voice_sample(message)
+        if sample is not None:
+            sample.play()
+    except (OSError, subprocess.SubprocessError, pygame.error) as error:
+        logging.getLogger(__name__).warning("Robot voice unavailable: %s", error)

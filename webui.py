@@ -110,6 +110,7 @@ class WebUI():
         self.app.add_url_rule('/debug','debug',self.controller_debug)
         self.app.add_url_rule('/debug/controllers','controller_debug_legacy',self.controller_debug_legacy)
         self.app.add_url_rule('/debug/data','debug_data',self.debug_data)
+        self.app.add_url_rule('/debug/controller-role', 'controller_role', self.change_controller_role, methods=['POST'])
         self.app.add_url_rule('/debug/access-point', 'access_point', self.change_access_point, methods=['POST'])
         self.app.add_url_rule(
             '/debug/reset-bluetooth',
@@ -192,6 +193,24 @@ class WebUI():
             "controllers": self._controller_debug_data(),
             "access_point": access_point.status(),
         }
+
+    def change_controller_role(self):
+        if bluetooth_roles is None:
+            return {'error': 'Role switching is only available on Linux.'}, 501
+        address = request.form.get('address', '').upper()
+        role = request.form.get('role', '')
+        if role not in ('central', 'peripheral'):
+            return {'error': 'Choose Central or Peripheral.'}, 400
+        controller = next((c for c in self._controller_debug_data()
+                           if c['address'].upper() == address and c['connected']), None)
+        if controller is None:
+            return {'error': 'Controller is not connected over Bluetooth.'}, 409
+        try:
+            return bluetooth_roles.set_connection_role(address, role)
+        except ValueError as error:
+            return {'error': str(error)}, 400
+        except RuntimeError as error:
+            return {'error': str(error)}, 409
 
     def change_access_point(self):
         try:

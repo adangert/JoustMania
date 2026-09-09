@@ -28,7 +28,7 @@ Cool Stuffs!
 
 Hardware
 ---------------------------
-I am currently selling fully set up Joustmania devices (pi5 - 4gb model, case, two long range bluetooth dongles, sd card, power supply, audio-connector, HDMI cables) for $290 with included shipping domestically. If you would like to inquire about purchasing a fully setup Joustmania device, please reach out to joustmaniagame@gmail.com.
+I am currently selling fully set up Joustmania devices (Pi 5 - 2 GB model, case, two long range bluetooth dongles, sd card, power supply, audio-connector, HDMI cables) for $200 with included shipping domestically. If you would like to inquire about purchasing a fully setup Joustmania device, please reach out to joustmaniagame@gmail.com.
 
 If you would like to build your own device you will need the following:
 
@@ -41,14 +41,57 @@ Optional and recommended:
 * Note: we strongly recommend to use this linked TRENDnet brand as it has been tested, other dongles may or may not work/have other issues: https://a.co/d/6GG35Um
 
 Note on Hardware: The internal bluetooth is shorter range and has a slightly higher latency
-The class 1 adapters allow bluetooth connections up to 300+ feet and allow for the gameplay to be smooth, each adapter can connect to 6 to 7 controllers. I've tested this build with four adapters and 18 controllers successfully.
+The class 1 adapters allow bluetooth connections up to 300+ feet and allow for the gameplay to be smooth, some adapters can support 6 to 7 controllers, depending on the Bluetooth roles and hardware. Earlier builds have been tested with four adapters and 18 controllers successfully; see the role and capacity notes below.
 
-On Linux, JoustMania automatically requests the Bluetooth Peripheral role for
-connected PS Move controllers. In testing, some ZCM1 controllers on Realtek
-adapters ran at only about 65 updates per second in Central role, but reached
-about 87–89 updates per second in Peripheral role. ZCM2 controllers normally
-report much higher rates. The live System Debug page shows each controller's
-role and update rate, with rates above 80 updates per second shown in green.
+### Bluetooth roles and controller capacity
+
+JoustMania lets Bluetooth negotiate controller roles automatically. It does not
+force Peripheral when a controller connects or run a loop that changes roles.
+The System Debug page shows each controller's current role and live update rate.
+Use **Switch to Central** or **Switch to Peripheral** beside a connected
+controller to request a one-time change. The page verifies the resulting role
+and reports failures; a controller or adapter can reject a switch.
+
+The **Try All Peripheral** button attempts the change one controller at a time.
+Peripheral mode may improve data rates, but it can reduce simultaneous connection
+capacity. In one test with three CSR8510 A10 adapters, forcing Peripheral limited
+the setup to two connections per adapter. Switching one adapter's connections to
+Central allowed four controllers on that adapter and eight overall. This is a
+result from that setup, not a universal adapter limit. Earlier testing with some
+ZCM1 controllers found around 65 updates/s in Central and 87–89 in Peripheral.
+Compare both the live rate and how many controllers can connect before choosing.
+
+### Raspberry Pi memory
+
+A 1 GB Pi can run JoustMania, but plan conservatively: running more than about
+six controllers while also running the web UI in a browser on the Pi may cause
+performance issues. This is a practical caution, not a tested hard limit of six
+controllers. Other applications and decoded music leave little headroom. In our 1 GB Pi test, Chromium alongside JoustMania and Codex led
+to full compressed swap, slow web responses, and audio underruns. Closing
+Chromium substantially improved responsiveness. Use the web UI from a phone or
+another computer instead of running the browser on the Pi during play.
+
+For reference, these were observed JoustMania process totals in that test:
+
+| State | Resident + swapped memory |
+| --- | ---: |
+| Menu, no controllers | 338 MiB |
+| Menu, one controller | 356 MiB |
+| Menu, two controllers | 368 MiB |
+| Two-player game | About 472 MiB |
+| Three-player game | About 521 MiB |
+
+The first two controllers added roughly 12–17 MiB each to the menu total. A later
+snapshot showed about 18–23 MiB per controller worker, including its share of
+shared memory and swapped pages. These totals use proportional memory accounting
+(PSS + SwapPss), so shared pages are not counted repeatedly. Swapped memory is
+shown before compression; these numbers are not all physical RAM usage.
+Music buffers, game state, and process history change the totals, so do not
+estimate the full requirement from controller count alone.
+
+The 2 GB Pi offering provides more memory headroom than the tested 1 GB model.
+We have not established a maximum controller count from this memory test;
+Bluetooth adapter capacity and controller update rates must also be checked.
 
 Optional:
 
@@ -169,6 +212,12 @@ For further settings such as turning off audio (play_audio) or changing the colo
 
 Web Interface
 ---------------------------------
+The **System Debug** page includes controller role controls, application and
+Bluetooth reset buttons, and an **Enable/Disable Wi-Fi Hotspot** button. Hotspot
+status comes from NetworkManager and shows whether the hotspot is currently
+active. Changes show progress or errors and may disconnect the browser while
+the Pi switches Wi-Fi networks. The shell commands below remain available.
+
 Joustmania can also be controlled via a web browser on your laptop or smartphone. If your Pi is on a network, use the IP address of your Pi (for example, http://192.168.1.xxx/). Alternatively, you can turn your Pi in to an access point and connect your device directly to it. To enable this,  run the command
 ```
 sudo ./enable_ap.sh

@@ -103,6 +103,7 @@ function updateStatus() {
         timeout: 2000,
         success: function(rawdata) {
             var info = JSON.parse(rawdata);
+            $('#bluetooth_notice').text(info.bluetooth_message || '').toggle(Boolean(info.bluetooth_message));
             $('.main_status').show();
             $('#game_mode').text(info.game_mode);
             $('.info_box').hide();
@@ -201,6 +202,7 @@ $(document).ready(function() {
 {% endblock %}
 
 {% block body %}
+<div id="bluetooth_notice" role="status" style="display:none; padding:1em; background:#fff3cd; color:#664d03;"></div>
 <div class="main_status">
     Current mode: <span id="game_mode">Joust Null</span><br />
 </div>

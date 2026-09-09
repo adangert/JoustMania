@@ -12,6 +12,7 @@ import yaml
 import logging
 import runtime_platform
 import bluetooth_diagnostics
+from access_point import access_point
 from system_power import request_system_power
 
 if platform == "linux" or platform == "linux2":
@@ -110,6 +111,7 @@ class WebUI():
         self.app.add_url_rule('/debug/controllers','controller_debug_legacy',self.controller_debug_legacy)
         self.app.add_url_rule('/debug/data','debug_data',self.debug_data)
         self.app.add_url_rule('/debug/controller-role', 'controller_role', self.change_controller_role, methods=['POST'])
+        self.app.add_url_rule('/debug/access-point', 'access_point', self.change_access_point, methods=['POST'])
         self.app.add_url_rule(
             '/debug/reset-bluetooth',
             'reset_bluetooth',
@@ -146,7 +148,16 @@ class WebUI():
 
     #@app.route('/updateStatus')
     def update(self):
-        return json.dumps(self.ns.status)
+        status = dict(self.ns.status)
+        if platform in ("linux", "linux2"):
+            try:
+                status['bluetooth_message'] = (
+                    "" if jm_dbus.get_hci_dict() else
+                    "No Bluetooth adapter connected. Connect an adapter to pair controllers."
+                )
+            except jm_dbus.dbus.DBusException:
+                status['bluetooth_message'] = "Bluetooth is unavailable. Controller pairing is temporarily disabled."
+        return json.dumps(status)
         
         
     #@app.route('/changemodestr')
@@ -180,6 +191,7 @@ class WebUI():
         return {
             "adapters": bluetooth_diagnostics.get_adapters(),
             "controllers": self._controller_debug_data(),
+            "access_point": access_point.status(),
         }
 
     def change_controller_role(self):
@@ -199,6 +211,15 @@ class WebUI():
             return {'error': str(error)}, 400
         except RuntimeError as error:
             return {'error': str(error)}, 409
+
+    def change_access_point(self):
+        try:
+            access_point.change(request.form.get('action'))
+        except ValueError as error:
+            return {'error': str(error)}, 400
+        except RuntimeError as error:
+            return {'error': str(error)}, 409
+        return access_point.status(), 202
 
     def reset_bluetooth(self):
         """Launch the existing reset workflow after this response is sent.
@@ -355,6 +376,7 @@ class WebUI():
             ]
         return render_template(
             'controller_debug.html',
+            access_point=access_point.status(),
             controllers=controllers,
             adapters=adapters,
         )

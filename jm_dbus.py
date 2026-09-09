@@ -44,9 +44,13 @@ def get_hci_dict():
     """
     for attempt in range(2):
         try:
-            root = ensure_process_bus().get_object(ORG_BLUEZ, '/')
+            bus = ensure_process_bus()
+            # Do not auto-start absent BlueZ: activation can block for 25 seconds.
+            if not bus.name_has_owner(ORG_BLUEZ):
+                return {}
+            root = bus.get_object(ORG_BLUEZ, '/', introspect=False)
             manager = dbus.Interface(root, 'org.freedesktop.DBus.ObjectManager')
-            objects = manager.GetManagedObjects()
+            objects = manager.GetManagedObjects(timeout=1)
             return {
                 str(path).rsplit('/', 1)[-1]: str(properties['Address'])
                 for path, interfaces in objects.items()

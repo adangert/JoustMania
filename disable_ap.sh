@@ -1,25 +1,15 @@
 #!/bin/bash
+set -e
 
-if [ $UID -ne 0 ]; then
-  echo "Not root. Using sudo."
-  exec sudo $0
+if [ "$UID" -ne 0 ]; then
+    exec sudo -n /bin/bash "$0" "$@"
 fi
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 
-
-if [ ! -f ./apfiles/ap_active ]
-	then echo "AP not active... ending"
-	exit
+# Query NetworkManager rather than relying on a potentially stale marker.
+profiles=$(nmcli -t -f NAME connection show)
+if grep -Fxq Hotspot <<< "$profiles"; then
+    nmcli -w 20 connection delete Hotspot
 fi
-
-rm ./apfiles/ap_active
-
-echo "Deleting ad-hoc network, This pi should now reconnect back to the internet"
-nmcli con delete Hotspot
-
-#removing dnsmasq (for http://joust.mania access)
-rm /etc/NetworkManager/dnsmasq-shared.d/joustmania.conf
-
-
-echo ">>> DONE <<<"
-
-
+rm -f /etc/NetworkManager/dnsmasq-shared.d/joustmania.conf ./apfiles/ap_active
+echo "Hotspot disabled. The Pi can reconnect to its saved Wi-Fi network."

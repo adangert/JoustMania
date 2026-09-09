@@ -3,7 +3,7 @@ import os
 import common, colors
 from common import Status
 from colors import Colors
-from piaudio import Audio
+from piaudio import Audio, speak
 import numpy
 import random
 import logging
@@ -295,14 +295,16 @@ class Game():
             win_team_name = self.team_colors[self.winning_team].name
             if win_team_name == 'Pink':
                 if self.voice == 'aaron':
-                    os.popen('espeak -ven -p 70 -a 200 "And the winner is ...Pink Team')
+                    speak("And the winner is ...Pink Team")
+                    return
                 else:
                     team_win = Audio('audio/Joust/vox/' + self.voice + '/pink team win.wav')
             elif win_team_name == 'Magenta':
                 team_win = Audio('audio/Joust/vox/' + self.voice + '/magenta team win.wav')
             elif win_team_name == 'Orange':
                 if self.voice == 'aaron':
-                    os.popen('espeak -ven -p 70 -a 200 "And the winner is ...Orange Team')
+                    speak("And the winner is ...Orange Team")
+                    return
                 else:
                     team_win = Audio('audio/Joust/vox/' + self.voice + '/orange team win.wav')
             elif win_team_name == 'Yellow':
@@ -317,7 +319,8 @@ class Game():
                 team_win = Audio('audio/Joust/vox/' + self.voice + '/red team win.wav')
             elif win_team_name == 'Purple':
                 if self.voice == 'aaron':
-                    os.popen('espeak -ven -p 70 -a 200 "And the winner is ...Purple Team')
+                    speak("And the winner is ...Purple Team")
+                    return
                 else:
                     team_win = Audio('audio/Joust/vox/' + self.voice + '/purple team win.wav')
             else:

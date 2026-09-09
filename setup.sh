@@ -25,7 +25,7 @@ setup() {
         libportmidi-dev portaudio19-dev \
         libsdl-image1.2-dev libsdl-ttf2.0-dev \
         libblas-dev liblapack-dev \
-        bluez bluez-tools iptables rfkill supervisor cmake ffmpeg \
+        bluez bluez-tools iptables rfkill supervisor cmake ffmpeg espeak \
         libudev-dev libbluetooth-dev \
         alsa-utils alsa-tools libasound2-dev libsdl2-mixer-2.0-0 \
         python-dbus-dev python3-dbus libdbus-glib-1-dev usbutils libopenblas-dev \

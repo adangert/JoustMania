@@ -145,7 +145,16 @@ class WebUI():
 
     #@app.route('/updateStatus')
     def update(self):
-        return json.dumps(self.ns.status)
+        status = dict(self.ns.status)
+        if platform in ("linux", "linux2"):
+            try:
+                status['bluetooth_message'] = (
+                    "" if jm_dbus.get_hci_dict() else
+                    "No Bluetooth adapter connected. Connect an adapter to pair controllers."
+                )
+            except jm_dbus.dbus.DBusException:
+                status['bluetooth_message'] = "Bluetooth is unavailable. Controller pairing is temporarily disabled."
+        return json.dumps(status)
         
         
     #@app.route('/changemodestr')

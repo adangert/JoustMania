@@ -19,7 +19,7 @@
 .rate-slow { background-color: #ff8080; }
 .rate-warning { background-color: #ffe680; }
 .rate-good { background-color: #80ff80; }
-button.role-toggle { font-size: 11px; line-height: 1.2; padding: 2px 5px; margin: 3px 0 0; min-width: 0; min-height: 0; width: auto; height: auto; white-space: nowrap; }
+button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margin: 0; min-width: 0; min-height: 32px; width: auto; height: auto; white-space: nowrap; }
 </style>
 {% endblock %}
 
@@ -56,6 +56,7 @@ button.role-toggle { font-size: 11px; line-height: 1.2; padding: 2px 5px; margin
                 <th>Status</th>
                 <th>Updates/s</th>
                 <th>Role</th>
+                <th>Switch Role</th>
                 <th>Battery</th>
                 <th>Active</th>
                 <th>Controller</th>
@@ -73,7 +74,8 @@ button.role-toggle { font-size: 11px; line-height: 1.2; padding: 2px 5px; margin
             <tr data-controller="{{ controller.address }}">
                 <td class="{% if controller.connected %}connected{% else %}disconnected{% endif %}">{{ controller.status }}</td>
                 <td class="controller-rate">Measuring…</td>
-                <td>{{ controller.role }}<br>
+                <td>{{ controller.role }}</td>
+                <td>
                     <button type="button" class="role-toggle" data-address="{{ controller.address }}"
                             data-role="{{ 'peripheral' if controller.role == 'Central' else 'central' }}"
                             {% if not controller.connected or controller.role not in ['Central', 'Peripheral'] %}disabled{% endif %}>
@@ -93,7 +95,7 @@ button.role-toggle { font-size: 11px; line-height: 1.2; padding: 2px 5px; margin
             </tr>
             {% else %}
             <tr>
-                <td colspan="13">No controllers are assigned to this adapter.</td>
+                <td colspan="14">No controllers are assigned to this adapter.</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -143,7 +145,7 @@ button.role-toggle { font-size: 11px; line-height: 1.2; padding: 2px 5px; margin
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Role change failed.');
-            roleMessages[address] = 'Switched to ' + data.role + '.';
+            delete roleMessages[address];
             return true;
         } catch (error) {
             roleMessages[address] = error.message;
@@ -220,8 +222,8 @@ button.role-toggle { font-size: 11px; line-height: 1.2; padding: 2px 5px; margin
             }
             cell(row, rate, rateClass);
             cell(row, controller.role);
+            cell(row, '');
             const roleCell = row.lastElementChild;
-            roleCell.appendChild(document.createElement('br'));
             const roleButton = document.createElement('button');
             roleButton.type = 'button';
             roleButton.className = 'role-toggle';
@@ -250,7 +252,7 @@ button.role-toggle { font-size: 11px; line-height: 1.2; padding: 2px 5px; margin
             if (body.children.length) return;
             const row = document.createElement('tr');
             const item = document.createElement('td');
-            item.colSpan = 13;
+            item.colSpan = 14;
             item.textContent = body.dataset.forAdapter === 'unknown'
                 ? 'No unassigned controllers.'
                 : 'No controllers are assigned to this adapter.';

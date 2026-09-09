@@ -58,6 +58,7 @@ class ControllerRolesWebTest(unittest.TestCase):
         response = self.client.get('/debug')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Switch to Peripheral', response.data)
+        self.assertIn(b'<th>Switch Role</th>', response.data)
         self.assertIn(b'Try All Peripheral', response.data)
         self.assertIn(b'reduce the number of controllers', response.data)
 

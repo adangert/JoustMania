@@ -26,9 +26,15 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
 {% block body %}
 <div class="info_box">
     <h2>Bluetooth Adapters</h2>
+    <p class="diagnostic-note">Report gaps measure time between updates received by JoustMania over the last 10 seconds.
+    The p95 value means 95% of completed gaps were that short or shorter; lower means fewer long pauses.
+    Longest gap shows the worst completed pause in that window.
+    Provisional ratings from our controller tests: p95 green ≤22 ms, yellow ≤30 ms, red &gt;30 ms;
+    longest gap green ≤30 ms, yellow ≤50 ms, red &gt;50 ms.
+    These measure application delivery timing, not motion-to-game latency. Hover over p95 for more detail.</p>
     <p class="diagnostic-note">Live rates are HCI packets handled by each adapter. With controllers connected,
-    a much lower RX ACL rate identifies the slow path directly. With no controllers, identity and hardware error
-    checks still work, but an idle adapter cannot prove radio throughput; “No reported errors” is not a speed test.</p>
+    packet rates vary with controller type and traffic. Assessment summarizes connected controllers using their p95 report gaps.
+    Mixed results are listed separately; this is a connection assessment, not an adapter speed rating.</p>
     <div id="bluetooth-adapter-body">
     {% for adapter in adapters %}
     <section class="adapter-section" data-adapter-section="{{ adapter.name }}">
@@ -45,7 +51,7 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
                 <td class="adapter-tx-power">{% if adapter.inquiry_tx_power_dbm is not none %}{{ adapter.inquiry_tx_power_dbm }} dBm{% else %}Unavailable{% endif %}</td>
                 <td class="adapter-acl-mtu">{{ adapter.acl_mtu }}</td><td class="connections">{{ adapter.connections }}</td>
                 <td class="rx-rate">Measuring…</td><td class="tx-rate">Measuring…</td>
-                <td class="errors">{{ adapter.rx_errors + adapter.tx_errors }}</td><td class="health">{{ adapter.health }}</td>
+                <td class="errors">{{ adapter.rx_errors + adapter.tx_errors }}</td><td class="health">{{ 'Measuring connections…' if adapter.connections else adapter.health }}</td>
             </tr>
         </tbody>
         </table>
@@ -54,7 +60,7 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
         <thead>
             <tr>
                 <th>Status</th>
-                <th>Updates/s</th>
+                <th>Updates/s</th><th>Report gap p95</th><th>Longest gap (10 s)</th>
                 <th>Role</th>
                 <th>Switch Role</th>
                 <th>Battery</th>
@@ -74,6 +80,7 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
             <tr data-controller="{{ controller.address }}">
                 <td class="{% if controller.connected %}connected{% else %}disconnected{% endif %}">{{ controller.status }}</td>
                 <td class="controller-rate">Measuring…</td>
+                <td>Measuring…</td><td>Measuring…</td>
                 <td>{{ controller.role }}</td>
                 <td>
                     <button type="button" class="role-toggle" data-address="{{ controller.address }}"
@@ -95,7 +102,7 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
             </tr>
             {% else %}
             <tr>
-                <td colspan="14">No controllers are assigned to this adapter.</td>
+                <td colspan="16">No controllers are assigned to this adapter.</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -230,6 +237,26 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
         if (className) item.className = className;
         row.appendChild(item);
     }
+    function connectionAssessment(adapter, controllers) {
+        const connected = controllers.filter(controller => controller.connected && controller.adapter === adapter.name);
+        if (!connected.length) return adapter.connections ? 'Connection timing unavailable' : 'No active connections';
+        const counts = {good: 0, borderline: 0, slow: 0, measuring: 0};
+        connected.forEach(controller => {
+            const gap = controller.report_gap && controller.report_gap.p95_ms;
+            if (!Number.isFinite(gap)) counts.measuring++;
+            else if (gap <= 22) counts.good++;
+            else if (gap <= 30) counts.borderline++;
+            else counts.slow++;
+        });
+        const groups = Object.entries(counts).filter(([, count]) => count > 0);
+        if (groups.length === 1) {
+            const [rating, count] = groups[0];
+            if (rating === 'measuring') return 'Measuring connections…';
+            return rating[0].toUpperCase() + rating.slice(1) +
+                (count === 1 ? ' connection' : ' connections (' + count + ')');
+        }
+        return 'Mixed: ' + groups.map(([rating, count]) => count + ' ' + rating).join(', ');
+    }
     function renderControllers(controllers, seconds) {
         const bodies = Array.from(document.querySelectorAll('.controller-status-body'));
         bodies.forEach(function (body) { body.textContent = ''; });
@@ -259,6 +286,23 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
                 else rateClass += ' rate-good';
             }
             cell(row, rate, rateClass);
+            const gaps = controller.report_gap;
+            function gapValue(key, suffix) {
+                if (!controller.connected) return '—';
+                if (!gaps) return 'Unavailable';
+                return Number.isFinite(gaps[key]) ? gaps[key].toFixed(1) + suffix : 'Measuring…';
+            }
+            function gapClass(key, good, warning) {
+                if (!controller.connected || !gaps || !Number.isFinite(gaps[key])) return 'nowrap';
+                return 'nowrap ' + (gaps[key] <= good ? 'rate-good' :
+                    (gaps[key] <= warning ? 'rate-warning' : 'rate-slow'));
+            }
+            cell(row, gapValue('p95_ms', ' ms'), gapClass('p95_ms', 22, 30));
+            if (gaps) row.lastElementChild.title = 'Last ' + gaps.window_s + ' seconds; ' +
+                gaps.sample_count + ' completed gaps. p99: ' + gapValue('p99_ms', ' ms') +
+                '; pauses over 50 ms: ' + gaps.gaps_over_50ms + '; over 100 ms: ' + gaps.gaps_over_100ms +
+                (gaps.sample_limited ? '. Limited to most recent samples.' : '');
+            cell(row, gapValue('max_ms', ' ms'), gapClass('max_ms', 30, 50));
             cell(row, controller.role);
             cell(row, '');
             const roleCell = row.lastElementChild;
@@ -290,7 +334,7 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
             if (body.children.length) return;
             const row = document.createElement('tr');
             const item = document.createElement('td');
-            item.colSpan = 14;
+            item.colSpan = 16;
             item.textContent = body.dataset.forAdapter === 'unknown'
                 ? 'No unassigned controllers.'
                 : 'No controllers are assigned to this adapter.';
@@ -336,11 +380,7 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
                 row.querySelector('.tx-rate').textContent = adapter.connections ? txRate.toFixed(1) : '—';
                 row.querySelector('.connections').textContent = adapter.connections;
                 row.querySelector('.errors').textContent = adapter.rx_errors + adapter.tx_errors;
-                let health = adapter.connections ? adapter.health : 'Idle — no controller links';
-                if (adapter.connections && rxRate < 80) health = 'SLOW controller traffic';
-                else if (adapter.connections && rxRate >= 85) health = 'Healthy controller traffic';
-                else if (adapter.connections) health = 'Borderline controller traffic';
-                row.querySelector('.health').textContent = health;
+                row.querySelector('.health').textContent = connectionAssessment(adapter, data.controllers);
                 row.dataset.rx = adapter.rx_acl; row.dataset.tx = adapter.tx_acl;
             });
             renderControllers(data.controllers, seconds);

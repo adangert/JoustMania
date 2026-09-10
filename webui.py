@@ -281,7 +281,13 @@ class WebUI():
                 getattr(self.ns, 'controller_update_counts', {})
             ).items()
         }
+        report_gaps = {}
         if self.controller_manager is not None:
+            report_gaps = {
+                str(self.controller_manager.index_to_serial[index]).upper():
+                    self.controller_manager.report_timing.snapshot(index)
+                for index in self.controller_manager.active_controller_indices()
+            }
             update_counts = {
                 str(self.controller_manager.index_to_serial[index]).upper(): int(
                     self.controller_manager.state_sequence[index] // 2
@@ -340,6 +346,7 @@ class WebUI():
                 None if address not in out_moves else out_moves[address] == 0
             )
             controller['update_count'] = update_counts.get(address)
+            controller['report_gap'] = report_gaps.get(address) if controller['connected'] else None
 
         if bluetooth_roles is not None:
             try:

@@ -16,6 +16,7 @@ import time
 
 import proton_psmove
 import runtime_platform
+from report_timing import ReportTiming
 
 
 MAX_CONTROLLERS = 64
@@ -47,6 +48,7 @@ class ControllerManager:
         self.usb = multiprocessing.RawArray(ctypes.c_ubyte, MAX_CONTROLLERS)
         self.bluetooth = multiprocessing.RawArray(ctypes.c_ubyte, MAX_CONTROLLERS)
         self.state_sequence = multiprocessing.RawArray(ctypes.c_ulonglong, MAX_CONTROLLERS)
+        self.report_timing = ReportTiming(MAX_CONTROLLERS)
         self.buttons = multiprocessing.RawArray(ctypes.c_uint, MAX_CONTROLLERS)
         self.pressed = multiprocessing.RawArray(ctypes.c_uint, MAX_CONTROLLERS)
         self.released = multiprocessing.RawArray(ctypes.c_uint, MAX_CONTROLLERS)
@@ -211,6 +213,7 @@ def _api_process_main(manager):
             discovered and provides its ctypes-backed controller wrapper.
             """
             controller_index = controller_index_for(psmove_controller.serial)
+            manager.report_timing.reset(controller_index)
             manager.active[controller_index] = 1
             manager.usb[controller_index] = int(psmove_controller.usb)
             manager.bluetooth[controller_index] = int(psmove_controller.bluetooth)
@@ -224,6 +227,7 @@ def _api_process_main(manager):
             fields after this callback returns.
             """
             controller_index = controller_index_for(psmove_controller.serial)
+            manager.report_timing.record(controller_index)
             manager.active[controller_index] = 1
             manager.usb[controller_index] = int(psmove_controller.usb)
             manager.bluetooth[controller_index] = int(psmove_controller.bluetooth)
@@ -264,6 +268,7 @@ def _api_process_main(manager):
             controller_index = local_controller_indices.get(psmove_controller.serial)
             if controller_index is not None:
                 manager.active[controller_index] = 0
+                manager.report_timing.reset(controller_index)
                 manager.usb[controller_index] = 0
                 manager.bluetooth[controller_index] = 0
 

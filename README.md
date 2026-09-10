@@ -333,3 +333,13 @@ If you love this game you can support its development by helping out with my pat
 https://www.patreon.com/adangert
 
 We also have some great [contributors](CONTRIBUTORS.md) if you would you like to help out with development, or find any bug fixes we would be happy to test them out and incorperate them into the repo!
+
+The System Debug controller table also shows application report gaps over a rolling
+10-second window: p95 and the longest completed gap.
+Provisional p95 colors are green ≤22 ms, yellow ≤30 ms, red >30 ms;
+longest-gap colors are green ≤30 ms, yellow ≤50 ms, red >50 ms.
+These thresholds reflect initial controller tests, not Bluetooth standards.
+Hover over p95 for p99 and counts of pauses over 50/100 ms. These measure delivery
+to JoustMania, not over-air timing or motion-to-game latency. History resets on
+reconnection. Timing uses Python's standard library; no additional setup packages
+or packet-capture tools are required.

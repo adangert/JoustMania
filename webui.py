@@ -1,3 +1,4 @@
+import pairing_plan
 from multiprocessing import Queue, Manager, Process
 import socket
 import subprocess
@@ -110,6 +111,7 @@ class WebUI():
         self.app.add_url_rule('/debug','debug',self.controller_debug)
         self.app.add_url_rule('/debug/controllers','controller_debug_legacy',self.controller_debug_legacy)
         self.app.add_url_rule('/debug/data','debug_data',self.debug_data)
+        self.app.add_url_rule('/debug/pairing-target', 'pairing_target', self.change_pairing_target, methods=['POST'])
         self.app.add_url_rule('/debug/controller-role', 'controller_role', self.change_controller_role, methods=['POST'])
         self.app.add_url_rule('/debug/access-point', 'access_point', self.change_access_point, methods=['POST'])
         self.app.add_url_rule(
@@ -192,7 +194,17 @@ class WebUI():
             "adapters": bluetooth_diagnostics.get_adapters(),
             "controllers": self._controller_debug_data(),
             "access_point": access_point.status(),
+            "pairing": pairing_plan.status(self.ns),
         }
+
+    def change_pairing_target(self):
+        if not hasattr(self.ns, 'pairing_state'):
+            return {'error': 'Adapter selection is only available on Linux.'}, 501
+        address = request.form.get('address', '').strip().upper()
+        try:
+            return pairing_plan.select(self.ns, address)
+        except ValueError as error:
+            return {'error': str(error)}, 409
 
     def change_controller_role(self):
         if bluetooth_roles is None:
@@ -386,6 +398,7 @@ class WebUI():
         return render_template(
             'controller_debug.html',
             access_point=access_point.status(),
+            pairing=pairing_plan.status(self.ns),
             controllers=controllers,
             adapters=adapters,
         )

@@ -1,4 +1,5 @@
 import controller_manager
+import pairing_plan
 import os
 import logging
 
@@ -16,8 +17,9 @@ class Pair():
     """
     Manage paring move controllers to the server
     """
-    def __init__(self):
+    def __init__(self, ns=None):
         """Use DBus to find bluetooth controllers"""
+        self.ns = ns
         self.hci_dict = {}
         self.bt_devices = {}
         self.update_adapters()
@@ -61,16 +63,13 @@ class Pair():
             self.bt_devices = {}
 
     def get_lowest_bt_device(self):
-        num = 9999999
-        print(self.bt_devices)
-        for dev in self.bt_devices.keys():
-            if len(self.bt_devices[dev]) < num:
-                num = len(self.bt_devices[dev])
-
-        for dev in self.bt_devices.keys():
-            if len(self.bt_devices[dev]) == num:
-                return dev
-        return ''
+        # Compatibility path for callers without shared UI selection state.
+        for address, devices in self.bt_devices.items():
+            if len(devices) < 5:
+                return address
+        if not self.bt_devices:
+            return ''
+        return min(self.bt_devices, key=lambda address: len(self.bt_devices[address]))
 
     def pair_move(self, move_controller):
         if move_controller and move_controller.serial:
@@ -81,10 +80,16 @@ class Pair():
                 # A saved BlueZ registration does not prove that the controller
                 # still stores this Pi as its Bluetooth host. Pairing over USB
                 # rewrites that address after use with another computer.
-                host_address = self.get_lowest_bt_device()
+                ns = getattr(self, 'ns', None)
+                host_address = pairing_plan.begin(ns) if ns is not None else self.get_lowest_bt_device()
                 if not host_address:
                     return False
-                paired = controller_manager.pair_controller(host_address)
+                paired = False
+                try:
+                    paired = controller_manager.pair_controller(host_address)
+                finally:
+                    if ns is not None:
+                        pairing_plan.finish(ns, move_controller.serial, host_address, paired)
                 if paired:
                     # BlueZ may need a few seconds to publish the registration.
                     # Reserve it immediately so another controller paired in

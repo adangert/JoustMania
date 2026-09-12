@@ -352,3 +352,5 @@ through all adapters. Counts combine current PS Move connections with successful
 USB assignments in this session; restarting clears session reservations. Saved
 registrations alone do not count, and existing wireless connections are not moved.
 A failed attempt keeps the override; unplugging its adapter returns to automatic.
+
+System Debug provides **Identify** beside each controller status: it shows white for three seconds, then restores the color currently requested by the game. **Unpair** in the last column removes that controller’s host registrations (including saved registrations on unavailable adapters); reconnect it by USB to pair again. Individual role switches appear only for connected controllers with an available adapter and known role. Model labels distinguish ZCM1 (PS3) and ZCM2 (PS4).

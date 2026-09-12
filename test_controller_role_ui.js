@@ -15,7 +15,9 @@ const targets = [
 ];
 const requests = [];
 let active = 0, maximumActive = 0;
+let now = 1000;
 const context = {
+    Date: {now: () => now},
     document: {
         getElementById: element,
         addEventListener(type, fn) {handlers[type] = fn;},
@@ -34,7 +36,7 @@ const context = {
         return {ok, async json() {return ok ? {role: 'Peripheral'} : {error: 'Switch rejected'};}};
     }
 };
-vm.runInNewContext(script.replace('}());', 'globalThis.renderControllers = renderControllers; globalThis.connectionAssessment = connectionAssessment; globalThis.renderPairing = renderPairing;}());'), context);
+vm.runInNewContext(script.replace('}());', 'globalThis.switchControllerRole = switchControllerRole; globalThis.renderControllers = renderControllers; globalThis.connectionAssessment = connectionAssessment; globalThis.renderPairing = renderPairing;}());'), context);
 (async () => {
     const button = {dataset: {address: 'AA:BB:CC:DD:EE:01', role: 'central'}, disabled: false};
     await handlers.click({target: {closest(selector) {return selector === '.role-toggle' ? button : null;}}});
@@ -98,6 +100,16 @@ vm.runInNewContext(script.replace('}());', 'globalThis.renderControllers = rende
     assert.equal(unknown.children[0].children[6].children.length, 0);
     assert.equal(unknown.children[0].children[10].textContent, 'ZCM2 (PS4)');
     assert.equal(unknown.children[0].children.length, 15);
+    controller.adapter = 'hci0'; controller.address = 'AA:BB:CC:DD:EE:02';
+    await context.switchControllerRole(controller.address, 'peripheral');
+    context.renderControllers([controller], 1);
+    assert.equal(body.children[0].children[6].children[1].textContent, 'Role change failed');
+    now += 9999;
+    context.renderControllers([controller], 1);
+    assert.equal(body.children[0].children[6].children.length, 2);
+    now += 1;
+    context.renderControllers([controller], 1);
+    assert.equal(body.children[0].children[6].children.length, 1);
     const adapter = {name: 'hci0', connections: 2};
     const link = p95 => ({adapter: 'hci0', connected: true, report_gap: {p95_ms: p95}});
     assert.equal(context.connectionAssessment(adapter, [link(20), link(36)]), 'Mixed: 1 good, 1 slow');

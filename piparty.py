@@ -435,11 +435,26 @@ class Menu():
     def check_for_new_moves(self):
         self.enable_bt_scanning(True)
 
-        active_serials = set(self.controller_manager.connected_serials())
+        controllers = self.controller_manager.connected_controllers()
+        if platform in ('linux', 'linux2'):
+            now = time.monotonic()
+            if now >= getattr(self, '_next_connection_check', 0):
+                self._next_connection_check = now + 1.0
+                try:
+                    self._connected_bluetooth_addresses = jm_dbus.get_connected_device_addresses()
+                except (dbus.DBusException, OSError):
+                    # Pairing restarts BlueZ. Keep the last successful snapshot
+                    # rather than interpreting a service failure as disconnects.
+                    pass
+            addresses = getattr(self, '_connected_bluetooth_addresses', None)
+            if addresses is not None:
+                controllers = [controller for controller in controllers
+                               if controller.usb or controller.serial.upper() in addresses]
+        active_serials = {controller.serial for controller in controllers}
         known_serials = {controller.serial for controller in self.moves}
         if active_serials != known_serials:
             disconnected_serials = known_serials - active_serials
-            self.moves = self.controller_manager.connected_controllers()
+            self.moves = controllers
             if disconnected_serials:
                 logger.debug("Move disconnected")
                 self.paired_moves = [
@@ -450,6 +465,22 @@ class Menu():
             if active_serials - known_serials:
                 logger.debug("Move connected")
             self.move_count = self.get_move_count()
+
+    def sync_tracked_controllers(self):
+        """Reconcile identities, including a disconnect/reconnect with equal counts."""
+        connected = {controller.serial for controller in self.moves}
+        for serial in list(self.tracked_moves):
+            if serial in connected:
+                continue
+            self.remove_controller(serial)
+            del self.tracked_moves[serial]
+            if serial == self.admin_move:
+                self.admin_move = None
+        for index, controller in enumerate(self.moves):
+            if controller.usb and not controller.bluetooth:
+                self.pair_usb_move(controller)
+            elif controller.bluetooth and controller.serial not in self.tracked_moves:
+                self.pair_move(controller, index)
 
     # Turn on bluetooth scanning
     def enable_bt_scanning(self, on=True):
@@ -574,8 +605,11 @@ class Menu():
             return
         logger.debug("Removing move: {}".format(move_serial))
         self.kill_controller_proc[move_serial].value = True
-        self.tracked_moves[move_serial].join()
-        self.tracked_moves[move_serial].terminate()
+        process = self.tracked_moves[move_serial]
+        process.join(timeout=1)
+        if process.is_alive():
+            process.terminate()
+            process.join(timeout=1)
         #del self.tracked_moves[move_serial] # TODO - why commented?
         del self.force_color[move_serial]
         del self.controller_teams[move_serial]
@@ -749,37 +783,8 @@ class Menu():
                 self.menu_music.load_audio("audio/Menu/music/*")
                 self.menu_music.start_audio_loop()
             self.i = self.i + 1 # Track loop counter
-            if self.controller_manager.count_connected() > len(self.tracked_moves):
-                for move_num, controller in enumerate(self.moves):
-                    # If move is connected via USB, pair it
-                    if controller.usb and not controller.bluetooth:
-                        self.pair_usb_move(controller)
-                    # Track controllers that can provide Bluetooth input.
-                    elif controller.bluetooth:
-                        self.pair_move(controller, move_num)
-            # If the number of tracked moves is greater than the connected ones
-            # kill the tracked moves no longer connected
-            elif(len(self.tracked_moves) > len(self.moves)):
-                connected_serials = [controller.serial for controller in self.moves]
-                tracked_serials = self.tracked_moves.keys()
-                keys_to_kill = []
-                for serial in tracked_serials:
-                    if serial not in connected_serials:
-                        #self.kill_controller_proc[serial].value = True TODO - why is this commented
-                        #check to see if the controller has not been removed already TODO - what is this?
-                        if serial in self.menu_opts.keys():
-                            self.remove_controller(serial)
-                        #self.tracked_moves[serial].join() TODO - ?
-                        #self.tracked_moves[serial].terminate() TODO - ?
-                        keys_to_kill.append(serial) # Add new serials to kill
-
-                # For all keys to kill, remove from tracked_moves
-                for key in keys_to_kill:
-                    del self.tracked_moves[key]
-                    if key == self.admin_move:
-                        self.admin_move = None
-
             self.check_for_new_moves()
+            self.sync_tracked_controllers()
             if len(self.tracked_moves) > 0:
                 self.check_new_admin()
                 self.check_change_mode() # TODO - do we want to make this so only admins can change mode?
@@ -1051,8 +1056,8 @@ class Menu():
 
         # FIX - start_game is always False if there are 0 moves alive
         start_game = len(self.get_game_moves()) > 0
-        for serial in self.menu_opts.keys():
-            if self.out_moves[serial] == Status.ALIVE.value and not self.menu_opts[serial][Opts.RANDOM_START.value]:
+        for serial in self.get_game_moves():
+            if not self.menu_opts[serial][Opts.RANDOM_START.value]:
                 start_game = False
             if self.menu_opts[serial][Opts.RANDOM_START.value] and serial not in self.random_added:
                 self.random_added.append(serial)

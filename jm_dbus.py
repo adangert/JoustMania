@@ -216,3 +216,18 @@ def get_node_interfaces(proxy):
     """List interface names exposed by a DBus node"""
     tree = _introspect_tree(proxy)
     return [child.attrib['name'] for child in tree if child.tag == 'interface']
+
+
+def get_connected_device_addresses():
+    """Return current BlueZ links; propagate failure instead of reporting none."""
+    bus = ensure_process_bus()
+    if not bus.name_has_owner(ORG_BLUEZ):
+        raise dbus.DBusException('BlueZ is temporarily unavailable')
+    root = bus.get_object(ORG_BLUEZ, '/')
+    objects = dbus.Interface(root, 'org.freedesktop.DBus.ObjectManager').GetManagedObjects(timeout=1)
+    return {
+        str(properties['Address']).upper()
+        for interfaces in objects.values()
+        for properties in [interfaces.get('org.bluez.Device1', {})]
+        if properties.get('Connected') and properties.get('Address')
+    }

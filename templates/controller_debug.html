@@ -38,16 +38,6 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
     <section aria-labelledby="pairing-heading">
         <h3 id="pairing-heading">Next USB pairing</h3>
         <p id="pairing-status" role="status">{{ 'Checking next adapter…' if pairing.available else 'Adapter selection unavailable on this platform.' }}</p>
-        <form id="pairing-target-form">
-            <fieldset id="pairing-target-options" {% if not pairing.available or pairing.busy %}disabled{% endif %}>
-                <legend>Adapter for the next controller</legend>
-                <label><input type="radio" name="pairing-target" value="" {% if not pairing.override %}checked{% endif %}> Automatic</label>
-                {% for adapter in pairing.adapters %}
-                <label><input type="radio" name="pairing-target" value="{{ adapter.address }}" {% if pairing.override == adapter.address %}checked{% endif %}>
-                    {{ adapter.name }} ({{ adapter.address }}) — {{ adapter.count }} assigned</label>
-                {% endfor %}
-            </fieldset>
-        </form>
         <p class="diagnostic-note">Automatic fills each adapter to five controllers in adapter order, then cycles through all adapters.
         Counts include connected controllers and successful USB pairings this session. A manual choice applies to one successful pairing, then clears.
         Connect one controller by USB at a time. This changes the host saved by that controller; it does not move existing wireless connections.</p>
@@ -56,7 +46,11 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
     <div id="bluetooth-adapter-body">
     {% for adapter in adapters %}
     <section class="adapter-section" data-adapter-section="{{ adapter.name }}">
-        <h3><span class="adapter-name">{{ adapter.name }}</span> — <span class="adapter-address">{{ adapter.address }}</span></h3>
+        <h3><input type="radio" class="pairing-target" name="pairing-target" value="{{ adapter.address }}"
+                   aria-label="Use {{ adapter.name }} for the next USB pairing"
+                   {% if pairing.selected == adapter.address %}checked{% endif %}
+                   {% if not pairing.available or pairing.busy or pairing.error %}disabled{% endif %}>
+            <span class="adapter-name">{{ adapter.name }}</span> — <span class="adapter-address">{{ adapter.address }}</span></h3>
         <table>
         <thead><tr>
             <th>Chipset</th><th>USB device</th><th>USB link</th>
@@ -177,30 +171,19 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
             (state.error ? 'Pairing unavailable: ' + state.error :
             (state.busy ? 'Pairing with ' : 'Next controller: ') +
             (selected ? selected.name + ' (' + selected.address + ')' : 'No powered adapters') +
-            (state.override ? ' — one-time choice' : ' — automatic'));
-        const options = document.getElementById('pairing-target-options');
-        options.textContent = '';
-        const legend = document.createElement('legend');
-        legend.textContent = 'Adapter for the next controller'; options.appendChild(legend);
-        const choices = [{address: '', label: 'Automatic'}].concat(state.adapters.map(adapter => ({
-            address: adapter.address, label: adapter.name + ' (' + adapter.address + ') — ' + adapter.count + ' assigned' +
-                (adapter.address === state.automatic ? ' — automatic next' : '')
-        })));
-        choices.forEach(choice => {
-            const label = document.createElement('label');
-            const input = document.createElement('input');
-            input.type = 'radio'; input.name = 'pairing-target'; input.value = choice.address;
-            input.checked = choice.address === state.override;
-            label.appendChild(input); label.appendChild(document.createTextNode(' ' + choice.label + ' '));
-            options.appendChild(label);
+            (state.override ? ' — next pairing only' : ''));
+        document.querySelectorAll('.pairing-target').forEach(input => {
+            input.checked = input.value === state.selected;
+            input.disabled = pairingPending || state.busy || !state.available || Boolean(state.error) ||
+                !state.adapters.some(adapter => adapter.address === input.value);
+            const adapter = state.adapters.find(adapter => adapter.address === input.value);
+            input.title = adapter ? adapter.count + ' controllers assigned; select for the next USB pairing' : 'Unavailable';
         });
-        options.disabled = pairingPending || state.busy || !state.available || Boolean(state.error);
     }
-    document.getElementById('pairing-target-form').addEventListener('submit', event => event.preventDefault());
-    document.getElementById('pairing-target-form').addEventListener('change', async function (event) {
+    document.addEventListener('change', async function (event) {
         if (event.target.name !== 'pairing-target' || pairingPending) return;
         pairingPending = true;
-        document.getElementById('pairing-target-options').disabled = true;
+        document.querySelectorAll('.pairing-target').forEach(input => {input.disabled = true;});
         try {
             const response = await fetch('/debug/pairing-target', {method: 'POST', body: new URLSearchParams({address: event.target.value})});
             const state = await response.json();

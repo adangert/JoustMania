@@ -35,6 +35,7 @@ if __name__ == "__main__" and sys.platform.startswith("win"):
 
     _freeze_support()
 
+import pairing_plan
 import controller_manager
 import runtime_platform
 import common, colors, webui
@@ -352,6 +353,8 @@ class Menu():
         self.ns.status = dict()
         self.ns.settings = dict()
         self.ns.battery_status = dict()
+        if platform in ("linux", "linux2"):
+            pairing_plan.initialize(self.ns, self.joust_manager)
         self.command_from_web = ''
         self.initialize_settings()
         self.update_settings_file() # Update settings from joustmania.yaml
@@ -400,7 +403,7 @@ class Menu():
         self.teams = {} # Serial to team list TODO - seems to be the same as controller_teams
         self.game_mode = Games[self.ns.settings['current_game']] # Get game mode from ns (which is shared with web admin)
         self.old_game_mode = self.game_mode #Previous game mode
-        self.pair = pair.Pair() # Start bluetooth pairing
+        self.pair = pair.Pair(self.ns) if platform in ("linux", "linux2") else pair.Pair() # Start bluetooth pairing
         self.bluetooth_missing = False
         self.bluetooth_pairing_notices = set()
 

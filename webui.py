@@ -1,3 +1,4 @@
+import time
 import pairing_plan
 from multiprocessing import Queue, Manager, Process
 import socket
@@ -112,6 +113,8 @@ class WebUI():
         self.app.add_url_rule('/debug/controllers','controller_debug_legacy',self.controller_debug_legacy)
         self.app.add_url_rule('/debug/data','debug_data',self.debug_data)
         self.app.add_url_rule('/debug/pairing-target', 'pairing_target', self.change_pairing_target, methods=['POST'])
+        self.app.add_url_rule('/debug/controller-identify', 'controller_identify', self.identify_controller, methods=['POST'])
+        self.app.add_url_rule('/debug/controller-unpair', 'controller_unpair', self.unpair_controller, methods=['POST'])
         self.app.add_url_rule('/debug/controller-role', 'controller_role', self.change_controller_role, methods=['POST'])
         self.app.add_url_rule('/debug/access-point', 'access_point', self.change_access_point, methods=['POST'])
         self.app.add_url_rule(
@@ -206,6 +209,39 @@ class WebUI():
         except ValueError as error:
             return {'error': str(error)}, 409
 
+    def identify_controller(self):
+        address = request.form.get('address', '').strip().upper()
+        connected = any(c['address'].upper() == address and c['connected']
+                        for c in self._controller_debug_data())
+        if not connected or self.controller_manager is None or not self.controller_manager.request_identify(address):
+            return {'error': 'Controller is not connected and available.'}, 409
+        return {'success': True, 'duration_s': 3}
+
+    def unpair_controller(self):
+        if psmove_dbus is None:
+            return {'error': 'Individual unpairing is only available on Linux.'}, 501
+        address = request.form.get('address', '').strip().upper()
+        # Serialize against USB pairing so its reservation cannot reappear.
+        def remove():
+            removed = psmove_dbus.unpair_controller(address)
+            if hasattr(self.ns, 'pairing_state'):
+                reservations = dict(self.ns.pairing_state['reservations'])
+                reservations.pop(address, None)
+                self.ns.pairing_state['reservations'] = reservations
+                self.ns.pairing_state['refreshed'] = 0.0
+            return {'success': True, 'removed': removed}
+        try:
+            if hasattr(self.ns, 'pairing_state'):
+                with self.ns.pairing_lock:
+                    if self.ns.pairing_state['busy']:
+                        return {'error': 'Wait for USB pairing to finish.'}, 409
+                    return remove()
+            return remove()
+        except ValueError as error:
+            return {'error': str(error)}, 400
+        except Exception as error:
+            return {'error': 'Unable to unpair controller: ' + str(error)}, 409
+
     def change_controller_role(self):
         if bluetooth_roles is None:
             return {'error': 'Role switching is only available on Linux.'}, 501
@@ -214,7 +250,9 @@ class WebUI():
         if role not in ('central', 'peripheral'):
             return {'error': 'Choose Central or Peripheral.'}, 400
         controller = next((c for c in self._controller_debug_data()
-                           if c['address'].upper() == address and c['connected']), None)
+                           if c['address'].upper() == address and c['connected']
+                           and c.get('adapter', '').startswith('hci')
+                           and c.get('role') in ('Central', 'Peripheral')), None)
         if controller is None:
             return {'error': 'Controller is not connected over Bluetooth.'}, 409
         try:
@@ -361,6 +399,13 @@ class WebUI():
             )
             controller['update_count'] = update_counts.get(address) if controller['connected'] else None
             controller['report_gap'] = report_gaps.get(address) if controller['connected'] else None
+            controller['identifying'] = False
+            if self.controller_manager is not None and controller['connected']:
+                controller['identifying'] = any(
+                    self.controller_manager.index_to_serial[i].upper() == address and
+                    self.controller_manager.identify_until[i] > time.monotonic()
+                    for i in self.controller_manager.active_controller_indices())
+            controller['can_unpair'] = psmove_dbus is not None
 
         if bluetooth_roles is not None:
             try:

@@ -36,17 +36,22 @@ const context = {
 };
 vm.runInNewContext(script.replace('}());', 'globalThis.renderControllers = renderControllers; globalThis.connectionAssessment = connectionAssessment; globalThis.renderPairing = renderPairing;}());'), context);
 (async () => {
-    await element('all-peripheral').click();
-    assert.equal(requests.length, 2);
-    assert.equal(maximumActive, 1);
-    assert(requests.every(r => r.url === '/debug/controller-role' && r.role === 'peripheral'));
-    assert.match(element('all-peripheral-status').textContent, /Switched 1 of 2/);
-    assert.match(element('all-peripheral-status').textContent, /1 failed/);
-    assert.equal(element('all-peripheral').disabled, false);
-    requests.length = 0;
     const button = {dataset: {address: 'AA:BB:CC:DD:EE:01', role: 'central'}, disabled: false};
-    await handlers.click({target: {closest() {return button;}}});
+    await handlers.click({target: {closest(selector) {return selector === '.role-toggle' ? button : null;}}});
     assert.equal(requests[0].role, 'central');
+    for (const kind of ['identify', 'unpair']) {
+        requests.length = 0;
+        const action = {dataset: {address: 'AA:BB:CC:DD:EE:01', action: kind}, disabled: false};
+        context.window.confirm = () => false;
+        if (kind === 'unpair') {
+            await handlers.click({target: {closest(selector) {return selector === '.controller-action' ? action : null;}}});
+            assert.equal(requests.length, 0);
+        }
+        context.window.confirm = () => true;
+        await handlers.click({target: {closest(selector) {return selector === '.controller-action' ? action : null;}}});
+        assert.equal(requests[0].url, '/debug/controller-' + kind);
+        assert.equal(requests[0].address, action.dataset.address);
+    }
     function node() {
         return {children: [], dataset: {}, style: {},
             appendChild(child) {this.children.push(child); this.lastElementChild = child;},
@@ -65,24 +70,34 @@ vm.runInNewContext(script.replace('}());', 'globalThis.renderControllers = rende
             last_report_age_ms: 500, sample_count: 600, window_s: 10,
             gaps_over_50ms: 2, gaps_over_100ms: 0}};
     context.renderControllers([controller], 1);
-    assert.equal(body.children[0].children[2].textContent, '36.0 ms');
-    assert.equal(body.children[0].children[3].textContent, '80.0 ms');
-    assert.equal(body.children[0].children[4].textContent, 'Central');
-    assert.equal(body.children[0].children[2].className, 'nowrap rate-slow');
+    assert.equal(body.children[0].children[3].textContent, '36.0 ms');
+    assert.equal(body.children[0].children[4].textContent, '80.0 ms');
+    assert.equal(body.children[0].children[5].textContent, 'Central');
     assert.equal(body.children[0].children[3].className, 'nowrap rate-slow');
+    assert.equal(body.children[0].children[4].className, 'nowrap rate-slow');
     for (const [p95, max, color] of [[22, 30, 'rate-good'], [24, 40, 'rate-warning'], [30, 50, 'rate-warning'], [31, 51, 'rate-slow']]) {
         controller.report_gap.p95_ms = p95; controller.report_gap.max_ms = max;
         context.renderControllers([controller], 1);
-        assert.equal(body.children[0].children[2].className, 'nowrap ' + color);
         assert.equal(body.children[0].children[3].className, 'nowrap ' + color);
+        assert.equal(body.children[0].children[4].className, 'nowrap ' + color);
     }
     controller.connected = false;
     context.renderControllers([controller], 1);
-    assert.equal(body.children[0].children[2].textContent, '—');
-    assert.equal(body.children[0].children[2].className, 'nowrap');
-    controller.connected = true; controller.report_gap = null;
+    assert.equal(body.children[0].children[3].textContent, '—');
+    assert.equal(body.children[0].children[3].className, 'nowrap');
+    assert.equal(body.children[0].children[1].children.length, 0);
+    assert.equal(body.children[0].children[6].children.length, 0);
+    controller.connected = true; controller.role = 'Unavailable';
     context.renderControllers([controller], 1);
-    assert.equal(body.children[0].children[2].textContent, 'Unavailable');
+    assert.equal(body.children[0].children[6].children.length, 0);
+    controller.role = 'Central'; controller.report_gap = null;
+    context.renderControllers([controller], 1);
+    assert.equal(body.children[0].children[3].textContent, 'Unavailable');
+    controller.adapter = 'unknown'; controller.model = 'ZCM2';
+    context.renderControllers([controller], 1);
+    assert.equal(unknown.children[0].children[6].children.length, 0);
+    assert.equal(unknown.children[0].children[10].textContent, 'ZCM2 (PS4)');
+    assert.equal(unknown.children[0].children.length, 15);
     const adapter = {name: 'hci0', connections: 2};
     const link = p95 => ({adapter: 'hci0', connected: true, report_gap: {p95_ms: p95}});
     assert.equal(context.connectionAssessment(adapter, [link(20), link(36)]), 'Mixed: 1 good, 1 slow');

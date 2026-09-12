@@ -344,8 +344,9 @@ to JoustMania, not over-air timing or motion-to-game latency. History resets on
 reconnection. Timing uses Python's standard library; no additional setup packages
 or packet-capture tools are required.
 
-System Debug shows the next USB pairing adapter and lets you choose a different
-adapter for one successful pairing. Connect one controller over USB at a time.
+System Debug selects the next USB pairing adapter beside its heading. Select a
+different adapter there to override one successful pairing; the selection then
+returns to the algorithm’s next target. Connect one controller over USB at a time.
 Automatic assignment fills powered adapters to five in hci order, then cycles
 through all adapters. Counts combine current PS Move connections with successful
 USB assignments in this session; restarting clears session reservations. Saved

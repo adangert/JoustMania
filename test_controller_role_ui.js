@@ -89,24 +89,26 @@ vm.runInNewContext(script.replace('}());', 'globalThis.renderControllers = rende
     assert.equal(context.connectionAssessment(adapter, [link(36), link(40)]), 'Slow connections (2)');
     assert.equal(context.connectionAssessment(adapter, [link(24)]), 'Borderline connection');
     assert.equal(context.connectionAssessment(adapter, [link(null)]), 'Measuring connections…');
-    elements['pairing-target-options'] = node();
+    const pairingInputs = [{value:'AA'}, {value:'BB'}];
+    context.document.querySelectorAll = selector => selector === '.pairing-target' ? pairingInputs : [body, unknown];
     context.document.createTextNode = text => ({textContent: text});
     const plan = {available: true, adapters: [{name:'hci0', address:'AA', count:4}, {name:'hci1', address:'BB', count:0}],
         automatic:'AA', selected:'AA', override:'', busy:false, error:''};
     context.renderPairing(plan);
-    assert.match(element('pairing-status').textContent, /Next controller: hci0.*automatic/);
+    assert.match(element('pairing-status').textContent, /Next controller: hci0/);
     let chosen;
     context.fetch = async (url, options) => {
         assert.equal(url, '/debug/pairing-target');
         chosen = options.body.get('address');
         return {ok:true, json:async () => ({...plan, override:chosen, selected:chosen || plan.automatic})};
     };
-    await element('pairing-target-form').change({target:{name:'pairing-target',value:'BB'}});
+    await handlers.change({target:{name:'pairing-target',value:'BB'}});
     assert.equal(chosen, 'BB');
-    assert.match(element('pairing-status').textContent, /hci1.*one-time choice/);
+    assert.match(element('pairing-status').textContent, /hci1.*next pairing only/);
     context.renderPairing({...plan, busy:true});
-    assert.equal(element('pairing-target-options').disabled, true);
+    assert(pairingInputs.every(input => input.disabled));
     context.renderPairing(plan);
-    assert.equal(element('pairing-target-options').children[1].children[0].checked, true);
+    assert.equal(pairingInputs[0].checked, true);
+    assert.equal(pairingInputs[1].checked, false);
     console.log('Controller and pairing target UI tests passed');
 })().catch(error => {console.error(error); process.exitCode = 1;});

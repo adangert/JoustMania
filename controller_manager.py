@@ -57,8 +57,21 @@ class ControllerManager:
         self.gyroscope = multiprocessing.RawArray(ctypes.c_float, _VECTOR_SIZE)
         self.battery = multiprocessing.RawArray(ctypes.c_int, MAX_CONTROLLERS)
 
+        self.identify_until = multiprocessing.RawArray(ctypes.c_double, MAX_CONTROLLERS)
         self.leds = multiprocessing.RawArray(ctypes.c_ubyte, _VECTOR_SIZE)
         self.rumble = multiprocessing.RawArray(ctypes.c_ubyte, MAX_CONTROLLERS)
+
+    def request_identify(self, serial):
+        for index in self.active_controller_indices():
+            if self.index_to_serial[index].upper() == serial.upper():
+                self.identify_until[index] = time.monotonic() + 3
+                return True
+        return False
+
+    def output_color(self, index):
+        if time.monotonic() < self.identify_until[index]:
+            return (255, 255, 255)
+        return tuple(self.leds[index * 3:index * 3 + 3])
 
     def active_controller_indices(self):
         return [
@@ -214,6 +227,7 @@ def _api_process_main(manager):
             """
             controller_index = controller_index_for(psmove_controller.serial)
             manager.report_timing.reset(controller_index)
+            manager.identify_until[controller_index] = 0
             manager.active[controller_index] = 1
             manager.usb[controller_index] = int(psmove_controller.usb)
             manager.bluetooth[controller_index] = int(psmove_controller.bluetooth)
@@ -252,11 +266,11 @@ def _api_process_main(manager):
 
             # These assignments update the upstream ctypes ControllerStruct.
             # Native PSMoveAPI sends them after this callback returns.
-            offset = controller_index * 3
+            red, green, blue = manager.output_color(controller_index)
             psmove_controller.color = psmoveapi.RGB(
-                manager.leds[offset] / 255.0,
-                manager.leds[offset + 1] / 255.0,
-                manager.leds[offset + 2] / 255.0,
+                red / 255.0,
+                green / 255.0,
+                blue / 255.0,
             )
             psmove_controller.rumble = manager.rumble[controller_index] / 255.0
 
@@ -267,6 +281,7 @@ def _api_process_main(manager):
             """
             controller_index = local_controller_indices.get(psmove_controller.serial)
             if controller_index is not None:
+                manager.identify_until[controller_index] = 0
                 manager.active[controller_index] = 0
                 manager.report_timing.reset(controller_index)
                 manager.usb[controller_index] = 0

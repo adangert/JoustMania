@@ -19,7 +19,7 @@
 .rate-slow { background-color: #ff8080; }
 .rate-warning { background-color: #ffe680; }
 .rate-good { background-color: #80ff80; }
-button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margin: 0; min-width: 0; min-height: 32px; width: auto; height: auto; white-space: nowrap; }
+button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2; padding: 6px 10px; margin: 0; min-width: 0; min-height: 32px; width: auto; height: auto; white-space: nowrap; }
 </style>
 {% endblock %}
 
@@ -71,7 +71,7 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
         <table class="controller-table">
         <thead>
             <tr>
-                <th>Status</th>
+                <th>Status</th><th>Identify</th>
                 <th>Updates/s</th><th>Report gap p95</th><th>Longest gap (10 s)</th>
                 <th>Role</th>
                 <th>Switch Role</th>
@@ -80,41 +80,40 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
                 <th>Controller</th>
                 <th>Model</th>
                 <th>Registered</th>
-                <th>Loaded</th>
-                <th>BlueZ Paired</th>
                 <th>Connected</th>
                 <th>Trusted</th>
-                <th>Services</th>
+                <th>Unpair</th>
             </tr>
         </thead>
         <tbody class="controller-status-body" data-for-adapter="{{ adapter.name }}">
             {% for controller in adapter.controllers %}
             <tr data-controller="{{ controller.address }}">
                 <td class="{% if controller.connected %}connected{% else %}disconnected{% endif %}">{{ controller.status }}</td>
+                <td>{% if controller.connected %}<button type="button" class="controller-action" data-action="identify" data-address="{{ controller.address }}" {% if not controller.connected %}disabled{% endif %}>Identify</button>{% endif %}</td>
                 <td class="controller-rate">Measuring…</td>
                 <td>Measuring…</td><td>Measuring…</td>
                 <td>{{ controller.role }}</td>
                 <td>
-                    <button type="button" class="role-toggle" data-address="{{ controller.address }}"
+                    {% if controller.connected and controller.adapter.startswith('hci') and controller.role in ['Central', 'Peripheral'] %}
+                    <button type="button" class="role-toggle"  data-address="{{ controller.address }}"
                             data-role="{{ 'peripheral' if controller.role == 'Central' else 'central' }}"
                             {% if not controller.connected or controller.role not in ['Central', 'Peripheral'] %}disabled{% endif %}>
                         Switch to {{ 'Peripheral' if controller.role == 'Central' else 'Central' }}
                     </button>
+                    {% endif %}
                 </td>
                 <td{% if controller.battery_code is not none %} class="batt{{ controller.battery_code }}"{% endif %}>{{ controller.battery }}</td>
                 <td>{% if controller.active is none %}Unknown{% elif controller.active %}Yes{% else %}No{% endif %}</td>
                 <td>{{ controller.address }}</td>
-                <td>{{ controller.model }}</td>
+                <td>{{ 'ZCM1 (PS3)' if controller.model == 'ZCM1' else ('ZCM2 (PS4)' if controller.model == 'ZCM2' else controller.model) }}</td>
                 <td>Yes</td>
-                <td>{% if controller.loaded %}Yes{% else %}No{% endif %}</td>
-                <td>{% if controller.paired %}Yes{% else %}No{% endif %}</td>
                 <td>{% if controller.connected %}Yes{% else %}No{% endif %}</td>
                 <td>{% if controller.trusted %}Yes{% else %}No{% endif %}</td>
-                <td>{% if controller.services_resolved %}Ready{% else %}Not ready{% endif %}</td>
+                <td><button type="button" class="controller-action" data-action="unpair" data-address="{{ controller.address }}" {% if not controller.can_unpair %}disabled{% endif %}>Unpair</button></td>
             </tr>
             {% else %}
             <tr>
-                <td colspan="16">No controllers are assigned to this adapter.</td>
+                <td colspan="15">No controllers are assigned to this adapter.</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -127,7 +126,24 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
 
     <div id="unassigned-controller-section" class="adapter-section" style="display: none;">
         <h3>Unassigned or unavailable adapter</h3>
-        <table class="controller-table"><tbody class="controller-status-body" data-for-adapter="unknown"></tbody></table>
+        <table class="controller-table">
+        <thead>
+            <tr>
+                <th>Status</th><th>Identify</th>
+                <th>Updates/s</th><th>Report gap p95</th><th>Longest gap (10 s)</th>
+                <th>Role</th>
+                <th>Switch Role</th>
+                <th>Battery</th>
+                <th>Active</th>
+                <th>Controller</th>
+                <th>Model</th>
+                <th>Registered</th>
+                <th>Connected</th>
+                <th>Trusted</th>
+                <th>Unpair</th>
+            </tr>
+        </thead>
+<tbody class="controller-status-body" data-for-adapter="unknown"></tbody></table>
     </div>
     <p><a href="/"><button type="button">Go Back</button></a></p>
     <section aria-labelledby="hotspot-heading">
@@ -152,13 +168,7 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
         <button type="submit" class="danger-button">Reset Bluetooth Controllers</button>
     </form>
     <p class="diagnostic-note">This stops the current game, clears saved PS Move registrations, and restarts JoustMania. Controllers may need to reconnect or be paired again.</p>
-    <section>
-        <h3>Controller Roles</h3>
-        <button type="button" id="all-peripheral">Try All Peripheral</button>
-        <p class="diagnostic-note">Peripheral mode may improve controller data rates, but it can reduce the number of controllers that can connect at once.
-        This makes a one-time switch attempt; roles are not forced afterward.</p>
-        <p id="all-peripheral-status" role="status"></p>
-    </section>
+    <p id="controller-action-error" role="alert"></p>
 </div>
 <script>
 (function () {
@@ -226,10 +236,10 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
     const controllerLast = {};
     const rolePending = {};
     const roleMessages = {};
-    let bulkRolePending = false;
+    const actionPending = {};
     async function switchControllerRole(address, role) {
         rolePending[address] = true;
-        roleMessages[address] = 'Switching…';
+        delete roleMessages[address];
         try {
             const response = await fetch('/debug/controller-role', {
                 method: 'POST', body: new URLSearchParams({address: address, role: role})
@@ -239,44 +249,54 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
             delete roleMessages[address];
             return true;
         } catch (error) {
-            roleMessages[address] = error.message;
+            roleMessages[address] = {text: 'Role change failed', expires: Date.now() + 10000};
             return false;
         } finally {
             delete rolePending[address];
         }
     }
     document.addEventListener('click', async function (event) {
-        const button = event.target.closest('.role-toggle');
-        if (!button || button.disabled || bulkRolePending) return;
-        button.disabled = true;
-        button.textContent = 'Switching…';
-        document.getElementById('all-peripheral').disabled = true;
-        await switchControllerRole(button.dataset.address, button.dataset.role);
-        document.getElementById('all-peripheral').disabled = Object.keys(rolePending).length > 0;
-    });
-    document.getElementById('all-peripheral').addEventListener('click', async function () {
-        if (bulkRolePending || Object.keys(rolePending).length) return;
-        // Already-Peripheral links need no request. Ignore disconnected/unknown links.
-        const addresses = Array.from(document.querySelectorAll('.role-toggle[data-role="peripheral"]'))
-            .filter(function (button) { return !button.disabled; })
-            .map(function (button) { return button.dataset.address; });
-        const status = document.getElementById('all-peripheral-status');
-        if (!addresses.length) {
-            status.textContent = 'No connected Central-role controllers to switch.';
+        const action = event.target.closest('.controller-action');
+        if (action) {
+            if (action.disabled || actionPending[action.dataset.address]) return;
+            const address = action.dataset.address, kind = action.dataset.action;
+            if (kind === 'unpair' && !window.confirm('Unpair controller ' + address + '? It will disconnect and need USB pairing again.')) return;
+            actionPending[address] = true;
+            action.disabled = true;
+            action.textContent = kind === 'identify' ? 'Identifying…' : 'Unpairing…';
+            try {
+                const response = await fetch('/debug/controller-' + kind, {
+                    method: 'POST', body: new URLSearchParams({address: address})
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Controller action failed.');
+                document.getElementById('controller-action-error').textContent = '';
+            } catch (error) {
+                document.getElementById('controller-action-error').textContent = error.message;
+            } finally {
+                delete actionPending[address];
+            }
             return;
         }
-        bulkRolePending = true;
-        this.disabled = true;
-        let succeeded = 0;
-        for (let index = 0; index < addresses.length; index++) {
-            status.textContent = 'Trying controller ' + (index + 1) + ' of ' + addresses.length + '…';
-            if (await switchControllerRole(addresses[index], 'peripheral')) succeeded++;
-        }
-        bulkRolePending = false;
-        this.disabled = false;
-        status.textContent = 'Switched ' + succeeded + ' of ' + addresses.length +
-            ' controllers to Peripheral. ' + (addresses.length - succeeded) + ' failed; see each controller’s result.';
+        const button = event.target.closest('.role-toggle');
+        if (!button || button.disabled) return;
+        button.disabled = true;
+        button.textContent = 'Switching…';
+        await switchControllerRole(button.dataset.address, button.dataset.role);
     });
+    function actionCell(row, controller, kind) {
+        cell(row, '');
+        if (kind === 'identify' && !controller.connected) return;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'controller-action';
+        button.dataset.address = controller.address;
+        button.dataset.action = kind;
+        button.textContent = kind === 'identify' ? (controller.identifying ? 'Identifying…' : 'Identify') : 'Unpair';
+        button.disabled = Boolean(actionPending[controller.address]) ||
+            (kind === 'identify' ? (!controller.connected || controller.identifying) : !controller.can_unpair);
+        row.lastElementChild.appendChild(button);
+    }
     function cell(row, value, className) {
         const item = document.createElement('td');
         item.textContent = value;
@@ -312,6 +332,7 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
             const row = document.createElement('tr');
             row.dataset.controller = controller.address;
             cell(row, controller.status, controller.connected ? 'connected' : 'disconnected');
+            actionCell(row, controller, 'identify');
             let rate = 'Unavailable';
             if (!controller.connected) {
                 rate = '—';
@@ -352,35 +373,42 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
             cell(row, controller.role);
             cell(row, '');
             const roleCell = row.lastElementChild;
-            const roleButton = document.createElement('button');
-            roleButton.type = 'button';
-            roleButton.className = 'role-toggle';
-            roleButton.dataset.address = controller.address;
-            roleButton.dataset.role = controller.role === 'Central' ? 'peripheral' : 'central';
-            roleButton.textContent = rolePending[controller.address] ? 'Switching…' :
-                ('Switch to ' + (controller.role === 'Central' ? 'Peripheral' : 'Central'));
-            roleButton.disabled = bulkRolePending || Boolean(rolePending[controller.address]) || !controller.connected ||
-                !['Central', 'Peripheral'].includes(controller.role);
-            roleCell.appendChild(roleButton);
+            if (controller.connected && controller.adapter.startsWith('hci') &&
+                body.dataset.forAdapter !== 'unknown' && ['Central', 'Peripheral'].includes(controller.role)) {
+                const roleButton = document.createElement('button');
+                roleButton.type = 'button';
+                roleButton.className = 'role-toggle';
+                roleButton.dataset.address = controller.address;
+                roleButton.dataset.role = controller.role === 'Central' ? 'peripheral' : 'central';
+                roleButton.textContent = rolePending[controller.address] ? 'Switching…' :
+                    ('Switch to ' + (controller.role === 'Central' ? 'Peripheral' : 'Central'));
+                roleButton.disabled = Boolean(rolePending[controller.address]) || !controller.connected ||
+                    !['Central', 'Peripheral'].includes(controller.role);
+                roleCell.appendChild(roleButton);
+            }
+            if (roleMessages[controller.address] && Date.now() >= roleMessages[controller.address].expires) {
+                delete roleMessages[controller.address];
+            }
             if (roleMessages[controller.address]) {
                 const message = document.createElement('div');
                 message.setAttribute('role', 'status');
-                message.textContent = roleMessages[controller.address];
+                message.textContent = roleMessages[controller.address].text;
                 roleCell.appendChild(message);
             }
             cell(row, controller.battery, controller.battery_code === null ? '' : 'batt' + controller.battery_code);
             cell(row, controller.active === null ? 'Unknown' : (controller.active ? 'Yes' : 'No'));
             cell(row, controller.address);
-            cell(row, controller.model); cell(row, 'Yes'); cell(row, controller.loaded ? 'Yes' : 'No');
-            cell(row, controller.paired ? 'Yes' : 'No'); cell(row, controller.connected ? 'Yes' : 'No');
-            cell(row, controller.trusted ? 'Yes' : 'No'); cell(row, controller.services_resolved ? 'Ready' : 'Not ready');
+            cell(row, controller.model === 'ZCM1' ? 'ZCM1 (PS3)' : (controller.model === 'ZCM2' ? 'ZCM2 (PS4)' : controller.model)); cell(row, 'Yes');
+            cell(row, controller.connected ? 'Yes' : 'No');
+            cell(row, controller.trusted ? 'Yes' : 'No');
+            actionCell(row, controller, 'unpair');
             body.appendChild(row);
         });
         bodies.forEach(function (body) {
             if (body.children.length) return;
             const row = document.createElement('tr');
             const item = document.createElement('td');
-            item.colSpan = 16;
+            item.colSpan = 15;
             item.textContent = body.dataset.forAdapter === 'unknown'
                 ? 'No unassigned controllers.'
                 : 'No controllers are assigned to this adapter.';

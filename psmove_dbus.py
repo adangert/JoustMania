@@ -168,3 +168,28 @@ def get_registered_controllers():
             })
 
     return sorted(controllers, key=lambda item: (item['adapter'], item['address']))
+
+
+def unpair_controller(address):
+    """Remove only this PS Move's live and saved host registrations."""
+    import re
+    import shutil
+    address = address.upper()
+    if not re.fullmatch(r'(?:[0-9A-F]{2}:){5}[0-9A-F]{2}', address):
+        raise ValueError('Invalid controller address.')
+    records = [c for c in get_registered_controllers() if c['address'].upper() == address]
+    if not records:
+        raise ValueError('Controller is no longer registered.')
+    for controller in records:
+        if controller['loaded']:
+            jm_dbus.remove_device(controller['adapter'], controller['device_name'])
+        else:
+            adapter = controller['adapter_address'].upper()
+            if not re.fullmatch(r'(?:[0-9A-F]{2}:){5}[0-9A-F]{2}', adapter):
+                raise ValueError('Invalid saved adapter address.')
+            directory = Path('/var/lib/bluetooth') / adapter / address
+            try:
+                shutil.rmtree(directory)
+            except FileNotFoundError:
+                pass
+    return len(records)

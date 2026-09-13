@@ -167,6 +167,8 @@ Five-second application captures, all Central; entries are averages across contr
 | Five ZCM1 + two ZCM2 | 24.5 / 97.8 ms | 239.4 / 33.5 ms | 106.7 ms |
 | Three ZCM1 + two ZCM2 at distance | 37.3 / 88.0 ms | 129.2 / 29.3 ms | 299.4 ms |
 
+**Indoor gameplay assessment:** internal Pi Bluetooth worked pretty well for the two ZCM2 (PS4 Move) controllers tested. It is a promising indoor option for this small PS4 Move setup; higher ZCM2 counts and endurance remain untested.
+
 The two ZCM2 controllers felt responsive during mixed-seven gameplay despite red p95 indicators; the five ZCM1 performed poorly. Preserve that subjective assessment rather than declaring play unusable from color alone. The distance run captured only five active controllers, so it cannot isolate distance from the changed load. Separation and obstacles were not specified. Improvement from one to three also shows count-dependent improvement is not exclusive to Realtek. No endurance or outdoor range rating is established.
 
 ## Evidence provenance

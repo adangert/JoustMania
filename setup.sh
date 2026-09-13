@@ -37,6 +37,9 @@ setup() {
         build-essential \
         libudev-dev libbluetooth-dev libdbus-1-dev || exit -1
 
+    # This combo adapter needs a firmware loader before btusb can see Bluetooth.
+    bash "$HOMEDIR/JoustMania/setup_aic8800.sh" || exit -1
+
     echo "Installing software libraries"
     VENV=$HOMEDIR/JoustMania/venv
     # We install nearly all python deps in the virtualenv to avoid concflicts with system, except

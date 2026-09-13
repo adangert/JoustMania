@@ -3,7 +3,7 @@ import time
 
 
 def initialize(ns, manager):
-    ns.pairing_state = manager.dict(layout=[], reservations={}, override='', cursor='', busy=False, error='', refreshed=0.0)
+    ns.pairing_state = manager.dict(layout=[], reservations={}, override='', cursor='', busy=False, pairing_serial='', error='', refreshed=0.0)
     ns.pairing_lock = manager.RLock()
 
 
@@ -89,13 +89,14 @@ def select(ns, address):
         return describe(state)
 
 
-def begin(ns):
+def begin(ns, serial=""):
     refresh(ns, force=True)
     with ns.pairing_lock:
         state = ns.pairing_state
         target = describe(state)['selected']
         if state['busy'] or state['error'] or not target:
             return ''
+        state['pairing_serial'] = serial.upper()
         state['busy'] = True
         return target
 
@@ -111,5 +112,6 @@ def finish(ns, serial, target, succeeded):
             state['override'] = ''
             state['error'] = ''
         state['busy'] = False
+        state['pairing_serial'] = ''
         # Keep the successful reservation even before BlueZ publishes the link.
         state['refreshed'] = 0.0

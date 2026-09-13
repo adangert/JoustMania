@@ -25,6 +25,7 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
 
 {% block body %}
 <div class="info_box">
+    <p><a href="/"><button type="button">Go Back</button></a></p>
     <h2>Bluetooth Adapters</h2>
     <p class="diagnostic-note">Report gaps measure time between updates received by JoustMania over the last 10 seconds.
     The p95 value means 95% of completed gaps were that short or shorter; lower means fewer long pauses.
@@ -50,7 +51,7 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
                    aria-label="Use {{ adapter.name }} for the next USB pairing"
                    {% if pairing.selected == adapter.address %}checked{% endif %}
                    {% if not pairing.available or pairing.busy or pairing.error %}disabled{% endif %}>
-            <span class="adapter-name">{{ adapter.name }}</span> — <span class="adapter-address">{{ adapter.address }}</span></h3>
+            <span class="adapter-name">{{ adapter.name }}{% if adapter.internal %} — Internal{% endif %}</span> — <span class="adapter-address">{{ adapter.address }}</span></h3>
         <table>
         <thead><tr>
             <th>Chipset</th><th>USB device</th><th>USB link</th>
@@ -145,7 +146,6 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
         </thead>
 <tbody class="controller-status-body" data-for-adapter="unknown"></tbody></table>
     </div>
-    <p><a href="/"><button type="button">Go Back</button></a></p>
     <section aria-labelledby="hotspot-heading">
         <h3 id="hotspot-heading">Wi-Fi Hotspot</h3>
         <p role="status" id="hotspot-status">{{ 'Enabled' if access_point.enabled else ('Disabled' if access_point.available else 'Unavailable') }}</p>
@@ -158,17 +158,28 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
         Disabling lets the Pi reconnect to its saved Wi-Fi network. This page may disconnect when switching networks.</p>
         <p id="hotspot-error" role="alert"></p>
     </section>
-    <form action="/debug/restart-joustmania" method="POST"
-          onsubmit="return confirm('Restart JoustMania? This stops the current game but does not reboot the computer or clear Bluetooth connections.');">
-        <button type="submit">Restart JoustMania</button>
-    </form>
-    <p class="diagnostic-note">Restarts only the JoustMania application. It does not reboot the computer or remove controller pairings.</p>
+    <section aria-labelledby="internal-bt-heading">
+        <h3 id="internal-bt-heading">Internal Bluetooth</h3>
+        <p id="internal-bt-status" role="status">{{ 'Currently enabled' if internal_bluetooth.enabled else ('Currently disabled' if internal_bluetooth.available else 'Unavailable') }}{% if internal_bluetooth.reboot_required %} — {{ 'Enabled' if internal_bluetooth.configured_enabled else 'Disabled' }} after reboot{% endif %}</p>
+        <form id="internal-bt-form" action="/debug/internal-bluetooth" method="POST">
+            <input id="internal-bt-action" type="hidden" name="action" value="{{ 'disable' if internal_bluetooth.enabled else 'enable' }}">
+            <button id="internal-bt-button" type="submit" {% if not internal_bluetooth.available or internal_bluetooth.busy or internal_bluetooth.rebooting %}disabled{% endif %}>{{ 'Disable' if internal_bluetooth.enabled else 'Enable' }} Internal Bluetooth</button>
+        </form>
+        <p class="diagnostic-note">Changing internal Bluetooth restarts the Pi and stops the current game. You will be asked to confirm. Controller pairings and USB adapter settings are preserved.</p>
+        <p id="internal-bt-error" role="alert">{{ internal_bluetooth.error }}</p>
+    </section>
     <form action="/debug/reset-bluetooth" method="POST"
           onsubmit="return confirm('Reset Bluetooth controllers? This stops the current game, removes saved PS Move connections, and restarts JoustMania.');">
         <button type="submit" class="danger-button">Reset Bluetooth Controllers</button>
     </form>
     <p class="diagnostic-note">This stops the current game, clears saved PS Move registrations, and restarts JoustMania. Controllers may need to reconnect or be paired again.</p>
     <p id="controller-action-error" role="alert"></p>
+    <form action="/debug/restart-joustmania" method="POST"
+          onsubmit="return confirm('Soft restart JoustMania? This stops the current game but does not reboot the computer or clear Bluetooth connections.');">
+        <button type="submit">Soft Restart JoustMania</button>
+    </form>
+    <p class="diagnostic-note">Restarts only the JoustMania application. It does not reboot the computer or remove controller pairings.</p>
+
 </div>
 <script>
 (function () {
@@ -205,6 +216,41 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
             document.getElementById('pairing-error').textContent = error.message;
         } finally {
             pairingPending = false;
+        }
+    });
+    let internalBluetoothPending = false;
+    function renderInternalBluetooth(state) {
+        if (!state) return;
+        const action = state.enabled ? 'disable' : 'enable';
+        const pendingText = state.configured_enabled ? 'Enabled' : 'Disabled';
+        document.getElementById('internal-bt-status').textContent = state.rebooting ? 'Rebooting the Pi… Reconnect and reload this page after it starts.' :
+            state.busy ? 'Saving internal Bluetooth setting…' :
+            (!state.available ? 'Unavailable' :
+                (state.enabled ? 'Currently enabled' : 'Currently disabled') +
+                (state.reboot_required ? ' — ' + pendingText + ' after reboot' : ''));
+        document.getElementById('internal-bt-action').value = action;
+        document.getElementById('internal-bt-button').textContent = (action === 'enable' ? 'Enable' : 'Disable') + ' Internal Bluetooth';
+        document.getElementById('internal-bt-button').disabled = internalBluetoothPending || state.busy || state.rebooting || !state.available;
+        document.getElementById('internal-bt-error').textContent = state.error || '';
+    }
+    document.getElementById('internal-bt-form').addEventListener('submit', async function (event) {
+        event.preventDefault();
+        if (internalBluetoothPending || document.getElementById('internal-bt-button').disabled) return;
+        const action = document.getElementById('internal-bt-action').value;
+        if (!window.confirm((action === 'enable' ? 'Enable' : 'Disable') +
+                ' internal Bluetooth and reboot the Pi now? This stops the current game and temporarily disconnects this page. Controller pairings will be kept.')) return;
+        internalBluetoothPending = true;
+        document.getElementById('internal-bt-button').disabled = true;
+        try {
+            const response = await fetch('/debug/internal-bluetooth', {method: 'POST', body: new URLSearchParams({action: action, confirmed: 'yes'})});
+            const state = await response.json();
+            if (!response.ok) throw new Error(state.error || 'Internal Bluetooth change failed.');
+            internalBluetoothPending = false;
+            renderInternalBluetooth(state);
+        } catch (error) {
+            internalBluetoothPending = false;
+            document.getElementById('internal-bt-error').textContent = error.message;
+            document.getElementById('internal-bt-button').disabled = false;
         }
     });
     let hotspotPending = false;
@@ -423,6 +469,7 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
     window.setInterval(function () {
         fetch('/debug/data', {cache: 'no-store'}).then(function (response) { return response.json(); }).then(function (data) {
             renderHotspot(data.access_point);
+            renderInternalBluetooth(data.internal_bluetooth);
             const now = Date.now();
             const seconds = Math.max((now - lastTime) / 1000, 0.001);
             const adapterRows = Array.from(document.querySelectorAll('#bluetooth-adapter-body [data-adapter]'));
@@ -439,6 +486,7 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
                 const row = document.querySelector('[data-adapter="' + adapter.name + '"]');
                 if (!row) return;
                 const section = row.closest('[data-adapter-section]');
+                section.querySelector('.adapter-name').textContent = adapter.name + (adapter.internal ? ' — Internal' : '');
                 section.querySelector('.adapter-address').textContent = adapter.address;
                 row.querySelector('.adapter-manufacturer').textContent = adapter.manufacturer;
                 row.querySelector('.adapter-usb-device').textContent = adapter.product + ' (' + (adapter.usb_id || 'Unknown') + ')';

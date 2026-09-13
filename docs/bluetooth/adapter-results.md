@@ -116,21 +116,6 @@ User: one good (role unspecified), Central needs five. Five Central verified, no
 
 Good measured nearby timing at 1, 2, 4 and 7; seven mixed controllers supported. Distance test very poor for both generations.
 
-## Cirago measurements
-
-All these runs used adapter-Central links. ZCM1 means PS3 Move; ZCM2 means PS4 Move. Each rate and p95 entry below is an average across the controllers of that model, with individual readings retained in the portable [measurement CSV](cirago-measurements.csv).
-
-| Configuration | ZCM1 updates/s | ZCM1 p95 ms | ZCM2 updates/s | ZCM2 p95 ms |
-|---|---:|---:|---:|---:|
-| One ZCM1 | 85.8 | 20.1 | — | — |
-| Two ZCM1 | 87.2 | 20.0 | — | — |
-| Two ZCM1 + two ZCM2 | 85.2 | 16.8 | 189.9 | 9.0 |
-| Seven ZCM1 | 79.9 | 23.8 | — | — |
-| Five ZCM1 + two ZCM2 | 82.6 | 23.9 | 112.5 | 16.2 |
-| Five ZCM1 + two ZCM2 at distance | 11.2 | 461.1 | 31.2 | 219.1 |
-
-The mixed seven-controller nearby test's worst displayed gap was 35.5 ms for ZCM1 and 24.9 ms for ZCM2. At distance the overall worst gap reached 1339.5 ms while all seven remained active. Placement and obstacles were not measured. The four-controller run followed the distance run, but its placement was unspecified; it should not be presented as a four-controller distance success. Three, five and six have not been separately measured on this sample. No CSR Peripheral capture is included here.
-
 ## GAROGYI timing and mixed-controller evidence
 
 In an earlier same-pair HCI comparison, five Central links yielded about 80 reports/s per tracked controller and HCI p95 gaps of 19.0/19.8 ms. Four Central links yielded about 59/s and 36 ms p95; two Peripheral links yielded about 87/s but 24.3/24.6 ms p95. This explains why a higher average rate could still feel less smooth. HCI gaps are measured at the host interface, not over the air or at the application layer.
@@ -173,4 +158,4 @@ The two ZCM2 controllers felt responsive during mixed-seven gameplay despite red
 
 ## Evidence provenance
 
-The tables summarize local adapter intake records A01–A22, short application snapshots and passive btmon captures collected September 2026. The public CSVs preserve identities and selected measurements without controller addresses, order details or raw packet payloads. The Cirago CSV includes capture timestamps for traceability; the original captures remain in the local testing archive. Empty or untested fields are intentional and must not be treated as zero performance.
+The tables summarize local adapter intake records A01–A23, short application snapshots and passive btmon captures collected September 2026. The public catalog preserves adapter identities and summarized observations without controller addresses, order details or raw packet payloads. Detailed Cirago measurements and original captures remain in the local testing archive. Empty or untested fields are intentional and must not be treated as zero performance.

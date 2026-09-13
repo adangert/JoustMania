@@ -14,17 +14,6 @@ The sample reports CSR8510 A10, USB `0a12:0001`, Cambridge Silicon Radio manufac
 
 Five-second recordings directly covered one, two, four and seven active controllers. Three, five and six were not separately captured. The four-controller test contained two ZCM1 and two ZCM2 devices; the seven-controller tests covered both seven ZCM1 and five ZCM1 plus two ZCM2. All recorded links in these runs were Central. Consequently, the evidence supports promising flexibility across measured counts and both Move generations, not a universal guarantee for every CSR adapter, role configuration, or controller type.
 
-| Recorded configuration | Mean updates/s per controller, by model | Mean displayed p95 gap, by model | Interpretation |
-|---|---|---|---|
-| One ZCM1 | 85.8 | 20.1 ms | Good timing below five links |
-| Two ZCM1 | 87.2 | 20.0 ms | Good timing below five links |
-| Two ZCM1 + two ZCM2 | ZCM1 85.2; ZCM2 189.9 | ZCM1 16.8 ms; ZCM2 9.0 ms | Both generations perform well at four total |
-| Seven ZCM1 | About 79.9 | About 23.8 ms | Consistent timing, slightly slower than smaller counts |
-| Five ZCM1 + two ZCM2 | ZCM1 82.6; ZCM2 112.5 | ZCM1 23.9 ms; ZCM2 16.2 ms | Seven mixed links remain useful |
-| Same model counts at distance | ZCM1 11.2; ZCM2 31.2 | ZCM1 461.1 ms; ZCM2 219.1 ms | Very poor; longest displayed gap 1.34 seconds |
-
-Update rates use application counter deltas across the sampled endpoints. Percentiles are averages of displayed overlapping ten-second application windows, not percentiles recomputed from only five seconds of traffic. Distance and obstacles were not measured; the placement of the subsequent four-controller run was unspecified. Selected measurements are in [the adapter results](adapter-results.md) and [measurement CSV](cirago-measurements.csv).
-
 ## Priority candidates
 
 All distances in this section are supplier claims under favorable conditions, not measured PS Move playing radii.

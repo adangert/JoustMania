@@ -35,31 +35,38 @@ If you would like to build your own device you will need the following:
 * A Rasberry Pi 5 with sd card and a [USB audio adapter](https://www.amazon.com/Adapter-External-Converter-Compatible-Desktops/dp/B099FLWJD3/) (This option is officially supported)
 * or a Rasperry pi 4 (tested however ymmv) 
 
-Optional and recommended:
+### Recommended Bluetooth adapter
 
-* Class 1, Bluetooth 4.0 USB adapters
-* Note: we strongly recommend to use this linked TRENDnet brand as it has been tested, other dongles may or may not work/have other issues: https://a.co/d/6GG35Um
+We recommend the **[Feasycom FSC-BP119 on Amazon](https://www.amazon.com/dp/B07KK843ZK)**,
+a Class 1 adapter with an external antenna and CSR8510 A10 chipset. Prefer an
+identified CSR-based adapter from the [CSR alternatives list](docs/bluetooth/csr-adapters.md)
+when this model is unavailable; the exact model and hardware revision matter.
 
-Note on Hardware: The internal bluetooth is shorter range and has a slightly higher latency
-The class 1 adapters allow bluetooth connections up to 300+ feet and allow for the gameplay to be smooth, some adapters can support 6 to 7 controllers, depending on the Bluetooth roles and hardware. Earlier builds have been tested with four adapters and 18 controllers successfully; see the role and capacity notes below.
+This recommendation combines the Feasycom's documented hardware with our CSR
+controller tests. Our Cirago CSR sample performed well with PS3 Move (ZCM1) and
+PS4 Move (ZCM2) controllers at the measured counts of **one, two, four and seven**,
+without the five-link minimum seen on many tested Realteks. The Feasycom itself
+has not yet been benchmarked in this test series, and advertised range is not a
+guaranteed playing distance. The small Cirago performed poorly at distance.
+
+See the **[Bluetooth adapter and controller guide](docs/bluetooth/README.md)** for
+pairing, controller roles, report-gap diagnostics and troubleshooting; the
+**[complete adapter results](docs/bluetooth/adapter-results.md)** compare the tested
+chipsets, models, prices and controller counts.
 
 ### Bluetooth roles and controller capacity
 
-JoustMania lets Bluetooth negotiate controller roles automatically. It does not
-force Peripheral when a controller connects or run a loop that changes roles.
-The System Debug page shows each controller's current role and live update rate.
-Use **Switch to Central** or **Switch to Peripheral** beside a connected
-controller to request a one-time change. The page verifies the resulting role
-and reports failures; a controller or adapter can reject a switch.
+JoustMania lets Bluetooth negotiate roles automatically. System Debug shows each
+controller's model, role, update rate and report gaps. Use **Switch to Central**
+or **Switch to Peripheral** beside a connected controller for a one-time request;
+either device can reject it. Higher updates/s alone does not guarantee smoother play.
 
-The **Try All Peripheral** button attempts the change one controller at a time.
-Peripheral mode may improve data rates, but it can reduce simultaneous connection
-capacity. In one test with three CSR8510 A10 adapters, forcing Peripheral limited
-the setup to two connections per adapter. Switching one adapter's connections to
-Central allowed four controllers on that adapter and eight overall. This is a
-result from that setup, not a universal adapter limit. Earlier testing with some
-ZCM1 controllers found around 65 updates/s in Central and 87–89 in Peripheral.
-Compare both the live rate and how many controllers can connect before choosing.
+Several tested Realtek adapters delivered good PS3 Move timing only with five
+active all-Central links; some also worked with six. Their PS4 Move results were
+generally better at smaller counts, but only two PS4 Move units were available.
+CSR is our preferred direction for flexible controller counts. Capacity and range
+still depend on the individual adapter, role mix and environment. See the
+[measured results and limitations](docs/bluetooth/adapter-results.md).
 
 ### Raspberry Pi memory
 

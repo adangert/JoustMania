@@ -335,7 +335,7 @@ class WebUI():
 
         for controller in controllers:
             address = controller['address'].upper()
-            battery = battery_status.get(address)
+            battery = battery_status.get(address) if controller['connected'] else None
             controller['status'] = (
                 'Connected' if controller['connected']
                 else 'Paired, not connected'
@@ -343,9 +343,11 @@ class WebUI():
             controller['battery'] = common.battery_levels.get(battery, 'Unknown')
             controller['battery_code'] = battery
             controller['active'] = (
-                None if address not in out_moves else out_moves[address] == 0
+                False if not controller['connected'] else (
+                    None if address not in out_moves else out_moves[address] == 0
+                )
             )
-            controller['update_count'] = update_counts.get(address)
+            controller['update_count'] = update_counts.get(address) if controller['connected'] else None
             controller['report_gap'] = report_gaps.get(address) if controller['connected'] else None
 
         if bluetooth_roles is not None:

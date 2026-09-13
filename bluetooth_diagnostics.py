@@ -40,6 +40,21 @@ def _usb_details(hci):
     return {}
 
 
+def _is_internal(hci):
+    """Match the Pi's Bluetooth device-tree node, independent of HCI numbering."""
+    root = Path("/sys/firmware/devicetree/base")
+    alias = _read(root / "aliases/bluetooth").rstrip("\0")
+    if not alias or not _read(root / "model").startswith("Raspberry Pi"):
+        return False
+    try:
+        expected = (root / alias.lstrip("/")).resolve(strict=True)
+        device = (Path("/sys/class/bluetooth") / hci / "device").resolve(strict=True)
+        return any((parent / "of_node").resolve() == expected
+                   for parent in (device, *device.parents))
+    except (OSError, RuntimeError):
+        return False
+
+
 def parse_hciconfig(output):
     """Parse the stable, human-readable fields emitted by hciconfig -a."""
     adapters = []
@@ -67,6 +82,7 @@ def parse_hciconfig(output):
                 "rx_bytes", "rx_acl", "rx_errors", "tx_bytes", "tx_acl", "tx_errors"
             )})
         adapter.update(_usb_details(adapter["name"]))
+        adapter["internal"] = _is_internal(adapter["name"])
         adapter["health"] = _health(adapter)
         adapters.append(adapter)
     return adapters

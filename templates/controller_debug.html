@@ -35,10 +35,22 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
     <p class="diagnostic-note">Live rates are HCI packets handled by each adapter. With controllers connected,
     packet rates vary with controller type and traffic. Assessment summarizes connected controllers using their p95 report gaps.
     Mixed results are listed separately; this is a connection assessment, not an adapter speed rating.</p>
+    <section aria-labelledby="pairing-heading">
+        <h3 id="pairing-heading">Next USB pairing</h3>
+        <p id="pairing-status" role="status">{{ 'Checking next adapter…' if pairing.available else 'Adapter selection unavailable on this platform.' }}</p>
+        <p class="diagnostic-note">Automatic fills each adapter to five controllers in adapter order, then cycles through all adapters.
+        Counts include connected controllers and successful USB pairings this session. A manual choice applies to one successful pairing, then clears.
+        Connect one controller by USB at a time. This changes the host saved by that controller; it does not move existing wireless connections.</p>
+        <p id="pairing-error" role="alert"></p>
+    </section>
     <div id="bluetooth-adapter-body">
     {% for adapter in adapters %}
     <section class="adapter-section" data-adapter-section="{{ adapter.name }}">
-        <h3><span class="adapter-name">{{ adapter.name }}</span> — <span class="adapter-address">{{ adapter.address }}</span></h3>
+        <h3><input type="radio" class="pairing-target" name="pairing-target" value="{{ adapter.address }}"
+                   aria-label="Use {{ adapter.name }} for the next USB pairing"
+                   {% if pairing.selected == adapter.address %}checked{% endif %}
+                   {% if not pairing.available or pairing.busy or pairing.error %}disabled{% endif %}>
+            <span class="adapter-name">{{ adapter.name }}</span> — <span class="adapter-address">{{ adapter.address }}</span></h3>
         <table>
         <thead><tr>
             <th>Chipset</th><th>USB device</th><th>USB link</th>
@@ -151,6 +163,40 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
 <script>
 (function () {
     let lastTime = Date.now();
+    let pairingPending = false;
+    function renderPairing(state) {
+        if (!state) return;
+        const selected = state.adapters.find(adapter => adapter.address === state.selected);
+        document.getElementById('pairing-status').textContent = !state.available ? 'Adapter selection unavailable on this platform.' :
+            (state.error ? 'Pairing unavailable: ' + state.error :
+            (state.busy ? 'Pairing with ' : 'Next controller: ') +
+            (selected ? selected.name + ' (' + selected.address + ')' : 'No powered adapters') +
+            (state.override ? ' — next pairing only' : ''));
+        document.querySelectorAll('.pairing-target').forEach(input => {
+            input.checked = input.value === state.selected;
+            input.disabled = pairingPending || state.busy || !state.available || Boolean(state.error) ||
+                !state.adapters.some(adapter => adapter.address === input.value);
+            const adapter = state.adapters.find(adapter => adapter.address === input.value);
+            input.title = adapter ? adapter.count + ' controllers assigned; select for the next USB pairing' : 'Unavailable';
+        });
+    }
+    document.addEventListener('change', async function (event) {
+        if (event.target.name !== 'pairing-target' || pairingPending) return;
+        pairingPending = true;
+        document.querySelectorAll('.pairing-target').forEach(input => {input.disabled = true;});
+        try {
+            const response = await fetch('/debug/pairing-target', {method: 'POST', body: new URLSearchParams({address: event.target.value})});
+            const state = await response.json();
+            if (!response.ok) throw new Error(state.error || 'Unable to select adapter');
+            document.getElementById('pairing-error').textContent = '';
+            pairingPending = false;
+            renderPairing(state);
+        } catch (error) {
+            document.getElementById('pairing-error').textContent = error.message;
+        } finally {
+            pairingPending = false;
+        }
+    });
     let hotspotPending = false;
     function renderHotspot(state) {
         document.getElementById('hotspot-status').textContent = state.busy ? 'Changing Wi-Fi hotspot…' :
@@ -384,6 +430,7 @@ button.role-toggle { font-size: 14px; line-height: 1.2; padding: 6px 10px; margi
                 row.dataset.rx = adapter.rx_acl; row.dataset.tx = adapter.tx_acl;
             });
             renderControllers(data.controllers, seconds);
+            if (!pairingPending) renderPairing(data.pairing);
             lastTime = now;
         }).catch(function () {});
     }, 1000);

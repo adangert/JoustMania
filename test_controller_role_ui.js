@@ -34,7 +34,7 @@ const context = {
         return {ok, async json() {return ok ? {role: 'Peripheral'} : {error: 'Switch rejected'};}};
     }
 };
-vm.runInNewContext(script.replace('}());', 'globalThis.renderControllers = renderControllers; globalThis.connectionAssessment = connectionAssessment;}());'), context);
+vm.runInNewContext(script.replace('}());', 'globalThis.renderControllers = renderControllers; globalThis.connectionAssessment = connectionAssessment; globalThis.renderPairing = renderPairing;}());'), context);
 (async () => {
     await element('all-peripheral').click();
     assert.equal(requests.length, 2);
@@ -89,5 +89,26 @@ vm.runInNewContext(script.replace('}());', 'globalThis.renderControllers = rende
     assert.equal(context.connectionAssessment(adapter, [link(36), link(40)]), 'Slow connections (2)');
     assert.equal(context.connectionAssessment(adapter, [link(24)]), 'Borderline connection');
     assert.equal(context.connectionAssessment(adapter, [link(null)]), 'Measuring connections…');
-    console.log('Controller role, report gap and assessment UI tests passed');
+    const pairingInputs = [{value:'AA'}, {value:'BB'}];
+    context.document.querySelectorAll = selector => selector === '.pairing-target' ? pairingInputs : [body, unknown];
+    context.document.createTextNode = text => ({textContent: text});
+    const plan = {available: true, adapters: [{name:'hci0', address:'AA', count:4}, {name:'hci1', address:'BB', count:0}],
+        automatic:'AA', selected:'AA', override:'', busy:false, error:''};
+    context.renderPairing(plan);
+    assert.match(element('pairing-status').textContent, /Next controller: hci0/);
+    let chosen;
+    context.fetch = async (url, options) => {
+        assert.equal(url, '/debug/pairing-target');
+        chosen = options.body.get('address');
+        return {ok:true, json:async () => ({...plan, override:chosen, selected:chosen || plan.automatic})};
+    };
+    await handlers.change({target:{name:'pairing-target',value:'BB'}});
+    assert.equal(chosen, 'BB');
+    assert.match(element('pairing-status').textContent, /hci1.*next pairing only/);
+    context.renderPairing({...plan, busy:true});
+    assert(pairingInputs.every(input => input.disabled));
+    context.renderPairing(plan);
+    assert.equal(pairingInputs[0].checked, true);
+    assert.equal(pairingInputs[1].checked, false);
+    console.log('Controller and pairing target UI tests passed');
 })().catch(error => {console.error(error); process.exitCode = 1;});

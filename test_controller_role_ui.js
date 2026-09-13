@@ -36,7 +36,7 @@ const context = {
         return {ok, async json() {return ok ? {role: 'Peripheral'} : {error: 'Switch rejected'};}};
     }
 };
-vm.runInNewContext(script.replace('}());', 'globalThis.switchControllerRole = switchControllerRole; globalThis.renderControllers = renderControllers; globalThis.connectionAssessment = connectionAssessment; globalThis.renderPairing = renderPairing;}());'), context);
+vm.runInNewContext(script.replace('}());', 'globalThis.switchControllerRole = switchControllerRole; globalThis.renderControllers = renderControllers; globalThis.connectionAssessment = connectionAssessment; globalThis.renderPairing = renderPairing; globalThis.renderInternalBluetooth = renderInternalBluetooth;}());'), context);
 (async () => {
     const button = {dataset: {address: 'AA:BB:CC:DD:EE:01', role: 'central'}, disabled: false};
     await handlers.click({target: {closest(selector) {return selector === '.role-toggle' ? button : null;}}});
@@ -137,5 +137,37 @@ vm.runInNewContext(script.replace('}());', 'globalThis.switchControllerRole = sw
     context.renderPairing(plan);
     assert.equal(pairingInputs[0].checked, true);
     assert.equal(pairingInputs[1].checked, false);
-    console.log('Controller and pairing target UI tests passed');
+    const internal = {available:true, enabled:false, configured_enabled:false, reboot_required:false, busy:false, error:''};
+    context.renderInternalBluetooth(internal);
+    assert.equal(element('internal-bt-button').textContent, 'Enable Internal Bluetooth');
+    context.renderInternalBluetooth({...internal, configured_enabled:true, reboot_required:true});
+    assert.equal(element('internal-bt-button').textContent, 'Enable Internal Bluetooth');
+    assert.match(element('internal-bt-status').textContent, /Currently disabled.*Enabled after reboot/);
+    context.renderInternalBluetooth({...internal, busy:true});
+    assert.equal(element('internal-bt-button').disabled, true);
+    context.renderInternalBluetooth({...internal, available:false, error:'No onboard radio'});
+    assert.equal(element('internal-bt-button').disabled, true);
+    assert.equal(element('internal-bt-error').textContent, 'No onboard radio');
+    context.renderInternalBluetooth(internal);
+    let confirmation;
+    let rebootRequests = 0;
+    context.window.confirm = message => {confirmation = message; return false;};
+    context.fetch = async (url, options) => {
+        rebootRequests++;
+        assert.equal(url, '/debug/internal-bluetooth');
+        assert.equal(options.body.get('action'), 'enable');
+        assert.equal(options.body.get('confirmed'), 'yes');
+        return {ok: true, json: async () => ({...internal, busy:true})};
+    };
+    await element('internal-bt-form').submit({preventDefault() {}});
+    assert.match(confirmation, /Enable internal Bluetooth and reboot the Pi now/);
+    assert.equal(rebootRequests, 0);
+    context.window.confirm = () => true;
+    await element('internal-bt-form').submit({preventDefault() {}});
+    assert.equal(rebootRequests, 1);
+    assert.equal(element('internal-bt-button').disabled, true);
+    context.renderInternalBluetooth({...internal, rebooting:true});
+    assert.match(element('internal-bt-status').textContent, /Rebooting/);
+    assert.equal(element('internal-bt-button').disabled, true);
+    console.log('Controller, pairing target and internal Bluetooth UI tests passed');
 })().catch(error => {console.error(error); process.exitCode = 1;});

@@ -98,27 +98,11 @@ setup() {
     amixer sset PCM,0 100%
     sudo alsactl store
     
-    DIST_REL=$(cut -f2 <<< $(lsb_release -r))
-    if [ "$DIST_REL" -ge 12 ]; then
-        echo "the distribution $DIST_REL is larger than 12" 
-        config_loc=/boot/firmware/config.txt || exit -1
-    else
-        echo "the distribution is smaller than 12"
-        config_loc=/boot/config.txt || exit -1
-    fi
-        
-    
-    
     #This will disable on-board bluetooth with the --disable_internal_bt command line option
     #This will allow only class one long range btdongles to connect to psmove controllers
     if [ "$1" = "--disable_internal_bt" ]; then
         echo "disabling internal bt"
-        sudo grep -qxF 'dtoverlay=disable-bt' $config_loc || { echo "dtoverlay=disable-bt" | sudo tee -a $config_loc; sudo rm -rf /var/lib/bluetooth/*; } || exit -1
-        
-        # hciuart is not active on raspbian 13
-        if [ "$DIST_REL" -le 12 ]; then
-            sudo systemctl disable hciuart || exit -1
-        fi
+        sudo /usr/bin/python3 "$HOMEDIR/JoustMania/internal_bluetooth.py" disable || exit -1
     fi
 
     uname2="$(stat --format '%U' $HOMEDIR'/JoustMania/setup.sh')"

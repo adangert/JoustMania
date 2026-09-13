@@ -153,7 +153,9 @@ class InternalBluetoothWebTest(unittest.TestCase):
             html = client.get('/debug').data
             self.assertIn(b'Enable Internal Bluetooth', html)
             self.assertIn(b'Enabled after reboot', html)
-            self.assertGreater(html.index(b'id="internal-bt-heading"'), html.index(b'Reset Bluetooth Controllers'))
+            self.assertLess(html.index(b'id="hotspot-heading"'), html.index(b'id="internal-bt-heading"'))
+            self.assertLess(html.index(b'id="internal-bt-heading"'), html.index(b'Reset Bluetooth Controllers'))
+            self.assertLess(html.index(b'Reset Bluetooth Controllers'), html.index(b'Soft Restart JoustMania'))
 
 
 if __name__ == '__main__':

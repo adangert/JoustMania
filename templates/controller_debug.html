@@ -158,17 +158,6 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
         Disabling lets the Pi reconnect to its saved Wi-Fi network. This page may disconnect when switching networks.</p>
         <p id="hotspot-error" role="alert"></p>
     </section>
-    <form action="/debug/restart-joustmania" method="POST"
-          onsubmit="return confirm('Restart JoustMania? This stops the current game but does not reboot the computer or clear Bluetooth connections.');">
-        <button type="submit">Restart JoustMania</button>
-    </form>
-    <p class="diagnostic-note">Restarts only the JoustMania application. It does not reboot the computer or remove controller pairings.</p>
-    <form action="/debug/reset-bluetooth" method="POST"
-          onsubmit="return confirm('Reset Bluetooth controllers? This stops the current game, removes saved PS Move connections, and restarts JoustMania.');">
-        <button type="submit" class="danger-button">Reset Bluetooth Controllers</button>
-    </form>
-    <p class="diagnostic-note">This stops the current game, clears saved PS Move registrations, and restarts JoustMania. Controllers may need to reconnect or be paired again.</p>
-    <p id="controller-action-error" role="alert"></p>
     <section aria-labelledby="internal-bt-heading">
         <h3 id="internal-bt-heading">Internal Bluetooth</h3>
         <p id="internal-bt-status" role="status">{{ 'Currently enabled' if internal_bluetooth.enabled else ('Currently disabled' if internal_bluetooth.available else 'Unavailable') }}{% if internal_bluetooth.reboot_required %} — {{ 'Enabled' if internal_bluetooth.configured_enabled else 'Disabled' }} after reboot{% endif %}</p>
@@ -179,6 +168,17 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
         <p class="diagnostic-note">Changing internal Bluetooth restarts the Pi and stops the current game. You will be asked to confirm. Controller pairings and USB adapter settings are preserved.</p>
         <p id="internal-bt-error" role="alert">{{ internal_bluetooth.error }}</p>
     </section>
+    <form action="/debug/reset-bluetooth" method="POST"
+          onsubmit="return confirm('Reset Bluetooth controllers? This stops the current game, removes saved PS Move connections, and restarts JoustMania.');">
+        <button type="submit" class="danger-button">Reset Bluetooth Controllers</button>
+    </form>
+    <p class="diagnostic-note">This stops the current game, clears saved PS Move registrations, and restarts JoustMania. Controllers may need to reconnect or be paired again.</p>
+    <p id="controller-action-error" role="alert"></p>
+    <form action="/debug/restart-joustmania" method="POST"
+          onsubmit="return confirm('Soft restart JoustMania? This stops the current game but does not reboot the computer or clear Bluetooth connections.');">
+        <button type="submit">Soft Restart JoustMania</button>
+    </form>
+    <p class="diagnostic-note">Restarts only the JoustMania application. It does not reboot the computer or remove controller pairings.</p>
 
 </div>
 <script>

@@ -148,10 +148,26 @@ Some earlier captures contained shared host-side pauses (including about 0.92 se
 | Sena UD100-G03 | Ordered; $40.08 in recorded cart | External-antenna CSR range candidate |
 | Plugable USB-BT4LE | Ordered; $11.95 in recorded cart | Broadcom comparison, not CSR |
 | INTELBRAS AX900 + BT5.4 | Awaiting delivery | Chipset unknown |
-| Internal Pi Bluetooth | Pending test | No result yet |
+| Internal Pi Bluetooth | Initial tests recorded | Cypress/Broadcom UART; see results below |
 | Panda PAU0B AC600 | Excluded accidental purchase | Wi-Fi adapter, not part of Bluetooth comparison |
 
 Some Realtek sixth connections reportedly took around 20 seconds, whereas the first five connected readily. This is an observation, not a measured mean connection time. Further work should record repeatable pairing/reconnection timings, all requested counts and roles, distance with measured separation, and sustained game sessions.
+
+## Internal Raspberry Pi 5 Bluetooth
+
+The onboard UART radio reports Cypress Semiconductor (305), HCI/LMP 5.0, revision `017e`, subversion `6119`, ACL `1021:8`. Kernel firmware identifies BCM4345C0 / BCM43455 and loads `BCM4345C0.raspberrypi,5-model-b.hcd`, build 0382. System Debug labels the matched onboard adapter **Internal**, independently of its HCI number.
+
+Five-second application captures, all Central; entries are averages across controllers of each model, with rolling ten-second displayed p95 statistics:
+
+| Configuration | ZCM1 updates/s / p95 | ZCM2 updates/s / p95 | Worst displayed gap |
+|---|---|---|---|
+| One ZCM1 | 58.7 / 33.1 ms | — | 43.7 ms |
+| Three ZCM1 | 81.9 / 26.8 ms | — | 49.1 ms |
+| Seven ZCM1 | 5.9 / 307.3 ms | — | 349.7 ms |
+| Five ZCM1 + two ZCM2 | 24.5 / 97.8 ms | 239.4 / 33.5 ms | 106.7 ms |
+| Three ZCM1 + two ZCM2 at distance | 37.3 / 88.0 ms | 129.2 / 29.3 ms | 299.4 ms |
+
+The two ZCM2 controllers felt responsive during mixed-seven gameplay despite red p95 indicators; the five ZCM1 performed poorly. Preserve that subjective assessment rather than declaring play unusable from color alone. The distance run captured only five active controllers, so it cannot isolate distance from the changed load. Separation and obstacles were not specified. Improvement from one to three also shows count-dependent improvement is not exclusive to Realtek. No endurance or outdoor range rating is established.
 
 ## Evidence provenance
 

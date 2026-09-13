@@ -15,6 +15,7 @@ import logging
 import runtime_platform
 import bluetooth_diagnostics
 from access_point import access_point
+from internal_bluetooth import internal_bluetooth
 from system_power import request_system_power
 
 if platform == "linux" or platform == "linux2":
@@ -117,6 +118,7 @@ class WebUI():
         self.app.add_url_rule('/debug/controller-unpair', 'controller_unpair', self.unpair_controller, methods=['POST'])
         self.app.add_url_rule('/debug/controller-role', 'controller_role', self.change_controller_role, methods=['POST'])
         self.app.add_url_rule('/debug/access-point', 'access_point', self.change_access_point, methods=['POST'])
+        self.app.add_url_rule('/debug/internal-bluetooth', 'internal_bluetooth', self.change_internal_bluetooth, methods=['POST'])
         self.app.add_url_rule(
             '/debug/reset-bluetooth',
             'reset_bluetooth',
@@ -197,6 +199,7 @@ class WebUI():
             "adapters": bluetooth_diagnostics.get_adapters(),
             "controllers": self._controller_debug_data(),
             "access_point": access_point.status(),
+            "internal_bluetooth": internal_bluetooth.status(),
             "pairing": pairing_plan.status(self.ns),
         }
 
@@ -264,6 +267,15 @@ class WebUI():
             return {'error': str(error)}, 400
         except RuntimeError as error:
             return {'error': str(error)}, 409
+
+    def change_internal_bluetooth(self):
+        try:
+            internal_bluetooth.change(request.form.get('action'))
+        except ValueError as error:
+            return {'error': str(error)}, 400
+        except RuntimeError as error:
+            return {'error': str(error)}, 409
+        return internal_bluetooth.status(), 202
 
     def change_access_point(self):
         try:
@@ -446,6 +458,7 @@ class WebUI():
         return render_template(
             'controller_debug.html',
             access_point=access_point.status(),
+            internal_bluetooth=internal_bluetooth.status(),
             pairing=pairing_plan.status(self.ns),
             controllers=controllers,
             adapters=adapters,

@@ -60,12 +60,15 @@ class ControllerActionsTest(unittest.TestCase):
         with mock.patch.object(ui, '_controller_debug_data', return_value=[]):
             self.assertEqual(client.post('/debug/controller-identify', data={'address': ADDRESS}).status_code, 409)
         with mock.patch.object(psmove_dbus, 'unpair_controller', return_value=1) as remove:
-            ns.pairing_state['busy'] = True
+            ns.pairing_state.update(busy=True, pairing_serial=ADDRESS)
             self.assertEqual(client.post('/debug/controller-unpair', data={'address': ADDRESS}).status_code, 409)
             remove.assert_not_called()
-            ns.pairing_state['busy'] = False
+            # An unrelated native pairing may remain stuck indefinitely.
+            ns.pairing_state['pairing_serial'] = 'OTHER'
             self.assertEqual(client.post('/debug/controller-unpair', data={'address': ADDRESS}).status_code, 200)
             self.assertEqual(ns.pairing_state['reservations'], {'OTHER': ADAPTER})
+            self.assertTrue(ns.pairing_state['busy'])
+            self.assertEqual(ns.pairing_state['pairing_serial'], 'OTHER')
         for route in ('controller-identify', 'controller-unpair'):
             self.assertEqual(client.get('/debug/' + route).status_code, 405)
 

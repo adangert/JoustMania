@@ -22,6 +22,15 @@ class PairingPlanTest(unittest.TestCase):
         self.patch.start()
         self.addCleanup(self.patch.stop)
 
+    def test_active_serial_is_recorded_and_cleared_even_on_failure(self):
+        target = pairing_plan.begin(self.ns, 'aa:bb')
+        self.assertEqual(self.ns.pairing_state['pairing_serial'], 'AA:BB')
+        self.assertEqual(pairing_plan.begin(self.ns, 'other'), '')
+        self.assertEqual(self.ns.pairing_state['pairing_serial'], 'AA:BB')
+        pairing_plan.finish(self.ns, 'aa:bb', target, False)
+        self.assertEqual(self.ns.pairing_state['pairing_serial'], '')
+        self.assertFalse(self.ns.pairing_state['busy'])
+
     def test_fill_five_then_round_robin_with_delayed_connections(self):
         targets = []
         for index in range(14):

@@ -221,7 +221,8 @@ class WebUI():
         if psmove_dbus is None:
             return {'error': 'Individual unpairing is only available on Linux.'}, 501
         address = request.form.get('address', '').strip().upper()
-        # Serialize against USB pairing so its reservation cannot reappear.
+        # Serialize selection and removal, but allow unrelated controllers to
+        # be removed while the native pairing command waits for its own device.
         def remove():
             removed = psmove_dbus.unpair_controller(address)
             if hasattr(self.ns, 'pairing_state'):
@@ -233,8 +234,10 @@ class WebUI():
         try:
             if hasattr(self.ns, 'pairing_state'):
                 with self.ns.pairing_lock:
-                    if self.ns.pairing_state['busy']:
-                        return {'error': 'Wait for USB pairing to finish.'}, 409
+                    state = self.ns.pairing_state
+                    if state['busy'] and (not state.get('pairing_serial') or
+                                          state['pairing_serial'] == address):
+                        return {'error': 'This controller is being paired. Finish its USB pairing before unpairing it.'}, 409
                     return remove()
             return remove()
         except ValueError as error:

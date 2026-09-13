@@ -25,6 +25,7 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
 
 {% block body %}
 <div class="info_box">
+    <p><a href="/"><button type="button">Go Back</button></a></p>
     <h2>Bluetooth Adapters</h2>
     <p class="diagnostic-note">Report gaps measure time between updates received by JoustMania over the last 10 seconds.
     The p95 value means 95% of completed gaps were that short or shorter; lower means fewer long pauses.
@@ -145,7 +146,6 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
         </thead>
 <tbody class="controller-status-body" data-for-adapter="unknown"></tbody></table>
     </div>
-    <p><a href="/"><button type="button">Go Back</button></a></p>
     <section aria-labelledby="hotspot-heading">
         <h3 id="hotspot-heading">Wi-Fi Hotspot</h3>
         <p role="status" id="hotspot-status">{{ 'Enabled' if access_point.enabled else ('Disabled' if access_point.available else 'Unavailable') }}</p>

@@ -51,7 +51,7 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
                    aria-label="Use {{ adapter.name }} for the next USB pairing"
                    {% if pairing.selected == adapter.address %}checked{% endif %}
                    {% if not pairing.available or pairing.busy or pairing.error %}disabled{% endif %}>
-            <span class="adapter-name">{{ adapter.name }}</span> — <span class="adapter-address">{{ adapter.address }}</span></h3>
+            <span class="adapter-name">{{ adapter.name }}{% if adapter.internal %} — Internal{% endif %}</span> — <span class="adapter-address">{{ adapter.address }}</span></h3>
         <table>
         <thead><tr>
             <th>Chipset</th><th>USB device</th><th>USB link</th>
@@ -486,6 +486,7 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
                 const row = document.querySelector('[data-adapter="' + adapter.name + '"]');
                 if (!row) return;
                 const section = row.closest('[data-adapter-section]');
+                section.querySelector('.adapter-name').textContent = adapter.name + (adapter.internal ? ' — Internal' : '');
                 section.querySelector('.adapter-address').textContent = adapter.address;
                 row.querySelector('.adapter-manufacturer').textContent = adapter.manufacturer;
                 row.querySelector('.adapter-usb-device').textContent = adapter.product + ' (' + (adapter.usb_id || 'Unknown') + ')';

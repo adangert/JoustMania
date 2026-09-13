@@ -81,7 +81,7 @@ class Pair():
                 # still stores this Pi as its Bluetooth host. Pairing over USB
                 # rewrites that address after use with another computer.
                 ns = getattr(self, 'ns', None)
-                host_address = pairing_plan.begin(ns) if ns is not None else self.get_lowest_bt_device()
+                host_address = pairing_plan.begin(ns, move_controller.serial) if ns is not None else self.get_lowest_bt_device()
                 if not host_address:
                     return False
                 paired = False

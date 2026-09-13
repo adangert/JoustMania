@@ -26,17 +26,6 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
 {% block body %}
 <div class="info_box">
     <h2>Bluetooth Adapters</h2>
-    <section aria-labelledby="internal-bt-heading">
-        <h3 id="internal-bt-heading">Internal Bluetooth</h3>
-        <p id="internal-bt-status" role="status">{{ 'Enabled at boot' if internal_bluetooth.enabled else ('Disabled at boot' if internal_bluetooth.available else 'Unavailable') }}{% if internal_bluetooth.reboot_required %} — Reboot required{% endif %}</p>
-        <form id="internal-bt-form" action="/debug/internal-bluetooth" method="POST">
-            <input id="internal-bt-action" type="hidden" name="action" value="{{ 'disable' if internal_bluetooth.configured_enabled else 'enable' }}">
-            <button id="internal-bt-button" type="submit" {% if not internal_bluetooth.available or internal_bluetooth.busy %}disabled{% endif %}>{{ 'Disable' if internal_bluetooth.configured_enabled else 'Enable' }} Internal Bluetooth</button>
-        </form>
-        <p class="diagnostic-note">Changes take effect after reboot. Controller pairings and USB adapter settings are preserved.</p>
-        <p id="internal-bt-reboot" {% if not internal_bluetooth.reboot_required %}hidden{% endif %}><a href="{{ url_for('power') }}">Reboot the Pi to apply this change</a></p>
-        <p id="internal-bt-error" role="alert">{{ internal_bluetooth.error }}</p>
-    </section>
     <p class="diagnostic-note">Report gaps measure time between updates received by JoustMania over the last 10 seconds.
     The p95 value means 95% of completed gaps were that short or shorter; lower means fewer long pauses.
     Longest gap shows the worst completed pause in that window.
@@ -180,6 +169,17 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
     </form>
     <p class="diagnostic-note">This stops the current game, clears saved PS Move registrations, and restarts JoustMania. Controllers may need to reconnect or be paired again.</p>
     <p id="controller-action-error" role="alert"></p>
+    <section aria-labelledby="internal-bt-heading">
+        <h3 id="internal-bt-heading">Internal Bluetooth</h3>
+        <p id="internal-bt-status" role="status">{{ 'Currently enabled' if internal_bluetooth.enabled else ('Currently disabled' if internal_bluetooth.available else 'Unavailable') }}{% if internal_bluetooth.reboot_required %} — {{ 'Enabled' if internal_bluetooth.configured_enabled else 'Disabled' }} after reboot{% endif %}</p>
+        <form id="internal-bt-form" action="/debug/internal-bluetooth" method="POST">
+            <input id="internal-bt-action" type="hidden" name="action" value="{{ 'disable' if internal_bluetooth.enabled else 'enable' }}">
+            <button id="internal-bt-button" type="submit" {% if not internal_bluetooth.available or internal_bluetooth.busy or internal_bluetooth.rebooting %}disabled{% endif %}>{{ 'Disable' if internal_bluetooth.enabled else 'Enable' }} Internal Bluetooth</button>
+        </form>
+        <p class="diagnostic-note">Changing internal Bluetooth restarts the Pi and stops the current game. You will be asked to confirm. Controller pairings and USB adapter settings are preserved.</p>
+        <p id="internal-bt-error" role="alert">{{ internal_bluetooth.error }}</p>
+    </section>
+
 </div>
 <script>
 (function () {
@@ -221,24 +221,28 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
     let internalBluetoothPending = false;
     function renderInternalBluetooth(state) {
         if (!state) return;
-        const action = state.configured_enabled ? 'disable' : 'enable';
-        const pendingText = state.configured_enabled ? 'enable' : 'disable';
-        document.getElementById('internal-bt-status').textContent = state.busy ? 'Saving internal Bluetooth setting…' :
+        const action = state.enabled ? 'disable' : 'enable';
+        const pendingText = state.configured_enabled ? 'Enabled' : 'Disabled';
+        document.getElementById('internal-bt-status').textContent = state.rebooting ? 'Rebooting the Pi… Reconnect and reload this page after it starts.' :
+            state.busy ? 'Saving internal Bluetooth setting…' :
             (!state.available ? 'Unavailable' :
-                (state.enabled ? 'Enabled at boot' : 'Disabled at boot') +
-                (state.reboot_required ? ' — Reboot required to ' + pendingText : ''));
+                (state.enabled ? 'Currently enabled' : 'Currently disabled') +
+                (state.reboot_required ? ' — ' + pendingText + ' after reboot' : ''));
         document.getElementById('internal-bt-action').value = action;
         document.getElementById('internal-bt-button').textContent = (action === 'enable' ? 'Enable' : 'Disable') + ' Internal Bluetooth';
-        document.getElementById('internal-bt-button').disabled = internalBluetoothPending || state.busy || !state.available;
-        document.getElementById('internal-bt-reboot').hidden = !state.reboot_required;
+        document.getElementById('internal-bt-button').disabled = internalBluetoothPending || state.busy || state.rebooting || !state.available;
         document.getElementById('internal-bt-error').textContent = state.error || '';
     }
     document.getElementById('internal-bt-form').addEventListener('submit', async function (event) {
         event.preventDefault();
+        if (internalBluetoothPending || document.getElementById('internal-bt-button').disabled) return;
+        const action = document.getElementById('internal-bt-action').value;
+        if (!window.confirm((action === 'enable' ? 'Enable' : 'Disable') +
+                ' internal Bluetooth and reboot the Pi now? This stops the current game and temporarily disconnects this page. Controller pairings will be kept.')) return;
         internalBluetoothPending = true;
         document.getElementById('internal-bt-button').disabled = true;
         try {
-            const response = await fetch('/debug/internal-bluetooth', {method: 'POST', body: new URLSearchParams(new FormData(this))});
+            const response = await fetch('/debug/internal-bluetooth', {method: 'POST', body: new URLSearchParams({action: action, confirmed: 'yes'})});
             const state = await response.json();
             if (!response.ok) throw new Error(state.error || 'Internal Bluetooth change failed.');
             internalBluetoothPending = false;

@@ -269,8 +269,10 @@ class WebUI():
             return {'error': str(error)}, 409
 
     def change_internal_bluetooth(self):
+        if request.form.get('confirmed') != 'yes':
+            return {'error': 'Confirm the reboot before changing internal Bluetooth.'}, 400
         try:
-            internal_bluetooth.change(request.form.get('action'))
+            internal_bluetooth.change(request.form.get('action'), reboot=True)
         except ValueError as error:
             return {'error': str(error)}, 400
         except RuntimeError as error:

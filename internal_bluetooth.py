@@ -5,6 +5,7 @@ import re
 import subprocess
 import threading
 from pathlib import Path
+from system_power import request_system_power
 
 APP_DIR = Path(__file__).resolve().parent
 DT_ROOT = Path('/proc/device-tree')
@@ -101,11 +102,12 @@ class InternalBluetooth:
         self.lock = threading.RLock()
         self.busy = False
         self.error = ''
+        self.rebooting = False
 
     def status(self):
         with self.lock:
             state = dict(available=False, enabled=None, configured_enabled=None,
-                         reboot_required=False, busy=self.busy, error=self.error)
+                         reboot_required=False, busy=self.busy, rebooting=self.rebooting, error=self.error)
             try:
                 state['enabled'] = current_enabled()
                 state['configured_enabled'] = config_state(boot_config().read_text())
@@ -115,29 +117,35 @@ class InternalBluetooth:
                 state['error'] = self.error or str(error)
             return state
 
-    def change(self, action):
+    def change(self, action, reboot=False):
         if action not in ('enable', 'disable'):
             raise ValueError('Choose enable or disable.')
         with self.lock:
-            if self.busy:
+            if self.busy or self.rebooting:
                 raise RuntimeError('An internal Bluetooth change is already in progress.')
             state = self.status()
             if not state['available']:
                 raise RuntimeError(state['error'] or 'Internal Bluetooth controls unavailable.')
             self.busy = True
             self.error = ''
-            threading.Thread(target=self._run, args=(action,), daemon=True).start()
+            threading.Thread(target=self._run, args=(action, reboot), daemon=True).start()
 
-    def _run(self, action):
+    def _run(self, action, reboot=False):
         try:
             subprocess.run(['sudo', '-n', '/usr/bin/python3', str(APP_DIR / 'internal_bluetooth.py'), action],
                            capture_output=True, text=True, check=True, timeout=30)
+            if reboot:
+                with self.lock:
+                    self.rebooting = True
+                request_system_power('reboot')
         except subprocess.CalledProcessError as error:
             self.error = (error.stderr or error.stdout or 'Internal Bluetooth change failed.').strip()[-500:]
         except (OSError, subprocess.TimeoutExpired) as error:
             self.error = str(error)
         finally:
             with self.lock:
+                if self.error:
+                    self.rebooting = False
                 self.busy = False
 
 

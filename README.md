@@ -116,8 +116,9 @@ sudo ./setup.sh --disable_internal_bt
 If you would not like to turn off the internal bluetooth (this is not recommended) leave off --disable_internal_bt
 
 The System Debug page also has an **Internal Bluetooth** enable/disable button on Raspberry Pi.
-It saves the boot setting and shows when a reboot is required; it does not reboot automatically
-or delete controller pairings. Use the link to the power page to reboot when ready.
+The button is at the bottom of the page and reflects the current boot state.
+Confirming the popup saves the setting and reboots the Pi; Cancel changes nothing.
+Controller pairings and USB adapter settings are preserved. A failed save does not trigger a reboot.
 The control uses Python 3 and systemctl, already provided by the Pi setup.
 
 You can now disconnect the hdmi cable and run JoustMania in headless mode. JoustMania will automatically boot up on restart, menu music should start playing once the pi boots up. Note audio will only play out of HDMI when plugged into a monitor, and only out of the audio jack when unpluged from a monitor.

@@ -104,6 +104,33 @@ class InternalBluetoothTest(unittest.TestCase):
         self.assertTrue(control.status()['error'])
 
 
+    @mock.patch.object(bt, 'request_system_power')
+    @mock.patch.object(bt.subprocess, 'run')
+    def test_confirmed_reboot_only_follows_successful_save(self, run, power):
+        control = bt.InternalBluetooth()
+        events = []
+        run.side_effect = lambda *args, **kwargs: events.append('save')
+        power.side_effect = lambda action: events.append(action)
+        control._run('enable', reboot=True)
+        self.assertEqual(events, ['save', 'reboot'])
+        self.assertTrue(control.rebooting)
+        power.reset_mock()
+        control = bt.InternalBluetooth()
+        run.side_effect = subprocess.CalledProcessError(1, 'helper', stderr='Save failed')
+        control._run('enable', reboot=True)
+        power.assert_not_called()
+        self.assertFalse(control.rebooting)
+        self.assertEqual(control.error, 'Save failed')
+
+    @mock.patch.object(bt, 'request_system_power', side_effect=OSError('Reboot failed'))
+    @mock.patch.object(bt.subprocess, 'run')
+    def test_reboot_failure_is_reported_and_unlocks(self, run, power):
+        control = bt.InternalBluetooth()
+        control._run('disable', reboot=True)
+        self.assertFalse(control.rebooting)
+        self.assertFalse(control.busy)
+        self.assertEqual(control.error, 'Reboot failed')
+
 class InternalBluetoothWebTest(unittest.TestCase):
     @mock.patch.object(webui, 'internal_bluetooth')
     def test_post_validation_and_debug_state(self, control):
@@ -112,18 +139,21 @@ class InternalBluetoothWebTest(unittest.TestCase):
         control.status.return_value = dict(available=True, enabled=False, configured_enabled=True,
                                           reboot_required=True, busy=False, error='')
         self.assertEqual(client.get('/debug/internal-bluetooth').status_code, 405)
-        response = client.post('/debug/internal-bluetooth', data={'action': 'enable'})
+        self.assertEqual(client.post('/debug/internal-bluetooth', data={'action': 'enable'}).status_code, 400)
+        control.change.assert_not_called()
+        response = client.post('/debug/internal-bluetooth', data={'action': 'enable', 'confirmed': 'yes'})
         self.assertEqual(response.status_code, 202)
-        control.change.assert_called_once_with('enable')
+        control.change.assert_called_once_with('enable', reboot=True)
         control.change.side_effect = ValueError('Bad action')
-        self.assertEqual(client.post('/debug/internal-bluetooth', data={'action': 'bad'}).status_code, 400)
+        self.assertEqual(client.post('/debug/internal-bluetooth', data={'action': 'bad', 'confirmed': 'yes'}).status_code, 400)
         control.change.side_effect = RuntimeError('Busy')
-        self.assertEqual(client.post('/debug/internal-bluetooth', data={'action': 'disable'}).status_code, 409)
+        self.assertEqual(client.post('/debug/internal-bluetooth', data={'action': 'disable', 'confirmed': 'yes'}).status_code, 409)
         with mock.patch.object(ui, '_controller_debug_data', return_value=[]), mock.patch.object(webui.bluetooth_diagnostics, 'get_adapters', return_value=[]):
             self.assertTrue(client.get('/debug/data').json['internal_bluetooth']['reboot_required'])
             html = client.get('/debug').data
-            self.assertIn(b'Disable Internal Bluetooth', html)
-            self.assertIn(b'Reboot required', html)
+            self.assertIn(b'Enable Internal Bluetooth', html)
+            self.assertIn(b'Enabled after reboot', html)
+            self.assertGreater(html.index(b'id="internal-bt-heading"'), html.index(b'Reset Bluetooth Controllers'))
 
 
 if __name__ == '__main__':

@@ -28,7 +28,28 @@ Cool Stuffs!
 
 Hardware
 ---------------------------
-I am currently selling fully set up Joustmania devices (Pi 5 - 2 GB model, case, two long range bluetooth dongles, sd card, power supply, audio-connector, HDMI cables) for $200 with included shipping domestically. If you would like to inquire about purchasing a fully setup Joustmania device, please reach out to joustmaniagame@gmail.com.
+Fully set up JoustMania systems are available in three tiers for your PlayStation
+Move controllers. Each setup uses a Raspberry Pi 5 (2 GB), case, SD card, power
+supply, USB audio adapter and HDMI cables, with Bluetooth hardware selected for
+the tier. For purchasing inquiries, contact joustmaniagame@gmail.com.
+
+* **Tier 1 — Indoor PS4 Move: $180.** “I have up to five PS4 Move controllers
+  (not PS3) and I am playing indoors.” Uses only the Pi's internal Bluetooth;
+  no dongle.
+* **Tier 2 — Indoor/outdoor, most common: $220.** “I have PS3 and/or PS4 Move
+  controllers and want up to 14 players indoors or outdoors.” Planned around
+  two Feasycom FSC-BP119 or comparable CSR adapters. **+$20 for each additional
+  seven players.**
+* **Tier 3 — Pro play, largest spaces: $260.** “I want the most space for
+  14 players in large indoor or outdoor spaces.” Planned around two Sena
+  UD100-G03 adapters. **+$40 for each additional seven players.** Sena is the
+  leading range candidate, pending testing.
+
+**Player counts, expansion capacity and coverage are planned targets pending
+validation.** Indoor play has felt good with the two PS4 Move controllers tested
+on internal Bluetooth; five PS4 Moves have not yet been tested. The 14-player
+CSR tiers and larger expansions also need testing. See the
+[setup tiers and validation notes](docs/bluetooth/README.md#setup-tiers).
 
 If you would like to build your own device you will need the following:
 
@@ -120,7 +141,9 @@ git clone https://github.com/adangert/JoustMania.git
 cd JoustMania
 sudo ./setup.sh --disable_internal_bt
 ```
-If you would not like to turn off the internal bluetooth (this is not recommended) leave off --disable_internal_bt
+For Tier 1 indoor PS4 Move play, leave off `--disable_internal_bt` to use the
+internal radio. For setups using external dongles, keep the flag to disable the
+internal radio. See the [setup tiers](docs/bluetooth/README.md#setup-tiers).
 
 You can now disconnect the hdmi cable and run JoustMania in headless mode. JoustMania will automatically boot up on restart, menu music should start playing once the pi boots up. Note audio will only play out of HDMI when plugged into a monitor, and only out of the audio jack when unpluged from a monitor.
 

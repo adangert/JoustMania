@@ -2,6 +2,63 @@
 
 [Back to the main README](../../README.md) · [Adapter results](adapter-results.md) · [CSR buying guide](csr-adapters.md)
 
+## Setup tiers
+
+These fully set up Raspberry Pi 5 (2 GB) packages are designed for existing
+PlayStation Move controllers. Prices are package prices; expansion prices below
+are the proposed increments per additional seven-player capacity. They do not
+establish that every adapter or larger configuration has been validated.
+
+* **Tier 1 — $180: up to five PS4 Move controllers indoors.** Use the built-in
+  Cypress/Broadcom Bluetooth radio with no USB Bluetooth dongle. This tier is
+  for ZCM2 (PS4 Move) only; internal Bluetooth is not recommended for ZCM1
+  (PS3 Move) gameplay.
+* **Tier 2 — $220: up to 14 PS3/PS4 Move players indoors or outdoors.** The
+  most common setup, planned around two Feasycom FSC-BP119 or comparable
+  identified CSR adapters. Add **$20 per additional seven players**.
+* **Tier 3 — $260: pro play for 14 PS3/PS4 Move players in large indoor or
+  outdoor spaces.** Planned around two Sena UD100-G03 adapters, the current
+  candidate for the greatest usable range. Add **$40 per additional seven
+  players**. A range advantage over Tier 2 has not yet been measured.
+
+All tier capacities and coverage are **targets pending testing**. Tier 1 has
+positive indoor gameplay observations with two ZCM2 controllers, including mixed
+loads, but no five-ZCM2-only test. Cirago demonstrated seven active links on one
+CSR sample, but the exact Feasycom/Sena hardware, two-adapter 14-player setups,
+expansions and outdoor coverage need validation. The tier prices do not imply
+that a purchased adapter is guaranteed seven usable links under every role mix.
+
+For Tier 1, run setup without `--disable_internal_bt`, or enable Internal
+Bluetooth from System Debug and confirm the reboot. For external-adapter tiers,
+disable the internal radio to keep pairings on the intended dongles. The debug
+page labels the actual onboard adapter **Internal**; it is not identified by
+assuming it is always hci0.
+
+### Internal Cypress/Broadcom Bluetooth
+
+The Pi 5 onboard radio reports Cypress Semiconductor (305) and Bluetooth 5.0;
+kernel firmware identifies BCM4345C0 / BCM43455 on UART. This is the radio behind
+Tier 1, not a separate Cypress USB purchase. The two PS4 Move controllers felt
+responsive during indoor play, including the mixed seven-controller test.
+
+For PS3 Move, this radio is **not recommended**: one controller measured about
+58.7 updates/s with 33.1 ms displayed p95; three improved to 81.9/s but still had
+uneven gaps; seven dropped to 5.9/s with 307.3 ms p95. Five PS3 Moves alongside
+two PS4 Moves remained poor. The PS3 controllers can connect, but that does not
+make them suitable for this tier. See the
+[internal Bluetooth measurements](adapter-results.md#internal-raspberry-pi-5-bluetooth)
+for the full results, including distance and subjective PS4 play.
+
+### Validation before confirming tier limits
+
+Verify five ZCM2 controllers on internal Bluetooth, then test each external
+adapter with both Move generations and the intended roles. Test two adapters
+with 14 players and repeat with every proposed expansion. Compare Feasycom and
+Sena at the same measured indoor/outdoor distances, with matching controller
+counts and antenna placement. Record report gaps, gameplay feel, reconnect
+behavior and sustained sessions; a five-second snapshot does not establish
+long-term reliability or a maximum usable playing area.
+
 ## Recommended hardware
 
 Our recommended dongle is the **[Feasycom FSC-BP119](https://www.amazon.com/dp/B07KK843ZK)**: CSR8510 A10, Bluetooth 4.0, Class 1, with an external antenna. Its [manufacturer specifications](https://www.feasycom.com/fsc-bp119/) identify the chipset, and its [manual](https://m.feasycom.net/Content/upload/pdf/202313049/BP119-User-Manual_V1.2.pdf) describes standard HCI mode and Linux support. The Amazon listing also identifies FSC-BP119 and CSR8510 A10. This is a purchasing recommendation based on documented hardware and promising CSR testing, **not a completed Feasycom benchmark**.

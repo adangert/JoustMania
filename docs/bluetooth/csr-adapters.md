@@ -6,6 +6,8 @@
 
 Sena UD100-G03, already ordered, is the first planned external-antenna comparison. Identified CSR alternatives below are candidates rather than interchangeable guarantees. Prices and availability were reviewed September 12, 2026. Stock and shipped revisions can change.
 
+The [setup tiers](README.md#setup-tiers) use Feasycom or comparable CSR hardware for the standard 14-player target and Sena UD100-G03 for the proposed larger-space pro tier. Those multi-adapter capacities and range differences remain to be tested; tier pricing is separate from individual retail dongle prices.
+
 ## Findings from the Cirago sample
 
 The sample reports CSR8510 A10, USB `0a12:0001`, Cambridge Silicon Radio manufacturer 10, Bluetooth HCI/LMP 4.0 and revision/subversion `22bb`. Its printed retail model and power class have not been confirmed. Manufacturer and USB identity are stronger evidence together than a retail title, but they are not physical inspection of the silicon.

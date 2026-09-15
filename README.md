@@ -28,7 +28,7 @@ Cool Stuffs!
 
 Hardware
 ---------------------------
-Fully set up JoustMania systems are available in three tiers for your PlayStation
+Fully set up JoustMania systems are available in two tiers for your PlayStation
 Move controllers. Each setup uses a Raspberry Pi 5 (2 GB), case, SD card, power
 supply, USB audio adapter and HDMI cables, with Bluetooth hardware selected for
 the tier. For purchasing inquiries, contact joustmaniagame@gmail.com.
@@ -38,17 +38,14 @@ the tier. For purchasing inquiries, contact joustmaniagame@gmail.com.
   no dongle.
 * **Tier 2 — Indoor/outdoor, most common: $220.** “I have PS3 and/or PS4 Move
   controllers and want up to 14 players indoors or outdoors.” Planned around
-  two Feasycom FSC-BP119 or comparable CSR adapters. **+$20 for each additional
-  seven players.**
-* **Tier 3 — Pro play, largest spaces: $260.** “I want the most space for
-  14 players in large indoor or outdoor spaces.” Planned around two Sena
-  UD100-G03 adapters. **+$40 for each additional seven players.** Sena is the
-  leading range candidate, pending testing.
+  two Feasycom FSC-BP119 adapters. **+$20 for each additional seven players.**
 
 **Player counts, expansion capacity and coverage are planned targets pending
 validation.** Indoor play has felt good with the two PS4 Move controllers tested
-on internal Bluetooth; five PS4 Moves have not yet been tested. The 14-player
-CSR tiers and larger expansions also need testing. See the
+on internal Bluetooth; five PS4 Moves have not yet been tested. Two Feasycom
+adapters have now been captured with **12 PS3 Moves (six each)**
+nearby and at distance. The 14-player target, larger expansions and outdoor
+coverage still need validation. See the
 [setup tiers and validation notes](docs/bluetooth/README.md#setup-tiers).
 
 If you would like to build your own device you will need the following:
@@ -63,12 +60,19 @@ a Class 1 adapter with an external antenna and CSR8510 A10 chipset. Prefer an
 identified CSR-based adapter from the [CSR alternatives list](docs/bluetooth/csr-adapters.md)
 when this model is unavailable; the exact model and hardware revision matter.
 
-This recommendation combines the Feasycom's documented hardware with our CSR
-controller tests. Our Cirago CSR sample performed well with PS3 Move (ZCM1) and
-PS4 Move (ZCM2) controllers at the measured counts of **one, two, four and seven**,
-without the five-link minimum seen on many tested Realteks. The Feasycom itself
-has not yet been benchmarked in this test series, and advertised range is not a
-guaranteed playing distance. The small Cirago performed poorly at distance.
+The Feasycom is our leading tested option: one adapter handled seven PS3 Moves
+and a mixed group of five PS3 plus two PS4 Moves. Two Feasycom adapters handled
+12 PS3 Moves, averaging **83–86 updates/s per controller nearby** and **48–53/s
+at distance**, grouped by adapter. Its distance results and the user's play
+assessment were more encouraging than the tested Sena, TRENDnet and StarTech
+CSR samples. These were short captures with differing controller sets and
+unmeasured distances, not a controlled range ranking. Sena developed severe
+stalls when used alongside Feasycom; the cause remains unresolved.
+
+See the **[September 14 comparison and dual-adapter results](docs/bluetooth/september-14-results.md)**.
+Feasycom still needs low-count, 14-player, outdoor and endurance testing. CSR
+low-count evidence comes from the earlier Cirago sample; it is not a guarantee
+for every CSR product. Advertised range is not a guaranteed playing distance.
 
 See the **[Bluetooth adapter and controller guide](docs/bluetooth/README.md)** for
 pairing, controller roles, report-gap diagnostics and troubleshooting; the
@@ -383,8 +387,16 @@ or packet-capture tools are required.
 System Debug selects the next USB pairing adapter beside its heading. Select a
 different adapter there to override one successful pairing; the selection then
 returns to the algorithm’s next target. Connect one controller over USB at a time.
-Automatic assignment fills powered adapters to five in hci order, then cycles
-through all adapters. Counts combine current PS Move connections with successful
+Automatic assignment first fills identified Realtek adapters to five controllers
+one adapter at a time in hci order. Next it uses round robin across all other
+adapters, including CSR and unknown chipsets, until each reaches six. It then
+brings any remaining Realteks to six using round robin. Only once every available
+adapter has six assignments does round robin assign seventh slots. With no
+Realteks, all adapters alternate from the first pairing; with only Realteks,
+round robin starts after each reaches five. Identification uses the reported
+HCI manufacturer, not the retail brand. Seven is the automatic assignment ceiling;
+a manual override can still select an adapter at that target.
+Counts combine current PS Move connections with successful
 USB assignments in this session; restarting clears session reservations. Saved
 registrations alone do not count, and existing wireless connections are not moved.
 A failed attempt keeps the override; unplugging its adapter returns to automatic.

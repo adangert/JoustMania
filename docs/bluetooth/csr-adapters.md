@@ -2,11 +2,11 @@
 
 [Back to the guide](README.md) · [Full test catalog](adapter-results.md)
 
-**Recommended: [Feasycom FSC-BP119 on Amazon](https://www.amazon.com/dp/B07KK843ZK).** The supplied Amazon listing identifies FSC-BP119 and CSR8510 A10, matching the manufacturer's specifications. It combines the preferred CSR family with an external antenna. This recommendation is based on published hardware and our Cirago CSR results; the Feasycom itself has not yet been benchmarked in this series.
+**Recommended: [Feasycom FSC-BP119 on Amazon](https://www.amazon.com/dp/B07KK843ZK).** The supplied Amazon listing identifies FSC-BP119 and CSR8510 A10, matching the manufacturer's specifications. It combines the preferred CSR family with an external antenna. This recommendation now includes [single- and dual-Feasycom measurements](september-14-results.md). It is the leading tested option so far; exact range and sustained stability remain unverified.
 
-Sena UD100-G03, already ordered, is the first planned external-antenna comparison. Identified CSR alternatives below are candidates rather than interchangeable guarantees. Prices and availability were reviewed September 12, 2026. Stock and shipped revisions can change.
+Sena UD100-G03 has now been tested: nearby timing was similar, but its distance capture was worse and severe stalls appeared when used alongside Feasycom. The cause of those stalls is unresolved. Identified CSR alternatives below are candidates rather than interchangeable guarantees. Prices and availability were reviewed September 12, 2026. Stock and shipped revisions can change.
 
-The [setup tiers](README.md#setup-tiers) use Feasycom or comparable CSR hardware for the standard 14-player target and Sena UD100-G03 for the proposed larger-space pro tier. Those multi-adapter capacities and range differences remain to be tested; tier pricing is separate from individual retail dongle prices.
+The [two setup tiers](README.md#setup-tiers) use internal Pi Bluetooth for indoor PS4 Move play and two Feasycom adapters for the standard 14-player target. Dual Feasycom has been captured at 12 PS3 controllers; 14 and larger expansions remain unverified. Tier pricing is separate from individual retail dongle prices.
 
 ## Findings from the Cirago sample
 
@@ -14,14 +14,14 @@ The sample reports CSR8510 A10, USB `0a12:0001`, Cambridge Silicon Radio manufac
 
 Five-second recordings directly covered one, two, four and seven active controllers. Three, five and six were not separately captured. The four-controller test contained two ZCM1 and two ZCM2 devices; the seven-controller tests covered both seven ZCM1 and five ZCM1 plus two ZCM2. All recorded links in these runs were Central. Consequently, the evidence supports promising flexibility across measured counts and both Move generations, not a universal guarantee for every CSR adapter, role configuration, or controller type.
 
-## Priority candidates
+## Model references
 
 All distances in this section are supplier claims under favorable conditions, not measured PS Move playing radii.
 
-| Priority | Exact product | CSR evidence | Radio and antenna claims | Purchase route / status |
+| Reference | Exact product | CSR evidence | Radio and antenna claims | Purchase route / status |
 |---|---|---|---|---|
-| 1 | Sena Parani UD100-G03 | Sena specifies CSR; Home Assistant identifies CSR8510A10 | BT4.0, Class 1; removable RP-SMA antenna; 300 m stock-to-stock claim | [Amazon](https://www.amazon.com/dp/B0161B5ATM); already ordered, $40.08 paid |
-| 2 | Feasycom FSC-BP119 | Manufacturer explicitly specifies CSR8510 A10 | BT4.0, Class 1, 18.5 dBm claim, external 2 dBi antenna, 100 m open-air claim | [Amazon](https://www.amazon.com/dp/B07KK843ZK); exact listing identified; live stock unresolved |
+| 1 | Sena Parani UD100-G03 | Sena specifies CSR; Home Assistant identifies CSR8510A10 | BT4.0, Class 1; removable RP-SMA antenna; 300 m stock-to-stock claim | [Amazon](https://www.amazon.com/dp/B0161B5ATM); tested; $40.08 recorded purchase price |
+| 2 | Feasycom FSC-BP119 | Manufacturer explicitly specifies CSR8510 A10 | BT4.0, Class 1, 18.5 dBm claim, external 2 dBi antenna, 100 m open-air claim | [Amazon](https://www.amazon.com/dp/B07KK843ZK); recommended; single and dual samples tested; live stock unresolved |
 | 3 | Ezurio/Laird BT820 | Manufacturer specifies QCA (CSR) 8510 | BT4.0, +8 dBm maximum, internal antenna, 100 m claim | [Manufacturer and distributor links](https://www.ezurio.com/part/bt820); distributor stock displayed; NRND |
 | 4 | StarTech USBBT1EDR4 | Current datasheet specifies CSR8510A10; older manual says A06 | BT4.0, Class 1, compact antenna, 50 m claim | [Amazon](https://www.amazon.com/dp/B00FCK307I); exact listing verified, current checkout stock/price unresolved |
 | 5 | USconverters CRSBT40 | Supplier explicitly specifies CSR8510 A10 | BT4.0, Class 1, +9.75 dBm, internal chip antenna, 50 m claim | [Direct store](https://www.usconverters.com/usb-bluetooth-4-ble-low-energy-dongle); displayed $19 and In Stock |
@@ -29,15 +29,15 @@ All distances in this section are supplier claims under favorable conditions, no
 
 ### Sena UD100-G03
 
-This is the most practical first test because it is already ordered and has a replaceable antenna. Sena's brochure distinguishes +19 dBm basic-rate EIRP from +6 dBm EDR EIRP. Its 300–1000 m range table changes antennas at both ends: those numbers cannot be transferred directly to an unmodified Move controller. The stock antenna is 1 dBi; optional configurations include 3/5 dBi dipoles and a 9 dBi patch.[1]
+This external-antenna model was tested on September 14; its advertised range advantage did not appear in those recordings. Sena's brochure distinguishes +19 dBm basic-rate EIRP from +6 dBm EDR EIRP. Its 300–1000 m range table changes antennas at both ends: those numbers cannot be transferred directly to an unmodified Move controller. The stock antenna is 1 dBi; optional configurations include 3/5 dBi dipoles and a 9 dBi patch.[1]
 
-Sena's Linux support notes say BlueZ can operate the device, while one explicitly limits official Linux support. This is compatible with treating it as a normal Linux Bluetooth candidate, without promising vendor support for the Pi configuration.[2] Start with the stock antenna; compare against Cirago in the same location before attributing an improvement to antenna gain. Home Assistant's first-hand compatibility list identifies the G03 as CSR8510A10.[3]
+Sena's Linux support notes say BlueZ can operate the device, while one explicitly limits official Linux support. This is compatible with treating it as a normal Linux Bluetooth candidate, without promising vendor support for the Pi configuration.[2] A future controlled retest should match controller set, placement and antenna orientation before attributing differences to the antenna. Home Assistant's first-hand compatibility list identifies the G03 as CSR8510A10.[3]
 
 ### Feasycom FSC-BP119
 
 The manufacturer identifies CSR8510 A10, Class 1, external 2 dBi antenna and 18.5 dBm transmit power. Its manual explicitly states default HCI mode and Linux compatibility: it is a host Bluetooth adapter rather than merely a USB-powered audio transmitter.[4][5]
 
-This is the closest additional candidate to the desired combination of Cirago-like chipset and an external antenna. The specification does not establish whether its power figure is conducted output, EIRP, or modulation-specific; do not compare it numerically with Sena's EIRP as though they were identical measurements. Qualcomm lists roughly +10 dBm maximum for the chip itself, so the whole-adapter figure needs board-level context.[6]
+This is the recommended tested model combining the CSR family and an external antenna. The specification does not establish whether its power figure is conducted output, EIRP, or modulation-specific; do not compare it numerically with Sena's EIRP as though they were identical measurements. Qualcomm lists roughly +10 dBm maximum for the chip itself, so the whole-adapter figure needs board-level context.[6]
 
 The [Amazon listing B07KK843ZK](https://www.amazon.com/dp/B07KK843ZK) explicitly identifies FSC-BP119 and CSR8510 A10. It resolves the earlier missing retail link; current checkout stock and price were not verified. The manufacturer also provides an inquiry route. An older announcement confirms historical Amazon distribution.[7] Home Assistant developers identify this model as their primary development adapter, useful Linux evidence but not a seven-Move benchmark.[3]
 
@@ -69,7 +69,7 @@ The manufacturer's catalog marks LM540 EOL.[15] RS retains a [LM540-0546 listing
 
 The manufacturer lists Bluetooth 2.1+EDR Class 1, CSR BlueCore and a host-stack HCI version, with a claim of up to 750 m. This is a legitimate industrial lead.[17] The suffix **HCI** is essential: the ordinary Blue-1000 documentation describes an onboard stack and virtual serial-port application interface. That serial version is not a drop-in replacement for the Pi's usual Bluetooth controller.[18]
 
-The [manufacturer product page](https://www.m2mgermany.de/shop/produkt/blue-1000-hci-long-range-bluetooth-dongle-version-2) is the purchase/inquiry route. Current US shipment, exact chip revision and single-unit stock were not established. Its industrial positioning and sourcing friction put it behind the already-ordered Sena.
+The [manufacturer product page](https://www.m2mgermany.de/shop/produkt/blue-1000-hci-long-range-bluetooth-dongle-version-2) is the purchase/inquiry route. Current US shipment, exact chip revision and single-unit stock were not established. Its industrial positioning and sourcing friction make it an exploratory alternative to the tested consumer adapters.
 
 ### TRENDnet TBW-106UB v2.0R
 
@@ -93,13 +93,13 @@ The Cirago retail BTA8000 documentation lists an 82-foot range and +6 dBm output
 
 ## Recommended purchase and test sequence
 
-Use the Sena already on order first. Test one, two, four, five and seven ZCM1 links with the same placement, then mixed ZCM1/ZCM2 configurations. Preserve five-second captures for quick comparisons; allow the displayed ten-second gap window to settle after changing counts or positions. Test roles separately rather than changing count and role at once.
+Use Feasycom as the current reference. Single-adapter tests covered seven PS3 Moves and five PS3 plus two PS4 Moves; dual-adapter tests covered six PS3 Moves per adapter. Next validate one/two-controller behavior, seven per adapter together, mixed PS4 loads, and sustained gameplay. Preserve short captures for comparisons and let the rolling ten-second gap history settle after changing conditions.
 
-If the Sena retains good timing and improves distance, that supports a specific model recommendation and makes buying another inexpensive unverified dongle less useful. For a second external-antenna design, use the linked FSC-BP119 listing, verifying the delivered model and CSR/HCI identity. BT820 is the next useful traceable vendor comparison. The compact StarTech BT4.0 and CRSBT40 are lower-cost chip-family checks, not proven range solutions.
+Sena, TRENDnet and StarTech CSR are now measured comparisons rather than untested upgrades. The TRENDnet and StarTech sample labels still need exact-model confirmation; do not assign their results to every product from those brands. See [all September 14 results](september-14-results.md), including the Plugable Broadcom comparison.
 
 At distance, record actual separation, intervening rooms, antenna orientation, adapter position, Wi-Fi state and controller models. A link that remains connected but develops 500 ms gaps is a failed gameplay range test. Compare update rates, p95, p99 and longest gap together; record subjective gameplay alongside them. Repeat the same test after bringing controllers back to establish recovery.
 
-The current conclusion is **CSR is the leading chipset candidate for flexible PS Move timing on this Pi; a long-range CSR model remains to be validated**. No manufacturer or independent source found here demonstrates this exact seven-controller JoustMania workload across all roles and distances. Home Assistant's connection-capacity numbers concern its own BLE tests and must not be substituted for Classic PS Move capacity.[3]
+The current conclusion is **Feasycom is our leading tested adapter; exact range, 14-player dual operation and endurance remain to be validated**. No manufacturer or independent source found here demonstrates this exact seven-controller JoustMania workload across all roles and distances. Home Assistant's connection-capacity numbers concern its own BLE tests and must not be substituted for Classic PS Move capacity.[3]
 
 ## Sources
 

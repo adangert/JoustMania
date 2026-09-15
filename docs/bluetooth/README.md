@@ -14,18 +14,15 @@ establish that every adapter or larger configuration has been validated.
   for ZCM2 (PS4 Move) only; internal Bluetooth is not recommended for ZCM1
   (PS3 Move) gameplay.
 * **Tier 2 — $220: up to 14 PS3/PS4 Move players indoors or outdoors.** The
-  most common setup, planned around two Feasycom FSC-BP119 or comparable
-  identified CSR adapters. Add **$20 per additional seven players**.
-* **Tier 3 — $260: pro play for 14 PS3/PS4 Move players in large indoor or
-  outdoor spaces.** Planned around two Sena UD100-G03 adapters, the current
-  candidate for the greatest usable range. Add **$40 per additional seven
-  players**. A range advantage over Tier 2 has not yet been measured.
+  most common setup, planned around two Feasycom FSC-BP119 adapters. Add **$20 per additional seven players**.
 
 All tier capacities and coverage are **targets pending testing**. Tier 1 has
 positive indoor gameplay observations with two ZCM2 controllers, including mixed
-loads, but no five-ZCM2-only test. Cirago demonstrated seven active links on one
-CSR sample, but the exact Feasycom/Sena hardware, two-adapter 14-player setups,
-expansions and outdoor coverage need validation. The tier prices do not imply
+loads, but no five-ZCM2-only test. Single Feasycom tests covered seven PS3 Moves
+and seven mixed Moves. Dual
+Feasycom captures covered 12 PS3 Moves (six per adapter), nearby and at distance.
+The 14-player dual-Feasycom target, expansions, low-count Feasycom behavior and
+outdoor coverage still need validation. The tier prices do not imply
 that a purchased adapter is guaranteed seven usable links under every role mix.
 
 For Tier 1, run setup without `--disable_internal_bt`, or enable Internal
@@ -61,11 +58,15 @@ long-term reliability or a maximum usable playing area.
 
 ## Recommended hardware
 
-Our recommended dongle is the **[Feasycom FSC-BP119](https://www.amazon.com/dp/B07KK843ZK)**: CSR8510 A10, Bluetooth 4.0, Class 1, with an external antenna. Its [manufacturer specifications](https://www.feasycom.com/fsc-bp119/) identify the chipset, and its [manual](https://m.feasycom.net/Content/upload/pdf/202313049/BP119-User-Manual_V1.2.pdf) describes standard HCI mode and Linux support. The Amazon listing also identifies FSC-BP119 and CSR8510 A10. This is a purchasing recommendation based on documented hardware and promising CSR testing, **not a completed Feasycom benchmark**.
+Our recommended dongle is the **[Feasycom FSC-BP119](https://www.amazon.com/dp/B07KK843ZK)**: CSR8510 A10, Bluetooth 4.0, Class 1, with an external antenna. Its [manufacturer specifications](https://www.feasycom.com/fsc-bp119/) identify the chipset, and its [manual](https://m.feasycom.net/Content/upload/pdf/202313049/BP119-User-Manual_V1.2.pdf) describes standard HCI mode and Linux support. The Amazon listing also identifies FSC-BP119 and CSR8510 A10. It is now our leading tested option, based on the [September 14 single- and dual-adapter recordings](september-14-results.md) and the user's positive assessment. Nearby timing was similar across the tested CSR samples; Feasycom's distance captures were more encouraging. The tests do not establish a controlled range ranking or endurance guarantee.
 
 Other identified CSR adapters are reasonable alternatives; start with the [model-specific buying guide](csr-adapters.md). An external antenna is desirable for range, but a large antenna, a newer Bluetooth version, or a brand name does not establish controller timing. Verify the arriving hardware in System Debug. No single model has yet passed a measured outdoor range or extended endurance test in this series.
 
-The Cirago CSR sample worked well nearby at measured counts of one, two, four and seven, including both Move generations. It performed very poorly during the distance test. Many Realtek samples instead needed five active all-Central links for good ZCM1 timing. That makes CSR the preferred chipset candidate for smaller or changing groups, while long-range CSR performance still needs validation.
+The Cirago CSR sample worked well nearby at measured counts of one, two, four and seven, including both Move generations. It performed very poorly during the distance test. Many Realtek samples instead needed five active all-Central links for good ZCM1 timing. That makes CSR the preferred chipset candidate for smaller or changing groups, while exact range, longer stability and broader controller-count coverage still need validation.
+
+## Latest comparison
+
+The [September 14 results](september-14-results.md) cover Feasycom, Sena, TRENDnet, StarTech CSR and Plugable Broadcom, plus dual-adapter operation. Feasycom is the Tier 2 recommendation. Sena was similar nearby but poor in the distance capture and eventually delivered almost no input alongside Feasycom despite links remaining connected. Dual Feasycom stayed responsive in the captured six-plus-six configuration; distance reduced rates and increased gaps. These observations replace the earlier untested Sena range hypothesis.
 
 ## Controller models and roles
 
@@ -79,7 +80,7 @@ All current Cirago captures used Central links. Earlier CSR testing on a differe
 
 Connect one Move controller by USB at a time and use the normal pairing flow. Pairing assigns that controller to an adapter; it does not mean an active wireless connection already exists. Disconnect USB and connect wirelessly before evaluating Bluetooth traffic.
 
-System Debug displays a single-selection control beside the adapter name. It defaults to the next adapter selected by the pairing algorithm. The algorithm fills adapters toward five controllers each, then uses round robin once every available adapter reaches that target. Counts include connected controllers and pairing reservations in the current session. Select a different available adapter to override the next pairing; after a successful pair, the override clears and the next automatic choice is shown. Five is a distribution target motivated by the tested Realteks, not a universal hardware limit.
+System Debug displays a single-selection control beside the adapter name. It defaults to the next adapter selected by the pairing algorithm. Automatic assignment first fills identified Realtek adapters to five controllers one adapter at a time in hci order. Next it uses round robin across all other adapters, including CSR and unknown chipsets, until each reaches six. It then brings any remaining Realteks to six using round robin. Only once every available adapter has six assignments does round robin assign seventh slots. With no Realteks, all adapters alternate from the first pairing; with only Realteks, round robin starts after each reaches five. Identification uses the reported HCI manufacturer, not the retail brand. Seven is the automatic assignment ceiling; a manual override can still select an adapter at that target. Counts include connected controllers and pairing reservations in the current session. Select a different available adapter to override the next pairing; after a successful pair, the override clears and the next automatic choice is shown. Five, six and seven are assignment targets, not a guarantee of hardware capacity. A manual override can select a Realtek already at five or an adapter already at seven. Chipsets do not need to be recognized to participate; unknown adapters use the non-Realtek pool. If an adapter cannot accept its target, automatic assignment does not infer a lower capacity from that failure; use the manual selector to choose another. Existing links are never moved or disconnected to enforce this target; successful USB assignments reserve slots even before wireless reconnection. Restarting clears those session reservations. The policy applies to either Move generation because it selects by adapter chipset, not controller model.
 
 A saved pairing, known battery value, or loaded controller object does not establish current input traffic. Check active connection status and advancing updates. Pair a controller again if its saved adapter is no longer present. **Unpair** on a controller's row removes its pairing individually. **Identify** turns an actively connected controller white briefly so it can be matched to its row. Role and Identify controls are unavailable for disconnected controllers.
 
@@ -98,9 +99,10 @@ Raw HCI captures show packets reaching the host Bluetooth interface, whereas app
 
 ## What the chipset tests suggest
 
-- **CSR:** strongest lead for flexible counts. Cirago handled both generations with good nearby timing at the recorded counts; distance performance failed. Other CSR models still need individual validation.
+- **CSR:** strongest lead for flexible counts. Cirago handled both generations with good nearby timing at the recorded counts; distance performance failed. Feasycom is now the leading tested model; Sena, TRENDnet and StarTech CSR results vary, particularly at distance and under dual-adapter load.
 - **Realtek RTL8761BU family:** repeated ZCM1 count-dependent behavior across brands, often poor below five and much better with five all-Central links. Some samples accept six; others only five in the attempts made. ZCM2 generally did better, but not every role/load combination was good.
 - **Realtek RTL8851BU combo:** also improved at five, despite a different firmware family. Its distance test degraded. Wi-Fi coexistence may be a factor because this is a combined radio device.
+- **Plugable BCM20702A0 / Broadcom:** seven PS3 Central links averaged 70.7 updates/s and 31.7 ms p95, slower than the nearby CSR samples. No PS4-only or distance test was recorded for this unit.
 - **Actions and Barrot samples:** poor timing in the tested configurations; the QGOO Actions adapter had especially poor ZCM2 results. Do not extend this verdict to every product from those vendors.
 - **AICSemi AIC8800D80 combo:** one ZCM1 initially looked promising, but two and seven performed poorly. Mixed ZCM2 results depended on role and still had substantial pauses.
 

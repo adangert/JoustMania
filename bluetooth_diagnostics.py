@@ -130,15 +130,20 @@ def _inquiry_tx_power(hci, address):
     return value
 
 
-def get_adapters():
-    """Return adapter identity and cumulative traffic/error counters."""
+def get_adapter_identities():
+    """Read identities without issuing optional per-adapter power queries."""
     try:
         result = subprocess.run(
             ["hciconfig", "-a"], capture_output=True, text=True, timeout=3, check=False
         )
     except (OSError, subprocess.TimeoutExpired):
         return []
-    adapters = parse_hciconfig(result.stdout)
+    return parse_hciconfig(result.stdout)
+
+
+def get_adapters():
+    """Return adapter identity and cumulative traffic/error counters."""
+    adapters = get_adapter_identities()
     for adapter in adapters:
         adapter["connections"] = _connection_count(adapter["name"])
         adapter["inquiry_tx_power_dbm"] = _inquiry_tx_power(

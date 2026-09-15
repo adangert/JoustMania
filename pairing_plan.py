@@ -1,5 +1,15 @@
 """Shared next-pairing selection for the menu and debug web process."""
 import time
+import re
+
+import bluetooth_diagnostics
+
+
+def is_realtek(identity):
+    """Use the HCI manufacturer, including rebranded USB adapters."""
+    manufacturer = identity.get('manufacturer', '')
+    return bool(re.search(r'\(93\)\s*$', manufacturer) or
+                manufacturer.casefold().startswith('realtek'))
 
 
 def initialize(ns, manager):
@@ -16,6 +26,8 @@ def read_layout():
         raise RuntimeError('Bluetooth service is unavailable')
     objects = dbus.Interface(bus.get_object(jm_dbus.ORG_BLUEZ, '/'),
                              'org.freedesktop.DBus.ObjectManager').GetManagedObjects(timeout=1)
+    identities = {(a['name'], a['address']): a
+                  for a in bluetooth_diagnostics.get_adapter_identities()}
     layout = []
     for path, interfaces in objects.items():
         adapter = interfaces.get('org.bluez.Adapter1')
@@ -26,7 +38,11 @@ def read_layout():
             device = device_interfaces.get('org.bluez.Device1', {})
             if str(device_path).startswith(str(path) + '/') and device.get('Connected') and psmove_dbus.is_psmove_device(device):
                 connected.append(str(device['Address']).upper())
-        layout.append(dict(name=str(path).rsplit('/', 1)[-1], address=str(adapter['Address']).upper(), connected=connected))
+        name = str(path).rsplit('/', 1)[-1]
+        address = str(adapter['Address']).upper()
+        identity = identities.get((name, address), {})
+        layout.append(dict(name=name, address=address, connected=connected,
+                           realtek=is_realtek(identity)))
     return sorted(layout, key=lambda a: (int(a['name'][3:]), a['address']))
 
 
@@ -56,12 +72,24 @@ def describe(state):
         # A later USB pairing supersedes a previous assignment for that serial.
         members = {serial for serial in members if reservations.get(serial, adapter['address']) == adapter['address']}
         members.update(serial for serial, address in reservations.items() if address == adapter['address'])
-        adapters.append(dict(name=adapter['name'], address=adapter['address'], count=len(members)))
-    automatic = next((a['address'] for a in adapters if a['count'] < 5), '')
+        adapters.append(dict(name=adapter['name'], address=adapter['address'],
+                             count=len(members), realtek=adapter.get('realtek', False)))
+    automatic = next((a['address'] for a in adapters if a['realtek'] and a['count'] < 5), '')
     if adapters and not automatic:
+        # CSR and other/unknown chipsets share the same pool. Prefer six on
+        # these radios before going beyond five on Realtek. A seventh slot
+        # is used only after every available adapter has reached six.
+        remaining = [a for a in adapters if not a['realtek'] and a['count'] < 6]
+        if not remaining:
+            remaining = [a for a in adapters if a['count'] < 6]
+        if not remaining:
+            remaining = [a for a in adapters if a['count'] < 7]
+        eligible = {a['address'] for a in remaining}
         addresses = [a['address'] for a in adapters]
         cursor = state['cursor']
-        automatic = addresses[(addresses.index(cursor) + 1) % len(addresses)] if cursor in addresses else addresses[0]
+        start = (addresses.index(cursor) + 1) % len(addresses) if cursor in addresses else 0
+        automatic = next((address for address in addresses[start:] + addresses[:start]
+                          if address in eligible), '')
     override = state['override']
     return dict(available=True, adapters=adapters, automatic=automatic,
                 selected=override or automatic, override=override, busy=state['busy'], error=state['error'])

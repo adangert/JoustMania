@@ -1,12 +1,12 @@
 # Bluetooth adapter test results
 
-[Guide](README.md) · [CSR recommendations](csr-adapters.md) · [Download catalog CSV](adapter-catalog.csv)
+[Guide](README.md) · [CSR recommendations](csr-adapters.md) · [Download catalog CSV](adapter-catalog.csv) · [September 14 comparisons](september-14-results.md)
 
 ## Scope and interpretation
 
 September 2026 tests on a Raspberry Pi 5, Linux `6.18.34+rpt-rpi-2712`, BlueZ 5.82. These are individual purchased samples, not vendor-wide certifications. Prices are historical purchase prices, not live offers; Techkey BT853's $10.99 is an estimate. Model descriptions can cover changing hardware. USB/HCI and kernel firmware identification are recorded evidence; physical chip markings were not inspected.
 
-Most later captures requested five seconds and sampled roughly 4.3–4.6 seconds between endpoints. Updates/s uses application counters. Unless explicitly identified as HCI timing below, p95 means the average displayed overlapping rolling ten-second application percentile. A five-second capture can include earlier gap history. Figures below are rounded per-controller ranges; an average across controllers is explicitly labeled. These short tests do not establish endurance, an exact maximum capacity, measured average pairing time or outdoor range.
+Most later captures requested five seconds; actual sampled endpoint spans vary (roughly 3.4–5.7 seconds in the September 14 recordings). Updates/s uses application counters. Unless explicitly identified as HCI timing below, p95 means the average displayed overlapping rolling ten-second application percentile. A five-second capture can include earlier gap history. Figures below are rounded per-controller ranges; an average across controllers is explicitly labeled. These short tests do not establish endurance, an exact maximum capacity, measured average pairing time or outdoor range.
 
 ## Full sample catalog
 
@@ -37,6 +37,16 @@ Most later captures requested five seconds and sampled roughly 4.3–4.6 seconds
 Most kernel-identified RTL8761BU samples loaded `rtl8761bu_fw.bin` plus configuration, reporting firmware `0xdfc6d922`, HCI/LMP 5.1, revision `dfc6` and subversion `d922`, despite different advertised Bluetooth versions. A18's family is inferred from revision rather than a saved firmware-loader trace. A12 ASUS instead reported revision `000e` / subversion `8761`, with no matching firmware-download evidence. A14 RTL8851BU loaded firmware `0x048ad230`. Do not infer identical RF performance solely from matching firmware.
 
 A11 BrosTrend first enumerated as storage `a69c:5732`, then firmware-loader `a69c:8d80`, then active `368b:8d81`. Setup provides the AIC8800 driver/firmware path. Its USB link was 480 Mbit/s, as was A14's; most standalone dongles used 12 Mbit/s. USB speed is not Bluetooth report rate.
+
+### Additional samples recorded September 14
+
+| Sample | Product | Reported chipset | USB ID | HCI | Details |
+|---|---|---|---|---|---|
+| A20 | Sena UD100-G03 | CSR manufacturer (10); no USB product string | 0a12:0001 | 4.0 | [Measurements](september-14-results.md) |
+| A21 | Plugable USB-BT4LE | Broadcom (15); BCM20702A0 reported | 0a5c:21e8 | 4.0 | [Measurements](september-14-results.md) |
+| A24 | Feasycom FSC-BP119 | CSR (10); CSR8510 A10 reported | 0a12:0001 | 4.0 | [Measurements](september-14-results.md) |
+| A25 | TRENDnet (exact model unconfirmed) | CSR (10); CSR8510 A10 reported | 0a12:0001 | 4.0 | [Measurements](september-14-results.md) |
+| A26 | StarTech CSR (exact model unconfirmed) | CSR (10); CSR8510 A10 reported | 0a12:0001 | 4.0 | [Measurements](september-14-results.md) |
 
 ## Results by sample
 
@@ -128,10 +138,12 @@ Some earlier captures contained shared host-side pauses (including about 0.92 se
 
 | Product | Status | Role in comparison |
 |---|---|---|
-| Feasycom FSC-BP119 | Recommended; no sample benchmark yet | CSR8510 A10 with external antenna; [Amazon](https://www.amazon.com/dp/B07KK843ZK) |
+| Feasycom FSC-BP119 | Recommended; single and dual samples recorded | Seven on one; 12 across two, including distance; [results](september-14-results.md) and [Amazon](https://www.amazon.com/dp/B07KK843ZK) |
 | StarTech USBBT1EDR2 | Ordered; $17.95 in recorded cart | Older CSR Class 1; shipped revision and ZCM2 compatibility to verify |
-| Sena UD100-G03 | Ordered; $40.08 in recorded cart | External-antenna CSR range candidate |
-| Plugable USB-BT4LE | Ordered; $11.95 in recorded cart | Broadcom comparison, not CSR |
+| Sena UD100-G03 | Tested; $40.08 in recorded cart | Good nearby; poor distance; severe stalls alongside Feasycom, cause unresolved |
+| Plugable USB-BT4LE | Tested; $11.95 in recorded cart | BCM20702A0; seven PS3 Central averaged 70.7/s and 31.7 ms p95 |
+| TRENDnet (model unconfirmed) | Tested | CSR; seven nearby, six at distance |
+| StarTech CSR (model unconfirmed) | Tested; may correspond to the USBBT1EDR2 order | CSR Bluetooth 4.0 reported; six nearby and at distance; do not infer retail model |
 | INTELBRAS AX900 + BT5.4 | Awaiting delivery | Chipset unknown |
 | Internal Pi Bluetooth | Initial tests recorded | Cypress/Broadcom UART; see results below |
 | Panda PAU0B AC600 | Excluded accidental purchase | Wi-Fi adapter, not part of Bluetooth comparison |

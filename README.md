@@ -145,6 +145,12 @@ For Tier 1 indoor PS4 Move play, leave off `--disable_internal_bt` to use the
 internal radio. For setups using external dongles, keep the flag to disable the
 internal radio. See the [setup tiers](docs/bluetooth/README.md#setup-tiers).
 
+The System Debug page also has an **Internal Bluetooth** enable/disable button on Raspberry Pi.
+The button is at the bottom of the page and reflects the current boot state.
+Confirming the popup saves the setting and reboots the Pi; Cancel changes nothing.
+Controller pairings and USB adapter settings are preserved. A failed save does not trigger a reboot.
+The control uses Python 3 and systemctl, already provided by the Pi setup.
+
 You can now disconnect the hdmi cable and run JoustMania in headless mode. JoustMania will automatically boot up on restart, menu music should start playing once the pi boots up. Note audio will only play out of HDMI when plugged into a monitor, and only out of the audio jack when unpluged from a monitor.
 
 Windows development build
@@ -373,3 +379,18 @@ Hover over p95 for p99 and counts of pauses over 50/100 ms. These measure delive
 to JoustMania, not over-air timing or motion-to-game latency. History resets on
 reconnection. Timing uses Python's standard library; no additional setup packages
 or packet-capture tools are required.
+
+System Debug selects the next USB pairing adapter beside its heading. Select a
+different adapter there to override one successful pairing; the selection then
+returns to the algorithm’s next target. Connect one controller over USB at a time.
+Automatic assignment fills powered adapters to five in hci order, then cycles
+through all adapters. Counts combine current PS Move connections with successful
+USB assignments in this session; restarting clears session reservations. Saved
+registrations alone do not count, and existing wireless connections are not moved.
+A failed attempt keeps the override; unplugging its adapter returns to automatic.
+
+System Debug provides **Identify** beside each controller status: it shows white for three seconds, then restores the color currently requested by the game. **Unpair** in the last column removes that controller’s host registrations (including saved registrations on unavailable adapters); reconnect it by USB to pair again. Individual role switches appear only for connected controllers with an available adapter and known role. Model labels distinguish ZCM1 (PS3) and ZCM2 (PS4).
+
+For the tested BrosTrend AIC8800D80 combo adapter, connect it while running setup.sh to install its firmware loader automatically. For an existing installation, run `sudo bash setup_aic8800.sh --install`. The helper verifies a pinned BrosTrend driver package, installs DKMS/build dependencies and firmware, and enables its storage-mode eject rules. Bluetooth then uses the existing btusb driver. The tested USB sequence is a69c:5732 → a69c:8d80 → 368b:8d81. If the vendor replaces its download, checksum validation stops installation until the new package is reviewed.
+
+Individual Unpair remains available while a different controller is pairing over USB. Only removal of the controller currently being paired is blocked, to avoid its registration being recreated by the in-progress pairing command.

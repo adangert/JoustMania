@@ -1,6 +1,6 @@
 # September 14: CSR, Broadcom and dual-adapter comparisons
 
-[Main guide](README.md) · [Full catalog](adapter-results.md) · [Measurement CSV](september-14-measurements.csv)
+[Main guide](README.md) · [Full catalog](adapter-results.md)
 
 ## Recommendation and scope
 
@@ -21,8 +21,8 @@ is the application counter delta divided by that actual span, averaged across
 the indicated group. The p95 column averages displayed **rolling ten-second**
 percentiles; it is not a pooled or capture-only percentile. Longest gap is the
 largest displayed rolling-window value, which can include earlier history.
-Missing percentiles are excluded, never treated as zero; the CSV includes their
-sample counts. These are delivery gaps, not measured motion-to-game latency.
+Missing percentiles are excluded, never treated as zero; incomplete statistics
+are noted below. These are delivery gaps, not measured motion-to-game latency.
 
 “Nearby” identifies the ordinary baseline runs before the requested distance
 runs; exact placement was not logged. Distance, obstacles, antenna orientation
@@ -30,8 +30,8 @@ and adapter separation were not measured. Controller sets and counts changed
 between some runs. Compare these as exploratory observations, not a controlled
 range ranking. No radiated-power measurement, average pairing-time study or
 long endurance run was performed. Raw HCI/application evidence remains in the
-local test archive; capture identifiers in the CSV allow traceability without
-publishing controller addresses or raw Bluetooth traffic.
+local test archive alongside per-capture summaries. Controller addresses and
+raw Bluetooth traffic are not published here.
 
 ## Hardware observed
 

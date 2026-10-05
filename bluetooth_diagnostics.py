@@ -2,7 +2,12 @@
 
 import re
 import subprocess
+import copy
+import threading
+import time
 from pathlib import Path
+
+import runtime_platform
 
 
 _COUNTERS = re.compile(
@@ -11,6 +16,9 @@ _COUNTERS = re.compile(
     re.DOTALL,
 )
 _POWER_CACHE = {}
+_PLATFORM_CACHE = None
+_PLATFORM_CHECKED_AT = 0
+_PLATFORM_CACHE_LOCK = threading.Lock()
 
 
 def _read(path):
@@ -132,6 +140,8 @@ def _inquiry_tx_power(hci, address):
 
 def get_adapter_identities():
     """Read identities without issuing optional per-adapter power queries."""
+    if runtime_platform.is_windows():
+        return platform_snapshot()["adapters"]
     try:
         result = subprocess.run(
             ["hciconfig", "-a"], capture_output=True, text=True, timeout=3, check=False
@@ -143,6 +153,8 @@ def get_adapter_identities():
 
 def get_adapters():
     """Return adapter identity and cumulative traffic/error counters."""
+    if runtime_platform.is_windows():
+        return platform_snapshot()["adapters"]
     adapters = get_adapter_identities()
     for adapter in adapters:
         adapter["connections"] = _connection_count(adapter["name"])
@@ -150,3 +162,46 @@ def get_adapters():
             adapter["name"], adapter["address"]
         )
     return adapters
+
+
+def platform_snapshot():
+    """Cache OS metadata, not game timing, and isolate callers from mutation.
+
+    Under Proton the real radios belong to the Linux host, not Wine. Read-only
+    diagnostics deliberately use neither pairing commands nor administrator APIs.
+    """
+    global _PLATFORM_CACHE, _PLATFORM_CHECKED_AT
+    backend = "Proton (Linux host)" if runtime_platform.is_proton() else "Windows"
+    with _PLATFORM_CACHE_LOCK:
+        now = time.monotonic()
+        if (_PLATFORM_CACHE is None or _PLATFORM_CACHE.get("backend") != backend
+                or now - _PLATFORM_CHECKED_AT >= 3):
+            try:
+                if runtime_platform.is_proton():
+                    import proton_psmove
+                    state = proton_psmove.bluetooth_snapshot()
+                else:
+                    import windows_bluetooth_diagnostics
+                    state = windows_bluetooth_diagnostics.snapshot()
+            except (OSError, RuntimeError, ValueError, AttributeError) as error:
+                state = dict(adapters=[], controllers=[], error="Bluetooth diagnostics unavailable: " + str(error))
+            _PLATFORM_CACHE = dict(state, backend=backend)
+            _PLATFORM_CHECKED_AT = time.monotonic()
+        return copy.deepcopy(_PLATFORM_CACHE)
+
+
+def platform_status():
+    if runtime_platform.is_windows():
+        state = platform_snapshot()
+        note = ("Adapter identities and controller registrations come from the Linux host. "
+                "Pair controllers in Desktop Mode. Host role controls are not available here."
+                if runtime_platform.is_proton() else
+                "Adapter identities, USB links, Bluetooth versions and registrations come from Windows. "
+                "USB link speed is not Bluetooth throughput. HCI packet counters, "
+                "radio power and connection roles are not exposed by this backend. "
+                "Controller model is shown when Windows has cached its device ID.")
+        return dict(backend=state["backend"], note=note, error=state.get("error", ""),
+                    metadata_error=state.get('metadata_error', ''),
+                    unavailable_adapters=state.get('unavailable_adapters', []))
+    return dict(backend="Linux" if runtime_platform.is_linux() else "Unsupported platform",
+                note="", error="")

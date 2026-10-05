@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import threading
 import time
+import runtime_platform
 
 APP_DIR = Path(__file__).resolve().parent
 
@@ -19,14 +20,19 @@ class AccessPoint:
     def status(self):
         with self.lock:
             if self.cached is None or time.monotonic() - self.checked_at >= 3:
-                state = {'enabled': None, 'available': False}
-                if shutil.which('nmcli'):
+                supported = (runtime_platform.is_linux() and
+                             all((APP_DIR / name).is_file() for name in
+                                 ('enable_ap.sh', 'disable_ap.sh', 'apfiles/joustmania.conf')))
+                state = {'enabled': None, 'available': False, 'supported': supported,
+                         'reason': 'Use your operating system network settings for hotspot sharing. '
+                                   'A hotspot is not needed for controller pairing or localhost.'}
+                if supported and shutil.which('nmcli'):
                     try:
                         result = subprocess.run(
                             ['nmcli', '-t', '-f', 'NAME', 'connection', 'show', '--active'],
                             capture_output=True, text=True, check=True, timeout=2,
                         )
-                        state = {'enabled': 'Hotspot' in result.stdout.splitlines(), 'available': True}
+                        state.update(enabled='Hotspot' in result.stdout.splitlines(), available=True)
                     except (OSError, subprocess.SubprocessError):
                         pass
                 self.cached = state
@@ -39,8 +45,10 @@ class AccessPoint:
         with self.lock:
             if self.busy:
                 raise RuntimeError('A hotspot change is already in progress.')
-            if not self.status()['available']:
-                raise RuntimeError('Wi-Fi hotspot controls require NetworkManager.')
+            state = self.status()
+            if not state['available']:
+                raise RuntimeError(state['reason'] if not state['supported'] else
+                                   'Wi-Fi hotspot controls require NetworkManager.')
             self.busy = True
             self.error = ''
             threading.Thread(target=self._run, args=(action,), daemon=True).start()

@@ -60,6 +60,10 @@ The Windows package contains these additional files:
 
 ```text
 proton/
+  proton_bluetooth_diagnostics.py
+  proton_webui_browser.py
+  bluetooth_diagnostics.py
+  runtime_platform.py
   psmoveapi/
     psmove
     libpsmoveapi.so
@@ -77,6 +81,81 @@ success back to the Windows process before controller access is restarted.
 
 Native Windows and native Linux runs keep their existing code paths.
 
+### Browser and Bluetooth debug page
+
+On Windows and Proton, JoustMania requests a browser once its own web UI is
+ready. Proton asks the Linux host to open `http://localhost:8090`, rather than
+using Wine's browser. A custom
+`JOUSTMANIA_WEB_PORT` is respected. The console keeps the URL and logs if a
+browser cannot be opened. Set `JOUSTMANIA_OPEN_BROWSER=0` to disable automatic
+opening. Native Linux and Raspberry Pi startup are unchanged.
+
+Desktop Mode uses the configured default browser through `xdg-open`.
+Gaming Mode opens an installed Chrome/Chromium app window or Firefox kiosk
+window, including Flatpak installations. Its temporary browser profile is
+separate from the user's personal browser. The helper forces X11 for this
+window and sets Gamescope's `STEAM_GAME` property to the running application
+ID, selecting only its own unique window class. Once a mapped browser window
+is ready, the helper requests fullscreen and activation, sizes that window to
+the current game viewport, and hides JoustMania's own Wine console. Closing the
+browser restores the console; a failed launch leaves it visible. A status
+heartbeat also restores the console if the host helper stops responding.
+Desktop Mode keeps the console and uses the default browser, even if a nested
+Gamescope display is present under KDE. The helper does not force a fixed
+resolution or change the host display settings. The owned Gaming Mode browser
+is closed when JoustMania's web UI stops, and its temporary profile is removed.
+
+No browser is installed automatically. If none is available, the console
+keeps the URL and explains the problem. Actual Gaming Mode focus, scaling,
+input and browser availability still need testing on the target device; this
+is an external browser window, not an embedded WebView. Set
+`JOUSTMANIA_BROWSER_MODE=game` or `desktop` to override session detection while
+testing; the default is `auto`.
+
+The main Proton UI page includes an **Exit JoustMania** button, including
+during a round. Confirming exit
+stops the application and its controller/audio workers, stops its native
+controller service, and closes its owned Gaming Mode browser. Controller
+pairings are kept. In Desktop Mode the personal browser stays open; its game
+tab can be closed normally. Host shutdown and reboot controls are not offered
+under Proton; use the SteamOS power menu for those actions.
+
+The debug page queries the actual Linux host, not Wine's Bluetooth API. The
+page prominently reminds Proton users to pair in SteamOS Desktop Mode and
+approve any system authentication prompt before returning to Gaming Mode. The
+packaged read-only Python helper uses host Python 3 and `busctl` to read BlueZ
+adapter and controller information. Python D-Bus is a fallback if `busctl` is
+absent. Optional `hciconfig` counters are used when available. No administrator
+prompt is needed, no discovery scan is started, and pairing is not interrupted.
+Missing host diagnostics are reported without hiding controllers seen by the
+game. The helper has a timeout and its temporary JSON output is removed.
+
+The Pi internal-radio boot control and the Linux hotspot scripts are not
+offered through Proton. The existing hotspot script assumes a `wlan0` interface
+and Pi-specific DNS configuration, so it is not a general SteamOS hotspot
+controller. Use the host's network settings for optional hotspot sharing.
+
+The web reset and restart buttons are disabled for Proton. Exit the game and
+use host Bluetooth settings in Desktop Mode to remove PS Move registrations,
+then launch JoustMania and pair again. Do not use the Windows reset utility to
+reset Linux Bluetooth. Closing and relaunching the application alone preserves
+pairings.
+
+### Native helper paths
+
+Windows paths passed to native Linux commands are resolved through Wine's
+`wine_get_unix_file_name` API. This uses the running prefix's actual drive
+and symlink mappings, including paths on an internal drive or an SD card.
+
+Do not infer the root of `S:` from `STEAM_COMPAT_LIBRARY_PATHS`. Proton can
+map `S:` to the parent of a `steamapps` directory, or keep the directory
+itself as the root. Guessing the mapping can produce a duplicated
+`steamapps/steamapps` path and prevent the helper from starting.
+
+The normal game-drive mapping can remain enabled. The path tests in
+`test_proton_compatibility.py` cover this startup regression, alternative
+drive mappings, Unicode paths, and the helper startup and pairing commands.
+
 ## Build the Linux helper
 
 A normal Windows compiler cannot produce the ELF executable and `.so`. Build
@@ -90,7 +169,11 @@ podman run --rm \
   -w /src \
   debian:11-slim \
   sh -lc '
-    apt-get update
+    sed -i \
+      -e "s|deb.debian.org/debian-security|archive.debian.org/debian-security|g" \
+      -e "s|deb.debian.org/debian|archive.debian.org/debian|g" \
+      /etc/apt/sources.list
+    apt-get -o Acquire::Check-Valid-Until=false update
     apt-get install -y \
       build-essential cmake pkg-config \
       libbluetooth-dev libdbus-1-dev libudev-dev

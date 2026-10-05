@@ -8,6 +8,11 @@ import webui
 
 
 class AccessPointTest(unittest.TestCase):
+    def setUp(self):
+        patcher = mock.patch.object(access_point.runtime_platform, 'is_linux', return_value=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     @mock.patch.object(access_point.shutil, 'which', return_value='/usr/bin/nmcli')
     @mock.patch.object(access_point.subprocess, 'run')
     def test_status_uses_active_network_not_marker(self, run, which):

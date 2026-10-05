@@ -6,6 +6,9 @@ import os
 from pathlib import Path
 import sys
 import time
+import json
+import tempfile
+import threading
 
 import runtime_platform
 
@@ -15,6 +18,7 @@ _SERVICE = "joustmania-psmove.service"
 _HOST_LAUNCHER = "/usr/bin/steam-runtime-launch-client"
 _started_by_pid = None
 _password_notice_pid = None
+_browser_session = None
 
 logger = logging.getLogger(__name__)
 
@@ -53,56 +57,40 @@ def _bundle_paths():
     )
 
 
-def _steam_library_dir():
-    """Return the Steam library that Proton maps to its S: game drive."""
-    install_path = os.environ.get("STEAM_COMPAT_INSTALL_PATH")
-    library_paths = os.environ.get("STEAM_COMPAT_LIBRARY_PATHS")
-    if not install_path or not library_paths:
-        return None
-
-    install_path = install_path.replace("\\", "/").rstrip("/")
-    matches = []
-    for library_path in library_paths.split(":"):
-        library_path = library_path.replace("\\", "/").rstrip("/")
-        if (
-            library_path
-            and (
-                install_path == library_path
-                or install_path.startswith(library_path + "/")
-            )
-        ):
-            matches.append(library_path)
-
-    return max(matches, key=len, default=None)
-
-
 def _unix_path(path):
-    value = str(path).replace("\\", "/")
+    """Resolve a Windows path using Wine's actual drive and symlink mappings."""
+    value = str(path)
     if value.startswith("/"):
         return value
-    if len(value) < 3 or value[1:3] != ":/":
+    if len(value) < 3 or value[1] != ":" or value[2] not in "\\/":
         raise RuntimeError("Cannot convert Wine path to Linux path: " + value)
 
-    drive = value[0].lower()
-    relative = value[3:].lstrip("/")
-    if drive == "z":
-        return "/" + relative
-    if drive == "c" and os.environ.get("STEAM_COMPAT_DATA_PATH"):
-        compat_data = os.environ["STEAM_COMPAT_DATA_PATH"].replace("\\", "/")
-        return compat_data.rstrip("/") + "/pfx/drive_c/" + relative
-    if drive == "s":
-        library_dir = _steam_library_dir()
-        if library_dir:
-            return library_dir + "/" + relative
+    try:
+        # This Wine extension uses cdecl, unlike the Windows heap functions.
+        convert = ctypes.CDLL("kernel32.dll").wine_get_unix_file_name
+        kernel32 = ctypes.WinDLL("kernel32.dll")
+    except (AttributeError, OSError) as error:
         raise RuntimeError(
-            "Cannot resolve Proton S: drive without matching "
-            "STEAM_COMPAT_INSTALL_PATH and STEAM_COMPAT_LIBRARY_PATHS"
-        )
-    raise RuntimeError(
-        "Cannot convert unsupported Wine drive "
-        + drive.upper()
-        + ": to a Linux path"
-    )
+            "This Proton version cannot resolve Wine paths to Linux paths"
+        ) from error
+
+    convert.argtypes = [ctypes.c_wchar_p]
+    # Keep the allocated pointer so it can be freed after copying the path.
+    convert.restype = ctypes.c_void_p
+    kernel32.GetProcessHeap.argtypes = []
+    kernel32.GetProcessHeap.restype = ctypes.c_void_p
+    kernel32.HeapFree.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_void_p]
+    kernel32.HeapFree.restype = ctypes.c_int
+
+    # In particular, Proton may map S: to the parent of a steamapps directory,
+    # not to the STEAM_COMPAT_LIBRARY_PATHS entry itself. Do not guess the root.
+    pointer = convert(value.replace("/", "\\"))
+    if not pointer:
+        raise RuntimeError("Cannot resolve Wine path to Linux path: " + value)
+    try:
+        return ctypes.string_at(pointer).decode("utf-8")
+    finally:
+        kernel32.HeapFree(kernel32.GetProcessHeap(), 0, pointer)
 
 
 def _run(arguments, success_statuses=(0,)):
@@ -134,6 +122,153 @@ def _run_host(arguments, success_statuses=(0,)):
         [_HOST_LAUNCHER, "--alongside-steam", "--", *arguments],
         success_statuses,
     )
+
+
+def bluetooth_snapshot():
+    """Read host BlueZ metadata across Wine's boundary using a temporary JSON file.
+
+    The host helper is bounded and unprivileged. No pairing service is stopped,
+    and paths use the same Wine mapping as the native controller helper.
+    """
+    script = _app_dir() / "proton" / "proton_bluetooth_diagnostics.py"
+    if not script.is_file() and not getattr(sys, "frozen", False):
+        script = _app_dir() / "proton_bluetooth_diagnostics.py"
+    if not script.is_file():
+        raise RuntimeError("The Linux host diagnostics helper is missing from this build.")
+    with tempfile.TemporaryDirectory(prefix="joustmania-bluetooth-") as temporary:
+        output = Path(temporary) / "snapshot.json"
+        # Wine resolves existing files with this API. Reserve the output before
+        # translating its path, rather than assuming a not-yet-created filename
+        # can be mapped on every Proton version.
+        output.touch()
+        status = _run_host([
+            "/usr/bin/timeout", "--signal=KILL", "8s", "/usr/bin/python3",
+            _unix_path(script), _unix_path(output),
+        ])
+        if status or not output.is_file() or not output.stat().st_size:
+            raise RuntimeError("Could not read Bluetooth diagnostics from the Linux host.")
+        state = json.loads(output.read_text(encoding="utf-8"))
+        if not isinstance(state, dict) or not isinstance(state.get("adapters"), list) or not isinstance(state.get("controllers"), list):
+            raise RuntimeError("The Linux host returned invalid Bluetooth diagnostics.")
+        return state
+
+
+def _hide_game_console():
+    """Hide only this process's visible console, and return a restore callback."""
+    try:
+        kernel32 = ctypes.WinDLL('kernel32.dll')
+        user32 = ctypes.WinDLL('user32.dll')
+        kernel32.GetConsoleWindow.argtypes = []
+        kernel32.GetConsoleWindow.restype = ctypes.c_void_p
+        user32.IsWindowVisible.argtypes = [ctypes.c_void_p]
+        user32.IsWindowVisible.restype = ctypes.c_int
+        user32.ShowWindow.argtypes = [ctypes.c_void_p, ctypes.c_int]
+        user32.ShowWindow.restype = ctypes.c_int
+        window = kernel32.GetConsoleWindow()
+        if not window or not user32.IsWindowVisible(window):
+            return None  # No visible console, including a pseudoconsole handle.
+        user32.ShowWindow(window, 0)  # SW_HIDE; never search for other terminals.
+        if user32.IsWindowVisible(window):
+            logger.warning('Could not hide the JoustMania console for the game browser.')
+            return None
+        logger.info('JoustMania console hidden for the game browser.')
+
+        def restore():
+            user32.ShowWindow(window, 5)  # SW_SHOW after the owned browser closes.
+            logger.info('JoustMania console restored after the game browser handoff ended.')
+        return restore
+    except (AttributeError, OSError):
+        logger.warning('Console handoff is unavailable; keeping the console visible.')
+        return None
+
+
+def _watch_game_browser(output, temporary, restore):
+    """Retain the helper status file and restore the console on close/failure."""
+    try:
+        modified = None
+        deadline = time.monotonic() + 30
+        while True:
+            try:
+                timestamp = output.stat().st_mtime_ns
+                state = json.loads(output.read_text(encoding='utf-8'))
+                if state.get('phase') == 'closed' or not state.get('success'):
+                    break
+                if timestamp != modified:
+                    modified = timestamp
+                    deadline = time.monotonic() + 30
+            except (OSError, ValueError, AttributeError):
+                pass  # Also tolerate reading during a helper heartbeat write.
+            if time.monotonic() >= deadline:
+                logger.warning('Host browser stopped responding; restoring the JoustMania console.')
+                break
+            time.sleep(1)
+    finally:
+        try:
+            if restore:
+                restore()
+        finally:
+            temporary.cleanup()
+
+
+def open_webui(url, launch_id):
+    """Use the host desktop browser or an owned Gamescope UI window."""
+    global _browser_session
+    script = _app_dir() / 'proton' / 'proton_webui_browser.py'
+    if not script.is_file() and not getattr(sys, 'frozen', False):
+        script = _app_dir() / 'proton_webui_browser.py'
+    if not script.is_file():
+        raise RuntimeError('This build is missing the Proton browser helper.')
+    temporary = tempfile.TemporaryDirectory(prefix='joustmania-browser-')
+    retained = False
+    restore = None
+    try:
+        output = Path(temporary.name) / 'result.json'
+        output.touch()  # Wine's filename mapping works on an existing file.
+        status = _run_host([
+            '/usr/bin/python3', _unix_path(script), _unix_path(output), url,
+            os.environ.get('SteamAppId', '1093850'),
+            os.environ.get('JOUSTMANIA_BROWSER_MODE', 'auto'), launch_id,
+            os.environ.get('DISPLAY', ''),
+        ], success_statuses=(0, 1))
+        if not output.stat().st_size:
+            raise RuntimeError('The Linux host browser helper did not respond.')
+        state = json.loads(output.read_text(encoding='utf-8'))
+        if not isinstance(state, dict):
+            raise RuntimeError('The Linux host returned an invalid browser status.')
+        if status or not state.get('success'):
+            raise RuntimeError(state.get('error', 'Could not open the host browser.'))
+        logger.info('Opened Web UI using the host %s browser workflow.', state.get('mode', 'unknown'))
+        if state.get('mode') == 'game' and state.get('phase') == 'ready' and state.get('window'):
+            logger.info('Game browser: %s, display %s, window %s, session %s, requested mode %s; '
+                        'fullscreen and activation requested.', state.get('browser', 'unknown'),
+                        state.get('display', 'default'), state['window'], state.get('session') or 'unknown',
+                        state.get('requested_mode', 'unknown'))
+            restore = _hide_game_console()
+            worker = threading.Thread(target=_watch_game_browser, args=(output, temporary, restore),
+                                      name='proton-game-browser', daemon=True)
+            worker.start()
+            _browser_session = (os.getpid(), output, worker)
+            retained = True
+        return True
+    finally:
+        if not retained:
+            if restore:
+                restore()
+            temporary.cleanup()
+
+
+def close_webui():
+    """Ask only our owned Gaming Mode browser to close during application exit."""
+    global _browser_session
+    if _browser_session is None or _browser_session[0] != os.getpid():
+        return
+    _, output, worker = _browser_session
+    _browser_session = None
+    try:
+        output.with_name(output.name + '.stop').touch()
+    except OSError:
+        pass  # The browser may already have closed and removed its directory.
+    worker.join(timeout=8)
 
 
 def _has_os_password():

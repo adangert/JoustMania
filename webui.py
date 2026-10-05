@@ -3,8 +3,9 @@ import pairing_plan
 from multiprocessing import Queue, Manager, Process
 import socket
 import subprocess
+import shutil
 from pathlib import Path
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, make_response
 from wtforms import Form, SelectField, SelectMultipleField, BooleanField, widgets, FieldList
 from os import environ
 from sys import platform
@@ -14,6 +15,7 @@ import yaml
 import logging
 import runtime_platform
 import bluetooth_diagnostics
+import windows_pairing
 from access_point import access_point
 from internal_bluetooth import internal_bluetooth
 from system_power import request_system_power
@@ -80,12 +82,14 @@ class SettingsForm(Form):
     random_team_size = SelectField('size of random teams',choices=[(2,'2'),(3,'3'),(4,'4'),(5,'5'),(6,'6')],coerce=int)
 
 class WebUI():
-    def __init__(self, command_queue=Queue(), ns=None, controller_manager_instance=None):
+    def __init__(self, command_queue=Queue(), ns=None, controller_manager_instance=None, exit_event=None):
 
         self.app = Flask(__name__)
         self.app.secret_key="MAGFest is a donut"
         self.command_queue = command_queue
         self.controller_manager = controller_manager_instance
+        self.exit_event = exit_event
+        self.app.context_processor(self.application_controls)
         if ns == None:
 
             self.ns = Manager().Namespace()
@@ -109,6 +113,7 @@ class WebUI():
         self.app.add_url_rule('/startgame','start_game',self.start_game)
         self.app.add_url_rule('/killgame','kill_game',self.kill_game)
         self.app.add_url_rule('/updateStatus','update',self.update)
+        self.app.add_url_rule('/health', 'health', self.health)
         self.app.add_url_rule('/battery','battery_status',self.battery_status)
         self.app.add_url_rule('/debug','debug',self.controller_debug)
         self.app.add_url_rule('/debug/controllers','controller_debug_legacy',self.controller_debug_legacy)
@@ -134,6 +139,7 @@ class WebUI():
         self.app.add_url_rule('/settings','settings',self.settings, methods=['GET','POST'])
         self.app.add_url_rule('/rand<num_teams>','randomize',self.randomize_teams)
         self.app.add_url_rule('/power','power',self.power)
+        self.app.add_url_rule('/exit', 'exit_application', self.exit_application, methods=['POST'])
         self.app.add_url_rule('/reboot8675309','reboot',self.reboot)
         self.app.add_url_rule('/shutdown8675309','shutdown',self.shutdown)
         self.app.add_url_rule('/shutdown','shutdown_lastscreen',self.shutdown_lastscreen)
@@ -152,6 +158,9 @@ class WebUI():
         form = SettingsForm()
         return render_template('joustmania.html', form=form)
         #return render_template('joustmania.html')
+
+    def health(self):
+        return {'service': 'JoustMania', 'launch_id': getattr(self.ns, 'webui_launch_id', None)}
 
     #@app.route('/updateStatus')
     def update(self):
@@ -201,6 +210,9 @@ class WebUI():
             "access_point": access_point.status(),
             "internal_bluetooth": internal_bluetooth.status(),
             "pairing": pairing_plan.status(self.ns),
+            "windows_pairing": windows_pairing.status(self.ns),
+            "diagnostics": bluetooth_diagnostics.platform_status(),
+            "maintenance": self._maintenance_status(),
         }
 
     def change_pairing_target(self):
@@ -295,6 +307,9 @@ class WebUI():
         saved PS Move registrations, and starts JoustMania again. A detached,
         delayed process lets the browser receive the confirmation page first.
         """
+        state = self._maintenance_status()['reset']
+        if not state['available']:
+            return {'error': state['reason']}, 501
         reset_script = Path(__file__).resolve().parent / 'reset_psmove_connections.sh'
         if not reset_script.is_file():
             return 'Bluetooth reset script was not found.', 500
@@ -316,6 +331,9 @@ class WebUI():
 
     def restart_joustmania(self):
         """Restart only the Supervisor-managed JoustMania application."""
+        state = self._maintenance_status()['restart']
+        if not state['available']:
+            return {'error': state['reason']}, 501
         restart_script = Path(__file__).resolve().parent / 'restart_joustmania.sh'
         if not restart_script.is_file():
             return 'JoustMania restart script was not found.', 500
@@ -332,6 +350,30 @@ class WebUI():
         finally:
             restart_log.close()
         return render_template('joustmania_restart.html')
+
+    def _maintenance_status(self):
+        """Only offer the service workflow where it can stop and restart the game.
+
+        Windows' reset utility requires the game to be closed first. Wine's
+        reset utility cannot remove the Linux host's BlueZ registrations.
+        """
+        if runtime_platform.is_proton():
+            return dict(
+                reset=dict(available=False, reason='Exit JoustMania, then remove PS Move registrations '
+                           'using the Linux host Bluetooth settings in Desktop Mode. '
+                           'The Windows reset utility cannot reset host Bluetooth.'),
+                restart=dict(available=False, reason='Exit JoustMania and launch it again to restart the Proton application.'))
+        if runtime_platform.is_windows():
+            return dict(
+                reset=dict(available=False, reason='Close JoustMania, run reset_psmove_connections.exe '
+                           'as Administrator from the game folder (or reset_psmove_connections.ps1 '
+                           'from the source checkout), then start JoustMania again.'),
+                restart=dict(available=False, reason='Close JoustMania and launch it again. Controller pairings are kept.'))
+        app_dir = Path(__file__).resolve().parent
+        managed = runtime_platform.is_linux() and bool(shutil.which('supervisorctl'))
+        return {name: dict(available=managed and (app_dir / script).is_file(),
+                           reason='This web control requires a Supervisor-managed Linux installation.')
+                for name, script in [('reset', 'reset_psmove_connections.sh'), ('restart', 'restart_joustmania.sh')]}
 
     def _controller_debug_data(self):
         battery_status = {
@@ -365,23 +407,25 @@ class WebUI():
         if psmove_dbus is not None:
             controllers = psmove_dbus.get_registered_controllers()
         else:
-            # Windows has no BlueZ/D-Bus registry. Controllers reported by the
-            # game are already paired, loaded, and connected through psmoveapi.
-            controllers = [
-                {
-                    'adapter': 'Windows Bluetooth',
-                    'adapter_address': '',
-                    'address': address,
-                    'model': 'Unknown',
-                    'registered': True,
-                    'loaded': True,
-                    'paired': True,
-                    'connected': True,
-                    'trusted': True,
-                    'services_resolved': True,
-                }
-                for address in battery_status
-            ]
+            controllers = bluetooth_diagnostics.platform_snapshot()['controllers']
+            # Game state remains useful if OS diagnostics fail, or a connection
+            # appears between OS snapshots. Do not guess a radio or trust state.
+            known = {controller['address'].upper() for controller in controllers}
+            for address in battery_status:
+                if address not in known:
+                    controllers.append(dict(adapter='unknown', adapter_address='', address=address,
+                                            model='Unavailable', registered=None, loaded=True,
+                                            paired=None, connected=True, trusted=None,
+                                            services_resolved=None))
+
+        pairing = windows_pairing.status(self.ns)
+        if pairing and pairing['phase'] == 'waiting' and pairing['address']:
+            # The API process is stopped while the native CLI pairs. USB-only
+            # controllers may not yet have a Windows Bluetooth registration.
+            if not any(c['address'].upper() == pairing['address'] for c in controllers):
+                controllers.append(dict(adapter='unknown', adapter_address='', address=pairing['address'],
+                                        model='Unavailable', registered=None, loaded=False,
+                                        paired=None, connected=False, trusted=None, services_resolved=None))
 
         # One controller can retain registrations under multiple adapter
         # addresses after dongles are swapped. Display the physical controller
@@ -407,6 +451,14 @@ class WebUI():
                 'Connected' if controller['connected']
                 else 'Paired, not connected'
             )
+            controller['pairing_message'] = ''
+            if pairing and address == pairing['address']:
+                if pairing['phase'] == 'waiting':
+                    controller['status'] = 'Pairing: unplug USB, then press PS button'
+                    controller['pairing_message'] = pairing['message']
+                elif pairing['phase'] == 'failed':
+                    controller['status'] = 'Pairing not completed'
+                    controller['pairing_message'] = pairing['message']
             controller['battery'] = common.battery_levels.get(battery, 'Unknown')
             controller['battery_code'] = battery
             controller['active'] = (
@@ -462,6 +514,9 @@ class WebUI():
             access_point=access_point.status(),
             internal_bluetooth=internal_bluetooth.status(),
             pairing=pairing_plan.status(self.ns),
+            windows_pairing=windows_pairing.status(self.ns),
+            diagnostics=bluetooth_diagnostics.platform_status(),
+            maintenance=self._maintenance_status(),
             controllers=controllers,
             adapters=adapters,
         )
@@ -470,8 +525,30 @@ class WebUI():
     def power(self):
         return render_template('power.html')
 
+    def application_controls(self):
+        proton = runtime_platform.is_proton()
+        return {'application_controls': dict(proton=proton,
+                    can_exit=proton and self.exit_event is not None,
+                    launch_id=getattr(self.ns, 'webui_launch_id', ''))}
+
+    def exit_application(self):
+        if not runtime_platform.is_proton() or self.exit_event is None:
+            return {'error': 'Application exit is only available in the Proton game.'}, 501
+        # A POST and the current launch ID prevent accidental GET exits and an
+        # old browser tab (or a cross-origin form) from quitting a new instance.
+        launch_id = getattr(self.ns, 'webui_launch_id', '')
+        if not launch_id or request.form.get('launch_id') != launch_id:
+            return {'error': 'This page is from a different JoustMania launch. Reload it first.'}, 409
+        if request.form.get('confirm') != '1':
+            return {'error': 'Confirm that you want to exit JoustMania.'}, 400
+        response = make_response(render_template('application_exit.html'))
+        response.call_on_close(self.exit_event.set)
+        return response
+
     #@app.route('/shutdown8675309')
     def shutdown(self):
+        if runtime_platform.is_proton():
+            return {'error': 'Use the SteamOS power menu to shut down the machine, or Exit JoustMania to close the game.'}, 501
         Process(target=request_system_power, args=('poweroff',)).start()
         #use redirect to conceal the url for tripping the shutdown
         return redirect(url_for('shutdown_lastscreen'))
@@ -482,6 +559,8 @@ class WebUI():
 
     #@app.route('/reboot8675309')
     def reboot(self):
+        if runtime_platform.is_proton():
+            return {'error': 'Use the SteamOS power menu to reboot the machine, or Exit JoustMania to close the game.'}, 501
         Process(target=request_system_power, args=('reboot',)).start()
         return redirect(url_for('index'))
         
@@ -546,10 +625,10 @@ class WebUI():
             team_colors = [color.name for color in team_colors]
             return str(team_colors).replace("'",'"')#JSON is dumb and demands double quotes
 
-def start_web(command_queue, ns, controller_manager_instance=None):
+def start_web(command_queue, ns, controller_manager_instance=None, exit_event=None):
     import setproctitle
     setproctitle.setproctitle(f"JoustMania-WebUI")    
-    webui = WebUI(command_queue, ns, controller_manager_instance)
+    webui = WebUI(command_queue, ns, controller_manager_instance, exit_event)
     webui.web_loop()
 
 if __name__ == '__main__':

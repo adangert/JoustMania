@@ -26,16 +26,16 @@ $psmoveRoot = Join-Path $reposRoot 'psmoveapi'
 The variables last for the current PowerShell window. Set them again after
 opening a new window.
 
-The active branches used for the Windows build are:
+Use the current JoustMania source and retain the PSMoveAPI compatibility
+changes when building Linux companion binaries:
 
 ```text
-JoustMania: windows-modernization
-psmoveapi:  windows-hotplug
+JoustMania: master, plus any fixes being tested
+psmoveapi:  proton-psmove-support for the Linux companion integration
 ```
 
-Both repositories currently contain important local Windows changes. Before
-pulling, switching branches, cleaning, or deleting build directories, inspect
-both repositories:
+Before pulling, switching branches, cleaning, or deleting build directories,
+inspect both repositories for local changes:
 
 ```powershell
 git -C $joustRoot status
@@ -121,9 +121,12 @@ psmoveapi\build-hotplug\psmoveapi.dll
 psmoveapi\bindings\python\psmoveapi.py
 ```
 
-The `windows-hotplug` branch also contains the local Windows device-monitoring
-implementation. That code is what lets JoustMania notice USB and Bluetooth
-connection changes while the game is already running.
+Windows device monitoring is now included in upstream PSMoveAPI. That code
+lets JoustMania notice USB and Bluetooth connection changes while the game is
+already running. The `proton-psmove-support` integration also retains controller
+model, cable pairing, transport, and reconnect changes needed by the Linux
+companion binaries. Do not replace it with upstream without checking whether
+those changes have been merged.
 
 ## Build Linux companion binaries on Windows
 
@@ -166,7 +169,12 @@ New-Item -ItemType Directory -Force -Path $linuxBundle | Out-Null
 
 $linuxBuild = @'
 set -eux
-apt-get update
+# Debian 11 packages are now served from the archive.
+sed -i \
+  -e 's|deb.debian.org/debian-security|archive.debian.org/debian-security|g' \
+  -e 's|deb.debian.org/debian|archive.debian.org/debian|g' \
+  /etc/apt/sources.list
+apt-get -o Acquire::Check-Valid-Until=false update
 apt-get install -y \
   build-essential cmake pkg-config \
   libbluetooth-dev libdbus-1-dev libudev-dev
@@ -209,7 +217,11 @@ clean Debian 11 container:
 ```powershell
 $validateLinuxBundle = @'
 set -eu
-apt-get update >/dev/null
+sed -i \
+  -e 's|deb.debian.org/debian-security|archive.debian.org/debian-security|g' \
+  -e 's|deb.debian.org/debian|archive.debian.org/debian|g' \
+  /etc/apt/sources.list
+apt-get -o Acquire::Check-Valid-Until=false update >/dev/null
 apt-get install -y \
   file binutils \
   libbluetooth3 libdbus-1-3 libudev1 >/dev/null
@@ -320,6 +332,48 @@ Expected behavior:
   JoustMania restart.
 
 Stop the source process with `Ctrl+C` after testing.
+
+### Browser and Bluetooth debug page
+
+Windows launches the default browser once the local web UI is ready. The
+console remains available for logs. To leave the browser closed for a test:
+
+```powershell
+$env:JOUSTMANIA_OPEN_BROWSER = '0'
+```
+
+Remove that environment variable, or set it to `1`, to restore automatic
+opening. This does not change native Linux or Raspberry Pi startup.
+
+The debug page reads Windows radio addresses and each radio's saved PS Move
+registrations. It also reads USB vendor/product IDs, port location, negotiated
+USB link speed and the Bluetooth version reported by Windows. USB speed is the
+adapter's wired connection to the computer, not Bluetooth throughput or a
+controller latency rating. Missing or denied metadata stays unavailable.
+
+Plugged-in radios which Windows cannot use appear separately with their device
+error and driver information. For example, Code 31 means Windows cannot load
+the required driver. This does not by itself prove the dongle is faulty.
+
+While automatic Windows pairing is running, the page shows the controller
+address and asks you to unplug USB and press the controller's PS button. If the
+red status LED goes out, press PS again until it stays lit, and accept any
+Windows Bluetooth connection prompt. The waiting controller has a yellow
+pairing status instead of just saying Connected. Completion is confirmed by
+the pairing command's verified wireless connection and success output, not
+by a USB connection or exit code alone. The latest result remains visible for
+30 seconds. Connect one controller by USB at a time.
+
+Controller model is shown when Windows has cached its Sony
+device ID. Report gaps and update rates still come from JoustMania. HCI traffic
+counters, radio power, connection roles and BlueZ trust state are unavailable
+on Windows; they are not shown as zero or successful measurements.
+
+Pi boot settings and the Linux hotspot controls are not offered on Windows.
+Use Windows network settings if you want an optional hotspot. It is not needed
+for Bluetooth pairing or localhost. The web reset and restart controls are
+disabled on Windows because their service workflow is Linux-specific. Close
+the game before using the reset utility described below.
 
 ## Run the unit tests
 
@@ -468,7 +522,7 @@ a global Python installation.
 
 ### ModuleNotFoundError for dbus on Windows
 
-Use the Windows modernization branch. The current Windows path does not import
+Use the current JoustMania source. The Windows runtime path does not import
 Linux DBus support.
 
 ### PowerShell says running scripts is disabled

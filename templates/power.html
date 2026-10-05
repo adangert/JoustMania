@@ -88,6 +88,12 @@ button:active {
 {% endblock %}
 
 {% block body %}
+{% if application_controls.proton %}
+<h3>Application Options</h3>
+<p>Use Exit JoustMania on the main page to end the current game and close the application. Controller pairings are kept.</p>
+<p>To shut down or reboot the machine, use the SteamOS power menu.</p>
+<a href="/"><button type="button">Go Back</button></a>
+{% else %}
 <h3>Power Options</h3>
 
 <div class="button-group">
@@ -112,4 +118,5 @@ button:active {
     </div>
 </div>
 
+{% endif %}
 {% endblock %}

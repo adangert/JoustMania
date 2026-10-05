@@ -24,9 +24,19 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
 {% endblock %}
 
 {% block body %}
+{% if application_controls.proton %}
+<div id="proton-pairing-notice" role="note" style="font-size:1.2rem; padding:1rem; margin-bottom:1rem; background:#fff3cd; color:#664d03; border:2px solid #ffecb5; border-radius:6px;">
+    <strong>When pairing controllers, please use SteamOS Desktop Mode.</strong><br>
+    Connect the controller by USB and approve any system authentication prompt.
+    You can return to Gaming Mode after pairing.
+</div>
+{% endif %}
 <div class="info_box">
     <p><a href="/"><button type="button">Go Back</button></a></p>
     <h2>Bluetooth Adapters</h2>
+    <p class="diagnostic-note">Diagnostics source: {{ diagnostics.backend }}. {{ diagnostics.note }}</p>
+    <p id="diagnostics-error" role="alert">{{ diagnostics.error }}</p>
+    <p id="metadata-error" role="alert">{{ diagnostics.metadata_error or '' }}</p>
     <p class="diagnostic-note">Report gaps measure time between updates received by JoustMania over the last 10 seconds.
     The p95 value means 95% of completed gaps were that short or shorter; lower means fewer long pauses.
     Longest gap shows the worst completed pause in that window.
@@ -39,19 +49,31 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
     <section aria-labelledby="pairing-heading">
         <h3 id="pairing-heading">Next USB pairing</h3>
         <p id="pairing-status" role="status">{{ 'Checking next adapter…' if pairing.available else 'Adapter selection unavailable on this platform.' }}</p>
-        <p class="diagnostic-note">Automatic fills each adapter to five controllers in adapter order, then cycles through all adapters.
+        {% if pairing.available %}<p class="diagnostic-note">Automatic fills each adapter to five controllers in adapter order, then cycles through all adapters.
         Counts include connected controllers and successful USB pairings this session. A manual choice applies to one successful pairing, then clears.
         Connect one controller by USB at a time. This changes the host saved by that controller; it does not move existing wireless connections.</p>
+        {% else %}<p class="diagnostic-note">Connect one controller by USB at a time. JoustMania uses the platform's pairing workflow; selecting an adapter here is not supported.</p>{% endif %}
         <p id="pairing-error" role="alert"></p>
+        <p id="windows-pairing-progress" role="status">{% if windows_pairing %}{{ windows_pairing.address }}: {{ windows_pairing.message }}{% endif %}</p>
+    </section>
+    <section id="unavailable-adapters-section" {% if not diagnostics.unavailable_adapters %}hidden{% endif %}>
+        <h3>Detected adapters unavailable to Windows Bluetooth</h3>
+        <p class="diagnostic-note">These devices are plugged in, but Windows does not expose them as usable Bluetooth radios. They cannot be selected for pairing.</p>
+        <table><thead><tr><th>USB device</th><th>USB link</th><th>Windows status</th><th>Driver</th></tr></thead>
+        <tbody id="unavailable-adapters-body">{% for adapter in diagnostics.unavailable_adapters %}
+            <tr><td>{{ adapter.product }}{% if adapter.usb_id %} ({{ adapter.usb_id }}){% endif %}{% if adapter.usb_description %}: {{ adapter.usb_description }}{% endif %}</td>
+            <td title="{{ adapter.usb_speed_note }}">{{ adapter.usb_link }}</td><td>{{ adapter.status }}</td>
+            <td>{{ adapter.driver_provider }} {{ adapter.driver_version }}</td></tr>
+        {% endfor %}</tbody></table>
     </section>
     <div id="bluetooth-adapter-body">
     {% for adapter in adapters %}
     <section class="adapter-section" data-adapter-section="{{ adapter.name }}">
-        <h3><input type="radio" class="pairing-target" name="pairing-target" value="{{ adapter.address }}"
+        <h3>{% if pairing.available %}<input type="radio" class="pairing-target" name="pairing-target" value="{{ adapter.address }}"
                    aria-label="Use {{ adapter.name }} for the next USB pairing"
                    {% if pairing.selected == adapter.address %}checked{% endif %}
-                   {% if not pairing.available or pairing.busy or pairing.error %}disabled{% endif %}>
-            <span class="adapter-name">{{ adapter.name }}{% if adapter.internal %} — Internal{% endif %}</span> — <span class="adapter-address">{{ adapter.address }}</span></h3>
+                   {% if not pairing.available or pairing.busy or pairing.error %}disabled{% endif %}>{% endif %}
+            <span class="adapter-name">{{ adapter.label or adapter.name }}{% if adapter.internal %}: Internal{% endif %}</span>: <span class="adapter-address">{{ adapter.address }}</span></h3>
         <table>
         <thead><tr>
             <th>Chipset</th><th>USB device</th><th>USB link</th>
@@ -59,12 +81,12 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
         </tr></thead>
         <tbody>
             <tr data-adapter="{{ adapter.name }}" data-rx="{{ adapter.rx_acl }}" data-tx="{{ adapter.tx_acl }}">
-                <td class="adapter-manufacturer">{{ adapter.manufacturer }}</td><td class="adapter-usb-device">{{ adapter.product }} ({{ adapter.usb_id or 'Unknown' }})</td>
-                <td class="adapter-usb-speed">{{ adapter.usb_speed or 'Unknown' }} Mb/s at {{ adapter.usb_path or 'unknown path' }}</td><td class="adapter-hci-version">{{ adapter.hci_version }}</td>
+                <td class="adapter-manufacturer">{{ adapter.manufacturer }}</td><td class="adapter-usb-device">{{ adapter.product or 'Unavailable' }}{% if adapter.usb_id %} ({{ adapter.usb_id }}){% endif %}</td>
+                <td class="adapter-usb-speed" title="{{ adapter.usb_speed_note or '' }}">{% if adapter.usb_link %}{{ adapter.usb_link }}{% elif adapter.usb_speed %}{{ adapter.usb_speed }} Mb/s at {{ adapter.usb_path }}{% else %}Unavailable{% endif %}</td><td class="adapter-hci-version">{{ adapter.hci_version }}</td>
                 <td class="adapter-tx-power">{% if adapter.inquiry_tx_power_dbm is not none %}{{ adapter.inquiry_tx_power_dbm }} dBm{% else %}Unavailable{% endif %}</td>
                 <td class="adapter-acl-mtu">{{ adapter.acl_mtu }}</td><td class="connections">{{ adapter.connections }}</td>
-                <td class="rx-rate">Measuring…</td><td class="tx-rate">Measuring…</td>
-                <td class="errors">{{ adapter.rx_errors + adapter.tx_errors }}</td><td class="health">{{ 'Measuring connections…' if adapter.connections else adapter.health }}</td>
+                <td class="rx-rate">{{ 'Measuring…' if adapter.rx_acl is not none else 'Unavailable' }}</td><td class="tx-rate">{{ 'Measuring…' if adapter.tx_acl is not none else 'Unavailable' }}</td>
+                <td class="errors">{% if adapter.rx_errors is not none and adapter.tx_errors is not none %}{{ adapter.rx_errors + adapter.tx_errors }}{% else %}Unavailable{% endif %}</td><td class="health">{{ 'Measuring connections…' if adapter.connections else adapter.health }}</td>
             </tr>
         </tbody>
         </table>
@@ -89,7 +111,7 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
         <tbody class="controller-status-body" data-for-adapter="{{ adapter.name }}">
             {% for controller in adapter.controllers %}
             <tr data-controller="{{ controller.address }}">
-                <td class="{% if controller.connected %}connected{% else %}disconnected{% endif %}">{{ controller.status }}</td>
+                <td class="{% if controller.pairing_message %}rate-warning{% elif controller.connected %}connected{% else %}disconnected{% endif %}" title="{{ controller.pairing_message or '' }}">{{ controller.status }}</td>
                 <td>{% if controller.connected %}<button type="button" class="controller-action" data-action="identify" data-address="{{ controller.address }}" {% if not controller.connected %}disabled{% endif %}>Identify</button>{% endif %}</td>
                 <td class="controller-rate">Measuring…</td>
                 <td>Measuring…</td><td>Measuring…</td>
@@ -107,9 +129,9 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
                 <td>{% if controller.active is none %}Unknown{% elif controller.active %}Yes{% else %}No{% endif %}</td>
                 <td>{{ controller.address }}</td>
                 <td>{{ 'ZCM1 (PS3)' if controller.model == 'ZCM1' else ('ZCM2 (PS4)' if controller.model == 'ZCM2' else controller.model) }}</td>
-                <td>Yes</td>
+                <td>{{ 'Unavailable' if controller.registered is none else ('Yes' if controller.registered else 'No') }}</td>
                 <td>{% if controller.connected %}Yes{% else %}No{% endif %}</td>
-                <td>{% if controller.trusted %}Yes{% else %}No{% endif %}</td>
+                <td>{{ 'Unavailable' if controller.trusted is none else ('Yes' if controller.trusted else 'No') }}</td>
                 <td><button type="button" class="controller-action" data-action="unpair" data-address="{{ controller.address }}" {% if not controller.can_unpair %}disabled{% endif %}>Unpair</button></td>
             </tr>
             {% else %}
@@ -121,12 +143,13 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
         </table>
     </section>
     {% else %}
-        <p>No Bluetooth adapters were found.</p>
+        <p>{{ 'Adapter information is unavailable. This does not mean connected controllers have stopped working.' if diagnostics.error else 'No Bluetooth adapters were found.' }}</p>
     {% endfor %}
     </div>
 
     <div id="unassigned-controller-section" class="adapter-section" style="display: none;">
-        <h3>Unassigned or unavailable adapter</h3>
+        <h3>Controller adapter information unavailable</h3>
+        <p class="diagnostic-note">The operating system has not supplied an adapter mapping for these controllers. Connected controllers can still be used.</p>
         <table class="controller-table">
         <thead>
             <tr>
@@ -146,7 +169,7 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
         </thead>
 <tbody class="controller-status-body" data-for-adapter="unknown"></tbody></table>
     </div>
-    <section aria-labelledby="hotspot-heading">
+    {% if access_point.supported|default(true) %}<section aria-labelledby="hotspot-heading">
         <h3 id="hotspot-heading">Wi-Fi Hotspot</h3>
         <p role="status" id="hotspot-status">{{ 'Enabled' if access_point.enabled else ('Disabled' if access_point.available else 'Unavailable') }}</p>
         <form id="hotspot-form" action="/debug/access-point" method="POST">
@@ -157,8 +180,8 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
         Connect with password <strong>joustpass</strong>, then open <a href="http://joust.mania">http://joust.mania</a>.
         Disabling lets the Pi reconnect to its saved Wi-Fi network. This page may disconnect when switching networks.</p>
         <p id="hotspot-error" role="alert"></p>
-    </section>
-    <section aria-labelledby="internal-bt-heading">
+    </section>{% else %}<p class="diagnostic-note">{{ access_point.reason }}</p>{% endif %}
+    {% if internal_bluetooth.supported|default(true) %}<section aria-labelledby="internal-bt-heading">
         <h3 id="internal-bt-heading">Internal Bluetooth</h3>
         <p id="internal-bt-status" role="status">{{ 'Currently enabled' if internal_bluetooth.enabled else ('Currently disabled' if internal_bluetooth.available else 'Unavailable') }}{% if internal_bluetooth.reboot_required %} — {{ 'Enabled' if internal_bluetooth.configured_enabled else 'Disabled' }} after reboot{% endif %}</p>
         <form id="internal-bt-form" action="/debug/internal-bluetooth" method="POST">
@@ -167,24 +190,45 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
         </form>
         <p class="diagnostic-note">Changing internal Bluetooth restarts the Pi and stops the current game. You will be asked to confirm. Controller pairings and USB adapter settings are preserved.</p>
         <p id="internal-bt-error" role="alert">{{ internal_bluetooth.error }}</p>
-    </section>
+    </section>{% endif %}
     <form action="/debug/reset-bluetooth" method="POST"
           onsubmit="return confirm('Reset Bluetooth controllers? This stops the current game, removes saved PS Move connections, and restarts JoustMania.');">
-        <button type="submit" class="danger-button">Reset Bluetooth Controllers</button>
+        <button type="submit" class="danger-button" {% if not maintenance.reset.available %}disabled{% endif %}>Reset Bluetooth Controllers</button>
     </form>
-    <p class="diagnostic-note">This stops the current game, clears saved PS Move registrations, and restarts JoustMania. Controllers may need to reconnect or be paired again.</p>
+    <p class="diagnostic-note">{% if maintenance.reset.available %}This stops the current game, clears saved PS Move registrations, and restarts JoustMania. Controllers may need to reconnect or be paired again.{% else %}{{ maintenance.reset.reason }}{% endif %}</p>
     <p id="controller-action-error" role="alert"></p>
     <form action="/debug/restart-joustmania" method="POST"
           onsubmit="return confirm('Soft restart JoustMania? This stops the current game but does not reboot the computer or clear Bluetooth connections.');">
-        <button type="submit">Soft Restart JoustMania</button>
+        <button type="submit" {% if not maintenance.restart.available %}disabled{% endif %}>Soft Restart JoustMania</button>
     </form>
-    <p class="diagnostic-note">Restarts only the JoustMania application. It does not reboot the computer or remove controller pairings.</p>
+    <p class="diagnostic-note">{% if maintenance.restart.available %}Restarts only the JoustMania application. It does not reboot the computer or remove controller pairings.{% else %}{{ maintenance.restart.reason }}{% endif %}</p>
 
 </div>
 <script>
 (function () {
     let lastTime = Date.now();
     let pairingPending = false;
+    function renderWindowsPairing(state) {
+        document.getElementById('windows-pairing-progress').textContent =
+            state && state.message ? (state.address ? state.address + ': ' : '') + state.message : '';
+    }
+    function renderUnavailableAdapters(diagnostics) {
+        const adapters = diagnostics.unavailable_adapters || [];
+        document.getElementById('metadata-error').textContent = diagnostics.metadata_error || '';
+        document.getElementById('unavailable-adapters-section').hidden = !adapters.length;
+        const body = document.getElementById('unavailable-adapters-body');
+        body.textContent = '';
+        adapters.forEach(adapter => {
+            const row = document.createElement('tr');
+            cell(row, (adapter.product || 'Unavailable') + (adapter.usb_id ? ' (' + adapter.usb_id + ')' : '') +
+                (adapter.usb_description ? ': ' + adapter.usb_description : ''));
+            cell(row, adapter.usb_link || 'Unavailable');
+            row.lastElementChild.title = adapter.usb_speed_note || '';
+            cell(row, adapter.status);
+            cell(row, adapter.driver_provider + ' ' + adapter.driver_version);
+            body.appendChild(row);
+        });
+    }
     function renderPairing(state) {
         if (!state) return;
         const selected = state.adapters.find(adapter => adapter.address === state.selected);
@@ -220,7 +264,7 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
     });
     let internalBluetoothPending = false;
     function renderInternalBluetooth(state) {
-        if (!state) return;
+        if (!state || !document.getElementById('internal-bt-form')) return;
         const action = state.enabled ? 'disable' : 'enable';
         const pendingText = state.configured_enabled ? 'Enabled' : 'Disabled';
         document.getElementById('internal-bt-status').textContent = state.rebooting ? 'Rebooting the Pi… Reconnect and reload this page after it starts.' :
@@ -233,7 +277,7 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
         document.getElementById('internal-bt-button').disabled = internalBluetoothPending || state.busy || state.rebooting || !state.available;
         document.getElementById('internal-bt-error').textContent = state.error || '';
     }
-    document.getElementById('internal-bt-form').addEventListener('submit', async function (event) {
+    document.getElementById('internal-bt-form')?.addEventListener('submit', async function (event) {
         event.preventDefault();
         if (internalBluetoothPending || document.getElementById('internal-bt-button').disabled) return;
         const action = document.getElementById('internal-bt-action').value;
@@ -255,6 +299,7 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
     });
     let hotspotPending = false;
     function renderHotspot(state) {
+        if (!state || !document.getElementById('hotspot-form')) return;
         document.getElementById('hotspot-status').textContent = state.busy ? 'Changing Wi-Fi hotspot…' :
             (!state.available ? 'Unavailable' : (state.enabled ? 'Enabled' : 'Disabled'));
         document.getElementById('hotspot-action').value = state.enabled ? 'disable' : 'enable';
@@ -262,7 +307,7 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
         document.getElementById('hotspot-button').disabled = hotspotPending || state.busy || !state.available;
         document.getElementById('hotspot-error').textContent = state.error || '';
     }
-    document.getElementById('hotspot-form').addEventListener('submit', function (event) {
+    document.getElementById('hotspot-form')?.addEventListener('submit', function (event) {
         event.preventDefault();
         hotspotPending = true;
         document.getElementById('hotspot-button').disabled = true;
@@ -377,7 +422,8 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
             if (!body) body = document.querySelector('.controller-status-body[data-for-adapter="unknown"]');
             const row = document.createElement('tr');
             row.dataset.controller = controller.address;
-            cell(row, controller.status, controller.connected ? 'connected' : 'disconnected');
+            cell(row, controller.status, controller.pairing_message ? 'rate-warning' : (controller.connected ? 'connected' : 'disconnected'));
+            row.lastElementChild.title = controller.pairing_message || '';
             actionCell(row, controller, 'identify');
             let rate = 'Unavailable';
             if (!controller.connected) {
@@ -444,9 +490,10 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
             cell(row, controller.battery, controller.battery_code === null ? '' : 'batt' + controller.battery_code);
             cell(row, controller.active === null ? 'Unknown' : (controller.active ? 'Yes' : 'No'));
             cell(row, controller.address);
-            cell(row, controller.model === 'ZCM1' ? 'ZCM1 (PS3)' : (controller.model === 'ZCM2' ? 'ZCM2 (PS4)' : controller.model)); cell(row, 'Yes');
+            cell(row, controller.model === 'ZCM1' ? 'ZCM1 (PS3)' : (controller.model === 'ZCM2' ? 'ZCM2 (PS4)' : controller.model));
+            cell(row, controller.registered == null ? 'Unavailable' : (controller.registered ? 'Yes' : 'No'));
             cell(row, controller.connected ? 'Yes' : 'No');
-            cell(row, controller.trusted ? 'Yes' : 'No');
+            cell(row, controller.trusted == null ? 'Unavailable' : (controller.trusted ? 'Yes' : 'No'));
             actionCell(row, controller, 'unpair');
             body.appendChild(row);
         });
@@ -470,6 +517,11 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
         fetch('/debug/data', {cache: 'no-store'}).then(function (response) { return response.json(); }).then(function (data) {
             renderHotspot(data.access_point);
             renderInternalBluetooth(data.internal_bluetooth);
+            renderWindowsPairing(data.windows_pairing);
+            if (data.diagnostics) {
+                document.getElementById('diagnostics-error').textContent = data.diagnostics.error || '';
+                renderUnavailableAdapters(data.diagnostics);
+            }
             const now = Date.now();
             const seconds = Math.max((now - lastTime) / 1000, 0.001);
             const adapterRows = Array.from(document.querySelectorAll('#bluetooth-adapter-body [data-adapter]'));
@@ -486,24 +538,27 @@ button.role-toggle, button.controller-action { font-size: 14px; line-height: 1.2
                 const row = document.querySelector('[data-adapter="' + adapter.name + '"]');
                 if (!row) return;
                 const section = row.closest('[data-adapter-section]');
-                section.querySelector('.adapter-name').textContent = adapter.name + (adapter.internal ? ' — Internal' : '');
+                section.querySelector('.adapter-name').textContent = (adapter.label || adapter.name) + (adapter.internal ? ': Internal' : '');
                 section.querySelector('.adapter-address').textContent = adapter.address;
                 row.querySelector('.adapter-manufacturer').textContent = adapter.manufacturer;
-                row.querySelector('.adapter-usb-device').textContent = adapter.product + ' (' + (adapter.usb_id || 'Unknown') + ')';
-                row.querySelector('.adapter-usb-speed').textContent = (adapter.usb_speed || 'Unknown') + ' Mb/s at ' + (adapter.usb_path || 'unknown path');
+                row.querySelector('.adapter-usb-device').textContent = (adapter.product || 'Unavailable') + (adapter.usb_id ? ' (' + adapter.usb_id + ')' : '');
+                row.querySelector('.adapter-usb-speed').textContent = adapter.usb_link || (adapter.usb_speed ? adapter.usb_speed + ' Mb/s at ' + adapter.usb_path : 'Unavailable');
+                row.querySelector('.adapter-usb-speed').title = adapter.usb_speed_note || '';
                 row.querySelector('.adapter-hci-version').textContent = adapter.hci_version;
                 row.querySelector('.adapter-tx-power').textContent = adapter.inquiry_tx_power_dbm === null ? 'Unavailable' : adapter.inquiry_tx_power_dbm + ' dBm';
                 row.querySelector('.adapter-acl-mtu').textContent = adapter.acl_mtu;
-                const oldRx = Number(row.dataset.rx), oldTx = Number(row.dataset.tx);
+                const oldRx = row.dataset.rx === 'None' ? null : Number(row.dataset.rx), oldTx = row.dataset.tx === 'None' ? null : Number(row.dataset.tx);
                 const links = Math.max(adapter.connections, 1);
                 const rxRate = Math.max(0, (adapter.rx_acl - oldRx) / seconds / links);
                 const txRate = Math.max(0, (adapter.tx_acl - oldTx) / seconds / links);
-                row.querySelector('.rx-rate').textContent = adapter.connections ? rxRate.toFixed(1) : '—';
-                row.querySelector('.tx-rate').textContent = adapter.connections ? txRate.toFixed(1) : '—';
+                row.querySelector('.rx-rate').textContent = adapter.rx_acl == null ? 'Unavailable' :
+                    (oldRx == null ? 'Measuring…' : (adapter.connections ? rxRate.toFixed(1) : '-'));
+                row.querySelector('.tx-rate').textContent = adapter.tx_acl == null ? 'Unavailable' :
+                    (oldTx == null ? 'Measuring…' : (adapter.connections ? txRate.toFixed(1) : '-'));
                 row.querySelector('.connections').textContent = adapter.connections;
-                row.querySelector('.errors').textContent = adapter.rx_errors + adapter.tx_errors;
+                row.querySelector('.errors').textContent = adapter.rx_errors == null || adapter.tx_errors == null ? 'Unavailable' : adapter.rx_errors + adapter.tx_errors;
                 row.querySelector('.health').textContent = connectionAssessment(adapter, data.controllers);
-                row.dataset.rx = adapter.rx_acl; row.dataset.tx = adapter.tx_acl;
+                row.dataset.rx = adapter.rx_acl == null ? 'None' : adapter.rx_acl; row.dataset.tx = adapter.tx_acl == null ? 'None' : adapter.tx_acl;
             });
             renderControllers(data.controllers, seconds);
             if (!pairingPending) renderPairing(data.pairing);

@@ -38,6 +38,9 @@ if __name__ == "__main__" and sys.platform.startswith("win"):
 import pairing_plan
 import controller_manager
 import runtime_platform
+import webui_browser
+import application_lifecycle
+import uuid
 import common, colors, webui
 from colors import Colors
 from common import Button, Games, Status, Sensitivity
@@ -46,7 +49,7 @@ import time, random, os.path
 from datetime import datetime
 from piaudio import Music, Audio, InitAudio, speak
 from enum import Enum
-from multiprocessing import Process, Value, Array, Queue, Manager
+from multiprocessing import Process, Value, Array, Queue, Manager, Event
 from games import joust_ffa, joust_teams, joust_random_teams, joust_non_stop, traitor, werewolf, zombie, commander, swapper, tournament, speed_bomb, fight_club
 from sys import platform
 from dotenv import load_dotenv
@@ -348,11 +351,13 @@ class Menu():
         
         # Set up shared namespace between webserver and joustmania
         self.command_queue = Queue()
+        self.exit_event = Event() if runtime_platform.is_proton() else None
         self.joust_manager = Manager()
         self.ns = self.joust_manager.Namespace()
         self.ns.status = dict()
         self.ns.settings = dict()
         self.ns.battery_status = dict()
+        self.ns.webui_launch_id = uuid.uuid4().hex
         if platform in ("linux", "linux2"):
             pairing_plan.initialize(self.ns, self.joust_manager)
         self.command_from_web = ''
@@ -381,7 +386,7 @@ class Menu():
         # live update rates continue advancing while a game owns the menu loop.
         self.web_proc = Process(
             target=webui.start_web,
-            args=(self.command_queue, self.ns, self.controller_manager),
+            args=(self.command_queue, self.ns, self.controller_manager, self.exit_event),
         )
         self.web_proc.start()
 
@@ -403,7 +408,7 @@ class Menu():
         self.teams = {} # Serial to team list TODO - seems to be the same as controller_teams
         self.game_mode = Games[self.ns.settings['current_game']] # Get game mode from ns (which is shared with web admin)
         self.old_game_mode = self.game_mode #Previous game mode
-        self.pair = pair.Pair(self.ns) if platform in ("linux", "linux2") else pair.Pair() # Start bluetooth pairing
+        self.pair = pair.Pair(self.ns) # Start bluetooth pairing
         self.bluetooth_missing = False
         self.bluetooth_pairing_notices = set()
 
@@ -1329,4 +1334,8 @@ if __name__ == "__main__":
     time.sleep(1)
     InitAudio()
     piparty = Menu()
-    piparty.game_loop()
+    webui_browser.start(webui.web_urls()[0], piparty.ns.webui_launch_id, piparty.web_proc.is_alive)
+    if runtime_platform.is_proton():
+        application_lifecycle.run(piparty)
+    else:
+        piparty.game_loop()

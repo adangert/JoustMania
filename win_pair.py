@@ -11,9 +11,9 @@ class Pair():
     """
     Manage paring move controllers to the server
     """
-    def __init__(self):
-        """Use DBus to find bluetooth controllers"""
-        pass
+    def __init__(self, ns=None):
+        """Share Windows pairing progress with the web process."""
+        self.ns = ns
         # self.hci_dict = jm_dbus.get_hci_dict()
         #
         # devices = self.hci_dict.values()
@@ -71,4 +71,5 @@ class Pair():
         # return ''
 
     def pair_move(self, move_controller):
-        return controller_manager.pair_controller(None)
+        publish = (lambda state: setattr(self.ns, 'windows_pairing', state)) if self.ns is not None else None
+        return controller_manager.pair_controller(None, serial=move_controller.serial, publish=publish)

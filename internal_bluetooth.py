@@ -14,6 +14,14 @@ DISABLE = re.compile(r'^\s*dtoverlay\s*=\s*(?:pi3-)?disable-bt(?:-pi5)?\s*(?:,.*
 MARKER = '# JoustMania internal Bluetooth'
 
 
+def is_raspberry_pi():
+    """Missing device-tree information is normal on Windows and SteamOS."""
+    try:
+        return (DT_ROOT / 'model').read_text().rstrip('\0').startswith('Raspberry Pi')
+    except OSError:
+        return False
+
+
 def boot_config():
     for path in CONFIG_PATHS:
         if path.is_file():
@@ -57,8 +65,7 @@ def updated_config(text, enabled):
 
 
 def current_enabled():
-    model = (DT_ROOT / 'model').read_text().rstrip('\0')
-    if not model.startswith('Raspberry Pi'):
+    if not is_raspberry_pi():
         raise RuntimeError('Internal Bluetooth controls are only available on Raspberry Pi.')
     alias = (DT_ROOT / 'aliases/bluetooth').read_text().rstrip('\0')
     node = DT_ROOT / alias.lstrip('/')
@@ -107,7 +114,11 @@ class InternalBluetooth:
     def status(self):
         with self.lock:
             state = dict(available=False, enabled=None, configured_enabled=None,
-                         reboot_required=False, busy=self.busy, rebooting=self.rebooting, error=self.error)
+                         reboot_required=False, busy=self.busy, rebooting=self.rebooting, error=self.error,
+                         supported=is_raspberry_pi(),
+                         reason='This boot-setting control is only available on Raspberry Pi.')
+            if not state['supported']:
+                return state
             try:
                 state['enabled'] = current_enabled()
                 state['configured_enabled'] = config_state(boot_config().read_text())
@@ -125,7 +136,7 @@ class InternalBluetooth:
                 raise RuntimeError('An internal Bluetooth change is already in progress.')
             state = self.status()
             if not state['available']:
-                raise RuntimeError(state['error'] or 'Internal Bluetooth controls unavailable.')
+                raise RuntimeError(state['error'] or state['reason'])
             self.busy = True
             self.error = ''
             threading.Thread(target=self._run, args=(action, reboot), daemon=True).start()

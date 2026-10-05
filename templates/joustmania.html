@@ -1,4 +1,14 @@
 {% extends "basic.html" %}
+{% macro exit_button(button_id) %}
+{% if application_controls.can_exit %}
+<form action="{{ url_for('exit_application') }}" method="POST" style="display:inline-block;"
+      onsubmit="return confirm('Exit JoustMania? This ends the current game. Controller pairings will be kept.');">
+    <input type="hidden" name="launch_id" value="{{ application_controls.launch_id }}">
+    <input type="hidden" name="confirm" value="1">
+    <button id="{{ button_id }}" type="submit">Exit JoustMania</button>
+</form>
+{% endif %}
+{% endmacro %}
 {% block header %}
 <style>
 /* Modernized styles */
@@ -271,12 +281,14 @@ $(document).ready(function() {
     </div>
     <br />
     <button id="startgame">Start Game</button>
+    {{ exit_button('exit-joustmania') }}
     <a href="/debug"><button>System Debug</button></a>
     <a href="/settings"><button>Admin Settings</button></a>
 </div>
 
 <div class="info_box" id="gamebuttons">
     <button id="killgame">Kill Game</button>
+    {{ exit_button('exit-joustmania-game') }}
 </div>
 
 <div class="error">

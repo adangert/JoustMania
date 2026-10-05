@@ -36,7 +36,7 @@ const context = {
         return {ok, async json() {return ok ? {role: 'Peripheral'} : {error: 'Switch rejected'};}};
     }
 };
-vm.runInNewContext(script.replace('}());', 'globalThis.switchControllerRole = switchControllerRole; globalThis.renderControllers = renderControllers; globalThis.connectionAssessment = connectionAssessment; globalThis.renderPairing = renderPairing; globalThis.renderInternalBluetooth = renderInternalBluetooth;}());'), context);
+vm.runInNewContext(script.replace('}());', 'globalThis.switchControllerRole = switchControllerRole; globalThis.renderControllers = renderControllers; globalThis.connectionAssessment = connectionAssessment; globalThis.renderPairing = renderPairing; globalThis.renderInternalBluetooth = renderInternalBluetooth; globalThis.renderWindowsPairing = renderWindowsPairing; globalThis.renderUnavailableAdapters = renderUnavailableAdapters;}());'), context);
 (async () => {
     const button = {dataset: {address: 'AA:BB:CC:DD:EE:01', role: 'central'}, disabled: false};
     await handlers.click({target: {closest(selector) {return selector === '.role-toggle' ? button : null;}}});
@@ -73,6 +73,13 @@ vm.runInNewContext(script.replace('}());', 'globalThis.switchControllerRole = sw
             gaps_over_50ms: 2, gaps_over_100ms: 0}};
     context.renderControllers([controller], 1);
     assert.equal(body.children[0].children[3].textContent, '36.0 ms');
+    controller.pairing_message = 'Unplug USB, then press PS until the red LED stays lit.';
+    controller.status = 'Pairing: unplug USB, then press PS button';
+    context.renderControllers([controller], 1);
+    assert.equal(body.children[0].children[0].className, 'rate-warning');
+    assert.match(body.children[0].children[0].title, /red LED stays lit/);
+    controller.pairing_message = '';
+    context.renderControllers([controller], 1);
     assert.equal(body.children[0].children[4].textContent, '80.0 ms');
     assert.equal(body.children[0].children[5].textContent, 'Central');
     assert.equal(body.children[0].children[3].className, 'nowrap rate-slow');
@@ -169,5 +176,22 @@ vm.runInNewContext(script.replace('}());', 'globalThis.switchControllerRole = sw
     context.renderInternalBluetooth({...internal, rebooting:true});
     assert.match(element('internal-bt-status').textContent, /Rebooting/);
     assert.equal(element('internal-bt-button').disabled, true);
+    context.renderWindowsPairing({address:'AA', message:'Press PS again until the LED stays lit.'});
+    assert.match(element('windows-pairing-progress').textContent, /AA: Press PS again/);
+    context.renderWindowsPairing({});
+    assert.equal(element('windows-pairing-progress').textContent, '');
+    elements['unavailable-adapters-body'] = node();
+    context.renderUnavailableAdapters({unavailable_adapters:[{
+        product:'<img src=x onerror=alert(1)>', usb_id:'0A12:0001', usb_description:'CSR8510 A10',
+        usb_link:'12 Mb/s (Full Speed)', usb_speed_note:'', status:'Code 31',
+        driver_provider:'Microsoft', driver_version:'1.2.3'
+    }]});
+    assert.equal(element('unavailable-adapters-section').hidden, false);
+    assert.match(elements['unavailable-adapters-body'].children[0].children[0].textContent, /<img/);
+    assert.equal(elements['unavailable-adapters-body'].children[0].children[0].children.length, 0);
+    assert.equal(elements['unavailable-adapters-body'].children[0].children[2].textContent, 'Code 31');
+    context.renderUnavailableAdapters({});
+    assert.equal(element('unavailable-adapters-section').hidden, true);
+    assert.equal(elements['unavailable-adapters-body'].children.length, 0);
     console.log('Controller, pairing target and internal Bluetooth UI tests passed');
 })().catch(error => {console.error(error); process.exitCode = 1;});

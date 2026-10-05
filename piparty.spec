@@ -70,6 +70,10 @@ if psmove_linux_bundle is not None:
     # before launching the helper through Proton.
     datas.extend(
         [
+            (str(project_dir / "proton_bluetooth_diagnostics.py"), "proton"),
+            (str(project_dir / "proton_webui_browser.py"), "proton"),
+            (str(project_dir / "bluetooth_diagnostics.py"), "proton"),
+            (str(project_dir / "runtime_platform.py"), "proton"),
             (str(psmove_linux_bundle / "psmove"), "proton/psmoveapi"),
             (
                 str(psmove_linux_bundle / "libpsmoveapi.so"),

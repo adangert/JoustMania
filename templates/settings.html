@@ -224,7 +224,7 @@ $(document).ready(function(){
         <a href="/"><button type="button">Go Back</button></a>
     </div>
     <div class="settings-section">
-        <a href="/power"><button type="button">Power Options</button></a>
+        <a href="/power"><button type="button">{{ 'Application Options' if application_controls.proton else 'Power Options' }}</button></a>
     </div>
 </div>
 {% endblock %}

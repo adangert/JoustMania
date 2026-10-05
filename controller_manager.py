@@ -389,7 +389,7 @@ def get_manager_process_pid():
     return _controller_manager.status.get("pid")
 
 
-def pair_controller(host_address):
+def pair_controller(host_address, serial='', publish=None):
     """Pairs USB controllers with the selected host using the upstream CLI."""
     if runtime_platform.is_proton():
         stop_manager()
@@ -409,7 +409,11 @@ def pair_controller(host_address):
     stop_manager()
     try:
         # Upstream returns its final C pairing boolean directly as the exit status.
-        paired = subprocess.run(command, check=False, env=environment).returncode == 1
+        if runtime_platform.is_windows():
+            import windows_pairing
+            paired = windows_pairing.run(command, environment, serial, publish)
+        else:
+            paired = subprocess.run(command, check=False, env=environment).returncode == 1
         if paired and runtime_platform.is_linux():
             # Upstream can start BlueZ before its new registration is visible.
             # Reload it while the API process is stopped, then allow adapters to settle.
